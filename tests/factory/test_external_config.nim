@@ -11,9 +11,10 @@ import
   confutils
 import
   ../../waku/factory/external_config,
-  ../../waku/factory/internal_config,
   ../../waku/factory/networks_config,
-  ../../waku/common/logging
+  ../../waku/factory/waku_conf,
+  ../../waku/common/logging,
+  ../../waku/common/utils/parse_size_units
 
 suite "Waku config - apply preset":
   test "Default preset is TWN":
@@ -21,25 +22,36 @@ suite "Waku config - apply preset":
     let expectedConf = ClusterConf.TheWakuNetworkConf()
 
     ## Given
-    let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn")
+    let preConfig = WakuNodeConf(
+      cmd: noCommand,
+      preset: "twn",
+      relay: true,
+      rlnRelayEthClientAddress: "http://someaddress".EthRpcUrl,
+      rlnRelayTreePath: "/tmp/sometreepath",
+    )
 
     ## When
-    let res = applyPresetConfiguration(preConfig)
+    let res = preConfig.toWakuConf()
     assert res.isOk(), $res.error
 
     ## Then
     let conf = res.get()
-    assert conf.maxMessageSize == expectedConf.maxMessageSize
-    assert conf.clusterId == expectedConf.clusterId
-    assert conf.rlnRelay == expectedConf.rlnRelay
-    assert conf.rlnRelayEthContractAddress == expectedConf.rlnRelayEthContractAddress
-    assert conf.rlnRelayDynamic == expectedConf.rlnRelayDynamic
-    assert conf.rlnRelayChainId == expectedConf.rlnRelayChainId
-    assert conf.rlnRelayBandwidthThreshold == expectedConf.rlnRelayBandwidthThreshold
-    assert conf.rlnEpochSizeSec == expectedConf.rlnEpochSizeSec
-    assert conf.rlnRelayUserMessageLimit == expectedConf.rlnRelayUserMessageLimit
-    assert conf.numShardsInNetwork == expectedConf.numShardsInNetwork
-    assert conf.discv5BootstrapNodes == expectedConf.discv5BootstrapNodes
+    check conf.maxMessageSizeBytes ==
+      uint64(parseCorrectMsgSize(expectedConf.maxMessageSize))
+    check conf.clusterId == expectedConf.clusterId
+    check conf.rlnRelayConf.isSome() == expectedConf.rlnRelay
+    if conf.rlnRelayConf.isSome():
+      let rlnRelayConf = conf.rlnRelayConf.get()
+      check rlnRelayConf.ethContractAddress == expectedConf.rlnRelayEthContractAddress
+      check rlnRelayConf.dynamic == expectedConf.rlnRelayDynamic
+      check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
+      check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
+      check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
+    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+    check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
+    if expectedConf.discv5Discovery:
+      let discv5Conf = conf.discv5Conf.get()
+      check discv5Conf.bootstrapNodes == expectedConf.discv5BootstrapNodes
 
   test "Subscribes to all valid shards in twn":
     ## Setup
@@ -50,12 +62,12 @@ suite "Waku config - apply preset":
     let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
 
     ## When
-    let res = applyPresetConfiguration(preConfig)
+    let res = preConfig.toWakuConf()
     assert res.isOk(), $res.error
 
     ## Then
     let conf = res.get()
-    assert conf.shards.len == expectedConf.numShardsInNetwork.int
+    check conf.shards.len == expectedConf.numShardsInNetwork.int
 
   test "Subscribes to some valid shards in twn":
     ## Setup
@@ -66,9 +78,8 @@ suite "Waku config - apply preset":
     let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
 
     ## When
-    let resConf = applyPresetConfiguration(preConfig)
-    let res = validateShards(resConf.get())
-    assert res.isOk(), $res.error
+    let resConf = preConfig.toWakuConf()
+    assert resConf.isOk(), $resConf.error
 
     ## Then
     let conf = resConf.get()
@@ -82,10 +93,9 @@ suite "Waku config - apply preset":
     ## Given
     let shards: seq[uint16] = @[0, 4, 7, 10]
     let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
-    let postConfig = applyPresetConfiguration(preConfig)
 
     ## When
-    let res = validateShards(postConfig.get())
+    let res = preConfig.toWakuConf()
 
     ## Then
     assert res.isErr(), "Invalid shard was accepted"
@@ -103,11 +113,11 @@ suite "Waku config - node key":
     let config = WakuNodeConf.load(version = "", cmdLine = @["--nodekey=" & nodeKeyStr])
 
     ## When
-    let res = getNodeKey(config)
+    let res = config.toWakuConf()
     assert res.isOk(), $res.error
 
     ## Then
-    let resKey = res.get()
+    let resKey = res.get().nodeKey
     assert utils.toHex(resKey.getRawBytes().get()) ==
       utils.toHex(nodekey.getRawBytes().get())
 
@@ -118,15 +128,18 @@ suite "Waku config - Shards":
     ## Given
     let shards: seq[uint16] = @[0, 2, 4]
     let numShardsInNetwork = 5.uint32
-    let config = WakuNodeConf(
+    let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )
 
     ## When
-    let res = validateShards(config)
+    let res = wakuNodeConf.toWakuConf()
+    assert res.isOk(), $res.error
 
     ## Then
-    assert res.isOk(), $res.error
+    let wakuConf = res.get()
+    let vRes = wakuConf.validate()
+    assert vRes.isOk(), $vRes.error
 
   test "Shards are not in range":
     ## Setup
@@ -134,12 +147,12 @@ suite "Waku config - Shards":
     ## Given
     let shards: seq[uint16] = @[0, 2, 5]
     let numShardsInNetwork = 5.uint32
-    let config = WakuNodeConf(
+    let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )
 
     ## When
-    let res = validateShards(config)
+    let res = wakuNodeConf.toWakuConf()
 
     ## Then
     assert res.isErr(), "Invalid shard was accepted"
@@ -148,10 +161,12 @@ suite "Waku config - Shards":
     ## Setup
 
     ## Given
-    let config = WakuNodeConf.load(version = "", cmdLine = @["--shard=32"])
+    let wakuNodeConf = WakuNodeConf.load(version = "", cmdLine = @["--shard=32"])
 
     ## When
-    let res = validateShards(config)
+    let res = wakuNodeConf.toWakuConf()
 
     ## Then
-    assert res.isOk(), $res.error
+    let wakuConf = res.get()
+    let vRes = wakuConf.validate()
+    assert vRes.isOk(), $vRes.error

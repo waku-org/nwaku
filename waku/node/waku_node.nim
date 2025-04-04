@@ -46,7 +46,7 @@ import
   ../waku_enr,
   ../waku_peer_exchange,
   ../waku_rln_relay,
-  ./config,
+  ./net_config,
   ./peer_manager,
   ../common/rate_limit/setting
 
@@ -207,9 +207,9 @@ proc mountSharding*(
 
 proc mountStoreSync*(
     node: WakuNode,
-    storeSyncRange = 3600,
-    storeSyncInterval = 300,
-    storeSyncRelayJitter = 20,
+    storeSyncRange = 3600.uint32,
+    storeSyncInterval = 300.uint32,
+    storeSyncRelayJitter = 20.uint32,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[SyncID](0)
   let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
@@ -1212,7 +1212,7 @@ proc mountRlnRelay*(
     raise
       newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
-  if (rlnConf.rlnRelayUserMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
+  if (rlnConf.userMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
     error "rln-relay-user-message-limit can't exceed the MAX_MESSAGE_LIMIT in the rln contract"
   let validator = generateRlnValidator(rlnRelay, spamHandler)
 

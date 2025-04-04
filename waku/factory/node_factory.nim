@@ -10,7 +10,7 @@ import
 
 import
   ./internal_config,
-  ./external_config,
+  ./waku_conf,
   ./builder,
   ./validator_signed,
   ../waku_enr/sharding,
@@ -35,7 +35,6 @@ import
   ../node/peer_manager/peer_store/waku_peer_storage,
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush_legacy/common,
-  ../common/utils/parse_size_units,
   ../common/rate_limit/setting,
   ../common/databases/dburl
 
@@ -56,10 +55,9 @@ proc setupPeerStorage(): Result[Option[WakuPeerStorage], string] =
 ## Init waku node instance
 
 proc initNode(
-    conf: WakuNodeConf,
+    conf: WakuConf,
     netConfig: NetConfig,
     rng: ref HmacDrbgContext,
-    nodeKey: crypto.PrivateKey,
     record: enr.Record,
     peerStore: Option[WakuPeerStorage],
     relay: Relay,
@@ -86,17 +84,24 @@ proc initNode(
     else:
       peerStore.get()
 
+  let (secureKey, secureCert) =
+    if conf.webSocketConf.isSome() and conf.webSocketConf.get().secureConf.isSome():
+      let wssConf = conf.webSocketConf.get().secureConf.get()
+      (some(wssConf.keyPath), some(wssConf.certPath))
+    else:
+      (none(string), none(string))
+
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
-  builder.withNodeKey(nodekey)
+  builder.withNodeKey(conf.nodeKey)
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
   builder.withSwitchConfiguration(
     maxConnections = some(conf.maxConnections.int),
-    secureKey = some(conf.websocketSecureKeyPath),
-    secureCert = some(conf.websocketSecureCertPath),
+    secureKey = secureKey,
+    secureCert = secureCert,
     nameResolver = dnsResolver,
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled
@@ -148,13 +153,13 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
+    node: WakuNode, conf: WakuConf
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
-  if conf.discv5Only:
+  if conf.discv5Conf.isSome() and conf.discv5Conf.get().discv5Only:
     notice "Running node only with Discv5, not mounting additional protocols"
     return ok()
 
@@ -167,11 +172,12 @@ proc setupProtocols(
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
-  if conf.store:
-    if conf.legacyStore:
+  if conf.storeServiceConf.isSome():
+    let storeServiceConf = conf.storeServiceConf.get()
+    if storeServiceConf.legacy:
       let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
-        conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
-        conf.storeMaxNumDbConnections, onFatalErrorAction,
+        storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
+        storeServiceConf.maxNumDbConnections, onFatalErrorAction,
       )
       if archiveDriverRes.isErr():
         return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
@@ -191,26 +197,26 @@ proc setupProtocols(
     ## So for now, we need to make sure that when legacy store is enabled and we use sqlite
     ## that we migrate our db according to legacy store's schema to have the extra field
 
-    let engineRes = dburl.getDbEngine(conf.storeMessageDbUrl)
+    let engineRes = dburl.getDbEngine(storeServiceConf.dbUrl)
     if engineRes.isErr():
       return err("error getting db engine in setupProtocols: " & engineRes.error)
 
     let engine = engineRes.get()
 
     let migrate =
-      if engine == "sqlite" and conf.legacyStore:
+      if engine == "sqlite" and storeServiceConf.legacy:
         false
       else:
-        conf.storeMessageDbMigration
+        storeServiceConf.dbMigration
 
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
-      conf.storeMessageDbUrl, conf.storeMessageDbVacuum, migrate,
-      conf.storeMaxNumDbConnections, onFatalErrorAction,
+      storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
+      storeServiceConf.maxNumDbConnections, onFatalErrorAction,
     )
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)
 
-    let retPolicyRes = policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
+    let retPolicyRes = policy.RetentionPolicy.new(storeServiceConf.retentionPolicy)
     if retPolicyRes.isErr():
       return err("failed to create retention policy: " & retPolicyRes.error)
 
@@ -218,7 +224,7 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    if conf.legacyStore:
+    if storeServiceConf.legacy:
       # Store legacy setup
       try:
         await mountLegacyStore(node, node.rateLimitSettings.getSetting(STOREV2))
@@ -232,17 +238,28 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
+    if storeServiceConf.storeSyncConf.isSome():
+      let confStoreSync = storeServiceConf.storeSyncConf.get()
+
+      (
+        await node.mountStoreSync(
+          confStoreSync.rangeSec, confStoreSync.intervalSec,
+          confStoreSync.relayJitterSec,
+        )
+      ).isOkOr:
+        return err("failed to mount waku store sync protocol: " & $error)
+
   mountStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
+  if conf.remoteStoreNode.isSome():
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
     if storeNode.isOk():
       node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
     else:
       return err("failed to set node waku store peer: " & storeNode.error)
 
   mountLegacyStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
+  if conf.remoteStoreNode.isSome():
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
     if storeNode.isOk():
       node.peerManager.addServicePeer(
         storeNode.value, legacy_common.WakuLegacyStoreCodec
@@ -250,7 +267,7 @@ proc setupProtocols(
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
-  if conf.store and conf.storeResume:
+  if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
   # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
@@ -296,14 +313,14 @@ proc setupProtocols(
   let shards = confShards & autoShards
 
   if conf.relay:
-    let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
-      return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
-
-    debug "Setting max message size", num_bytes = parsedMaxMsgSize
+    debug "Setting max message size", num_bytes = conf.maxMessageSizeBytes
 
     try:
       await mountRelay(
-        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
+        node,
+        shards,
+        peerExchangeHandler = peerExchangeHandler,
+        int(conf.maxMessageSizeBytes),
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
@@ -330,18 +347,18 @@ proc setupProtocols(
   except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
-  if conf.rlnRelay:
+  if conf.rlnRelayConf.isSome():
+    let rlnRelayConf = conf.rlnRelayConf.get()
     let rlnConf = WakuRlnConfig(
-      rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: conf.rlnRelayCredIndex,
-      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayChainId: conf.rlnRelayChainId,
-      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-      rlnRelayCredPath: conf.rlnRelayCredPath,
-      rlnRelayCredPassword: conf.rlnRelayCredPassword,
-      rlnRelayTreePath: conf.rlnRelayTreePath,
-      rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      dynamic: rlnRelayConf.dynamic,
+      credIndex: rlnRelayConf.credIndex,
+      ethContractAddress: rlnRelayConf.ethContractAddress,
+      chainId: rlnRelayConf.chainId,
+      ethClientAddress: rlnRelayConf.ethClientAddress,
+      creds: rlnRelayConf.creds,
+      treePath: rlnRelayConf.treePath,
+      userMessageLimit: rlnRelayConf.userMessageLimit,
+      epochSizeSec: rlnRelayConf.epochSizeSec,
       onFatalErrorAction: onFatalErrorAction,
     )
 
@@ -351,7 +368,7 @@ proc setupProtocols(
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
-  if conf.lightpush:
+  if conf.lightPush:
     try:
       await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
       await mountLegacyLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
@@ -360,8 +377,8 @@ proc setupProtocols(
 
   mountLightPushClient(node)
   mountLegacyLightPushClient(node)
-  if conf.lightpushnode != "":
-    let lightPushNode = parsePeerInfo(conf.lightpushnode)
+  if conf.remoteLightPushNode.isSome():
+    let lightPushNode = parsePeerInfo(conf.remoteLightPushNode.get())
     if lightPushNode.isOk():
       node.peerManager.addServicePeer(lightPushNode.value, WakuLightPushCodec)
       node.peerManager.addServicePeer(lightPushNode.value, WakuLegacyLightPushCodec)
@@ -369,21 +386,22 @@ proc setupProtocols(
       return err("failed to set node waku lightpush peer: " & lightPushNode.error)
 
   # Filter setup. NOTE Must be mounted after relay
-  if conf.filter:
+  if conf.filterServiceConf.isSome():
+    let confFilter = conf.filterServiceConf.get()
     try:
       await mountFilter(
         node,
-        subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
-        maxFilterPeers = conf.filterMaxPeersToServe,
-        maxFilterCriteriaPerPeer = conf.filterMaxCriteria,
+        subscriptionTimeout = chronos.seconds(confFilter.subscriptionTimeout),
+        maxFilterPeers = confFilter.maxPeersToServe,
+        maxFilterCriteriaPerPeer = confFilter.maxCriteria,
         rateLimitSetting = node.rateLimitSettings.getSetting(FILTER),
       )
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
   await node.mountFilterClient()
-  if conf.filternode != "":
-    let filterNode = parsePeerInfo(conf.filternode)
+  if conf.remoteFilterNode.isSome():
+    let filterNode = parsePeerInfo(conf.remoteFilterNode.get())
     if filterNode.isOk():
       try:
         node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
@@ -393,14 +411,6 @@ proc setupProtocols(
         )
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
-
-  if conf.storeSync:
-    (
-      await node.mountStoreSync(
-        conf.storeSyncRange, conf.storeSyncInterval, conf.storeSyncRelayJitter
-      )
-    ).isOkOr:
-      return err("failed to mount waku store sync protocol: " & $error)
 
   # waku peer exchange setup
   if conf.peerExchange:
@@ -412,8 +422,8 @@ proc setupProtocols(
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
-  if conf.peerExchangeNode != "":
-    let peerExchangeNode = parsePeerInfo(conf.peerExchangeNode)
+  if conf.remotePeerExchangeNode.isSome():
+    let peerExchangeNode = parsePeerInfo(conf.remotePeerExchangeNode.get())
     if peerExchangeNode.isOk():
       node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
     else:
@@ -425,7 +435,7 @@ proc setupProtocols(
 ## Start node
 
 proc startNode*(
-    node: WakuNode, conf: WakuNodeConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
+    node: WakuNode, conf: WakuConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
@@ -438,9 +448,9 @@ proc startNode*(
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
   # Connect to configured static nodes
-  if conf.staticnodes.len > 0:
+  if conf.staticNodes.len > 0:
     try:
-      await connectToNodes(node, conf.staticnodes, "static")
+      await connectToNodes(node, conf.staticNodes, "static")
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
@@ -453,16 +463,18 @@ proc startNode*(
         err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
 
   # retrieve px peers and add the to the peer store
-  if conf.peerExchangeNode != "":
+  if conf.remotePeerExchangeNode.isSome():
     var desiredOutDegree = DefaultPXNumPeersReq
     if not node.wakuRelay.isNil() and node.wakuRelay.parameters.d.uint64() > 0:
       desiredOutDegree = node.wakuRelay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       error "error while fetching peers from peer exchange", error = error
 
+  # TODO: behavior described by comment is undesired. PX as client should be used in tandem with discv5.
+  # 
   # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
   # periodic loop to find peers and px returned peers actually come from discv5
-  if conf.peerExchange and not conf.discv5Discovery:
+  if conf.peerExchange and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
   # Start keepalive, if enabled
@@ -476,27 +488,21 @@ proc startNode*(
   return ok()
 
 proc setupNode*(
-    conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
+    wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
-  # Use provided key only if corresponding rng is also provided
-  let key =
-    if conf.nodeKey.isSome():
-      conf.nodeKey.get()
-    else:
-      warn "missing key, generating new"
-      crypto.PrivateKey.random(Secp256k1, rng[]).valueOr:
-        error "Failed to generate key", error = error
-        return err("Failed to generate key: " & $error)
-
-  let netConfig = networkConfiguration(conf, clientId).valueOr:
+  let netConfig = networkConfiguration(
+    wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
+    wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
+    wakuConf.portsShift, clientId,
+  ).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  let record = enrConfiguration(conf, netConfig, key).valueOr:
+  let record = enrConfiguration(wakuConf, netConfig).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)
 
-  if isClusterMismatched(record, conf.clusterId):
+  if isClusterMismatched(record, wakuConf.clusterId):
     error "cluster id mismatch configured shards"
     return err("cluster id mismatch configured shards")
 
@@ -504,21 +510,21 @@ proc setupNode*(
 
   ## Peer persistence
   var peerStore: Option[WakuPeerStorage]
-  if conf.peerPersistence:
+  if wakuConf.peerPersistence:
     peerStore = setupPeerStorage().valueOr:
       error "Setting up storage failed", error = "failed to setup peer store " & error
       return err("Setting up storage failed: " & error)
 
   debug "Initializing node"
 
-  let node = initNode(conf, netConfig, rng, key, record, peerStore, relay).valueOr:
+  let node = initNode(wakuConf, netConfig, rng, record, peerStore, relay).valueOr:
     error "Initializing node failed", error = error
     return err("Initializing node failed: " & error)
 
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(conf, key)).isOkOr:
+    (waitFor node.setupProtocols(wakuConf)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

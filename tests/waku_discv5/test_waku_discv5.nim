@@ -360,7 +360,7 @@ suite "Waku Discovery v5":
       # Cleanup
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-  suite "addBoostrapNode":
+  suite "addBootstrapNode":
     asyncTest "address is valid":
       # Given an empty list of enrs
       var enrs: seq[Record] = @[]
@@ -416,22 +416,22 @@ suite "Waku Discovery v5":
       let myRng = crypto.newRng()
       var conf = defaultTestWakuNodeConf()
 
-      conf.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
-      conf.discv5Discovery = true
+      conf.nodeKey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      conf.discv5Discovery = some(true)
       conf.discv5UdpPort = Port(9000)
 
-      let waku0 = Waku.new(conf).valueOr:
+      let waku0 = Waku.new(conf.toWakuConf().get()).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku0)).isOkOr:
         raiseAssert error
 
-      conf.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      conf.nodeKey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
       conf.discv5BootstrapNodes = @[waku0.node.enr.toURI()]
-      conf.discv5Discovery = true
+      conf.discv5Discovery = some(true)
       conf.discv5UdpPort = Port(9001)
       conf.tcpPort = Port(60001)
 
-      let waku1 = Waku.new(conf).valueOr:
+      let waku1 = Waku.new(conf.toWakuConf().get()).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku1)).isOkOr:
         raiseAssert error
@@ -441,12 +441,12 @@ suite "Waku Discovery v5":
 
       var conf2 = conf
       conf2.discv5BootstrapNodes = @[waku1.node.enr.toURI()]
-      conf2.discv5Discovery = true
+      conf2.discv5Discovery = some(true)
       conf2.tcpPort = Port(60003)
       conf2.discv5UdpPort = Port(9003)
-      conf2.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      conf2.nodeKey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
 
-      let waku2 = Waku.new(conf2).valueOr:
+      let waku2 = Waku.new(conf2.toWakuConf().get()).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku2)).isOkOr:
         raiseAssert error
@@ -471,15 +471,23 @@ suite "Waku Discovery v5":
 
     asyncTest "Discv5 bootstrap nodes should be added to the peer store":
       var conf = defaultTestWakuNodeConf()
+      conf.discv5Discovery = some(true)
 
       conf.discv5BootstrapNodes = @[validEnr]
 
-      let waku = Waku.new(conf).valueOr:
+      let waku = Waku.new(conf.toWakuConf().get()).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        waku.conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.key,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:
@@ -489,17 +497,25 @@ suite "Waku Discovery v5":
 
     asyncTest "Invalid discv5 bootstrap node ENRs are ignored":
       var conf = defaultTestWakuNodeConf()
+      conf.discv5Discovery = some(true)
 
       let invalidEnr = "invalid-enr"
 
       conf.discv5BootstrapNodes = @[invalidEnr]
 
-      let waku = Waku.new(conf).valueOr:
+      let waku = Waku.new(conf.toWakuConf().get()).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        waku.conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.key,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:

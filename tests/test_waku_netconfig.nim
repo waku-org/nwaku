@@ -4,7 +4,7 @@ import chronos, confutils/toml/std/net, libp2p/multiaddress, testutils/unittests
 
 import ./testlib/wakunode, waku/waku_enr/capabilities
 
-include waku/node/config
+include waku/node/net_config
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(
@@ -23,7 +23,7 @@ suite "Waku NetConfig":
       extIp = none(IpAddress),
       extPort = none(Port),
       extMultiAddrs = @[],
-      wsBindPort = conf.websocketPort,
+      wsBindPort = some(conf.websocketPort),
       wsEnabled = conf.websocketSupport,
       wssEnabled = conf.websocketSecureSupport,
       dns4DomainName = none(string),

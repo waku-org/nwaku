@@ -17,6 +17,7 @@ import
     discovery/waku_discv5,
     factory/external_config,
     factory/internal_config,
+    factory/waku_conf,
     factory/builder,
   ],
   ./common
@@ -44,6 +45,11 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     rendezvous: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
   )
+
+# TODO: migrate to usage of preset
+# TODO: remove indirection via `WakuNodeConf`
+proc defaultTestWakuConf*(): WakuConf =
+  defaultTestWakuNodeConf().toWakuConf().get()
 
 proc newTestWakuNode*(
     nodeKey: crypto.PrivateKey,
@@ -85,24 +91,24 @@ proc newTestWakuNode*(
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
-    let dns = (waitFor dnsResolve(dns4DomainName.get(), conf)).valueOr:
+    let dns = (waitFor dnsResolve(dns4DomainName.get(), conf.dnsAddrsNameServers)).valueOr:
       raise newException(Defect, error)
 
     resolvedExtIp = some(parseIpAddress(dns))
 
   let netConf = NetConfig.init(
-    bindIp = bindIp,
     clusterId = conf.clusterId,
+    bindIp = bindIp,
     bindPort = bindPort,
     extIp = resolvedExtIp,
     extPort = extPort,
     extMultiAddrs = extMultiAddrs,
-    wsBindPort = wsBindPort,
+    wsBindPort = some(wsBindPort),
     wsEnabled = wsEnabled,
     wssEnabled = wssEnabled,
-    wakuFlags = wakuFlags,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
+    wakuFlags = wakuFlags,
   ).valueOr:
     raise newException(Defect, "Invalid network configuration: " & error)
 

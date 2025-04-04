@@ -462,7 +462,7 @@ proc initAndStartApp(
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
-  nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
+  nodeBuilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
 
   nodeBuilder.withPeerManagerConfig(
     maxConnections = MaxConnectedPeers,
@@ -630,14 +630,13 @@ when isMainModule:
 
   if conf.rlnRelay and conf.rlnRelayEthContractAddress != "":
     let rlnConf = WakuRlnConfig(
-      rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: some(uint(0)),
-      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-      rlnRelayCredPath: "",
-      rlnRelayCredPassword: "",
-      rlnRelayTreePath: conf.rlnRelayTreePath,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      dynamic: conf.rlnRelayDynamic,
+      credIndex: some(uint(0)),
+      ethContractAddress: conf.rlnRelayEthContractAddress,
+      ethClientAddress: string(conf.rlnRelayethClientAddress),
+      treePath: conf.rlnRelayTreePath,
+      epochSizeSec: conf.rlnEpochSizeSec,
+      creds: none(RlnRelayCreds),
       onFatalErrorAction: onFatalErrorAction,
     )
 

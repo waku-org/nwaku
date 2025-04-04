@@ -68,10 +68,10 @@ suite "Waku v2 REST API - health":
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(
       WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+        dynamic: false,
+        credIndex: some(1.uint),
+        epochSizeSec: 1,
+        treePath: genTempPath("rln_tree", "wakunode"),
       )
     )
     healthMonitor.setNode(node)
