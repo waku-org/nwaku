@@ -52,7 +52,7 @@ proc loadAppKeystore*(
   if fileExists(path) == false:
     let newKeystoreRes = createAppKeystore(path, appInfo, separator)
     if newKeystoreRes.isErr():
-      return err("failed calling createAppKeystore: " & newKeystoreRes.error)
+      return err(newKeystoreRes.error)
 
   try:
     # We read all the file contents
