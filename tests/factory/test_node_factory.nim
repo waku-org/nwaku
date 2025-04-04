@@ -2,11 +2,16 @@
 
 import testutils/unittests, chronos, libp2p/protocols/connectivity/relay/relay
 
-import ../testlib/wakunode, waku/factory/node_factory, waku/waku_node
+import
+  ../testlib/wakunode,
+  waku/factory/node_factory,
+  waku/waku_node,
+  waku/factory/external_config
 
 suite "Node Factory":
   test "Set up a node based on default configurations":
-    let conf = defaultTestWakuNodeConf()
+    let nodeConf = defaultTestWakuNodeConf()
+    let conf = nodeConf.toWakuConf().get()
 
     let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
@@ -20,8 +25,9 @@ suite "Node Factory":
       not node.wakuRendezvous.isNil()
 
   test "Set up a node with Store enabled":
-    var conf = defaultTestWakuNodeConf()
-    conf.store = true
+    var nodeConf = defaultTestWakuNodeConf()
+    nodeConf.store = true
+    let conf = nodeConf.toWakuConf().get()
 
     let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
@@ -32,8 +38,9 @@ suite "Node Factory":
       not node.wakuArchive.isNil()
 
 test "Set up a node with Filter enabled":
-  var conf = defaultTestWakuNodeConf()
-  conf.filter = true
+  var nodeConf = defaultTestWakuNodeConf()
+  nodeConf.filter = true
+  let conf = nodeConf.toWakuConf().get()
 
   let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error
@@ -43,7 +50,8 @@ test "Set up a node with Filter enabled":
     not node.wakuFilter.isNil()
 
 test "Start a node based on default configurations":
-  let conf = defaultTestWakuNodeConf()
+  let nodeConf = defaultTestWakuNodeConf()
+  let conf = nodeConf.toWakuConf().get()
 
   let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error

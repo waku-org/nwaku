@@ -17,7 +17,8 @@ include waku/factory/waku
 suite "Wakunode2 - Waku":
   test "compilation version should be reported":
     ## Given
-    var conf = defaultTestWakuNodeConf()
+    var nodeConf = defaultTestWakuNodeConf()
+    let conf = nodeConf.toWakuConf().get()
 
     let waku = Waku.new(conf).valueOr:
       raiseAssert error
@@ -32,8 +33,9 @@ suite "Wakunode2 - Waku":
 suite "Wakunode2 - Waku initialization":
   test "peer persistence setup should be successfully mounted":
     ## Given
-    var conf = defaultTestWakuNodeConf()
-    conf.peerPersistence = true
+    var nodeConf = defaultTestWakuNodeConf()
+    nodeConf.peerPersistence = true
+    let conf = nodeConf.toWakuConf().get()
 
     let waku = Waku.new(conf).valueOr:
       raiseAssert error
@@ -43,16 +45,14 @@ suite "Wakunode2 - Waku initialization":
 
   test "node setup is successful with default configuration":
     ## Given
-    var conf = defaultTestWakuNodeConf()
+    var nodeConf = defaultTestWakuNodeConf()
+    let conf = nodeConf.toWakuConf().get()
 
     ## When
     var waku = Waku.new(conf).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
-      raiseAssert error
-
-    waku.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
       raiseAssert error
 
     ## Then
@@ -69,8 +69,9 @@ suite "Wakunode2 - Waku initialization":
 
   test "app properly handles dynamic port configuration":
     ## Given
-    var conf = defaultTestWakuNodeConf()
-    conf.tcpPort = Port(0)
+    var nodeConf = defaultTestWakuNodeConf()
+    nodeConf.tcpPort = Port(0)
+    let conf = nodeConf.toWakuConf().get()
 
     ## When
     var waku = Waku.new(conf).valueOr:

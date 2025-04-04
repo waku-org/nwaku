@@ -128,11 +128,11 @@ suite "RLN Proofs as a Lightpush Service":
 
     # mount rln-relay
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode"),
     )
 
     await allFutures(server.start(), client.start())
