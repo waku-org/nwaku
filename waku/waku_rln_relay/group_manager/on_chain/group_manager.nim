@@ -50,7 +50,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index 
-  proc merkleProofElements(index: EthereumUInt40): seq[UInt256] {.view.}
+  proc merkleProofElements(index: UInt256): seq[UInt256] {.view.}
   # this function returns the merkle root 
   proc root(): Uint256 {.view.}
 
@@ -102,33 +102,35 @@ proc fetchMerkleProofElements*(
     # First check if the index is valid and within range
     let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
     let currentCommitmentIndex = await commitmentIndexInvocation.call()
-
-    debug "------ Checking membership index validity ------",
-      membershipIndex = membershipIndex,
-      currentCommitmentIndex = currentCommitmentIndex.toHex()
-
-    # Convert membershipIndex to UInt256 for comparison with currentCommitmentIndex
     let membershipIndexUint256 = stuint(membershipIndex, 256)
+    let index40 = stuint(membershipIndex, 40)
+
+    debug "------ checking if membership index is validity ------",
+      membershipIndex = membershipIndex,
+      membershipIndexHEX = membershipIndex.toHex(),
+      membershipIndexUint256 = membershipIndexUint256,
+      membershipIndexUint256HEX = membershipIndexUint256.toHex(),
+      currentCommitmentIndex = currentCommitmentIndex,    
+      currentCommitmentIndexHEX = currentCommitmentIndex.toHex(),
+      index40 = index40,
+      index40HEX = index40.toHex()
 
     # Ensure the membershipIndex is less than the total number of commitments
     if membershipIndexUint256 >= currentCommitmentIndex:
       error "Invalid membership index",
         membershipIndex = membershipIndex,
         currentCommitmentIndex = currentCommitmentIndex.toHex()
-      return err("Invalid membership index: " & $membershipIndex &
-                " is >= current commitment index: " & currentCommitmentIndex.toHex())
+      return err(
+        "Invalid membership index: " & $membershipIndex &
+          " is >= current commitment index: " & currentCommitmentIndex.toHex()
+      )
 
-    # Convert membership index to EthereumUInt40 for the contract call
-    let index40 = stuint(membershipIndex, 40)
-    debug "------ Using index for merkleProofElements ------",
-      originalIndex = membershipIndex, index40 = index40.toHex()
-
-    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index40)
-
-    # Call without retry wrapper for debugging
+    let merkleProofInvocation =
+      g.wakuRlnContract.get().merkleProofElements(membershipIndexUint256)
     let merkleProof = await merkleProofInvocation.call()
 
-    # Need to wrap in "ok" to match the function return type
+    debug "------ Merkle proof ------", merkleProof = merkleProof
+
     return ok(merkleProof)
   except CatchableError:
     error "------ Failed to fetch Merkle proof elements ------",
@@ -343,7 +345,7 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "calling generateProof from generateProof from group_manager onchain",
+  debug "------ calling generateProof from generateProof from group_manager onchain ------",
     data = data,
     membershipIndex = g.membershipIndex.get(),
     userMessageLimit = g.userMessageLimit.get()
