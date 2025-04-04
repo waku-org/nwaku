@@ -29,6 +29,7 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
+type UInt40* = StUint[40]
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -46,7 +47,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc maxMembershipRateLimit(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  proc getMerkleProof(index: Uint256): seq[Uint256] {.view.}
+  proc getMerkleProof(index: UInt40): seq[Uint256] {.view.}
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
@@ -92,22 +93,45 @@ proc setMetadata*(
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[Uint256], string]] {.async.} =
-  let membershipIdx = g.membershipIndex.get()
-  # Ensure it's within uint40 range (0 to 2^40-1)
-  let maxUint40 = 1099511627775'u64  # 2^40-1
-  if membershipIdx > maxUint40:
-    return err("Index exceeds uint40 range")
-  # Convert to Uint256 but ensure it's "clean" (no high bits set)
-  let index = stuint(membershipIdx, 256)
-  debug "fetching merkle proof for index",
-    index = index, membershipIndex = membershipIdx
-    
+  let membershipIndex = g.membershipIndex.get()
+  debug " ------ Fetching merkle proof", index = membershipIndex
   try:
-    let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(index)
+    # First check if the index is valid
+    # let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+    # let currentCommitmentIndex = await commitmentIndexInvocation.call()
+    let membershipIndexUint256 = stuint(membershipIndex, 256)
+
+    debug " ------ Checking membership index validity",
+      membershipIndex = membershipIndex,
+      membershipIndexAsUint256 = membershipIndexUint256.toHex()
+      # currentCommitmentIndex = currentCommitmentIndex.toHex()
+
+    # Convert to UInt40 for contract call (merkleProofElements takes UInt40)
+    let indexUint40 = stuint(membershipIndex, 40)
+    debug " ------ Converting membershipIndex to UInt40",
+      originalIndex = membershipIndex, asUint40 = indexUint40.toHex()
+
+    let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(indexUint40)
     let merkleProof = await merkleProofInvocation.call()
+    debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
     return ok(merkleProof)
   except CatchableError:
-    error "Failed to fetch merkle proof - 1", errMsg = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+
+# proc fetchMerkleProofElements*(
+#     g: OnchainGroupManager
+# ): Future[Result[seq[Uint256], string]] {.async.} =
+#   let membershipIndex = g.membershipIndex.get()
+#   debug "Fetching merkle proof", index = membershipIndex
+#   try:
+#     let index = stuint(membershipIndex, 40)
+# 
+#     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+#     let merkleProof = await merkleProofInvocation.call()
+#     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
+#     return ok(merkleProof)
+#   except CatchableError:
+#     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -333,12 +357,12 @@ method generateProof*(
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err(" proof - 2: " & $proofResult.error)
+      return err("Failed to fetch Merkle proof" & $proofResult.error)
     g.merkleProofCache = proofResult.get()
     debug "Merkle proof fetched",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
   except CatchableError:
-    error "Failed to fetch merkle proof - 3", error = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
