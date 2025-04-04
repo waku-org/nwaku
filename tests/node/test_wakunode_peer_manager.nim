@@ -45,9 +45,9 @@ suite "Peer Manager":
 
   var
     server {.threadvar.}: WakuNode
-    serverPeerStore {.threadvar.}: WakuPeerStore
+    serverPeerStore {.threadvar.}: PeerStore
     client {.threadvar.}: WakuNode
-    clientPeerStore {.threadvar.}: WakuPeerStore
+    clientPeerStore {.threadvar.}: PeerStore
 
   var
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
@@ -792,7 +792,7 @@ suite "Mount Order":
   var
     client {.threadvar.}: WakuNode
     clientRemotePeerInfo {.threadvar.}: RemotePeerInfo
-    clientPeerStore {.threadvar.}: WakuPeerStore
+    clientPeerStore {.threadvar.}: PeerStore
 
   asyncSetup:
     let clientKey = generateSecp256k1Key()
