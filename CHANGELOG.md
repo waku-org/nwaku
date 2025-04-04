@@ -4,6 +4,9 @@
 
 * Update RLN references ([3287](https://github.com/waku-org/nwaku/pull/3287)) ([ea961fa](https://github.com/waku-org/nwaku/pull/3287/commits/ea961faf4ed4f8287a2043a6b5d84b660745072b))
 
+**Info:** before upgrading to this node, make sure you delete the previous rln_tree folder, i.e.,
+the one that is passed through this CLI: `--rln-relay-tree-path`.
+
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
