@@ -1,5 +1,7 @@
 {.push raises: [].}
 
+# TODO: this file should be called cluster_conf.nim
+
 type ClusterConf* = object
   maxMessageSize*: string
   clusterId*: uint16
@@ -10,6 +12,7 @@ type ClusterConf* = object
   rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
+  # TODO: should be uint16 like the `shards` parameter
   numShardsInNetwork*: uint32
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
@@ -30,7 +33,6 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayUserMessageLimit: 100,
     numShardsInNetwork: 8,
     discv5Discovery: true,
-      # TODO: Why is this part of the conf? eg an edge node would not have this
     discv5BootstrapNodes:
       @[
         "enr:-QESuED0qW1BCmF-oH_ARGPr97Nv767bl_43uoy70vrbah3EaCAdK3Q0iRQ6wkSTTpdrg_dU_NC2ydO8leSlRpBX4pxiAYJpZIJ2NIJpcIRA4VDAim11bHRpYWRkcnO4XAArNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwAtNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOTd-h5owwj-cx7xrmbvQKU8CV3Fomfdvcv1MBc-67T5oN0Y3CCdl-DdWRwgiMohXdha3UyDw",
