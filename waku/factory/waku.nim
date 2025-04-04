@@ -145,27 +145,17 @@ proc setupAppCallbacks(
   return ok()
 
 proc new*(
-    T: type Waku, wakuConf: var WakuConf, appCallbacks: AppCallbacks = nil
+    T: type Waku, wakuNodeConf: WakuNodeConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(wakuConf.logLevel, wakuConf.logFormat)
+  logging.setupLog(wakuNodeConf.logLevel, wakuNodeConf.logFormat)
 
-  confCopy = block:
-    let res = applyPresetConfiguration(confCopy)
-    if res.isErr():
-      error "Failed to complete the config", error = res.error
-      return err("Failed to complete the config:" & $res.error)
-    res.get()
+  var confBuilder = WakuConfBuilder.init()
 
-  wakuConf.log()
+  applyPresetConfiguration(wakuNodeConf, confBuilder)
 
   info "Running nwaku node", version = git_version
-
-  let validateShardsRes = validateShards(confCopy)
-  if validateShardsRes.isErr():
-    error "Failed validating shards", error = $validateShardsRes.error
-    return err("Failed validating shards: " & $validateShardsRes.error)
 
   let keyRes = getNodeKey(confCopy, rng)
   if keyRes.isErr():
