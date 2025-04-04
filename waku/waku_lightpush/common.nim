@@ -9,6 +9,7 @@ export WakuLightPushCodec
 type LightpushStatusCode* = enum
   SUCCESS = uint32(200)
   BAD_REQUEST = uint32(400)
+  PAYMENT_REQUIRED = uint32(402)
   PAYLOAD_TOO_LARGE = uint32(413)
   INVALID_MESSAGE_ERROR = uint32(420)
   UNSUPPORTED_PUBSUB_TOPIC = uint32(421)

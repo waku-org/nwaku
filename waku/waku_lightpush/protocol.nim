@@ -73,6 +73,9 @@ proc handleRequest*(
         statusDesc: some(msg),
       )
 
+    # TODO: i13n POC: check eligibility here (if eligibilityManager.isSome)
+    # if eligibility check fails, return a response with LightpushStatusCode.PAYMENT_REQUIRED
+
     waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
     notice "handling lightpush request",
