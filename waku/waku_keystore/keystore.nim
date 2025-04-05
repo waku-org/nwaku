@@ -61,7 +61,9 @@ proc loadAppKeystore*(
       return err(
         AppKeystoreError(kind: KeystoreOsError, msg: "Cannot open file for reading")
       )
-    let fileContents = readAll(f)
+
+    ## the next blocks expect the whole keystore.json content to be compacted in one single line
+    let fileContents = readAll(f).replace(" ", "").replace("\n", "")
 
     # We iterate over each substring split by separator (which we expect to correspond to a single keystore json)
     for keystore in fileContents.split(separator):
@@ -159,8 +161,7 @@ proc loadAppKeystore*(
 
   return err(
     AppKeystoreError(
-      kind: KeystoreKeystoreDoesNotExist,
-      msg: "No keystore found for the passed parameters",
+      kind: KeystoreKeystoreDoesNotExist, msg: "The keystore file could not be parsed"
     )
   )
 
