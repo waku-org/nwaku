@@ -133,22 +133,20 @@ proc addPeer*(
 ) {.gcsafe.} =
   ## Adds peer to manager for the specified protocol
 
-  var peerStore = pm.switch.peerStore
-
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
     trace "skipping to manage our unmanageable self"
     return
 
-  if peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
-      peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
-      peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
+  if pm.switch.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
+      pm.switch.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
+      pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
     let incomingEnr = remotePeerInfo.enr.valueOr:
       trace "peer already managed and incoming ENR is empty",
         remote_peer_id = $remotePeerInfo.peerId
       return
 
-    if peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
-        peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
+    if pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
+        pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
       trace "peer already managed and ENR info is already saved",
         remote_peer_id = $remotePeerInfo.peerId
       return
@@ -158,12 +156,34 @@ proc addPeer*(
 
   waku_total_unique_peers.inc()
 
-  peerStore[SourceBook][remotePeerInfo.peerId] = origin
+  debug "GGGGG before add peer", peerStore = pm.switch.peerStore[AddressBook].len
 
+  pm.switch.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
+
+  var protos = pm.switch.peerStore[ProtoBook][remotePeerInfo.peerId]
+  for new_proto in remotePeerInfo.protocols:
+    ## append new discovered protocols to the current known protocols set
+    if not protos.contains(new_proto):
+      protos.add($new_proto)
+  pm.switch.peerStore[ProtoBook][remotePeerInfo.peerId] = protos
+
+  pm.switch.peerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
+  pm.switch.peerStore[ProtoVersionBook][remotePeerInfo.peerId] =
+    remotePeerInfo.protoVersion
+  pm.switch.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
+  pm.switch.peerStore[ConnectionBook][remotePeerInfo.peerId] =
+    remotePeerInfo.connectedness
+  pm.switch.peerStore[DisconnectBook][remotePeerInfo.peerId] =
+    remotePeerInfo.disconnectTime
+  pm.switch.peerStore[SourceBook][remotePeerInfo.peerId] = origin
+  pm.switch.peerStore[DirectionBook][remotePeerInfo.peerId] = remotePeerInfo.direction
+  pm.switch.peerStore[LastFailedConnBook][remotePeerInfo.peerId] =
+    remotePeerInfo.lastFailedConn
+  pm.switch.peerStore[NumberFailedConnBook][remotePeerInfo.peerId] =
+    remotePeerInfo.numberFailedConn
   if remotePeerInfo.enr.isSome():
-    peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
+    pm.switch.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
-  peerStore.addPeer(remotePeerInfo)
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
@@ -180,7 +200,6 @@ proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
 
   trace "loading peers from storage"
 
-  var peerStore = pm.switch.peerStore
   var amount = 0
 
   proc onData(remotePeerInfo: RemotePeerInfo) =
@@ -198,19 +217,20 @@ proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
       version = remotePeerInfo.protoVersion
 
     # nim-libp2p books
-    peerStore[AddressBook][peerId] = remotePeerInfo.addrs
-    peerStore[ProtoBook][peerId] = remotePeerInfo.protocols
-    peerStore[KeyBook][peerId] = remotePeerInfo.publicKey
-    peerStore[AgentBook][peerId] = remotePeerInfo.agent
-    peerStore[ProtoVersionBook][peerId] = remotePeerInfo.protoVersion
+    pm.switch.peerStore[AddressBook][peerId] = remotePeerInfo.addrs
+    pm.switch.peerStore[ProtoBook][peerId] = remotePeerInfo.protocols
+    pm.switch.peerStore[KeyBook][peerId] = remotePeerInfo.publicKey
+    pm.switch.peerStore[AgentBook][peerId] = remotePeerInfo.agent
+    pm.switch.peerStore[ProtoVersionBook][peerId] = remotePeerInfo.protoVersion
 
     # custom books
-    peerStore[ConnectionBook][peerId] = NotConnected # Reset connectedness state
-    peerStore[DisconnectBook][peerId] = remotePeerInfo.disconnectTime
-    peerStore[SourceBook][peerId] = remotePeerInfo.origin
+    pm.switch.peerStore[ConnectionBook][peerId] = NotConnected
+      # Reset connectedness state
+    pm.switch.peerStore[DisconnectBook][peerId] = remotePeerInfo.disconnectTime
+    pm.switch.peerStore[SourceBook][peerId] = remotePeerInfo.origin
 
     if remotePeerInfo.enr.isSome():
-      peerStore[ENRBook][peerId] = remotePeerInfo.enr.get()
+      pm.switch.peerStore[ENRBook][peerId] = remotePeerInfo.enr.get()
 
     amount.inc()
 

@@ -59,31 +59,6 @@ proc getPeer*(peerStore: PeerStore, peerId: PeerId): RemotePeerInfo =
     numberFailedConn: peerStore[NumberFailedConnBook][peerId],
   )
 
-proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo) =
-  ## Only used in tests
-  peerStore[AddressBook][peer.peerId] = peer.addrs
-
-  var protos = peerStore[ProtoBook][peer.peerId]
-
-  for new_proto in peer.protocols:
-    ## append new discovered protocols to the current known protocols set
-    if not protos.contains(new_proto):
-      protos.add($new_proto)
-
-  peerStore[ProtoBook][peer.peerId] = protos
-
-  peerStore[AgentBook][peer.peerId] = peer.agent
-  peerStore[ProtoVersionBook][peer.peerId] = peer.protoVersion
-  peerStore[KeyBook][peer.peerId] = peer.publicKey
-  peerStore[ConnectionBook][peer.peerId] = peer.connectedness
-  peerStore[DisconnectBook][peer.peerId] = peer.disconnectTime
-  peerStore[SourceBook][peer.peerId] = peer.origin
-  peerStore[DirectionBook][peer.peerId] = peer.direction
-  peerStore[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
-  peerStore[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
-  if peer.enr.isSome():
-    peerStore[ENRBook][peer.peerId] = peer.enr.get()
-
 proc delete*(peerStore: PeerStore, peerId: PeerId) =
   # Delete all the information of a given peer.
   peerStore.del(peerId)
@@ -159,9 +134,7 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
   return peerStore.peers.filterIt(it.protocols.contains(proto))
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(
-    it.connectedness == CanConnect or it.connectedness == Connected
-  )
+  return peerStore.peers.filterIt(it.connectedness != CannotConnect)
 
 proc getPeersByShard*(
     peerStore: PeerStore, cluster, shard: uint16

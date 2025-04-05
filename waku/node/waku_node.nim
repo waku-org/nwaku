@@ -1260,7 +1260,7 @@ proc fetchPeerExchangePeers*(
       )
     )
 
-  info "Retrieving peer info via peer exchange protocol"
+  info "Retrieving peer info via peer exchange protocol", amount
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
   if pxPeersRes.isOk:
     var validPeers = 0
