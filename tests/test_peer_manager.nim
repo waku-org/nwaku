@@ -254,6 +254,7 @@ procSuite "Peer Manager":
       nodes[0].peerManager.canBeConnected(nodes[1].peerInfo.peerId) == true
 
     # After a successful connection, the number of failed connections is reset
+
     nodes[0].peerManager.switch.peerStore[NumberFailedConnBook][
       nodes[1].peerInfo.peerId
     ] = 4
