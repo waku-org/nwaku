@@ -12,7 +12,8 @@ import
   ../../waku_core,
   ../../waku_enr/sharding,
   ../../waku_enr/capabilities,
-  ../../common/utils/sequence
+  ../../common/utils/sequence,
+  ../../waku_core/peers
 
 export peerstore, builders
 
@@ -72,6 +73,45 @@ proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
     .toHashSet()
 
   return allKeys.mapIt(peerStore.getPeer(it))
+
+proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo, origin = UnknownOrigin) =
+  ## Notice that the origin parameter is used to manually override the given peer origin.
+  ## At the time of writing, this is used in waku_discv5 or waku_node (peer exchange.)
+  if peerStore[AddressBook][peer.peerId] == peer.addrs and
+      peerStore[KeyBook][peer.peerId] == peer.publicKey and
+      peerStore[ENRBook][peer.peerId].raw.len > 0:
+    let incomingEnr = peer.enr.valueOr:
+      trace "peer already managed and incoming ENR is empty",
+        remote_peer_id = $peer.peerId
+      return
+
+    if peerStore[ENRBook][peer.peerId].raw == incomingEnr.raw or
+        peerStore[ENRBook][peer.peerId].seqNum > incomingEnr.seqNum:
+      trace "peer already managed and ENR info is already saved",
+        remote_peer_id = $peer.peerId
+      return
+
+  peerStore[AddressBook][peer.peerId] = peer.addrs
+
+  var protos = peerStore[ProtoBook][peer.peerId]
+  for new_proto in peer.protocols:
+    ## append new discovered protocols to the current known protocols set
+    if not protos.contains(new_proto):
+      protos.add($new_proto)
+  peerStore[ProtoBook][peer.peerId] = protos
+
+  peerStore[AgentBook][peer.peerId] = peer.agent
+  peerStore[ProtoVersionBook][peer.peerId] = peer.protoVersion
+  peerStore[KeyBook][peer.peerId] = peer.publicKey
+  peerStore[ConnectionBook][peer.peerId] = peer.connectedness
+  peerStore[DisconnectBook][peer.peerId] = peer.disconnectTime
+  peerStore[SourceBook][peer.peerId] =
+    if origin != UnknownOrigin: origin else: peer.origin
+  peerStore[DirectionBook][peer.peerId] = peer.direction
+  peerStore[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
+  peerStore[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
+  if peer.enr.isSome():
+    peerStore[ENRBook][peer.peerId] = peer.enr.get()
 
 proc peers*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
   peerStore.peers().filterIt(it.protocols.contains(proto))

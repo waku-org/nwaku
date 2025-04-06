@@ -137,53 +137,12 @@ proc addPeer*(
     trace "skipping to manage our unmanageable self"
     return
 
-  if pm.switch.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
-      pm.switch.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
-      pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
-    let incomingEnr = remotePeerInfo.enr.valueOr:
-      trace "peer already managed and incoming ENR is empty",
-        remote_peer_id = $remotePeerInfo.peerId
-      return
-
-    if pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
-        pm.switch.peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
-      trace "peer already managed and ENR info is already saved",
-        remote_peer_id = $remotePeerInfo.peerId
-      return
+  pm.switch.peerStore.addPeer(remotePeerInfo, origin)
 
   trace "Adding peer to manager",
     peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs, origin
 
   waku_total_unique_peers.inc()
-
-  debug "GGGGG before add peer", peerStore = pm.switch.peerStore[AddressBook].len
-
-  pm.switch.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
-
-  var protos = pm.switch.peerStore[ProtoBook][remotePeerInfo.peerId]
-  for new_proto in remotePeerInfo.protocols:
-    ## append new discovered protocols to the current known protocols set
-    if not protos.contains(new_proto):
-      protos.add($new_proto)
-  pm.switch.peerStore[ProtoBook][remotePeerInfo.peerId] = protos
-
-  pm.switch.peerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
-  pm.switch.peerStore[ProtoVersionBook][remotePeerInfo.peerId] =
-    remotePeerInfo.protoVersion
-  pm.switch.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
-  pm.switch.peerStore[ConnectionBook][remotePeerInfo.peerId] =
-    remotePeerInfo.connectedness
-  pm.switch.peerStore[DisconnectBook][remotePeerInfo.peerId] =
-    remotePeerInfo.disconnectTime
-  pm.switch.peerStore[SourceBook][remotePeerInfo.peerId] = origin
-  pm.switch.peerStore[DirectionBook][remotePeerInfo.peerId] = remotePeerInfo.direction
-  pm.switch.peerStore[LastFailedConnBook][remotePeerInfo.peerId] =
-    remotePeerInfo.lastFailedConn
-  pm.switch.peerStore[NumberFailedConnBook][remotePeerInfo.peerId] =
-    remotePeerInfo.numberFailedConn
-  if remotePeerInfo.enr.isSome():
-    pm.switch.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
-
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
@@ -194,6 +153,9 @@ proc addPeer*(
     remotePeerInfo.connectedness = NotConnected
 
     pm.storage.insertOrReplace(remotePeerInfo)
+
+proc getPeer(pm: PeerManager, peerId: PeerId): RemotePeerInfo =
+  return pm.switch.peerStore.getPeer(peerId)
 
 proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
   ## Load peers from storage, if available
