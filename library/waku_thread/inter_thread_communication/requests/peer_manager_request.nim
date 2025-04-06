@@ -92,7 +92,7 @@ proc process*(
     ## returns a JSON string mapping peerIDs to objects with protocols and addresses
 
     var peersMap = initTable[string, PeerInfo]()
-    let peers = waku.node.peerManager.wakuPeerStore.peers().filterIt(
+    let peers = waku.node.peerManager.switch.peerStore.peers().filterIt(
         it.connectedness == Connected
       )
 
