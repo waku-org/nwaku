@@ -344,7 +344,8 @@ suite "Waku Discovery v5":
       let res4 = await node4.start()
       assertResultOk res4
 
-      await sleepAsync(FUTURE_TIMEOUT)
+      ## leave some time for discv5 to act
+      await sleepAsync(chronos.seconds(5))
 
       ## When
       let peers = await node1.findRandomPeers()
