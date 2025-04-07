@@ -105,7 +105,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   # Resolve and use DNS domain IP
   if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
-      let dnsRes = waitFor dnsResolve(conf.dns4DomainName, conf)
+      let dnsRes = waitFor dnsResolve(conf.dns4DomainName.get(), conf)
 
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack

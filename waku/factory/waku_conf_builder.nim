@@ -1,7 +1,7 @@
 import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
-  std/[net, options, sequtils],
+  std/[macros, net, options, sequtils, strutils],
   chronicles,
   results
 
@@ -174,6 +174,7 @@ type WakuConfBuilder* = ref object
   filter: Option[bool]
   lightPush: Option[bool]
   peerExchange: Option[bool]
+  storeSync: Option[bool]
 
   clusterConf: Option[ClusterConf]
 
@@ -198,23 +199,29 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     rlnRelayConf: RlnRelayConfBuilder.init(), discv5Conf: Discv5ConfBuilder.init()
   )
 
-proc withClusterConf*(builder: var WakuConfBuilder, clusterConf: ClusterConf) =
-  builder.clusterConf = some(clusterConf)
+macro confWith(argName: untyped, argType: untyped) =
+  argName.expectKind nnkIdent
+  argType.expectKind nnkIdent
 
-proc withNodeKey*(builder: var WakuConfBuilder, nodeKey: PrivateKey) =
-  builder.nodeKey = some(nodeKey)
+  result = newStmtList()
 
-proc withClusterId*(builder: var WakuConfBuilder, clusterId: uint16) =
-  builder.clusterid = some(clusterId)
+  let procName = ident("with" & capitalizeAscii($argName))
+  let builderIdent = ident("builder")
+  let builderVar = newDotExpr(builderIdent, ident($argName))
+  let resVar = ident($argName)
 
-proc withShards*(builder: var WakuConfBuilder, shards: seq[uint16]) =
-  builder.shards = some(shards)
+  result.add quote do:
+    proc `procName`*(`builderIdent`: var WakuConfBuilder, `resVar`: `argType`) =
+      `builderVar` = some(`argName`)
 
-proc withRelay*(builder: var WakuConfBuilder, relay: bool) =
-  builder.relay = some(relay)
-
-proc withMaxMessageSizeBytes*(builder: var WakuConfBuilder, maxMessageSizeBytes: int) =
-  builder.maxMessageSizeBytes = some(maxMessageSizeBytes)
+confWith(clusterConf, ClusterConf)
+confWith(nodeKey, PrivateKey)
+confWith(clusterId, uint16)
+confWith(shards, seq[uint16])
+confWith(relay, bool)
+confWith(filter, bool)
+confWith(storeSync, bool)
+confWith(maxMessageSizeBytes, int)
 
 proc withDiscv5*(builder: var WakuConfBuilder, discv5: bool) =
   builder.discv5Conf.withDiscv5(discv5)
@@ -281,6 +288,13 @@ proc build*(
       builder.peerExchange.get()
     else:
       warn "whether to mount peerExchange is not specified, defaulting to not mounting"
+      false
+
+  let storeSync =
+    if builder.storeSync.isSome:
+      builder.storeSync.get()
+    else:
+      warn "whether to mount storeSync is not specified, defaulting to not mounting"
       false
 
   # Apply cluster conf - values passed manually override cluster conf

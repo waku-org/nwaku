@@ -48,6 +48,7 @@ type WakuConf* = ref object
   filter*: bool
   lightPush*: bool
   peerExchange*: bool
+  storeSync*: bool
 
   discv5Conf*: Option[Discv5Conf]
 
