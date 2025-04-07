@@ -3,6 +3,7 @@
 import
   std/[tables, sequtils, sets, options, strutils],
   chronos,
+  chronicles,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
@@ -11,14 +12,12 @@ import
   ../../waku_core,
   ../../waku_enr/sharding,
   ../../waku_enr/capabilities,
-  ../../common/utils/sequence
+  ../../common/utils/sequence,
+  ../../waku_core/peers
 
 export peerstore, builders
 
 type
-  WakuPeerStore* = ref object
-    peerStore: PeerStore
-
   # Keeps track of the Connectedness state of a peer
   ConnectionBook* = ref object of PeerBook[Connectedness]
 
@@ -40,137 +39,152 @@ type
   # Keeps track of the ENR (Ethereum Node Record) of a peer
   ENRBook* = ref object of PeerBook[enr.Record]
 
-# Constructor
-proc new*(T: type WakuPeerStore, identify: Identify, capacity = 1000): WakuPeerStore =
-  let peerStore = PeerStore.new(identify, capacity)
-  WakuPeerStore(peerStore: peerStore)
-
-proc createWakuPeerStore*(peerStore: PeerStore): WakuPeerStore =
-  WakuPeerStore(peerStore: peerStore)
-
-# Core functionality
-proc `[]`*(wps: WakuPeerStore, T: typedesc): T =
-  wps.peerStore[T]
-
-proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
+proc getPeer*(peerStore: PeerStore, peerId: PeerId): RemotePeerInfo =
   RemotePeerInfo(
     peerId: peerId,
-    addrs: wps[AddressBook][peerId],
+    addrs: peerStore[AddressBook][peerId],
     enr:
-      if wps[ENRBook][peerId] != default(enr.Record):
-        some(wps[ENRBook][peerId])
+      if peerStore[ENRBook][peerId] != default(enr.Record):
+        some(peerStore[ENRBook][peerId])
       else:
         none(enr.Record),
-    protocols: wps[ProtoBook][peerId],
-    agent: wps[AgentBook][peerId],
-    protoVersion: wps[ProtoVersionBook][peerId],
-    publicKey: wps[KeyBook][peerId],
-    connectedness: wps[ConnectionBook][peerId],
-    disconnectTime: wps[DisconnectBook][peerId],
-    origin: wps[SourceBook][peerId],
-    direction: wps[DirectionBook][peerId],
-    lastFailedConn: wps[LastFailedConnBook][peerId],
-    numberFailedConn: wps[NumberFailedConnBook][peerId],
+    protocols: peerStore[ProtoBook][peerId],
+    agent: peerStore[AgentBook][peerId],
+    protoVersion: peerStore[ProtoVersionBook][peerId],
+    publicKey: peerStore[KeyBook][peerId],
+    connectedness: peerStore[ConnectionBook][peerId],
+    disconnectTime: peerStore[DisconnectBook][peerId],
+    origin: peerStore[SourceBook][peerId],
+    direction: peerStore[DirectionBook][peerId],
+    lastFailedConn: peerStore[LastFailedConnBook][peerId],
+    numberFailedConn: peerStore[NumberFailedConnBook][peerId],
   )
 
-proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
-  ## Only used in tests
-  wps[AddressBook][peer.peerId] = peer.addrs
-  wps[ProtoBook][peer.peerId] = peer.protocols
-  wps[AgentBook][peer.peerId] = peer.agent
-  wps[ProtoVersionBook][peer.peerId] = peer.protoVersion
-  wps[KeyBook][peer.peerId] = peer.publicKey
-  wps[ConnectionBook][peer.peerId] = peer.connectedness
-  wps[DisconnectBook][peer.peerId] = peer.disconnectTime
-  wps[SourceBook][peer.peerId] = peer.origin
-  wps[DirectionBook][peer.peerId] = peer.direction
-  wps[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
-  wps[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
-  if peer.enr.isSome():
-    wps[ENRBook][peer.peerId] = peer.enr.get()
-
-proc delete*(wps: WakuPeerStore, peerId: PeerId) =
+proc delete*(peerStore: PeerStore, peerId: PeerId) =
   # Delete all the information of a given peer.
-  wps.peerStore.del(peerId)
+  peerStore.del(peerId)
 
-# TODO: Rename peers() to getPeersByProtocol()
-proc peers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
+proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   let allKeys = concat(
-      toSeq(wps[AddressBook].book.keys()),
-      toSeq(wps[ProtoBook].book.keys()),
-      toSeq(wps[KeyBook].book.keys()),
+      toSeq(peerStore[AddressBook].book.keys()),
+      toSeq(peerStore[ProtoBook].book.keys()),
+      toSeq(peerStore[KeyBook].book.keys()),
     )
     .toHashSet()
 
-  return allKeys.mapIt(wps.getPeer(it))
+  return allKeys.mapIt(peerStore.getPeer(it))
 
-proc peers*(wps: WakuPeerStore, proto: string): seq[RemotePeerInfo] =
-  wps.peers().filterIt(it.protocols.contains(proto))
+proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo, origin = UnknownOrigin) =
+  ## Notice that the origin parameter is used to manually override the given peer origin.
+  ## At the time of writing, this is used in waku_discv5 or waku_node (peer exchange.)
+  if peerStore[AddressBook][peer.peerId] == peer.addrs and
+      peerStore[KeyBook][peer.peerId] == peer.publicKey and
+      peerStore[ENRBook][peer.peerId].raw.len > 0:
+    let incomingEnr = peer.enr.valueOr:
+      trace "peer already managed and incoming ENR is empty",
+        remote_peer_id = $peer.peerId
+      return
 
-proc peers*(wps: WakuPeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo] =
-  wps.peers().filterIt(it.protocols.anyIt(protocolMatcher(it)))
+    if peerStore[ENRBook][peer.peerId].raw == incomingEnr.raw or
+        peerStore[ENRBook][peer.peerId].seqNum > incomingEnr.seqNum:
+      trace "peer already managed and ENR info is already saved",
+        remote_peer_id = $peer.peerId
+      return
 
-proc connectedness*(wps: WakuPeerStore, peerId: PeerId): Connectedness =
-  wps[ConnectionBook].book.getOrDefault(peerId, NotConnected)
+  peerStore[AddressBook][peer.peerId] = peer.addrs
 
-proc hasShard*(wps: WakuPeerStore, peerId: PeerID, cluster, shard: uint16): bool =
-  wps[ENRBook].book.getOrDefault(peerId).containsShard(cluster, shard)
+  var protos = peerStore[ProtoBook][peer.peerId]
+  for new_proto in peer.protocols:
+    ## append new discovered protocols to the current known protocols set
+    if not protos.contains(new_proto):
+      protos.add($new_proto)
+  peerStore[ProtoBook][peer.peerId] = protos
 
-proc hasCapability*(wps: WakuPeerStore, peerId: PeerID, cap: Capabilities): bool =
-  wps[ENRBook].book.getOrDefault(peerId).supportsCapability(cap)
+  peerStore[AgentBook][peer.peerId] = peer.agent
+  peerStore[ProtoVersionBook][peer.peerId] = peer.protoVersion
+  peerStore[KeyBook][peer.peerId] = peer.publicKey
+  peerStore[ConnectionBook][peer.peerId] = peer.connectedness
+  peerStore[DisconnectBook][peer.peerId] = peer.disconnectTime
+  peerStore[SourceBook][peer.peerId] =
+    if origin != UnknownOrigin: origin else: peer.origin
+  peerStore[DirectionBook][peer.peerId] = peer.direction
+  peerStore[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
+  peerStore[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
+  if peer.enr.isSome():
+    peerStore[ENRBook][peer.peerId] = peer.enr.get()
 
-proc peerExists*(wps: WakuPeerStore, peerId: PeerId): bool =
-  wps[AddressBook].contains(peerId)
+proc peers*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
+  peerStore.peers().filterIt(it.protocols.contains(proto))
 
-proc isConnected*(wps: WakuPeerStore, peerId: PeerID): bool =
+proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo] =
+  peerStore.peers().filterIt(it.protocols.anyIt(protocolMatcher(it)))
+
+proc connectedness*(peerStore: PeerStore, peerId: PeerId): Connectedness =
+  peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
+
+proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint16): bool =
+  peerStore[ENRBook].book.getOrDefault(peerId).containsShard(cluster, shard)
+
+proc hasCapability*(peerStore: PeerStore, peerId: PeerID, cap: Capabilities): bool =
+  peerStore[ENRBook].book.getOrDefault(peerId).supportsCapability(cap)
+
+proc peerExists*(peerStore: PeerStore, peerId: PeerId): bool =
+  peerStore[AddressBook].contains(peerId)
+
+proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
   # Returns `true` if the peer is connected
-  wps.connectedness(peerId) == Connected
+  peerStore.connectedness(peerId) == Connected
 
-proc hasPeer*(wps: WakuPeerStore, peerId: PeerID, proto: string): bool =
+proc hasPeer*(peerStore: PeerStore, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
-  # TODO: What if peer does not exist in the wps?
-  wps.getPeer(peerId).protocols.contains(proto)
+  # TODO: What if peer does not exist in the peerStore?
+  peerStore.getPeer(peerId).protocols.contains(proto)
 
-proc hasPeers*(wps: WakuPeerStore, proto: string): bool =
+proc hasPeers*(peerStore: PeerStore, proto: string): bool =
   # Returns `true` if the peerstore has any peer for the specified protocol
-  toSeq(wps[ProtoBook].book.values()).anyIt(it.anyIt(it == proto))
+  toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(it == proto))
 
-proc hasPeers*(wps: WakuPeerStore, protocolMatcher: Matcher): bool =
+proc hasPeers*(peerStore: PeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
-  toSeq(wps[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
+  toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
 
-proc getCapacity*(wps: WakuPeerStore): int =
-  wps.peerStore.capacity
+proc getCapacity*(peerStore: PeerStore): int =
+  peerStore.capacity
 
-proc setCapacity*(wps: WakuPeerStore, capacity: int) =
-  wps.peerStore.capacity = capacity
+proc setCapacity*(peerStore: PeerStore, capacity: int) =
+  peerStore.capacity = capacity
 
-proc getWakuProtos*(wps: WakuPeerStore): seq[string] =
-  toSeq(wps[ProtoBook].book.values()).flatten().deduplicate().filterIt(
+proc getWakuProtos*(peerStore: PeerStore): seq[string] =
+  toSeq(peerStore[ProtoBook].book.values()).flatten().deduplicate().filterIt(
     it.startsWith("/vac/waku")
   )
 
 proc getPeersByDirection*(
-    wps: WakuPeerStore, direction: PeerDirection
+    peerStore: PeerStore, direction: PeerDirection
 ): seq[RemotePeerInfo] =
-  return wps.peers.filterIt(it.direction == direction)
+  return peerStore.peers.filterIt(it.direction == direction)
 
-proc getDisconnectedPeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
-  return wps.peers.filterIt(it.connectedness != Connected)
+proc getDisconnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.connectedness != Connected)
 
-proc getConnectedPeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
-  return wps.peers.filterIt(it.connectedness == Connected)
+proc getConnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.connectedness == Connected)
 
-proc getPeersByProtocol*(wps: WakuPeerStore, proto: string): seq[RemotePeerInfo] =
-  return wps.peers.filterIt(it.protocols.contains(proto))
+proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.protocols.contains(proto))
 
-proc getReachablePeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
+proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.connectedness != CannotConnect)
+
+proc getPeersByShard*(
+    peerStore: PeerStore, cluster, shard: uint16
+): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(
+    it.enr.isSome() and it.enr.get().containsShard(cluster, shard)
+  )
+
+proc getPeersByCapability*(
+    peerStore: PeerStore, cap: Capabilities
+): seq[RemotePeerInfo] =
   return
-    wps.peers.filterIt(it.connectedness == CanConnect or it.connectedness == Connected)
-
-proc getPeersByShard*(wps: WakuPeerStore, cluster, shard: uint16): seq[RemotePeerInfo] =
-  return
-    wps.peers.filterIt(it.enr.isSome() and it.enr.get().containsShard(cluster, shard))
-
-proc getPeersByCapability*(wps: WakuPeerStore, cap: Capabilities): seq[RemotePeerInfo] =
-  return wps.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))
+    peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))

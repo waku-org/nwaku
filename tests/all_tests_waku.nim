@@ -85,7 +85,8 @@ import
   ./test_waku_noise_sessions,
   ./test_waku_netconfig,
   ./test_waku_switch,
-  ./test_waku_rendezvous
+  ./test_waku_rendezvous,
+  ./waku_discv5/test_waku_discv5
 
 # Waku Keystore test suite
 import ./test_waku_keystore_keyfile, ./test_waku_keystore
