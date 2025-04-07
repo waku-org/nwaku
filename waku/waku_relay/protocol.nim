@@ -323,21 +323,35 @@ proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
 proc getDHigh*(T: type WakuRelay): int =
   return GossipsubParameters.dHigh
 
-proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
-  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+proc getPeersInMesh*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[seq[PeerId], string] =
+  ## Returns the list of peerIds in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
 
   if not w.mesh.hasKey(pubsubTopic):
-    debug "getNumPeersInMesh - there is no mesh peer for the given pubsub topic",
+    debug "getPeersInMesh - there is no mesh peer for the given pubsub topic",
       pubsubTopic = pubsubTopic
-    return ok(0)
+    return ok(newSeq[PeerId]())
 
   let peersRes = catch:
     w.mesh[pubsubTopic]
 
   let peers: HashSet[PubSubPeer] = peersRes.valueOr:
-    return
-      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+    return err("getPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  let peerIds = toSeq(peers).mapIt(it.peerId)
+
+  return ok(peerIds)
+
+proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
+  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+
+  let peers = w.getPeersInMesh(pubsubTopic).valueOr:
+    return err(
+      "getNumPeersInMesh - failed retrieving peers in mesh: " & pubsubTopic & ": " &
+        error
+    )
 
   return ok(peers.len)
 
@@ -539,22 +553,23 @@ proc publish*(
 
   return ok(relayedPeerCount)
 
-proc getNumConnectedPeers*(
+proc getConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic
-): Result[int, string] =
-  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+): Result[seq[PeerId], string] =
+  ## Returns the list of peerIds of connected peers and subscribed to the passed pubsub topic.
   ## The 'gossipsub' atribute is defined in the GossipSub ref object.
 
   if pubsubTopic == "":
     ## Return all the connected peers
-    var numConnPeers = 0
+    var peerIds = newSeq[PeerId]()
     for k, v in w.gossipsub:
-      numConnPeers.inc(v.len)
-    return ok(numConnPeers)
+      peerIds.add(toSeq(v).mapIt(it.peerId))
+      # alternatively: peerIds &= toSeq(v).mapIt(it.peerId)
+    return ok(peerIds)
 
   if not w.gossipsub.hasKey(pubsubTopic):
     return err(
-      "getNumConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
+      "getConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
         pubsubTopic
     )
 
@@ -562,8 +577,22 @@ proc getNumConnectedPeers*(
     w.gossipsub[pubsubTopic]
 
   let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  let peerIds = toSeq(peers).mapIt(it.peerId)
+  return ok(peerIds)
+
+proc getNumConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[int, string] =
+  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+
+  ## Return all the connected peers
+  let peers = w.getConnectedPeers(pubsubTopic).valueOr:
     return err(
-      "getNumConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg
+      "getNumConnectedPeers - failed retrieving peers in mesh: " & pubsubTopic & ": " &
+        error
     )
 
   return ok(peers.len)

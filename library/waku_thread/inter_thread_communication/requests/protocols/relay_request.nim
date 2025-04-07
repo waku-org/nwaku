@@ -1,4 +1,4 @@
-import std/net
+import std/[net, sequtils, strutils]
 import chronicles, chronos, stew/byteutils, results
 import
   ../../../../../waku/waku_core/message/message,
@@ -8,14 +8,17 @@ import
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../../waku/waku_relay/protocol,
+  ../../../../../waku/node/peer_manager,
   ../../../../alloc
 
 type RelayMsgType* = enum
   SUBSCRIBE
   UNSUBSCRIBE
   PUBLISH
+  NUM_CONNECTED_PEERS
   LIST_CONNECTED_PEERS
     ## to return the list of all connected peers to an specific pubsub topic
+  NUM_MESH_PEERS
   LIST_MESH_PEERS
     ## to return the list of only the peers that conform the mesh for a particular pubsub topic
   ADD_PROTECTED_SHARD ## Protects a shard with a public key
@@ -122,16 +125,28 @@ proc process*(
 
     let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
     return ok(msgHash)
-  of LIST_CONNECTED_PEERS:
+  of NUM_CONNECTED_PEERS:
     let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
-      error "LIST_CONNECTED_PEERS failed", error = error
+      error "NUM_CONNECTED_PEERS failed", error = error
       return err($error)
     return ok($numConnPeers)
-  of LIST_MESH_PEERS:
+  of LIST_CONNECTED_PEERS:
+    let connPeers = waku.node.wakuRelay.getConnectedPeers($self.pubsubTopic).valueOr:
+      error "LIST_CONNECTED_PEERS failed", error = error
+      return err($error)
+    ## returns a comma-separated string of peerIDs
+    return ok(connPeers.mapIt($it).join(","))
+  of NUM_MESH_PEERS:
     let numPeersInMesh = waku.node.wakuRelay.getNumPeersInMesh($self.pubsubTopic).valueOr:
-      error "LIST_MESH_PEERS failed", error = error
+      error "NUM_MESH_PEERS failed", error = error
       return err($error)
     return ok($numPeersInMesh)
+  of LIST_MESH_PEERS:
+    let meshPeers = waku.node.wakuRelay.getPeersInMesh($self.pubsubTopic).valueOr:
+      error "LIST_MESH_PEERS failed", error = error
+      return err($error)
+    ## returns a comma-separated string of peerIDs
+    return ok(meshPeers.mapIt($it).join(","))
   of ADD_PROTECTED_SHARD:
     try:
       let relayShard =

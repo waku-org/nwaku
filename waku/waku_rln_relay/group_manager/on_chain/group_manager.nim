@@ -29,7 +29,10 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
-type UInt40* = StUint[40]
+type EthereumUInt40* = StUint[40]
+type EthereumUInt32* = StUint[32]
+type EthereumUInt16* = StUint[16]
+
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -47,8 +50,8 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc maxMembershipRateLimit(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  proc getMerkleProof(index: UInt40): seq[Uint256] {.view.}
-  # this function returns the Merkle root
+  # proc getMerkleProof(index: UInt40): seq[Uint256] {.view.}
+  # # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
 type
@@ -65,7 +68,7 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
-    merkleProofCache*: seq[Uint256]
+    merkleProofCache*: seq[UInt256]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -92,46 +95,97 @@ proc setMetadata*(
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
-): Future[Result[seq[Uint256], string]] {.async.} =
-  let membershipIndex = g.membershipIndex.get()
-  debug " ------ Fetching merkle proof", index = membershipIndex
+): Future[Result[seq[UInt256], string]] {.async.} =
   try:
-    # First check if the index is valid
-    # let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
-    # let currentCommitmentIndex = await commitmentIndexInvocation.call()
+    let membershipIndex = g.membershipIndex.get()
+    let commitmentIndexInvocation = g.wakuRlnContract.get().nextFreeIndex()
+    let currentCommitmentIndex = await commitmentIndexInvocation.call()
     let membershipIndexUint256 = stuint(membershipIndex, 256)
+    let index40 = stuint(membershipIndex, 40)
 
-    debug " ------ Checking membership index validity",
-      membershipIndex = membershipIndex,
-      membershipIndexAsUint256 = membershipIndexUint256.toHex()
-      # currentCommitmentIndex = currentCommitmentIndex.toHex()
+    if membershipIndexUint256 >= currentCommitmentIndex:
+      return err(
+        "Invalid membership index: " & $membershipIndex &
+          " is >= current commitment index: " & currentCommitmentIndex.toHex()
+      )
 
-    # Convert to UInt40 for contract call (merkleProofElements takes UInt40)
-    let indexUint40 = stuint(membershipIndex, 40)
-    debug " ------ Converting membershipIndex to UInt40",
-      originalIndex = membershipIndex, asUint40 = indexUint40.toHex()
+    let methodSig = "getMerkleProof(uint40)"
+    let methodIdDigest = keccak.keccak256.digest(methodSig)
+    let methodId = methodIdDigest.data[0 .. 3]
 
-    let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(indexUint40)
-    let merkleProof = await merkleProofInvocation.call()
-    debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
+    var paddedParam = newSeq[byte](32)
+    let indexBytes = index40.toBytesBE()
+    for i in 0 ..< min(indexBytes.len, paddedParam.len):
+      paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
+
+    var callData = newSeq[byte]()
+    for b in methodId:
+      callData.add(b)
+    callData.add(paddedParam)
+
+    var tx: TransactionArgs
+    tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
+    tx.data = Opt.some(callData)
+
+    let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
+
+    var merkleProof: seq[UInt256]
+
+    for i in 0 .. 19:
+      let startindex = 32 + (i * 32) # skip initial 32 bytes for the array offset
+      if startindex + 32 <= responseBytes.len:
+        let elementbytes = responseBytes[startindex ..< startindex + 32]
+        merkleProof.add(UInt256.fromBytesBE(elementbytes))
+
     return ok(merkleProof)
   except CatchableError:
-    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+    error "------ Failed to fetch Merkle proof elements ------",
+      errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
+    return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
 
 # proc fetchMerkleProofElements*(
 #     g: OnchainGroupManager
-# ): Future[Result[seq[Uint256], string]] {.async.} =
-#   let membershipIndex = g.membershipIndex.get()
-#   debug "Fetching merkle proof", index = membershipIndex
+# ): Future[Result[seq[UInt256], string]] {.async.} =
 #   try:
-#     let index = stuint(membershipIndex, 40)
+#     let membershipIndex = g.membershipIndex.get()
 # 
-#     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+#     # First check if the index is valid and within range
+#     let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+#     let currentCommitmentIndex = await commitmentIndexInvocation.call()
+#     let membershipIndexUint256 = stuint(membershipIndex, 256)
+#     let index40 = stuint(membershipIndex, 40)
+# 
+#     debug "------ checking if membership index is validity ------",
+#       membershipIndex = membershipIndex,
+#       membershipIndexHEX = membershipIndex.toHex(),
+#       membershipIndexUint256 = membershipIndexUint256,
+#       membershipIndexUint256HEX = membershipIndexUint256.toHex(),
+#       currentCommitmentIndex = currentCommitmentIndex,    
+#       currentCommitmentIndexHEX = currentCommitmentIndex.toHex(),
+#       index40 = index40,
+#       index40HEX = index40.toHex()
+# 
+#     # Ensure the membershipIndex is less than the total number of commitments
+#     if membershipIndexUint256 >= currentCommitmentIndex:
+#       error "Invalid membership index",
+#         membershipIndex = membershipIndex,
+#         currentCommitmentIndex = currentCommitmentIndex.toHex()
+#       return err(
+#         "Invalid membership index: " & $membershipIndex &
+#           " is >= current commitment index: " & currentCommitmentIndex.toHex()
+#       )
+# 
+#     let merkleProofInvocation =
+#       g.wakuRlnContract.get().merkleProofElements(membershipIndexUint256)
 #     let merkleProof = await merkleProofInvocation.call()
-#     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
+# 
+#     debug "------ Merkle proof ------", merkleProof = merkleProof
+# 
 #     return ok(merkleProof)
 #   except CatchableError:
-#     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+#     error "------ Failed to fetch Merkle proof elements ------",
+#       errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
+#     return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -320,7 +374,7 @@ proc toArray32*(s: seq[byte]): array[32, byte] =
   return output
 
 proc toArray32Seq*(values: seq[UInt256]): seq[array[32, byte]] =
-  ## Converts a sequence of UInt256 to a sequence of 32-byte arrays
+  ## Converts a MerkleProof (array of 20 UInt256 values) to a sequence of 32-byte arrays
   result = newSeqOfCap[array[32, byte]](values.len)
   for value in values:
     result.add(value.toBytesLE())
@@ -341,28 +395,49 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "calling generateProof from generateProof from group_manager onchain",
-    data = data
+  debug "------ calling generateProof from generateProof from group_manager onchain ------",
+    data = data,
+    membershipIndex = g.membershipIndex.get(),
+    userMessageLimit = g.userMessageLimit.get()
 
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
   try:
     let rootRes = waitFor g.fetchMerkleRoot()
     if rootRes.isErr():
-      return err("Failed to fetch Merkle root")
+      return err("Failed to fetch Merkle root: " & rootRes.error)
     debug "Merkle root fetched", root = rootRes.get().toHex
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+    return err("Failed to fetch Merkle root: " & getCurrentExceptionMsg())
+
+  # Check if contract knows about the member
+  try:
+    let idCommitment = g.idCredentials.get().idCommitment.toUInt256()
+    let memberExistsRes =
+      waitFor g.wakuRlnContract.get().isInMembershipSet(idCommitment).call()
+
+    if memberExistsRes == false:
+      error "------ Member does not exist in contract ------",
+        idCommitment = idCommitment.toHex(), membershipIndex = g.membershipIndex.get()
+      return err("Member ID commitment not found in contract: " & idCommitment.toHex())
+
+    debug "------ Member exists in contract ------",
+      idCommitment = idCommitment.toHex(), membershipIndex = g.membershipIndex.get()
+  except CatchableError as e:
+    error "------ Failed to check if member exists ------", error = e.msg
+    # Continue execution even if this check fails
 
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err("Failed to fetch Merkle proof" & $proofResult.error)
+      return err("Failed to fetch Merkle proof: " & proofResult.error)
     g.merkleProofCache = proofResult.get()
     debug "Merkle proof fetched",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
   except CatchableError:
     error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
+    return err("Failed to fetch Merkle proof: " & getCurrentExceptionMsg())
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),

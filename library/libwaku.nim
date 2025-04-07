@@ -436,12 +436,54 @@ proc waku_relay_get_num_connected_peers(
   handleRequest(
     ctx,
     RequestType.RELAY,
+    RelayRequest.createShared(RelayMsgType.NUM_CONNECTED_PEERS, pst),
+    callback,
+    userData,
+  )
+
+proc waku_relay_get_connected_peers(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
+
+  handleRequest(
+    ctx,
+    RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, pst),
     callback,
     userData,
   )
 
 proc waku_relay_get_num_peers_in_mesh(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
+
+  handleRequest(
+    ctx,
+    RequestType.RELAY,
+    RelayRequest.createShared(RelayMsgType.NUM_MESH_PEERS, pst),
+    callback,
+    userData,
+  )
+
+proc waku_relay_get_peers_in_mesh(
     ctx: ptr WakuContext,
     pubSubTopic: cstring,
     callback: WakuCallBack,
