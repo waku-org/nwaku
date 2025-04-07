@@ -45,13 +45,6 @@ proc enrConfiguration*(
 
   return ok(record)
 
-proc validateExtMultiAddrs*(vals: seq[string]): Result[seq[MultiAddress], string] =
-  var multiaddrs: seq[MultiAddress]
-  for val in vals:
-    let multiaddr = ?MultiAddress.init(val)
-    multiaddrs.add(multiaddr)
-  return ok(multiaddrs)
-
 proc dnsResolve*(
     domain: string, conf: WakuNodeConf
 ): Future[Result[string, string]] {.async.} =
@@ -85,15 +78,9 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   var (extIp, extTcpPort, _) = natRes.get()
 
   let
-    dns4DomainName =
-      if conf.dns4DomainName != "":
-        some(conf.dns4DomainName)
-      else:
-        none(string)
-
     discv5UdpPort =
-      if conf.discv5Discovery:
-        some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
+      if conf.discv5Conf.isSome:
+        some(Port(uint16(conf.discv5Conf.get().udpPort) + conf.portsShift))
       else:
         none(Port)
 
@@ -102,21 +89,10 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     ## extPort as well. The following heuristic assumes that, in absence of
     ## manual config, the external port is the same as the bind port.
     extPort =
-      if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
+      if (extIp.isSome() or conf.dns4DomainName.isSome()) and extTcpPort.isNone():
         some(Port(uint16(conf.tcpPort) + conf.portsShift))
       else:
         extTcpPort
-
-    extMultiAddrs =
-      if (conf.extMultiAddrs.len > 0):
-        let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
-        if extMultiAddrsValidationRes.isErr():
-          return
-            err("invalid external multiaddress: " & $extMultiAddrsValidationRes.error)
-        else:
-          extMultiAddrsValidationRes.get()
-      else:
-        @[]
 
     wakuFlags = CapabilitiesBitfield.init(
       lightpush = conf.lightpush,
@@ -127,7 +103,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     )
 
   # Resolve and use DNS domain IP
-  if dns4DomainName.isSome() and extIp.isNone():
+  if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
       let dnsRes = waitFor dnsResolve(conf.dns4DomainName, conf)
 
@@ -148,12 +124,12 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
     extIp = extIp,
     extPort = extPort,
-    extMultiAddrs = extMultiAddrs,
+    extMultiAddrs = conf.extMultiAddrs,
     extMultiAddrsOnly = conf.extMultiAddrsOnly,
     wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
     wsEnabled = conf.websocketSupport,
     wssEnabled = conf.websocketSecureSupport,
-    dns4DomainName = dns4DomainName,
+    dns4DomainName = conf.dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
   )

@@ -63,8 +63,10 @@ when isMainModule:
     let restServer = rest_server_builder.startRestServerEsentials(
       nodeHealthMonitor, confCopy
     ).valueOr:
-      error "Starting esential REST server failed.", error = $error
+      error "Starting essential REST server failed.", error = $error
       quit(QuitFailure)
+
+    # applyPresetConfiguration(wakuNodeConf, confBuilder)
 
     var waku = Waku.new(confCopy).valueOr:
       error "Waku initialization failed", error = error

@@ -144,18 +144,14 @@ proc setupAppCallbacks(
 
   return ok()
 
-# TODO: This should probably accept a `WakuConf` instead, and have the caller use `WakuConfBuilder`
-# Or whatever they prefer to build a valid conf
 proc new*(
-    T: type Waku, wakuNodeConf: WakuNodeConf, appCallbacks: AppCallbacks = nil
+    T: type Waku, wakuConf: WakuConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(wakuNodeConf.logLevel, wakuNodeConf.logFormat)
+  logging.setupLog(wakuConf.logLevel, wakuConf.logFormat)
 
-  var confBuilder = WakuConfBuilder.init()
-
-  applyPresetConfiguration(wakuNodeConf, confBuilder)
+  ?wakuConf.validate()
 
   info "Running nwaku node", version = git_version
 
