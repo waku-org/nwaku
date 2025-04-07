@@ -376,9 +376,23 @@ proc indexToPath(index: uint64): seq[byte] =
   for i in 0 ..< treeHeight:
     result[i] = byte((index shr i) and 1)
 
+proc hashToField*(signal: openArray[byte]): array[32, byte] =
+  # 1. Hash the input signal using Keccak256
+  var ctx: keccak256
+  ctx.init()
+  ctx.update(signal)
+  var hash = ctx.finish()
+
+  # 2. Convert hash to field element (equivalent to bytes_le_to_fr)
+  # Since we're just returning the raw hash as the field representation
+  # for simplicity, we can simply return the hash bytes
+  var result: array[32, byte]
+  copyMem(result[0].addr, hash.data[0].addr, 32)
+  return result
+
 method generateProof*(
     g: OnchainGroupManager,
-    data: seq[byte],
+    data: openArray[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
@@ -416,7 +430,7 @@ method generateProof*(
     message_id: toArray32BE_to_LE(messageId),
     path_elements: g.merkleProofCache,
     identity_path_index: indexToPath(g.membershipIndex.get()),
-    x: toArray32BE_to_LE(data),
+    x: hashToField(data),
     external_nullifier: toArray32BE_to_LE(externalNullifierRes.get()),
   )
 
