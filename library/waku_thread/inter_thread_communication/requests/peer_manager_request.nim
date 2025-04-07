@@ -86,13 +86,13 @@ proc process*(
   of GET_ALL_PEER_IDS:
     ## returns a comma-separated string of peerIDs
     let peerIDs =
-      waku.node.peerManager.wakuPeerStore.peers().mapIt($it.peerId).join(",")
+      waku.node.peerManager.switch.peerStore.peers().mapIt($it.peerId).join(",")
     return ok(peerIDs)
   of GET_CONNECTED_PEERS_INFO:
     ## returns a JSON string mapping peerIDs to objects with protocols and addresses
 
     var peersMap = initTable[string, PeerInfo]()
-    let peers = waku.node.peerManager.wakuPeerStore.peers().filterIt(
+    let peers = waku.node.peerManager.switch.peerStore.peers().filterIt(
         it.connectedness == Connected
       )
 
@@ -108,7 +108,7 @@ proc process*(
     return ok(jsonStr)
   of GET_PEER_IDS_BY_PROTOCOL:
     ## returns a comma-separated string of peerIDs that mount the given protocol
-    let connectedPeers = waku.node.peerManager.wakuPeerStore
+    let connectedPeers = waku.node.peerManager.switch.peerStore
       .peers($self[].protocol)
       .filterIt(it.connectedness == Connected)
       .mapIt($it.peerId)

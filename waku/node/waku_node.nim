@@ -417,7 +417,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   ## Setup relay protocol
 
   # Resume previous relay connections
-  if node.peerManager.wakuPeerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
+  if node.peerManager.switch.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
 
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
@@ -1260,7 +1260,7 @@ proc fetchPeerExchangePeers*(
       )
     )
 
-  info "Retrieving peer info via peer exchange protocol"
+  info "Retrieving peer info via peer exchange protocol", amount
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
   if pxPeersRes.isOk:
     var validPeers = 0

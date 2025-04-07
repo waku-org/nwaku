@@ -41,7 +41,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
     var peers: WakuPeers = @[]
 
-    let relayPeers = node.peerManager.wakuPeerStore.peers(WakuRelayCodec).mapIt(
+    let relayPeers = node.peerManager.switch.peerStore.peers(WakuRelayCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuRelayCodec,
@@ -51,7 +51,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, relayPeers)
 
-    let filterV2Peers = node.peerManager.wakuPeerStore
+    let filterV2Peers = node.peerManager.switch.peerStore
       .peers(WakuFilterSubscribeCodec)
       .mapIt(
         (
@@ -63,7 +63,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, filterV2Peers)
 
-    let storePeers = node.peerManager.wakuPeerStore.peers(WakuStoreCodec).mapIt(
+    let storePeers = node.peerManager.switch.peerStore.peers(WakuStoreCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuStoreCodec,
@@ -73,7 +73,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, storePeers)
 
-    let legacyStorePeers = node.peerManager.wakuPeerStore
+    let legacyStorePeers = node.peerManager.switch.peerStore
       .peers(WakuLegacyStoreCodec)
       .mapIt(
         (
@@ -85,7 +85,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, legacyStorePeers)
 
-    let legacyLightpushPeers = node.peerManager.wakuPeerStore
+    let legacyLightpushPeers = node.peerManager.switch.peerStore
       .peers(WakuLegacyLightPushCodec)
       .mapIt(
         (
@@ -97,7 +97,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, legacyLightpushPeers)
 
-    let lightpushPeers = node.peerManager.wakuPeerStore.peers(WakuLightPushCodec).mapIt(
+    let lightpushPeers = node.peerManager.switch.peerStore
+      .peers(WakuLightPushCodec)
+      .mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuLightPushCodec,
@@ -107,7 +109,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, lightpushPeers)
 
-    let pxPeers = node.peerManager.wakuPeerStore.peers(WakuPeerExchangeCodec).mapIt(
+    let pxPeers = node.peerManager.switch.peerStore.peers(WakuPeerExchangeCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuPeerExchangeCodec,
