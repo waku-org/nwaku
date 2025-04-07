@@ -155,7 +155,6 @@ method validateRoot*(
     first = false
   rootsStr.add("]")
   debug "Valid Merkle roots in validateRoot", roots = rootsStr, root_to_validate = root
-  
   # Check if the root is in the valid roots queue
   if g.indexOfRoot(root) >= 0:
     return true

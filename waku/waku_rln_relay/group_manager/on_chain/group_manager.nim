@@ -50,8 +50,8 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc maxMembershipRateLimit(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  # proc getMerkleProof(index: UInt40): seq[Uint256] {.view.}
-  # # this function returns the Merkle root
+  proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
+  # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
 type
@@ -68,7 +68,7 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
-    merkleProofCache*: seq[UInt256]
+    merkleProofCache*: seq[array[32, byte]]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -95,19 +95,10 @@ proc setMetadata*(
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
-): Future[Result[seq[UInt256], string]] {.async.} =
+): Future[Result[seq[array[32, byte]], string]] {.async.} =
   try:
     let membershipIndex = g.membershipIndex.get()
-    let commitmentIndexInvocation = g.wakuRlnContract.get().nextFreeIndex()
-    let currentCommitmentIndex = await commitmentIndexInvocation.call()
-    let membershipIndexUint256 = stuint(membershipIndex, 256)
     let index40 = stuint(membershipIndex, 40)
-
-    if membershipIndexUint256 >= currentCommitmentIndex:
-      return err(
-        "Invalid membership index: " & $membershipIndex &
-          " is >= current commitment index: " & currentCommitmentIndex.toHex()
-      )
 
     let methodSig = "getMerkleProof(uint40)"
     let methodIdDigest = keccak.keccak256.digest(methodSig)
@@ -129,63 +120,24 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    var merkleProof: seq[UInt256]
-
-    for i in 0 .. 19:
-      let startindex = 32 + (i * 32) # skip initial 32 bytes for the array offset
-      if startindex + 32 <= responseBytes.len:
-        let elementbytes = responseBytes[startindex ..< startindex + 32]
-        merkleProof.add(UInt256.fromBytesBE(elementbytes))
+    var merkleProof = newSeqOfCap[array[32, byte]](20)
+    for i in 0 ..< 20:
+      let startIndex = 32 + (i * 32) # Skip first 32 bytes (ABI encoding offset)
+      if startIndex + 32 <= responseBytes.len:
+        var element: array[32, byte]
+        for j in 0 ..< 32:
+          if startIndex + j < responseBytes.len:
+            element[j] = responseBytes[startIndex + j]
+        merkleProof.add(element)
+      else:
+        var element: array[32, byte]
+        merkleProof.add(element)
 
     return ok(merkleProof)
   except CatchableError:
     error "------ Failed to fetch Merkle proof elements ------",
       errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
     return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
-
-# proc fetchMerkleProofElements*(
-#     g: OnchainGroupManager
-# ): Future[Result[seq[UInt256], string]] {.async.} =
-#   try:
-#     let membershipIndex = g.membershipIndex.get()
-# 
-#     # First check if the index is valid and within range
-#     let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
-#     let currentCommitmentIndex = await commitmentIndexInvocation.call()
-#     let membershipIndexUint256 = stuint(membershipIndex, 256)
-#     let index40 = stuint(membershipIndex, 40)
-# 
-#     debug "------ checking if membership index is validity ------",
-#       membershipIndex = membershipIndex,
-#       membershipIndexHEX = membershipIndex.toHex(),
-#       membershipIndexUint256 = membershipIndexUint256,
-#       membershipIndexUint256HEX = membershipIndexUint256.toHex(),
-#       currentCommitmentIndex = currentCommitmentIndex,    
-#       currentCommitmentIndexHEX = currentCommitmentIndex.toHex(),
-#       index40 = index40,
-#       index40HEX = index40.toHex()
-# 
-#     # Ensure the membershipIndex is less than the total number of commitments
-#     if membershipIndexUint256 >= currentCommitmentIndex:
-#       error "Invalid membership index",
-#         membershipIndex = membershipIndex,
-#         currentCommitmentIndex = currentCommitmentIndex.toHex()
-#       return err(
-#         "Invalid membership index: " & $membershipIndex &
-#           " is >= current commitment index: " & currentCommitmentIndex.toHex()
-#       )
-# 
-#     let merkleProofInvocation =
-#       g.wakuRlnContract.get().merkleProofElements(membershipIndexUint256)
-#     let merkleProof = await merkleProofInvocation.call()
-# 
-#     debug "------ Merkle proof ------", merkleProof = merkleProof
-# 
-#     return ok(merkleProof)
-#   except CatchableError:
-#     error "------ Failed to fetch Merkle proof elements ------",
-#       errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
-#     return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -370,14 +322,19 @@ method withdrawBatch*(
 
 proc toArray32*(s: seq[byte]): array[32, byte] =
   var output: array[32, byte]
-  discard output.copyFrom(s)
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[s.len - 1 - i]
   return output
 
-proc toArray32Seq*(values: seq[UInt256]): seq[array[32, byte]] =
-  ## Converts a MerkleProof (array of 20 UInt256 values) to a sequence of 32-byte arrays
-  result = newSeqOfCap[array[32, byte]](values.len)
-  for value in values:
-    result.add(value.toBytesLE())
+proc indexToPath(index: uint64): seq[byte] =
+  # Fixed tree height of 32 for RLN
+  const treeHeight = 20
+  result = newSeq[byte](treeHeight)
+  for i in 0 ..< treeHeight:
+    result[i] = byte((index shr i) and 1)
 
 method generateProof*(
     g: OnchainGroupManager,
@@ -403,32 +360,6 @@ method generateProof*(
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
   try:
-    let rootRes = waitFor g.fetchMerkleRoot()
-    if rootRes.isErr():
-      return err("Failed to fetch Merkle root: " & rootRes.error)
-    debug "Merkle root fetched", root = rootRes.get().toHex
-  except CatchableError:
-    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
-    return err("Failed to fetch Merkle root: " & getCurrentExceptionMsg())
-
-  # Check if contract knows about the member
-  try:
-    let idCommitment = g.idCredentials.get().idCommitment.toUInt256()
-    let memberExistsRes =
-      waitFor g.wakuRlnContract.get().isInMembershipSet(idCommitment).call()
-
-    if memberExistsRes == false:
-      error "------ Member does not exist in contract ------",
-        idCommitment = idCommitment.toHex(), membershipIndex = g.membershipIndex.get()
-      return err("Member ID commitment not found in contract: " & idCommitment.toHex())
-
-    debug "------ Member exists in contract ------",
-      idCommitment = idCommitment.toHex(), membershipIndex = g.membershipIndex.get()
-  except CatchableError as e:
-    error "------ Failed to check if member exists ------", error = e.msg
-    # Continue execution even if this check fails
-
-  try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
       return err("Failed to fetch Merkle proof: " & proofResult.error)
@@ -443,11 +374,29 @@ method generateProof*(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
     user_message_limit: serialize(g.userMessageLimit.get()),
     message_id: serialize(messageId),
-    path_elements: toArray32Seq(g.merkleProofCache),
-    identity_path_index: @(toBytes(g.membershipIndex.get(), littleEndian)),
+    path_elements: g.merkleProofCache,
+    identity_path_index: indexToPath(g.membershipIndex.get()),
     x: toArray32(data),
     external_nullifier: externalNullifierRes.get(),
   )
+
+  debug "------ Generating proof with witness ------",
+    identity_secret = inHex(witness.identity_secret),
+    user_message_limit = inHex(witness.user_message_limit),
+    message_id = inHex(witness.message_id),
+    path_elements = witness.path_elements.map(inHex),
+    identity_path_index = witness.identity_path_index.mapIt($it).join(", "),
+    x = inHex(witness.x),
+    external_nullifier = inHex(witness.external_nullifier)
+
+  debug "------ Witness parameters ------",
+    identity_secret_len = witness.identity_secret.len,
+    user_message_limit_len = witness.user_message_limit.len,
+    message_id_len = witness.message_id.len,
+    path_elements_count = witness.path_elements.len,
+    identity_path_index_len = witness.identity_path_index.len,
+    x_len = witness.x.len,
+    external_nullifier_len = witness.external_nullifier.len
 
   let serializedWitness = serialize(witness)
   var inputBuffer = toBuffer(serializedWitness)
@@ -458,6 +407,8 @@ method generateProof*(
     generate_proof_with_witness(g.rlnInstance, addr inputBuffer, addr outputBuffer)
   if not success:
     return err("Failed to generate proof")
+  else:
+    debug "------ Proof generated successfully --------"
 
   # Parse the proof into a RateLimitProof object
   var proofValue = cast[ptr array[320, byte]](outputBuffer.`ptr`)
