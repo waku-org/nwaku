@@ -158,9 +158,10 @@ proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
 
   return ok(some(Discv5Conf(bootstrapNodes: bootstrapNodes, udpPort: udpPort)))
 
-#########################
-## Waku Config Builder ##
-#########################
+## `WakuConfBuilder` is a convenient tool to accumulate
+## Config parameters to build a `WakuConfig`.
+## It provides some type conversion, as well as applying
+## defaults in an agnostic manner (for any usage of Waku node)
 type WakuConfBuilder* = ref object
   nodeKey*: Option[PrivateKey]
 

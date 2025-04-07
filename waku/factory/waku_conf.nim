@@ -32,6 +32,10 @@ type RlnRelayConf* = ref object
   userMessageLimit*: uint64
   ethClientAddress*: EthRpcUrl
 
+## `WakuConf` is a valid configuration for a Waku node
+## All information needed by a waku node should be contained
+## In this object. A convenient `validate` method enables doing
+## sanity checks beyond type enforcement.
 type WakuConf* = ref object
   nodeKey*: PrivateKey
 
