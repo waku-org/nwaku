@@ -18,7 +18,7 @@ import
 suite "Waku config - apply preset":
   test "Default preset is TWN":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConfig.TheWakuNetworkConf()
 
     ## Given
     let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn")
@@ -43,7 +43,7 @@ suite "Waku config - apply preset":
 
   test "Subscribes to all valid shards in twn":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConfig.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 1, 2, 3, 4, 5, 6, 7]
@@ -59,7 +59,7 @@ suite "Waku config - apply preset":
 
   test "Subscribes to some valid shards in twn":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConfig.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 4, 7]

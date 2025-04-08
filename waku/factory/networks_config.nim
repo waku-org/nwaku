@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-type ClusterConf* = object
+type NetworkConfig* = object
   maxMessageSize*: string
   clusterId*: uint16
   rlnRelay*: bool
@@ -17,8 +17,8 @@ type ClusterConf* = object
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
-proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
-  return ClusterConf(
+proc TheWakuNetworkConf*(T: type NetworkConfig): NetworkConfig =
+  return NetworkConfig(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,

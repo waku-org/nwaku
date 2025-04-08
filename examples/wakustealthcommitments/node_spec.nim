@@ -25,7 +25,7 @@ proc setup*(): Waku =
 
   var conf = confRes.get()
 
-  let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+  let twnClusterConf = NetworkConfig.TheWakuNetworkConf()
   if len(conf.shards) != 0:
     conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
   else:

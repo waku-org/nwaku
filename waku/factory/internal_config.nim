@@ -170,7 +170,7 @@ proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, stri
 
   case toLowerAscii(resConf.preset)
   of "twn":
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    let twnClusterConf = NetworkConfig.TheWakuNetworkConf()
 
     # Override configuration
     resConf.maxMessageSize = twnClusterConf.maxMessageSize
