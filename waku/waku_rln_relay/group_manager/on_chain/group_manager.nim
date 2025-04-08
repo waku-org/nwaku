@@ -207,10 +207,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
   # Set up the polling interval - more frequent to catch roots
   const rpcDelay = 5.seconds
 
-  info "------ Starting to track Merkle root changes ------",
+  info "------ Starting to track Merkle root changes ------"
 
   while true:
-    debug "------ starting to update roots ------",
+    debug "------ starting to update roots ------"
     let rootUpdated = await g.updateRoots()
 
     if rootUpdated:
