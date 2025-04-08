@@ -76,14 +76,14 @@ jobs:
           tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wakunode2
           path: ${{steps.vars.outputs.nwaku}}
           retention-days: 2
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wakutools
           path: ${{steps.vars.outputs.nwakutools}}
