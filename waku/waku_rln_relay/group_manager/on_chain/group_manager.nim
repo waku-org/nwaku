@@ -336,6 +336,17 @@ proc indexToPath(index: uint64): seq[byte] =
   for i in 0 ..< treeHeight:
     result[i] = byte((index shr i) and 1)
 
+# Hashes arbitrary signal to the underlying prime field.
+proc hashToField*(signal: seq[byte]): array[32, byte] =
+  var ctx: keccak256
+  ctx.init()
+  ctx.update(signal)
+  var hash = ctx.finish()
+
+  var result: array[32, byte]
+  copyMem(result[0].addr, hash.data[0].addr, 32)
+  return result
+
 method generateProof*(
     g: OnchainGroupManager,
     data: seq[byte],
@@ -376,7 +387,7 @@ method generateProof*(
     message_id: serialize(messageId),
     path_elements: g.merkleProofCache,
     identity_path_index: indexToPath(g.membershipIndex.get()),
-    x: toArray32(data),
+    x: hashToField(data),
     external_nullifier: externalNullifierRes.get(),
   )
 
