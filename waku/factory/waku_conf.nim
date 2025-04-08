@@ -87,6 +87,17 @@ type WakuConf* = ref object
   # TODO: should clearly be a uint
   maxConnections*: int
 
+  agentString*: string
+
+  colocationLimit*: int
+
+  rateLimits*: seq[string]
+
+  # TODO: those could be in a relay conf object
+  maxRelayPeers*: Option[int]
+  relayShardedPeerManagement*: bool
+  relayServiceRatio*: string
+
 proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
     relay = conf.relay,

@@ -60,7 +60,6 @@ proc initNode(
     conf: WakuConf,
     netConfig: NetConfig,
     rng: ref HmacDrbgContext,
-    nodeKey: crypto.PrivateKey,
     record: enr.Record,
     peerStore: Option[WakuPeerStorage],
     relay: Relay,
@@ -97,7 +96,7 @@ proc initNode(
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
-  builder.withNodeKey(nodeKey)
+  builder.withNodeKey(conf.nodeKey)
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
@@ -156,7 +155,7 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
+    node: WakuNode, conf: WakuConf, nodeKey: crypto.PrivateKey
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -483,7 +482,9 @@ proc startNode*(
 
   return ok()
 
-proc setupNode*(wakuConf: WakuConf, relay: Relay): Result[WakuNode, string] =
+proc setupNode*(
+    wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
+): Result[WakuNode, string] =
   let netConfig = networkConfiguration(wakuConf, clientId).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
@@ -514,7 +515,7 @@ proc setupNode*(wakuConf: WakuConf, relay: Relay): Result[WakuNode, string] =
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(conf, key)).isOkOr:
+    (waitFor node.setupProtocols(wakuConf, key)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

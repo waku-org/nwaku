@@ -268,6 +268,15 @@ type WakuConfBuilder* = ref object
   peerStoreCapacity: Option[int]
   maxConnections: Option[int]
 
+  agentString: Option[string]
+
+  rateLimits: Option[seq[string]]
+
+  maxRelayPeers: Option[int]
+  relayShardedPeerManagement: Option[bool]
+  relayServiceRatio: Option[string]
+
+
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
     rlnRelayConf: RlnRelayConfBuilder.init(),
@@ -290,6 +299,11 @@ with(WakuConfbuilder, shards, seq[uint16])
 with(WakuConfbuilder, dnsAddrsNameServers, seq[IpAddress])
 with(WakuConfbuilder, p2pTcpPort, uint16, Port)
 with(WakuConfbuilder, dns4DomainName, string, DomainName)
+with(WakuConfbuilder, agentString, string)
+with(WakuConfBuilder, colocationLimit, int)
+with(WakuConfBuilder, rateLimits, seq[string])
+with(WakuConfBuilder, maxRelayPeers, int)
+with(WakuConfBuilder, relayServiceRatio, string)
 
 proc withExtMultiAddr*(builder: var WakuConfBuilder, extMultiAddr: string) =
   builder.extMultiAddrs.add(extMultiAddr)
@@ -572,6 +586,23 @@ proc build*(
     else:
       return err "Max Connections was not specified"
 
+  let relayServiceRatio =
+    if builder.relayServiceRatio.isSome:
+      builder.relayServiceRatio.get()
+    else:
+      return err "Relay Service Ratio was not specified"
+
+  # TODO: Do the git version thing here
+  let agentString = builder.agentString.get("nwaku")
+
+  # TODO: use `DefaultColocationLimit`. the user of this value should
+  # probably be defining a config object
+  let colocationLimit = builder.colocationLimit.get(5)
+  let rateLimits = builder.rateLimits.get(newSeq[string](0))
+
+  # TODO: is there a strategy for experimental features? delete vs promote
+  let relayShardedPeerManagement = builder.relayShardedPeerManagement.get(false)
+
   return ok(
     WakuConf(
       nodeKey: nodeKey,
@@ -602,5 +633,10 @@ proc build*(
       peerPersistence: peerPersistence,
       peerStoreCapacity: builder.peerStoreCapacity,
       maxConnections: maxConnections,
+      agentString: agentString,
+      colocationLimit: colocationLimit,
+      maxRelayPeers: builder.maxRelayPeers,
+      relayServiceRatio: relayServiceRatio
+      rateLimits: rateLimits
     )
   )
