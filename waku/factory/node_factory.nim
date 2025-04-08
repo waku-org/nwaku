@@ -87,6 +87,13 @@ proc initNode(
     else:
       peerStore.get()
 
+  let (secureKey, secureCert) =
+    if conf.webSocketConf.isSome and conf.webSocketConf.get().secureConf.isSome:
+      let wssConf = conf.webSocketConf.get().secureConf.get()
+      (some(wssConf.keyPath), some(wssConf.certPath))
+    else:
+      (none(string), none(string))
+
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
@@ -96,8 +103,8 @@ proc initNode(
   builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
   builder.withSwitchConfiguration(
     maxConnections = some(conf.maxConnections.int),
-    secureKey = some(conf.webSocketSecureKeyPath),
-    secureCert = some(conf.webSocketSecureCertPath),
+    secureKey = secureKey,
+    secureCert = secureCert,
     nameResolver = dnsResolver,
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled

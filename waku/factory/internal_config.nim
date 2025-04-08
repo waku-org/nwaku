@@ -9,11 +9,10 @@ import
 import
   ./external_config,
   ../common/utils/nat,
-  ../node/config,
+  ../node/net_config,
   ../waku_enr/capabilities,
   ../waku_enr,
   ../waku_core,
-  ./networks_config,
   ./waku_conf
 
 proc enrConfiguration*(
@@ -115,6 +114,17 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
       return
         err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
 
+  let (wsEnabled, wsBindPort, wssEnabled) =
+    if conf.webSocketConf.isSome:
+      let webSocketConf = conf.webSocketConf.get()
+      (
+        true,
+        some(Port(webSocketConf.port.uint16 + conf.portsShift)),
+        webSocketConf.secureConf.isSome,
+      )
+    else:
+      (false, none(Port), false)
+
   # Wrap in none because NetConfig does not have a default constructor
   # TODO: We could change bindIp in NetConfig to be something less restrictive
   # than IpAddress, which doesn't allow default construction
@@ -126,9 +136,9 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     extPort = extPort,
     extMultiAddrs = conf.extMultiAddrs,
     extMultiAddrsOnly = conf.extMultiAddrsOnly,
-    wsBindPort = Port(uint16(conf.webSocketConf.webSocketPort) + conf.portsShift),
-    wsEnabled = conf.webSocketConf.webSocketSupport,
-    wssEnabled = conf.webSocketConf.webSocketSecureSupport,
+    wsBindPort = wsBindPort,
+    wsEnabled = wsEnabled,
+    wssEnabled = wssEnabled,
     dns4DomainName = conf.dns4DomainName.map(
       proc(dn: DomainName): string =
         dn.string

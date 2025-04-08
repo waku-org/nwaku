@@ -89,7 +89,7 @@ proc withNetworkConfigurationDetails*(
       extIp = extIp,
       extPort = extPort,
       extMultiAddrs = extMultiAddrs,
-      wsBindPort = wsBindPort,
+      wsBindPort = some(wsBindPort),
       wsEnabled = wsEnabled,
       wssEnabled = wssEnabled,
       wakuFlags = wakuFlags,

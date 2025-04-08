@@ -60,6 +60,8 @@ proc isWsAddress*(ma: MultiAddress): bool =
 proc containsWsAddress(extMultiAddrs: seq[MultiAddress]): bool =
   return extMultiAddrs.filterIt(it.isWsAddress()).len > 0
 
+const DefaultWsBindPort = static(Port(8000))
+# TODO: migrate to builder pattern
 proc init*(
     T: type NetConfig,
     bindIp: IpAddress,
@@ -68,7 +70,7 @@ proc init*(
     extPort = none(Port),
     extMultiAddrs = newSeq[MultiAddress](),
     extMultiAddrsOnly: bool = false,
-    wsBindPort: Port = Port(8000),
+    wsBindPort: Option[Port] = some(DefaultWsBindPort),
     wsEnabled: bool = false,
     wssEnabled: bool = false,
     dns4DomainName = none(string),
@@ -84,7 +86,9 @@ proc init*(
   var wsHostAddress = none(MultiAddress)
   if wsEnabled or wssEnabled:
     try:
-      wsHostAddress = some(ip4TcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
+      wsHostAddress = some(
+        ip4TcpEndPoint(bindIp, wsbindPort.get(DefaultWsBindPort)) & wsFlag(wssEnabled)
+      )
     except CatchableError:
       return err(getCurrentExceptionMsg())
 
@@ -111,8 +115,10 @@ proc init*(
 
     if wsHostAddress.isSome():
       try:
-        wsExtAddress =
-          some(dns4TcpEndPoint(dns4DomainName.get(), wsBindPort) & wsFlag(wssEnabled))
+        wsExtAddress = some(
+          dns4TcpEndPoint(dns4DomainName.get(), wsBindPort.get(DefaultWsBindPort)) &
+            wsFlag(wssEnabled)
+        )
       except CatchableError:
         return err(getCurrentExceptionMsg())
   else:
@@ -122,8 +128,10 @@ proc init*(
 
       if wsHostAddress.isSome():
         try:
-          wsExtAddress =
-            some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
+          wsExtAddress = some(
+            ip4TcpEndPoint(extIp.get(), wsBindPort.get(DefaultWsBindPort)) &
+              wsFlag(wssEnabled)
+          )
         except CatchableError:
           return err(getCurrentExceptionMsg())
 

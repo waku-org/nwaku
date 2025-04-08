@@ -197,11 +197,7 @@ proc build(builder: WebSocketConfBuilder): Result[Option[WebSocketConf], string]
 
   if not builder.webSocketSecureSupport.get(false):
     return ok(
-      some(
-        WebSocketConf(
-          webSocketPort: websocketPort, webSocketSecureConf: none(WebSocketSecureConf)
-        )
-      )
+      some(WebSocketConf(port: websocketPort, secureConf: none(WebSocketSecureConf)))
     )
 
   let webSocketSecureKeyPath = builder.webSocketSecureKeyPath.get("")
@@ -215,11 +211,10 @@ proc build(builder: WebSocketConfBuilder): Result[Option[WebSocketConf], string]
   return ok(
     some(
       WebSocketConf(
-        webSocketPort: webSocketPort,
-        webSocketSecureConf: some(
+        port: webSocketPort,
+        secureConf: some(
           WebSocketSecureConf(
-            webSocketSecureKeyPath: webSocketSecureKeyPath,
-            webSocketSecureCertPath: webSocketSecureCertPath,
+            keyPath: webSocketSecureKeyPath, certPath: webSocketSecureCertPath
           )
         ),
       )
@@ -243,6 +238,7 @@ type WakuConfBuilder* = ref object
   lightPush: Option[bool]
   peerExchange: Option[bool]
   storeSync: Option[bool]
+  relayPeerExchange: Option[bool]
 
   clusterConf: Option[ClusterConf]
 
@@ -285,6 +281,7 @@ with(WakuConfBuilder, clusterId, uint16)
 with(WakuConfBuilder, relay, bool)
 with(WakuConfBuilder, filter, bool)
 with(WakuConfBuilder, storeSync, bool)
+with(WakuConfBuilder, relayPeerExchange, bool)
 with(WakuConfBuilder, maxMessageSizeBytes, int)
 with(WakuConfBuilder, dnsAddrs, bool)
 with(WakuConfbuilder, peerPersistence, bool)
@@ -358,6 +355,8 @@ proc build*(
     else:
       warn "whether to mount storeSync is not specified, defaulting to not mounting"
       false
+
+  let relayPeerExchange = builder.relayPeerExchange.get(false)
 
   # Apply cluster conf - values passed manually override cluster conf
   # Should be applied **first**, before individual values are pulled
@@ -584,6 +583,7 @@ proc build*(
       filter: filter,
       lightPush: lightPush,
       peerExchange: peerExchange,
+      relayPeerExchange: relayPeerExchange,
       discv5Conf: discv5Conf,
       rlnRelayConf: rlnRelayConf,
       maxMessageSizeBytes: maxMessageSizeBytes,

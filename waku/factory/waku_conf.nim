@@ -33,12 +33,12 @@ type RlnRelayConf* = ref object
   ethClientAddress*: EthRpcUrl
 
 type WebSocketSecureConf* = ref object
-  webSocketSecureKeyPath*: string
-  webSocketSecureCertPath*: string
+  keyPath*: string
+  certPath*: string
 
 type WebSocketConf* = ref object
-  webSocketPort*: Port
-  webSocketSecureConf*: Option[WebSocketSecureConf]
+  port*: Port
+  secureConf*: Option[WebSocketSecureConf]
 
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
@@ -57,6 +57,8 @@ type WakuConf* = ref object
   lightPush*: bool
   peerExchange*: bool
   storeSync*: bool
+  # TODO: remove relay peer exchange
+  relayPeerExchange*: bool
 
   discv5Conf*: Option[Discv5Conf]
 

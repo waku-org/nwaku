@@ -46,7 +46,7 @@ import
   ../waku_enr,
   ../waku_peer_exchange,
   ../waku_rln_relay,
-  ./config,
+  ./net_config,
   ./peer_manager,
   ../common/rate_limit/setting
 
