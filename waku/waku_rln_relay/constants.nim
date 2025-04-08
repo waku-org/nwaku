@@ -5,7 +5,7 @@ import ./protocol_types
 import ../waku_keystore
 
 # Acceptable roots for merkle root validation of incoming messages
-const AcceptableRootWindowSize* = 5
+const AcceptableRootWindowSize* = 50
 
 # RLN membership key and index files path
 const RlnCredentialsFilename* = "rlnCredentials.txt"
