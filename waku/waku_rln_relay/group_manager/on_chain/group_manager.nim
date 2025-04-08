@@ -198,8 +198,6 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   return false
 
 proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
-  ## Continuously track changes to the Merkle root
-  initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
   let wakuRlnContract = g.wakuRlnContract.get()
