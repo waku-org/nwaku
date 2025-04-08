@@ -17,9 +17,9 @@ import
   ./waku_conf
 
 proc enrConfiguration*(
-    conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey
+    conf: WakuConf, netConfig: NetConfig
 ): Result[enr.Record, string] =
-  var enrBuilder = EnrBuilder.init(key)
+  var enrBuilder = EnrBuilder.init(conf.nodeKey)
 
   enrBuilder.withIpAddressAndPorts(
     netConfig.enrIp, netConfig.enrPort, netConfig.discv5UdpPort
@@ -46,7 +46,7 @@ proc enrConfiguration*(
   return ok(record)
 
 proc dnsResolve*(
-    domain: string, conf: WakuNodeConf
+    domain: DomainName, conf: WakuConf
 ): Future[Result[string, string]] {.async.} =
   # Use conf's DNS servers
   var nameServers: seq[TransportAddress]
@@ -56,7 +56,7 @@ proc dnsResolve*(
   let dnsResolver = DnsResolver.new(nameServers)
 
   # Resolve domain IP
-  let resolved = await dnsResolver.resolveIp(domain, 0.Port, Domain.AF_UNSPEC)
+  let resolved = await dnsResolver.resolveIp(domain.string, 0.Port, Domain.AF_UNSPEC)
 
   if resolved.len > 0:
     return ok(resolved[0].host) # Use only first answer
@@ -69,8 +69,8 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   let natRes = setupNat(
     conf.natStrategy.string,
     clientId,
-    Port(uint16(conf.tcpPort) + conf.portsShift),
-    Port(uint16(conf.tcpPort) + conf.portsShift),
+    Port(uint16(conf.p2pTcpPort) + conf.portsShift),
+    Port(uint16(conf.p2pTcpPort) + conf.portsShift),
   )
   if natRes.isErr():
     return err("failed to setup NAT: " & $natRes.error)
@@ -90,7 +90,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     ## manual config, the external port is the same as the bind port.
     extPort =
       if (extIp.isSome() or conf.dns4DomainName.isSome()) and extTcpPort.isNone():
-        some(Port(uint16(conf.tcpPort) + conf.portsShift))
+        some(Port(uint16(conf.p2pTcpPort) + conf.portsShift))
       else:
         extTcpPort
 
@@ -120,40 +120,44 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   # than IpAddress, which doesn't allow default construction
   let netConfigRes = NetConfig.init(
     clusterId = conf.clusterId,
-    bindIp = conf.listenAddress,
-    bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
+    bindIp = conf.p2pListenAddress,
+    bindPort = Port(uint16(conf.p2pTcpPort) + conf.portsShift),
     extIp = extIp,
     extPort = extPort,
     extMultiAddrs = conf.extMultiAddrs,
     extMultiAddrsOnly = conf.extMultiAddrsOnly,
-    wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-    wsEnabled = conf.websocketSupport,
-    wssEnabled = conf.websocketSecureSupport,
-    dns4DomainName = conf.dns4DomainName,
+    wsBindPort = Port(uint16(conf.webSocketConf.webSocketPort) + conf.portsShift),
+    wsEnabled = conf.webSocketConf.webSocketSupport,
+    wssEnabled = conf.webSocketConf.webSocketSecureSupport,
+    dns4DomainName = conf.dns4DomainName.map(
+      proc(dn: DomainName): string =
+        dn.string
+    ),
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
   )
 
   return netConfigRes
 
-proc applyPresetConfiguration*(
-    srcConf: WakuNodeConf, wakuConfBuilder: var WakuConfBuilder
-): void =
-  var preset = srcConf.preset
+# TODO: redefine in the right place
+# proc applyPresetConfiguration*(
+#     srcConf: WakuNodeConf, wakuConfBuilder: var WakuConfBuilder
+# ): void =
+#   var preset = srcConf.preset
 
-  if srcConf.clusterId == 1:
-    warn(
-      "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
-    )
-    preset = "twn"
+#   if srcConf.clusterId == 1:
+#     warn(
+#       "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
+#     )
+#     preset = "twn"
 
-  case toLowerAscii(preset)
-  of "twn":
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+#   case toLowerAscii(preset)
+#   of "twn":
+#     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
 
-    wakuConfBuilder.withClusterConf(twnClusterConf)
-  else:
-    discard
+#     wakuConfBuilder.withClusterConf(twnClusterConf)
+#   else:
+#     discard
 
 # TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
 proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =

@@ -10,6 +10,7 @@ import
 
 import
   ./internal_config,
+  ./waku_conf,
   ./external_config,
   ./builder,
   ./validator_signed,
@@ -56,7 +57,7 @@ proc setupPeerStorage(): Result[Option[WakuPeerStorage], string] =
 ## Init waku node instance
 
 proc initNode(
-    conf: WakuNodeConf,
+    conf: WakuConf,
     netConfig: NetConfig,
     rng: ref HmacDrbgContext,
     nodeKey: crypto.PrivateKey,
@@ -89,14 +90,14 @@ proc initNode(
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
-  builder.withNodeKey(nodekey)
+  builder.withNodeKey(nodeKey)
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
   builder.withSwitchConfiguration(
     maxConnections = some(conf.maxConnections.int),
-    secureKey = some(conf.websocketSecureKeyPath),
-    secureCert = some(conf.websocketSecureCertPath),
+    secureKey = some(conf.webSocketSecureKeyPath),
+    secureCert = some(conf.webSocketSecureCertPath),
     nameResolver = dnsResolver,
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled
@@ -480,7 +481,7 @@ proc setupNode*(wakuConf: WakuConf, relay: Relay): Result[WakuNode, string] =
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  let record = enrConfiguration(wakuConf, netConfig, key).valueOr:
+  let record = enrConfiguration(wakuConf, netConfig).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)
 
@@ -492,14 +493,14 @@ proc setupNode*(wakuConf: WakuConf, relay: Relay): Result[WakuNode, string] =
 
   ## Peer persistence
   var peerStore: Option[WakuPeerStorage]
-  if conf.peerPersistence:
+  if wakuConf.peerPersistence:
     peerStore = setupPeerStorage().valueOr:
       error "Setting up storage failed", error = "failed to setup peer store " & error
       return err("Setting up storage failed: " & error)
 
   debug "Initializing node"
 
-  let node = initNode(conf, netConfig, rng, key, record, peerStore, relay).valueOr:
+  let node = initNode(wakuConf, netConfig, rng, record, peerStore, relay).valueOr:
     error "Initializing node failed", error = error
     return err("Initializing node failed: " & error)
 

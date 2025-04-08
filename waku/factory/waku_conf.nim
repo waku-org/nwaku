@@ -32,6 +32,14 @@ type RlnRelayConf* = ref object
   userMessageLimit*: uint64
   ethClientAddress*: EthRpcUrl
 
+type WebSocketSecureConf* = ref object
+  webSocketSecureKeyPath*: string
+  webSocketSecureCertPath*: string
+
+type WebSocketConf* = ref object
+  webSocketPort*: Port
+  webSocketSecureConf*: Option[WebSocketSecureConf]
+
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
@@ -61,10 +69,21 @@ type WakuConf* = ref object
 
   natStrategy*: NatStrategy
 
-  tcpPort*: Port
+  p2pTcpPort*: Port
+  p2pListenAddress*: IpAddress
   portsShift*: uint16
   dns4DomainName*: Option[DomainName]
   extMultiAddrs*: seq[MultiAddress]
+  extMultiAddrsOnly*: bool
+  webSocketConf*: Option[WebSocketConf]
+
+  dnsAddrs*: bool
+  dnsAddrsNameServers*: seq[IpAddress]
+  peerPersistence*: bool
+  # TODO: should clearly be a uint
+  peerStoreCapacity*: Option[int]
+  # TODO: should clearly be a uint
+  maxConnections*: int
 
 proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",

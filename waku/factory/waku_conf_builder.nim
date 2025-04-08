@@ -11,6 +11,35 @@ import
 logScope:
   topics = "waku conf builder"
 
+proc generateWithProc(builderType, argName, argType, targetType: NimNode): NimNode =
+  builderType.expectKind nnkIdent
+  argName.expectKind nnkIdent
+
+  result = newStmtList()
+
+  let procName = ident("with" & capitalizeAscii($argName))
+  let builderIdent = ident("builder")
+  let builderVar = newDotExpr(builderIdent, ident($argName))
+  let resVar = ident($argName)
+
+  if argType == targetType:
+    result.add quote do:
+      proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `argType`) =
+        `builderVar` = some(`argName`)
+
+  else:
+    result.add quote do:
+      proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `argType`) =
+        `builderVar` = some(`argName`.`targetType`)
+
+macro with(
+    builderType: untyped, argName: untyped, argType: untyped, targetType: untyped
+) =
+  result = generateWithProc(builderType, argName, argType, targetType)
+
+macro with(builderType: untyped, argName: untyped, argType: untyped) =
+  result = generateWithProc(builderType, argName, argType, argType)
+
 ##############################
 ## RLN Relay Config Builder ##
 ##############################
@@ -27,33 +56,14 @@ type RlnRelayConfBuilder = ref object
 proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
   RlnRelayConfBuilder()
 
-proc withRlnRelay*(builder: var RlnRelayConfBuilder, rlnRelay: bool) =
-  builder.rlnRelay = some(rlnRelay)
-
-proc withEthContractAddress*(
-    builder: var RlnRelayConfBuilder, ethContractAddress: string
-) =
-  builder.ethContractAddress = some(ethContractAddress.ContractAddress)
-
-proc withChainId*(builder: var RlnRelayConfBuilder, chainId: uint) =
-  builder.chainId = some(chainId)
-
-proc withDynamic*(builder: var RlnRelayConfBuilder, dynamic: bool) =
-  builder.dynamic = some(dynamic)
-
-proc withBandwidthThreshold*(
-    builder: var RlnRelayConfBuilder, bandwidthThreshold: int
-) =
-  builder.bandwidthThreshold = some(bandwidthThreshold)
-
-proc withEpochSizeSec*(builder: var RlnRelayConfBuilder, epochSizeSec: uint64) =
-  builder.epochSizeSec = some(epochSizeSec)
-
-proc withUserMessageLimit*(builder: var RlnRelayConfBuilder, userMessageLimit: uint64) =
-  builder.userMessageLimit = some(userMessageLimit)
-
-proc withEthClientAddress*(builder: var RlnRelayConfBuilder, ethClientAddress: string) =
-  builder.ethClientAddress = some(ethClientAddress.EthRpcUrl)
+with(RlnRelayConfbuilder, rlnRelay, bool)
+with(RlnRelayConfBuilder, chainId, uint)
+with(RlnRelayConfBuilder, dynamic, bool)
+with(RlnRelayConfBuilder, bandwidthThreshold, int)
+with(RlnRelayConfBuilder, epochSizeSec, uint64)
+with(RlnRelayConfBuilder, userMessageLimit, uint64)
+with(RlnRelayConfBuilder, ethContractAddress, string, ContractAddress)
+with(RlnRelayConfBuilder, ethClientAddress, string, EthRpcUrl)
 
 proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
   if builder.rlnRelay.isNone or not builder.rlnRelay.get():
@@ -126,8 +136,8 @@ type Discv5ConfBuilder = ref object
 proc init(T: type Discv5ConfBuilder): Discv5ConfBuilder =
   Discv5ConfBuilder()
 
-proc withDiscv5(builder: var Discv5ConfBuilder, discv5: bool) =
-  builder.discv5 = some(discv5)
+with(Discv5ConfBuilder, discv5, bool)
+with(Discv5ConfBuilder, udpPort, uint16, Port)
 
 proc withBootstrapNodes(builder: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
@@ -137,9 +147,6 @@ proc withBootstrapNodes(builder: var Discv5ConfBuilder, bootstrapNodes: seq[stri
         e.TextEnr
     )
   )
-
-proc withUdpPort*(builder: var Discv5ConfBuilder, udpPort: uint16) =
-  builder.udpPort = some (udpPort.Port)
 
 proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
   if builder.discv5.isNone or not builder.discv5.get():
@@ -158,12 +165,73 @@ proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
 
   return ok(some(Discv5Conf(bootstrapNodes: bootstrapNodes, udpPort: udpPort)))
 
+##############################
+## WebSocket Config Builder ##
+##############################
+type WebSocketConfBuilder* = ref object
+  webSocketSupport: Option[bool]
+  webSocketPort: Option[Port]
+  webSocketSecureSupport: Option[bool]
+  webSocketSecureKeyPath: Option[string]
+  webSocketSecureCertPath: Option[string]
+
+proc init*(T: type WebSocketConfBuilder): WebSocketConfBuilder =
+  WebSocketConfBuilder()
+
+with(WebSocketConfBuilder, webSocketSupport, bool)
+with(WebSocketConfBuilder, webSocketSecureSupport, bool)
+with(WebSocketConfBuilder, webSocketPort, Port)
+with(WebSocketConfBuilder, webSocketSecureKeyPath, string)
+with(WebSocketConfBuilder, webSocketSecureCertPath, string)
+
+proc build(builder: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
+  if not builder.webSocketSupport.get(false):
+    return ok(none(WebSocketConf))
+
+  let webSocketPort =
+    if builder.webSocketPort.isSome:
+      builder.webSocketPort.get()
+    else:
+      warn "WebSocket Port is not specified, defaulting to 8000"
+      8000.Port
+
+  if not builder.webSocketSecureSupport.get(false):
+    return ok(
+      some(
+        WebSocketConf(
+          webSocketPort: websocketPort, webSocketSecureConf: none(WebSocketSecureConf)
+        )
+      )
+    )
+
+  let webSocketSecureKeyPath = builder.webSocketSecureKeyPath.get("")
+  if webSocketSecureKeyPath == "":
+    return err("WebSocketSecure enabled but key path is not specified")
+
+  let webSocketSecureCertPath = builder.webSocketSecureCertPath.get("")
+  if webSocketSecureCertPath == "":
+    return err("WebSocketSecure enabled but cert path is not specified")
+
+  return ok(
+    some(
+      WebSocketConf(
+        webSocketPort: webSocketPort,
+        webSocketSecureConf: some(
+          WebSocketSecureConf(
+            webSocketSecureKeyPath: webSocketSecureKeyPath,
+            webSocketSecureCertPath: webSocketSecureCertPath,
+          )
+        ),
+      )
+    )
+  )
+
 ## `WakuConfBuilder` is a convenient tool to accumulate
 ## Config parameters to build a `WakuConfig`.
 ## It provides some type conversion, as well as applying
 ## defaults in an agnostic manner (for any usage of Waku node)
 type WakuConfBuilder* = ref object
-  nodeKey*: Option[PrivateKey]
+  nodeKey: Option[PrivateKey]
 
   clusterId: Option[uint16]
   numShardsInNetwork: Option[uint32]
@@ -189,48 +257,42 @@ type WakuConfBuilder* = ref object
 
   natStrategy: Option[NatStrategy]
 
-  tcpPort: Option[Port]
+  p2pTcpPort: Option[Port]
+  p2pListenAddress: Option[IpAddress]
   portsShift: Option[uint16]
   dns4DomainName: Option[DomainName]
   extMultiAddrs: seq[string]
+  extMultiAddrsOnly: Option[bool]
+
+  webSocketConf*: WebSocketConfBuilder
+
+  dnsAddrs*: Option[bool]
+  dnsAddrsNameServers: Option[seq[IpAddress]]
+  peerPersistence: Option[bool]
+  peerStoreCapacity: Option[int]
+  maxConnections: Option[int]
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
-    rlnRelayConf: RlnRelayConfBuilder.init(), discv5Conf: Discv5ConfBuilder.init()
+    rlnRelayConf: RlnRelayConfBuilder.init(),
+    discv5Conf: Discv5ConfBuilder.init(),
+    webSocketConf: WebSocketConfBuilder.init(),
   )
 
-macro confWith(argName: untyped, argType: untyped) =
-  argName.expectKind nnkIdent
-  argType.expectKind nnkIdent
-
-  result = newStmtList()
-
-  let procName = ident("with" & capitalizeAscii($argName))
-  let builderIdent = ident("builder")
-  let builderVar = newDotExpr(builderIdent, ident($argName))
-  let resVar = ident($argName)
-
-  result.add quote do:
-    proc `procName`*(`builderIdent`: var WakuConfBuilder, `resVar`: `argType`) =
-      `builderVar` = some(`argName`)
-
-confWith(clusterConf, ClusterConf)
-confWith(nodeKey, PrivateKey)
-confWith(clusterId, uint16)
-confWith(shards, seq[uint16])
-confWith(relay, bool)
-confWith(filter, bool)
-confWith(storeSync, bool)
-confWith(maxMessageSizeBytes, int)
-
-proc withDiscv5*(builder: var WakuConfBuilder, discv5: bool) =
-  builder.discv5Conf.withDiscv5(discv5)
-
-proc withTcpPort*(builder: var WakuConfBuilder, tcpPort: uint16) =
-  builder.tcpPort = some(tcpPort.Port)
-
-proc withDns4DomainName*(builder: var WakuConfBuilder, dns4DomainName: string) =
-  builder.dns4DomainName = some(dns4DomainName.DomainName)
+with(WakuConfBuilder, clusterConf, ClusterConf)
+with(WakuConfBuilder, nodeKey, PrivateKey)
+with(WakuConfBuilder, clusterId, uint16)
+with(WakuConfBuilder, relay, bool)
+with(WakuConfBuilder, filter, bool)
+with(WakuConfBuilder, storeSync, bool)
+with(WakuConfBuilder, maxMessageSizeBytes, int)
+with(WakuConfBuilder, dnsAddrs, bool)
+with(WakuConfbuilder, peerPersistence, bool)
+with(WakuConfbuilder, maxConnections, int)
+with(WakuConfbuilder, shards, seq[uint16])
+with(WakuConfbuilder, dnsAddrsNameServers, seq[IpAddress])
+with(WakuConfbuilder, p2pTcpPort, uint16, Port)
+with(WakuConfbuilder, dns4DomainName, string, DomainName)
 
 proc withExtMultiAddr*(builder: var WakuConfBuilder, extMultiAddr: string) =
   builder.extMultiAddrs.add(extMultiAddr)
@@ -386,7 +448,7 @@ proc build*(
     if builder.clusterId.isSome:
       builder.clusterId.get()
     else:
-      return err("Cluster Id is missing")
+      return err("Cluster Id was not specified")
 
   let numShardsInNetwork =
     if builder.numShardsInNetwork.isSome:
@@ -410,11 +472,14 @@ proc build*(
   let rlnRelayConf = builder.rlnRelayConf.build().valueOr:
     return err("RLN Relay Conf building failed: " & $error)
 
+  let webSocketConf = builder.webSocketConf.build().valueOr:
+    return err("WebSocket Conf building failed: " & $error)
+
   let maxMessageSizeBytes =
     if builder.maxMessageSizeBytes.isSome:
       builder.maxMessageSizeBytes.get()
     else:
-      return err("Max Message Size is missing")
+      return err("Max Message Size was not specified")
 
   let logLevel =
     if builder.logLevel.isSome:
@@ -437,11 +502,19 @@ proc build*(
       warn "Nat Strategy is not specified, defaulting to none"
       "none".NatStrategy
 
-  let tcpPort =
-    if builder.tcpPort.isSome:
-      builder.tcpPort.get()
+  let p2pTcpPort =
+    if builder.p2pTcpPort.isSome:
+      builder.p2pTcpPort.get()
     else:
-      return err("TCP Port is missing")
+      warn "P2P Listening TCP Port is not specified, listening on 60000"
+      6000.Port
+
+  let p2pListenAddress =
+    if builder.p2pListenAddress.isSome:
+      builder.p2pListenAddress.get()
+    else:
+      warn "P2P listening address not specified, listening on 0.0.0.0"
+      (static parseIpAddress("0.0.0.0"))
 
   let portsShift =
     if builder.portsShift.isSome:
@@ -466,6 +539,40 @@ proc build*(
       return err("Invalid multiaddress provided: " & s)
     extMultiAddrs.add(m)
 
+  let extMultiAddrsOnly =
+    if builder.extMultiAddrsOnly.isSome:
+      builder.extMultiAddrsOnly.get()
+    else:
+      warn "Whether to only announce external multiaddresses is not specified, defaulting to false"
+      false
+
+  let dnsAddrs =
+    if builder.dnsAddrs.isSome:
+      builder.dnsAddrs.get()
+    else:
+      warn "Whether to resolve DNS multiaddresses was not specified, defaulting to false."
+      false
+
+  let dnsAddrsNameServers =
+    if builder.dnsAddrsNameServers.isSome:
+      builder.dnsAddrsNameServers.get()
+    else:
+      warn "DNS name servers IPs not provided, defaulting to Cloudflare's."
+      @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
+
+  let peerPersistence =
+    if builder.peerPersistence.isSome:
+      builder.peerPersistence.get()
+    else:
+      warn "Peer persistence not specified, defaulting to false"
+      false
+
+  let maxConnections =
+    if builder.maxConnections.isSome:
+      builder.maxConnections.get()
+    else:
+      return err "Max Connections was not specified"
+
   return ok(
     WakuConf(
       nodeKey: nodeKey,
@@ -483,9 +590,17 @@ proc build*(
       logLevel: logLevel,
       logFormat: logFormat,
       natStrategy: natStrategy,
-      tcpPort: tcpPort,
+      p2pTcpPort: p2pTcpPort,
+      p2pListenAddress: p2pListenAddress,
       portsShift: portsShift,
       dns4DomainName: dns4DomainName,
       extMultiAddrs: extMultiAddrs,
+      extMultiAddrsOnly: extMultiAddrsOnly,
+      webSocketConf: webSocketConf,
+      dnsAddrs: dnsAddrs,
+      dnsAddrsNameServers: dnsAddrsNameServers,
+      peerPersistence: peerPersistence,
+      peerStoreCapacity: builder.peerStoreCapacity,
+      maxConnections: maxConnections,
     )
   )

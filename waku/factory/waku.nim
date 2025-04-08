@@ -155,9 +155,9 @@ proc new*(
 
   info "Running nwaku node", version = git_version
 
-  var relay = newCircuitRelay(confCopy.isRelayClient)
+  var relay = newCircuitRelay(wakuConf.isRelayClient)
 
-  let nodeRes = setupNode(confCopy, rng, relay)
+  let nodeRes = setupNode(wakuConf, rng, relay)
   if nodeRes.isErr():
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
