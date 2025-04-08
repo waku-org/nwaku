@@ -463,6 +463,7 @@ proc mount(
       membershipIndex: conf.rlnRelayCredIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
+    asyncSpawn trackRootChanges(cast[OnchainGroupManager](groupManager))
 
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
