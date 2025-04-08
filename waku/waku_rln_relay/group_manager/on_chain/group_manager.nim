@@ -237,39 +237,39 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
         discard g.validRoots.popFirst()
 
     g.validRoots.addLast(merkleRoot)
-    debug "~~~~~~~~~~~~~ Detected new Merkle root ~~~~~~~~~~~~~~~~",
+    debug "------ Detected new Merkle root ------",
       root = merkleRoot.toHex, totalRoots = g.validRoots.len
     return true
   else:
-    debug "~~~~~~~~~~~~~ No new Merkle root ~~~~~~~~~~~~~~~~",
+    debug "------ No new Merkle root ------",
       root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
   return false
 
-# proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
-#   ## Continuously track changes to the Merkle root
-#   initializedGuard(g)
-# 
-#   let ethRpc = g.ethRpc.get()
-#   let wakuRlnContract = g.wakuRlnContract.get()
-# 
-#   # Set up the polling interval - more frequent to catch roots
-#   const rpcDelay = 5.seconds
-# 
-#   info "Starting to track Merkle root changes"
-# 
-#   while true:
-#     debug "starting to update roots"
-#     let rootUpdated = await g.updateRoots()
-# 
-#     if rootUpdated:
-#       let proofResult = await g.fetchMerkleProofElements()
-#       if proofResult.isErr():
-#         error "Failed to fetch Merkle proof", error = proofResult.error
-#       g.merkleProofCache = proofResult.get()
-# 
-#     debug "sleeping for 5 seconds"
-#     await sleepAsync(rpcDelay)
+proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
+  ## Continuously track changes to the Merkle root
+  initializedGuard(g)
+
+  let ethRpc = g.ethRpc.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
+
+  # Set up the polling interval - more frequent to catch roots
+  const rpcDelay = 5.seconds
+
+  info "Starting to track Merkle root changes"
+
+  while true:
+    debug "starting to update roots"
+    let rootUpdated = await g.updateRoots()
+
+    if rootUpdated:
+      let proofResult = await g.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      g.merkleProofCache = proofResult.get()
+
+    debug "sleeping for 5 seconds"
+    await sleepAsync(rpcDelay)
 
 method atomicBatch*(
     g: OnchainGroupManager,
@@ -376,16 +376,13 @@ proc indexToPath(index: uint64): seq[byte] =
   for i in 0 ..< treeHeight:
     result[i] = byte((index shr i) and 1)
 
-proc hashToField*(signal: openArray[byte]): array[32, byte] =
-  # 1. Hash the input signal using Keccak256
+# Hashes arbitrary signal to the underlying prime field.
+proc hashToField*(signal: seq[byte]): array[32, byte] =
   var ctx: keccak256
   ctx.init()
   ctx.update(signal)
   var hash = ctx.finish()
 
-  # 2. Convert hash to field element (equivalent to bytes_le_to_fr)
-  # Since we're just returning the raw hash as the field representation
-  # for simplicity, we can simply return the hash bytes
   var result: array[32, byte]
   copyMem(result[0].addr, hash.data[0].addr, 32)
   return result
@@ -431,7 +428,7 @@ method generateProof*(
     path_elements: g.merkleProofCache,
     identity_path_index: indexToPath(g.membershipIndex.get()),
     x: hashToField(data),
-    external_nullifier: toArray32BE_to_LE(externalNullifierRes.get()),
+    external_nullifier: externalNullifierRes.get(),
   )
 
   debug "------ Witness parameters ------",
