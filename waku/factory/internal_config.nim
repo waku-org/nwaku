@@ -13,7 +13,7 @@ import
   ../waku_enr/capabilities,
   ../waku_enr,
   ../waku_core,
-  ./networks_config
+  ./network_config
 
 proc enrConfiguration*(
     conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey

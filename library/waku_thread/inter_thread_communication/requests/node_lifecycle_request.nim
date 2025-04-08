@@ -6,7 +6,7 @@ import
   ../../../../waku/factory/external_config,
   ../../../../waku/factory/waku,
   ../../../../waku/factory/node_factory,
-  ../../../../waku/factory/networks_config,
+  ../../../../waku/factory/network_config,
   ../../../../waku/factory/app_callbacks,
   ../../../alloc
 

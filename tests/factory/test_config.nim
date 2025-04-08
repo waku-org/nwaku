@@ -12,7 +12,7 @@ import
 import
   ../../waku/factory/external_config,
   ../../waku/factory/internal_config,
-  ../../waku/factory/networks_config,
+  ../../waku/factory/network_config,
   ../../waku/common/logging
 
 suite "Waku config - apply preset":

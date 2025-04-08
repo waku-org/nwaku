@@ -38,7 +38,7 @@ import
   ../waku_rln_relay,
   ../waku_store,
   ../waku_filter_v2,
-  ../factory/networks_config,
+  ../factory/network_config,
   ../factory/node_factory,
   ../factory/internal_config,
   ../factory/external_config,

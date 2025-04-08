@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import waku/[common/logging, factory/[waku, networks_config, external_config]]
+import waku/[common/logging, factory/[waku, network_config, external_config]]
 import
   std/[options, strutils, os, sequtils],
   stew/shims/net as stewNet,
@@ -11,7 +11,7 @@ import
   libp2p/crypto/crypto
 
 export
-  networks_config, waku, logging, options, strutils, os, sequtils, stewNet, chronicles,
+  network_config, waku, logging, options, strutils, os, sequtils, stewNet, chronicles,
   chronos, metrics, libbacktrace, crypto
 
 proc setup*(): Waku =

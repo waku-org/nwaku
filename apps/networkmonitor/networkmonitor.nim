@@ -27,7 +27,7 @@ import
     waku_relay,
     waku_rln_relay,
     factory/builder,
-    factory/networks_config,
+    factory/network_config,
   ],
   ./networkmonitor_metrics,
   ./networkmonitor_config,
