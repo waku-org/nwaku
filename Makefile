@@ -4,8 +4,8 @@
 # - MIT license
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
-BUILD_SYSTEM_DIR := vendor/nimbus-build-system
-EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
+export BUILD_SYSTEM_DIR := vendor/nimbus-build-system
+export EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
 FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
@@ -152,6 +152,12 @@ endif
 
 clean: | clean-libbacktrace
 
+### Create nimble links (used when building with Nix)
+
+nimbus-build-system-nimble-dir:
+	NIMBLE_DIR="$(CURDIR)/$(NIMBLE_DIR)" \
+	PWD_CMD="$(PWD)" \
+	$(CURDIR)/scripts/generate_nimble_links.sh
 
 ##################
 ##     RLN      ##
