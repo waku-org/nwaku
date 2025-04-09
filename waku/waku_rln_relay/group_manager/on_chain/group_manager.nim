@@ -164,23 +164,30 @@ method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
     return true
   return false
 
-# Add this utility function to the file
-proc toMerkleNode*(uint256Value: UInt256): MerkleNode =
-  ## Converts a UInt256 value to a MerkleNode (array[32, byte])
-  var merkleNode: MerkleNode
-  let byteArray = uint256Value.toBytesBE()
-
-  for i in 0 ..< min(byteArray.len, merkleNode.len):
-    merkleNode[i] = byteArray[i]
-
-  return merkleNode
+func toArray32*(x: UInt256): array[32, byte] {.inline.} =
+  ## Convert UInt256 to byte array without endianness conversion
+  when nimvm:
+    for i in 0..<32:
+      result[i] = byte((x shr (i * 8)).truncate(uint8) and 0xff)
+  else:
+    copyMem(addr result, unsafeAddr x, 32)
+  
+proc toArray32*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[s.len - 1 - i]
+  return output
 
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
     return false
 
-  let merkleRoot = toMerkleNode(rootRes.get())
+  let merkleRoot = toArray32(rootRes.get())
+  debug "------ merkleRoot ------", input = rootRes.get(), output = merkleRoot
   if g.validRoots.len == 0:
     g.validRoots.addLast(merkleRoot)
     return true
@@ -316,15 +323,6 @@ method withdrawBatch*(
     g: OnchainGroupManager, idCommitments: seq[IDCommitment]
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
-
-proc toArray32*(s: seq[byte]): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-  let len = min(s.len, 32)
-  for i in 0 ..< len:
-    output[i] = s[s.len - 1 - i]
-  return output
 
 proc indexToPath(index: uint64): seq[byte] =
   # Fixed tree height of 32 for RLN
