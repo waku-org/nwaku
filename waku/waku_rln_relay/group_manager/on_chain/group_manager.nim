@@ -93,7 +93,7 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-func toArray32*(x: UInt256): array[32, byte] {.inline.} =
+proc toArray32LE*(x: UInt256): array[32, byte] {.inline.} =
   ## Convert UInt256 to byte array without endianness conversion
   when nimvm:
     for i in 0 ..< 32:
@@ -101,19 +101,35 @@ func toArray32*(x: UInt256): array[32, byte] {.inline.} =
   else:
     copyMem(addr result, unsafeAddr x, 32)
 
-proc toArray32*(s: seq[byte]): array[32, byte] =
+# Hashes arbitrary signal to the underlying prime field.
+proc hashToField*(signal: seq[byte]): array[32, byte] =
+  var ctx: keccak256
+  ctx.init()
+  ctx.update(signal)
+  var hash = ctx.finish()
+
+  var result: array[32, byte]
+  copyMem(result[0].addr, hash.data[0].addr, 32)
+  return result
+
+proc toArray32LE*(x: array[32, byte]): array[32, byte] =
+  for i in 0 ..< 32:
+    result[i] = x[31 - i]
+  return result
+
+proc toArray32LE*(s: seq[byte]): array[32, byte] =
   var output: array[32, byte]
   for i in 0 ..< 32:
     output[i] = 0
-  let len = min(s.len, 32)
-  for i in 0 ..< len:
-    output[i] = s[s.len - 1 - i]
+  for i in 0 ..< 32:
+    output[i] = s[31 - i]
   return output
 
-proc toArray32*(x: array[32, byte]): array[32, byte] =
-  for i in -1 ..< 32:
-    result[i] = x[30 - i]
-  return result
+proc toArray32LE*(v: uint64): array[32, byte] =
+  let bytes = toBytes(v, Endianness.littleEndian)
+  var output: array[32, byte]
+  discard output.copyFrom(bytes)
+  return output
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
@@ -150,11 +166,11 @@ proc fetchMerkleProofElements*(
       else:
         discard
 
-    debug "------ merkleProof ------", output = merkleProof
+    debug "merkleProof", output = merkleProof
 
     return ok(merkleProof)
   except CatchableError:
-    error "------ Failed to fetch Merkle proof elements ------",
+    error "Failed to fetch Merkle proof elements",
       errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
     return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
 
@@ -188,10 +204,12 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   if rootRes.isErr():
     return false
 
-  let merkleRoot = toArray32(rootRes.get())
+  let merkleRoot = toArray32LE(rootRes.get())
   if g.validRoots.len == 0:
     g.validRoots.addLast(merkleRoot)
     return true
+
+  debug "--- validRoots ---", rootRes = rootRes.get(), validRoots = merkleRoot
 
   if g.validRoots[g.validRoots.len - 1] != merkleRoot:
     var overflow = g.validRoots.len - AcceptableRootWindowSize + 1
@@ -218,6 +236,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       if proofResult.isErr():
         error "Failed to fetch Merkle proof", error = proofResult.error
       g.merkleProofCache = proofResult.get()
+
+    debug "--- track update ---",
+      len = g.validRoots.len,
+      validRoots = g.validRoots,
+      merkleProof = g.merkleProofCache
 
     await sleepAsync(rpcDelay)
 
@@ -331,36 +354,6 @@ proc indexToPath*(membershipIndex: uint): seq[byte] =
 
   debug "indexToPath", index = membershipIndex, path = result
 
-# Hashes arbitrary signal to the underlying prime field.
-proc hashToField*(signal: seq[byte]): array[32, byte] =
-  var ctx: keccak256
-  ctx.init()
-  ctx.update(signal)
-  var hash = ctx.finish()
-
-  var result: array[32, byte]
-  copyMem(result[0].addr, hash.data[0].addr, 32)
-  return result
-
-proc toArray32LE*(x: array[32, byte]): array[32, byte] =
-  for i in 0 ..< 32:
-    result[i] = x[31 - i]
-  return result
-
-proc toArray32LE*(s: seq[byte]): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-  for i in 0 ..< 32:
-    output[i] = s[31 - i]
-  return output
-
-proc toArray32LE*(v: uint64): array[32, byte] =
-  let bytes = toBytes(v, Endianness.littleEndian)
-  var output: array[32, byte]
-  discard output.copyFrom(bytes)
-  return output
-
 proc createZerokitWitness(
     g: OnchainGroupManager,
     data: seq[byte],
@@ -412,7 +405,7 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "------ calling generateProof from generateProof from group_manager onchain ------",
+  debug "calling generateProof from group_manager onchain",
     data = data,
     membershipIndex = g.membershipIndex.get(),
     userMessageLimit = g.userMessageLimit.get()
@@ -440,7 +433,7 @@ method generateProof*(
   if not success:
     return err("Failed to generate proof")
   else:
-    debug "------ Proof generated successfully --------"
+    debug "Proof generated successfully"
 
   # Parse the proof into a RateLimitProof object
   var proofValue = cast[ptr array[320, byte]](outputBuffer.`ptr`)
