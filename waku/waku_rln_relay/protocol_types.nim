@@ -55,7 +55,7 @@ type RateLimitProof* = object
 type
   Fr = array[32, byte] # Field element representation (256 bits)
 
-  Witness* = object
+  RLNWitnessInput* = object
     identity_secret*: Fr
     user_message_limit*: Fr
     message_id*: Fr
