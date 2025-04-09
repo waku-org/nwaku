@@ -111,14 +111,20 @@ proc publishToAny*(
 
   return lightpushSuccessResult(publishedCount)
 
-
 proc publishWithConn*(
-  wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage, conn: Connection
+    wl: WakuLightPushClient,
+    pubSubTopic: PubsubTopic,
+    message: WakuMessage,
+    conn: Connection,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we use existing connection to publish.
 
-  info "publishWithConn", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
+  info "publishWithConn",
+    my_peer_id = wl.peerManager.switch.peerInfo.peerId,
+    peer_id = conn.peerId,
+    msg_hash = computeMessageHash(pubsubTopic, message).to0xHex,
+    sentTime = getNowInNanosecondTime()
 
   let pushRequest = LightpushRequest(
     requestId: generateRequestId(wl.rng),
@@ -132,5 +138,5 @@ proc publishWithConn*(
     obs.onMessagePublished(pubSubTopic, message)
 
   #TODO: Implement response handling.
-  
+
   return lightpushSuccessResult(1)
