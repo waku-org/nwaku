@@ -158,6 +158,11 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
+    debug "---- raw response ----", 
+      total_bytes = responseBytes.len,        # Should be 640
+      non_zero_bytes = responseBytes.countIt(it != 0),
+      response = responseBytes
+
     var i = 0
     var merkleProof = newSeq[array[32, byte]]()
     while (i * 32) + 31 < responseBytes.len:
@@ -167,8 +172,9 @@ proc fetchMerkleProofElements*(
       element = responseBytes.toOpenArray(startIndex, endIndex)
       merkleProof.add(element)
       i += 1
+      debug "---- element ----", i = i, element = element
 
-    debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
+    # debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
     return ok(merkleProof)
   except CatchableError:
