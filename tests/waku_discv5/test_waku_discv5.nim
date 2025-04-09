@@ -14,7 +14,7 @@ import
 
 import
   waku/[waku_core/topics, waku_enr, discovery/waku_discv5, waku_enr/capabilities],
-  ../testlib/[wakucore, testasync, assertions, futures, wakunode],
+  ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],
   ../waku_enr/utils,
   ./utils as discv5_utils
 
