@@ -102,7 +102,7 @@ proc toArray32LE*(x: UInt256): array[32, byte] {.inline.} =
     copyMem(addr result, unsafeAddr x, 32)
 
 # Hashes arbitrary signal to the underlying prime field.
-proc hashToField*(signal: seq[byte]): array[32, byte] =
+proc hash_to_field*(signal: seq[byte]): array[32, byte] =
   var ctx: keccak256
   ctx.init()
   ctx.update(signal)
@@ -377,7 +377,7 @@ proc createZerokitWitness(
   let pathIndex = indexToPath(g.membershipIndex.get()) # uint to seq[byte]
 
   # Calculate hash using zerokit's hash_to_field equivalent
-  let x = hashToField(data).toArray32LE() # convert to little-endian
+  let x = hash_to_field(data).toArray32LE() # convert to little-endian
 
   RLNWitnessInput(
     identity_secret: identitySecret,
@@ -410,7 +410,7 @@ method generateProof*(
     membershipIndex = g.membershipIndex.get(),
     userMessageLimit = g.userMessageLimit.get()
 
-  let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
+  let externalNullifierRes = poseidon(@[hash_to_field(@epoch).toSeq(), hash_to_field(@rlnIdentifier).toSeq()])
   let extNullifier = externalNullifierRes.get().toArray32LE()
 
   try:
