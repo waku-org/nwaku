@@ -93,6 +93,28 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
+func toArray32*(x: UInt256): array[32, byte] {.inline.} =
+  ## Convert UInt256 to byte array without endianness conversion
+  when nimvm:
+    for i in 0 ..< 32:
+      result[i] = byte((x shr (i * 8)).truncate(uint8) and 0xff)
+  else:
+    copyMem(addr result, unsafeAddr x, 32)
+
+proc toArray32*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[s.len - 1 - i]
+  return output
+
+proc toArray32*(x: array[32, byte]): array[32, byte] =
+  for i in 0 ..< 32:
+    result[i] = x[31 - i]
+  return result
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[array[32, byte]], string]] {.async.} =
@@ -120,18 +142,17 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    var merkleProof = newSeqOfCap[array[32, byte]](20)
+    var merkleProof = newSeq[array[32, byte]](20)
     for i in 0 ..< 20:
-      let startIndex = 32 + (i * 32) # Skip first 32 bytes (ABI encoding offset)
+      let startIndex = i * 32 # No offset needed for fixed-size array
       if startIndex + 32 <= responseBytes.len:
-        var element: array[32, byte]
-        for j in 0 ..< 32:
-          if startIndex + j < responseBytes.len:
-            element[j] = responseBytes[startIndex + j]
-        merkleProof.add(element)
+        merkleProof[i] =
+          responseBytes.toOpenArray(startIndex, startIndex + 31).toArray32()
+        merkleProof[i] = toArray32(merkleProof[i])
       else:
-        var element: array[32, byte]
-        merkleProof.add(element)
+        discard
+
+    debug "------ merkleProof ------", input = responseBytes, output = merkleProof
 
     return ok(merkleProof)
   except CatchableError:
@@ -163,23 +184,6 @@ method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
   if g.validRoots.find(root) >= 0:
     return true
   return false
-
-func toArray32*(x: UInt256): array[32, byte] {.inline.} =
-  ## Convert UInt256 to byte array without endianness conversion
-  when nimvm:
-    for i in 0..<32:
-      result[i] = byte((x shr (i * 8)).truncate(uint8) and 0xff)
-  else:
-    copyMem(addr result, unsafeAddr x, 32)
-  
-proc toArray32*(s: seq[byte]): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-  let len = min(s.len, 32)
-  for i in 0 ..< len:
-    output[i] = s[s.len - 1 - i]
-  return output
 
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
@@ -370,7 +374,7 @@ method generateProof*(
     if proofResult.isErr():
       return err("Failed to fetch Merkle proof: " & proofResult.error)
     g.merkleProofCache = proofResult.get()
-    debug "Merkle proof fetched",
+    debug "------ Merkle proof fetched ------",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
   except CatchableError:
     error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
@@ -387,13 +391,20 @@ method generateProof*(
   )
 
   debug "------ Generating proof with witness ------",
-    identity_secret = inHex(witness.identity_secret),
-    user_message_limit = inHex(witness.user_message_limit),
-    message_id = inHex(witness.message_id),
-    path_elements = witness.path_elements.map(inHex),
-    identity_path_index = witness.identity_path_index.mapIt($it).join(", "),
-    x = inHex(witness.x),
-    external_nullifier = inHex(witness.external_nullifier)
+    identity_secret_original = g.idCredentials.get().idSecretHash,
+    identity_secret = witness.identity_secret,
+    user_message_limit_original = g.userMessageLimit.get(),
+    user_message_limit = witness.user_message_limit,
+    message_id_original = messageId,
+    message_id = witness.message_id,
+    path_elements_original = g.merkleProofCache,
+    path_elements = witness.path_elements,
+    identity_path_index_original = indexToPath(g.membershipIndex.get()),
+    identity_path_index = witness.identity_path_index,
+    x_original = hashToField(data),
+    x = witness.x,
+    external_nullifier_original = externalNullifierRes.get(),
+    external_nullifier = witness.external_nullifier
 
   debug "------ Witness parameters ------",
     identity_secret_len = witness.identity_secret.len,
