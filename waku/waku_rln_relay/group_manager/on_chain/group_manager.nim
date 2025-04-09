@@ -158,13 +158,15 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    var merkleProof = newSeq[array[32, byte]](20)
-    for i in 0 ..< 20:
-      let startIndex = i * 32 # No offset needed for fixed-size array
-      if startIndex + 32 <= responseBytes.len:
-        merkleProof[i] = responseBytes.toOpenArray(startIndex, startIndex + 31)
-      else:
-        discard
+    var i = 0
+    var merkleProof = newSeq[array[32, byte]]()
+    while (i * 32) + 31 < responseBytes.len:
+      var element: array[32, byte]
+      let startIndex = i * 32
+      let endIndex = startIndex + 31
+      element = responseBytes.toOpenArray(startIndex, endIndex)
+      merkleProof.add(element)
+      i += 1
 
     debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
@@ -342,14 +344,12 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-proc indexToPath*(membershipIndex: uint): seq[byte] =
-  const TREE_DEPTH = 20 # RLN uses 20-level Merkle trees
-  result = newSeq[byte](TREE_DEPTH)
-
-  # Convert index to little-endian bit array
+proc indexToPath*(membershipIndex: uint, tree_depth: int): seq[byte] =
+  result = newSeq[byte](tree_depth)
   var idx = membershipIndex
-  for i in 0 ..< TREE_DEPTH:
-    let bit = (idx shr i) and 1 # Extract i-th bit (LSB-first)
+
+  for i in 0 ..< tree_depth:
+    let bit = (idx shr (tree_depth - 1 - i)) and 1
     result[i] = byte(bit)
 
   debug "indexToPath", index = membershipIndex, path = result
@@ -368,13 +368,32 @@ proc createZerokitWitness(
   let msgId = messageId.toArray32LE()
     # uint64 to array[32, byte] and convert to little-endian
 
-  # Convert path elements to little-endian byte arrays
+  try:
+    discard waitFor g.updateRoots()
+  except CatchableError:
+    error "Error updating roots", error = getCurrentExceptionMsg()
+
+  try:
+    let proofResult = waitFor g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      error "Failed to fetch Merkle proof", error = proofResult.error
+    g.merkleProofCache = proofResult.get()
+  except CatchableError:
+    error "Error fetching Merkle proof", error = getCurrentExceptionMsg()
+
   var pathElements: seq[array[32, byte]]
   for elem in g.merkleProofCache:
     pathElements.add(toArray32LE(elem)) # convert every element to little-endian
 
   # Convert index to byte array (no endianness needed for path index)
-  let pathIndex = indexToPath(g.membershipIndex.get()) # uint to seq[byte]
+  let pathIndex = indexToPath(g.membershipIndex.get(), pathElements.len)
+    # uint to seq[byte]
+
+  debug "---- pathElements & pathIndex -----",
+    pathElements = pathElements,
+    pathIndex = pathIndex,
+    pathElementsLength = pathElements.len,
+    pathIndexLength = pathIndex.len
 
   # Calculate hash using zerokit's hash_to_field equivalent
   let x = hash_to_field(data).toArray32LE() # convert to little-endian
