@@ -166,7 +166,7 @@ proc fetchMerkleProofElements*(
       else:
         discard
 
-    debug "merkleProof", output = merkleProof
+    debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
     return ok(merkleProof)
   except CatchableError:
@@ -410,7 +410,8 @@ method generateProof*(
     membershipIndex = g.membershipIndex.get(),
     userMessageLimit = g.userMessageLimit.get()
 
-  let externalNullifierRes = poseidon(@[hash_to_field(@epoch).toSeq(), hash_to_field(@rlnIdentifier).toSeq()])
+  let externalNullifierRes =
+    poseidon(@[hash_to_field(@epoch).toSeq(), hash_to_field(@rlnIdentifier).toSeq()])
   let extNullifier = externalNullifierRes.get().toArray32LE()
 
   try:
