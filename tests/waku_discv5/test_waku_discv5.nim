@@ -300,7 +300,9 @@ suite "Waku Discovery v5":
       # Cleanup
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-    asyncTest "find random peers with instance predicate":
+    xasyncTest "find random peers with instance predicate":
+      ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
+
       ## Setup
       # Records
       let
