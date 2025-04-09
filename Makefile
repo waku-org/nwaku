@@ -159,7 +159,7 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-LIBRLN_VERSION := v0.5.1
+LIBRLN_VERSION := v0.7.0
 
 ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib

@@ -93,55 +93,6 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc toArray32BE_to_LE*(input: array[32, byte]): array[32, byte] =
-  var output: array[32, byte]
-
-  # Reverse the order of bytes (big-endian to little-endian)
-  for i in 0 ..< 32:
-    output[i] = input[31 - i]
-
-  # Debug message
-  echo "------- convertBEtoLE: input: [0x",
-    input[0 ..< 8].mapIt(it.toHex()).join(", 0x"),
-    ", ...]",
-    " → output: [0x",
-    output[0 ..< 8].mapIt(it.toHex()).join(", 0x"),
-    ", ...]"
-
-  return output
-
-proc toArray32BE_to_LE*(s: seq[byte]): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-  let len = min(s.len, 32)
-  for i in 0 ..< len:
-    output[i] = s[s.len - 1 - i] # Reverse byte order here
-
-  # Debug message
-  echo "------- toArray32LE: input[",
-    s.len,
-    " bytes]: 0x",
-    s.toHex(),
-    " → output: [0x",
-    output[0 ..< min(8, len)].mapIt(it.toHex()).join(", 0x"),
-    ", ...]"
-  return output
-
-proc toArray32BE_to_LE*(s: uint64): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-
-  var value = s
-  for i in 0 ..< 8: # uint64 = 8 bytes
-    output[i] = byte(value and 0xFF)
-    value = value shr 8
-
-  echo "------- toArray32BE_to_LE: 0x",
-    s.toHex(), " → [0x", output[0 ..< 8].mapIt(it.toHex()).join(", 0x"), ", 0, ...]"
-  return output
-
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[array[32, byte]], string]] {.async.} =
@@ -177,10 +128,10 @@ proc fetchMerkleProofElements*(
         for j in 0 ..< 32:
           if startIndex + j < responseBytes.len:
             element[j] = responseBytes[startIndex + j]
-        merkleProof.add(toArray32BE_to_LE(element))
+        merkleProof.add(element)
       else:
         var element: array[32, byte]
-        merkleProof.add(toArray32BE_to_LE(element))
+        merkleProof.add(element)
 
     return ok(merkleProof)
   except CatchableError:
@@ -237,39 +188,14 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
         discard g.validRoots.popFirst()
 
     g.validRoots.addLast(merkleRoot)
-    debug "------ Detected new Merkle root ------",
+    debug "~~~~~~~~~~~~~ Detected new Merkle root ~~~~~~~~~~~~~~~~",
       root = merkleRoot.toHex, totalRoots = g.validRoots.len
     return true
   else:
-    debug "------ No new Merkle root ------",
+    debug "~~~~~~~~~~~~~ No new Merkle root ~~~~~~~~~~~~~~~~",
       root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
   return false
-
-proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
-  ## Continuously track changes to the Merkle root
-  initializedGuard(g)
-
-  let ethRpc = g.ethRpc.get()
-  let wakuRlnContract = g.wakuRlnContract.get()
-
-  # Set up the polling interval - more frequent to catch roots
-  const rpcDelay = 5.seconds
-
-  info "Starting to track Merkle root changes"
-
-  while true:
-    debug "starting to update roots"
-    let rootUpdated = await g.updateRoots()
-
-    if rootUpdated:
-      let proofResult = await g.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      g.merkleProofCache = proofResult.get()
-
-    debug "sleeping for 5 seconds"
-    await sleepAsync(rpcDelay)
 
 method atomicBatch*(
     g: OnchainGroupManager,
@@ -369,6 +295,15 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+proc toArray32*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[s.len - 1 - i]
+  return output
+
 proc indexToPath(index: uint64): seq[byte] =
   # Fixed tree height of 32 for RLN
   const treeHeight = 20
@@ -389,7 +324,7 @@ proc hashToField*(signal: seq[byte]): array[32, byte] =
 
 method generateProof*(
     g: OnchainGroupManager,
-    data: openArray[byte],
+    data: seq[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
@@ -422,14 +357,23 @@ method generateProof*(
     return err("Failed to fetch Merkle proof: " & getCurrentExceptionMsg())
 
   let witness = Witness(
-    identity_secret: toArray32BE_to_LE(g.idCredentials.get().idSecretHash),
-    user_message_limit: toArray32BE_to_LE(g.userMessageLimit.get()),
-    message_id: toArray32BE_to_LE(messageId),
+    identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
+    user_message_limit: serialize(g.userMessageLimit.get()),
+    message_id: serialize(messageId),
     path_elements: g.merkleProofCache,
     identity_path_index: indexToPath(g.membershipIndex.get()),
     x: hashToField(data),
     external_nullifier: externalNullifierRes.get(),
   )
+
+  debug "------ Generating proof with witness ------",
+    identity_secret = inHex(witness.identity_secret),
+    user_message_limit = inHex(witness.user_message_limit),
+    message_id = inHex(witness.message_id),
+    path_elements = witness.path_elements.map(inHex),
+    identity_path_index = witness.identity_path_index.mapIt($it).join(", "),
+    x = inHex(witness.x),
+    external_nullifier = inHex(witness.external_nullifier)
 
   debug "------ Witness parameters ------",
     identity_secret_len = witness.identity_secret.len,
@@ -439,16 +383,7 @@ method generateProof*(
     identity_path_index_len = witness.identity_path_index.len,
     x_len = witness.x.len,
     external_nullifier_len = witness.external_nullifier.len
-
-  debug "------ Generating proof with witness ------",
-    identity_secret = inHex(witness.identity_secret),
-    user_message_limit = inHex(witness.user_message_limit),
-    message_id = inHex(witness.message_id),
-    path_elements = witness.path_elements.map(inHex),
-    identity_path_index = witness.identity_path_index,
-    x = inHex(witness.x),
-    external_nullifier = inHex(witness.external_nullifier)
-
+    
   let serializedWitness = serialize(witness)
   var inputBuffer = toBuffer(serializedWitness)
 
