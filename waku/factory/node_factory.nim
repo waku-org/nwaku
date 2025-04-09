@@ -161,7 +161,7 @@ proc setupProtocols(
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
-  if conf.discv5Only:
+  if conf.discv5Conf.isSome and conf.discv5Conf.get().discv5Only:
     notice "Running node only with Discv5, not mounting additional protocols"
     return ok()
 

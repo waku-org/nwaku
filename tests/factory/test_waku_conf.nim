@@ -21,6 +21,7 @@ suite "Waku Conf - build with cluster conf":
     builder.withP2pTcpPort(60000)
     builder.withMaxConnections(10)
     builder.discv5Conf.withUdpPort(9000)
+    builder.withRelayServiceRatio("50:50")
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
@@ -65,6 +66,7 @@ suite "Waku Conf - build with cluster conf":
     var builder = WakuConfBuilder.init()
     builder.withP2pTcpPort(60000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
     builder.discv5Conf.withUdpPort(9000)
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
@@ -99,6 +101,7 @@ suite "Waku Conf - build with cluster conf":
     var builder = WakuConfBuilder.init()
     builder.withP2pTcpPort(60000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
     builder.discv5Conf.withUdpPort(9000)
 
     let # Mount all shards in network
@@ -135,6 +138,7 @@ suite "Waku Conf - build with cluster conf":
     builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
     let shards = @[2.uint16, 3.uint16]
 
     ## Given
@@ -166,6 +170,7 @@ suite "Waku Conf - build with cluster conf":
     builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
     let shards = @[2.uint16, 10.uint16]
 
     ## Given
@@ -189,6 +194,7 @@ suite "Waku Conf - build with cluster conf":
     builder.discv5Conf.withUdpPort(9000)
     builder.withMaxConnections(10)
     builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.withRelayServiceRatio("50:50")
 
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
@@ -237,6 +243,7 @@ suite "Waku Conf - node key":
     builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
 
     ## Given
 
@@ -263,6 +270,7 @@ suite "Waku Conf - node key":
     builder.withP2pTcpPort(60000)
     builder.withMaxConnections(10)
     builder.discv5Conf.withUdpPort(9000)
+    builder.withRelayServiceRatio("50:50")
 
     ## Given
     builder.withNodeKey(nodeKey)
@@ -287,6 +295,7 @@ suite "Waku Conf - extMultiaddrs":
     builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
     builder.withMaxConnections(10)
+    builder.withRelayServiceRatio("50:50")
 
     ## Given
     let multiaddrs =

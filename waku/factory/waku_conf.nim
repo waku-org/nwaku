@@ -19,8 +19,14 @@ type
 
 # TODO: this should come from discv5 discovery module
 type Discv5Conf* = ref object
+  # TODO: This should probably be an option on the builder
+  # But translated to everything else "false" on the config
+  discv5Only*: bool
   bootstrapNodes*: seq[TextEnr]
   udpPort*: Port
+
+type Storeconf* = ref object
+  legacy*: bool
 
 # TODO: this should come from RLN relay module
 type RlnRelayConf* = ref object
@@ -52,7 +58,6 @@ type WakuConf* = ref object
   shards*: seq[uint16]
 
   relay*: bool
-  store*: bool
   filter*: bool
   lightPush*: bool
   peerExchange*: bool
@@ -61,6 +66,8 @@ type WakuConf* = ref object
   relayPeerExchange*: bool
 
   discv5Conf*: Option[Discv5Conf]
+
+  storeConf*: Option[StoreConf]
 
   rlnRelayConf*: Option[RlnRelayConf]
 
@@ -102,7 +109,7 @@ proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
     relay = conf.relay,
     rlnRelay = conf.rlnRelayConf.isSome,
-    store = conf.store,
+    store = conf.storeConf.isSome,
     filter = conf.filter,
     lightPush = conf.lightPush,
     peerExchange = conf.peerExchange
@@ -144,6 +151,9 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
   if wakuConf.dns4DomainName.isSome():
     if isEmptyOrWhiteSpace(wakuConf.dns4DomainName.get().string):
       return err("dns4DomainName is an empty string, set it to none(string) instead")
+
+  if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):
+    return err("relayServiceRatio is an empty string")
 
   return ok()
 

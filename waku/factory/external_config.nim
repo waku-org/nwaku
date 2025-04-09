@@ -196,7 +196,7 @@ type WakuNodeConf* = object
     .}: seq[string]
 
     extMultiAddrsOnly* {.
-      desc: "Only announce external multiaddresses",
+      desc: "Only announce external multiaddresses setup with --ext-multiaddr",
       defaultValue: false,
       name: "ext-multiaddr-only"
     .}: bool
