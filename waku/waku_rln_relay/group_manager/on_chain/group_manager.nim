@@ -233,11 +233,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
   while true:
     let rootUpdated = await g.updateRoots()
 
-    if rootUpdated:
-      let proofResult = await g.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      g.merkleProofCache = proofResult.get()
+    let proofResult = await g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      error "Failed to fetch Merkle proof", error = proofResult.error
+    g.merkleProofCache = proofResult.get()
 
     debug "--- track update ---",
       len = g.validRoots.len,
