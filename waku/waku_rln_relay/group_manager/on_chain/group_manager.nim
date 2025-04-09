@@ -172,7 +172,7 @@ proc fetchMerkleProofElements*(
       element = responseBytes.toOpenArray(startIndex, endIndex)
       merkleProof.add(element)
       i += 1
-      debug "---- element ----", i = i, element = element
+      debug "---- element ----", startIndex = startIndex, startElement = responseBytes[startIndex], endIndex = endIndex, endElement = responseBytes[endIndex], element = element
 
     # debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
