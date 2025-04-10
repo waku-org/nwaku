@@ -4,17 +4,18 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   secp256k1,
-  results
+  results,
+  waku/waku_rln_relay/rln_relay
 
 import ../common/logging
+
+export RlnRelayConf
 
 logScope:
   topics = "waku conf"
 
 type
   TextEnr* = distinct string
-  ContractAddress* = distinct string
-  EthRpcUrl* = distinct string
   NatStrategy* = distinct string
   DomainName* = distinct string
 
@@ -24,14 +25,14 @@ type ProtectedShard* = object
   key*: secp256k1.SkPublicKey
 
 # TODO: this should come from discv5 discovery module
-type Discv5Conf* = ref object
+type Discv5Conf* = object
   # TODO: This should probably be an option on the builder
   # But translated to everything else "false" on the config
   discv5Only*: bool
   bootstrapNodes*: seq[TextEnr]
   udpPort*: Port
 
-type StoreServiceConf* = ref object
+type StoreServiceConf* = object
   legacy*: bool
   dbURl*: string
   dbVacuum*: bool
@@ -40,22 +41,11 @@ type StoreServiceConf* = ref object
   retentionPolicy*: string
   resume*: bool
 
-# TODO: this should come from RLN relay module
-type RlnRelayConf* = ref object
-  ethContractAddress*: ContractAddress
-  chainId*: uint
-  credIndex*: Option[uint]
-  dynamic*: bool
-  bandwidthThreshold*: int
-  epochSizeSec*: uint64
-  userMessageLimit*: uint64
-  ethClientAddress*: EthRpcUrl
-
-type WebSocketSecureConf* = ref object
+type WebSocketSecureConf* = object
   keyPath*: string
   certPath*: string
 
-type WebSocketConf* = ref object
+type WebSocketConf* = object
   port*: Port
   secureConf*: Option[WebSocketSecureConf]
 
@@ -63,7 +53,7 @@ type WebSocketConf* = ref object
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
 ## sanity checks beyond type enforcement.
-type WakuConf* = ref object
+type WakuConf* = object
   nodeKey*: PrivateKey
 
   clusterId*: uint16
@@ -119,11 +109,13 @@ type WakuConf* = ref object
 
   colocationLimit*: int
 
+  # TODO: use proper type
   rateLimits*: seq[string]
 
   # TODO: those could be in a relay conf object
   maxRelayPeers*: Option[int]
   relayShardedPeerManagement*: bool
+  # TODO: use proper type
   relayServiceRatio*: string
 
 proc log*(conf: WakuConf) =

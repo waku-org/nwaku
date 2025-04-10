@@ -73,14 +73,13 @@ macro with(builderType: untyped, argName: untyped, argType: untyped) =
 ##############################
 type RlnRelayConfBuilder = ref object
   rlnRelay: Option[bool]
-  ethContractAddress: Option[ContractAddress]
+  ethContractAddress: Option[string]
   chainId: Option[uint]
   credIndex: Option[uint]
   dynamic: Option[bool]
-  bandwidthThreshold: Option[int]
   epochSizeSec: Option[uint64]
   userMessageLimit: Option[uint64]
-  ethClientAddress: Option[EthRpcUrl]
+  ethClientAddress: Option[string]
 
 proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
   RlnRelayConfBuilder()
@@ -89,11 +88,10 @@ with(RlnRelayConfbuilder, rlnRelay, bool)
 with(RlnRelayConfBuilder, chainId, uint)
 with(RlnRelayConfBuilder, credIndex, uint)
 with(RlnRelayConfBuilder, dynamic, bool)
-with(RlnRelayConfBuilder, bandwidthThreshold, int)
 with(RlnRelayConfBuilder, epochSizeSec, uint64)
 with(RlnRelayConfBuilder, userMessageLimit, uint64)
-with(RlnRelayConfBuilder, ethContractAddress, string, ContractAddress)
-with(RlnRelayConfBuilder, ethClientAddress, string, EthRpcUrl)
+with(RlnRelayConfBuilder, ethContractAddress, string)
+with(RlnRelayConfBuilder, ethClientAddress, string)
 
 proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
   if builder.rlnRelay.isNone or not builder.rlnRelay.get():
@@ -118,12 +116,6 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
     else:
       return err("RLN Relay Dynamic was not specified")
 
-  let bandwidthThreshold =
-    if builder.bandwidthThreshold.isSome:
-      builder.bandwidthThreshold.get()
-    else:
-      return err("RLN Relay Bandwidth Threshold was not specified")
-
   let epochSizeSec =
     if builder.epochSizeSec.isSome:
       builder.epochSizeSec.get()
@@ -146,7 +138,7 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
     some(
       RlnRelayConf(
         chainId: chainId,
-        credIndex: credIndex,
+        credIndex: builder.credIndex,
         dynamic: dynamic,
         ethContractAddress: ethContractAddress,
         epochSizeSec: epochSizeSec,
@@ -281,6 +273,8 @@ type WakuConfBuilder* = ref object
   clusterId: Option[uint16]
   numShardsInNetwork: Option[uint32]
   shards: Option[seq[uint16]]
+  protectedShards: Option[seq[ProtectedShard]]
+  contentTopics: Option[seq[string]]
 
   relay: Option[bool]
   filter: Option[bool]
@@ -288,6 +282,8 @@ type WakuConfBuilder* = ref object
   peerExchange: Option[bool]
   storeSync: Option[bool]
   relayPeerExchange: Option[bool]
+  # TODO: move within a relayConf
+  rendezvous: Option[bool]
   discv5Only: Option[bool]
 
   clusterConf: Option[ClusterConf]
@@ -339,15 +335,18 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
 with(WakuConfBuilder, clusterConf, ClusterConf)
 with(WakuConfBuilder, nodeKey, PrivateKey)
 with(WakuConfBuilder, clusterId, uint16)
+with(WakuConfbuilder, shards, seq[uint16])
+with(WakuConfbuilder, protectedShards, seq[ProtectedShard])
+with(WakuConfbuilder, contentTopics, seq[string])
 with(WakuConfBuilder, relay, bool)
 with(WakuConfBuilder, filter, bool)
 with(WakuConfBuilder, storeSync, bool)
 with(WakuConfBuilder, relayPeerExchange, bool)
+with(WakuConfBuilder, rendezvous, bool)
 with(WakuConfBuilder, maxMessageSizeBytes, int)
 with(WakuConfBuilder, dnsAddrs, bool)
 with(WakuConfbuilder, peerPersistence, bool)
 with(WakuConfbuilder, maxConnections, int)
-with(WakuConfbuilder, shards, seq[uint16])
 with(WakuConfbuilder, dnsAddrsNameServers, seq[IpAddress])
 with(WakuConfbuilder, p2pTcpPort, uint16, Port)
 with(WakuConfbuilder, dns4DomainName, string, DomainName)
@@ -413,13 +412,6 @@ proc applyPresetConf(builder: var WakuConfBuilder) =
     else:
       warn "RLN Relay Dynamic was manually provided alongside a cluster conf",
         used = rlnRelayConf.dynamic, discarded = clusterConf.rlnRelayDynamic
-
-    if rlnRelayConf.bandwidthThreshold.isNone:
-      rlnRelayConf.withBandwidthThreshold(clusterConf.rlnRelayBandwidthThreshold)
-    else:
-      warn "RLN Relay Bandwidth Threshold was manually provided alongside a cluster conf",
-        used = rlnRelayConf.bandwidthThreshold,
-        discarded = clusterConf.rlnRelayBandwidthThreshold
 
     if rlnRelayConf.epochSizeSec.isNone:
       rlnRelayConf.withEpochSizeSec(clusterConf.rlnEpochSizeSec)
@@ -501,6 +493,13 @@ proc build*(
       warn "whether to mount storeSync is not specified, defaulting to not mounting"
       false
 
+  let rendezvous =
+    if builder.rendezvous.isSome:
+      builder.rendezvous.get()
+    else:
+      warn "whether to mount rendezvous is not specified, defaulting to not mounting"
+      false
+
   let relayPeerExchange = builder.relayPeerExchange.get(false)
 
   applyPresetConf(builder)
@@ -528,6 +527,10 @@ proc build*(
       # TODO: conversion should not be needed
       let upperShard: uint16 = uint16(numShardsInNetwork - 1)
       toSeq(0.uint16 .. upperShard)
+
+  let protectedShards = builder.protectedShards.get(@[])
+
+  let contentTopics = builder.contentTopics.get(@[])
 
   let discv5Conf = builder.discv5Conf.build().valueOr:
     return err("Discv5 Conf building failed: " & $error)

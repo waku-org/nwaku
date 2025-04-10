@@ -32,18 +32,20 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type WakuRlnConfig* = object
-  rlnRelayDynamic*: bool
-  rlnRelayCredIndex*: Option[uint]
-  rlnRelayEthContractAddress*: string
-  rlnRelayEthClientAddress*: string
-  rlnRelayChainId*: uint
-  rlnRelayCredPath*: string
-  rlnRelayCredPassword*: string
-  rlnRelayTreePath*: string
-  rlnEpochSizeSec*: uint64
+type RlnRelayConf* = object of RootObj
+  dynamic*: bool
+  credIndex*: Option[uint]
+  ethContractAddress*: string
+  ethClientAddress*: string
+  chainId*: uint
+  credPath*: string
+  credPassword*: string
+  treePath*: string
+  epochSizeSec*: uint64
+  userMessageLimit*: uint64
+
+type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
-  rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(
     rln: ptr RLN, n: int
@@ -425,10 +427,10 @@ proc mount(
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstance = createRLNInstance(tree_path = conf.rlnRelayTreePath).valueOr:
+  let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
     return err("could not create RLN instance: " & $error)
 
-  if not conf.rlnRelayDynamic:
+  if not conf.dynamic:
     # static setup
     let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
       return err("could not parse static group keys: " & $error)
@@ -436,7 +438,7 @@ proc mount(
     groupManager = StaticGroupManager(
       groupSize: StaticGroupSize,
       groupKeys: parsedGroupKeys,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       rlnInstance: rlnInstance,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
@@ -450,17 +452,17 @@ proc mount(
         some(s)
 
     let
-      rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
-      rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
+      rlnRelayCredPath = useValueOrNone(conf.credPath)
+      rlnRelayCredPassword = useValueOrNone(conf.credPassword)
     groupManager = OnchainGroupManager(
-      ethClientUrl: string(conf.rlnRelayethClientAddress),
-      ethContractAddress: $conf.rlnRelayEthContractAddress,
-      chainId: conf.rlnRelayChainId,
+      ethClientUrl: string(conf.ethClientAddress),
+      ethContractAddress: $conf.ethContractAddress,
+      chainId: conf.chainId,
       rlnInstance: rlnInstance,
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,
       keystorePassword: rlnRelayCredPassword,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
 
@@ -473,10 +475,9 @@ proc mount(
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
-    nonceManager:
-      NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-    rlnEpochSizeSec: conf.rlnEpochSizeSec,
-    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+    nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
+    rlnEpochSizeSec: conf.epochSizeSec,
+    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 

@@ -56,7 +56,6 @@ suite "Waku Conf - build with cluster conf":
         clusterConf.rlnRelayEthContractAddress
       assert rlnRelayConf.dynamic == clusterConf.rlnRelayDynamic
       assert rlnRelayConf.chainId == clusterConf.rlnRelayChainId
-      assert rlnRelayConf.bandwidthThreshold == clusterConf.rlnRelayBandwidthThreshold
       assert rlnRelayConf.epochSizeSec == clusterConf.rlnEpochSizeSec
       assert rlnRelayConf.userMessageLimit == clusterConf.rlnRelayUserMessageLimit
 
@@ -230,7 +229,6 @@ suite "Waku Conf - build with cluster conf":
       assert rlnRelayConf.ethContractAddress.string == contractAddress
       assert rlnRelayConf.dynamic == clusterConf.rlnRelayDynamic
       assert rlnRelayConf.chainId == clusterConf.rlnRelayChainId
-      assert rlnRelayConf.bandwidthThreshold == clusterConf.rlnRelayBandwidthThreshold
       assert rlnRelayConf.epochSizeSec == clusterConf.rlnEpochSizeSec
       assert rlnRelayConf.userMessageLimit == clusterConf.rlnRelayUserMessageLimit
 

@@ -9,7 +9,6 @@ type ClusterConf* = object
   rlnRelayEthContractAddress*: string
   rlnRelayChainId*: uint
   rlnRelayDynamic*: bool
-  rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
   # TODO: should be uint16 like the `shards` parameter
@@ -28,7 +27,6 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
     rlnRelayDynamic: true,
     rlnRelayChainId: 11155111,
-    rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
     numShardsInNetwork: 8,
