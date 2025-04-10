@@ -158,8 +158,8 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    debug "---- raw response ----", 
-      total_bytes = responseBytes.len,        # Should be 640
+    debug "---- raw response ----",
+      total_bytes = responseBytes.len, # Should be 640
       non_zero_bytes = responseBytes.countIt(it != 0),
       response = responseBytes
 
@@ -172,7 +172,12 @@ proc fetchMerkleProofElements*(
       element = responseBytes.toOpenArray(startIndex, endIndex)
       merkleProof.add(element)
       i += 1
-      debug "---- element ----", startIndex = startIndex, startElement = responseBytes[startIndex], endIndex = endIndex, endElement = responseBytes[endIndex], element = element
+      debug "---- element ----",
+        startIndex = startIndex,
+        startElement = responseBytes[startIndex],
+        endIndex = endIndex,
+        endElement = responseBytes[endIndex],
+        element = element
 
     # debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
