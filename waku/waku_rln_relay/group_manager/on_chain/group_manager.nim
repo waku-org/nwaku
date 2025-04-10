@@ -121,6 +121,9 @@ method atomicBatch*(
   echo "-------------- atomicBatch 1"
   initializedGuard(g)
   echo "-------------- atomicBatch 2"
+  echo "------------- len(rateCommitments): ", len(rateCommitments)
+  echo "------------- len(toRemoveIndices): ", len(toRemoveIndices)
+  echo "------------- start: ", start
 
   let startTime = Moment.now()
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
