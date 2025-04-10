@@ -38,7 +38,6 @@ logScope:
 const DefaultStorageCap = 50_000
 
 type SyncReconciliation* = ref object of LPProtocol
-  cluster: uint16
   pubsubTopics: HashSet[PubsubTopic] # Empty set means accept all. See spec.
   contentTopics: HashSet[ContentTopic] # Empty set means accept all. See spec.
 
@@ -110,13 +109,11 @@ proc messageIngress*(
 proc preProcessPayload(
     self: SyncReconciliation, payload: RangesData
 ): Option[RangesData] =
-  ## Check the received payload for cluster, shards and/or time mismatch.
+  ## Check the received payload for topics and/or time mismatch.
 
   var payload = payload
 
-  if self.cluster != payload.cluster:
-    return none(RangesData)
-
+  # Always use the smallest pubsub topic scope possible
   if payload.pubsubTopics.len > 0 and self.pubsubTopics.len > 0:
     let pubsubIntersection = self.pubsubTopics * payload.pubsubTopics.toHashSet()
 
@@ -125,9 +122,9 @@ proc preProcessPayload(
 
     payload.pubsubTopics = pubsubIntersection.toSeq()
   elif self.pubsubTopics.len > 0:
-    # Always use the smallest topic scope possible
     payload.pubsubTopics = self.pubsubTopics.toSeq()
 
+  # Always use the smallest content topic scope possible
   if payload.contentTopics.len > 0 and self.contentTopics.len > 0:
     let contentIntersection = self.contentTopics * payload.contentTopics.toHashSet()
 
@@ -136,7 +133,6 @@ proc preProcessPayload(
 
     payload.contentTopics = contentIntersection.toSeq()
   elif self.contentTopics.len > 0:
-    # Always use the smallest topic scope possible
     payload.contentTopics = self.contentTopics.toSeq()
 
   let timeRange = calculateTimeRange(self.relayJitter, self.syncRange)
@@ -212,10 +208,9 @@ proc processRequest(
         payload = preProcessedPayload
 
       sendPayload = self.storage.processPayload(
-        preProcessedPayload.cluster, preProcessedPayload.pubsubTopics,
-        preProcessedPayload.contentTopics, preProcessedPayload.ranges,
-        preProcessedPayload.fingerprints, preProcessedPayload.itemSets, hashToSend,
-        hashToRecv,
+        preProcessedPayload.pubsubTopics, preProcessedPayload.contentTopics,
+        preProcessedPayload.ranges, preProcessedPayload.fingerprints,
+        preProcessedPayload.itemSets, hashToSend, hashToRecv,
       )
 
       trace "sync payload processed",
@@ -281,7 +276,6 @@ proc initiate(
     fingerprint = self.storage.computeFingerprint(bounds, pubsubTopics, contentTopics)
 
     initPayload = RangesData(
-      cluster: self.cluster,
       pubsubTopics: pubsubTopics,
       contentTopics: contentTopics,
       ranges: @[(bounds, RangeType.Fingerprint)],
@@ -392,7 +386,6 @@ proc initFillStorage(
 
 proc new*(
     T: type SyncReconciliation,
-    cluster: uint16,
     pubsubTopics: seq[PubSubTopic],
     contentTopics: seq[ContentTopic],
     peerManager: PeerManager,
@@ -413,7 +406,6 @@ proc new*(
       res.get()
 
   var sync = SyncReconciliation(
-    cluster: cluster,
     pubsubTopics: pubsubTopics.toHashSet(),
     contentTopics: contentTopics.toHashSet(),
     peerManager: peerManager,

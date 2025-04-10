@@ -26,7 +26,6 @@ type
     ItemSet = 2
 
   RangesData* = object
-    cluster*: uint16
     pubsubTopics*: seq[PubsubTopic]
     contentTopics*: seq[ContentTopic]
 

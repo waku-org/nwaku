@@ -245,7 +245,7 @@ proc mountStoreSync*(
 
   let recon =
     ?await SyncReconciliation.new(
-      cluster, pubsubTopics, contentTopics, node.peerManager, node.wakuArchive,
+      pubsubTopics, contentTopics, node.peerManager, node.wakuArchive,
       storeSyncRange.seconds, storeSyncInterval.seconds, storeSyncRelayJitter.seconds,
       idsChannel, wantsChannel, needsChannel,
     )

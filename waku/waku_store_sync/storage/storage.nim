@@ -36,7 +36,6 @@ method computeFingerprint*(
 
 method processPayload*(
     self: SyncStorage,
-    cluster: uint16,
     pubsubTopics: seq[PubsubTopic],
     contentTopics: seq[ContentTopic],
     ranges: seq[(Slice[SyncID], RangeType)],

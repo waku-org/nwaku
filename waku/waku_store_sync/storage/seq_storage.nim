@@ -392,7 +392,6 @@ proc processItemSetRange*(
 
 method processPayload*(
     self: SeqStorage,
-    cluster: uint16,
     pubsubTopics: seq[PubsubTopic],
     contentTopics: seq[ContentTopic],
     ranges: seq[(Slice[SyncID], RangeType)],

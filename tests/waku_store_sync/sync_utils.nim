@@ -25,14 +25,12 @@ proc newTestWakuRecon*(
     idsRx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     wantsTx: AsyncQueue[(PeerId, Fingerprint)],
     needsTx: AsyncQueue[(PeerId, Fingerprint)],
-    cluster: uint16 = 1,
     pubsubTopics: seq[PubsubTopic] = @[],
     contentTopics: seq[ContentTopic] = @[],
 ): Future[SyncReconciliation] {.async.} =
   let peerManager = PeerManager.new(switch)
 
   let res = await SyncReconciliation.new(
-    cluster = cluster,
     pubsubTopics = pubsubTopics,
     contentTopics = contentTopics,
     peerManager = peerManager,

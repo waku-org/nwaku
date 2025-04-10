@@ -52,10 +52,6 @@ proc deltaEncode*(value: RangesData): seq[byte] =
     i = 0
     j = 0
 
-  # encode cluster
-  buf = uint64(value.cluster).toBytes(Leb128)
-  output &= @buf
-
   # encode pubsub topics
   buf = uint64(value.pubsubTopics.len).toBytes(Leb128)
   output &= @buf
@@ -233,16 +229,6 @@ proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
 
   return ok(recon)
 
-proc getCluster(idx: var int, buffer: seq[byte]): Result[uint16, string] =
-  if idx + VarIntLen > buffer.len:
-    return err("Cannot decode cluster")
-
-  let slice = buffer[idx ..< idx + VarIntLen]
-  let (val, len) = uint64.fromBytes(slice, Leb128)
-  idx += len
-
-  return ok(uint16(val))
-
 proc getTopics(idx: var int, buffer: seq[byte]): Result[seq[string], string] =
   if idx + VarIntLen > buffer.len:
     return err("Cannot decode topic count")
@@ -313,7 +299,6 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
     lastTime = Timestamp(0)
     idx = 0
 
-  payload.cluster = ?getCluster(idx, buffer)
   payload.pubsubTopics = ?getTopics(idx, buffer)
   payload.contentTopics = ?getTopics(idx, buffer)
 

@@ -99,7 +99,6 @@ suite "Waku Store Sync Codec":
     let range4 = (bounds4, RangeType.ItemSet)
 
     let payload = RangesData(
-      cluster: 1,
       pubsubTopics: @[DefaultPubsubTopic],
       contentTopics: @[],
       ranges: @[range1, range2, range3, range4],
@@ -142,7 +141,6 @@ suite "Waku Store Sync Codec":
       ranges.add(range)
 
     let payload = RangesData(
-      cluster: 1,
       pubsubTopics: @[DefaultPubsubTopic],
       contentTopics: @[],
       ranges: ranges,
@@ -193,7 +191,6 @@ suite "Waku Store Sync Codec":
       itemSets.add(itemSet)
 
     let payload = RangesData(
-      cluster: 1,
       pubsubTopics: @[DefaultPubsubTopic],
       contentTopics: @[],
       ranges: ranges,
