@@ -1,4 +1,4 @@
-## Introduction
+## App description
 This is a very simple example that shows how to invoke libwaku functions from a C program.
 
 ## Build
