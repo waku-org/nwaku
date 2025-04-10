@@ -55,6 +55,7 @@ type Waku* = ref object
   version: string
   conf: WakuConf
   rng: ref HmacDrbgContext
+  # TODO: remove, part of the conf 
   key: crypto.PrivateKey
 
   wakuDiscv5*: WakuDiscoveryV5
@@ -74,7 +75,7 @@ func version*(waku: Waku): string =
   waku.version
 
 proc setupSwitchServices(
-    waku: Waku, conf: WakuNodeConf, circuitRelay: Relay, rng: ref HmacDrbgContext
+    waku: Waku, conf: WakuConf, circuitRelay: Relay, rng: ref HmacDrbgContext
 ) =
   proc onReservation(addresses: seq[MultiAddress]) {.gcsafe, raises: [].} =
     debug "circuit relay handler new reserve event",
@@ -90,7 +91,7 @@ proc setupSwitchServices(
         error "failed to update announced multiaddress", error = $error
 
   let autonatService = getAutonatService(rng)
-  if conf.isRelayClient:
+  if conf.circuitRelayClient:
     ## The node is considered to be behind a NAT or firewall and then it
     ## should struggle to be reachable and establish connections to other nodes
     const MaxNumRelayServers = 2
@@ -105,12 +106,13 @@ proc setupSwitchServices(
 ## Initialisation
 
 proc newCircuitRelay(isRelayClient: bool): Relay =
+  # TODO: Does it mean it's a circuit-relay server when it's false?
   if isRelayClient:
     return RelayClient.new()
   return Relay.new()
 
 proc setupAppCallbacks(
-    node: WakuNode, conf: WakuNodeConf, appCallbacks: AppCallbacks
+    node: WakuNode, conf: WakuConf, appCallbacks: AppCallbacks
 ): Result[void, string] =
   if appCallbacks.isNil():
     info "No external callbacks to be set"
@@ -155,7 +157,7 @@ proc new*(
 
   info "Running nwaku node", version = git_version
 
-  var relay = newCircuitRelay(wakuConf.isRelayClient)
+  var relay = newCircuitRelay(wakuConf.circuitRelayClient)
 
   let nodeRes = setupNode(wakuConf, rng, relay)
   if nodeRes.isErr():
@@ -164,15 +166,15 @@ proc new*(
 
   let node = nodeRes.get()
 
-  node.setupAppCallbacks(confCopy, appCallbacks).isOkOr:
+  node.setupAppCallbacks(wakuConf, appCallbacks).isOkOr:
     error "Failed setting up app callbacks", error = error
     return err("Failed setting up app callbacks: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
-  if confCopy.reliabilityEnabled:
-    if confCopy.storenode == "":
-      return err("A storenode should be set when reliability mode is on")
+  if wakuConf.p2pReliabilityEnabled:
+    if wakuConf.remoteStoreNode.isNone:
+      return err("A remoteStoreNode should be set when reliability mode is on")
 
     let deliveryMonitorRes = DeliveryMonitor.new(
       node.wakuStoreClient, node.wakuRelay, node.wakuLightpushClient,
@@ -184,16 +186,15 @@ proc new*(
 
   var waku = Waku(
     version: git_version,
-    # TODO: WakuNodeConf is re-used for too many context, `conf` here should be a dedicated subtype
-    conf: confCopy,
+    conf: wakuConf,
     rng: rng,
-    key: confCopy.nodekey.get(),
+    key: wakuConf.nodeKey,
     node: node,
     deliveryMonitor: deliveryMonitor,
     appCallbacks: appCallbacks,
   )
 
-  waku.setupSwitchServices(confCopy, relay, rng)
+  waku.setupSwitchServices(wakuConf, relay, rng)
 
   ok(waku)
 
@@ -221,10 +222,11 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
     return err("Could not retrieve ports " & error)
 
   if tcpPort.isSome():
-    conf.tcpPort = tcpPort.get()
+    conf.p2pTcpPort = tcpPort.get()
 
-  if websocketPort.isSome():
-    conf.websocketPort = websocketPort.get()
+  if websocketPort.isSome() and conf.webSocketConf.isSome:
+    var websocketConf = conf.webSocketConf.get()
+    websocketConf.port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
   let netConf = networkConfiguration(conf, clientId).valueOr:
@@ -236,7 +238,7 @@ proc updateEnr(waku: ptr Waku): Result[void, string] =
   let netConf: NetConfig = getRunningNetConfig(waku).valueOr:
     return err("error calling updateNetConfig: " & $error)
 
-  let record = enrConfiguration(waku[].conf, netConf, waku[].key).valueOr:
+  let record = enrConfiguration(waku[].conf, netConf).valueOr:
     return err("ENR setup failed: " & error)
 
   if isClusterMismatched(record, waku[].conf.clusterId):
@@ -275,7 +277,9 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
   return ok()
 
 proc updateWaku(waku: ptr Waku): Result[void, string] =
-  if waku[].conf.tcpPort == Port(0) or waku[].conf.websocketPort == Port(0):
+  let conf = waku[].conf
+  if conf.p2pTcpPort == Port(0) or
+      (conf.websocketConf.isSome and conf.websocketConf.get.port == Port(0)):
     updateEnr(waku).isOkOr:
       return err("error calling updateEnr: " & $error)
 
@@ -288,15 +292,17 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
 proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
   while true:
     await sleepAsync(30.seconds)
-    let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-      waku.conf.dnsDiscoveryUrl, waku.conf.dnsDiscoveryNameServers
-    )
-    if dynamicBootstrapNodesRes.isErr():
-      error "Retrieving dynamic bootstrap nodes failed",
-        error = dynamicBootstrapNodesRes.error
-      continue
+    if waku.conf.dnsDiscoveryConf.isSome:
+      let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
+      let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
+        dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
+      )
+      if dynamicBootstrapNodesRes.isErr():
+        error "Retrieving dynamic bootstrap nodes failed",
+          error = dynamicBootstrapNodesRes.error
+        continue
 
-    waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+      waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
     if not waku[].wakuDiscv5.isNil():
       let dynamicBootstrapEnrs = waku[].dynamicBootstrapNodes
@@ -322,20 +328,23 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
+  let conf = waku[].conf
 
-  let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-    waku.conf.dnsDiscoveryUrl, waku.conf.dnsDiscoveryNameServers
-  )
+  if conf.dnsDiscoveryConf.isSome:
+    let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
+    let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
+      dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
+    )
 
-  if dynamicBootstrapNodesRes.isErr():
-    error "Retrieving dynamic bootstrap nodes failed",
-      error = dynamicBootstrapNodesRes.error
-    # Start Dns Discovery retry loop
-    waku[].dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
-  else:
-    waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+    if dynamicBootstrapNodesRes.isErr():
+      error "Retrieving dynamic bootstrap nodes failed",
+        error = dynamicBootstrapNodesRes.error
+      # Start Dns Discovery retry loop
+      waku[].dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
+    else:
+      waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if not waku[].conf.discv5Only:
+  if conf.discv5Conf.isSome and not conf.discv5Conf.get().discv5Only:
     (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
       return err("error while calling startNode: " & $error)
 
@@ -344,10 +353,17 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       return err("Error in updateApp: " & $error)
 
   ## Discv5
-  if waku[].conf.discv5Discovery or waku[].conf.discv5Only:
+  if conf.discv5Conf.isSome:
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
-      waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
-      waku.dynamicBootstrapNodes, waku.rng, waku.key,
+      waku.node.enr,
+      waku.node.peerManager,
+      waku.node.topicSubscriptionQueue,
+      conf.discv5Conf.get(),
+      waku.dynamicBootstrapNodes,
+      waku.rng,
+      conf.nodeKey,
+      conf.p2pListenAddress,
+      conf.portsShift,
     )
 
     (await waku.wakuDiscV5.start()).isOkOr:

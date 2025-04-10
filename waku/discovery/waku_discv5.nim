@@ -10,11 +10,7 @@ import
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
-import
-  ../node/peer_manager/peer_manager,
-  ../waku_core,
-  ../waku_enr,
-  ../factory/external_config
+import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
 
 export protocol, waku_enr
 
@@ -25,6 +21,18 @@ logScope:
   topics = "waku discv5"
 
 ## Config
+
+# TODO: merge both conf
+type Discv5Conf* = object
+  # TODO: This should probably be an option on the builder
+  # But translated to everything else "false" on the config
+  discv5Only*: bool
+  bootstrapNodes*: seq[string]
+  udpPort*: Port
+  tableIpLimit*: uint
+  bucketIpLimit*: uint
+  bitsPerHop*: int
+  enrAutoUpdate*: bool
 
 type WakuDiscoveryV5Config* = object
   discv5Config*: Option[DiscoveryConfig]
@@ -383,10 +391,12 @@ proc setupDiscoveryV5*(
     myENR: enr.Record,
     nodePeerManager: PeerManager,
     nodeTopicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent],
-    conf: WakuNodeConf,
+    conf: Discv5Conf,
     dynamicBootstrapNodes: seq[RemotePeerInfo],
     rng: ref HmacDrbgContext,
     key: crypto.PrivateKey,
+    p2pListenAddress: IpAddress,
+    portsShift: uint16,
 ): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
@@ -394,7 +404,7 @@ proc setupDiscoveryV5*(
   var discv5BootstrapEnrs: seq[enr.Record]
 
   # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-  for enrUri in conf.discv5BootstrapNodes:
+  for enrUri in conf.bootstrapNodes:
     addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
   for enr in discv5BootstrapEnrs:
@@ -407,19 +417,18 @@ proc setupDiscoveryV5*(
 
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
-  let discv5Config = DiscoveryConfig.init(
-    conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop
-  )
+  let discv5Config =
+    DiscoveryConfig.init(conf.tableIpLimit, conf.bucketIpLimit, conf.bitsPerHop)
 
-  let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+  let discv5UdpPort = Port(uint16(conf.udpPort) + portsShift)
 
   let discv5Conf = WakuDiscoveryV5Config(
     discv5Config: some(discv5Config),
-    address: conf.listenAddress,
+    address: p2pListenAddress,
     port: discv5UdpPort,
     privateKey: eth_keys.PrivateKey(key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,
-    autoupdateRecord: conf.discv5EnrAutoUpdate,
+    autoupdateRecord: conf.enrAutoUpdate,
   )
 
   WakuDiscoveryV5.new(

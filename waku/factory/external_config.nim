@@ -21,11 +21,14 @@ import
   ../waku_enr,
   ../node/peer_manager,
   ../waku_core/topics/pubsub_topic,
-  ./waku_conf
+  ./waku_conf,
+  ./waku_conf_builder,
+  ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector
 
 include ../waku_core/message/default_values
 
-export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
+export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
 
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -422,28 +425,20 @@ hence would have reachability issues.""",
       desc: "Interval between store sync attempts. In seconds.",
       defaultValue: 300, # 5 minutes
       name: "store-sync-interval"
-    .}: int64
+    .}: uint32
 
     storeSyncRange* {.
       desc: "Amount of time to sync. In seconds.",
       defaultValue: 3600, # 1 hours
       name: "store-sync-range"
-    .}: int64
+    .}: uint32
 
     storeSyncRelayJitter* {.
       hidden,
       desc: "Time offset to account for message propagation jitter. In seconds.",
       defaultValue: 20,
       name: "store-sync-relay-jitter"
-    .}: int64
-
-    storeSyncMaxPayloadSize* {.
-      hidden,
-      desc:
-        "Max size in bytes of the inner negentropy payload. Cannot be less than 5K, 0 is unlimited.",
-      defaultValue: 0,
-      name: "store-sync-max-payload-size"
-    .}: int64
+    .}: uint32
 
     ## Filter config
     filter* {.
@@ -461,7 +456,7 @@ hence would have reachability issues.""",
         "Timeout for filter subscription without ping or refresh it, in seconds. Only for v2 filter protocol.",
       defaultValue: 300, # 5 minutes
       name: "filter-subscription-timeout"
-    .}: int64
+    .}: uint16
 
     filterMaxPeersToServe* {.
       desc: "Maximum number of peers to serve at a time. Only for v2 filter protocol.",
@@ -874,3 +869,644 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
     return ok(conf)
   except CatchableError:
     return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
+
+proc toKeystoreGeneratorConf*(n: WakuNodeConf): ConfResult[RlnKeystoreGeneratorConf] =
+  return ok(
+    RlnKeystoreGeneratorConf(
+      execute: n.execute,
+      chainId: n.rlnRelayChainId,
+      ethClientAddress: n.rlnRelayEthClientAddress.string,
+      ethContractAddress: n.rlnRelayEthContractAddress,
+      userMessageLimit: n.rlnRelayUserMessageLimit,
+      ethPrivateKey: n.rlnRelayEthPrivateKey,
+      credPath: n.rlnRelayCredPath,
+      credPassword: n.rlnRelayCredPassword,
+    )
+  )
+
+  # b.withLogLevel(n.logLevel)
+  # b.withLogFormat(n.logFormat)
+
+  # b.rlnRelayConf.withCredPath(n.rlnRelayCredPath)
+  # b.rlnRelayConf.withEthClientAddress(n.rlnRelayEthClientAddress)
+  # b.rlnRelayConf.withEthContractAddress(n.rlnRelayEthContractAddress)
+  # b.rlnRelayConf.withChainId(n.rlnRelayChainId)
+  # b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
+
+  ## TODO: Oh, actually we probably need a different conf object by command :)
+  #   rlnRelayEthPrivateKey* {.
+  #     desc: "Private key for broadcasting transactions",
+  #     defaultValue: "",
+  #     name: "rln-relay-eth-private-key"
+  #   .}: string
+
+  # b.rlnRelayConf.withUserMessageLimit(n.rlnRelayUserMessageLimit)
+
+proc toInspectRlnDbConf*(n: WakuNodeConf): ConfResult[InspectRlnDbConf] =
+  return ok(InspectRlnDbConf(treePath: n.treePath))
+
+proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
+  var b = WakuConfBuilder.init()
+  b.withLogLevel(n.logLevel)
+  b.withLogFormat(n.logFormat)
+
+  b.rlnRelayConf.withCredPath(n.rlnRelayCredPath)
+  b.rlnRelayConf.withEthClientAddress(n.rlnRelayEthClientAddress.string)
+  b.rlnRelayConf.withEthContractAddress(n.rlnRelayEthContractAddress)
+  b.rlnRelayConf.withChainId(n.rlnRelayChainId)
+  b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
+  b.rlnRelayConf.withUserMessageLimit(n.rlnRelayUserMessageLimit)
+  #   # TODO: Remove "Default is" when it's already visible on the CLI
+  #   rlnRelayUserMessageLimit* {.
+  #     desc:
+  #       "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+  #     defaultValue: 1,
+  #     name: "rln-relay-user-message-limit"
+  #   .}: uint64
+
+  #   rlnEpochSizeSec* {.
+  #     desc:
+  #       "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+  #     defaultValue: 1,
+  #     name: "rln-relay-epoch-sec"
+  #   .}: uint64
+
+  #   maxMessageSize* {.
+  #     desc:
+  #       "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
+  #     defaultValue: DefaultMaxWakuMessageSizeStr,
+  #     name: "max-msg-size"
+  #   .}: string
+
+  #   case cmd* {.command, defaultValue: noCommand.}: StartUpCommand
+  #   of inspectRlnDb:
+  #     # have to change the name here since it counts as a duplicate, within noCommand
+  #     treePath* {.
+  #       desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+  #       defaultValue: "",
+  #       name: "rln-relay-tree-path"
+  #     .}: string
+  #   of generateRlnKeystore:
+  #     execute* {.
+  #       desc: "Runs the registration function on-chain. By default, a dry-run will occur",
+  #       defaultValue: false,
+  #       name: "execute"
+  #     .}: bool
+  #   of noCommand:
+  #     ##  Application-level configuration
+  #     protectedShards* {.
+  #       desc:
+  #         "Shards and its public keys to be used for message validation, shard:pubkey. Argument may be repeated.",
+  #       defaultValue: newSeq[ProtectedShard](0),
+  #       name: "protected-shard"
+  #     .}: seq[ProtectedShard]
+
+  #     ## General node config
+  #     preset* {.
+  #       desc:
+  #         "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1).",
+  #       defaultValue: "",
+  #       name: "preset"
+  #     .}: string
+
+  #     clusterId* {.
+  #       desc:
+  #         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
+  #       defaultValue: 0,
+  #       name: "cluster-id"
+  #     .}: uint16
+
+  #     agentString* {.
+  #       defaultValue: "nwaku-" & external_config.git_version,
+  #       desc: "Node agent string which is used as identifier in network",
+  #       name: "agent-string"
+  #     .}: string
+
+  #     nodekey* {.desc: "P2P node private key as 64 char hex string.", name: "nodekey".}:
+  #       Option[PrivateKey]
+
+  #     listenAddress* {.
+  #       defaultValue: defaultListenAddress(),
+  #       desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic.",
+  #       name: "listen-address"
+  #     .}: IpAddress
+
+  #     tcpPort* {.desc: "TCP listening port.", defaultValue: 60000, name: "tcp-port".}:
+  #       Port
+
+  #     portsShift* {.
+  #       desc: "Add a shift to all port numbers.", defaultValue: 0, name: "ports-shift"
+  #     .}: uint16
+
+  #     nat* {.
+  #       desc:
+  #         "Specify method to use for determining public address. " &
+  #         "Must be one of: any, none, upnp, pmp, extip:<IP>.",
+  #       defaultValue: "any"
+  #     .}: string
+
+  #     extMultiAddrs* {.
+  #       desc:
+  #         "External multiaddresses to advertise to the network. Argument may be repeated.",
+  #       name: "ext-multiaddr"
+  #     .}: seq[string]
+
+  #     extMultiAddrsOnly* {.
+  #       desc: "Only announce external multiaddresses setup with --ext-multiaddr",
+  #       defaultValue: false,
+  #       name: "ext-multiaddr-only"
+  #     .}: bool
+
+  #     maxConnections* {.
+  #       desc: "Maximum allowed number of libp2p connections.",
+  #       defaultValue: 50,
+  #       name: "max-connections"
+  #     .}: int
+
+  #     maxRelayPeers* {.
+  #       desc:
+  #         "Deprecated. Use relay-service-ratio instead. It represents the maximum allowed number of relay peers.",
+  #       name: "max-relay-peers"
+  #     .}: Option[int]
+
+  #     relayServiceRatio* {.
+  #       desc:
+  #         "This percentage ratio represents the relay peers to service peers. For example, 60:40, tells that 60% of the max-connections will be used for relay protocol and the other 40% of max-connections will be reserved for other service protocols (e.g., filter, lightpush, store, metadata, etc.)",
+  #       name: "relay-service-ratio",
+  #       defaultValue: "60:40" # 60:40 ratio of relay to service peers
+  #     .}: string
+
+  #     colocationLimit* {.
+  #       desc:
+  #         "Max num allowed peers from the same IP. Set it to 0 to remove the limitation.",
+  #       defaultValue: defaultColocationLimit(),
+  #       name: "ip-colocation-limit"
+  #     .}: int
+
+  #     peerStoreCapacity* {.
+  #       desc: "Maximum stored peers in the peerstore.", name: "peer-store-capacity"
+  #     .}: Option[int]
+
+  #     peerPersistence* {.
+  #       desc: "Enable peer persistence.", defaultValue: false, name: "peer-persistence"
+  #     .}: bool
+
+  #     ## DNS addrs config
+  #     dnsAddrs* {.
+  #       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
+  #       defaultValue: true,
+  #       name: "dns-addrs"
+  #     .}: bool
+
+  #     dnsAddrsNameServers* {.
+  #       desc:
+  #         "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
+  #       defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
+  #       name: "dns-addrs-name-server"
+  #     .}: seq[IpAddress]
+
+  #     dns4DomainName* {.
+  #       desc: "The domain name resolving to the node's public IPv4 address",
+  #       defaultValue: "",
+  #       name: "dns4-domain-name"
+  #     .}: string
+
+  #     ## Circuit-relay config
+  #     isRelayClient* {.
+  #       desc:
+  #         """Set the node as a relay-client.
+  # Set it to true for nodes that run behind a NAT or firewall and
+  # hence would have reachability issues.""",
+  #       defaultValue: false,
+  #       name: "relay-client"
+  #     .}: bool
+
+  #     ## Relay config
+  #     relay* {.
+  #       desc: "Enable relay protocol: true|false", defaultValue: true, name: "relay"
+  #     .}: bool
+
+  #     relayPeerExchange* {.
+  #       desc: "Enable gossipsub peer exchange in relay protocol: true|false",
+  #       defaultValue: false,
+  #       name: "relay-peer-exchange"
+  #     .}: bool
+
+  #     relayShardedPeerManagement* {.
+  #       desc:
+  #         "Enable experimental shard aware peer manager for relay protocol: true|false",
+  #       defaultValue: false,
+  #       name: "relay-shard-manager"
+  #     .}: bool
+
+  #     rlnRelay* {.
+  #       desc: "Enable spam protection through rln-relay: true|false.",
+  #       defaultValue: false,
+  #       name: "rln-relay"
+  #     .}: bool
+
+  #     rlnRelayCredIndex* {.
+  #       desc: "the index of the onchain commitment to use",
+  #       name: "rln-relay-membership-index"
+  #     .}: Option[uint]
+
+  #     rlnRelayDynamic* {.
+  #       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false.",
+  #       defaultValue: false,
+  #       name: "rln-relay-dynamic"
+  #     .}: bool
+
+  #     rlnRelayIdKey* {.
+  #       desc: "Rln relay identity secret key as a Hex string",
+  #       defaultValue: "",
+  #       name: "rln-relay-id-key"
+  #     .}: string
+
+  #     rlnRelayIdCommitmentKey* {.
+  #       desc: "Rln relay identity commitment key as a Hex string",
+  #       defaultValue: "",
+  #       name: "rln-relay-id-commitment-key"
+  #     .}: string
+
+  #     rlnRelayTreePath* {.
+  #       desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+  #       defaultValue: "",
+  #       name: "rln-relay-tree-path"
+  #     .}: string
+
+  #     staticnodes* {.
+  #       desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
+  #       name: "staticnode"
+  #     .}: seq[string]
+
+  #     keepAlive* {.
+  #       desc: "Enable keep-alive for idle connections: true|false",
+  #       defaultValue: false,
+  #       name: "keep-alive"
+  #     .}: bool
+
+  #     # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
+  #     # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
+  #     numShardsInNetwork* {.
+  #       desc: "Number of shards in the network",
+  #       defaultValue: 0,
+  #       name: "num-shards-in-network"
+  #     .}: uint32
+
+  #     shards* {.
+  #       desc:
+  #         "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
+  #       defaultValue:
+  #         @[
+  #           uint16(0),
+  #           uint16(1),
+  #           uint16(2),
+  #           uint16(3),
+  #           uint16(4),
+  #           uint16(5),
+  #           uint16(6),
+  #           uint16(7),
+  #         ],
+  #       name: "shard"
+  #     .}: seq[uint16]
+
+  #     contentTopics* {.
+  #       desc: "Default content topic to subscribe to. Argument may be repeated.",
+  #       name: "content-topic"
+  #     .}: seq[string]
+
+  #     ## Store and message store config
+  #     store* {.
+  #       desc: "Enable/disable waku store protocol", defaultValue: false, name: "store"
+  #     .}: bool
+
+  #     legacyStore* {.
+  #       desc: "Enable/disable waku store legacy mode",
+  #       defaultValue: true,
+  #       name: "legacy-store"
+  #     .}: bool
+
+  #     storenode* {.
+  #       desc: "Peer multiaddress to query for storage",
+  #       defaultValue: "",
+  #       name: "storenode"
+  #     .}: string
+
+  #     storeMessageRetentionPolicy* {.
+  #       desc:
+  #         "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'. Size retention policy: 'size:<xMB/xGB>'. Set to 'none' to disable.",
+  #       defaultValue: "time:" & $2.days.seconds,
+  #       name: "store-message-retention-policy"
+  #     .}: string
+
+  #     storeMessageDbUrl* {.
+  #       desc: "The database connection URL for peristent storage.",
+  #       defaultValue: "sqlite://store.sqlite3",
+  #       name: "store-message-db-url"
+  #     .}: string
+
+  #     storeMessageDbVacuum* {.
+  #       desc:
+  #         "Enable database vacuuming at start. Only supported by SQLite database engine.",
+  #       defaultValue: false,
+  #       name: "store-message-db-vacuum"
+  #     .}: bool
+
+  #     storeMessageDbMigration* {.
+  #       desc: "Enable database migration at start.",
+  #       defaultValue: true,
+  #       name: "store-message-db-migration"
+  #     .}: bool
+
+  #     storeMaxNumDbConnections* {.
+  #       desc: "Maximum number of simultaneous Postgres connections.",
+  #       defaultValue: 50,
+  #       name: "store-max-num-db-connections"
+  #     .}: int
+
+  #     storeResume* {.
+  #       desc: "Enable store resume functionality",
+  #       defaultValue: false,
+  #       name: "store-resume"
+  #     .}: bool
+
+  #     ## Sync config
+  #     storeSync* {.
+  #       desc: "Enable store sync protocol: true|false",
+  #       defaultValue: false,
+  #       name: "store-sync"
+  #     .}: bool
+
+  #     storeSyncInterval* {.
+  #       desc: "Interval between store sync attempts. In seconds.",
+  #       defaultValue: 300, # 5 minutes
+  #       name: "store-sync-interval"
+  #     .}: uint32
+
+  #     storeSyncRange* {.
+  #       desc: "Amount of time to sync. In seconds.",
+  #       defaultValue: 3600, # 1 hours
+  #       name: "store-sync-range"
+  #     .}: uint32
+
+  #     storeSyncRelayJitter* {.
+  #       hidden,
+  #       desc: "Time offset to account for message propagation jitter. In seconds.",
+  #       defaultValue: 20,
+  #       name: "store-sync-relay-jitter"
+  #     .}: uint32
+
+  #     ## Filter config
+  #     filter* {.
+  #       desc: "Enable filter protocol: true|false", defaultValue: false, name: "filter"
+  #     .}: bool
+
+  #     filternode* {.
+  #       desc: "Peer multiaddr to request content filtering of messages.",
+  #       defaultValue: "",
+  #       name: "filternode"
+  #     .}: string
+
+  #     filterSubscriptionTimeout* {.
+  #       desc:
+  #         "Timeout for filter subscription without ping or refresh it, in seconds. Only for v2 filter protocol.",
+  #       defaultValue: 300, # 5 minutes
+  #       name: "filter-subscription-timeout"
+  #     .}: uint16
+
+  #     filterMaxPeersToServe* {.
+  #       desc: "Maximum number of peers to serve at a time. Only for v2 filter protocol.",
+  #       defaultValue: 1000,
+  #       name: "filter-max-peers-to-serve"
+  #     .}: uint32
+
+  #     filterMaxCriteria* {.
+  #       desc:
+  #         "Maximum number of pubsub- and content topic combination per peers at a time. Only for v2 filter protocol.",
+  #       defaultValue: 1000,
+  #       name: "filter-max-criteria"
+  #     .}: uint32
+
+  #     ## Lightpush config
+  #     lightpush* {.
+  #       desc: "Enable lightpush protocol: true|false",
+  #       defaultValue: false,
+  #       name: "lightpush"
+  #     .}: bool
+
+  #     lightpushnode* {.
+  #       desc: "Peer multiaddr to request lightpush of published messages.",
+  #       defaultValue: "",
+  #       name: "lightpushnode"
+  #     .}: string
+
+  #     ## Reliability config
+  #     reliabilityEnabled* {.
+  #       desc:
+  #         """Adds an extra effort in the delivery/reception of messages by leveraging store-v3 requests.
+  # with the drawback of consuming some more bandwidth.""",
+  #       defaultValue: false,
+  #       name: "reliability"
+  #     .}: bool
+
+  #     ## REST HTTP config
+  #     rest* {.
+  #       desc: "Enable Waku REST HTTP server: true|false", defaultValue: true, name: "rest"
+  #     .}: bool
+
+  #     restAddress* {.
+  #       desc: "Listening address of the REST HTTP server.",
+  #       defaultValue: parseIpAddress("127.0.0.1"),
+  #       name: "rest-address"
+  #     .}: IpAddress
+
+  #     restPort* {.
+  #       desc: "Listening port of the REST HTTP server.",
+  #       defaultValue: 8645,
+  #       name: "rest-port"
+  #     .}: uint16
+
+  #     restRelayCacheCapacity* {.
+  #       desc: "Capacity of the Relay REST API message cache.",
+  #       defaultValue: 30,
+  #       name: "rest-relay-cache-capacity"
+  #     .}: uint32
+
+  #     restAdmin* {.
+  #       desc: "Enable access to REST HTTP Admin API: true|false",
+  #       defaultValue: false,
+  #       name: "rest-admin"
+  #     .}: bool
+
+  #     restAllowOrigin* {.
+  #       desc:
+  #         "Allow cross-origin requests from the specified origin." &
+  #         "Argument may be repeated." & "Wildcards: * or ? allowed." &
+  #         "Ex.: \"localhost:*\" or \"127.0.0.1:8080\"",
+  #       defaultValue: newSeq[string](),
+  #       name: "rest-allow-origin"
+  #     .}: seq[string]
+
+  #     ## Metrics config
+  #     metricsServer* {.
+  #       desc: "Enable the metrics server: true|false",
+  #       defaultValue: false,
+  #       name: "metrics-server"
+  #     .}: bool
+
+  #     metricsServerAddress* {.
+  #       desc: "Listening address of the metrics server.",
+  #       defaultValue: parseIpAddress("127.0.0.1"),
+  #       name: "metrics-server-address"
+  #     .}: IpAddress
+
+  #     metricsServerPort* {.
+  #       desc: "Listening HTTP port of the metrics server.",
+  #       defaultValue: 8008,
+  #       name: "metrics-server-port"
+  #     .}: uint16
+
+  #     metricsLogging* {.
+  #       desc: "Enable metrics logging: true|false",
+  #       defaultValue: true,
+  #       name: "metrics-logging"
+  #     .}: bool
+
+  #     ## DNS discovery config
+  #     dnsDiscovery* {.
+  #       desc:
+  #         "Deprecated, please set dns-discovery-url instead. Enable discovering nodes via DNS",
+  #       defaultValue: false,
+  #       name: "dns-discovery"
+  #     .}: bool
+
+  #     dnsDiscoveryUrl* {.
+  #       desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+  #       defaultValue: "",
+  #       name: "dns-discovery-url"
+  #     .}: string
+
+  #     dnsDiscoveryNameServers* {.
+  #       desc: "DNS name server IPs to query. Argument may be repeated.",
+  #       defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
+  #       name: "dns-discovery-name-server"
+  #     .}: seq[IpAddress]
+
+  #     ## Discovery v5 config
+  #     discv5Discovery* {.
+  #       desc: "Enable discovering nodes via Node Discovery v5.",
+  #       defaultValue: false,
+  #       name: "discv5-discovery"
+  #     .}: bool
+
+  #     discv5UdpPort* {.
+  #       desc: "Listening UDP port for Node Discovery v5.",
+  #       defaultValue: 9000,
+  #       name: "discv5-udp-port"
+  #     .}: Port
+
+  #     discv5BootstrapNodes* {.
+  #       desc:
+  #         "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated.",
+  #       name: "discv5-bootstrap-node"
+  #     .}: seq[string]
+
+  #     discv5EnrAutoUpdate* {.
+  #       desc:
+  #         "Discovery can automatically update its ENR with the IP address " &
+  #         "and UDP port as seen by other nodes it communicates with. " &
+  #         "This option allows to enable/disable this functionality",
+  #       defaultValue: false,
+  #       name: "discv5-enr-auto-update"
+  #     .}: bool
+
+  #     discv5TableIpLimit* {.
+  #       hidden,
+  #       desc: "Maximum amount of nodes with the same IP in discv5 routing tables",
+  #       defaultValue: 10,
+  #       name: "discv5-table-ip-limit"
+  #     .}: uint
+
+  #     discv5BucketIpLimit* {.
+  #       hidden,
+  #       desc: "Maximum amount of nodes with the same IP in discv5 routing table buckets",
+  #       defaultValue: 2,
+  #       name: "discv5-bucket-ip-limit"
+  #     .}: uint
+
+  #     discv5BitsPerHop* {.
+  #       hidden,
+  #       desc: "Kademlia's b variable, increase for less hops per lookup",
+  #       defaultValue: 1,
+  #       name: "discv5-bits-per-hop"
+  #     .}: int
+
+  #     discv5Only* {.
+  #       desc: "Disable all protocols other than discv5",
+  #       defaultValue: false,
+  #       name: "discv5-only"
+  #     .}: bool
+
+  #     ## waku peer exchange config
+  #     peerExchange* {.
+  #       desc: "Enable waku peer exchange protocol (responder side): true|false",
+  #       defaultValue: false,
+  #       name: "peer-exchange"
+  #     .}: bool
+
+  #     peerExchangeNode* {.
+  #       desc:
+  #         "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
+  #       defaultValue: "",
+  #       name: "peer-exchange-node"
+  #     .}: string
+
+  #     ## Rendez vous
+  #     rendezvous* {.
+  #       desc: "Enable waku rendezvous discovery server",
+  #       defaultValue: true,
+  #       name: "rendezvous"
+  #     .}: bool
+
+  #     ## websocket config
+  #     websocketSupport* {.
+  #       desc: "Enable websocket:  true|false",
+  #       defaultValue: false,
+  #       name: "websocket-support"
+  #     .}: bool
+
+  #     websocketPort* {.
+  #       desc: "WebSocket listening port.", defaultValue: 8000, name: "websocket-port"
+  #     .}: Port
+
+  #     websocketSecureSupport* {.
+  #       desc: "Enable secure websocket:  true|false",
+  #       defaultValue: false,
+  #       name: "websocket-secure-support"
+  #     .}: bool
+
+  #     websocketSecureKeyPath* {.
+  #       desc: "Secure websocket key path:   '/path/to/key.txt' ",
+  #       defaultValue: "",
+  #       name: "websocket-secure-key-path"
+  #     .}: string
+
+  #     websocketSecureCertPath* {.
+  #       desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
+  #       defaultValue: "",
+  #       name: "websocket-secure-cert-path"
+  #     .}: string
+
+  #     ## Rate limitation config, if not set, rate limit checks will not be performed
+  #     rateLimits* {.
+  #       desc:
+  #         "Rate limit settings for different protocols." &
+  #         "Format: protocol:volume/period<unit>" &
+  #         " Where 'protocol' can be one of: <store|storev2|storev3|lightpush|px|filter> if not defined it means a global setting" &
+  #         " 'volume' and period must be an integer value. " &
+  #         " 'unit' must be one of <h|m|s|ms> - hours, minutes, seconds, milliseconds respectively. " &
+  #         "Argument may be repeated.",
+  #       defaultValue: newSeq[string](0),
+  #       name: "rate-limit"
+  #     .}: seq[string]
+  return b.build()

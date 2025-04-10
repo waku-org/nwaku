@@ -38,17 +38,23 @@ when isMainModule:
 
   const versionString = "version / git commit hash: " & waku.git_version
 
-  var conf = WakuNodeConf.load(version = versionString).valueOr:
+  var wakuNodeConf = WakuNodeConf.load(version = versionString).valueOr:
     error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  ## Also called within Waku.new. The call to startRestServerEsentials needs the following line
-  logging.setupLog(conf.logLevel, conf.logFormat)
+  ## Also called within Waku.new. The call to startRestServerEssentials needs the following line
+  logging.setupLog(wakuNodeConf.logLevel, wakuNodeConf.logFormat)
 
-  case conf.cmd
+  case wakuNodeConf.cmd
   of generateRlnKeystore:
+    let conf = wakuNodeConf.toKeystoreGeneratorConf().valueOr:
+      error "Configuration failed", error = error
+      quit(QuitFailure)
     doRlnKeystoreGenerator(conf)
   of inspectRlnDb:
+    let conf = wakuNodeConf.toInspectRlnDbConf().valueOr:
+      error "Configuration failed", error = error
+      quit(QuitFailure)
     doInspectRlnDb(conf)
   of noCommand:
     # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
@@ -58,17 +64,20 @@ when isMainModule:
     nodeHealthMonitor = WakuNodeHealthMonitor()
     nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-    var confCopy = conf
-
-    let restServer = rest_server_builder.startRestServerEsentials(
-      nodeHealthMonitor, confCopy
-    ).valueOr:
-      error "Starting essential REST server failed.", error = $error
+    let wakuConf = wakuNodeConf.toWakuConf().valueOr:
+      error "Waku configuration failed", error = error
       quit(QuitFailure)
 
-    # applyPresetConfiguration(wakuNodeConf, confBuilder)
+    var restServer: WakuRestServerRef = nil
 
-    var waku = Waku.new(confCopy).valueOr:
+    if wakuConf.restServerConf.isSome:
+      restServer = rest_server_builder.startRestServerEssentials(
+        nodeHealthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
+      ).valueOr:
+        error "Starting essential REST server failed.", error = $error
+        quit(QuitFailure)
+
+    var waku = Waku.new(wakuConf).valueOr:
       error "Waku initialization failed", error = error
       quit(QuitFailure)
 
@@ -80,11 +89,20 @@ when isMainModule:
       error "Starting waku failed", error = error
       quit(QuitFailure)
 
-    rest_server_builder.startRestServerProtocolSupport(
-      restServer, waku.node, waku.wakuDiscv5, confCopy
-    ).isOkOr:
-      error "Starting protocols support REST server failed.", error = $error
-      quit(QuitFailure)
+    if wakuConf.restServerConf.isSome:
+      rest_server_builder.startRestServerProtocolSupport(
+        restServer,
+        waku.node,
+        waku.wakuDiscv5,
+        wakuConf.restServerConf.get(),
+        conf.relay,
+        conf.lightPuh,
+        conf.clusterId,
+        conf.shards,
+        conf.contentTopics,
+      ).isOkOr:
+        error "Starting protocols support REST server failed.", error = $error
+        quit(QuitFailure)
 
     waku.metricsServer = waku_metrics.startMetricsServerAndLogging(confCopy).valueOr:
       error "Starting monitoring and external interfaces failed", error = error

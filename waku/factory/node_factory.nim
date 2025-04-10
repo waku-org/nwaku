@@ -155,7 +155,7 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuConf, nodeKey: crypto.PrivateKey
+    node: WakuNode, conf: WakuConf
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -343,16 +343,15 @@ proc setupProtocols(
   if conf.rlnRelayConf.isSome:
     let rlnRelayConf = conf.rlnRelayConf.get()
     let rlnConf = WakuRlnConfig(
-      rlnRelayConfDynamic: rlnRelayConf.dynamic,
-      rlnRelayCredIndex: rlnRelayConf.credIndex,
-      rlnRelayEthContractAddress: rlnRelayConf.ethContractAddress.string,
-      rlnRelayChainId: rlnRelayConf.chainId,
-      rlnRelayEthClientAddress: string(rlnRelayConf.ethClientAddress),
-      rlnRelayCredPath: rlnRelayConf.credPath,
-      rlnRelayCredPassword: rlnRelayConf.credPassword,
-      rlnRelayTreePath: rlnRelayConf.treePath,
-      rlnRelayUserMessageLimit: rlnRelayConf.userMessageLimit,
-      rlnEpochSizeSec: rlnRelayConf.epochSizeSec,
+      dynamic: rlnRelayConf.dynamic,
+      credIndex: rlnRelayConf.credIndex,
+      ethContractAddress: rlnRelayConf.ethContractAddress,
+      chainId: rlnRelayConf.chainId,
+      ethClientAddress: rlnRelayConf.ethClientAddress,
+      creds: rlnRelayConf.creds,
+      treePath: rlnRelayConf.treePath,
+      userMessageLimit: rlnRelayConf.userMessageLimit,
+      epochSizeSec: rlnRelayConf.epochSizeSec,
       onFatalErrorAction: onFatalErrorAction,
     )
 
@@ -371,8 +370,8 @@ proc setupProtocols(
 
   mountLightPushClient(node)
   mountLegacyLightPushClient(node)
-  if conf.lightpushnode != "":
-    let lightPushNode = parsePeerInfo(conf.lightpushnode)
+  if conf.remoteLightPushNode.isSome:
+    let lightPushNode = parsePeerInfo(conf.remoteLightPushNode.get())
     if lightPushNode.isOk():
       node.peerManager.addServicePeer(lightPushNode.value, WakuLightPushCodec)
       node.peerManager.addServicePeer(lightPushNode.value, WakuLegacyLightPushCodec)
@@ -380,21 +379,22 @@ proc setupProtocols(
       return err("failed to set node waku lightpush peer: " & lightPushNode.error)
 
   # Filter setup. NOTE Must be mounted after relay
-  if conf.filter:
+  if conf.filterServiceConf.isSome:
+    let confFilter = conf.filterServiceConf.get()
     try:
       await mountFilter(
         node,
-        subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
-        maxFilterPeers = conf.filterMaxPeersToServe,
-        maxFilterCriteriaPerPeer = conf.filterMaxCriteria,
+        subscriptionTimeout = chronos.seconds(confFilter.subscriptionTimeout),
+        maxFilterPeers = confFilter.maxPeersToServe,
+        maxFilterCriteriaPerPeer = confFilter.maxCriteria,
         rateLimitSetting = node.rateLimitSettings.getSetting(FILTER),
       )
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
   await node.mountFilterClient()
-  if conf.filternode != "":
-    let filterNode = parsePeerInfo(conf.filternode)
+  if conf.remoteFilterNode.isSome:
+    let filterNode = parsePeerInfo(conf.remoteFilterNode.get())
     if filterNode.isOk():
       try:
         node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
@@ -405,10 +405,12 @@ proc setupProtocols(
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
-  if conf.storeSync:
+  if conf.storeSyncConf.isSome:
+    let confStoreSync = conf.storeSyncConf.get()
+
     (
       await node.mountStoreSync(
-        conf.storeSyncRange, conf.storeSyncInterval, conf.storeSyncRelayJitter
+        confStoreSync.rangeSec, confStoreSync.intervalSec, confStoreSync.relayJitterSec
       )
     ).isOkOr:
       return err("failed to mount waku store sync protocol: " & $error)
@@ -423,8 +425,8 @@ proc setupProtocols(
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
-  if conf.peerExchangeNode != "":
-    let peerExchangeNode = parsePeerInfo(conf.peerExchangeNode)
+  if conf.remotePeerExchangeNode.isSome:
+    let peerExchangeNode = parsePeerInfo(conf.remotePeerExchangeNode.get())
     if peerExchangeNode.isOk():
       node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
     else:
@@ -436,7 +438,7 @@ proc setupProtocols(
 ## Start node
 
 proc startNode*(
-    node: WakuNode, conf: WakuNodeConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
+    node: WakuNode, conf: WakuConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
@@ -449,9 +451,9 @@ proc startNode*(
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
   # Connect to configured static nodes
-  if conf.staticnodes.len > 0:
+  if conf.staticNodes.len > 0:
     try:
-      await connectToNodes(node, conf.staticnodes, "static")
+      await connectToNodes(node, conf.staticNodes, "static")
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
@@ -464,16 +466,18 @@ proc startNode*(
         err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
 
   # retrieve px peers and add the to the peer store
-  if conf.peerExchangeNode != "":
+  if conf.remotePeerExchangeNode.isSome:
     var desiredOutDegree = DefaultPXNumPeersReq
     if not node.wakuRelay.isNil() and node.wakuRelay.parameters.d.uint64() > 0:
       desiredOutDegree = node.wakuRelay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       error "error while fetching peers from peer exchange", error = error
 
+  # TODO: behavior described by comment is undesired. PX as client should be used in tandem with discv5.
+  # 
   # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
   # periodic loop to find peers and px returned peers actually come from discv5
-  if conf.peerExchange and not conf.discv5Discovery:
+  if conf.peerExchange and not conf.discv5Conf.isSome:
     node.startPeerExchangeLoop()
 
   # Start keepalive, if enabled
@@ -519,7 +523,7 @@ proc setupNode*(
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(wakuConf, key)).isOkOr:
+    (waitFor node.setupProtocols(wakuConf)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

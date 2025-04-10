@@ -32,14 +32,17 @@ import
 logScope:
   topics = "waku rln_relay"
 
+type RlnRelayCreds* = object
+  path*: string
+  password*: string
+
 type RlnRelayConf* = object of RootObj
   dynamic*: bool
   credIndex*: Option[uint]
   ethContractAddress*: string
   ethClientAddress*: string
   chainId*: uint
-  credPath*: string
-  credPassword*: string
+  creds*: Option[RlnRelayCreds]
   treePath*: string
   epochSizeSec*: uint64
   userMessageLimit*: uint64
@@ -444,16 +447,12 @@ proc mount(
     )
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
-    # dynamic setup
-    proc useValueOrNone(s: string): Option[string] =
-      if s == "":
-        none(string)
+    let (rlnRelayCredPath, rlnRelayCredPassword) =
+      if conf.creds.isSome:
+        (some(conf.creds.get().path), some(conf.creds.get().password))
       else:
-        some(s)
+        (none(string), none(string))
 
-    let
-      rlnRelayCredPath = useValueOrNone(conf.credPath)
-      rlnRelayCredPassword = useValueOrNone(conf.credPassword)
     groupManager = OnchainGroupManager(
       ethClientUrl: string(conf.ethClientAddress),
       ethContractAddress: $conf.ethContractAddress,

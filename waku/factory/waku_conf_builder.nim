@@ -71,11 +71,13 @@ macro with(builderType: untyped, argName: untyped, argType: untyped) =
 ##############################
 ## RLN Relay Config Builder ##
 ##############################
-type RlnRelayConfBuilder = ref object
+type RlnRelayConfBuilder = object
   rlnRelay: Option[bool]
   ethContractAddress: Option[string]
   chainId: Option[uint]
   credIndex: Option[uint]
+  credPath: Option[string]
+  credPassword: Option[string]
   dynamic: Option[bool]
   epochSizeSec: Option[uint64]
   userMessageLimit: Option[uint64]
@@ -87,6 +89,8 @@ proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
 with(RlnRelayConfbuilder, rlnRelay, bool)
 with(RlnRelayConfBuilder, chainId, uint)
 with(RlnRelayConfBuilder, credIndex, uint)
+with(RlnRelayConfBuilder, credPath, string)
+with(RlnRelayConfBuilder, credPassword, string)
 with(RlnRelayConfBuilder, dynamic, bool)
 with(RlnRelayConfBuilder, epochSizeSec, uint64)
 with(RlnRelayConfBuilder, userMessageLimit, uint64)
@@ -102,19 +106,39 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
     if builder.ethContractAddress.isSome:
       builder.ethContractAddress.get()
     else:
-      return err("RLN Eth Contract Address was not specified")
+      return err("RLN Eth Contract Address is not specified")
 
   let chainId =
     if builder.chainId.isSome:
       builder.chainId.get()
     else:
-      return err("RLN Relay Chain Id was not specified")
+      return err("RLN Relay Chain Id is not specified")
+
+  let creds =
+    if builder.credPath.isSome and builder.credPassword.isSome:
+      some(
+        RlnRelayCreds(
+          path: builder.credPath.get(), password: builder.credPassword.get()
+        )
+      )
+    elif builder.credPath.isSome and builder.credPassword.isNone:
+      return err("RLN Relay Credential Password is not specified but path is")
+    elif builder.credPath.isNone and builder.credPassword.isSome:
+      return err("RLN Relay Credential Path is not specified but password is")
+    else:
+      none(RlnRelayCreds)
+
+  let credPassword =
+    if builder.credPassword.isSome:
+      builder.credPassword.get()
+    else:
+      return err("RLN Relay Credential Password is not specified")
 
   let dynamic =
     if builder.dynamic.isSome:
       builder.dynamic.get()
     else:
-      return err("RLN Relay Dynamic was not specified")
+      return err("RLN Relay Dynamic is not specified")
 
   let epochSizeSec =
     if builder.epochSizeSec.isSome:
@@ -141,6 +165,7 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
         credIndex: builder.credIndex,
         dynamic: dynamic,
         ethContractAddress: ethContractAddress,
+        creds: creds,
         epochSizeSec: epochSizeSec,
         userMessageLimit: userMessageLimit,
         ethClientAddress: ethClientAddress,
@@ -148,10 +173,61 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
     )
   )
 
-###########################
-## Store Config Builder ##
-###########################
-type StoreServiceConfBuilder = ref object
+###################################
+## Filter Service Config Builder ##
+###################################
+type FilterServiceConfBuilder = object
+  filter: Option[bool]
+  maxPeersToServe: Option[uint32]
+  subscriptionTimeout: Option[uint16]
+  maxCriteria: Option[uint32]
+
+proc init(T: type FilterServiceConfBuilder): FilterServiceConfBuilder =
+  FilterServiceConfBuilder()
+
+with(FilterServiceConfBuilder, filter, bool)
+with(FilterServiceConfBuilder, maxPeersToServe, uint32)
+with(FilterServiceConfBuilder, subscriptionTimeout, uint16)
+with(FilterServiceConfBuilder, maxCriteria, uint32)
+
+proc build(
+    builder: FilterServiceConfBuilder
+): Result[Option[FilterServiceConf], string] =
+  if builder.filter.get(false):
+    return ok(none(FilterServiceConf))
+
+  let maxPeersToServe =
+    if builder.maxPeersToServe.isSome:
+      builder.maxPeersToServe.get()
+    else:
+      return err("maxPeersToServe is not specified")
+
+  let subscriptionTimeout =
+    if builder.subscriptionTimeout.isSome:
+      builder.subscriptionTimeout.get()
+    else:
+      return err("subscriptionTimeout is not specified")
+
+  let maxCriteria =
+    if builder.maxCriteria.isSome:
+      builder.maxCriteria.get()
+    else:
+      return err("maxCriteria is not specified")
+
+  return ok(
+    some(
+      FilterServiceConf(
+        maxPeersToServe: maxPeersToServe,
+        subscriptionTimeout: subscriptionTimeout,
+        maxCriteria: maxCriteria,
+      )
+    )
+  )
+
+##################################
+## Store Service Config Builder ##
+##################################
+type StoreServiceConfBuilder = object
   store: Option[bool]
   legacy: Option[bool]
 
@@ -170,9 +246,9 @@ proc build(builder: StoreServiceConfBuilder): Result[Option[StoreServiceConf], s
 ###########################
 ## Discv5 Config Builder ##
 ###########################
-type Discv5ConfBuilder = ref object
+type Discv5ConfBuilder = object
   discv5: Option[bool]
-  bootstrapNodes: Option[seq[TextEnr]]
+  bootstrapNodes: Option[seq[string]]
   udpPort: Option[Port]
 
 proc init(T: type Discv5ConfBuilder): Discv5ConfBuilder =
@@ -183,12 +259,7 @@ with(Discv5ConfBuilder, udpPort, uint16, Port)
 
 proc withBootstrapNodes(builder: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
-  builder.bootstrapNodes = some(
-    bootstrapNodes.map(
-      proc(e: string): TextEnr =
-        e.TextEnr
-    )
-  )
+  builder.bootstrapNodes = some(bootstrapNodes)
 
 proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
   if not builder.discv5.get(false):
@@ -210,7 +281,7 @@ proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
 ##############################
 ## WebSocket Config Builder ##
 ##############################
-type WebSocketConfBuilder* = ref object
+type WebSocketConfBuilder* = object
   webSocketSupport: Option[bool]
   webSocketPort: Option[Port]
   webSocketSecureSupport: Option[bool]
@@ -267,7 +338,7 @@ proc build(builder: WebSocketConfBuilder): Result[Option[WebSocketConf], string]
 ## Config parameters to build a `WakuConfig`.
 ## It provides some type conversion, as well as applying
 ## defaults in an agnostic manner (for any usage of Waku node)
-type WakuConfBuilder* = ref object
+type WakuConfBuilder* = object
   nodeKey: Option[PrivateKey]
 
   clusterId: Option[uint16]
@@ -277,7 +348,6 @@ type WakuConfBuilder* = ref object
   contentTopics: Option[seq[string]]
 
   relay: Option[bool]
-  filter: Option[bool]
   lightPush: Option[bool]
   peerExchange: Option[bool]
   storeSync: Option[bool]
@@ -289,7 +359,13 @@ type WakuConfBuilder* = ref object
   clusterConf: Option[ClusterConf]
 
   storeServiceConf: StoreServiceConfBuilder
+  filterServiceConf: FilterServiceConfBuilder
   rlnRelayConf*: RlnRelayConfBuilder
+
+  remoteStoreNode: Option[string]
+  remoteLightPushNode: Option[string]
+  remoteFilterNode: Option[string]
+  remotePeerExchangeNode: Option[string]
 
   maxMessageSizeBytes: Option[int]
 
@@ -335,22 +411,27 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
 with(WakuConfBuilder, clusterConf, ClusterConf)
 with(WakuConfBuilder, nodeKey, PrivateKey)
 with(WakuConfBuilder, clusterId, uint16)
-with(WakuConfbuilder, shards, seq[uint16])
-with(WakuConfbuilder, protectedShards, seq[ProtectedShard])
-with(WakuConfbuilder, contentTopics, seq[string])
+with(WakuConfBuilder, shards, seq[uint16])
+with(WakuConfBuilder, protectedShards, seq[ProtectedShard])
+with(WakuConfBuilder, contentTopics, seq[string])
 with(WakuConfBuilder, relay, bool)
-with(WakuConfBuilder, filter, bool)
 with(WakuConfBuilder, storeSync, bool)
 with(WakuConfBuilder, relayPeerExchange, bool)
 with(WakuConfBuilder, rendezvous, bool)
+with(WakuConfBuilder, remoteStoreNode, string)
+with(WakuConfBuilder, remoteLightPushNode, string)
+with(WakuConfBuilder, remoteFilterNode, string)
+with(WakuConfBuilder, remotePeerExchangeNode, string)
 with(WakuConfBuilder, maxMessageSizeBytes, int)
 with(WakuConfBuilder, dnsAddrs, bool)
-with(WakuConfbuilder, peerPersistence, bool)
-with(WakuConfbuilder, maxConnections, int)
-with(WakuConfbuilder, dnsAddrsNameServers, seq[IpAddress])
-with(WakuConfbuilder, p2pTcpPort, uint16, Port)
-with(WakuConfbuilder, dns4DomainName, string, DomainName)
-with(WakuConfbuilder, agentString, string)
+with(WakuConfBuilder, peerPersistence, bool)
+with(WakuConfBuilder, maxConnections, int)
+with(WakuConfBuilder, dnsAddrsNameServers, seq[IpAddress])
+with(WakuConfBuilder, logLevel, logging.LogLevel)
+with(WakuConfBuilder, logFormat, logging.LogFormat)
+with(WakuConfBuilder, p2pTcpPort, uint16, Port)
+with(WakuConfBuilder, dns4DomainName, string, DomainName)
+with(WakuConfBuilder, agentString, string)
 with(WakuConfBuilder, colocationLimit, int)
 with(WakuConfBuilder, rateLimits, seq[string])
 with(WakuConfBuilder, maxRelayPeers, int)
@@ -465,13 +546,6 @@ proc build*(
       warn "whether to mount relay is not specified, defaulting to not mounting"
       false
 
-  let filter =
-    if builder.filter.isSome:
-      builder.filter.get()
-    else:
-      warn "whether to mount filter is not specified, defaulting to not mounting"
-      false
-
   let lightPush =
     if builder.lightPush.isSome:
       builder.lightPush.get()
@@ -530,6 +604,12 @@ proc build*(
 
   let protectedShards = builder.protectedShards.get(@[])
 
+  let maxMessageSizeBytes =
+    if builder.maxMessageSizeBytes.isSome:
+      builder.maxMessageSizeBytes.get()
+    else:
+      return err("Max Message Size was not specified")
+
   let contentTopics = builder.contentTopics.get(@[])
 
   let discv5Conf = builder.discv5Conf.build().valueOr:
@@ -538,17 +618,14 @@ proc build*(
   let storeServiceConf = builder.storeServiceConf.build().valueOr:
     return err("Store Conf building failed: " & $error)
 
+  let filterServiceConf = builder.filterServiceConf.build().valueOr:
+    return err("Filter Conf building failed: " & $error)
+
   let rlnRelayConf = builder.rlnRelayConf.build().valueOr:
     return err("RLN Relay Conf building failed: " & $error)
 
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
-
-  let maxMessageSizeBytes =
-    if builder.maxMessageSizeBytes.isSome:
-      builder.maxMessageSizeBytes.get()
-    else:
-      return err("Max Message Size was not specified")
 
   let logLevel =
     if builder.logLevel.isSome:
@@ -668,11 +745,14 @@ proc build*(
       shards: shards,
       protectedShards: protectedShards,
       relay: relay,
-      filter: filter,
       lightPush: lightPush,
       peerExchange: peerExchange,
       rendezvous: rendezvous,
+      remoteStoreNode: builder.remoteStoreNode,
+      remoteLightPushNode: builder.remoteLightPushNode,
+      remoteFilterNode: builder.remoteFilterNode,
       storeServiceConf: storeServiceConf,
+      filterServiceConf: filterServiceConf,
       relayPeerExchange: relayPeerExchange,
       discv5Conf: discv5Conf,
       rlnRelayConf: rlnRelayConf,

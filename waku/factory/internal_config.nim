@@ -95,10 +95,10 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
 
     wakuFlags = CapabilitiesBitfield.init(
       lightpush = conf.lightpush,
-      filter = conf.filter,
+      filter = conf.filterServiceConf.isSome,
       store = conf.storeServiceConf.isSome,
       relay = conf.relay,
-      sync = conf.storeSync,
+      sync = conf.storeSyncConf.isSome,
     )
 
   # Resolve and use DNS domain IP
