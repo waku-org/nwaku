@@ -20,7 +20,8 @@ import
   ../common/logging,
   ../waku_enr,
   ../node/peer_manager,
-  ../waku_core/topics/pubsub_topic
+  ../waku_core/topics/pubsub_topic,
+  ./waku_conf
 
 include ../waku_core/message/default_values
 
@@ -32,10 +33,6 @@ const git_version* {.strdefine.} = "n/a"
 type ConfResult*[T] = Result[T, string]
 
 type EthRpcUrl* = distinct string
-
-type ProtectedShard* = object
-  shard*: uint16
-  key*: secp256k1.SkPublicKey
 
 type StartUpCommand* = enum
   noCommand # default, runs waku

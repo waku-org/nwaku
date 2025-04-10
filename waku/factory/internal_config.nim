@@ -96,7 +96,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     wakuFlags = CapabilitiesBitfield.init(
       lightpush = conf.lightpush,
       filter = conf.filter,
-      store = conf.store,
+      store = conf.storeServiceConf.isSome,
       relay = conf.relay,
       sync = conf.storeSync,
     )
@@ -170,7 +170,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
 #     discard
 
 # TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
-proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+proc getNumShardsInNetwork*(conf: WakuConf): uint32 =
   if conf.numShardsInNetwork != 0:
     return conf.numShardsInNetwork
   # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec

@@ -32,11 +32,39 @@ proc generateWithProc(builderType, argName, argType, targetType: NimNode): NimNo
       proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `argType`) =
         `builderVar` = some(`argName`.`targetType`)
 
+## A simple macro to set a property on the builder.
+## For example:
+## 
+## ```
+## with(RlnRelayConfbuilder, rlnRelay, bool)
+## ```
+## 
+## Generates
+## 
+## ```
+## proc withRlnRelay*(builder: var RlnRelayConfBuilder, rlnRelay: bool) = 
+##  builder.rlnRelay = some(rlnRelay)
+## ```
 macro with(
     builderType: untyped, argName: untyped, argType: untyped, targetType: untyped
 ) =
   result = generateWithProc(builderType, argName, argType, targetType)
 
+## A simple macro to set a property on the builder, and convert the property
+## to the right (distinct) type.
+## 
+## For example:
+## 
+## ```
+## with(RlnRelayConfBuilder, ethContractAddress, string, ContractAddress)
+## ```
+## 
+## Generates
+## 
+## ```
+## proc withRlnRelay*(builder: var RlnRelayConfBuilder, ethContractAddress: string) = 
+##  builder.ethContractAddress = some(ethContractAddress.ContractAddress)
+## ```
 macro with(builderType: untyped, argName: untyped, argType: untyped) =
   result = generateWithProc(builderType, argName, argType, argType)
 
@@ -47,6 +75,7 @@ type RlnRelayConfBuilder = ref object
   rlnRelay: Option[bool]
   ethContractAddress: Option[ContractAddress]
   chainId: Option[uint]
+  credIndex: Option[uint]
   dynamic: Option[bool]
   bandwidthThreshold: Option[int]
   epochSizeSec: Option[uint64]
@@ -58,6 +87,7 @@ proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
 
 with(RlnRelayConfbuilder, rlnRelay, bool)
 with(RlnRelayConfBuilder, chainId, uint)
+with(RlnRelayConfBuilder, credIndex, uint)
 with(RlnRelayConfBuilder, dynamic, bool)
 with(RlnRelayConfBuilder, bandwidthThreshold, int)
 with(RlnRelayConfBuilder, epochSizeSec, uint64)
@@ -116,6 +146,7 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
     some(
       RlnRelayConf(
         chainId: chainId,
+        credIndex: credIndex,
         dynamic: dynamic,
         ethContractAddress: ethContractAddress,
         epochSizeSec: epochSizeSec,
@@ -128,21 +159,21 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
 ###########################
 ## Store Config Builder ##
 ###########################
-type StoreConfBuilder = ref object
+type StoreServiceConfBuilder = ref object
   store: Option[bool]
   legacy: Option[bool]
 
-proc init(T: type StoreConfBuilder): StoreConfBuilder =
-  StoreConfBuilder()
+proc init(T: type StoreServiceConfBuilder): StoreServiceConfBuilder =
+  StoreServiceConfBuilder()
 
-with(StoreConfBuilder, store, bool)
-with(StoreConfBuilder, legacy, bool)
+with(StoreServiceConfBuilder, store, bool)
+with(StoreServiceConfBuilder, legacy, bool)
 
-proc build(builder: StoreConfBuilder): Result[Option[StoreConf], string] =
+proc build(builder: StoreServiceConfBuilder): Result[Option[StoreServiceConf], string] =
   if builder.store.get(false):
-    return ok(none(StoreConf))
+    return ok(none(StoreServiceConf))
 
-  return ok(some(StoreConf(legacy: builder.legacy.get(true))))
+  return ok(some(StoreServiceConf(legacy: builder.legacy.get(true))))
 
 ###########################
 ## Discv5 Config Builder ##
@@ -261,7 +292,7 @@ type WakuConfBuilder* = ref object
 
   clusterConf: Option[ClusterConf]
 
-  storeConf: StoreConfBuilder
+  storeServiceConf: StoreServiceConfBuilder
   rlnRelayConf*: RlnRelayConfBuilder
 
   maxMessageSizeBytes: Option[int]
@@ -299,7 +330,7 @@ type WakuConfBuilder* = ref object
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
-    storeConf: StoreConfBuilder.init(),
+    storeServiceConf: StoreServiceConfBuilder.init(),
     rlnRelayConf: RlnRelayConfBuilder.init(),
     discv5Conf: Discv5ConfBuilder.init(),
     webSocketConf: WebSocketConfBuilder.init(),
@@ -501,7 +532,7 @@ proc build*(
   let discv5Conf = builder.discv5Conf.build().valueOr:
     return err("Discv5 Conf building failed: " & $error)
 
-  let storeConf = builder.storeConf.build().valueOr:
+  let storeServiceConf = builder.storeServiceConf.build().valueOr:
     return err("Store Conf building failed: " & $error)
 
   let rlnRelayConf = builder.rlnRelayConf.build().valueOr:
@@ -630,12 +661,15 @@ proc build*(
       nodeKey: nodeKey,
       clusterId: clusterId,
       numShardsInNetwork: numShardsInNetwork,
+      contentTopics: contentTopics,
       shards: shards,
+      protectedShards: protectedShards,
       relay: relay,
       filter: filter,
       lightPush: lightPush,
       peerExchange: peerExchange,
-      storeConf: storeConf,
+      rendezvous: rendezvous,
+      storeServiceConf: storeServiceConf,
       relayPeerExchange: relayPeerExchange,
       discv5Conf: discv5Conf,
       rlnRelayConf: rlnRelayConf,

@@ -3,6 +3,7 @@ import
   chronicles,
   libp2p/crypto/crypto,
   libp2p/multiaddress,
+  secp256k1,
   results
 
 import ../common/logging
@@ -17,6 +18,11 @@ type
   NatStrategy* = distinct string
   DomainName* = distinct string
 
+# TODO: should be defined in validator_signed.nim and imported here
+type ProtectedShard* = object
+  shard*: uint16
+  key*: secp256k1.SkPublicKey
+
 # TODO: this should come from discv5 discovery module
 type Discv5Conf* = ref object
   # TODO: This should probably be an option on the builder
@@ -25,13 +31,20 @@ type Discv5Conf* = ref object
   bootstrapNodes*: seq[TextEnr]
   udpPort*: Port
 
-type Storeconf* = ref object
+type StoreServiceConf* = ref object
   legacy*: bool
+  dbURl*: string
+  dbVacuum*: bool
+  dbMigration*: bool
+  maxNumDbConnections*: int
+  retentionPolicy*: string
+  resume*: bool
 
 # TODO: this should come from RLN relay module
 type RlnRelayConf* = ref object
   ethContractAddress*: ContractAddress
   chainId*: uint
+  credIndex*: Option[uint]
   dynamic*: bool
   bandwidthThreshold*: int
   epochSizeSec*: uint64
@@ -54,8 +67,12 @@ type WakuConf* = ref object
   nodeKey*: PrivateKey
 
   clusterId*: uint16
-  numShardsInNetwork*: uint32
   shards*: seq[uint16]
+  protectedShards*: seq[ProtectedShard]
+
+  #TODO: move to an autoShardingConf
+  numShardsInNetwork*: uint32
+  contentTopics*: seq[string]
 
   relay*: bool
   filter*: bool
@@ -64,12 +81,16 @@ type WakuConf* = ref object
   storeSync*: bool
   # TODO: remove relay peer exchange
   relayPeerExchange*: bool
+  rendezvous*: bool
 
   discv5Conf*: Option[Discv5Conf]
 
-  storeConf*: Option[StoreConf]
+  storeServiceConf*: Option[StoreServiceConf]
 
   rlnRelayConf*: Option[RlnRelayConf]
+
+  #TODO: could probably make it a `PeerRemoteInfo` here
+  remoteStoreNode*: Option[string]
 
   maxMessageSizeBytes*: int
 
@@ -109,7 +130,7 @@ proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
     relay = conf.relay,
     rlnRelay = conf.rlnRelayConf.isSome,
-    store = conf.storeConf.isSome,
+    store = conf.storeServiceConf.isSome,
     filter = conf.filter,
     lightPush = conf.lightPush,
     peerExchange = conf.peerExchange
@@ -148,12 +169,16 @@ proc validateShards(wakuConf: WakuConf): Result[void, string] =
   return ok()
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.dns4DomainName.isSome():
-    if isEmptyOrWhiteSpace(wakuConf.dns4DomainName.get().string):
-      return err("dns4DomainName is an empty string, set it to none(string) instead")
+  if wakuConf.dns4DomainName.isSome and
+      isEmptyOrWhiteSpace(wakuConf.dns4DomainName.get().string):
+    return err("dns4DomainName is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):
     return err("relayServiceRatio is an empty string")
+
+  if wakuConf.remoteStoreNode.isSome and
+      isEmptyOrWhiteSpace(wakuConf.remoteStoreNode.get()):
+    return err("store node is an empty string, set it to none(string) instead")
 
   return ok()
 

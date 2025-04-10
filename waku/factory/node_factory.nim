@@ -174,11 +174,12 @@ proc setupProtocols(
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
-  if conf.store:
-    if conf.legacyStore:
+  if conf.storeServiceConf.isSome:
+    let storeServiceConf = conf.storeServiceConf.get()
+    if storeServiceConf.legacy:
       let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
-        conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
-        conf.storeMaxNumDbConnections, onFatalErrorAction,
+        storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
+        storeServiceConf.maxNumDbConnections, onFatalErrorAction,
       )
       if archiveDriverRes.isErr():
         return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
@@ -198,26 +199,26 @@ proc setupProtocols(
     ## So for now, we need to make sure that when legacy store is enabled and we use sqlite
     ## that we migrate our db according to legacy store's schema to have the extra field
 
-    let engineRes = dburl.getDbEngine(conf.storeMessageDbUrl)
+    let engineRes = dburl.getDbEngine(storeServiceConf.dbUrl)
     if engineRes.isErr():
       return err("error getting db engine in setupProtocols: " & engineRes.error)
 
     let engine = engineRes.get()
 
     let migrate =
-      if engine == "sqlite" and conf.legacyStore:
+      if engine == "sqlite" and storeServiceConf.legacy:
         false
       else:
-        conf.storeMessageDbMigration
+        storeServiceConf.dbMigration
 
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
-      conf.storeMessageDbUrl, conf.storeMessageDbVacuum, migrate,
-      conf.storeMaxNumDbConnections, onFatalErrorAction,
+      storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
+      storeServiceConf.maxNumDbConnections, onFatalErrorAction,
     )
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)
 
-    let retPolicyRes = policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
+    let retPolicyRes = policy.RetentionPolicy.new(storeServiceConf.retentionPolicy)
     if retPolicyRes.isErr():
       return err("failed to create retention policy: " & retPolicyRes.error)
 
@@ -225,7 +226,7 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    if conf.legacyStore:
+    if storeServiceConf.legacy:
       # Store legacy setup
       try:
         await mountLegacyStore(node, node.rateLimitSettings.getSetting(STOREV2))
@@ -237,19 +238,21 @@ proc setupProtocols(
     try:
       await mountStore(node, node.rateLimitSettings.getSetting(STOREV3))
     except CatchableError:
-      return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
+      return err(
+        "failed to mount waku store protocremoteStoreNodeol: " & getCurrentExceptionMsg()
+      )
 
   mountStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
+  if conf.remoteStoreNode.isSome:
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
     if storeNode.isOk():
       node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
     else:
       return err("failed to set node waku store peer: " & storeNode.error)
 
   mountLegacyStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
+  if conf.remoteStoreNode.isSome:
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
     if storeNode.isOk():
       node.peerManager.addServicePeer(
         storeNode.value, legacy_common.WakuLegacyStoreCodec
@@ -257,7 +260,7 @@ proc setupProtocols(
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
-  if conf.store and conf.storeResume:
+  if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
   # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
@@ -303,14 +306,14 @@ proc setupProtocols(
   let shards = confShards & autoShards
 
   if conf.relay:
-    let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
-      return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
-
-    debug "Setting max message size", num_bytes = parsedMaxMsgSize
+    debug "Setting max message size", num_bytes = conf.maxMessageSizeBytes
 
     try:
       await mountRelay(
-        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
+        node,
+        shards,
+        peerExchangeHandler = peerExchangeHandler,
+        int(conf.maxMessageSizeBytes),
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
@@ -337,18 +340,19 @@ proc setupProtocols(
   except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
-  if conf.rlnRelay:
+  if conf.rlnRelayConf.isSome:
+    let rlnRelayConf = conf.rlnRelayConf.get()
     let rlnConf = WakuRlnConfig(
-      rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: conf.rlnRelayCredIndex,
-      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayChainId: conf.rlnRelayChainId,
-      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-      rlnRelayCredPath: conf.rlnRelayCredPath,
-      rlnRelayCredPassword: conf.rlnRelayCredPassword,
-      rlnRelayTreePath: conf.rlnRelayTreePath,
-      rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      rlnRelayConfDynamic: rlnRelayConf.dynamic,
+      rlnRelayCredIndex: rlnRelayConf.credIndex,
+      rlnRelayEthContractAddress: rlnRelayConf.ethContractAddress.string,
+      rlnRelayChainId: rlnRelayConf.chainId,
+      rlnRelayEthClientAddress: string(rlnRelayConf.ethClientAddress),
+      rlnRelayCredPath: rlnRelayConf.credPath,
+      rlnRelayCredPassword: rlnRelayConf.credPassword,
+      rlnRelayTreePath: rlnRelayConf.treePath,
+      rlnRelayUserMessageLimit: rlnRelayConf.userMessageLimit,
+      rlnEpochSizeSec: rlnRelayConf.epochSizeSec,
       onFatalErrorAction: onFatalErrorAction,
     )
 
@@ -358,7 +362,7 @@ proc setupProtocols(
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
-  if conf.lightpush:
+  if conf.lightPush:
     try:
       await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
       await mountLegacyLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
