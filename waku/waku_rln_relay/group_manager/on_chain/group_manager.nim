@@ -638,8 +638,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       let membershipExists = await wakuRlnContract
       .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
       .call()
-      if membershipExists == 0:
-        return err("the commitment does not have a membership")
+      #[ if membershipExists == 0:
+        return err("the commitment does not have a membership") ]#
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
