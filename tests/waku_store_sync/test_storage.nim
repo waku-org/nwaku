@@ -4,7 +4,6 @@ import std/[options, random], testutils/unittests, chronos
 
 import
   ../../waku/waku_core,
-  ../../waku/waku_core/message/digest,
   ../../waku/waku_store_sync/common,
   ../../waku/waku_store_sync/storage/seq_storage,
   ./sync_utils

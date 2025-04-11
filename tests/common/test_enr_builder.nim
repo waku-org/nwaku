@@ -1,6 +1,6 @@
 {.used.}
 
-import std/options, stew/results, stew/shims/net, testutils/unittests
+import std/options, results, stew/shims/net, testutils/unittests
 import waku/common/enr, ../testlib/wakucore
 
 suite "nim-eth ENR - builder and typed record":

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strformat, net],
+  std/[sequtils, net],
   stew/shims/net,
   testutils/unittests,
   presto,

@@ -1,4 +1,4 @@
-import std/[options, tables, sets, sequtils, algorithm], chronos, chronicles, os
+import std/[options, tables, sets, algorithm], chronos, chronicles, os
 
 import
   waku/[

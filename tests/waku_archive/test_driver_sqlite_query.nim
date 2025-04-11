@@ -4,13 +4,7 @@ import
   std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 
 import
-  waku/[
-    common/databases/db_sqlite,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
-    waku_core,
-    waku_core/message/digest,
-  ],
+  waku/[waku_archive, waku_core, waku_core/message/digest],
   ../testlib/common,
   ../testlib/wakucore,
   ../waku_archive/archive_utils

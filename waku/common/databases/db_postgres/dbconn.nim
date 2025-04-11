@@ -1,6 +1,5 @@
 import
-  std/[times, strutils, asyncnet, os, sequtils, sets, strformat],
-  regex,
+  std/[times, strutils, os, sets, strformat],
   results,
   chronos,
   chronos/threadsync,

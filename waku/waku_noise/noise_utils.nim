@@ -9,8 +9,9 @@ import std/[algorithm, base64, oids, options, strutils, tables, sequtils]
 import chronos
 import chronicles
 import bearssl/rand
-import stew/[results, endians2, byteutils]
-import nimcrypto/[sha2, hmac]
+import results
+import stew/[endians2, byteutils]
+import nimcrypto/sha2
 
 import libp2p/crypto/[chacha20poly1305, curve25519, hkdf]
 

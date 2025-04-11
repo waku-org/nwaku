@@ -8,7 +8,6 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
   libp2p/transports/wstransport,
-  libp2p/protocols/connectivity/relay/client,
   libp2p/protocols/connectivity/relay/relay
 import
   ../waku_enr,

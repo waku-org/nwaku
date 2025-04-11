@@ -1,27 +1,17 @@
 {.used.}
 
-import
-  std/[options, strscans],
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto
+import std/options, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
     node/peer_manager,
-    common/rate_limit/setting,
     waku_core,
     waku_lightpush_legacy,
     waku_lightpush_legacy/client,
     waku_lightpush_legacy/common,
-    waku_lightpush_legacy/protocol_metrics,
-    waku_lightpush_legacy/rpc,
-    waku_lightpush_legacy/rpc_codec,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures, testutils],
-  ./lightpush_utils,
-  ../resources/[pubsub_topics, content_topics, payloads]
+  ../testlib/wakucore,
+  ./lightpush_utils
 
 suite "Rate limited push service":
   asyncTest "push message with rate limit not violated":

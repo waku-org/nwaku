@@ -26,8 +26,7 @@ import
     common/rate_limit/setting,
   ],
   ../testlib/wakucore,
-  ../testlib/wakunode,
-  ../testlib/testutils
+  ../testlib/wakunode
 
 proc testWakuNode(): WakuNode =
   let

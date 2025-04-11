@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, algorithm, sets],
+  std/[options, sequtils, sets],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -15,14 +15,11 @@ import
     waku_core,
     waku_core/message/digest,
     waku_store,
-    waku_store/client,
     waku_archive,
-    waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]
+  ../testlib/[wakucore, wakunode, testasync, testutils]
 
 suite "Waku Store - End to End - Sorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic

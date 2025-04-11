@@ -15,8 +15,6 @@ import
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/connectivity/autonat/client,
-  libp2p/protocols/connectivity/autonat/service,
   libp2p/builders,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
@@ -50,8 +48,7 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../common/rate_limit/setting,
-  ../discovery/autonat_service
+  ../common/rate_limit/setting
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,

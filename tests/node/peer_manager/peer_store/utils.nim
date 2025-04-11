@@ -1,4 +1,4 @@
-import std/options, stew/results, libp2p/peerstore
+import std/options, results
 
 import
   waku/node/peer_manager/[waku_peer_store, peer_store/waku_peer_storage],
