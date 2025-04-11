@@ -52,10 +52,6 @@ template callEventCallback(ctx: ptr WakuContext, eventName: string, body: untype
     error eventName & " - eventCallback is nil"
     return
 
-  if isNil(ctx[].eventUserData):
-    error eventName & " - eventUserData is nil"
-    return
-
   foreignThreadGc:
     try:
       let event = body
