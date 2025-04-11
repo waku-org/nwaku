@@ -189,14 +189,14 @@ proc pxLookupServiceNode*(
 
     if conf.testPeers:
       let peersOpt =
-        await tryCallAllPxPeers(node.peerManager, codec, conf.pubsubTopics[0])
+        await tryCallAllPxPeers(node.peerManager, codec, conf.getPubsubTopic())
       if peersOpt.isSome():
         info "Found service peers for codec",
           codec = codec, peer_count = peersOpt.get().len()
         return ok(peersOpt.get().len > 0)
     else:
       let peerOpt =
-        await selectRandomCapablePeer(node.peerManager, codec, conf.pubsubTopics[0])
+        await selectRandomCapablePeer(node.peerManager, codec, conf.getPubsubTopic())
       if peerOpt.isSome():
         info "Found service peer for codec", codec = codec, peer = peerOpt.get()
         return ok(true)
