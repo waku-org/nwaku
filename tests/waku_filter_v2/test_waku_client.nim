@@ -1,13 +1,6 @@
 {.used.}
 
-import
-  std/[options, tables, sequtils, strutils, json],
-  testutils/unittests,
-  stew/[results, byteutils],
-  chronos,
-  chronicles,
-  os,
-  libp2p/peerstore
+import std/[options, sequtils, json], testutils/unittests, results, chronos
 
 import
   waku/node/[peer_manager, waku_node],

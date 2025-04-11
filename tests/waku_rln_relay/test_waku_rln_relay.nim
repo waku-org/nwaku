@@ -17,7 +17,6 @@ import
     waku_rln_relay/protocol_metrics,
     waku_keystore,
   ],
-  ../testlib/common,
   ./rln/waku_rln_relay_utils
 
 suite "Waku rln relay":

@@ -3,8 +3,9 @@
 {.push raises: [].}
 
 import
-  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
-  stew/[results, byteutils],
+  std/[options, os, osproc, deques, streams, strutils, tempfiles, strformat],
+  results,
+  stew/byteutils,
   testutils/unittests,
   chronos,
   chronicles,

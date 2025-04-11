@@ -1,10 +1,9 @@
 {.used.}
 
-import std/options, chronicles, chronos, libp2p/crypto/crypto
+import std/options, chronos, libp2p/crypto/crypto
 
 import
   waku/node/peer_manager,
-  waku/waku_core,
   waku/waku_lightpush_legacy,
   waku/waku_lightpush_legacy/[client, common],
   waku/common/rate_limit/setting,

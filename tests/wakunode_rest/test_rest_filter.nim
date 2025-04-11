@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/os,
   chronos/timer,
   stew/byteutils,
   stew/shims/net,

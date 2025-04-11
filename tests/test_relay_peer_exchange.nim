@@ -4,10 +4,8 @@ import
   std/[sequtils, options],
   stew/shims/net,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/peerid,
-  libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub
 
 import waku/waku_core, waku/waku_node, ./testlib/wakucore, ./testlib/wakunode

@@ -23,7 +23,6 @@ import
     node/health_monitor,
   ],
   ../testlib/common,
-  ../testlib/testutils,
   ../testlib/wakucore,
   ../testlib/wakunode
 

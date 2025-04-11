@@ -78,5 +78,3 @@ func mapPubishingErrorToPushResult*(
         some("Error generating message id, skipping publish"),
       )
     )
-  else:
-    return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, none[string]()))

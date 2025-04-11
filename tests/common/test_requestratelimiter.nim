@@ -10,7 +10,7 @@
 
 import testutils/unittests
 import chronos, libp2p/stream/connection
-import std/[sequtils, options]
+import std/options
 
 import ../../waku/common/rate_limit/request_limiter
 import ../../waku/common/rate_limit/timed_map

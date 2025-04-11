@@ -3,7 +3,6 @@
 import
   std/net,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto,
   libp2p/peerid,

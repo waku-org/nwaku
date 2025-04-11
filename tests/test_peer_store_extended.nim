@@ -9,12 +9,8 @@ import
   libp2p/multiaddress,
   testutils/unittests
 import
-  waku/[
-    node/peer_manager/peer_manager,
-    node/peer_manager/waku_peer_store,
-    waku_node,
-    waku_core/peers,
-  ],
+  waku/
+    [node/peer_manager/peer_manager, node/peer_manager/waku_peer_store, waku_core/peers],
   ./testlib/wakucore
 
 suite "Extended nim-libp2p Peer Store":

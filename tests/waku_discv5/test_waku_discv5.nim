@@ -2,7 +2,7 @@
 
 import
   std/[sequtils, algorithm],
-  stew/results,
+  results,
   stew/shims/net,
   chronos,
   chronicles,
