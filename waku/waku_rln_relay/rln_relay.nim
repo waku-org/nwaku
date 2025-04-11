@@ -193,7 +193,7 @@ proc validateMessage*(
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
-  debug "calling validateMessage from rln_relay", msg = msg
+  debug "calling validateMessage from rln_relay", msg_len = msg.payload.len
 
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
@@ -471,6 +471,10 @@ proc mount(
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
+
+  if groupManager of OnchainGroupManager:
+    let onchainManager = cast[OnchainGroupManager](groupManager)
+    asyncSpawn trackRootChanges(onchainManager)
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,

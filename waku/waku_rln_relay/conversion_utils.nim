@@ -116,15 +116,16 @@ proc serialize*(memIndices: seq[MembershipIndex]): seq[byte] =
 
   return memIndicesBytes
 
-proc serialize*(witness: Witness): seq[byte] =
+proc serialize*(witness: RLNWitnessInput): seq[byte] =
   ## Serializes the witness into a byte array according to the RLN protocol format
   var buffer: seq[byte]
-  # Convert Fr types to bytes and add them to buffer
   buffer.add(@(witness.identity_secret))
   buffer.add(@(witness.user_message_limit))
   buffer.add(@(witness.message_id))
+  buffer.add(toBytes(uint64(witness.path_elements.len), Endianness.littleEndian))
   for element in witness.path_elements:
     buffer.add(@element)
+  buffer.add(toBytes(uint64(witness.path_elements.len), Endianness.littleEndian))
   buffer.add(witness.identity_path_index)
   buffer.add(@(witness.x))
   buffer.add(@(witness.external_nullifier))
