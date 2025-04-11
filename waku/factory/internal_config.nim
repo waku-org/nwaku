@@ -6,14 +6,7 @@ import
   libp2p/nameresolving/dnsresolver,
   std/[options, sequtils, strutils, net],
   results
-import
-  ./external_config,
-  ../common/utils/nat,
-  ../node/net_config,
-  ../waku_enr/capabilities,
-  ../waku_enr,
-  ../waku_core,
-  ./waku_conf
+import ../common/utils/nat, ../node/net_config, ../waku_enr, ../waku_core, ./waku_conf
 
 proc enrConfiguration*(
     conf: WakuConf, netConfig: NetConfig
@@ -45,31 +38,40 @@ proc enrConfiguration*(
   return ok(record)
 
 proc dnsResolve*(
-    domain: DomainName, conf: WakuConf
+    domain: string, dnsAddrsNameServers: seq[IpAddress]
 ): Future[Result[string, string]] {.async.} =
   # Use conf's DNS servers
   var nameServers: seq[TransportAddress]
-  for ip in conf.dnsAddrsNameServers:
+  for ip in dnsAddrsNameServers:
     nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
 
   let dnsResolver = DnsResolver.new(nameServers)
 
   # Resolve domain IP
-  let resolved = await dnsResolver.resolveIp(domain.string, 0.Port, Domain.AF_UNSPEC)
+  let resolved = await dnsResolver.resolveIp(domain, 0.Port, Domain.AF_UNSPEC)
 
   if resolved.len > 0:
     return ok(resolved[0].host) # Use only first answer
   else:
     return err("Could not resolve IP from DNS: empty response")
 
-proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
+proc networkConfiguration*(
+    clusterId: uint16,
+    conf: NetworkConfig,
+    discv5Conf: Option[Discv5Conf],
+    webSocketConf: Option[WebSocketConf],
+    wakuFlags: CapabilitiesBitfield,
+    dnsAddrsNameServers: seq[IpAddress],
+    portsShift: uint16,
+    clientId: string,
+): NetConfigResult =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let natRes = setupNat(
     conf.natStrategy.string,
     clientId,
-    Port(uint16(conf.p2pTcpPort) + conf.portsShift),
-    Port(uint16(conf.p2pTcpPort) + conf.portsShift),
+    Port(uint16(conf.p2pTcpPort) + portsShift),
+    Port(uint16(conf.p2pTcpPort) + portsShift),
   )
   if natRes.isErr():
     return err("failed to setup NAT: " & $natRes.error)
@@ -78,8 +80,8 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
 
   let
     discv5UdpPort =
-      if conf.discv5Conf.isSome:
-        some(Port(uint16(conf.discv5Conf.get().udpPort) + conf.portsShift))
+      if discv5Conf.isSome:
+        some(Port(uint16(discv5Conf.get().udpPort) + portsShift))
       else:
         none(Port)
 
@@ -89,22 +91,14 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     ## manual config, the external port is the same as the bind port.
     extPort =
       if (extIp.isSome() or conf.dns4DomainName.isSome()) and extTcpPort.isNone():
-        some(Port(uint16(conf.p2pTcpPort) + conf.portsShift))
+        some(Port(uint16(conf.p2pTcpPort) + portsShift))
       else:
         extTcpPort
-
-    wakuFlags = CapabilitiesBitfield.init(
-      lightpush = conf.lightpush,
-      filter = conf.filterServiceConf.isSome,
-      store = conf.storeServiceConf.isSome,
-      relay = conf.relay,
-      sync = conf.storeSyncConf.isSome,
-    )
 
   # Resolve and use DNS domain IP
   if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
-      let dnsRes = waitFor dnsResolve(conf.dns4DomainName.get(), conf)
+      let dnsRes = waitFor dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
 
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack
@@ -115,13 +109,9 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
         err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
 
   let (wsEnabled, wsBindPort, wssEnabled) =
-    if conf.webSocketConf.isSome:
-      let webSocketConf = conf.webSocketConf.get()
-      (
-        true,
-        some(Port(webSocketConf.port.uint16 + conf.portsShift)),
-        webSocketConf.secureConf.isSome,
-      )
+    if webSocketConf.isSome:
+      let wsConf = webSocketConf.get()
+      (true, some(Port(wsConf.port.uint16 + portsShift)), wsConf.secureConf.isSome)
     else:
       (false, none(Port), false)
 
@@ -129,9 +119,9 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   # TODO: We could change bindIp in NetConfig to be something less restrictive
   # than IpAddress, which doesn't allow default construction
   let netConfigRes = NetConfig.init(
-    clusterId = conf.clusterId,
+    clusterId = clusterId,
     bindIp = conf.p2pListenAddress,
-    bindPort = Port(uint16(conf.p2pTcpPort) + conf.portsShift),
+    bindPort = Port(uint16(conf.p2pTcpPort) + portsShift),
     extIp = extIp,
     extPort = extPort,
     extMultiAddrs = conf.extMultiAddrs,
@@ -139,10 +129,7 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
     wsBindPort = wsBindPort,
     wsEnabled = wsEnabled,
     wssEnabled = wssEnabled,
-    dns4DomainName = conf.dns4DomainName.map(
-      proc(dn: DomainName): string =
-        dn.string
-    ),
+    dns4DomainName = conf.dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
   )

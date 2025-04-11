@@ -18,8 +18,6 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
-    builder.withMaxConnections(10)
     builder.discv5Conf.withUdpPort(9000)
     builder.withRelayServiceRatio("50:50")
     # Mount all shards in network
@@ -63,8 +61,6 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
     builder.discv5Conf.withUdpPort(9000)
     # Mount all shards in network
@@ -98,8 +94,6 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
     builder.discv5Conf.withUdpPort(9000)
 
@@ -134,9 +128,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
     let shards = @[2.uint16, 3.uint16]
 
@@ -166,9 +158,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
     let shards = @[2.uint16, 10.uint16]
 
@@ -189,9 +179,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
-    builder.withMaxConnections(10)
     builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
     builder.withRelayServiceRatio("50:50")
 
@@ -237,10 +225,7 @@ suite "Waku Conf - node key":
     ## Setup
     var builder = WakuConfBuilder.init()
     builder.withClusterId(1)
-    builder.withMaxMessageSizeBytes(1)
-    builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
 
     ## Given
@@ -264,9 +249,6 @@ suite "Waku Conf - node key":
       crypto.PrivateKey(scheme: Secp256k1, skkey: key)
     var builder = WakuConfBuilder.init()
     builder.withClusterId(1)
-    builder.withMaxMessageSizeBytes(1)
-    builder.withP2pTcpPort(60000)
-    builder.withMaxConnections(10)
     builder.discv5Conf.withUdpPort(9000)
     builder.withRelayServiceRatio("50:50")
 
@@ -289,10 +271,7 @@ suite "Waku Conf - extMultiaddrs":
     ## Setup
     var builder = WakuConfBuilder.init()
     builder.withClusterId(1)
-    builder.withMaxMessageSizeBytes(1)
-    builder.withP2pTcpPort(60000)
     builder.discv5Conf.withUdpPort(9000)
-    builder.withMaxConnections(10)
     builder.withRelayServiceRatio("50:50")
 
     ## Given

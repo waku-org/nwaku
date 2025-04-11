@@ -242,6 +242,17 @@ proc setupProtocols(
         "failed to mount waku store protocremoteStoreNodeol: " & getCurrentExceptionMsg()
       )
 
+      if storeServiceConf.storeSyncConf.isSome:
+        let confStoreSync = storeServiceConf.storeSyncConf.get()
+
+        (
+          await node.mountStoreSync(
+            confStoreSync.rangeSec, confStoreSync.intervalSec,
+            confStoreSync.relayJitterSec,
+          )
+        ).isOkOr:
+          return err("failed to mount waku store sync protocol: " & $error)
+
   mountStoreClient(node)
   if conf.remoteStoreNode.isSome:
     let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
@@ -405,16 +416,6 @@ proc setupProtocols(
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
-  if conf.storeSyncConf.isSome:
-    let confStoreSync = conf.storeSyncConf.get()
-
-    (
-      await node.mountStoreSync(
-        confStoreSync.rangeSec, confStoreSync.intervalSec, confStoreSync.relayJitterSec
-      )
-    ).isOkOr:
-      return err("failed to mount waku store sync protocol: " & $error)
-
   # waku peer exchange setup
   if conf.peerExchange:
     try:
@@ -493,7 +494,11 @@ proc startNode*(
 proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
-  let netConfig = networkConfiguration(wakuConf, clientId).valueOr:
+  let netConfig = networkConfiguration(
+    wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
+    wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
+    wakuConf.portsShift, clientId,
+  ).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 

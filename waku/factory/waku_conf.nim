@@ -12,16 +12,13 @@ import
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
-  ./networks_config
+  ./networks_config,
+  ../waku_enr/capabilities
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
 logScope:
   topics = "waku conf"
-
-type
-  NatStrategy* = distinct string
-  DomainName* = distinct string
 
 # TODO: should be defined in validator_signed.nim and imported here
 type ProtectedShard* {.requiresInit.} = object
@@ -61,6 +58,14 @@ type WebSocketConf* = object
   port*: Port
   secureConf*: Option[WebSocketSecureConf]
 
+type NetworkConfig* = object # TODO: make enum
+  natStrategy*: string
+  p2pTcpPort*: Port
+  dns4DomainName*: Option[string]
+  p2pListenAddress*: IpAddress
+  extMultiAddrs*: seq[MultiAddress]
+  extMultiAddrsOnly*: bool
+
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
@@ -95,6 +100,13 @@ type WakuConf* {.requiresInit.} = ref object
   rlnRelayConf*: Option[RlnRelayConf]
   restServerConf*: Option[RestServerConf]
   metricsServerConf*: Option[MetricsServerConf]
+  webSocketConf*: Option[WebSocketConf]
+
+  portsShift*: uint16
+  dnsAddrs*: bool
+  dnsAddrsNameServers*: seq[IpAddress]
+  networkConf*: NetworkConfig
+  wakuFlags*: CapabilitiesBitfield
 
   # TODO: could probably make it a `PeerRemoteInfo`
   staticNodes*: seq[string]
@@ -108,18 +120,6 @@ type WakuConf* {.requiresInit.} = ref object
   logLevel*: logging.LogLevel
   logFormat*: logging.LogFormat
 
-  natStrategy*: NatStrategy
-
-  p2pTcpPort*: Port
-  p2pListenAddress*: IpAddress
-  portsShift*: uint16
-  dns4DomainName*: Option[DomainName]
-  extMultiAddrs*: seq[MultiAddress]
-  extMultiAddrsOnly*: bool
-  webSocketConf*: Option[WebSocketConf]
-
-  dnsAddrs*: bool
-  dnsAddrsNameServers*: seq[IpAddress]
   peerPersistence*: bool
   # TODO: should clearly be a uint
   peerStoreCapacity*: Option[int]
@@ -139,7 +139,7 @@ type WakuConf* {.requiresInit.} = ref object
   # TODO: use proper type
   relayServiceRatio*: string
 
-  p2pReliabilityEnabled*: bool
+  p2pReliability*: bool
 
 proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
@@ -188,8 +188,8 @@ proc validateShards(wakuConf: WakuConf): Result[void, string] =
   return ok()
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.dns4DomainName.isSome and
-      isEmptyOrWhiteSpace(wakuConf.dns4DomainName.get().string):
+  if wakuConf.networkConf.dns4DomainName.isSome and
+      isEmptyOrWhiteSpace(wakuConf.networkConf.dns4DomainName.get().string):
     return err("dns4DomainName is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):

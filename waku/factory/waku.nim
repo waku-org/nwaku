@@ -172,7 +172,7 @@ proc new*(
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
-  if wakuConf.p2pReliabilityEnabled:
+  if wakuConf.p2pReliability:
     if wakuConf.remoteStoreNode.isNone:
       return err("A remoteStoreNode should be set when reliability mode is on")
 
@@ -222,14 +222,17 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
     return err("Could not retrieve ports " & error)
 
   if tcpPort.isSome():
-    conf.p2pTcpPort = tcpPort.get()
+    conf.networkConf.p2pTcpPort = tcpPort.get()
 
   if websocketPort.isSome() and conf.webSocketConf.isSome:
     var websocketConf = conf.webSocketConf.get()
     websocketConf.port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
-  let netConf = networkConfiguration(conf, clientId).valueOr:
+  let netConf = networkConfiguration(
+    conf.clusterId, conf.networkConf, conf.discv5Conf, conf.webSocketConf,
+    conf.wakuFlags, conf.dnsAddrsNameServers, conf.portsShift, clientId,
+  ).valueOr:
     return err("Could not update NetConfig: " & error)
 
   return ok(netConf)
@@ -278,7 +281,7 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
 
 proc updateWaku(waku: ptr Waku): Result[void, string] =
   let conf = waku[].conf
-  if conf.p2pTcpPort == Port(0) or
+  if conf.networkConf.p2pTcpPort == Port(0) or
       (conf.websocketConf.isSome and conf.websocketConf.get.port == Port(0)):
     updateEnr(waku).isOkOr:
       return err("error calling updateEnr: " & $error)
@@ -362,7 +365,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       waku.dynamicBootstrapNodes,
       waku.rng,
       conf.nodeKey,
-      conf.p2pListenAddress,
+      conf.networkConf.p2pListenAddress,
       conf.portsShift,
     )
 

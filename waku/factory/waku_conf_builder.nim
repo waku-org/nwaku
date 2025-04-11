@@ -6,12 +6,16 @@ import
   results
 
 import
-  ./waku_conf, ./networks_config, ../common/logging, ../common/utils/parse_size_units
+  ./waku_conf,
+  ./networks_config,
+  ../common/logging,
+  ../common/utils/parse_size_units,
+  ../waku_enr/capabilities
 
 logScope:
   topics = "waku conf builder"
 
-proc generateWithProc(builderType, argName, argType, targetType: NimNode): NimNode =
+proc generateWithProc(builderType, argName, argType, fromType: NimNode): NimNode =
   builderType.expectKind nnkIdent
   argName.expectKind nnkIdent
 
@@ -22,15 +26,15 @@ proc generateWithProc(builderType, argName, argType, targetType: NimNode): NimNo
   let builderVar = newDotExpr(builderIdent, ident($argName))
   let resVar = ident($argName)
 
-  if argType == targetType:
+  if argType == fromType:
     result.add quote do:
       proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `argType`) =
         `builderVar` = some(`argName`)
 
   else:
     result.add quote do:
-      proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `argType`) =
-        `builderVar` = some(`argName`.`targetType`)
+      proc `procName`*(`builderIdent`: var `builderType`, `resVar`: `fromType`) =
+        `builderVar` = some(`argName`.`argType`)
 
 ## A simple macro to set a property on the builder.
 ## For example:
@@ -45,28 +49,28 @@ proc generateWithProc(builderType, argName, argType, targetType: NimNode): NimNo
 ## proc withRlnRelay*(builder: var RlnRelayConfBuilder, rlnRelay: bool) = 
 ##  builder.rlnRelay = some(rlnRelay)
 ## ```
-macro with(
-    builderType: untyped, argName: untyped, argType: untyped, targetType: untyped
-) =
-  result = generateWithProc(builderType, argName, argType, targetType)
+macro with(builderType: untyped, argName: untyped, argType: untyped) =
+  result = generateWithProc(builderType, argName, argType, argType)
 
 ## A simple macro to set a property on the builder, and convert the property
-## to the right (distinct) type.
+## to the right type.
 ## 
 ## For example:
 ## 
 ## ```
-## with(RlnRelayConfBuilder, ethContractAddress, string, ContractAddress)
+## with(WakuConfBuilder, p2pPort, Port, uint16)
 ## ```
 ## 
 ## Generates
 ## 
 ## ```
-## proc withRlnRelay*(builder: var RlnRelayConfBuilder, ethContractAddress: string) = 
-##  builder.ethContractAddress = some(ethContractAddress.ContractAddress)
+## proc withp2pPort*(builder: var WakuConfBuilder, p2pPort: uint16) = 
+##  builder.p2pPort = some(p2pPort.Port)
 ## ```
-macro with(builderType: untyped, argName: untyped, argType: untyped) =
-  result = generateWithProc(builderType, argName, argType, argType)
+macro with(
+    builderType: untyped, argName: untyped, argType: untyped, fromType: untyped
+) =
+  result = generateWithProc(builderType, argName, argType, fromType)
 
 ##############################
 ## RLN Relay Config Builder ##
@@ -237,7 +241,7 @@ type StoreServiceConfBuilder = object
   maxNumDbConnections: Option[int]
   retentionPolicy: Option[string]
   resume: Option[bool]
-  storeSyncConf: StoreSyncConfBuilder
+  storeSyncConf*: StoreSyncConfBuilder
 
 proc init(T: type StoreServiceConfBuilder): StoreServiceConfBuilder =
   StoreServiceConfBuilder(storeSyncConf: StoreSyncConfBuilder.init())
@@ -303,11 +307,12 @@ type RestServerConfBuilder = object
 proc init(T: type RestServerConfBuilder): RestServerConfBuilder =
   RestServerConfBuilder()
 
-proc withAllowOrigin(builder: var RestServerConfBuilder, allowOrigin: seq[string]) =
+proc withAllowOrigin*(builder: var RestServerConfBuilder, allowOrigin: seq[string]) =
   builder.allowOrigin = concat(builder.allowOrigin, allowOrigin)
 
+with(RestServerConfBuilder, enabled, bool)
 with(RestServerConfBuilder, listenAddress, IpAddress)
-with(RestServerConfBuilder, port, Port)
+with(RestServerConfBuilder, port, Port, uint16)
 with(RestServerConfBuilder, admin, bool)
 with(RestServerConfBuilder, relayCacheCapacity, uint32)
 
@@ -387,9 +392,10 @@ with(Discv5ConfBuilder, bucketIpLimit, uint)
 with(Discv5ConfBuilder, discv5Only, bool)
 with(Discv5ConfBuilder, enrAutoUpdate, bool)
 with(Discv5ConfBuilder, tableIpLimit, uint)
-with(Discv5ConfBuilder, udpPort, uint16, Port)
+with(Discv5ConfBuilder, udpPort, Port, uint16)
+with(Discv5ConfBuilder, udpPort, Port)
 
-proc withBootstrapNodes(builder: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
+proc withBootstrapNodes*(builder: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
   builder.bootstrapNodes = concat(builder.bootstrapNodes, bootstrapNodes)
 
@@ -432,8 +438,8 @@ type WebSocketConfBuilder* = object
   enabled: Option[bool]
   webSocketPort: Option[Port]
   secureEnabled: Option[bool]
-  webSocketSecureKeyPath: Option[string]
-  webSocketSecureCertPath: Option[string]
+  keyPath: Option[string]
+  certPath: Option[string]
 
 proc init*(T: type WebSocketConfBuilder): WebSocketConfBuilder =
   WebSocketConfBuilder()
@@ -441,8 +447,9 @@ proc init*(T: type WebSocketConfBuilder): WebSocketConfBuilder =
 with(WebSocketConfBuilder, enabled, bool)
 with(WebSocketConfBuilder, secureEnabled, bool)
 with(WebSocketConfBuilder, webSocketPort, Port)
-with(WebSocketConfBuilder, webSocketSecureKeyPath, string)
-with(WebSocketConfBuilder, webSocketSecureCertPath, string)
+with(WebSocketConfBuilder, webSocketPort, Port, uint16)
+with(WebSocketConfBuilder, keyPath, string)
+with(WebSocketConfBuilder, certPath, string)
 
 proc build(b: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
   if not b.enabled.get(false):
@@ -460,9 +467,9 @@ proc build(b: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
       )
     )
 
-  if b.webSocketSecureKeyPath.get("") == "":
+  if b.keyPath.get("") == "":
     return err("WebSocketSecure enabled but key path is not specified")
-  if b.webSocketSecureCertPath.get("") == "":
+  if b.certPath.get("") == "":
     return err("WebSocketSecure enabled but cert path is not specified")
 
   return ok(
@@ -470,10 +477,7 @@ proc build(b: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
       WebSocketConf(
         port: b.webSocketPort.get(),
         secureConf: some(
-          WebSocketSecureConf(
-            keyPath: b.webSocketSecureKeyPath.get(),
-            certPath: b.webSocketSecureCertPath.get(),
-          )
+          WebSocketSecureConf(keyPath: b.keyPath.get(), certPath: b.certPath.get())
         ),
       )
     )
@@ -493,6 +497,9 @@ proc init(T: type MetricsServerConfBuilder): MetricsServerConfBuilder =
   MetricsServerConfBuilder()
 
 with(MetricsServerConfBuilder, enabled, bool)
+with(MetricsServerConfBuilder, httpAddress, IpAddress)
+with(MetricsServerConfBuilder, httpPort, Port, uint16)
+with(MetricsServerConfBuilder, logging, bool)
 
 proc build(b: MetricsServerConfBuilder): Result[Option[MetricsServerConf], string] =
   if b.enabled.get(false):
@@ -552,13 +559,13 @@ type WakuConfBuilder* = object
   contentTopics: Option[seq[string]]
 
   # Conf builders
-  dnsDiscoveryConf: DnsDiscoveryConfBuilder
+  dnsDiscoveryConf*: DnsDiscoveryConfBuilder
   discv5Conf*: Discv5ConfBuilder
-  filterServiceConf: FilterServiceConfBuilder
+  filterServiceConf*: FilterServiceConfBuilder
   metricsServerConf*: MetricsServerConfBuilder
   restServerConf*: RestServerConfBuilder
   rlnRelayConf*: RlnRelayConfBuilder
-  storeServiceConf: StoreServiceConfBuilder
+  storeServiceConf*: StoreServiceConfBuilder
   webSocketConf*: WebSocketConfBuilder
   # End conf builders
   relay: Option[bool]
@@ -584,12 +591,12 @@ type WakuConfBuilder* = object
   logLevel: Option[logging.LogLevel]
   logFormat: Option[logging.LogFormat]
 
-  natStrategy: Option[NatStrategy]
+  natStrategy: Option[string]
 
   p2pTcpPort: Option[Port]
   p2pListenAddress: Option[IpAddress]
   portsShift: Option[uint16]
-  dns4DomainName: Option[DomainName]
+  dns4DomainName: Option[string]
   extMultiAddrs: seq[string]
   extMultiAddrsOnly: Option[bool]
 
@@ -610,7 +617,7 @@ type WakuConfBuilder* = object
   relayServiceRatio: Option[string]
   circuitRelayClient: Option[bool]
   keepAlive: Option[bool]
-  p2pReliabilityEnabled: Option[bool]
+  p2pReliability: Option[bool]
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
@@ -627,11 +634,14 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
 with(WakuConfBuilder, clusterConf, ClusterConf)
 with(WakuConfBuilder, nodeKey, PrivateKey)
 with(WakuConfBuilder, clusterId, uint16)
+with(WakuConfBuilder, numShardsInNetwork, uint32)
 with(WakuConfBuilder, shards, seq[uint16])
 with(WakuConfBuilder, protectedShards, seq[ProtectedShard])
 with(WakuConfBuilder, contentTopics, seq[string])
 with(WakuConfBuilder, relay, bool)
+with(WakuConfBuilder, lightPush, bool)
 with(WakuConfBuilder, storeSync, bool)
+with(WakuConfBuilder, peerExchange, bool)
 with(WakuConfBuilder, relayPeerExchange, bool)
 with(WakuConfBuilder, rendezvous, bool)
 with(WakuConfBuilder, remoteStoreNode, string)
@@ -646,17 +656,21 @@ with(WakuConfBuilder, dnsAddrsNameServers, seq[IpAddress])
 with(WakuConfBuilder, logLevel, logging.LogLevel)
 with(WakuConfBuilder, logFormat, logging.LogFormat)
 with(WakuConfBuilder, p2pTcpPort, Port)
-with(WakuConfBuilder, p2pTcpPort, uint16, Port)
+with(WakuConfBuilder, p2pTcpPort, Port, uint16)
 with(WakuConfBuilder, portsShift, uint16)
 with(WakuConfBuilder, p2pListenAddress, IpAddress)
 with(WakuConfBuilder, extMultiAddrsOnly, bool)
-with(WakuConfBuilder, dns4DomainName, string, DomainName)
-with(WakuConfBuilder, natStrategy, string, NatStrategy)
+with(WakuConfBuilder, dns4DomainName, string)
+with(WakuConfBuilder, natStrategy, string)
 with(WakuConfBuilder, agentString, string)
 with(WakuConfBuilder, colocationLimit, int)
 with(WakuConfBuilder, rateLimits, seq[string])
 with(WakuConfBuilder, maxRelayPeers, int)
 with(WakuConfBuilder, relayServiceRatio, string)
+with(WakuConfBuilder, circuitRelayClient, bool)
+with(WakuConfBuilder, relayShardedPeerManagement, bool)
+with(WakuConfBuilder, keepAlive, bool)
+with(WakuConfBuilder, p2pReliability, bool)
 
 proc withExtMultiAddrs*(builder: var WakuConfBuilder, extMultiAddrs: seq[string]) =
   builder.extMultiAddrs = concat(builder.extMultiAddrs, extMultiAddrs)
@@ -666,6 +680,9 @@ proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSizeBytes: uint
 
 proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSize: string) =
   builder.maxMessageSize = MaxMessageSize(kind: mmskStr, str: maxMessageSize)
+
+proc withStaticNodes*(builder: var WakuConfBuilder, staticNodes: seq[string]) =
+  builder.staticNodes = concat(builder.staticNodes, staticNodes)
 
 proc nodeKey(
     builder: WakuConfBuilder, rng: ref HmacDrbgContext
@@ -835,7 +852,8 @@ proc build*(
     of mmskStr:
       ?parseMsgSize(builder.maxMessageSize.str)
     else:
-      return err("Max Message Size was not specified")
+      warn "Max Message Size not specified, defaulting to 150KiB"
+      parseCorrectMsgSize("150KiB")
 
   let contentTopics = builder.contentTopics.get(@[])
 
@@ -884,14 +902,14 @@ proc build*(
       builder.natStrategy.get()
     else:
       warn "Nat Strategy is not specified, defaulting to none"
-      "none".NatStrategy
+      "none"
 
   let p2pTcpPort =
     if builder.p2pTcpPort.isSome():
       builder.p2pTcpPort.get()
     else:
       warn "P2P Listening TCP Port is not specified, listening on 60000"
-      6000.Port
+      60000.Port
 
   let p2pListenAddress =
     if builder.p2pListenAddress.isSome():
@@ -913,9 +931,9 @@ proc build*(
       if d.string != "":
         some(d)
       else:
-        none(DomainName)
+        none(string)
     else:
-      none(DomainName)
+      none(string)
 
   var extMultiAddrs: seq[MultiAddress] = @[]
   for s in builder.extMultiAddrs:
@@ -955,7 +973,8 @@ proc build*(
     if builder.maxConnections.isSome():
       builder.maxConnections.get()
     else:
-      return err "Max Connections was not specified"
+      warn "Max Connections was not specified, defaulting to 300"
+      300
 
   let relayServiceRatio =
     if builder.relayServiceRatio.isSome():
@@ -980,8 +999,16 @@ proc build*(
   if builder.keepAlive.isNone():
     return err("keepAlive is not specified")
 
-  if builder.p2pReliabilityEnabled.isNone():
-    return err("p2pReliabilityEnabled is not specified")
+  if builder.p2pReliability.isNone():
+    return err("p2pReliability is not specified")
+
+  let wakuFlags = CapabilitiesBitfield.init(
+    lightpush = lightPush,
+    filter = filterServiceConf.isSome,
+    store = storeServiceConf.isSome,
+    relay = relay,
+    sync = storeServiceConf.isSome() and storeServiceConf.get().storeSyncConf.isSome,
+  )
 
   return ok(
     WakuConf(
@@ -1012,13 +1039,16 @@ proc build*(
       maxMessageSizeBytes: maxMessageSizeBytes,
       logLevel: logLevel,
       logFormat: logFormat,
-      natStrategy: natStrategy,
-      p2pTcpPort: p2pTcpPort,
-      p2pListenAddress: p2pListenAddress,
+      # TODO: Separate builders
+      networkConf: NetworkConfig(
+        natStrategy: natStrategy,
+        p2pTcpPort: p2pTcpPort,
+        dns4DomainName: dns4DomainName,
+        p2pListenAddress: p2pListenAddress,
+        extMultiAddrs: extMultiAddrs,
+        extMultiAddrsOnly: extMultiAddrsOnly,
+      ),
       portsShift: portsShift,
-      dns4DomainName: dns4DomainName,
-      extMultiAddrs: extMultiAddrs,
-      extMultiAddrsOnly: extMultiAddrsOnly,
       webSocketConf: webSocketConf,
       dnsAddrs: dnsAddrs,
       dnsAddrsNameServers: dnsAddrsNameServers,
@@ -1034,6 +1064,7 @@ proc build*(
       keepAlive: builder.keepAlive.get(),
       staticNodes: builder.staticNodes,
       relayShardedPeerManagement: relayShardedPeerManagement,
-      p2pReliabilityEnabled: builder.p2pReliabilityEnabled.get(),
+      p2pReliability: builder.p2pReliability.get(),
+      wakuFlags: wakuFlags,
     )
   )

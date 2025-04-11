@@ -462,7 +462,7 @@ proc initAndStartApp(
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
-  nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
+  nodeBuilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
 
   nodeBuilder.withPeerManagerConfig(
     maxConnections = MaxConnectedPeers,
