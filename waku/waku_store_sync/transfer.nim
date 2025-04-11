@@ -57,7 +57,9 @@ proc sendMessage(
     await conn.writeLP(rawPayload)
 
   if writeRes.isErr():
-    return err("connection write error: " & writeRes.error.msg)
+    await conn.close()
+    return
+      err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
   total_transfer_messages_exchanged.inc(labelValues = [Sending])
 
@@ -69,7 +71,7 @@ proc openConnection(
   let connOpt = await self.peerManager.dialPeer(peerId, WakuTransferCodec)
 
   let conn: Connection = connOpt.valueOr:
-    return err("Cannot establish transfer connection")
+    return err("fail to dial remote " & $peerId)
 
   debug "transfer session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
@@ -158,12 +160,10 @@ proc initProtocolHandler(self: SyncTransfer) =
         if value[].missingOrExcl(hash):
           error "unwanted hash received, disconnecting"
           self.inSessions.del(conn.peerId)
-          await conn.close()
           break
       do:
         error "unwanted hash received, disconnecting"
         self.inSessions.del(conn.peerId)
-        await conn.close()
         break
 
       #TODO verify msg RLN proof...
@@ -175,6 +175,8 @@ proc initProtocolHandler(self: SyncTransfer) =
       await self.idsTx.addLast(id)
 
       continue
+
+    await conn.close()
 
     debug "transfer session ended",
       local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId

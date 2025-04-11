@@ -103,12 +103,14 @@ proc processRequest(
       await conn.readLp(int.high)
 
     let buffer: seq[byte] = readRes.valueOr:
-      return err("connection read error: " & error.msg)
+      await conn.close()
+      return err("remote " & $conn.peerId & " connection read error: " & error.msg)
 
     total_bytes_exchanged.observe(buffer.len, labelValues = [Reconciliation, Receiving])
 
     let recvPayload = RangesData.deltaDecode(buffer).valueOr:
-      return err("payload decoding error: " & error)
+      await conn.close()
+      return err("remote " & $conn.peerId & " payload decoding error: " & error)
 
     roundTrips.inc()
 
@@ -150,7 +152,9 @@ proc processRequest(
       await conn.writeLP(rawPayload)
 
     if writeRes.isErr():
-      return err("connection write error: " & writeRes.error.msg)
+      await conn.close()
+      return
+        err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
     trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
@@ -196,7 +200,10 @@ proc initiate(
     await connection.writeLP(sendPayload)
 
   if writeRes.isErr():
-    return err("connection write error: " & writeRes.error.msg)
+    await connection.close()
+    return err(
+      "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
+    )
 
   trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
@@ -217,7 +224,7 @@ proc storeSynchronization*(
   let connOpt = await self.peerManager.dialPeer(peer, WakuReconciliationCodec)
 
   let conn: Connection = connOpt.valueOr:
-    return err("cannot establish sync connection")
+    return err("fail to dial remote " & $peer.peerId)
 
   debug "sync session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
