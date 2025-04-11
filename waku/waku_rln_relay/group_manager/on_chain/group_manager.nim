@@ -121,12 +121,28 @@ proc toArray32LE*(s: seq[byte]): array[32, byte] =
   var output: array[32, byte]
   for i in 0 ..< 32:
     output[i] = 0
-  for i in 0 ..< 32:
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
     output[i] = s[31 - i]
+  return output
+
+proc toArray32*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[i]
   return output
 
 proc toArray32LE*(v: uint64): array[32, byte] =
   let bytes = toBytes(v, Endianness.littleEndian)
+  var output: array[32, byte]
+  discard output.copyFrom(bytes)
+  return output
+
+proc toArray32*(v: uint64): array[32, byte] =
+  let bytes = toBytes(v)
   var output: array[32, byte]
   discard output.copyFrom(bytes)
   return output
@@ -196,6 +212,13 @@ proc fetchMerkleRoot*(
     return ok(merkleRoot)
   except CatchableError:
     error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
+
+proc fetchCommitmentIndex*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+  let commitmentIndex = await commitmentIndexInvocation.call()
+  return ok(commitmentIndex)
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -354,13 +377,13 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-proc indexToPath*(membershipIndex: uint, tree_depth: int): seq[byte] =
+proc indexToPath*(membershipIndex: UInt256, tree_depth: int): seq[byte] =
   result = newSeq[byte](tree_depth)
   var idx = membershipIndex
 
   for i in 0 ..< tree_depth:
     let bit = (idx shr (tree_depth - 1 - i)) and 1
-    result[i] = byte(bit)
+    result[i] = byte(bit.truncate(uint8))
 
   debug "indexToPath", index = membershipIndex, path = result
 
@@ -371,7 +394,7 @@ proc createZerokitWitness(
     messageId: MessageId,
     extNullifier: array[32, byte],
 ): RLNWitnessInput =
-  let identitySecret = g.idCredentials.get().idSecretHash.toArray32LE()
+  let identitySecret = g.idCredentials.get().idSecretHash.toArray32()
     # seq[byte] to array[32, byte] and convert to little-endian
   let userMsgLimit = g.userMessageLimit.get().toArray32LE()
     # uint64 to array[32, byte] and convert to little-endian  
@@ -396,8 +419,12 @@ proc createZerokitWitness(
     pathElements.add(toArray32LE(elem)) # convert every element to little-endian
 
   # Convert index to byte array (no endianness needed for path index)
-  let pathIndex = indexToPath(g.membershipIndex.get(), pathElements.len)
-    # uint to seq[byte]
+  var pathIndex: seq[byte]
+  try:
+    let commitmentIndex = waitFor g.fetchCommitmentIndex()
+    pathIndex = indexToPath(commitmentIndex.get(), pathElements.len) # uint to seq[byte]
+  except CatchableError:
+    error "Error fetching commitment index", error = getCurrentExceptionMsg()
 
   debug "---- pathElements & pathIndex -----",
     pathElements = pathElements,
