@@ -52,13 +52,13 @@ proc subscribe(
 ): Future[FilterSubscribeResult] {.async.} =
   # TODO: check if this condition is valid???
   if pubsubTopic.isNone() or contentTopics.len == 0:
-    error "pubsubTopic and contentTopics must be specified", peerId = peerId
+    error "AAAAAAA pubsubTopic and contentTopics must be specified", peerId = peerId
     return err(
       FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified")
     )
 
   if contentTopics.len > MaxContentTopicsPerRequest:
-    error "exceeds maximum content topics", peerId = peerId
+    error "AAAAAAA exceeds maximum content topics", peerId = peerId
     return err(
       FilterSubscribeError.badRequest(
         "exceeds maximum content topics: " & $MaxContentTopicsPerRequest
@@ -67,13 +67,16 @@ proc subscribe(
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
-  debug "subscribing peer to filter criteria",
+  debug "AAAAAAA subscribing peer to filter criteria",
     peerId = peerId, filterCriteria = filterCriteria
 
   (await wf.subscriptions.addSubscription(peerId, filterCriteria)).isOkOr:
+    debug "AAAAAAA service unavailable",
+      peerId = peerId, filterCriteria = filterCriteria, error = $error
+
     return err(FilterSubscribeError.serviceUnavailable(error))
 
-  debug "correct subscription", peerId = peerId
+  debug "AAAAAAA correct subscription", peerId = peerId
 
   ok()
 
@@ -83,14 +86,16 @@ proc unsubscribe(
     pubsubTopic: Option[PubsubTopic],
     contentTopics: seq[ContentTopic],
 ): FilterSubscribeResult =
+  debug "AAAAAAA unsubscribing peer from filter criteria", peerId = peerId
+
   if pubsubTopic.isNone() or contentTopics.len == 0:
-    error "pubsubTopic and contentTopics must be specified", peerId = peerId
+    error "AAAAAAA pubsubTopic and contentTopics must be specified", peerId = peerId
     return err(
       FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified")
     )
 
   if contentTopics.len > MaxContentTopicsPerRequest:
-    error "exceeds maximum content topics", peerId = peerId
+    error "AAAAAAA exceeds maximum content topics", peerId = peerId
     return err(
       FilterSubscribeError.badRequest(
         "exceeds maximum content topics: " & $MaxContentTopicsPerRequest
@@ -99,16 +104,16 @@ proc unsubscribe(
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
-  debug "unsubscribing peer from filter criteria",
+  debug "AAAAAAA unsubscribing peer from filter criteria",
     peerId = peerId, filterCriteria = filterCriteria
 
   wf.subscriptions.removeSubscription(peerId, filterCriteria).isOkOr:
-    error "failed to remove subscription", error = $error
+    error "AAAAAAA failed to remove subscription", error = $error
     return err(FilterSubscribeError.notFound())
 
   ## Note: do not remove from peerRequestRateLimiter to prevent trick with subscribe/unsubscribe loop
   ## We remove only if peerManager removes the peer
-  debug "correct unsubscription", peerId = peerId
+  debug "AAAAAAA correct unsubscription", peerId = peerId
 
   ok()
 

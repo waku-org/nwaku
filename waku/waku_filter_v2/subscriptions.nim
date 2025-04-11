@@ -85,7 +85,7 @@ proc findSubscribedPeers*(
       if s.isSubscribed(peer):
         foundPeers.add(peer)
 
-  debug "findSubscribedPeers result",
+  debug "AAAAAAA findSubscribedPeers result",
     filter_criterion = filterCriterion,
     subscr_set = s.subscriptions,
     found_peers = foundPeers
@@ -94,29 +94,30 @@ proc findSubscribedPeers*(
 
 proc removePeer*(s: FilterSubscriptions, peerId: PeerID) {.async.} =
   ## Remove all subscriptions for a given peer
-  debug "removePeer",
+  debug "AAAAAAA removePeer",
     currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)), peerId = peerId
 
   s.peersSubscribed.del(peerId)
 
-  debug "removePeer after deletion",
+  debug "AAAAAAA removePeer after deletion",
     currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)), peerId = peerId
 
 proc removePeers*(s: FilterSubscriptions, peerIds: seq[PeerID]) {.async.} =
   ## Remove all subscriptions for a given list of peers
-  debug "removePeers",
+  debug "AAAAAAA removePeers",
     currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)),
     peerIds = peerIds.mapIt(shortLog(it))
 
   for peer in peerIds:
     await s.removePeer(peer)
 
-  debug "removePeers after deletion",
+  debug "AAAAAAA removePeers after deletion",
     currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)),
     peerIds = peerIds.mapIt(shortLog(it))
 
 proc cleanUp*(fs: FilterSubscriptions) =
-  debug "cleanUp", currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
+  debug "AAAAAAA cleanUp",
+    currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
 
   ## Remove all subscriptions for peers that have not been seen for a while
   let now = Moment.now()
@@ -128,7 +129,7 @@ proc cleanUp*(fs: FilterSubscriptions) =
 
   fs.subscriptions.keepItIf(val.len > 0)
 
-  debug "after cleanUp",
+  debug "AAAAAAA after cleanUp",
     currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
 
 proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
@@ -142,15 +143,24 @@ proc addSubscription*(
 
   var peerData: ptr PeerData
 
+  debug "AAAAAAA addSubscription", peerId = shortLog(peerId)
+
   s.peersSubscribed.withValue(peerId, data):
     if data.criteriaCount + cast[uint](filterCriteria.len) > s.maxCriteriaPerPeer:
       return err("peer has reached maximum number of filter criteria")
 
     data.lastSeen = Moment.now()
+    debug "AAAAAAA peer already subscribed",
+      peerID = shortLog(peerId),
+      criteriaCount = data.criteriaCount,
+      maxCriteriaPerPeer = s.maxCriteriaPerPeer
+
     peerData = data
   do:
     ## not yet subscribed
     if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
+      debug "AAAAAAA node max number susbcriptions",
+        peerID = shortLog(peerId), maxPeers = $(s.maxPeers)
       return err("node has reached maximum number of subscriptions: " & $(s.maxPeers))
 
     let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
@@ -162,8 +172,10 @@ proc addSubscription*(
       peersOfSub[].incl(peerId)
       peerData.criteriaCount += 1
 
-  debug "subscription added correctly",
-    new_peer = shortLog(peerId), subscr_set = s.subscriptions
+  debug "AAAAAAA subscription added correctly",
+    peerId = shortLog(peerId),
+    subscr_set = s.subscriptions,
+    criteriaCount = peerData.criteriaCount
 
   return ok()
 
@@ -171,6 +183,8 @@ proc removeSubscription*(
     s: FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
 ): Result[void, string] =
   ## Remove a subscription for a given peer
+
+  debug "AAAAAAA removeSubscription", peerId = shortLog(peerID)
 
   s.peersSubscribed.withValue(peerId, peerData):
     peerData.lastSeen = Moment.now()
@@ -185,10 +199,12 @@ proc removeSubscription*(
             s.peersSubscribed.del(peerId)
       do:
         ## Maybe let just run through and log it as a warning
+        debug "AAAAAAA Peer was not subscribed to criterion", peerId = shortLog(peerID)
         return err("Peer was not subscribed to criterion")
 
     return ok()
   do:
+    debug "AAAAAAA Peer has no subscriptions", peerId = shortLog(peerID)
     return err("Peer has no subscriptions")
 
 proc setSubscriptionTimeout*(s: FilterSubscriptions, newTimeout: Duration) =

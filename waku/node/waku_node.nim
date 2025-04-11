@@ -260,19 +260,28 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
-  proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+  proc traceHandler(
+      topic: PubsubTopic, msg: WakuMessage, msgHash: string
+  ) {.async, gcsafe.} =
     let msgSizeKB = msg.payload.len / 1000
 
     waku_node_messages.inc(labelValues = ["relay"])
     waku_histogram_message_size.observe(msgSizeKB)
 
-  proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    debug "AAAAAAA traceHandler", msg_hash = msgHash, msgSizeKB
+
+  proc filterHandler(
+      topic: PubsubTopic, msg: WakuMessage, msgHash: string
+  ) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
       return
+    debug "AAAAAAA filterHandler", msg_hash = msgHash
 
     await node.wakuFilter.handleMessage(topic, msg)
 
-  proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+  proc archiveHandler(
+      topic: PubsubTopic, msg: WakuMessage, msgHash: string
+  ) {.async, gcsafe.} =
     if not node.wakuLegacyArchive.isNil():
       ## we try to store with legacy archive
       await node.wakuLegacyArchive.handleMessage(topic, msg)
@@ -281,21 +290,27 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
     if node.wakuArchive.isNil():
       return
 
+    debug "AAAAAAA archiveHandler", msg_hash = msgHash
     await node.wakuArchive.handleMessage(topic, msg)
 
-  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+  proc syncHandler(
+      topic: PubsubTopic, msg: WakuMessage, msgHash: string
+  ) {.async, gcsafe.} =
     if node.wakuStoreReconciliation.isNil():
       return
 
+    debug "AAAAAAA syncHandler", msg_hash = msgHash
     node.wakuStoreReconciliation.messageIngress(topic, msg)
 
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
-    await traceHandler(topic, msg)
-    await filterHandler(topic, msg)
-    await archiveHandler(topic, msg)
-    await syncHandler(topic, msg)
+    let msgHash = computeMessageHash(topic, msg).to0xHex()
+    debug "AAAAAAA waku_node", msg_hash = msgHash
+    await traceHandler(topic, msg, msgHash)
+    await filterHandler(topic, msg, msgHash)
+    await archiveHandler(topic, msg, msgHash)
+    await syncHandler(topic, msg, msgHash)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
