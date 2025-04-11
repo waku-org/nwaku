@@ -26,7 +26,8 @@ import
   mix/mix_node,
   mix/mix_protocol,
   mix/curve25519,
-  mix/protocol
+  mix/protocol,
+  mix/mix_metrics
 
 import
   ../waku_core,
@@ -310,7 +311,7 @@ proc populateMixNodePool*(node: WakuNode) {.async.} =
     let mixNodePubInfo =
       createMixPubInfo(maddrWithPeerId.value, intoCurve25519Key(peerMixPubKey))
     mixNodes[remotePeers[i].peerId] = mixNodePubInfo
-
+  mix_pool_size.set(len(mixNodes))
   # set the mix node pool
   node.mix.setNodePool(mixNodes)
   trace "mix node pool updated", poolSize = node.mix.getNodePoolSize()
