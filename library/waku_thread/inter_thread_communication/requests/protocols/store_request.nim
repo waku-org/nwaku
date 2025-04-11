@@ -24,50 +24,49 @@ func fromJsonNode(
     T: type StoreRequest, jsonContent: JsonNode
 ): Result[StoreQueryRequest, string] =
   var contentTopics: seq[string]
-  if jsonContent.contains("content_topics"):
+  if jsonContent.contains("contentTopics"):
     contentTopics = collect(newSeq):
-      for cTopic in jsonContent["content_topics"].getElems():
+      for cTopic in jsonContent["contentTopics"].getElems():
         cTopic.getStr()
 
   var msgHashes: seq[WakuMessageHash]
-  if jsonContent.contains("message_hashes"):
-    for hashJsonObj in jsonContent["message_hashes"].getElems():
+  if jsonContent.contains("messageHashes"):
+    for hashJsonObj in jsonContent["messageHashes"].getElems():
       let hash = hashJsonObj.getStr().hexToHash().valueOr:
           return err("Failed converting message hash hex string to bytes: " & error)
       msgHashes.add(hash)
 
   let pubsubTopic =
-    if jsonContent.contains("pubsub_topic"):
-      some(jsonContent["pubsub_topic"].getStr())
+    if jsonContent.contains("pubsubTopic"):
+      some(jsonContent["pubsubTopic"].getStr())
     else:
       none(string)
 
   let paginationCursor =
-    if jsonContent.contains("pagination_cursor"):
-      let hash = jsonContent["pagination_cursor"].getStr().hexToHash().valueOr:
-          return
-            err("Failed converting pagination_cursor hex string to bytes: " & error)
+    if jsonContent.contains("paginationCursor"):
+      let hash = jsonContent["paginationCursor"].getStr().hexToHash().valueOr:
+          return err("Failed converting paginationCursor hex string to bytes: " & error)
       some(hash)
     else:
       none(WakuMessageHash)
 
-  let paginationForwardBool = jsonContent["pagination_forward"].getBool()
+  let paginationForwardBool = jsonContent["paginationForward"].getBool()
   let paginationForward =
     if paginationForwardBool: PagingDirection.FORWARD else: PagingDirection.BACKWARD
 
   let paginationLimit =
-    if jsonContent.contains("pagination_limit"):
-      some(uint64(jsonContent["pagination_limit"].getInt()))
+    if jsonContent.contains("paginationLimit"):
+      some(uint64(jsonContent["paginationLimit"].getInt()))
     else:
       none(uint64)
 
-  let startTime = ?jsonContent.getProtoInt64("time_start")
-  let endTime = ?jsonContent.getProtoInt64("time_end")
+  let startTime = ?jsonContent.getProtoInt64("timeStart")
+  let endTime = ?jsonContent.getProtoInt64("timeEnd")
 
   return ok(
     StoreQueryRequest(
-      requestId: jsonContent["request_id"].getStr(),
-      includeData: jsonContent["include_data"].getBool(),
+      requestId: jsonContent["requestId"].getStr(),
+      includeData: jsonContent["includeData"].getBool(),
       pubsubTopic: pubsubTopic,
       contentTopics: contentTopics,
       startTime: startTime,
