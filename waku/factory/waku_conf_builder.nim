@@ -64,7 +64,7 @@ macro with(builderType: untyped, argName: untyped, argType: untyped) =
 ## Generates
 ## 
 ## ```
-## proc withp2pPort*(builder: var WakuConfBuilder, p2pPort: uint16) = 
+## proc withp2pPort*(builder: var WakuConfBuilStoreServder, p2pPort: uint16) = 
 ##  builder.p2pPort = some(p2pPort.Port)
 ## ```
 macro with(
@@ -169,22 +169,15 @@ with(FilterServiceConfBuilder, subscriptionTimeout, uint16)
 with(FilterServiceConfBuilder, maxCriteria, uint32)
 
 proc build(b: FilterServiceConfBuilder): Result[Option[FilterServiceConf], string] =
-  if b.enabled.get(false):
+  if not b.enabled.get(false):
     return ok(none(FilterServiceConf))
-
-  if b.maxPeersToServe.isNone():
-    return err("filter.maxPeersToServe is not specified")
-  if b.subscriptionTimeout.isNone():
-    return err("filter.subscriptionTimeout is not specified")
-  if b.maxCriteria.isNone():
-    return err("filter.maxCriteria is not specified")
 
   return ok(
     some(
       FilterServiceConf(
-        maxPeersToServe: b.maxPeersToServe.get(),
-        subscriptionTimeout: b.subscriptionTimeout.get(),
-        maxCriteria: b.maxCriteria.get(),
+        maxPeersToServe: b.maxPeersToServe.get(500),
+        subscriptionTimeout: b.subscriptionTimeout.get(300),
+        maxCriteria: b.maxCriteria.get(1000),
       )
     )
   )
@@ -208,7 +201,7 @@ with(StoreSyncConfBuilder, intervalSec, uint32)
 with(StoreSyncConfBuilder, relayJitterSec, uint32)
 
 proc build(b: StoreSyncConfBuilder): Result[Option[StoreSyncConf], string] =
-  if b.enabled.get(false):
+  if not b.enabled.get(false):
     return ok(none(StoreSyncConf))
 
   if b.rangeSec.isNone():
@@ -256,7 +249,7 @@ with(StoreServiceConfBuilder, retentionPolicy, string)
 with(StoreServiceConfBuilder, resume, bool)
 
 proc build(b: StoreServiceConfBuilder): Result[Option[StoreServiceConf], string] =
-  if b.enabled.get(false):
+  if not b.enabled.get(false):
     return ok(none(StoreServiceConf))
 
   if b.dbMigration.isNone():
@@ -317,7 +310,7 @@ with(RestServerConfBuilder, admin, bool)
 with(RestServerConfBuilder, relayCacheCapacity, uint32)
 
 proc build(b: RestServerConfBuilder): Result[Option[RestServerConf], string] =
-  if b.enabled.get(false):
+  if not b.enabled.get(false):
     return ok(none(RestServerConf))
 
   if b.listenAddress.isNone():
@@ -406,27 +399,17 @@ proc build(b: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
   # Discv5 is useless without bootstrap nodes
   if b.bootstrapNodes.len == 0:
     return err("dicv5.bootstrapNodes is not specified")
-  if b.bitsPerHop.isNone():
-    return err("discv5.bitsPerHop is not specified")
-  if b.bucketIpLimit.isNone():
-    return err("discv5.bucketIpLimit is not specified")
-  if b.enrAutoUpdate.isNone():
-    return err("discv5.enrAutoUpdate is not specified")
-  if b.tableIpLimit.isNone():
-    return err("discv5.tableIpLimit is not specified")
-  if b.udpPort.isNone():
-    return err("discv5.udpPort is not specified")
 
   return ok(
     some(
       Discv5Conf(
         bootstrapNodes: b.bootstrapNodes,
-        bitsPerHop: b.bitsPerHop.get(),
-        bucketIpLimit: b.bucketIpLimit.get(),
+        bitsPerHop: b.bitsPerHop.get(1),
+        bucketIpLimit: b.bucketIpLimit.get(2),
         discv5Only: b.discv5Only.get(false),
-        enrAutoUpdate: b.enrAutoUpdate.get(),
-        tableIpLimit: b.tableIpLimit.get(),
-        udpPort: b.udpPort.get(),
+        enrAutoUpdate: b.enrAutoUpdate.get(true),
+        tableIpLimit: b.tableIpLimit.get(10),
+        udpPort: b.udpPort.get(9000.Port),
       )
     )
   )
@@ -502,22 +485,15 @@ with(MetricsServerConfBuilder, httpPort, Port, uint16)
 with(MetricsServerConfBuilder, logging, bool)
 
 proc build(b: MetricsServerConfBuilder): Result[Option[MetricsServerConf], string] =
-  if b.enabled.get(false):
+  if not b.enabled.get(false):
     return ok(none(MetricsServerConf))
-
-  if b.httpAddress.isNone():
-    return err("metricsServer.httpAddress is not specified")
-  if b.httpPort.isNone():
-    return err("metricsServer.httpPort is not specified")
-  if b.logging.isNone():
-    return err("metricsServer.logging is not specified")
 
   return ok(
     some(
       MetricsServerConf(
-        httpAddress: b.httpAddress.get(),
-        httpPort: b.httpPort.get(),
-        logging: b.logging.get(),
+        httpAddress: b.httpAddress.get(parseIpAddress("127.0.0.1")),
+        httpPort: b.httpPort.get(8008.Port),
+        logging: b.logging.get(false),
       )
     )
   )
@@ -711,44 +687,45 @@ proc applyClusterConf(builder: var WakuConfBuilder) =
 
   # Apply relay parameters
   if builder.relay.get(false) and clusterConf.rlnRelay:
-    var rlnRelayConf = builder.rlnRelayConf
-
-    if rlnRelayConf.enabled.isNone:
-      rlnRelayConf.withEnabled(true)
+    if builder.rlnRelayConf.enabled.isNone:
+      builder.rlnRelayConf.withEnabled(true)
     else:
       warn "RLN Relay was manually provided alongside a cluster conf",
-        used = rlnRelayConf.enabled, discarded = clusterConf.rlnRelay
+        used = builder.rlnRelayConf.enabled, discarded = clusterConf.rlnRelay
 
-    if rlnRelayConf.ethContractAddress.isNone:
-      rlnRelayConf.withEthContractAddress(clusterConf.rlnRelayEthContractAddress)
+    if builder.rlnRelayConf.ethContractAddress.isNone:
+      builder.rlnRelayConf.withEthContractAddress(
+        clusterConf.rlnRelayEthContractAddress
+      )
     else:
       warn "RLN Relay ETH Contract Address was manually provided alongside a cluster conf",
-        used = rlnRelayConf.ethContractAddress.get().string,
+        used = builder.rlnRelayConf.ethContractAddress.get().string,
         discarded = clusterConf.rlnRelayEthContractAddress.string
 
-    if rlnRelayConf.chainId.isNone:
-      rlnRelayConf.withChainId(clusterConf.rlnRelayChainId)
+    if builder.rlnRelayConf.chainId.isNone:
+      builder.rlnRelayConf.withChainId(clusterConf.rlnRelayChainId)
     else:
       warn "RLN Relay Chain Id was manually provided alongside a cluster conf",
-        used = rlnRelayConf.chainId, discarded = clusterConf.rlnRelayChainId
+        used = builder.rlnRelayConf.chainId, discarded = clusterConf.rlnRelayChainId
 
-    if rlnRelayConf.dynamic.isNone:
-      rlnRelayConf.withDynamic(clusterConf.rlnRelayDynamic)
+    if builder.rlnRelayConf.dynamic.isNone:
+      builder.rlnRelayConf.withDynamic(clusterConf.rlnRelayDynamic)
     else:
       warn "RLN Relay Dynamic was manually provided alongside a cluster conf",
-        used = rlnRelayConf.dynamic, discarded = clusterConf.rlnRelayDynamic
+        used = builder.rlnRelayConf.dynamic, discarded = clusterConf.rlnRelayDynamic
 
-    if rlnRelayConf.epochSizeSec.isNone:
-      rlnRelayConf.withEpochSizeSec(clusterConf.rlnEpochSizeSec)
+    if builder.rlnRelayConf.epochSizeSec.isNone:
+      builder.rlnRelayConf.withEpochSizeSec(clusterConf.rlnEpochSizeSec)
     else:
       warn "RLN Epoch Size in Seconds was manually provided alongside a cluster conf",
-        used = rlnRelayConf.epochSizeSec, discarded = clusterConf.rlnEpochSizeSec
+        used = builder.rlnRelayConf.epochSizeSec,
+        discarded = clusterConf.rlnEpochSizeSec
 
-    if rlnRelayConf.userMessageLimit.isNone:
-      rlnRelayConf.withUserMessageLimit(clusterConf.rlnRelayUserMessageLimit)
+    if builder.rlnRelayConf.userMessageLimit.isNone:
+      builder.rlnRelayConf.withUserMessageLimit(clusterConf.rlnRelayUserMessageLimit)
     else:
       warn "RLN Relay Dynamic was manually provided alongside a cluster conf",
-        used = rlnRelayConf.userMessageLimit,
+        used = builder.rlnRelayConf.userMessageLimit,
         discarded = clusterConf.rlnRelayUserMessageLimit
   # End Apply relay parameters
 
@@ -766,14 +743,12 @@ proc applyClusterConf(builder: var WakuConfBuilder) =
       used = builder.numShardsInNetwork, discarded = clusterConf.numShardsInNetwork
 
   if clusterConf.discv5Discovery:
-    var discv5ConfBuilder = builder.discv5Conf
+    if builder.discv5Conf.enabled.isNone:
+      builder.discv5Conf.withEnabled(clusterConf.discv5Discovery)
 
-    if discv5ConfBuilder.enabled.isNone:
-      discv5ConfBuilder.withEnabled(clusterConf.discv5Discovery)
-
-    if discv5ConfBuilder.bootstrapNodes.len == 0 and
+    if builder.discv5Conf.bootstrapNodes.len == 0 and
         clusterConf.discv5BootstrapNodes.len > 0:
-      discv5ConfBuilder.withBootstrapNodes(clusterConf.discv5BootstrapNodes)
+      builder.discv5Conf.withBootstrapNodes(clusterConf.discv5BootstrapNodes)
 
 proc build*(
     builder: var WakuConfBuilder, rng: ref HmacDrbgContext = crypto.newRng()
@@ -976,12 +951,6 @@ proc build*(
       warn "Max Connections was not specified, defaulting to 300"
       300
 
-  let relayServiceRatio =
-    if builder.relayServiceRatio.isSome():
-      builder.relayServiceRatio.get()
-    else:
-      return err "Relay Service Ratio was not specified"
-
   # TODO: Do the git version thing here
   let agentString = builder.agentString.get("nwaku")
 
@@ -993,15 +962,6 @@ proc build*(
   # TODO: is there a strategy for experimental features? delete vs promote
   let relayShardedPeerManagement = builder.relayShardedPeerManagement.get(false)
 
-  if builder.circuitRelayClient.isNone():
-    return err("circuitRelayClient is not specified")
-
-  if builder.keepAlive.isNone():
-    return err("keepAlive is not specified")
-
-  if builder.p2pReliability.isNone():
-    return err("p2pReliability is not specified")
-
   let wakuFlags = CapabilitiesBitfield.init(
     lightpush = lightPush,
     filter = filterServiceConf.isSome,
@@ -1010,61 +970,63 @@ proc build*(
     sync = storeServiceConf.isSome() and storeServiceConf.get().storeSyncConf.isSome,
   )
 
-  return ok(
-    WakuConf(
-      # confs
-      storeServiceConf: storeServiceConf,
-      filterServiceConf: filterServiceConf,
-      discv5Conf: discv5Conf,
-      rlnRelayConf: rlnRelayConf,
-      metricsServerConf: metricsServerConf,
-      restServerConf: restServerConf,
-      dnsDiscoveryConf: dnsDiscoveryConf,
-      # end confs
-      nodeKey: nodeKey,
-      clusterId: builder.clusterId.get(),
-      numShardsInNetwork: numShardsInNetwork,
-      contentTopics: contentTopics,
-      shards: shards,
-      protectedShards: protectedShards,
-      relay: relay,
-      lightPush: lightPush,
-      peerExchange: peerExchange,
-      rendezvous: rendezvous,
-      remoteStoreNode: builder.remoteStoreNode,
-      remoteLightPushNode: builder.remoteLightPushNode,
-      remoteFilterNode: builder.remoteFilterNode,
-      remotePeerExchangeNode: builder.remotePeerExchangeNode,
-      relayPeerExchange: relayPeerExchange,
-      maxMessageSizeBytes: maxMessageSizeBytes,
-      logLevel: logLevel,
-      logFormat: logFormat,
-      # TODO: Separate builders
-      networkConf: NetworkConfig(
-        natStrategy: natStrategy,
-        p2pTcpPort: p2pTcpPort,
-        dns4DomainName: dns4DomainName,
-        p2pListenAddress: p2pListenAddress,
-        extMultiAddrs: extMultiAddrs,
-        extMultiAddrsOnly: extMultiAddrsOnly,
-      ),
-      portsShift: portsShift,
-      webSocketConf: webSocketConf,
-      dnsAddrs: dnsAddrs,
-      dnsAddrsNameServers: dnsAddrsNameServers,
-      peerPersistence: peerPersistence,
-      peerStoreCapacity: builder.peerStoreCapacity,
-      maxConnections: maxConnections,
-      agentString: agentString,
-      colocationLimit: colocationLimit,
-      maxRelayPeers: builder.maxRelayPeers,
-      relayServiceRatio: relayServiceRatio,
-      rateLimits: rateLimits,
-      circuitRelayClient: builder.circuitRelayClient.get(),
-      keepAlive: builder.keepAlive.get(),
-      staticNodes: builder.staticNodes,
-      relayShardedPeerManagement: relayShardedPeerManagement,
-      p2pReliability: builder.p2pReliability.get(),
-      wakuFlags: wakuFlags,
-    )
+  let wakuConf = WakuConf(
+    # confs
+    storeServiceConf: storeServiceConf,
+    filterServiceConf: filterServiceConf,
+    discv5Conf: discv5Conf,
+    rlnRelayConf: rlnRelayConf,
+    metricsServerConf: metricsServerConf,
+    restServerConf: restServerConf,
+    dnsDiscoveryConf: dnsDiscoveryConf,
+    # end confs
+    nodeKey: nodeKey,
+    clusterId: builder.clusterId.get(),
+    numShardsInNetwork: numShardsInNetwork,
+    contentTopics: contentTopics,
+    shards: shards,
+    protectedShards: protectedShards,
+    relay: relay,
+    lightPush: lightPush,
+    peerExchange: peerExchange,
+    rendezvous: rendezvous,
+    remoteStoreNode: builder.remoteStoreNode,
+    remoteLightPushNode: builder.remoteLightPushNode,
+    remoteFilterNode: builder.remoteFilterNode,
+    remotePeerExchangeNode: builder.remotePeerExchangeNode,
+    relayPeerExchange: relayPeerExchange,
+    maxMessageSizeBytes: maxMessageSizeBytes,
+    logLevel: logLevel,
+    logFormat: logFormat,
+    # TODO: Separate builders
+    networkConf: NetworkConfig(
+      natStrategy: natStrategy,
+      p2pTcpPort: p2pTcpPort,
+      dns4DomainName: dns4DomainName,
+      p2pListenAddress: p2pListenAddress,
+      extMultiAddrs: extMultiAddrs,
+      extMultiAddrsOnly: extMultiAddrsOnly,
+    ),
+    portsShift: portsShift,
+    webSocketConf: webSocketConf,
+    dnsAddrs: dnsAddrs,
+    dnsAddrsNameServers: dnsAddrsNameServers,
+    peerPersistence: peerPersistence,
+    peerStoreCapacity: builder.peerStoreCapacity,
+    maxConnections: maxConnections,
+    agentString: agentString,
+    colocationLimit: colocationLimit,
+    maxRelayPeers: builder.maxRelayPeers,
+    relayServiceRatio: builder.relayServiceRatio.get("60:40"),
+    rateLimits: rateLimits,
+    circuitRelayClient: builder.circuitRelayClient.get(false),
+    keepAlive: builder.keepAlive.get(true),
+    staticNodes: builder.staticNodes,
+    relayShardedPeerManagement: relayShardedPeerManagement,
+    p2pReliability: builder.p2pReliability.get(false),
+    wakuFlags: wakuFlags,
   )
+
+  ?wakuConf.validate()
+
+  return ok(wakuConf)

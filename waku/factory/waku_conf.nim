@@ -12,7 +12,6 @@ import
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
-  ./networks_config,
   ../waku_enr/capabilities
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
@@ -171,7 +170,8 @@ proc log*(conf: WakuConf) =
         rlnRelayEthClientAddress = string(rlnRelayConf.ethClientAddress)
 
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
-  # TODO
+  wakuConf.nodeKey.getPublicKey().isOkOr:
+    return err("Node key is invalid")
   return ok()
 
 proc validateShards(wakuConf: WakuConf): Result[void, string] =
@@ -249,3 +249,4 @@ proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
   ?wakuConf.validateShards()
   ?wakuConf.validateNoEmptyStrings()
+  return ok()

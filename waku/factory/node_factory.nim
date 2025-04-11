@@ -36,7 +36,6 @@ import
   ../node/peer_manager/peer_store/waku_peer_storage,
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush_legacy/common,
-  ../common/utils/parse_size_units,
   ../common/rate_limit/setting,
   ../common/databases/dburl
 
