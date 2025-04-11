@@ -1,15 +1,10 @@
 {.push raises: [].}
 
 import
-  json,
-  std/sets,
-  stew/byteutils,
-  strformat,
   chronicles,
   json_serialization,
-  json_serialization/std/options,
   presto/[route, client, common]
-import ../../../waku_core, ../serdes, ../responses, ../rest_serdes, ./types
+import ../serdes, ../rest_serdes, ./types
 
 export types
 

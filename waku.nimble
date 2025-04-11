@@ -23,6 +23,7 @@ requires "nim >= 2.0.8",
   "web3",
   "presto",
   "regex",
+  "results",
   "db_connector",
   "minilru",
   "quic"

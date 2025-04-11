@@ -12,7 +12,6 @@ import
   waku/[
     node/peer_manager/peer_manager,
     node/peer_manager/waku_peer_store,
-    waku_node,
     waku_core/peers,
   ],
   ./testlib/wakucore

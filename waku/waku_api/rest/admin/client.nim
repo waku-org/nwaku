@@ -3,11 +3,10 @@
 import
   chronicles,
   json_serialization,
-  json_serialization/std/options,
   presto/[route, client],
   stew/byteutils
 
-import ../serdes, ../responses, ../rest_serdes, ./types
+import ../serdes, ../rest_serdes, ./types
 
 export types
 

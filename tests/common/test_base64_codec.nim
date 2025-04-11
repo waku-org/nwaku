@@ -1,6 +1,6 @@
 {.used.}
 
-import std/strutils, stew/[results, byteutils], testutils/unittests
+import std/strutils, results, stew/byteutils, testutils/unittests
 import waku/common/base64
 
 suite "Waku Common - stew base64 wrapper":

@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[sets, random], stew/[results, byteutils], testutils/unittests
+import std/[sets, random], results, stew/byteutils, testutils/unittests
 import waku/waku_core, waku/waku_api/message_cache, ./testlib/wakucore
 
 randomize()

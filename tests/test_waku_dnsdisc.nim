@@ -3,7 +3,8 @@
 import
   std/[sequtils, tables],
   stew/shims/net,
-  stew/[base32, results],
+  results,
+  stew/base32,
   testutils/unittests,
   chronicles,
   chronos,

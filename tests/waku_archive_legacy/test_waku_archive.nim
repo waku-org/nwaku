@@ -3,19 +3,15 @@
 import
   std/[options, sequtils],
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto
 
 import
-  waku/common/databases/db_sqlite,
   waku/common/paging,
   waku/waku_core,
   waku/waku_core/message/digest,
-  waku/waku_archive_legacy/driver/sqlite_driver,
   waku/waku_archive_legacy,
   ../waku_archive_legacy/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore
 
 suite "Waku Archive - message handling":

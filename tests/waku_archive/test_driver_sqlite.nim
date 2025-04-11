@@ -3,7 +3,6 @@
 import std/sequtils, testutils/unittests, chronos
 import
   waku/[
-    common/databases/db_sqlite,
     waku_archive,
     waku_archive/driver/sqlite_driver,
     waku_core,

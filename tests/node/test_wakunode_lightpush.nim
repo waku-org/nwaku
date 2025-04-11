@@ -1,27 +1,22 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils, tempfiles, strutils],
+  std/[options, tempfiles],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
-  chronicles,
   std/strformat,
-  os,
-  libp2p/[peerstore, crypto/crypto]
+  libp2p/crypto/crypto
 
 import
   waku/[
     waku_core,
     node/peer_manager,
     node/waku_node,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
     waku_lightpush,
     waku_rln_relay,
   ],
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
+  ../testlib/[wakucore, wakunode, testasync, futures],
   ../resources/payloads
 
 const PublishedToOnePeer = 1

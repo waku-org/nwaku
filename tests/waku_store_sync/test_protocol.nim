@@ -4,8 +4,7 @@ import
   std/[options, sets, random, math],
   testutils/unittests,
   chronos,
-  libp2p/crypto/crypto,
-  stew/byteutils
+  libp2p/crypto/crypto
 
 import
   ../../waku/[
@@ -19,7 +18,7 @@ import
     waku_store_sync/transfer,
     waku_archive/archive,
     waku_archive/driver,
-    waku_archive/common,
+    waku_archive/common
   ],
   ../testlib/[wakucore, testasync],
   ../waku_archive/archive_utils,

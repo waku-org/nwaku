@@ -1,24 +1,20 @@
 {.used.}
 
 import
-  std/[options, strscans],
+  std/options,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto
 
 import
   waku/[
     node/peer_manager,
-    common/rate_limit/setting,
     waku_core,
     waku_lightpush,
     waku_lightpush/client,
-    waku_lightpush/protocol_metrics,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures, testutils],
-  ./lightpush_utils,
-  ../resources/[pubsub_topics, content_topics, payloads]
+  ../testlib/wakucore,
+  ./lightpush_utils
 
 suite "Rate limited push service":
   asyncTest "push message with rate limit not violated":

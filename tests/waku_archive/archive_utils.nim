@@ -1,13 +1,12 @@
 {.used.}
 
-import std/options, stew/results, chronos, libp2p/crypto/crypto
+import std/options, results, chronos, libp2p/crypto/crypto
 
 import
   waku/[
     node/peer_manager,
     waku_core,
     waku_archive,
-    waku_archive/common,
     waku_archive/driver/sqlite_driver,
     waku_archive/driver/sqlite_driver/migrations,
     common/databases/db_sqlite,

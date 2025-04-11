@@ -1,6 +1,6 @@
 {.used.}
 
-import std/tables, stew/[results, byteutils], testutils/unittests
+import std/tables, results, stew/byteutils, testutils/unittests
 import
   waku/[
     common/protobuf,

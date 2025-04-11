@@ -1,10 +1,10 @@
 {.used.}
 
-import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
+import std/options, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[node/peer_manager, waku_core, waku_store, waku_store/client, common/paging],
-  ../testlib/[common, wakucore, testasync, futures],
+  ../testlib/[wakucore, testasync, futures],
   ./store_utils
 
 suite "Store Client":

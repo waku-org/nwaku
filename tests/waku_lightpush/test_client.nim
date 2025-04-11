@@ -3,7 +3,6 @@
 import
   std/[options, strscans],
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto
 
@@ -15,7 +14,7 @@ import
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures, testutils],
+  ../testlib/[assertions, wakucore, testasync, futures],
   ./lightpush_utils,
   ../resources/[pubsub_topics, content_topics, payloads]
 

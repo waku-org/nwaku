@@ -9,7 +9,6 @@ import
     waku_archive/driver/queue_driver/index,
     waku_core,
   ],
-  ../testlib/common,
   ../testlib/wakucore
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

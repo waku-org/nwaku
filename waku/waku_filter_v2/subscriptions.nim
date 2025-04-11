@@ -10,9 +10,7 @@ import
 import
   ../waku_core,
   ../utils/tableutils,
-  ../common/rate_limit/setting,
-  ../node/peer_manager,
-  ./common
+  ../node/peer_manager
 
 logScope:
   topics = "waku filter subscriptions"

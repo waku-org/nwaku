@@ -5,13 +5,11 @@ import
   testutils/unittests,
   chronos,
   web3,
-  stew/byteutils,
   stint,
-  strutils,
   tests/testlib/testasync
 
 import
-  waku/[node/peer_manager, waku_core],
+  waku/node/peer_manager,
   waku/incentivization/[rpc, eligibility_manager],
   ../waku_rln_relay/[utils_onchain, utils]
 

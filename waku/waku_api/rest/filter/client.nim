@@ -2,18 +2,14 @@
 
 import
   json,
-  std/sets,
   stew/byteutils,
-  strformat,
   chronicles,
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
 import
   ../../../common/base64,
-  ../../../waku_core,
   ../serdes,
-  ../responses,
   ../rest_serdes,
   ./types
 

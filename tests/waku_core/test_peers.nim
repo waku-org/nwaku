@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  stew/results,
+  results,
   testutils/unittests,
   libp2p/multiaddress,
   libp2p/peerid,
