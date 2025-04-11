@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  testutils/unittests,
-  chronos,
-  libp2p/crypto/crypto
+import std/options, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
@@ -12,7 +8,7 @@ import
     waku_core,
     waku_lightpush_legacy,
     waku_lightpush_legacy/client,
-    waku_lightpush_legacy/common
+    waku_lightpush_legacy/common,
   ],
   ../testlib/wakucore,
   ./lightpush_utils

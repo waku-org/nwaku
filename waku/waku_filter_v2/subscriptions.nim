@@ -7,10 +7,7 @@ import
   libp2p/peerid,
   libp2p/stream/connection,
   stew/shims/sets
-import
-  ../waku_core,
-  ../utils/tableutils,
-  ../node/peer_manager
+import ../waku_core, ../utils/tableutils, ../node/peer_manager
 
 logScope:
   topics = "waku filter subscriptions"

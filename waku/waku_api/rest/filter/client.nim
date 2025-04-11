@@ -7,11 +7,7 @@ import
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import
-  ../../../common/base64,
-  ../serdes,
-  ../rest_serdes,
-  ./types
+import ../../../common/base64, ../serdes, ../rest_serdes, ./types
 
 export types
 

@@ -1,12 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  testutils/unittests,
-  chronos,
-  web3,
-  stint,
-  tests/testlib/testasync
+import std/options, testutils/unittests, chronos, web3, stint, tests/testlib/testasync
 
 import
   waku/node/peer_manager,

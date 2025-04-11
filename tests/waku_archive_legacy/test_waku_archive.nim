@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/[options, sequtils],
-  testutils/unittests,
-  chronos,
-  libp2p/crypto/crypto
+import std/[options, sequtils], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/common/paging,

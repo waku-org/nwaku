@@ -1,12 +1,6 @@
-import
-  std/options,
-  testutils/unittests,
-  chronos,
-  web3
+import std/options, testutils/unittests, chronos, web3
 
-import
-  waku/incentivization/reputation_manager,
-  waku/waku_lightpush_legacy/rpc
+import waku/incentivization/reputation_manager, waku/waku_lightpush_legacy/rpc
 
 suite "Waku Incentivization PoC Reputation":
   var manager {.threadvar.}: ReputationManager

@@ -20,10 +20,9 @@ import
     node/waku_node,
     discovery/waku_discv5,
     waku_filter_v2/common,
-    waku_relay/protocol
+    waku_relay/protocol,
   ],
-  ../testlib/
-    [wakucore, wakunode, testasync, testutils, comparisons],
+  ../testlib/[wakucore, wakunode, testasync, testutils, comparisons],
   ../waku_enr/utils,
   ../waku_archive/archive_utils,
   ../waku_discv5/utils,

@@ -1,10 +1,6 @@
 {.push raises: [].}
 
-import
-  stew/byteutils,
-  chronicles,
-  json_serialization,
-  presto/[route, client, common]
+import stew/byteutils, chronicles, json_serialization, presto/[route, client, common]
 import ../../../waku_core, ../serdes, ../rest_serdes, ./types
 
 export types

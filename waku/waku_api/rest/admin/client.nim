@@ -1,10 +1,6 @@
 {.push raises: [].}
 
-import
-  chronicles,
-  json_serialization,
-  presto/[route, client],
-  stew/byteutils
+import chronicles, json_serialization, presto/[route, client], stew/byteutils
 
 import ../serdes, ../rest_serdes, ./types
 

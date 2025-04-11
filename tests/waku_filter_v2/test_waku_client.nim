@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/[options, sequtils, json],
-  testutils/unittests,
-  results,
-  chronos
+import std/[options, sequtils, json], testutils/unittests, results, chronos
 
 import
   waku/node/[peer_manager, waku_node],

@@ -10,13 +10,7 @@
 ## that could be used also as a lightpush client, helping testing and development.
 
 import results, chronos, std/options, metrics
-import
-  ../waku_core,
-  ./protocol,
-  ./common,
-  ./rpc,
-  ./rpc_codec,
-  ../utils/requests
+import ../waku_core, ./protocol, ./common, ./rpc, ./rpc_codec, ../utils/requests
 
 proc handleSelfLightPushRequest*(
     self: WakuLightPush, pubSubTopic: Option[PubsubTopic], message: WakuMessage
