@@ -23,7 +23,7 @@ type
 
 ### Configuration
 
-type RestServerConf* = object
+type RestServerConf* {.requiresInit.} = object
   cacheSize*: Natural
     ## \
     ## The maximum number of recently accessed states that are kept in \

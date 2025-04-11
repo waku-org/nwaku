@@ -64,20 +64,20 @@ when isMainModule:
     nodeHealthMonitor = WakuNodeHealthMonitor()
     nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-    let wakuConf = wakuNodeConf.toWakuConf().valueOr:
+    let conf = wakuNodeConf.toWakuConf().valueOr:
       error "Waku configuration failed", error = error
       quit(QuitFailure)
 
     var restServer: WakuRestServerRef = nil
 
-    if wakuConf.restServerConf.isSome:
+    if conf.restServerConf.isSome:
       restServer = rest_server_builder.startRestServerEssentials(
-        nodeHealthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
+        nodeHealthMonitor, conf.restServerConf.get(), conf.portsShift
       ).valueOr:
         error "Starting essential REST server failed.", error = $error
         quit(QuitFailure)
 
-    var waku = Waku.new(wakuConf).valueOr:
+    var waku = Waku.new(conf).valueOr:
       error "Waku initialization failed", error = error
       quit(QuitFailure)
 
@@ -89,14 +89,14 @@ when isMainModule:
       error "Starting waku failed", error = error
       quit(QuitFailure)
 
-    if wakuConf.restServerConf.isSome:
+    if conf.restServerConf.isSome:
       rest_server_builder.startRestServerProtocolSupport(
         restServer,
         waku.node,
         waku.wakuDiscv5,
-        wakuConf.restServerConf.get(),
+        conf.restServerConf.get(),
         conf.relay,
-        conf.lightPuh,
+        conf.lightPush,
         conf.clusterId,
         conf.shards,
         conf.contentTopics,
@@ -104,9 +104,12 @@ when isMainModule:
         error "Starting protocols support REST server failed.", error = $error
         quit(QuitFailure)
 
-    waku.metricsServer = waku_metrics.startMetricsServerAndLogging(confCopy).valueOr:
-      error "Starting monitoring and external interfaces failed", error = error
-      quit(QuitFailure)
+    if conf.metricsServerConf.isSome:
+      waku.metricsServer = waku_metrics.startMetricsServerAndLogging(
+        conf.metricsServerConf.get(), conf.portsShift
+      ).valueOr:
+        error "Starting monitoring and external interfaces failed", error = error
+        quit(QuitFailure)
 
     nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
 

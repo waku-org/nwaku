@@ -1,6 +1,7 @@
 import
   std/[strutils, strformat],
   results,
+  chronicles,
   chronos,
   regex,
   confutils,
@@ -14,21 +15,26 @@ import
   nimcrypto/utils,
   secp256k1,
   json
+
 import
+  ./waku_conf,
+  ./waku_conf_builder,
+  ./networks_config,
   ../common/confutils/envvar/defs as confEnvvarDefs,
   ../common/confutils/envvar/std/net as confEnvvarNet,
   ../common/logging,
   ../waku_enr,
   ../node/peer_manager,
   ../waku_core/topics/pubsub_topic,
-  ./waku_conf,
-  ./waku_conf_builder,
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../tools/rln_db_inspector/rln_db_inspector
 
 include ../waku_core/message/default_values
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
+
+logScope:
+  topics = "waku external config"
 
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -884,26 +890,22 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): ConfResult[RlnKeystoreGeneratorC
     )
   )
 
-  # b.withLogLevel(n.logLevel)
-  # b.withLogFormat(n.logFormat)
-
-  # b.rlnRelayConf.withCredPath(n.rlnRelayCredPath)
-  # b.rlnRelayConf.withEthClientAddress(n.rlnRelayEthClientAddress)
-  # b.rlnRelayConf.withEthContractAddress(n.rlnRelayEthContractAddress)
-  # b.rlnRelayConf.withChainId(n.rlnRelayChainId)
-  # b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
-
-  ## TODO: Oh, actually we probably need a different conf object by command :)
-  #   rlnRelayEthPrivateKey* {.
-  #     desc: "Private key for broadcasting transactions",
-  #     defaultValue: "",
-  #     name: "rln-relay-eth-private-key"
-  #   .}: string
-
-  # b.rlnRelayConf.withUserMessageLimit(n.rlnRelayUserMessageLimit)
-
 proc toInspectRlnDbConf*(n: WakuNodeConf): ConfResult[InspectRlnDbConf] =
   return ok(InspectRlnDbConf(treePath: n.treePath))
+
+proc toClusterConf(preset: string, clusterId: uint16): ConfResult[ClusterConf] =
+  var lcPreset = toLowerAscii(preset)
+  if clusterId == 1:
+    warn(
+      "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
+    )
+    lcPreset = "twn"
+
+  case lcPreset
+  of "twn":
+    ok(ClusterConf.TheWakuNetworkConf())
+  else:
+    err("Invalid --preset value passed: " & preset)
 
 proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   var b = WakuConfBuilder.init()
@@ -916,181 +918,41 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.rlnRelayConf.withChainId(n.rlnRelayChainId)
   b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
   b.rlnRelayConf.withUserMessageLimit(n.rlnRelayUserMessageLimit)
-  #   # TODO: Remove "Default is" when it's already visible on the CLI
-  #   rlnRelayUserMessageLimit* {.
-  #     desc:
-  #       "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
-  #     defaultValue: 1,
-  #     name: "rln-relay-user-message-limit"
-  #   .}: uint64
+  b.rlnRelayConf.withEpochSizeSec(n.rlnEpochSizeSec)
+  b.withMaxMessageSize(n.maxMessageSize)
+  b.withProtectedShards(n.protectedShards)
+  b.withClusterId(n.clusterId)
 
-  #   rlnEpochSizeSec* {.
-  #     desc:
-  #       "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
-  #     defaultValue: 1,
-  #     name: "rln-relay-epoch-sec"
-  #   .}: uint64
+  let clusterConf = toClusterConf(n.preset, n.clusterId).valueOr:
+    return err($error)
 
-  #   maxMessageSize* {.
-  #     desc:
-  #       "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
-  #     defaultValue: DefaultMaxWakuMessageSizeStr,
-  #     name: "max-msg-size"
-  #   .}: string
+  b.withClusterConf(clusterConf)
+  b.withAgentString(n.agentString)
 
-  #   case cmd* {.command, defaultValue: noCommand.}: StartUpCommand
-  #   of inspectRlnDb:
-  #     # have to change the name here since it counts as a duplicate, within noCommand
-  #     treePath* {.
-  #       desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-  #       defaultValue: "",
-  #       name: "rln-relay-tree-path"
-  #     .}: string
-  #   of generateRlnKeystore:
-  #     execute* {.
-  #       desc: "Runs the registration function on-chain. By default, a dry-run will occur",
-  #       defaultValue: false,
-  #       name: "execute"
-  #     .}: bool
-  #   of noCommand:
-  #     ##  Application-level configuration
-  #     protectedShards* {.
-  #       desc:
-  #         "Shards and its public keys to be used for message validation, shard:pubkey. Argument may be repeated.",
-  #       defaultValue: newSeq[ProtectedShard](0),
-  #       name: "protected-shard"
-  #     .}: seq[ProtectedShard]
+  if n.nodeKey.isSome():
+    b.withNodeKey(n.nodeKey.get())
 
-  #     ## General node config
-  #     preset* {.
-  #       desc:
-  #         "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1).",
-  #       defaultValue: "",
-  #       name: "preset"
-  #     .}: string
+  b.withP2pListenAddress(n.listenAddress)
+  b.withP2pTcpPort(n.tcpPort)
+  b.withPortsShift(n.portsShift)
+  b.withNatStrategy(n.nat)
+  b.withExtMultiAddrs(n.extMultiAddrs)
+  b.withExtMultiAddrsOnly(n.extMultiAddrsOnly)
+  b.withMaxConnections(n.maxConnections)
 
-  #     clusterId* {.
-  #       desc:
-  #         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
-  #       defaultValue: 0,
-  #       name: "cluster-id"
-  #     .}: uint16
+  if n.maxRelayPeers.isSome():
+    b.withMaxRelayPeers(n.maxRelayPeers.get())
 
-  #     agentString* {.
-  #       defaultValue: "nwaku-" & external_config.git_version,
-  #       desc: "Node agent string which is used as identifier in network",
-  #       name: "agent-string"
-  #     .}: string
-
-  #     nodekey* {.desc: "P2P node private key as 64 char hex string.", name: "nodekey".}:
-  #       Option[PrivateKey]
-
-  #     listenAddress* {.
-  #       defaultValue: defaultListenAddress(),
-  #       desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic.",
-  #       name: "listen-address"
-  #     .}: IpAddress
-
-  #     tcpPort* {.desc: "TCP listening port.", defaultValue: 60000, name: "tcp-port".}:
-  #       Port
-
-  #     portsShift* {.
-  #       desc: "Add a shift to all port numbers.", defaultValue: 0, name: "ports-shift"
-  #     .}: uint16
-
-  #     nat* {.
-  #       desc:
-  #         "Specify method to use for determining public address. " &
-  #         "Must be one of: any, none, upnp, pmp, extip:<IP>.",
-  #       defaultValue: "any"
-  #     .}: string
-
-  #     extMultiAddrs* {.
-  #       desc:
-  #         "External multiaddresses to advertise to the network. Argument may be repeated.",
-  #       name: "ext-multiaddr"
-  #     .}: seq[string]
-
-  #     extMultiAddrsOnly* {.
-  #       desc: "Only announce external multiaddresses setup with --ext-multiaddr",
-  #       defaultValue: false,
-  #       name: "ext-multiaddr-only"
-  #     .}: bool
-
-  #     maxConnections* {.
-  #       desc: "Maximum allowed number of libp2p connections.",
-  #       defaultValue: 50,
-  #       name: "max-connections"
-  #     .}: int
-
-  #     maxRelayPeers* {.
-  #       desc:
-  #         "Deprecated. Use relay-service-ratio instead. It represents the maximum allowed number of relay peers.",
-  #       name: "max-relay-peers"
-  #     .}: Option[int]
-
-  #     relayServiceRatio* {.
-  #       desc:
-  #         "This percentage ratio represents the relay peers to service peers. For example, 60:40, tells that 60% of the max-connections will be used for relay protocol and the other 40% of max-connections will be reserved for other service protocols (e.g., filter, lightpush, store, metadata, etc.)",
-  #       name: "relay-service-ratio",
-  #       defaultValue: "60:40" # 60:40 ratio of relay to service peers
-  #     .}: string
-
-  #     colocationLimit* {.
-  #       desc:
-  #         "Max num allowed peers from the same IP. Set it to 0 to remove the limitation.",
-  #       defaultValue: defaultColocationLimit(),
-  #       name: "ip-colocation-limit"
-  #     .}: int
-
-  #     peerStoreCapacity* {.
-  #       desc: "Maximum stored peers in the peerstore.", name: "peer-store-capacity"
-  #     .}: Option[int]
-
-  #     peerPersistence* {.
-  #       desc: "Enable peer persistence.", defaultValue: false, name: "peer-persistence"
-  #     .}: bool
-
-  #     ## DNS addrs config
-  #     dnsAddrs* {.
-  #       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
-  #       defaultValue: true,
-  #       name: "dns-addrs"
-  #     .}: bool
-
-  #     dnsAddrsNameServers* {.
-  #       desc:
-  #         "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
-  #       defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-  #       name: "dns-addrs-name-server"
-  #     .}: seq[IpAddress]
-
-  #     dns4DomainName* {.
-  #       desc: "The domain name resolving to the node's public IPv4 address",
-  #       defaultValue: "",
-  #       name: "dns4-domain-name"
-  #     .}: string
-
-  #     ## Circuit-relay config
-  #     isRelayClient* {.
-  #       desc:
-  #         """Set the node as a relay-client.
-  # Set it to true for nodes that run behind a NAT or firewall and
-  # hence would have reachability issues.""",
-  #       defaultValue: false,
-  #       name: "relay-client"
-  #     .}: bool
-
-  #     ## Relay config
-  #     relay* {.
-  #       desc: "Enable relay protocol: true|false", defaultValue: true, name: "relay"
-  #     .}: bool
-
-  #     relayPeerExchange* {.
-  #       desc: "Enable gossipsub peer exchange in relay protocol: true|false",
-  #       defaultValue: false,
-  #       name: "relay-peer-exchange"
-  #     .}: bool
+  b.withRelayServiceRatio(n.relayServiceRatio)
+  b.withColocationLimit(n.colocationLimit)
+  b.withPeerStoreCapacity(n.peerStoreCapacity)
+  b.peerPersistence(n.peerPersistence)
+  b.withDnsAddrs(n.dnsAddrs)
+  b.withDnsAddrsNameServers(n.dnsAddrsNameServers)
+  b.withDns4DomainNanme(n.dns4DomainName)
+  b.withCircuitRelayClient(n.isRelayClient)
+  b.withRelay(n.relay)
+  b.withRelayPeerExchange(n.relayPeerExchange)
 
   #     relayShardedPeerManagement* {.
   #       desc:

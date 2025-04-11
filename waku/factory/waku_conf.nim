@@ -4,14 +4,17 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   secp256k1,
-  results,
-  waku/waku_rln_relay/rln_relay,
-  waku/waku_api/rest/builder,
-  waku/discovery/waku_discv5
+  results
 
-import ../common/logging
+import
+  ../waku_rln_relay/rln_relay,
+  ../waku_api/rest/builder,
+  ../discovery/waku_discv5,
+  ../node/waku_metrics,
+  ../common/logging,
+  ./networks_config
 
-export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf
+export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
 logScope:
   topics = "waku conf"
@@ -21,39 +24,40 @@ type
   DomainName* = distinct string
 
 # TODO: should be defined in validator_signed.nim and imported here
-type ProtectedShard* = object
+type ProtectedShard* {.requiresInit.} = object
   shard*: uint16
   key*: secp256k1.SkPublicKey
 
-type DnsDiscoveryConf* = object
+type DnsDiscoveryConf* {.requiresInit.} = object
   enrTreeUrl*: string
   # TODO: should probably only have one set of name servers (see dnsaddrs) 
   nameServers*: seq[IpAddress]
 
-type StoreServiceConf* = object
-  legacy*: bool
-  dbURl*: string
-  dbVacuum*: bool
-  dbMigration*: bool
-  maxNumDbConnections*: int
-  retentionPolicy*: string
-  resume*: bool
-
-type FilterServiceConf* = object
-  maxPeersToServe*: uint32
-  subscriptionTimeout*: uint16
-  maxCriteria*: uint32
-
-type StoreSyncConf* = object
+type StoreSyncConf* {.requiresInit.} = object
   rangeSec*: uint32
   intervalSec*: uint32
   relayJitterSec*: uint32
 
-type WebSocketSecureConf* = object
+type StoreServiceConf* {.requiresInit.} = object
+  dbMigration*: bool
+  dbURl*: string
+  dbVacuum*: bool
+  legacy*: bool
+  maxNumDbConnections*: int
+  retentionPolicy*: string
+  resume*: bool
+  storeSyncConf*: Option[StoreSyncConf]
+
+type FilterServiceConf* {.requiresInit.} = object
+  maxPeersToServe*: uint32
+  subscriptionTimeout*: uint16
+  maxCriteria*: uint32
+
+type WebSocketSecureConf* {.requiresInit.} = object
   keyPath*: string
   certPath*: string
 
-type WebSocketConf* = ref object
+type WebSocketConf* = object
   port*: Port
   secureConf*: Option[WebSocketSecureConf]
 
@@ -62,7 +66,8 @@ type WebSocketConf* = ref object
 ## In this object. A convenient `validate` method enables doing
 ## sanity checks beyond type enforcement.
 ## If `Option` is `some` it means the related protocol is enabled.
-type WakuConf* = ref object # ref because `getRunningNetConfig` modifies it
+type WakuConf* {.requiresInit.} = ref object
+  # ref because `getRunningNetConfig` modifies it
   nodeKey*: crypto.PrivateKey
 
   clusterId*: uint16
@@ -76,7 +81,7 @@ type WakuConf* = ref object # ref because `getRunningNetConfig` modifies it
   relay*: bool
   lightPush*: bool
   peerExchange*: bool
-  storeSyncConf*: Option[StoreSyncConf]
+
   # TODO: remove relay peer exchange
   relayPeerExchange*: bool
   rendezvous*: bool
@@ -85,13 +90,11 @@ type WakuConf* = ref object # ref because `getRunningNetConfig` modifies it
 
   discv5Conf*: Option[Discv5Conf]
   dnsDiscoveryConf*: Option[DnsDiscoveryConf]
-
   filterServiceConf*: Option[FilterServiceConf]
   storeServiceConf*: Option[StoreServiceConf]
-
   rlnRelayConf*: Option[RlnRelayConf]
-
   restServerConf*: Option[RestServerConf]
+  metricsServerConf*: Option[MetricsServerConf]
 
   # TODO: could probably make it a `PeerRemoteInfo`
   staticNodes*: seq[string]
@@ -100,7 +103,7 @@ type WakuConf* = ref object # ref because `getRunningNetConfig` modifies it
   remoteFilterNode*: Option[string]
   remotePeerExchangeNode*: Option[string]
 
-  maxMessageSizeBytes*: int
+  maxMessageSizeBytes*: uint64
 
   logLevel*: logging.LogLevel
   logFormat*: logging.LogFormat
@@ -156,8 +159,8 @@ proc log*(conf: WakuConf) =
     for i in conf.discv5Conf.get().bootstrapNodes:
       info "Configuration. Bootstrap nodes", node = i.string
 
-  if conf.rlnRelayConf.isSome:
-    var rlnRelayConf = conf.rlnRelayConf.geT()
+  if conf.rlnRelayConf.isSome():
+    var rlnRelayConf = conf.rlnRelayConf.get()
     if rlnRelayConf.dynamic:
       info "Configuration. Validation",
         mechanism = "onchain rln",
@@ -219,16 +222,26 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
     return err ("dnsDiscoveryConf.enrTreeUrl is an empty string")
 
   # TODO: rln relay config should validate itself
-  if wakuConf.rlnRelayConf.isSome and wakuConf.rlnRelayConf.get().creds.isSome:
-    let creds = wakuConf.rlnRelayConf.get().creds.get()
-    if isEmptyOrWhiteSpace(creds.path):
-      return err (
-        "rlnRelayConf.creds.path is an empty string, set rlnRelayConf.creds it to none instead"
-      )
-    if isEmptyOrWhiteSpace(creds.password):
-      return err (
-        "rlnRelayConf.creds.password is an empty string, set rlnRelayConf.creds to none instead"
-      )
+  if wakuConf.rlnRelayConf.isSome():
+    let rlnRelayConf = wakuConf.rlnRelayConf.get()
+
+    if isEmptyOrWhiteSpace(rlnRelayConf.treePath):
+      return err("rlnRelayConf.treepath is an empty string")
+    if isEmptyOrWhiteSpace(rlnRelayConf.ethClientAddress):
+      return err("rlnRelayConf.ethClientAddress is an empty string")
+    if isEmptyOrWhiteSpace(rlnRelayConf.ethContractAddress):
+      return err("rlnRelayConf.ethContractAddress is an empty string")
+
+    if rlnRelayConf.creds.isSome():
+      let creds = rlnRelayConf.creds.get()
+      if isEmptyOrWhiteSpace(creds.path):
+        return err (
+          "rlnRelayConf.creds.path is an empty string, set rlnRelayConf.creds it to none instead"
+        )
+      if isEmptyOrWhiteSpace(creds.password):
+        return err (
+          "rlnRelayConf.creds.password is an empty string, set rlnRelayConf.creds to none instead"
+        )
 
   return ok()
 

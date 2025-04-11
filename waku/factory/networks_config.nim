@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-# TODO: this file should be called cluster_conf.nim
+# TODO: Rename this type to match file name
 
 type ClusterConf* = object
   maxMessageSize*: string

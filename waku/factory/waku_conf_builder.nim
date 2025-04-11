@@ -72,103 +72,77 @@ macro with(builderType: untyped, argName: untyped, argType: untyped) =
 ## RLN Relay Config Builder ##
 ##############################
 type RlnRelayConfBuilder = object
-  rlnRelay: Option[bool]
-  ethContractAddress: Option[string]
+  enabled: Option[bool]
+
   chainId: Option[uint]
+  ethClientAddress: Option[string]
+  ethContractAddress: Option[string]
   credIndex: Option[uint]
-  credPath: Option[string]
   credPassword: Option[string]
+  credPath: Option[string]
   dynamic: Option[bool]
   epochSizeSec: Option[uint64]
   userMessageLimit: Option[uint64]
-  ethClientAddress: Option[string]
+  treePath: Option[string]
 
 proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
   RlnRelayConfBuilder()
 
-with(RlnRelayConfbuilder, rlnRelay, bool)
+with(RlnRelayConfbuilder, enabled, bool)
+
 with(RlnRelayConfBuilder, chainId, uint)
 with(RlnRelayConfBuilder, credIndex, uint)
-with(RlnRelayConfBuilder, credPath, string)
 with(RlnRelayConfBuilder, credPassword, string)
+with(RlnRelayConfBuilder, credPath, string)
 with(RlnRelayConfBuilder, dynamic, bool)
+with(RlnRelayConfBuilder, ethClientAddress, string)
+with(RlnRelayConfBuilder, ethContractAddress, string)
 with(RlnRelayConfBuilder, epochSizeSec, uint64)
 with(RlnRelayConfBuilder, userMessageLimit, uint64)
-with(RlnRelayConfBuilder, ethContractAddress, string)
-with(RlnRelayConfBuilder, ethClientAddress, string)
+with(RlnRelayConfBuilder, treePath, string)
 
-proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
-  if builder.rlnRelay.isNone or not builder.rlnRelay.get():
-    info "RLN Relay is disabled"
+proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
+  if not b.enabled.get(false):
     return ok(none(RlnRelayConf))
 
-  let ethContractAddress =
-    if builder.ethContractAddress.isSome:
-      builder.ethContractAddress.get()
-    else:
-      return err("RLN Eth Contract Address is not specified")
-
-  let chainId =
-    if builder.chainId.isSome:
-      builder.chainId.get()
-    else:
-      return err("RLN Relay Chain Id is not specified")
+  if b.chainId.isNone():
+    return err("RLN Relay Chain Id is not specified")
 
   let creds =
-    if builder.credPath.isSome and builder.credPassword.isSome:
-      some(
-        RlnRelayCreds(
-          path: builder.credPath.get(), password: builder.credPassword.get()
-        )
-      )
-    elif builder.credPath.isSome and builder.credPassword.isNone:
+    if b.credPath.isSome() and b.credPassword.isSome():
+      some(RlnRelayCreds(path: b.credPath.get(), password: b.credPassword.get()))
+    elif b.credPath.isSome() and b.credPassword.isNone():
       return err("RLN Relay Credential Password is not specified but path is")
-    elif builder.credPath.isNone and builder.credPassword.isSome:
+    elif b.credPath.isNone() and b.credPassword.isSome():
       return err("RLN Relay Credential Path is not specified but password is")
     else:
       none(RlnRelayCreds)
 
-  let credPassword =
-    if builder.credPassword.isSome:
-      builder.credPassword.get()
-    else:
-      return err("RLN Relay Credential Password is not specified")
-
-  let dynamic =
-    if builder.dynamic.isSome:
-      builder.dynamic.get()
-    else:
-      return err("RLN Relay Dynamic is not specified")
-
-  let epochSizeSec =
-    if builder.epochSizeSec.isSome:
-      builder.epochSizeSec.get()
-    else:
-      return err("RLN Epoch Size was not specified")
-
-  let userMessageLimit =
-    if builder.userMessageLimit.isSome:
-      builder.userMessageLimit.get()
-    else:
-      return err("RLN Relay User Message Limit was not specified")
-
-  let ethClientAddress =
-    if builder.ethClientAddress.isSome:
-      builder.ethClientAddress.get()
-    else:
-      return err("RLN Relay Eth Client Address was not specified")
+  if b.dynamic.isNone():
+    return err("rlnRelay.dynamic is not specified")
+  if b.ethClientAddress.get("") == "":
+    return err("rlnRelay.ethClientAddress is not specified")
+  if b.ethContractAddress.get("") == "":
+    return err("rlnRelay.ethContractAddress is not specified")
+  if b.epochSizeSec.isNone():
+    return err("rlnRelay.epochSizeSec is not specified")
+  if b.userMessageLimit.isNone():
+    return err("rlnRelay.userMessageLimit is not specified")
+  if b.treePath.isNone():
+    return err("rlnRelay.treePath is not specified")
 
   return ok(
     some(
       RlnRelayConf(
-        chainId: chainId,
-        credIndex: builder.credIndex,
-        dynamic: dynamic,
-        ethContractAddress: ethContractAddress,
+        chainId: b.chainId.get(),
+        credIndex: b.credIndex,
         creds: creds,
-        epochSizeSec: epochSizeSec,
-        userMessageLimit: userMessageLimit,
-        ethClientAddress: ethClientAddress,
+        dynamic: b.dynamic.get(),
+        ethClientAddress: b.ethClientAddress.get(),
+        ethContractAddress: b.ethContractAddress.get(),
+        epochSizeSec: b.epochSizeSec.get(),
+        userMessageLimit: b.userMessageLimit.get(),
+        treePath: b.treePath.get(),
       )
     )
   )
@@ -177,7 +151,7 @@ proc build*(builder: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] 
 ## Filter Service Config Builder ##
 ###################################
 type FilterServiceConfBuilder = object
-  filter: Option[bool]
+  enabled: Option[bool]
   maxPeersToServe: Option[uint32]
   subscriptionTimeout: Option[uint16]
   maxCriteria: Option[uint32]
@@ -185,41 +159,67 @@ type FilterServiceConfBuilder = object
 proc init(T: type FilterServiceConfBuilder): FilterServiceConfBuilder =
   FilterServiceConfBuilder()
 
-with(FilterServiceConfBuilder, filter, bool)
+with(FilterServiceConfBuilder, enabled, bool)
 with(FilterServiceConfBuilder, maxPeersToServe, uint32)
 with(FilterServiceConfBuilder, subscriptionTimeout, uint16)
 with(FilterServiceConfBuilder, maxCriteria, uint32)
 
-proc build(
-    builder: FilterServiceConfBuilder
-): Result[Option[FilterServiceConf], string] =
-  if builder.filter.get(false):
+proc build(b: FilterServiceConfBuilder): Result[Option[FilterServiceConf], string] =
+  if b.enabled.get(false):
     return ok(none(FilterServiceConf))
 
-  let maxPeersToServe =
-    if builder.maxPeersToServe.isSome:
-      builder.maxPeersToServe.get()
-    else:
-      return err("maxPeersToServe is not specified")
-
-  let subscriptionTimeout =
-    if builder.subscriptionTimeout.isSome:
-      builder.subscriptionTimeout.get()
-    else:
-      return err("subscriptionTimeout is not specified")
-
-  let maxCriteria =
-    if builder.maxCriteria.isSome:
-      builder.maxCriteria.get()
-    else:
-      return err("maxCriteria is not specified")
+  if b.maxPeersToServe.isNone():
+    return err("filter.maxPeersToServe is not specified")
+  if b.subscriptionTimeout.isNone():
+    return err("filter.subscriptionTimeout is not specified")
+  if b.maxCriteria.isNone():
+    return err("filter.maxCriteria is not specified")
 
   return ok(
     some(
       FilterServiceConf(
-        maxPeersToServe: maxPeersToServe,
-        subscriptionTimeout: subscriptionTimeout,
-        maxCriteria: maxCriteria,
+        maxPeersToServe: b.maxPeersToServe.get(),
+        subscriptionTimeout: b.subscriptionTimeout.get(),
+        maxCriteria: b.maxCriteria.get(),
+      )
+    )
+  )
+
+##################################
+## Store Sync Config Builder ##
+##################################
+type StoreSyncConfBuilder = object
+  enabled: Option[bool]
+
+  rangeSec: Option[uint32]
+  intervalSec: Option[uint32]
+  relayJitterSec: Option[uint32]
+
+proc init(T: type StoreSyncConfBuilder): StoreSyncConfBuilder =
+  StoreSyncConfBuilder()
+
+with(StoreSyncConfBuilder, enabled, bool)
+with(StoreSyncConfBuilder, rangeSec, uint32)
+with(StoreSyncConfBuilder, intervalSec, uint32)
+with(StoreSyncConfBuilder, relayJitterSec, uint32)
+
+proc build(b: StoreSyncConfBuilder): Result[Option[StoreSyncConf], string] =
+  if b.enabled.get(false):
+    return ok(none(StoreSyncConf))
+
+  if b.rangeSec.isNone():
+    return err "store.rangeSec is not specified"
+  if b.intervalSec.isNone():
+    return err "store.intervalSec is not specified"
+  if b.relayJitterSec.isNone():
+    return err "store.relayJitterSec is not specified"
+
+  return ok(
+    some(
+      StoreSyncConf(
+        rangeSec: b.rangeSec.get(),
+        intervalSec: b.intervalSec.get(),
+        relayJitterSec: b.relayJitterSec.get(),
       )
     )
   )
@@ -228,116 +228,320 @@ proc build(
 ## Store Service Config Builder ##
 ##################################
 type StoreServiceConfBuilder = object
-  store: Option[bool]
+  enabled: Option[bool]
+
+  dbMigration: Option[bool]
+  dbURl: Option[string]
+  dbVacuum: Option[bool]
   legacy: Option[bool]
+  maxNumDbConnections: Option[int]
+  retentionPolicy: Option[string]
+  resume: Option[bool]
+  storeSyncConf: StoreSyncConfBuilder
 
 proc init(T: type StoreServiceConfBuilder): StoreServiceConfBuilder =
-  StoreServiceConfBuilder()
+  StoreServiceConfBuilder(storeSyncConf: StoreSyncConfBuilder.init())
 
-with(StoreServiceConfBuilder, store, bool)
+with(StoreServiceConfBuilder, enabled, bool)
+with(StoreServiceConfBuilder, dbMigration, bool)
+with(StoreServiceConfBuilder, dbURl, string)
+with(StoreServiceConfBuilder, dbVacuum, bool)
 with(StoreServiceConfBuilder, legacy, bool)
+with(StoreServiceConfBuilder, maxNumDbConnections, int)
+with(StoreServiceConfBuilder, retentionPolicy, string)
+with(StoreServiceConfBuilder, resume, bool)
 
-proc build(builder: StoreServiceConfBuilder): Result[Option[StoreServiceConf], string] =
-  if builder.store.get(false):
+proc build(b: StoreServiceConfBuilder): Result[Option[StoreServiceConf], string] =
+  if b.enabled.get(false):
     return ok(none(StoreServiceConf))
 
-  return ok(some(StoreServiceConf(legacy: builder.legacy.get(true))))
+  if b.dbMigration.isNone():
+    return err "store.dbMigration is not specified"
+  if b.dbUrl.get("") == "":
+    return err "store.dbUrl is not specified"
+  if b.dbVacuum.isNone():
+    return err "store.dbVacuum is not specified"
+  if b.legacy.isNone():
+    return err "store.legacy is not specified"
+  if b.maxNumDbConnections.isNone():
+    return err "store.maxNumDbConnections is not specified"
+  if b.retentionPolicy.get("") == "":
+    return err "store.retentionPolicy is not specified"
+  if b.resume.isNone():
+    return err "store.resume is not specified"
+
+  let storeSyncConf = b.storeSyncConf.build().valueOr:
+    return err("Store Sync Conf failed to build")
+
+  return ok(
+    some(
+      StoreServiceConf(
+        dbMigration: b.dbMigration.get(),
+        dbURl: b.dbUrl.get(),
+        dbVacuum: b.dbVacuum.get(),
+        legacy: b.legacy.get(),
+        maxNumDbConnections: b.maxNumDbConnections.get(),
+        retentionPolicy: b.retentionPolicy.get(),
+        resume: b.resume.get(),
+        storeSyncConf: storeSyncConf,
+      )
+    )
+  )
+
+################################
+## REST Server Config Builder ##
+################################
+type RestServerConfBuilder = object
+  enabled: Option[bool]
+
+  allowOrigin: seq[string]
+  listenAddress: Option[IpAddress]
+  port: Option[Port]
+  admin: Option[bool]
+  relayCacheCapacity: Option[uint32]
+
+proc init(T: type RestServerConfBuilder): RestServerConfBuilder =
+  RestServerConfBuilder()
+
+proc withAllowOrigin(builder: var RestServerConfBuilder, allowOrigin: seq[string]) =
+  builder.allowOrigin = concat(builder.allowOrigin, allowOrigin)
+
+with(RestServerConfBuilder, listenAddress, IpAddress)
+with(RestServerConfBuilder, port, Port)
+with(RestServerConfBuilder, admin, bool)
+with(RestServerConfBuilder, relayCacheCapacity, uint32)
+
+proc build(b: RestServerConfBuilder): Result[Option[RestServerConf], string] =
+  if b.enabled.get(false):
+    return ok(none(RestServerConf))
+
+  if b.listenAddress.isNone():
+    return err("restServer.listenAddress is not specified")
+  if b.port.isNone():
+    return err("restServer.port is not specified")
+  if b.relayCacheCapacity.isNone():
+    return err("restServer.relayCacheCapacity is not specified")
+
+  return ok(
+    some(
+      RestServerConf(
+        allowOrigin: b.allowOrigin,
+        listenAddress: b.listenAddress.get(),
+        port: b.port.get(),
+        admin: b.admin.get(false),
+        relayCacheCapacity: b.relayCacheCapacity.get(),
+      )
+    )
+  )
+
+##################################
+## DNS Discovery Config Builder ##
+##################################
+type DnsDiscoveryConfBuilder = object
+  enabled: Option[bool]
+  enrTreeUrl: Option[string]
+  nameServers: seq[IpAddress]
+
+proc init(T: type DnsDiscoveryConfBuilder): DnsDiscoveryConfBuilder =
+  DnsDiscoveryConfBuilder()
+
+with(DnsDiscoveryConfBuilder, enabled, bool)
+with(DnsDiscoveryConfBuilder, enrTreeUrl, string)
+
+proc withNameServers*(b: var DnsDiscoveryConfBuilder, nameServers: seq[IpAddress]) =
+  b.nameServers = concat(b.nameServers, nameServers)
+
+proc build(b: DnsDiscoveryConfBuilder): Result[Option[DnsDiscoveryConf], string] =
+  if not b.enabled.get(false):
+    return ok(none(DnsDiscoveryConf))
+
+  if b.nameServers.len == 0:
+    return err("dnsDiscovery.nameServers is not specified")
+  if b.enrTreeUrl.isNone():
+    return err("dnsDiscovery.enrTreeUrl is not specified")
+
+  return ok(
+    some(DnsDiscoveryConf(nameServers: b.nameServers, enrTreeUrl: b.enrTreeUrl.get()))
+  )
 
 ###########################
 ## Discv5 Config Builder ##
 ###########################
 type Discv5ConfBuilder = object
-  discv5: Option[bool]
-  bootstrapNodes: Option[seq[string]]
+  enabled: Option[bool]
+
+  bootstrapNodes: seq[string]
+  bitsPerHop: Option[int]
+  bucketIpLimit: Option[uint]
+  discv5Only: Option[bool]
+  enrAutoUpdate: Option[bool]
+  tableIpLimit: Option[uint]
   udpPort: Option[Port]
 
 proc init(T: type Discv5ConfBuilder): Discv5ConfBuilder =
   Discv5ConfBuilder()
 
-with(Discv5ConfBuilder, discv5, bool)
+with(Discv5ConfBuilder, enabled, bool)
+with(Discv5ConfBuilder, bitsPerHop, int)
+with(Discv5ConfBuilder, bucketIpLimit, uint)
+with(Discv5ConfBuilder, discv5Only, bool)
+with(Discv5ConfBuilder, enrAutoUpdate, bool)
+with(Discv5ConfBuilder, tableIpLimit, uint)
 with(Discv5ConfBuilder, udpPort, uint16, Port)
 
 proc withBootstrapNodes(builder: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
-  builder.bootstrapNodes = some(bootstrapNodes)
+  builder.bootstrapNodes = concat(builder.bootstrapNodes, bootstrapNodes)
 
-proc build(builder: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
-  if not builder.discv5.get(false):
+proc build(b: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
+  if not b.enabled.get(false):
     return ok(none(Discv5Conf))
 
-  # TODO: Do we need to ensure there are bootstrap nodes?
-  # Not sure discv5 is of any use without bootstrap nodes
-  # Confirmed: discv5 is useless without bootstrap node - config valid function?
-  let bootstrapNodes = builder.bootstrapNodes.get(@[])
+  # Discv5 is useless without bootstrap nodes
+  if b.bootstrapNodes.len == 0:
+    return err("dicv5.bootstrapNodes is not specified")
+  if b.bitsPerHop.isNone():
+    return err("discv5.bitsPerHop is not specified")
+  if b.bucketIpLimit.isNone():
+    return err("discv5.bucketIpLimit is not specified")
+  if b.enrAutoUpdate.isNone():
+    return err("discv5.enrAutoUpdate is not specified")
+  if b.tableIpLimit.isNone():
+    return err("discv5.tableIpLimit is not specified")
+  if b.udpPort.isNone():
+    return err("discv5.udpPort is not specified")
 
-  let udpPort =
-    if builder.udpPort.isSome:
-      builder.udpPort.get()
-    else:
-      return err("Discv5 UDP Port was not specified")
-
-  return ok(some(Discv5Conf(bootstrapNodes: bootstrapNodes, udpPort: udpPort)))
+  return ok(
+    some(
+      Discv5Conf(
+        bootstrapNodes: b.bootstrapNodes,
+        bitsPerHop: b.bitsPerHop.get(),
+        bucketIpLimit: b.bucketIpLimit.get(),
+        discv5Only: b.discv5Only.get(false),
+        enrAutoUpdate: b.enrAutoUpdate.get(),
+        tableIpLimit: b.tableIpLimit.get(),
+        udpPort: b.udpPort.get(),
+      )
+    )
+  )
 
 ##############################
 ## WebSocket Config Builder ##
 ##############################
 type WebSocketConfBuilder* = object
-  webSocketSupport: Option[bool]
+  enabled: Option[bool]
   webSocketPort: Option[Port]
-  webSocketSecureSupport: Option[bool]
+  secureEnabled: Option[bool]
   webSocketSecureKeyPath: Option[string]
   webSocketSecureCertPath: Option[string]
 
 proc init*(T: type WebSocketConfBuilder): WebSocketConfBuilder =
   WebSocketConfBuilder()
 
-with(WebSocketConfBuilder, webSocketSupport, bool)
-with(WebSocketConfBuilder, webSocketSecureSupport, bool)
+with(WebSocketConfBuilder, enabled, bool)
+with(WebSocketConfBuilder, secureEnabled, bool)
 with(WebSocketConfBuilder, webSocketPort, Port)
 with(WebSocketConfBuilder, webSocketSecureKeyPath, string)
 with(WebSocketConfBuilder, webSocketSecureCertPath, string)
 
-proc build(builder: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
-  if not builder.webSocketSupport.get(false):
+proc build(b: WebSocketConfBuilder): Result[Option[WebSocketConf], string] =
+  if not b.enabled.get(false):
     return ok(none(WebSocketConf))
 
-  let webSocketPort =
-    if builder.webSocketPort.isSome:
-      builder.webSocketPort.get()
-    else:
-      warn "WebSocket Port is not specified, defaulting to 8000"
-      8000.Port
+  if b.webSocketPort.isNone():
+    return err("websocket.port is not specified")
 
-  if not builder.webSocketSecureSupport.get(false):
+  if not b.secureEnabled.get(false):
     return ok(
-      some(WebSocketConf(port: websocketPort, secureConf: none(WebSocketSecureConf)))
+      some(
+        WebSocketConf(
+          port: b.websocketPort.get(), secureConf: none(WebSocketSecureConf)
+        )
+      )
     )
 
-  let webSocketSecureKeyPath = builder.webSocketSecureKeyPath.get("")
-  if webSocketSecureKeyPath == "":
+  if b.webSocketSecureKeyPath.get("") == "":
     return err("WebSocketSecure enabled but key path is not specified")
-
-  let webSocketSecureCertPath = builder.webSocketSecureCertPath.get("")
-  if webSocketSecureCertPath == "":
+  if b.webSocketSecureCertPath.get("") == "":
     return err("WebSocketSecure enabled but cert path is not specified")
 
   return ok(
     some(
       WebSocketConf(
-        port: webSocketPort,
+        port: b.webSocketPort.get(),
         secureConf: some(
           WebSocketSecureConf(
-            keyPath: webSocketSecureKeyPath, certPath: webSocketSecureCertPath
+            keyPath: b.webSocketSecureKeyPath.get(),
+            certPath: b.webSocketSecureCertPath.get(),
           )
         ),
       )
     )
   )
 
+###################################
+## Metrics Server Config Builder ##
+###################################
+type MetricsServerConfBuilder = object
+  enabled: Option[bool]
+
+  httpAddress: Option[IpAddress]
+  httpPort: Option[Port]
+  logging: Option[bool]
+
+proc init(T: type MetricsServerConfBuilder): MetricsServerConfBuilder =
+  MetricsServerConfBuilder()
+
+with(MetricsServerConfBuilder, enabled, bool)
+
+proc build(b: MetricsServerConfBuilder): Result[Option[MetricsServerConf], string] =
+  if b.enabled.get(false):
+    return ok(none(MetricsServerConf))
+
+  if b.httpAddress.isNone():
+    return err("metricsServer.httpAddress is not specified")
+  if b.httpPort.isNone():
+    return err("metricsServer.httpPort is not specified")
+  if b.logging.isNone():
+    return err("metricsServer.logging is not specified")
+
+  return ok(
+    some(
+      MetricsServerConf(
+        httpAddress: b.httpAddress.get(),
+        httpPort: b.httpPort.get(),
+        logging: b.logging.get(),
+      )
+    )
+  )
+
+type MaxMessageSizeKind = enum
+  mmskNone
+  mmskStr
+  mmskInt
+
+type MaxMessageSize = object
+  case kind: MaxMessageSizeKind
+  of mmskNone:
+    discard
+  of mmskStr:
+    str: string
+  of mmskInt:
+    bytes: uint64
+
 ## `WakuConfBuilder` is a convenient tool to accumulate
 ## Config parameters to build a `WakuConfig`.
 ## It provides some type conversion, as well as applying
 ## defaults in an agnostic manner (for any usage of Waku node)
+#
+# TODO: Sub protocol builder (eg `StoreServiceConfBuilder`
+# is be better defined in the protocol module (eg store)
+# and apply good defaults from this protocol PoV and make the
+# decision when the dev must specify a value vs when a default
+# is fine to have.
+#
+# TODO: Add default to most values so that when a developer uses
+# the builder, it works out-of-the-box
 type WakuConfBuilder* = object
   nodeKey: Option[PrivateKey]
 
@@ -347,6 +551,16 @@ type WakuConfBuilder* = object
   protectedShards: Option[seq[ProtectedShard]]
   contentTopics: Option[seq[string]]
 
+  # Conf builders
+  dnsDiscoveryConf: DnsDiscoveryConfBuilder
+  discv5Conf*: Discv5ConfBuilder
+  filterServiceConf: FilterServiceConfBuilder
+  metricsServerConf*: MetricsServerConfBuilder
+  restServerConf*: RestServerConfBuilder
+  rlnRelayConf*: RlnRelayConfBuilder
+  storeServiceConf: StoreServiceConfBuilder
+  webSocketConf*: WebSocketConfBuilder
+  # End conf builders
   relay: Option[bool]
   lightPush: Option[bool]
   peerExchange: Option[bool]
@@ -358,18 +572,14 @@ type WakuConfBuilder* = object
 
   clusterConf: Option[ClusterConf]
 
-  storeServiceConf: StoreServiceConfBuilder
-  filterServiceConf: FilterServiceConfBuilder
-  rlnRelayConf*: RlnRelayConfBuilder
+  staticNodes: seq[string]
 
   remoteStoreNode: Option[string]
   remoteLightPushNode: Option[string]
   remoteFilterNode: Option[string]
   remotePeerExchangeNode: Option[string]
 
-  maxMessageSizeBytes: Option[int]
-
-  discv5Conf*: Discv5ConfBuilder
+  maxMessageSize: MaxMessageSize
 
   logLevel: Option[logging.LogLevel]
   logFormat: Option[logging.LogFormat]
@@ -383,9 +593,8 @@ type WakuConfBuilder* = object
   extMultiAddrs: seq[string]
   extMultiAddrsOnly: Option[bool]
 
-  webSocketConf*: WebSocketConfBuilder
-
   dnsAddrs: Option[bool]
+  # TODO: Option of an array is probably silly, instead, offer concat utility with `with`
   dnsAddrsNameServers: Option[seq[IpAddress]]
   peerPersistence: Option[bool]
   peerStoreCapacity: Option[int]
@@ -399,12 +608,19 @@ type WakuConfBuilder* = object
   maxRelayPeers: Option[int]
   relayShardedPeerManagement: Option[bool]
   relayServiceRatio: Option[string]
+  circuitRelayClient: Option[bool]
+  keepAlive: Option[bool]
+  p2pReliabilityEnabled: Option[bool]
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
-    storeServiceConf: StoreServiceConfBuilder.init(),
-    rlnRelayConf: RlnRelayConfBuilder.init(),
+    dnsDiscoveryConf: DnsDiscoveryConfBuilder.init(),
     discv5Conf: Discv5ConfBuilder.init(),
+    filterServiceConf: FilterServiceConfBuilder.init(),
+    metricsServerConf: MetricsServerConfBuilder.init(),
+    restServerConf: RestServerConfBuilder.init(),
+    rlnRelayConf: RlnRelayConfBuilder.init(),
+    storeServiceConf: StoreServiceConfBuilder.init(),
     webSocketConf: WebSocketConfBuilder.init(),
   )
 
@@ -422,23 +638,34 @@ with(WakuConfBuilder, remoteStoreNode, string)
 with(WakuConfBuilder, remoteLightPushNode, string)
 with(WakuConfBuilder, remoteFilterNode, string)
 with(WakuConfBuilder, remotePeerExchangeNode, string)
-with(WakuConfBuilder, maxMessageSizeBytes, int)
 with(WakuConfBuilder, dnsAddrs, bool)
 with(WakuConfBuilder, peerPersistence, bool)
+with(WakuConfBuilder, peerStoreCapacity, int)
 with(WakuConfBuilder, maxConnections, int)
 with(WakuConfBuilder, dnsAddrsNameServers, seq[IpAddress])
 with(WakuConfBuilder, logLevel, logging.LogLevel)
 with(WakuConfBuilder, logFormat, logging.LogFormat)
+with(WakuConfBuilder, p2pTcpPort, Port)
 with(WakuConfBuilder, p2pTcpPort, uint16, Port)
+with(WakuConfBuilder, portsShift, uint16)
+with(WakuConfBuilder, p2pListenAddress, IpAddress)
+with(WakuConfBuilder, extMultiAddrsOnly, bool)
 with(WakuConfBuilder, dns4DomainName, string, DomainName)
+with(WakuConfBuilder, natStrategy, string, NatStrategy)
 with(WakuConfBuilder, agentString, string)
 with(WakuConfBuilder, colocationLimit, int)
 with(WakuConfBuilder, rateLimits, seq[string])
 with(WakuConfBuilder, maxRelayPeers, int)
 with(WakuConfBuilder, relayServiceRatio, string)
 
-proc withExtMultiAddr*(builder: var WakuConfBuilder, extMultiAddr: string) =
-  builder.extMultiAddrs.add(extMultiAddr)
+proc withExtMultiAddrs*(builder: var WakuConfBuilder, extMultiAddrs: seq[string]) =
+  builder.extMultiAddrs = concat(builder.extMultiAddrs, extMultiAddrs)
+
+proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSizeBytes: uint64) =
+  builder.maxMessageSize = MaxMessageSize(kind: mmskInt, bytes: maxMessageSizeBytes)
+
+proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSize: string) =
+  builder.maxMessageSize = MaxMessageSize(kind: mmskStr, str: maxMessageSize)
 
 proc nodeKey(
     builder: WakuConfBuilder, rng: ref HmacDrbgContext
@@ -452,7 +679,7 @@ proc nodeKey(
       return err("Failed to generate key: " & $error)
     return ok(nodeKey)
 
-proc applyPresetConf(builder: var WakuConfBuilder) =
+proc applyClusterConf(builder: var WakuConfBuilder) =
   # Apply cluster conf - values passed manually override cluster conf
   # Should be applied **first**, before individual values are pulled
   if builder.clusterConf.isNone:
@@ -469,11 +696,11 @@ proc applyPresetConf(builder: var WakuConfBuilder) =
   if builder.relay.get(false) and clusterConf.rlnRelay:
     var rlnRelayConf = builder.rlnRelayConf
 
-    if rlnRelayConf.rlnRelay.isNone:
-      rlnRelayConf.withRlnRelay(true)
+    if rlnRelayConf.enabled.isNone:
+      rlnRelayConf.withEnabled(true)
     else:
       warn "RLN Relay was manually provided alongside a cluster conf",
-        used = rlnRelayConf.rlnRelay, discarded = clusterConf.rlnRelay
+        used = rlnRelayConf.enabled, discarded = clusterConf.rlnRelay
 
     if rlnRelayConf.ethContractAddress.isNone:
       rlnRelayConf.withEthContractAddress(clusterConf.rlnRelayEthContractAddress)
@@ -508,12 +735,12 @@ proc applyPresetConf(builder: var WakuConfBuilder) =
         discarded = clusterConf.rlnRelayUserMessageLimit
   # End Apply relay parameters
 
-  if builder.maxMessageSizeBytes.isNone:
-    builder.maxMessageSizeBytes =
-      some(int(parseCorrectMsgSize(clusterConf.maxMessageSize)))
-  else:
+  case builder.maxMessageSize.kind
+  of mmskNone:
+    builder.withMaxMessageSize(parseCorrectMsgSize(clusterConf.maxMessageSize))
+  of mmskStr, mmskInt:
     warn "Max Message Size was manually provided alongside a cluster conf",
-      used = builder.maxMessageSizeBytes, discarded = clusterConf.maxMessageSize
+      used = $builder.maxMessageSize, discarded = clusterConf.maxMessageSize
 
   if builder.numShardsInNetwork.isNone:
     builder.numShardsInNetwork = some(clusterConf.numShardsInNetwork)
@@ -524,10 +751,10 @@ proc applyPresetConf(builder: var WakuConfBuilder) =
   if clusterConf.discv5Discovery:
     var discv5ConfBuilder = builder.discv5Conf
 
-    if discv5ConfBuilder.discv5.isNone:
-      discv5ConfBuilder.withDiscv5(clusterConf.discv5Discovery)
+    if discv5ConfBuilder.enabled.isNone:
+      discv5ConfBuilder.withEnabled(clusterConf.discv5Discovery)
 
-    if discv5ConfBuilder.bootstrapNodes.isNone and
+    if discv5ConfBuilder.bootstrapNodes.len == 0 and
         clusterConf.discv5BootstrapNodes.len > 0:
       discv5ConfBuilder.withBootstrapNodes(clusterConf.discv5BootstrapNodes)
 
@@ -540,35 +767,35 @@ proc build*(
   ## default when it is opinionated.
 
   let relay =
-    if builder.relay.isSome:
+    if builder.relay.isSome():
       builder.relay.get()
     else:
       warn "whether to mount relay is not specified, defaulting to not mounting"
       false
 
   let lightPush =
-    if builder.lightPush.isSome:
+    if builder.lightPush.isSome():
       builder.lightPush.get()
     else:
       warn "whether to mount lightPush is not specified, defaulting to not mounting"
       false
 
   let peerExchange =
-    if builder.peerExchange.isSome:
+    if builder.peerExchange.isSome():
       builder.peerExchange.get()
     else:
       warn "whether to mount peerExchange is not specified, defaulting to not mounting"
       false
 
   let storeSync =
-    if builder.storeSync.isSome:
+    if builder.storeSync.isSome():
       builder.storeSync.get()
     else:
       warn "whether to mount storeSync is not specified, defaulting to not mounting"
       false
 
   let rendezvous =
-    if builder.rendezvous.isSome:
+    if builder.rendezvous.isSome():
       builder.rendezvous.get()
     else:
       warn "whether to mount rendezvous is not specified, defaulting to not mounting"
@@ -576,25 +803,22 @@ proc build*(
 
   let relayPeerExchange = builder.relayPeerExchange.get(false)
 
-  applyPresetConf(builder)
+  applyClusterConf(builder)
 
   let nodeKey = ?nodeKey(builder, rng)
 
-  let clusterId =
-    if builder.clusterId.isSome:
-      builder.clusterId.get()
-    else:
-      return err("Cluster Id was not specified")
+  if builder.clusterId.isNone():
+    return err("Cluster Id was not specified")
 
   let numShardsInNetwork =
-    if builder.numShardsInNetwork.isSome:
+    if builder.numShardsInNetwork.isSome():
       builder.numShardsInNetwork.get()
     else:
       warn "Number of shards in network not specified, defaulting to one shard"
       1
 
   let shards =
-    if builder.shards.isSome:
+    if builder.shards.isSome():
       builder.shards.get()
     else:
       warn "shards not specified, defaulting to all shards in network"
@@ -605,72 +829,86 @@ proc build*(
   let protectedShards = builder.protectedShards.get(@[])
 
   let maxMessageSizeBytes =
-    if builder.maxMessageSizeBytes.isSome:
-      builder.maxMessageSizeBytes.get()
+    case builder.maxMessageSize.kind
+    of mmskInt:
+      builder.maxMessageSize.bytes
+    of mmskStr:
+      ?parseMsgSize(builder.maxMessageSize.str)
     else:
       return err("Max Message Size was not specified")
 
   let contentTopics = builder.contentTopics.get(@[])
 
+  # Build sub-configsdnsDiscoveryConf
   let discv5Conf = builder.discv5Conf.build().valueOr:
     return err("Discv5 Conf building failed: " & $error)
 
-  let storeServiceConf = builder.storeServiceConf.build().valueOr:
-    return err("Store Conf building failed: " & $error)
+  let dnsDiscoveryConf = builder.dnsDiscoveryConf.build().valueOr:
+    return err("DNS Discovery Conf building failed: " & $error)
 
   let filterServiceConf = builder.filterServiceConf.build().valueOr:
-    return err("Filter Conf building failed: " & $error)
+    return err("Filter Service Conf building failed: " & $error)
+
+  let metricsServerConf = builder.metricsServerConf.build().valueOr:
+    return err("Metrics Server Conf building failed: " & $error)
+
+  let restServerConf = builder.restServerConf.build().valueOr:
+    return err("REST Server Conf building failed: " & $error)
 
   let rlnRelayConf = builder.rlnRelayConf.build().valueOr:
     return err("RLN Relay Conf building failed: " & $error)
 
+  let storeServiceConf = builder.storeServiceConf.build().valueOr:
+    return err("Store Conf building failed: " & $error)
+
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
+  # End - Build sub-configs
 
   let logLevel =
-    if builder.logLevel.isSome:
+    if builder.logLevel.isSome():
       builder.logLevel.get()
     else:
       warn "Log Level not specified, defaulting to INFO"
       logging.LogLevel.INFO
 
   let logFormat =
-    if builder.logFormat.isSome:
+    if builder.logFormat.isSome():
       builder.logFormat.get()
     else:
       warn "Log Format not specified, defaulting to TEXT"
       logging.LogFormat.TEXT
 
   let natStrategy =
-    if builder.natStrategy.isSome:
+    if builder.natStrategy.isSome():
       builder.natStrategy.get()
     else:
       warn "Nat Strategy is not specified, defaulting to none"
       "none".NatStrategy
 
   let p2pTcpPort =
-    if builder.p2pTcpPort.isSome:
+    if builder.p2pTcpPort.isSome():
       builder.p2pTcpPort.get()
     else:
       warn "P2P Listening TCP Port is not specified, listening on 60000"
       6000.Port
 
   let p2pListenAddress =
-    if builder.p2pListenAddress.isSome:
+    if builder.p2pListenAddress.isSome():
       builder.p2pListenAddress.get()
     else:
       warn "P2P listening address not specified, listening on 0.0.0.0"
       (static parseIpAddress("0.0.0.0"))
 
   let portsShift =
-    if builder.portsShift.isSome:
+    if builder.portsShift.isSome():
       builder.portsShift.get()
     else:
       warn "Ports Shift is not specified, defaulting to 0"
       0.uint16
 
   let dns4DomainName =
-    if builder.dns4DomainName.isSome:
+    if builder.dns4DomainName.isSome():
       let d = builder.dns4DomainName.get()
       if d.string != "":
         some(d)
@@ -686,41 +924,41 @@ proc build*(
     extMultiAddrs.add(m)
 
   let extMultiAddrsOnly =
-    if builder.extMultiAddrsOnly.isSome:
+    if builder.extMultiAddrsOnly.isSome():
       builder.extMultiAddrsOnly.get()
     else:
       warn "Whether to only announce external multiaddresses is not specified, defaulting to false"
       false
 
   let dnsAddrs =
-    if builder.dnsAddrs.isSome:
+    if builder.dnsAddrs.isSome():
       builder.dnsAddrs.get()
     else:
       warn "Whether to resolve DNS multiaddresses was not specified, defaulting to false."
       false
 
   let dnsAddrsNameServers =
-    if builder.dnsAddrsNameServers.isSome:
+    if builder.dnsAddrsNameServers.isSome():
       builder.dnsAddrsNameServers.get()
     else:
       warn "DNS name servers IPs not provided, defaulting to Cloudflare's."
       @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
 
   let peerPersistence =
-    if builder.peerPersistence.isSome:
+    if builder.peerPersistence.isSome():
       builder.peerPersistence.get()
     else:
       warn "Peer persistence not specified, defaulting to false"
       false
 
   let maxConnections =
-    if builder.maxConnections.isSome:
+    if builder.maxConnections.isSome():
       builder.maxConnections.get()
     else:
       return err "Max Connections was not specified"
 
   let relayServiceRatio =
-    if builder.relayServiceRatio.isSome:
+    if builder.relayServiceRatio.isSome():
       builder.relayServiceRatio.get()
     else:
       return err "Relay Service Ratio was not specified"
@@ -736,10 +974,28 @@ proc build*(
   # TODO: is there a strategy for experimental features? delete vs promote
   let relayShardedPeerManagement = builder.relayShardedPeerManagement.get(false)
 
+  if builder.circuitRelayClient.isNone():
+    return err("circuitRelayClient is not specified")
+
+  if builder.keepAlive.isNone():
+    return err("keepAlive is not specified")
+
+  if builder.p2pReliabilityEnabled.isNone():
+    return err("p2pReliabilityEnabled is not specified")
+
   return ok(
     WakuConf(
+      # confs
+      storeServiceConf: storeServiceConf,
+      filterServiceConf: filterServiceConf,
+      discv5Conf: discv5Conf,
+      rlnRelayConf: rlnRelayConf,
+      metricsServerConf: metricsServerConf,
+      restServerConf: restServerConf,
+      dnsDiscoveryConf: dnsDiscoveryConf,
+      # end confs
       nodeKey: nodeKey,
-      clusterId: clusterId,
+      clusterId: builder.clusterId.get(),
       numShardsInNetwork: numShardsInNetwork,
       contentTopics: contentTopics,
       shards: shards,
@@ -751,11 +1007,8 @@ proc build*(
       remoteStoreNode: builder.remoteStoreNode,
       remoteLightPushNode: builder.remoteLightPushNode,
       remoteFilterNode: builder.remoteFilterNode,
-      storeServiceConf: storeServiceConf,
-      filterServiceConf: filterServiceConf,
+      remotePeerExchangeNode: builder.remotePeerExchangeNode,
       relayPeerExchange: relayPeerExchange,
-      discv5Conf: discv5Conf,
-      rlnRelayConf: rlnRelayConf,
       maxMessageSizeBytes: maxMessageSizeBytes,
       logLevel: logLevel,
       logFormat: logFormat,
@@ -777,5 +1030,10 @@ proc build*(
       maxRelayPeers: builder.maxRelayPeers,
       relayServiceRatio: relayServiceRatio,
       rateLimits: rateLimits,
+      circuitRelayClient: builder.circuitRelayClient.get(),
+      keepAlive: builder.keepAlive.get(),
+      staticNodes: builder.staticNodes,
+      relayShardedPeerManagement: relayShardedPeerManagement,
+      p2pReliabilityEnabled: builder.p2pReliabilityEnabled.get(),
     )
   )

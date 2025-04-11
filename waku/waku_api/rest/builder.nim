@@ -5,7 +5,6 @@ import presto
 import
   waku/waku_node,
   waku/discovery/waku_discv5,
-  waku/factory/external_config,
   waku/waku_api/message_cache,
   waku/waku_api/handlers,
   waku/waku_api/rest/server,
@@ -33,7 +32,7 @@ restServerNotInstalledTab = newTable[string, string]()
 export WakuRestServerRef
 
 type RestServerConf* = object
-  allowOrigin*: string
+  allowOrigin*: seq[string]
   listenAddress*: IpAddress
   port*: Port
   admin*: bool

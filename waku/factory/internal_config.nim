@@ -149,26 +149,6 @@ proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
 
   return netConfigRes
 
-# TODO: redefine in the right place
-# proc applyPresetConfiguration*(
-#     srcConf: WakuNodeConf, wakuConfBuilder: var WakuConfBuilder
-# ): void =
-#   var preset = srcConf.preset
-
-#   if srcConf.clusterId == 1:
-#     warn(
-#       "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
-#     )
-#     preset = "twn"
-
-#   case toLowerAscii(preset)
-#   of "twn":
-#     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-
-#     wakuConfBuilder.withClusterConf(twnClusterConf)
-#   else:
-#     discard
-
 # TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
 proc getNumShardsInNetwork*(conf: WakuConf): uint32 =
   if conf.numShardsInNetwork != 0:

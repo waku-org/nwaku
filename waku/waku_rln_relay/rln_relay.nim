@@ -32,11 +32,11 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type RlnRelayCreds* = object
+type RlnRelayCreds* {.requiresInit.} = object
   path*: string
   password*: string
 
-type RlnRelayConf* = object of RootObj
+type RlnRelayConf* {.requiresInit.} = object of RootObj
   dynamic*: bool
   credIndex*: Option[uint]
   ethContractAddress*: string
@@ -47,7 +47,7 @@ type RlnRelayConf* = object of RootObj
   epochSizeSec*: uint64
   userMessageLimit*: uint64
 
-type WakuRlnConfig* = object of RlnRelayConf
+type WakuRlnConfig* {.requiresInit.} = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
 
 proc createMembershipList*(
