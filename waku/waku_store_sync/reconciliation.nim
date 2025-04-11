@@ -96,7 +96,9 @@ proc messageIngress*(self: SyncReconciliation, id: SyncID) =
 proc processRequest(
     self: SyncReconciliation, conn: Connection
 ): Future[Result[void, string]] {.async.} =
-  var roundTrips = 0
+  var
+    roundTrips = 0
+    diffs = 0
 
   while true:
     let readRes = catch:
@@ -138,9 +140,11 @@ proc processRequest(
 
       for hash in hashToSend:
         self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
+        diffs.inc()
 
       for hash in hashToRecv:
         self.localWantsTx.addLastNoWait((conn.peerId, hash))
+        diffs.inc()
 
       rawPayload = sendPayload.deltaEncode()
 
@@ -167,6 +171,7 @@ proc processRequest(
     continue
 
   reconciliation_roundtrips.observe(roundTrips)
+  reconciliation_differences.observe(diffs)
 
   await conn.close()
 
