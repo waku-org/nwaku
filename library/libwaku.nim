@@ -42,7 +42,8 @@ import
 template checkLibwakuParams*(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ) =
-  ctx[].userData = userData
+  if not isNil(ctx):
+    ctx[].userData = userData
 
   if isNil(callback):
     return RET_MISSING_CALLBACK
