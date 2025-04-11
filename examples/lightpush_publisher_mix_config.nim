@@ -22,3 +22,7 @@ type LPMixConf* = object
     defaultValue: 3,
     name: "min-mix-pool-size"
   .}: int
+
+  withoutMix* {.
+    desc: "Do not use mix for publishing.", defaultValue: false, name: "without-mix"
+  .}: bool
