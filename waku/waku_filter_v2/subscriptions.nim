@@ -51,7 +51,17 @@ proc new*(
 
 proc isSubscribed*(s: FilterSubscriptions, peerId: PeerID): bool =
   s.peersSubscribed.withValue(peerId, data):
-    return Moment.now() - data.lastSeen <= s.subscriptionTimeout
+    let now = Moment.now()
+    let diffTime = now - data.lastSeen
+
+    debug "AAAAAAA isSubscribed",
+      peerId,
+      now = $now,
+      lastSeen = $data.lastSeen,
+      diffTime = $diffTime,
+      subscrTimeout = $s.subscriptionTimeout
+
+    return diffTime <= s.subscriptionTimeout
 
   return false
 
@@ -133,8 +143,10 @@ proc cleanUp*(fs: FilterSubscriptions) =
     currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
 
 proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
+  debug "AAAAAAA refreshSubscription"
   s.peersSubscribed.withValue(peerId, data):
     data.lastSeen = Moment.now()
+    debug "AAAAAAA refreshSubscription", peerId, lastSeen = data.lastSeen
 
 proc addSubscription*(
     s: FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
@@ -153,7 +165,8 @@ proc addSubscription*(
     debug "AAAAAAA peer already subscribed",
       peerID = shortLog(peerId),
       criteriaCount = data.criteriaCount,
-      maxCriteriaPerPeer = s.maxCriteriaPerPeer
+      maxCriteriaPerPeer = s.maxCriteriaPerPeer,
+      lastSeen = data.lastSeen
 
     peerData = data
   do:
@@ -163,7 +176,9 @@ proc addSubscription*(
         peerID = shortLog(peerId), maxPeers = $(s.maxPeers)
       return err("node has reached maximum number of subscriptions: " & $(s.maxPeers))
 
-    let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
+    let now = Moment.now()
+    debug "AAAAAAA adding new peer", peerId, lastSeen = now
+    let newPeerData: PeerData = (lastSeen: now, criteriaCount: 0)
     peerData = addr(s.peersSubscribed.mgetOrPut(peerId, newPeerData))
 
   for filterCriterion in filterCriteria:
@@ -187,7 +202,9 @@ proc removeSubscription*(
   debug "AAAAAAA removeSubscription", peerId = shortLog(peerID)
 
   s.peersSubscribed.withValue(peerId, peerData):
-    peerData.lastSeen = Moment.now()
+    let now = Moment.now()
+    debug "AAAAAAA refresh lastSeen", peerId, now
+    peerData.lastSeen = now
     for filterCriterion in filterCriteria:
       s.subscriptions.withValue(filterCriterion, peers):
         if peers[].missingOrexcl(peerId) == false:

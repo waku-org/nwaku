@@ -31,7 +31,7 @@ type WakuFilter* = ref object of LPProtocol
   peerConnections: Table[PeerId, Connection]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
-  debug "pinging subscriber", peerId = peerId
+  debug "AAAAAAA pinging subscriber", peerId = peerId
 
   if not wf.subscriptions.isSubscribed(peerId):
     error "pinging peer has no subscriptions", peerId = peerId
