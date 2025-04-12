@@ -140,7 +140,7 @@ type WakuConf* {.requiresInit.} = ref object
 
   p2pReliability*: bool
 
-proc log*(conf: WakuConf) =
+proc logConf*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
     relay = conf.relay,
     rlnRelay = conf.rlnRelayConf.isSome,

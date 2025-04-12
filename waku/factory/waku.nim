@@ -155,6 +155,8 @@ proc new*(
 
   ?wakuConf.validate()
 
+  wakuConf.logConf()
+
   info "Running nwaku node", version = git_version
 
   var relay = newCircuitRelay(wakuConf.circuitRelayClient)
