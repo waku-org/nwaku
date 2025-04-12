@@ -47,7 +47,7 @@ type RlnRelayConf* {.requiresInit.} = object of RootObj
   epochSizeSec*: uint64
   userMessageLimit*: uint64
 
-type WakuRlnConfig* {.requiresInit.} = object of RlnRelayConf
+type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
 
 proc createMembershipList*(
