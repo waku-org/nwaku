@@ -1,4 +1,5 @@
 {.push raises: [].}
+import std/options
 
 # TODO: Rename this type to match file name
 
@@ -11,8 +12,7 @@ type ClusterConf* = object
   rlnRelayDynamic*: bool
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
-  # TODO: should be uint16 like the `shards` parameter
-  numShardsInNetwork*: uint32
+  numShardsInNetwork*: Option[uint16] # If some, it means autosharding is enabled
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
 
@@ -29,7 +29,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayChainId: 11155111,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    numShardsInNetwork: 8,
+    numShardsInNetwork: some(8),
     discv5Discovery: true,
     discv5BootstrapNodes:
       @[

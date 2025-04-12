@@ -65,6 +65,15 @@ type NetworkConfig* = object # TODO: make enum
   extMultiAddrs*: seq[MultiAddress]
   extMultiAddrsOnly*: bool
 
+type RelayConf* {.requiresInit.} = object
+  shards*: seq[uint16]
+  relayShardedPeerManagement*: bool
+  relayServiceRatio*: string
+
+type AutoShardingConf* {.requiresInit.} = object
+  numShardsInNetwork*: uint16
+  contentTopics*: seq[string]
+
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
@@ -75,14 +84,10 @@ type WakuConf* {.requiresInit.} = ref object
   nodeKey*: crypto.PrivateKey
 
   clusterId*: uint16
-  shards*: seq[uint16]
   protectedShards*: seq[ProtectedShard]
 
-  # TODO: move to an autoShardingConf
-  numShardsInNetwork*: uint32
-  contentTopics*: seq[string]
+  autoShardingConf*: Option[AutoShardingConf]
 
-  relay*: bool
   lightPush*: bool
   peerExchange*: bool
 
@@ -92,6 +97,7 @@ type WakuConf* {.requiresInit.} = ref object
   circuitRelayClient*: bool
   keepAlive*: bool
 
+  relayConf*: Option[RelayConf]
   discv5Conf*: Option[Discv5Conf]
   dnsDiscoveryConf*: Option[DnsDiscoveryConf]
   filterServiceConf*: Option[FilterServiceConf]
@@ -132,12 +138,6 @@ type WakuConf* {.requiresInit.} = ref object
   # TODO: use proper type
   rateLimits*: seq[string]
 
-  # TODO: those could be in a relay conf object
-  maxRelayPeers*: Option[int]
-  relayShardedPeerManagement*: bool
-  # TODO: use proper type
-  relayServiceRatio*: string
-
   p2pReliability*: bool
 
 proc logConf*(conf: WakuConf) =
@@ -175,7 +175,10 @@ proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   return ok()
 
 proc validateShards(wakuConf: WakuConf): Result[void, string] =
-  let numShardsInNetwork = wakuConf.numShardsInNetwork
+  if wakuConf.autoShardingConf.isNone():
+    return ok()
+
+  let numShardsInNetwork = wakuConf.autoShardingConf.get().numShardsInNetwork
 
   for shard in wakuConf.shards:
     if shard >= numShardsInNetwork:
@@ -188,7 +191,7 @@ proc validateShards(wakuConf: WakuConf): Result[void, string] =
   return ok()
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.networkConf.dns4DomainName.isSome and
+  if wakuConf.networkConf.dns4DomainName.isSome() and
       isEmptyOrWhiteSpace(wakuConf.networkConf.dns4DomainName.get().string):
     return err("dns4DomainName is an empty string, set it to none(string) instead")
 
@@ -199,25 +202,25 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
     if isEmptyOrWhiteSpace(sn):
       return err("staticNodes contain an empty string")
 
-  if wakuConf.remoteStoreNode.isSome and
+  if wakuConf.remoteStoreNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteStoreNode.get()):
     return err("remoteStoreNode is an empty string, set it to none(string) instead")
 
-  if wakuConf.remoteLightPushNode.isSome and
+  if wakuConf.remoteLightPushNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteLightPushNode.get()):
     return err("remoteLightPushNode is an empty string, set it to none(string) instead")
 
-  if wakuConf.remotePeerExchangeNode.isSome and
+  if wakuConf.remotePeerExchangeNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remotePeerExchangeNode.get()):
     return
       err("remotePeerExchangeNode is an empty string, set it to none(string) instead")
 
-  if wakuConf.remoteFilterNode.isSome and
+  if wakuConf.remoteFilterNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteFilterNode.get()):
     return
       err("remotePeerExchangeNode is an empty string, set it to none(string) instead")
 
-  if wakuConf.dnsDiscoveryConf.isSome and
+  if wakuConf.dnsDiscoveryConf.isSome() and
       isEmptyOrWhiteSpace(wakuConf.dnsDiscoveryConf.get().enrTreeUrl):
     return err ("dnsDiscoveryConf.enrTreeUrl is an empty string")
 

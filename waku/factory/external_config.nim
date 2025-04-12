@@ -213,12 +213,6 @@ type WakuNodeConf* = object
       name: "max-connections"
     .}: int
 
-    maxRelayPeers* {.
-      desc:
-        "Deprecated. Use relay-service-ratio instead. It represents the maximum allowed number of relay peers.",
-      name: "max-relay-peers"
-    .}: Option[int]
-
     relayServiceRatio* {.
       desc:
         "This percentage ratio represents the relay peers to service peers. For example, 60:40, tells that 60% of the max-connections will be used for relay protocol and the other 40% of max-connections will be reserved for other service protocols (e.g., filter, lightpush, store, metadata, etc.)",
@@ -323,30 +317,18 @@ hence would have reachability issues.""",
       name: "keep-alive"
     .}: bool
 
-    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
-    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
-      desc: "Number of shards in the network",
+      desc:
+        "Enable autosharding by specifying the total number of shards in the network",
       defaultValue: 0,
       name: "num-shards-in-network"
     .}: uint32
 
     shards* {.
       desc:
-        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
-      defaultValue:
-        @[
-          uint16(0),
-          uint16(1),
-          uint16(2),
-          uint16(3),
-          uint16(4),
-          uint16(5),
-          uint16(6),
-          uint16(7),
-        ],
+        "Shard indexes for relay to subscribe to. Argument may be repeated. If autosharding is enabled, it subscribes to all shards by default.",
       name: "shard"
-    .}: seq[uint16]
+    .}: Option[seq[uint16]]
 
     contentTopics* {.
       desc: "Default content topic to subscribe to. Argument may be repeated.",

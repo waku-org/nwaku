@@ -362,6 +362,34 @@ proc build(b: DnsDiscoveryConfBuilder): Result[Option[DnsDiscoveryConf], string]
     some(DnsDiscoveryConf(nameServers: b.nameServers, enrTreeUrl: b.enrTreeUrl.get()))
   )
 
+#################################
+## AutoSharding Config Builder ##
+#################################
+type AutoShardingConfBuilder = object
+  enabled: Option[bool]
+  numShardsInNetwork*: Option[uint16]
+  contentTopics*: seq[string]
+
+proc init(T: type AutoShardingConfBuilder): AutoShardingConfBuilder =
+  AutoShardingConfBuilder()
+
+with(AutoShardingConfBuilder, enabled, bool)
+
+proc build(b: AutoShardingConfBuilder): Result[Option[AutoShardingConf], string] =
+  if not b.enabled.get(false):
+    return ok(none(AutoShardingConf))
+
+  if b.numShardsInNetwork.isNone:
+    return err("autoSharding.numShardsInNetwork is not specified")
+
+  return ok(
+    some(
+      AutoShardingConf(
+        numShardsInNetwork: b.numShardsInNetwork.get(), contentTopics: b.contentTopics
+      )
+    )
+  )
+
 ###########################
 ## Discv5 Config Builder ##
 ###########################
@@ -529,12 +557,13 @@ type WakuConfBuilder* = object
   nodeKey: Option[PrivateKey]
 
   clusterId: Option[uint16]
-  numShardsInNetwork: Option[uint32]
+
   shards: Option[seq[uint16]]
   protectedShards: Option[seq[ProtectedShard]]
   contentTopics: Option[seq[string]]
 
   # Conf builders
+  autoShardingConf*: AutoShardingConfBuilder
   dnsDiscoveryConf*: DnsDiscoveryConfBuilder
   discv5Conf*: Discv5ConfBuilder
   filterServiceConf*: FilterServiceConfBuilder
@@ -597,6 +626,7 @@ type WakuConfBuilder* = object
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(
+    autoShardingConf: AutoShardingConfBuilder.init(),
     dnsDiscoveryConf: DnsDiscoveryConfBuilder.init(),
     discv5Conf: Discv5ConfBuilder.init(),
     filterServiceConf: FilterServiceConfBuilder.init(),
@@ -610,10 +640,8 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
 with(WakuConfBuilder, clusterConf, ClusterConf)
 with(WakuConfBuilder, nodeKey, PrivateKey)
 with(WakuConfBuilder, clusterId, uint16)
-with(WakuConfBuilder, numShardsInNetwork, uint32)
 with(WakuConfBuilder, shards, seq[uint16])
 with(WakuConfBuilder, protectedShards, seq[ProtectedShard])
-with(WakuConfBuilder, contentTopics, seq[string])
 with(WakuConfBuilder, relay, bool)
 with(WakuConfBuilder, lightPush, bool)
 with(WakuConfBuilder, storeSync, bool)
@@ -736,11 +764,12 @@ proc applyClusterConf(builder: var WakuConfBuilder) =
     warn "Max Message Size was manually provided alongside a cluster conf",
       used = $builder.maxMessageSize, discarded = clusterConf.maxMessageSize
 
-  if builder.numShardsInNetwork.isNone:
-    builder.numShardsInNetwork = some(clusterConf.numShardsInNetwork)
+  if builder.autoShardingConf.numShardsInNetwork.isNone:
+    builder.autoShardingConf.numShardsInNetwork = clusterConf.numShardsInNetwork
   else:
     warn "Num Shards In Network was manually provided alongside a cluster conf",
-      used = builder.numShardsInNetwork, discarded = clusterConf.numShardsInNetwork
+      used = builder.autoShardingConf.numShardsInNetwork,
+      discarded = clusterConf.numShardsInNetwork
 
   if clusterConf.discv5Discovery:
     if builder.discv5Conf.enabled.isNone:
@@ -802,21 +831,15 @@ proc build*(
   if builder.clusterId.isNone():
     return err("Cluster Id was not specified")
 
-  let numShardsInNetwork =
-    if builder.numShardsInNetwork.isSome():
-      builder.numShardsInNetwork.get()
-    else:
-      warn "Number of shards in network not specified, defaulting to one shard"
-      1
-
   let shards =
     if builder.shards.isSome():
       builder.shards.get()
-    else:
-      warn "shards not specified, defaulting to all shards in network"
-      # TODO: conversion should not be needed
-      let upperShard: uint16 = uint16(numShardsInNetwork - 1)
+    elif builder.autoShardingConf.numShardsInNetwork.isSome():
+      info "shards not specified and auto-sharding is enabled via numShardsInNetwork, subscribing to all shards in network"
+      let upperShard: uint16 = builder.autoShardingConf.numShardsInNetwork.get() - 1
       toSeq(0.uint16 .. upperShard)
+    else:
+      return err("")
 
   let protectedShards = builder.protectedShards.get(@[])
 
@@ -832,7 +855,10 @@ proc build*(
 
   let contentTopics = builder.contentTopics.get(@[])
 
-  # Build sub-configsdnsDiscoveryConf
+  # Build sub-configs
+  let autoShardingConf = builder.autoShardingConf.build().valueOr:
+    return err("AutoSharding Conf building failed: " & $error)
+
   let discv5Conf = builder.discv5Conf.build().valueOr:
     return err("Discv5 Conf building failed: " & $error)
 
