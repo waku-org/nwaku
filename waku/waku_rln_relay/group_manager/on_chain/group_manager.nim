@@ -101,17 +101,6 @@ proc toArray32LE*(x: UInt256): array[32, byte] {.inline.} =
   else:
     copyMem(addr result, unsafeAddr x, 32)
 
-# Hashes arbitrary signal to the underlying prime field.
-proc hash_to_field*(signal: seq[byte]): array[32, byte] =
-  var ctx: keccak256
-  ctx.init()
-  ctx.update(signal)
-  var hash = ctx.finish()
-
-  var result: array[32, byte]
-  copyMem(result[0].addr, hash.data[0].addr, 32)
-  return result
-
 proc toArray32LE*(x: array[32, byte]): array[32, byte] =
   for i in 0 ..< 32:
     result[i] = x[31 - i]
@@ -147,6 +136,17 @@ proc toArray32*(v: uint64): array[32, byte] =
   discard output.copyFrom(bytes)
   return output
 
+# Hashes arbitrary signal to the underlying prime field.
+proc hash_to_field*(signal: seq[byte]): array[32, byte] =
+  var ctx: keccak256
+  ctx.init()
+  ctx.update(signal)
+  var hash_result = ctx.finish()
+
+  var hash: array[32, byte]
+  copyMem(hash[0].addr, hash_result.data[0].addr, 32)
+  toArray32LE(hash)
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[array[32, byte]], string]] {.async.} =
@@ -174,10 +174,10 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    debug "---- raw response ----",
-      total_bytes = responseBytes.len, # Should be 640
-      non_zero_bytes = responseBytes.countIt(it != 0),
-      response = responseBytes
+    # debug "---- raw response ----",
+    #   total_bytes = responseBytes.len, # Should be 640
+    #   non_zero_bytes = responseBytes.countIt(it != 0),
+    #   response = responseBytes
 
     var i = 0
     var merkleProof = newSeq[array[32, byte]]()
@@ -188,14 +188,14 @@ proc fetchMerkleProofElements*(
       element = responseBytes.toOpenArray(startIndex, endIndex)
       merkleProof.add(element)
       i += 1
-      debug "---- element ----",
-        startIndex = startIndex,
-        startElement = responseBytes[startIndex],
-        endIndex = endIndex,
-        endElement = responseBytes[endIndex],
-        element = element
+      # debug "---- element ----",
+      #   startIndex = startIndex,
+      #   startElement = responseBytes[startIndex],
+      #   endIndex = endIndex,
+      #   endElement = responseBytes[endIndex],
+      #   element = element
 
-    # debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
+    debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
     return ok(merkleProof)
   except CatchableError:
