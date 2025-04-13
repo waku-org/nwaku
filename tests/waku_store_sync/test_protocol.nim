@@ -444,3 +444,42 @@ suite "Waku Sync: transfer":
 
    check:
      response.messages.len > 0
+  
+  
+  asyncTest "transfer 100 messages from client to server":
+    var
+    msgs: seq[WakuMessage]
+    hashes: seq[WakuMessageHash]
+    # Generate 100 fake messages with increasing timestamps
+    for i in 0..<100:
+      let msg = fakeWakuMessage(ts = now() + i, contentTopic = DefaultContentTopic)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      msgs.add(msg)
+      hashes.add(hash)
+    
+    # Store all messages in the CLIENT's archive
+    clientDriver = clientDriver.put(DefaultPubsubTopic, msgs)
+
+    # Tell the SERVER that it wants all 100 messages from client
+    for hash in hashes:
+      let want = (clientPeerInfo.peerId, hash)
+      await serverLocalWants.put(want)  
+
+    # Tell the CLIENT to send all 100 messages to server
+    for hash in hashes:
+      let need = (serverPeerInfo.peerId, hash)
+      await clientRemoteNeeds.put(need)
+
+    # Give time for async transfers to complete
+    await sleepAsync(1.seconds)
+    var query = ArchiveQuery()
+    query.includeData = true
+    query.hashes = hashes
+
+    let res = await serverArchive.findMessages(query)
+    assert res.isOk(), $res.error
+
+    let response = res.get()
+
+    check:
+      response.messages.len == 100  
