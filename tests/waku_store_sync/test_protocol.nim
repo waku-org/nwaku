@@ -411,3 +411,36 @@ suite "Waku Sync: transfer":
 
     check:
       response.messages.len > 0
+  
+
+  asyncTest "transfer 1 message from client to server":
+
+   let msg = fakeWakuMessage()
+   let hash = computeMessageHash(DefaultPubsubTopic, msg)
+   let msgs = @[msg]
+
+   # Store the message only on the client side
+   clientDriver = clientDriver.put(DefaultPubsubTopic, msgs)
+
+ 
+   let want = (clientPeerInfo.peerId, hash)
+   await serverLocalWants.put(want)
+
+   # Add server info and msg hash to client need channel (server needs it)
+   let need = (serverPeerInfo.peerId, hash)
+   await clientRemoteNeeds.put(need)
+
+   # Give time for transfer to happen
+   await sleepAsync(500.milliseconds)
+
+   var query = ArchiveQuery()
+   query.includeData = true
+   query.hashes = @[hash]
+
+   let res = await serverArchive.findMessages(query)
+   assert res.isOk(), $res.error
+
+   let response = res.get()
+
+   check:
+     response.messages.len > 0
