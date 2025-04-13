@@ -10,10 +10,9 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/tables,
+  std/[strutils, tables],
   stew/[byteutils, arrayops],
-  sequtils,
-  strutils
+  sequtils
 import
   ../../../waku_keystore,
   ../../rln,
@@ -174,11 +173,6 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    # debug "---- raw response ----",
-    #   total_bytes = responseBytes.len, # Should be 640
-    #   non_zero_bytes = responseBytes.countIt(it != 0),
-    #   response = responseBytes
-
     var i = 0
     var merkleProof = newSeq[array[32, byte]]()
     while (i * 32) + 31 < responseBytes.len:
@@ -188,12 +182,6 @@ proc fetchMerkleProofElements*(
       element = responseBytes.toOpenArray(startIndex, endIndex)
       merkleProof.add(element)
       i += 1
-      # debug "---- element ----",
-      #   startIndex = startIndex,
-      #   startElement = responseBytes[startIndex],
-      #   endIndex = endIndex,
-      #   endElement = responseBytes[endIndex],
-      #   element = element
 
     debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
 
@@ -272,10 +260,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       error "Failed to fetch Merkle proof", error = proofResult.error
     g.merkleProofCache = proofResult.get()
 
-    debug "--- track update ---",
-      len = g.validRoots.len,
-      validRoots = g.validRoots,
-      merkleProof = g.merkleProofCache
+    # debug "--- track update ---",
+    #   len = g.validRoots.len,
+    #   validRoots = g.validRoots,
+    #   merkleProof = g.merkleProofCache
 
     await sleepAsync(rpcDelay)
 
@@ -387,6 +375,20 @@ proc indexToPath*(membershipIndex: UInt256, tree_depth: int): seq[byte] =
 
   debug "indexToPath", index = membershipIndex, path = result
 
+proc identitySecretToField*(secret: seq[byte]): array[32, byte] =
+  let str = cast[string](secret)
+  var field : StUint[256]
+  try:
+    field = parse(str, StUint[256])
+  except CatchableError:
+    error "Failed to parse identity secret", error = getCurrentExceptionMsg()
+  return field.toBytesLE()
+
+proc uint64ToField*(n: uint64): array[32, byte] =
+  ## Converts uint64 to 32-byte little-endian array with zero padding
+  var bytes = toBytes(n, Endianness.littleEndian)
+  result[0..<bytes.len] = bytes
+
 proc createZerokitWitness(
     g: OnchainGroupManager,
     data: seq[byte],
@@ -394,12 +396,14 @@ proc createZerokitWitness(
     messageId: MessageId,
     extNullifier: array[32, byte],
 ): RLNWitnessInput =
-  let identitySecret = g.idCredentials.get().idSecretHash.toArray32()
-    # seq[byte] to array[32, byte] and convert to little-endian
-  let userMsgLimit = g.userMessageLimit.get().toArray32LE()
-    # uint64 to array[32, byte] and convert to little-endian  
-  let msgId = messageId.toArray32LE()
-    # uint64 to array[32, byte] and convert to little-endian
+  let identitySecret = identitySecretToField(@[1'u8, 2'u8, 3'u8, 4'u8])
+  debug "---- identitySecret conversion", before = @[1'u8, 2'u8, 3'u8, 4'u8], after = identitySecret
+
+  let userMsgLimit = uint64ToField(256'u64)
+  debug "---- userMsgLimit conversion", before = 256'u64, after = userMsgLimit
+
+  let msgId = uint64ToField(1'u64)
+  debug "---- msgId conversion", before = 1'u64, after = msgId
 
   try:
     discard waitFor g.updateRoots()
@@ -426,11 +430,13 @@ proc createZerokitWitness(
   except CatchableError:
     error "Error fetching commitment index", error = getCurrentExceptionMsg()
 
-  debug "---- pathElements & pathIndex -----",
-    pathElements = pathElements,
-    pathIndex = pathIndex,
-    pathElementsLength = pathElements.len,
-    pathIndexLength = pathIndex.len
+  debug "---- pathElements", before = g.merkleProofCache, after = pathElements
+
+  # debug "---- pathElements & pathIndex -----",
+  #   pathElements = pathElements,
+  #   pathIndex = pathIndex,
+  #   pathElementsLength = pathElements.len,
+  #   pathIndexLength = pathIndex.len
 
   # Calculate hash using zerokit's hash_to_field equivalent
   let x = hash_to_field(data).toArray32LE() # convert to little-endian
