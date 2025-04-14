@@ -368,8 +368,6 @@ proc setupProtocols(
     else:
       return err("failed to set node waku lightpush peer: " & lightPushNode.error)
 
-  ## TODO: initialize reputation manager here??
-
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
