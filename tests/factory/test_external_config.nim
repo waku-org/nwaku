@@ -49,7 +49,7 @@ suite "Waku config - apply preset":
       check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
     check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
-    if expectedConf.discv5Discovery:
+    if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
       check discv5Conf.bootstrapNodes == expectedConf.discv5BootstrapNodes
 
@@ -99,6 +99,42 @@ suite "Waku config - apply preset":
 
     ## Then
     assert res.isErr(), "Invalid shard was accepted"
+
+  test "Apply TWN preset when cluster id = 1":
+    ## Setup
+    let expectedConf = ClusterConf.TheWakuNetworkConf()
+
+    ## Given
+    let preConfig = WakuNodeConf(
+      cmd: noCommand,
+      clusterId: 1.uint16,
+      relay: true,
+      rlnRelayEthClientAddress: "http://someaddress".EthRpcUrl,
+      rlnRelayTreePath: "/tmp/sometreepath",
+    )
+
+    ## When
+    let res = preConfig.toWakuConf()
+    assert res.isOk(), $res.error
+
+    ## Then
+    let conf = res.get()
+    check conf.maxMessageSizeBytes ==
+      uint64(parseCorrectMsgSize(expectedConf.maxMessageSize))
+    check conf.clusterId == expectedConf.clusterId
+    check conf.rlnRelayConf.isSome() == expectedConf.rlnRelay
+    if conf.rlnRelayConf.isSome():
+      let rlnRelayConf = conf.rlnRelayConf.get()
+      check rlnRelayConf.ethContractAddress == expectedConf.rlnRelayEthContractAddress
+      check rlnRelayConf.dynamic == expectedConf.rlnRelayDynamic
+      check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
+      check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
+      check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
+    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+    check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
+    if conf.discv5Conf.isSome():
+      let discv5Conf = conf.discv5Conf.get()
+      check discv5Conf.bootstrapNodes == expectedConf.discv5BootstrapNodes
 
 suite "Waku config - node key":
   test "Passed node key is used":
