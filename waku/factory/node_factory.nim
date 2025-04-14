@@ -419,7 +419,7 @@ proc setupProtocols(
 
   #mount mix
   if conf.mix:
-    (await node.mountMix(mixPrivKey)).isOkOr:
+    (await node.mountMix(conf.clusterId, mixPrivKey)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
