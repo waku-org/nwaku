@@ -213,7 +213,7 @@ proc initiate(
   debug "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
     remote = connection.peerId,
-    payload = sendPayload
+    payload = initPayload
 
   ?await self.processRequest(connection)
 
