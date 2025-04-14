@@ -881,7 +881,9 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): ConfResult[RlnKeystoreGeneratorC
 proc toInspectRlnDbConf*(n: WakuNodeConf): ConfResult[InspectRlnDbConf] =
   return ok(InspectRlnDbConf(treePath: n.treePath))
 
-proc toClusterConf(preset: string, clusterId: Option[uint16]): ConfResult[ClusterConf] =
+proc toClusterConf(
+    preset: string, clusterId: Option[uint16]
+): ConfResult[Option[ClusterConf]] =
   var lcPreset = toLowerAscii(preset)
   if clusterId.isSome() and clusterId.get() == 1:
     warn(
@@ -890,8 +892,10 @@ proc toClusterConf(preset: string, clusterId: Option[uint16]): ConfResult[Cluste
     lcPreset = "twn"
 
   case lcPreset
+  of "":
+    ok(none(ClusterConf))
   of "twn":
-    ok(ClusterConf.TheWakuNetworkConf())
+    ok(some(ClusterConf.TheWakuNetworkConf()))
   else:
     err("Invalid --preset value passed: " & lcPreset)
 
@@ -928,10 +932,11 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withProtectedShards(n.protectedShards)
   b.withClusterId(n.clusterId)
 
-  if n.preset != "":
-    let clusterConf = toClusterConf(n.preset, some(n.clusterId)).valueOr:
-      return err($error)
-    b.withClusterConf(clusterConf)
+  let clusterConf = toClusterConf(n.preset, some(n.clusterId)).valueOr:
+    return err($error)
+
+  if clusterConf.isSome():
+    b.withClusterConf(clusterConf.get())
 
   b.withAgentString(n.agentString)
 

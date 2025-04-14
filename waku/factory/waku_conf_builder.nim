@@ -672,7 +672,7 @@ proc applyClusterConf(builder: var WakuConfBuilder) =
   # If you want to tweak values, don't use clusterConf 
   if builder.clusterConf.isNone:
     return
-  var clusterConf = builder.clusterConf.get()
+  let clusterConf = builder.clusterConf.get()
 
   if builder.clusterId.isSome():
     warn "Cluster id was provided alongside a cluster conf",
@@ -747,6 +747,8 @@ proc build*(
   ## of libwaku. It aims to be agnostic so it does not apply a 
   ## default when it is opinionated.
 
+  applyClusterConf(builder)
+
   let relay =
     if builder.relay.isSome():
       builder.relay.get()
@@ -783,8 +785,6 @@ proc build*(
       false
 
   let relayPeerExchange = builder.relayPeerExchange.get(false)
-
-  applyClusterConf(builder)
 
   let nodeKey = ?nodeKey(builder, rng)
 
