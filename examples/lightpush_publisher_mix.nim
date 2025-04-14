@@ -113,7 +113,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     if keyPairResult.isErr:
       return
     let (mixPrivKey, mixPubKey) = keyPairResult.get()
-    (await node.mountMix(mixPrivKey)).isOkOr:
+    (await node.mountMix(clusterId, mixPrivKey)).isOkOr:
       error "failed to mount waku mix protocol: ", error = $error
       return
 
