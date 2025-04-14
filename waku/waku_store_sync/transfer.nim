@@ -169,6 +169,7 @@ proc initProtocolHandler(self: SyncTransfer) =
       #TODO verify msg RLN proof...
 
       (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
+        error "failed to archive message", error = $error
         continue
 
       let id = SyncID(time: msg.timestamp, hash: hash)
