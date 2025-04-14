@@ -1,19 +1,22 @@
 {.push raises: [].}
 
-import chronicles, std/[options], chronos, results
+import chronicles, std/[options, sequtils], chronos, results, metrics
 
 import
   libp2p/crypto/curve25519,
   mix/mix_protocol,
   mix/mix_node,
   mix/mix_metrics,
+  mix/tag_manager,
   libp2p/[multiaddress, multicodec, peerid]
 
 import
   ../node/peer_manager,
+  ../waku_core,
   ../waku_enr/mix,
   ../waku_enr,
-  ../node/peer_manager/waku_peer_store
+  ../node/peer_manager/waku_peer_store,
+  ../common/nimchronos
 
 logScope:
   topics = "waku mix"
@@ -136,17 +139,17 @@ proc new*(
   let mixPubKey = public(mixPrivKey)
   info "mixPrivKey", mixPrivKey = mixPrivKey, mixPubKey = mixPubKey
 
-  # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
-  var m: WakuMix
-
   let localMixNodeInfo = initMixNodeInfo(
     nodeAddr, mixPubKey, mixPrivKey, switch.peerInfo.publicKey.skkey,
     switch.peerInfo.privateKey.skkey,
   )
-  m = initMix(localMixNodeInfo, switch, initTable[PeerId, MixPubInfo]())
-  m.peerManager = peermgr
-  m.clusterId = clusterId
-  return
+
+  # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
+  var m = WakuMix(peerManager: peermgr, clusterId: clusterId)
+  m.init(localMixNodeInfo, switch, initTable[PeerId, MixPubInfo]())
+  procCall MixProtocol(m).init()
+
+  return ok(m)
 
 proc start*(mix: Wakumix) =
   discard mix.startMixNodePoolMgr()
