@@ -61,7 +61,7 @@ proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId: PeerId): MultiAdd
 
 proc populateMixNodePool*(mix: WakuMix) {.async.} =
   # populate only peers that i) are reachable ii) share cluster iii) support mix
-  let remotePeers = mix.peerManager.wakuPeerStore.getReachablePeers().filterIt(
+  let remotePeers = mix.peerManager.switch.peerStore.getReachablePeers().filterIt(
       mixPoolFilter(some(mix.clusterId), it)
     )
   var mixNodes = initTable[PeerId, MixPubInfo]()
