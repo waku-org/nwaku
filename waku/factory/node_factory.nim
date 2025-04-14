@@ -157,8 +157,10 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey,
-    mixPrivKey: Curve25519Key
+    node: WakuNode,
+    conf: WakuNodeConf,
+    nodeKey: crypto.PrivateKey,
+    mixPrivKey: Curve25519Key,
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -431,9 +433,7 @@ proc setupProtocols(
 
   #mount mix
   if conf.mix:
-    (
-      await node.mountMix(mixPrivKey)
-    ).isOkOr:
+    (await node.mountMix(conf.clusterId, mixPrivKey)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
