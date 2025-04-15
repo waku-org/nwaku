@@ -359,12 +359,12 @@ method generateProof*(
 
   var i = 0
   while i + 31 < g.merkleProofCache.len:
-    for j in 31 .. 0:
+    for j in countdown(31, 0):
       pathElements.add(g.merkleProofCache[i + j])
     i += 32
 
   debug "--- pathElements ---",
-    before = g.merkleProofCache, after = path_elements, len = path_elements.len
+    before = g.merkleProofCache, after = path_elements, before_len = g.merkleProofCache.len, after_len = path_elements.len
 
   var commitmentIndexRes: UInt256
   try:
@@ -376,7 +376,7 @@ method generateProof*(
     error "Failed to fetch commitment index", error = getCurrentExceptionMsg()
 
   let index_len = int(g.merkleProofCache.len / 32)
-  let identity_path_index = UInt256ToField(commitmentIndexRes)[0 .. index_len]
+  let identity_path_index = UInt256ToField(commitmentIndexRes)[0 .. index_len - 1]
 
   debug "--- identityPathIndex ---",
     before = g.membershipIndex.get(),
