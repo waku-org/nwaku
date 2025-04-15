@@ -85,6 +85,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     quit(1)
 
   # 5. register on-chain
+  debug "credential idcommit", idCommitment = credential.idCommitment.inHex()
   try:
     waitFor groupManager.register(credential, conf.userMessageLimit)
   except Exception, CatchableError:
