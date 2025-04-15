@@ -28,22 +28,36 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
+type EthereumUInt40* = StUint[40]
+type EthereumUInt32* = StUint[32]
+type EthereumUInt16* = StUint[16]
+type MembershipInfoResult = object
+  value1: UInt256
+  value2: UInt256
+  value3: UInt256
+
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: EthereumUInt32)
+  proc register(idCommitment: UInt256, userMessageLimit: EthereumUInt32, idCommitmentsToErase: seq[UInt256])
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(rateCommitment: UInt256, index: EthereumUInt32) {.event.}
+  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: EthereumUInt32) {.event.}
   # this function denotes existence of a given user
-  proc memberExists(idCommitment: Uint256): UInt256 {.view.}
+  proc isValidIdCommitment(idCommitment: Uint256): bool {.view.}
+  proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
+  proc getMembershipInfo(idCommitment: Uint256): MembershipInfoResult {.view.}
   # this constant describes the next index of a new member
-  proc commitmentIndex(): UInt256 {.view.}
+  proc nextFreeIndex(): UInt256 {.view.}
   # this constant describes the block number this contract was deployed on
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
-  proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
+  proc maxMembershipRateLimit(): UInt256 {.view.}
+  # this function returns the merkleProof for a given index
+  proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
+  # this function returns the Merkle root
+  proc root(): Uint256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -172,13 +186,16 @@ method register*(
   var gasPrice: int
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
+  let idCommitmentHex = identityCredential.idCommitment.inHex()
+  debug "identityCredential idCommitmentHex",
+    idCommitmentNoConvert = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
-
+  let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
-    idCommitment = idCommitment, userMessageLimit = userMessageLimit
+    idCommitment = idCommitment, userMessageLimit = userMessageLimit, idCommitmentsToErase = idCommitmentsToErase
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32)).send(
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32),idCommitmentsToErase).send(
       gasPrice = gasPrice
     )
 
@@ -195,19 +212,20 @@ method register*(
   if tsReceipt.status.isNone() or tsReceipt.status.get() != 1.Quantity:
     raise newException(ValueError, "register: transaction failed")
 
-  let firstTopic = tsReceipt.logs[0].topics[0]
-  # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
+  let firstTopic = tsReceipt.logs[2].topics[0]
+  debug "third topic", firstTopic = firstTopic
+  # the hash of the signature of MembershipRegistered(uint256,uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint32)").data):
+      cast[FixedBytes[32]](keccak.keccak256.digest("MembershipRegistered(uint256,uint256,uint32)").data):
     raise newException(ValueError, "register: unexpected event signature")
 
-  # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits
-  let arguments = tsReceipt.logs[0].data
+  # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
+  # data = rateCommitment encoded as 256 bits || membershipRateLimit encoded as 256 bits || index encoded as 32 bits
+  let arguments = tsReceipt.logs[2].data
   debug "tx log data", arguments = arguments
   let
     # In TX log data, uints are encoded in big endian
-    membershipIndex = UInt256.fromBytesBE(arguments[32 ..^ 1])
+    membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
 
   debug "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
@@ -228,12 +246,36 @@ method withdrawBatch*(
 
     # TODO: after slashing is enabled on the contract, use atomicBatch internally
 
+proc getMembershipFromMembershipInfo(
+    g: OnchainGroupManager, idCommitment: UInt256
+): Future[GroupManagerResult[Membership]] {.async.} =
+  initializedGuard(g)
+
+  let wakuRlnContract = g.wakuRlnContract.get()
+  var memInfo: MembershipInfoResult
+  g.retryWrapper(memInfo, "Failed to get membership info"):
+    await wakuRlnContract.getMembershipInfo(idCommitment).call()
+  trace "membershipinfo",
+    rateLim = memInfo.value1,
+    index = memInfo.value2,
+    rateCommitment =   memInfo.value3
+  let rateCommitment = memInfo.value3
+  return ok(
+      Membership(
+        rateCommitment: rateCommitment.toRateCommitment(),
+        index: memInfo.value2.toMembershipIndex(),
+      )
+    )
+
 proc parseEvent(
-    event: type MemberRegistered, log: JsonNode
-): GroupManagerResult[Membership] =
-  ## parses the `data` parameter of the `MemberRegistered` event `log`
+     event: type MembershipRegistered, log: JsonNode
+): Result[UInt256, string] =
+  ## parses the `data` parameter of the `MembershipRegistered` event `log`
   ## returns an error if it cannot parse the `data` parameter
+  ##  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: EthereumUInt32)
   var rateCommitment: UInt256
+  var idCommitment: UInt256
+  var membershipRateLimit: UInt256
   var index: UInt256
   var data: seq[byte]
   try:
@@ -244,19 +286,26 @@ proc parseEvent(
         getCurrentExceptionMsg()
     )
   var offset = 0
+
   try:
-    # Parse the rateCommitment
-    offset += decode(data, 0, offset, rateCommitment)
+    # Parse the idCommitment
+    offset += decode(data, 0, offset, idCommitment)
+    # Parse the membershipRateLimit
+    offset += decode(data, 0, offset, membershipRateLimit)
     # Parse the index
     offset += decode(data, 0, offset, index)
-    return ok(
-      Membership(
-        rateCommitment: rateCommitment.toRateCommitment(),
-        index: index.toMembershipIndex(),
-      )
-    )
+
+    trace "parsed MembershipRegistered Event",
+      idCommitment = idCommitment,
+      membershipRateLimit = membershipRateLimit,
+      index = index
+
+    if idCommitment == 0:
+        return err("the getMembershipInfo does not have a membership")
+    
+    return ok(idCommitment)
   except CatchableError:
-    return err("failed to parse the data field of the MemberRegistered event")
+    return err("failed to parse the data field of the MembershipRegistered event")
 
 type BlockTable* = OrderedTable[BlockNumber, seq[(Membership, bool)]]
 
@@ -297,7 +346,7 @@ proc getRawEvents(
   var eventStrs: seq[JsonString]
   g.retryWrapper(eventStrs, "Failed to get the events"):
     await wakuRlnContract.getJsonLogs(
-      MemberRegistered,
+      MembershipRegistered,
       fromBlock = Opt.some(fromBlock.blockId()),
       toBlock = Opt.some(toBlock.blockId()),
     )
@@ -321,12 +370,17 @@ proc getBlockTable(
     return blockTable
 
   for event in events:
+    trace "events not empty"
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).BlockNumber
     let removed = event["removed"].getBool()
-    let parsedEventRes = parseEvent(MemberRegistered, event)
+    let result = parseEvent(MembershipRegistered, event)
+    var idCommitment: UInt256
+    if result.isOk:
+      idCommitment = result.get()
+    let parsedEventRes = await getMembershipFromMembershipInfo(g, idCommitment)
     if parsedEventRes.isErr():
-      error "failed to parse the MemberRegistered event", error = parsedEventRes.error()
-      raise newException(ValueError, "failed to parse the MemberRegistered event")
+      error "failed to parse the MembershipRegistered event", error = parsedEventRes.error()
+      raise newException(ValueError, "failed to parse the MembershipRegistered event")
     let parsedEvent = parsedEventRes.get()
     blockTable.insert(blockNumber, parsedEvent, removed)
 
@@ -337,7 +391,10 @@ proc handleEvents(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+  trace "handling block event"
+  var hasEntries = false
   for blockNumber, members in blockTable.pairs():
+    hasEntries = true
     try:
       let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
       let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
@@ -353,6 +410,9 @@ proc handleEvents(
     except CatchableError:
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
+    
+  if not hasEntries:
+    trace "no blocks to process"
 
   return
 
@@ -591,12 +651,21 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
+    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
+    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
+    let idCommitmentHex =  idCommitmentBytes.inHex()
+    debug "Keystore idCommitment in bytes",
+      idCommitmentBytes = idCommitmentBytes
+    debug "Keystore idCommitment in UInt256 ",
+      idCommitmentUInt256 = idCommitmentUInt256
+    debug "Keystore idCommitment in hex ",
+      idCommitmentHex = idCommitmentHex
+    let idCommitment = idCommitmentUInt256
     try:
       let membershipExists = await wakuRlnContract
-      .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
-      .call()
-      if membershipExists == 0:
-        return err("the commitment does not have a membership")
+      .isInMembershipSet(idCommitment).call()
+      if membershipExists == false:
+        return err("the idCommitmentUInt256 does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
@@ -625,7 +694,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
   g.rlnRelayMaxMessageLimit =
-    cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
+    cast[uint64](await wakuRlnContract.maxMembershipRateLimit().call())
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
