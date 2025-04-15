@@ -89,7 +89,7 @@ when isMainModule:
       error "Starting waku failed", error = error
       quit(QuitFailure)
 
-    if conf.restServerConf.isSome:
+    if conf.restServerConf.isSome():
       rest_server_builder.startRestServerProtocolSupport(
         restServer,
         waku.node,
@@ -104,7 +104,7 @@ when isMainModule:
         error "Starting protocols support REST server failed.", error = $error
         quit(QuitFailure)
 
-    if conf.metricsServerConf.isSome:
+    if conf.metricsServerConf.isSome():
       waku.metricsServer = waku_metrics.startMetricsServerAndLogging(
         conf.metricsServerConf.get(), conf.portsShift
       ).valueOr:
