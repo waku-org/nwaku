@@ -110,6 +110,18 @@ proc seqToField*(s: seq[byte]): array[32, byte] =
   for i in 0 ..< len:
     result[i] = s[i]
 
+proc uint256ToBinarySeq*(value: UInt256, len: int): seq[byte] =
+  result = newSeq[byte](len) # Create a sequence of specified length
+  var v = value
+
+  # Fill from least significant bit (little-endian)
+  for i in 0 ..< len:
+    if v mod 2 == 1:
+      result[i] = 1
+    else:
+      result[i] = 0
+    v = v shr 1 # Shift right by 1 bit
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
@@ -210,6 +222,20 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       error "Failed to fetch Merkle proof", error = proofResult.error
     g.merkleProofCache = proofResult.get()
 
+    debug "Roots and MerkleProof status",
+      roots = g.validRoots.toSeq(),
+      rootsCount = g.validRoots.len,
+      firstProofElement =
+        if g.merkleProofCache.len >= 32:
+          g.merkleProofCache[0 .. 31]
+        else:
+          @[],
+      lastProofElement =
+        if g.merkleProofCache.len >= 32:
+          g.merkleProofCache[^32 ..^ 1]
+        else:
+          @[],
+      proofLength = g.merkleProofCache.len
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -364,7 +390,10 @@ method generateProof*(
     i += 32
 
   debug "--- pathElements ---",
-    before = g.merkleProofCache, after = path_elements, before_len = g.merkleProofCache.len, after_len = path_elements.len
+    before = g.merkleProofCache,
+    after = path_elements,
+    before_len = g.merkleProofCache.len,
+    after_len = path_elements.len
 
   var commitmentIndexRes: UInt256
   try:
@@ -376,7 +405,7 @@ method generateProof*(
     error "Failed to fetch commitment index", error = getCurrentExceptionMsg()
 
   let index_len = int(g.merkleProofCache.len / 32)
-  let identity_path_index = UInt256ToField(commitmentIndexRes)[0 .. index_len - 1]
+  let identity_path_index = uint256ToBinarySeq(commitmentIndexRes, index_len)
 
   debug "--- identityPathIndex ---",
     before = g.membershipIndex.get(),
