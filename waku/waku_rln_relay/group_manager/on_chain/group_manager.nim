@@ -349,6 +349,11 @@ method generateProof*(
   let message_id = uint64ToField(messageId)
   var path_elements = newSeq[byte](0)
 
+  debug "--- identitySecret ---", before = identity_secret, after = identity_secret
+  debug "--- userMessageLimit ---",
+    before = g.userMessageLimit.get(), after = user_message_limit
+  debug "--- messageId ---", before = messageId, after = message_id
+
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
@@ -357,6 +362,9 @@ method generateProof*(
     for j in 31 .. 0:
       pathElements.add(g.merkleProofCache[i + j])
     i += 32
+
+  debug "--- pathElements ---",
+    before = g.merkleProofCache, after = path_elements, len = path_elements.len
 
   var commitmentIndexRes: UInt256
   try:
@@ -367,9 +375,13 @@ method generateProof*(
   except CatchableError:
     error "Failed to fetch commitment index", error = getCurrentExceptionMsg()
 
-  let identity_path_index =
-    UInt256ToField(commitmentIndexRes)[0 .. g.merkleProofCache.len - 1]
+  let index_len = int(g.merkleProofCache.len / 32)
+  let identity_path_index = UInt256ToField(commitmentIndexRes)[0 .. index_len]
 
+  debug "--- identityPathIndex ---",
+    before = g.membershipIndex.get(),
+    after = identity_path_index,
+    len = identity_path_index.len
   # Convert seq[byte] to Buffer and get the hash
   var
     hash_input_buffer = toBuffer(data) # Convert input data to Buffer
@@ -387,13 +399,6 @@ method generateProof*(
     return err("Failed to compute external nullifier: " & extNullifierRes.error)
   let extNullifier = extNullifierRes.get()
 
-  debug "--- identitySecret ---", before = identity_secret, after = identity_secret
-  debug "--- userMessageLimit ---",
-    before = g.userMessageLimit.get(), after = user_message_limit
-  debug "--- messageId ---", before = messageId, after = message_id
-  debug "--- pathElements ---", before = g.merkleProofCache, after = path_elements
-  debug "--- identityPathIndex ---",
-    before = g.membershipIndex.get(), after = identity_path_index
   debug "--- x ---", before = data, after = x
   debug "--- externalNullifier ---", before = extNullifier, after = extNullifier
 
