@@ -30,23 +30,23 @@ logScope:
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: UInt32)
+  proc register(idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256])
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(rateCommitment: UInt256, index: UInt32) {.event.}
+  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32) {.event.}
   # this function denotes existence of a given user
-  proc memberExists(idCommitment: UInt256): UInt256 {.view.}
+  proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
   # this constant describes the next index of a new member
-  proc commitmentIndex(): UInt256 {.view.}
+  proc nextFreeIndex(): UInt256 {.view.}
   # this constant describes the block number this contract was deployed on
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
-  proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
-  # this function returns the merkleProof for a given index 
-  # proc merkleProofElements(index: UInt40): seq[byte] {.view.}
-  # this function returns the merkle root 
-  proc root(): UInt256 {.view.}
+  proc maxMembershipRateLimit(): UInt256 {.view.}
+  # this function returns the merkleProof for a given index
+  # proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
+  # this function returns the Merkle root
+  proc root(): Uint256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -219,13 +219,16 @@ method register*(
   var gasPrice: int
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
+  let idCommitmentHex = identityCredential.idCommitment.inHex()
+  debug "identityCredential idCommitmentHex",
+    idCommitmentNoConvert = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
-
+  let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
-    idCommitment = idCommitment, userMessageLimit = userMessageLimit
+    idCommitment = idCommitment, userMessageLimit = userMessageLimit, idCommitmentsToErase = idCommitmentsToErase
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32)).send(
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32),idCommitmentsToErase).send(
       gasPrice = gasPrice
     )
 
@@ -246,19 +249,20 @@ method register*(
       ValueError, "register: transaction failed status is: " & $tsReceipt.status.get()
     )
 
-  let firstTopic = tsReceipt.logs[0].topics[0]
-  # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
+  let firstTopic = tsReceipt.logs[2].topics[0]
+  debug "third topic", firstTopic = firstTopic
+  # the hash of the signature of MembershipRegistered(uint256,uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint32)").data):
+      cast[FixedBytes[32]](keccak.keccak256.digest("MembershipRegistered(uint256,uint256,uint32)").data):
     raise newException(ValueError, "register: unexpected event signature")
 
-  # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits
-  let arguments = tsReceipt.logs[0].data
+  # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
+  # data = rateCommitment encoded as 256 bits || membershipRateLimit encoded as 256 bits || index encoded as 32 bits
+  let arguments = tsReceipt.logs[2].data
   debug "tx log data", arguments = arguments
   let
     # In TX log data, uints are encoded in big endian
-    membershipIndex = UInt256.fromBytesBE(arguments[32 ..^ 1])
+    membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
 
   debug "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
@@ -543,12 +547,21 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
+    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
+    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
+    let idCommitmentHex =  idCommitmentBytes.inHex()
+    debug "Keystore idCommitment in bytes",
+      idCommitmentBytes = idCommitmentBytes
+    debug "Keystore idCommitment in UInt256 ",
+      idCommitmentUInt256 = idCommitmentUInt256
+    debug "Keystore idCommitment in hex ",
+      idCommitmentHex = idCommitmentHex
+    let idCommitment = idCommitmentUInt256
     try:
       let membershipExists = await wakuRlnContract
-      .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
-      .call()
-      if membershipExists == 0:
-        return err("the commitment does not have a membership")
+      .isInMembershipSet(idCommitment).call()
+      if membershipExists == false:
+        return err("the idCommitmentUInt256 does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
@@ -565,7 +578,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       return err("persisted data: contract address mismatch")
 
   g.rlnRelayMaxMessageLimit =
-    cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
+    cast[uint64](await wakuRlnContract.maxMembershipRateLimit().call())
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
