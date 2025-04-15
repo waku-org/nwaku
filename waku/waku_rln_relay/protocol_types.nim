@@ -59,7 +59,7 @@ type
     identity_secret*: Fr
     user_message_limit*: Fr
     message_id*: Fr
-    path_elements*: seq[Fr]
+    path_elements*: seq[byte]
     identity_path_index*: seq[byte]
     x*: Fr
     external_nullifier*: Fr
