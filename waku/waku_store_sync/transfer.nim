@@ -57,7 +57,6 @@ proc sendMessage(
     await conn.writeLP(rawPayload)
 
   if writeRes.isErr():
-    await conn.close()
     return
       err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
@@ -128,6 +127,8 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
 
     (await sendMessage(connection, msg)).isOkOr:
+      self.outSessions.del(peerId)
+      await connection.close()
       error "failed to send message", error = error
       continue
 

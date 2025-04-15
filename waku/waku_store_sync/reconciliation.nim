@@ -116,7 +116,7 @@ proc processRequest(
 
     roundTrips.inc()
 
-    debug "sync payload received",
+    trace "sync payload received",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = recvPayload
@@ -160,7 +160,7 @@ proc processRequest(
       return
         err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
-    debug "sync payload sent",
+    trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = sendPayload
@@ -210,7 +210,7 @@ proc initiate(
       "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
     )
 
-  debug "sync payload sent",
+  trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
     remote = connection.peerId,
     payload = initPayload
