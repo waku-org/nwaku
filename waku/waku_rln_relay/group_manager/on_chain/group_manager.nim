@@ -30,17 +30,11 @@ logScope:
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(
-    idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256]
-  )
-
+  proc register(idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256])
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MembershipRegistered(
-    idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32
-  ) {.event.}
-
+  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32) {.event.}
   # this function denotes existence of a given user
   proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
   # this constant describes the next index of a new member
@@ -301,19 +295,17 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
+  debug "identityCredential idCommitmentHex",
+    idCommitmentNoConvert = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
-  debug "identityCredential idCommitment toUInt256", idCommitment = idCommitment
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
-    idCommitment = idCommitment,
-    userMessageLimit = userMessageLimit,
-    idCommitmentsToErase = idCommitmentsToErase
+    idCommitment = idCommitment, userMessageLimit = userMessageLimit, idCommitmentsToErase = idCommitmentsToErase
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract
-    .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
-    .send(gasPrice = gasPrice)
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32),idCommitmentsToErase).send(
+      gasPrice = gasPrice
+    )
 
   # wait for the transaction to be mined
   var tsReceipt: ReceiptObject
@@ -336,9 +328,7 @@ method register*(
   debug "third topic", firstTopic = firstTopic
   # the hash of the signature of MembershipRegistered(uint256,uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest(
-        "MembershipRegistered(uint256,uint256,uint32)"
-      ).data):
+      cast[FixedBytes[32]](keccak.keccak256.digest("MembershipRegistered(uint256,uint256,uint32)").data):
     raise newException(ValueError, "register: unexpected event signature")
 
   # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
@@ -632,10 +622,16 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
-    let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
-    debug "checking if the idCommitment has a membership",
-      idCommitmentHex = keystoreCred.identityCredential.idCommitment.inHex(),
-      idCommitmentUInt256 = idCommitment
+    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
+    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
+    let idCommitmentHex =  idCommitmentBytes.inHex()
+    debug "Keystore idCommitment in bytes",
+      idCommitmentBytes = idCommitmentBytes
+    debug "Keystore idCommitment in UInt256 ",
+      idCommitmentUInt256 = idCommitmentUInt256
+    debug "Keystore idCommitment in hex ",
+      idCommitmentHex = idCommitmentHex
+    let idCommitment = idCommitmentUInt256
     try:
       # let membershipExists =
       #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
@@ -667,7 +663,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
       debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
-        return err("the idCommitment does not have a membership")
+        return err("the idCommitmentUInt256 does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 

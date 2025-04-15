@@ -39,7 +39,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayDynamic: true,
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
-    rlnRelayUserMessageLimit: 100,
+    rlnRelayUserMessageLimit: 20,
     numShardsInNetwork: 8,
     discv5Discovery: true,
     discv5BootstrapNodes:
