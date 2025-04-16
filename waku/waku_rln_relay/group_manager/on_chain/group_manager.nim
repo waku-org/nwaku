@@ -428,7 +428,7 @@ method generateProof*(
     return err("Failed to compute external nullifier: " & extNullifierRes.error)
   let extNullifier = extNullifierRes.get()
 
-  debug "--- x ---", before = data, after = x
+  debug "--- x ( data hash ) ---", before = data, after = x
   debug "--- externalNullifier ---", before = extNullifier, after = extNullifier
 
   let witness = RLNWitnessInput(
@@ -442,6 +442,7 @@ method generateProof*(
   )
 
   let serializedWitness = serialize(witness)
+  debug "--- serializedWitness ---", before = witness, after = serializedWitness
   var input_witness_buffer = toBuffer(serializedWitness)
 
   # Generate the proof using the zerokit API
