@@ -57,7 +57,8 @@ proc sendMessage(
     await conn.writeLP(rawPayload)
 
   if writeRes.isErr():
-    return err("connection write error: " & writeRes.error.msg)
+    return
+      err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
   total_transfer_messages_exchanged.inc(labelValues = [Sending])
 
@@ -69,7 +70,7 @@ proc openConnection(
   let connOpt = await self.peerManager.dialPeer(peerId, WakuTransferCodec)
 
   let conn: Connection = connOpt.valueOr:
-    return err("Cannot establish transfer connection")
+    return err("fail to dial remote " & $peerId)
 
   debug "transfer session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
@@ -126,6 +127,8 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
 
     (await sendMessage(connection, msg)).isOkOr:
+      self.outSessions.del(peerId)
+      await connection.close()
       error "failed to send message", error = error
       continue
 
@@ -158,23 +161,24 @@ proc initProtocolHandler(self: SyncTransfer) =
         if value[].missingOrExcl(hash):
           error "unwanted hash received, disconnecting"
           self.inSessions.del(conn.peerId)
-          await conn.close()
           break
       do:
         error "unwanted hash received, disconnecting"
         self.inSessions.del(conn.peerId)
-        await conn.close()
         break
 
       #TODO verify msg RLN proof...
 
       (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
+        error "failed to archive message", error = $error
         continue
 
       let id = SyncID(time: msg.timestamp, hash: hash)
       await self.idsTx.addLast(id)
 
       continue
+
+    await conn.close()
 
     debug "transfer session ended",
       local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
