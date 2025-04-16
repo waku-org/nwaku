@@ -47,14 +47,10 @@ when isMainModule:
 
   case wakuNodeConf.cmd
   of generateRlnKeystore:
-    let conf = wakuNodeConf.toKeystoreGeneratorConf().valueOr:
-      error "Configuration failed", error = error
-      quit(QuitFailure)
+    let conf = wakuNodeConf.toKeystoreGeneratorConf()
     doRlnKeystoreGenerator(conf)
   of inspectRlnDb:
-    let conf = wakuNodeConf.toInspectRlnDbConf().valueOr:
-      error "Configuration failed", error = error
-      quit(QuitFailure)
+    let conf = wakuNodeConf.toInspectRlnDbConf()
     doInspectRlnDb(conf)
   of noCommand:
     # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it

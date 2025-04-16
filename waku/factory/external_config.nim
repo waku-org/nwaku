@@ -753,8 +753,7 @@ proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
 proc defaultListenAddress*(): IpAddress =
-  # TODO: How should we select between IPv4 and IPv6
-  # Maybe there should be a config option for this.
+  # TODO: Should probably listen on both ipv4 and ipv6 by default.
   (static parseIpAddress("0.0.0.0"))
 
 proc defaultColocationLimit*(): int =
@@ -864,22 +863,20 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
   except CatchableError:
     return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
 
-proc toKeystoreGeneratorConf*(n: WakuNodeConf): ConfResult[RlnKeystoreGeneratorConf] =
-  return ok(
-    RlnKeystoreGeneratorConf(
-      execute: n.execute,
-      chainId: n.rlnRelayChainId,
-      ethClientAddress: n.rlnRelayEthClientAddress.string,
-      ethContractAddress: n.rlnRelayEthContractAddress,
-      userMessageLimit: n.rlnRelayUserMessageLimit,
-      ethPrivateKey: n.rlnRelayEthPrivateKey,
-      credPath: n.rlnRelayCredPath,
-      credPassword: n.rlnRelayCredPassword,
-    )
+proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
+  RlnKeystoreGeneratorConf(
+    execute: n.execute,
+    chainId: n.rlnRelayChainId,
+    ethClientAddress: n.rlnRelayEthClientAddress.string,
+    ethContractAddress: n.rlnRelayEthContractAddress,
+    userMessageLimit: n.rlnRelayUserMessageLimit,
+    ethPrivateKey: n.rlnRelayEthPrivateKey,
+    credPath: n.rlnRelayCredPath,
+    credPassword: n.rlnRelayCredPassword,
   )
 
-proc toInspectRlnDbConf*(n: WakuNodeConf): ConfResult[InspectRlnDbConf] =
-  return ok(InspectRlnDbConf(treePath: n.treePath))
+proc toInspectRlnDbConf*(n: WakuNodeConf): InspectRlnDbConf =
+  return InspectRlnDbConf(treePath: n.treePath)
 
 proc toClusterConf(
     preset: string, clusterId: Option[uint16]

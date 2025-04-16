@@ -15,41 +15,35 @@ import
     node/peer_manager,
     waku_enr,
     discovery/waku_discv5,
-    factory/external_config,
     factory/internal_config,
     factory/waku_conf,
+    factory/waku_conf_builder,
     factory/builder,
   ],
   ./common
 
 # Waku node
 
-proc defaultTestWakuNodeConf*(): WakuNodeConf =
-  ## set cluster-id == 0 to not use TWN as that needs a background blockchain (e.g. anvil)
-  ## running because RLN is mounted if TWN (cluster-id == 1) is configured.
-  WakuNodeConf(
-    cmd: noCommand,
-    tcpPort: Port(60000),
-    websocketPort: Port(8000),
-    listenAddress: parseIpAddress("0.0.0.0"),
-    restAddress: parseIpAddress("127.0.0.1"),
-    metricsServerAddress: parseIpAddress("127.0.0.1"),
-    dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-    nat: "any",
-    maxConnections: 50,
-    relayServiceRatio: "60:40",
-    maxMessageSize: "1024 KiB",
-    clusterId: DefaultClusterId,
-    shards: @[DefaultShardId],
-    relay: true,
-    rendezvous: true,
-    storeMessageDbUrl: "sqlite://store.sqlite3",
-  )
-
-# TODO: migrate to usage of preset
-# TODO: remove indirection via `WakuNodeConf`
+# TODO: migrate to usage of a test cluster conf
 proc defaultTestWakuConf*(): WakuConf =
-  defaultTestWakuNodeConf().toWakuConf().get()
+  var builder = WakuConfBuilder.init()
+  builder.withP2pTcpPort(Port(60000))
+  builder.webSocketConf.withEnabled(true)
+  builder.webSocketConf.withWebSocketPort(Port(8000))
+  builder.withP2pListenAddress(parseIpAddress("0.0.0.0"))
+  builder.restServerConf.withListenAddress(parseIpAddress("127.0.0.1"))
+  builder.withDnsAddrsNameServers(
+    @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
+  )
+  builder.withNatStrategy("any")
+  builder.withMaxConnections(50)
+  builder.withRelayServiceRatio("60:40")
+  builder.withMaxMessageSize("1024 KiB")
+  builder.withClusterId(DefaultClusterId)
+  builder.withShards(@[DefaultShardId])
+  builder.withRelay(true)
+  builder.withRendezvous(true)
+  return builder.build().value
 
 proc newTestWakuNode*(
     nodeKey: crypto.PrivateKey,
@@ -84,7 +78,7 @@ proc newTestWakuNode*(
     else:
       extPort
 
-  var conf = defaultTestWakuNodeConf()
+  var conf = defaultTestWakuConf()
 
   conf.clusterId = clusterId
   conf.shards = shards

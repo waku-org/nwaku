@@ -55,6 +55,7 @@ proc dnsResolve*(
   else:
     return err("Could not resolve IP from DNS: empty response")
 
+# TODO: Reduce number of parameters, can be done once the same is done on Netconfig.init
 proc networkConfiguration*(
     clusterId: uint16,
     conf: NetworkConfig,

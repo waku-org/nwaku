@@ -414,13 +414,13 @@ suite "Waku Discovery v5":
   suite "waku discv5 initialization":
     asyncTest "Start waku and check discv5 discovered peers":
       let myRng = crypto.newRng()
-      var conf = defaultTestWakuNodeConf()
+      var conf = defaultTestWakuConf()
 
       conf.nodeKey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
       conf.discv5Discovery = some(true)
       conf.discv5UdpPort = Port(9000)
 
-      let waku0 = Waku.new(conf.toWakuConf().get()).valueOr:
+      let waku0 = Waku.new(conf).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku0)).isOkOr:
         raiseAssert error

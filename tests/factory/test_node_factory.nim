@@ -10,8 +10,7 @@ import
 
 suite "Node Factory":
   test "Set up a node based on default configurations":
-    let nodeConf = defaultTestWakuNodeConf()
-    let conf = nodeConf.toWakuConf().get()
+    let conf = defaultTestWakuConf()
 
     let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
@@ -25,7 +24,7 @@ suite "Node Factory":
       not node.wakuRendezvous.isNil()
 
   test "Set up a node with Store enabled":
-    var nodeConf = defaultTestWakuNodeConf()
+    var conf = defaultTestWakuConf()
     nodeConf.store = true
     let conf = nodeConf.toWakuConf().get()
 
