@@ -72,10 +72,15 @@ proc sendPushRequest(
 proc publish*(
     wl: WakuLegacyLightPushClient,
     pubSubTopic: PubsubTopic,
-    message: WakuMessage,
+    wakuMessage: WakuMessage,
     peer: RemotePeerInfo,
 ): Future[WakuLightPushResult[string]] {.async, gcsafe.} =
   ## On success, returns the msg_hash of the published message
+
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
+
   let msg_hash_hex_str = computeMessageHash(pubsubTopic, message).to0xHex()
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   ?await wl.sendPushRequest(pushRequest, peer)
