@@ -106,6 +106,11 @@ proc seqToField*(s: seq[byte]): array[32, byte] =
   for i in 0 ..< len:
     result[i] = s[i]
 
+proc uint64ToIndex*(value: uint64, numBits: int = 64): seq[uint8] =
+  result = newSeq[uint8](numBits)
+  for i in 0..<numBits:
+    result[i] = uint8((value shr i) and 1)
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
@@ -380,7 +385,7 @@ method generateProof*(
 
   let index_len = int(g.merkleProofCache.len / 32)
   let identity_path_index =
-    uint64ToField(uint64(g.membershipIndex.get()))[0 .. index_len - 1]
+    uint64ToIndex(uint64(g.membershipIndex.get()), index_len)
 
   debug "--- identityPathIndex ---",
     before = g.membershipIndex.get(),
