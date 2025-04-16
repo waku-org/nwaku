@@ -384,10 +384,9 @@ method generateProof*(
     return err("Invalid merkle proof cache length")
 
   var i = 0
-  while i + 31 < g.merkleProofCache.len:
-    for j in countdown(31, 0):
-      pathElements.add(g.merkleProofCache[i + j])
-    i += 32
+  while i < g.merkleProofCache.len:
+    path_elements.add(g.merkleProofCache[i])
+    i += 1
 
   debug "--- pathElements ---",
     before = g.merkleProofCache,
@@ -395,17 +394,9 @@ method generateProof*(
     before_len = g.merkleProofCache.len,
     after_len = path_elements.len
 
-  var commitmentIndexRes: UInt256
-  try:
-    let tmp = waitFor g.fetchCommitmentIndex()
-    if tmp.isErr():
-      return err("Failed to fetch commitment index: " & tmp.error)
-    commitmentIndexRes = tmp.get()
-  except CatchableError:
-    error "Failed to fetch commitment index", error = getCurrentExceptionMsg()
-
   let index_len = int(g.merkleProofCache.len / 32)
-  let identity_path_index = uint256ToBinarySeq(commitmentIndexRes, index_len)
+  let identity_path_index =
+    uint64ToField(uint64(g.membershipIndex.get()))[0 .. index_len - 1]
 
   debug "--- identityPathIndex ---",
     before = g.membershipIndex.get(),
