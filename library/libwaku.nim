@@ -225,18 +225,10 @@ proc waku_content_topic(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let appStr = appName.alloc()
-  let ctnStr = contentTopicName.alloc()
-  let encodingStr = encoding.alloc()
-
-  let contentTopic = fmt"/{$appStr}/{appVersion}/{$ctnStr}/{$encodingStr}"
+  let contentTopic = fmt"/{$appName}/{appVersion}/{$contentTopicName}/{$encoding}"
   callback(
     RET_OK, unsafeAddr contentTopic[0], cast[csize_t](len(contentTopic)), userData
   )
-
-  deallocShared(appStr)
-  deallocShared(ctnStr)
-  deallocShared(encodingStr)
 
   return RET_OK
 
@@ -248,14 +240,10 @@ proc waku_pubsub_topic(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let topicNameStr = topicName.alloc()
-
-  let outPubsubTopic = fmt"/waku/2/{$topicNameStr}"
+  let outPubsubTopic = fmt"/waku/2/{$topicName}"
   callback(
     RET_OK, unsafeAddr outPubsubTopic[0], cast[csize_t](len(outPubsubTopic)), userData
   )
-
-  deallocShared(topicNameStr)
 
   return RET_OK
 
@@ -289,12 +277,9 @@ proc waku_relay_publish(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let jwm = jsonWakuMessage.alloc()
-  defer:
-    deallocShared(jwm)
   var jsonMessage: JsonMessage
   try:
-    let jsonContent = parseJson($jwm)
+    let jsonContent = parseJson($jsonWakuMessage)
     jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
       raise newException(JsonParsingError, $error)
   except JsonParsingError:
@@ -307,14 +292,10 @@ proc waku_relay_publish(
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.PUBLISH, pst, nil, wakuMessage),
+    RelayRequest.createShared(RelayMsgType.PUBLISH, pubSubTopic, nil, wakuMessage),
     callback,
     userData,
   )
@@ -354,15 +335,12 @@ proc waku_relay_subscribe(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
   var cb = onReceivedMessage(ctx)
 
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pst, WakuRelayHandler(cb)),
+    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pubSubTopic, WakuRelayHandler(cb)),
     callback,
     userData,
   )
@@ -377,9 +355,6 @@ proc waku_relay_add_protected_shard(
 ): cint {.dynlib, exportc, cdecl.} =
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
-  let pubk = publicKey.alloc()
-  defer:
-    deallocShared(pubk)
 
   handleRequest(
     ctx,
@@ -388,7 +363,7 @@ proc waku_relay_add_protected_shard(
       RelayMsgType.ADD_PROTECTED_SHARD,
       clusterId = clusterId,
       shardId = shardId,
-      publicKey = pubk,
+      publicKey = publicKey,
     ),
     callback,
     userData,
@@ -403,15 +378,11 @@ proc waku_relay_unsubscribe(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.UNSUBSCRIBE, pst, WakuRelayHandler(onReceivedMessage(ctx))
+      RelayMsgType.UNSUBSCRIBE, pubSubTopic, WakuRelayHandler(onReceivedMessage(ctx))
     ),
     callback,
     userData,
@@ -426,14 +397,10 @@ proc waku_relay_get_num_connected_peers(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.NUM_CONNECTED_PEERS, pst),
+    RelayRequest.createShared(RelayMsgType.NUM_CONNECTED_PEERS, pubSubTopic),
     callback,
     userData,
   )
@@ -447,14 +414,10 @@ proc waku_relay_get_connected_peers(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, pst),
+    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, pubSubTopic),
     callback,
     userData,
   )
@@ -468,14 +431,10 @@ proc waku_relay_get_num_peers_in_mesh(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.NUM_MESH_PEERS, pst),
+    RelayRequest.createShared(RelayMsgType.NUM_MESH_PEERS, pubSubTopic),
     callback,
     userData,
   )
@@ -489,14 +448,10 @@ proc waku_relay_get_peers_in_mesh(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(pst)
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, pst),
+    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, pubSubTopic),
     callback,
     userData,
   )
@@ -566,15 +521,9 @@ proc waku_lightpush_publish(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let jwm = jsonWakuMessage.alloc()
-  let pst = pubSubTopic.alloc()
-  defer:
-    deallocShared(jwm)
-    deallocShared(pst)
-
   var jsonMessage: JsonMessage
   try:
-    let jsonContent = parseJson($jwm)
+    let jsonContent = parseJson($jsonWakuMessage)
     jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
       raise newException(JsonParsingError, $error)
   except JsonParsingError:
@@ -590,7 +539,7 @@ proc waku_lightpush_publish(
   handleRequest(
     ctx,
     RequestType.LIGHTPUSH,
-    LightpushRequest.createShared(LightpushMsgType.PUBLISH, pst, wakuMessage),
+    LightpushRequest.createShared(LightpushMsgType.PUBLISH, pubSubTopic, wakuMessage),
     callback,
     userData,
   )
