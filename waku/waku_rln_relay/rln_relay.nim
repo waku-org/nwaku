@@ -193,6 +193,8 @@ proc validateMessage*(
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
+  debug "calling validateMessage from rln_relay", msg_len = msg.payload.len
+
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
@@ -315,6 +317,8 @@ proc appendRLNProof*(
 
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
+
+  debug "calling generateProof from appendRLNProof from rln_relay", input = input
 
   let nonce = rlnPeer.nonceManager.getNonce().valueOr:
     return err("could not get new message id to generate an rln proof: " & $error)
@@ -467,9 +471,10 @@ proc mount(
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
-  # Start the group sync
-  (await groupManager.startGroupSync()).isOkOr:
-    return err("could not start the group sync: " & $error)
+
+  if groupManager of OnchainGroupManager:
+    let onchainManager = cast[OnchainGroupManager](groupManager)
+    asyncSpawn trackRootChanges(onchainManager)
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,

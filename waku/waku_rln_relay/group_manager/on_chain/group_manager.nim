@@ -10,13 +10,13 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/tables,
+  std/[strutils, tables, algorithm],
   stew/[byteutils, arrayops],
-  sequtils,
-  strutils
+  sequtils
 import
   ../../../waku_keystore,
   ../../rln,
+  ../../rln/rln_interface,
   ../../conversion_utils,
   ../group_manager_base,
   ./retry_wrapper
@@ -28,6 +28,10 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
+type EthereumUInt40* = StUint[40]
+type EthereumUInt32* = StUint[32]
+type EthereumUInt16* = StUint[16]
+
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -37,13 +41,17 @@ contract(WakuRlnContract):
   # this event is raised when a new member is registered
   proc MemberRegistered(rateCommitment: UInt256, index: EthereumUInt32) {.event.}
   # this function denotes existence of a given user
-  proc memberExists(idCommitment: Uint256): UInt256 {.view.}
+  proc memberExists(idCommitment: UInt256): UInt256 {.view.}
   # this constant describes the next index of a new member
   proc commitmentIndex(): UInt256 {.view.}
   # this constant describes the block number this contract was deployed on
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
+  # this function returns the merkleProof for a given index 
+  proc merkleProofElements(index: EthereumUInt40): seq[byte] {.view.}
+  # this function returns the merkle root 
+  proc root(): UInt256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -52,42 +60,14 @@ type
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
-    rlnContractDeployedBlockNumber*: BlockNumber
     wakuRlnContract*: Option[WakuRlnContractWithSender]
-    latestProcessedBlock*: BlockNumber
     registrationTxHash*: Option[TxHash]
     chainId*: uint
     keystorePath*: Option[string]
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
-    # this buffer exists to backfill appropriate roots for the merkle tree,
-    # in event of a reorg. we store 5 in the buffer. Maybe need to revisit this,
-    # because the average reorg depth is 1 to 2 blocks.
-    validRootBuffer*: Deque[MerkleNode]
-    # interval loop to shut down gracefully
-    blockFetchingActive*: bool
-
-const DefaultKeyStorePath* = "rlnKeystore.json"
-const DefaultKeyStorePassword* = "password"
-
-const DefaultBlockPollRate* = 6.seconds
-
-template initializedGuard(g: OnchainGroupManager): untyped =
-  if not g.initialized:
-    raise newException(CatchableError, "OnchainGroupManager is not initialized")
-
-proc resultifiedInitGuard(g: OnchainGroupManager): GroupManagerResult[void] =
-  try:
-    initializedGuard(g)
-    return ok()
-  except CatchableError:
-    return err("OnchainGroupManager is not initialized")
-
-template retryWrapper(
-    g: OnchainGroupManager, res: auto, errStr: string, body: untyped
-): auto =
-  retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
-    body
+    latestProcessedBlock*: BlockNumber
+    merkleProofCache*: seq[byte]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -112,6 +92,141 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
+proc uint64ToField*(n: uint64): array[32, byte] =
+  ## Converts uint64 to 32-byte little-endian array with zero padding
+  var bytes = toBytes(n, Endianness.littleEndian)
+  result[0 ..< bytes.len] = bytes
+
+proc UInt256ToField*(v: UInt256): array[32, byte] =
+  return cast[array[32, byte]](v)
+
+proc seqToField*(s: seq[byte]): array[32, byte] =
+  result = default(array[32, byte])
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    result[i] = s[i]
+
+proc uint64ToIndex*(value: uint64, numBits: int = 64): seq[uint8] =
+  result = newSeq[uint8](numBits)
+  for i in 0 ..< numBits:
+    result[i] = uint8((value shr i) and 1)
+
+proc fetchMerkleProofElements*(
+    g: OnchainGroupManager
+): Future[Result[seq[byte], string]] {.async.} =
+  try:
+    let membershipIndex = g.membershipIndex.get()
+    let index40 = stuint(membershipIndex, 40)
+
+    let methodSig = "merkleProofElements(uint40)"
+    let methodIdDigest = keccak.keccak256.digest(methodSig)
+    let methodId = methodIdDigest.data[0 .. 3]
+
+    var paddedParam = newSeq[byte](32)
+    let indexBytes = index40.toBytesBE()
+    for i in 0 ..< min(indexBytes.len, paddedParam.len):
+      paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
+
+    var callData = newSeq[byte]()
+    for b in methodId:
+      callData.add(b)
+    callData.add(paddedParam)
+
+    var tx: TransactionArgs
+    tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
+    tx.data = Opt.some(callData)
+
+    let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
+
+    return ok(responseBytes)
+  except CatchableError:
+    error "Failed to fetch Merkle proof elements",
+      errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
+    return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
+
+proc fetchMerkleRoot*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let merkleRootInvocation = g.wakuRlnContract.get().root()
+    let merkleRoot = await merkleRootInvocation.call()
+    return ok(merkleRoot)
+  except CatchableError:
+    error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
+
+proc fetchCommitmentIndex*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+  let commitmentIndex = await commitmentIndexInvocation.call()
+  return ok(commitmentIndex)
+
+template initializedGuard(g: OnchainGroupManager): untyped =
+  if not g.initialized:
+    raise newException(CatchableError, "OnchainGroupManager is not initialized")
+
+template retryWrapper(
+    g: OnchainGroupManager, res: auto, errStr: string, body: untyped
+): auto =
+  retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
+    body
+
+method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
+  if g.validRoots.find(root) >= 0:
+    return true
+  return false
+
+proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
+  let rootRes = await g.fetchMerkleRoot()
+  if rootRes.isErr():
+    return false
+
+  let merkleRoot = UInt256ToField(rootRes.get())
+  if g.validRoots.len == 0:
+    g.validRoots.addLast(merkleRoot)
+    return true
+
+  if g.validRoots[g.validRoots.len - 1] != merkleRoot:
+    var overflow = g.validRoots.len - AcceptableRootWindowSize + 1
+    while overflow > 0:
+      discard g.validRoots.popFirst()
+      overflow = overflow - 1
+    g.validRoots.addLast(merkleRoot)
+    return true
+
+  return false
+
+proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
+  let ethRpc = g.ethRpc.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
+
+  # Set up the polling interval - more frequent to catch roots
+  const rpcDelay = 5.seconds
+
+  while true:
+    let rootUpdated = await g.updateRoots()
+
+    let proofResult = await g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      error "Failed to fetch Merkle proof", error = proofResult.error
+    g.merkleProofCache = proofResult.get()
+
+    debug "Roots and MerkleProof status",
+      roots = g.validRoots.toSeq(),
+      rootsCount = g.validRoots.len,
+      firstProofElement =
+        if g.merkleProofCache.len >= 32:
+          g.merkleProofCache[0 .. 31]
+        else:
+          @[],
+      lastProofElement =
+        if g.merkleProofCache.len >= 32:
+          g.merkleProofCache[^32 ..^ 1]
+        else:
+          @[],
+      proofLength = g.merkleProofCache.len
+    await sleepAsync(rpcDelay)
+
 method atomicBatch*(
     g: OnchainGroupManager,
     start: MembershipIndex,
@@ -119,14 +234,6 @@ method atomicBatch*(
     toRemoveIndices = newSeq[MembershipIndex](),
 ): Future[void] {.async: (raises: [Exception]), base.} =
   initializedGuard(g)
-
-  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
-    let operationSuccess =
-      g.rlnInstance.atomicWrite(some(start), rateCommitments, toRemoveIndices)
-  if not operationSuccess:
-    raise newException(CatchableError, "atomic batch operation failed")
-  # TODO: when slashing is enabled, we need to track slashed members
-  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -138,7 +245,7 @@ method atomicBatch*(
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
-  g.validRootBuffer = g.slideRootQueue()
+  discard await g.updateRoots()
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
@@ -147,17 +254,10 @@ method register*(
 
   try:
     let leaf = rateCommitment.toLeaf().get()
-    await g.registerBatch(@[leaf])
+    await g.atomicBatch(g.latestIndex, @[leaf])
+    g.latestIndex += MembershipIndex(1)
   except CatchableError:
     raise newException(ValueError, getCurrentExceptionMsg())
-
-method registerBatch*(
-    g: OnchainGroupManager, rateCommitments: seq[RawRateCommitment]
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  await g.atomicBatch(g.latestIndex, rateCommitments)
-  g.latestIndex += MembershipIndex(rateCommitments.len)
 
 method register*(
     g: OnchainGroupManager,
@@ -213,7 +313,6 @@ method register*(
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
 
-  # don't handle member insertion into the tree here, it will be handled by the event listener
   return
 
 method withdraw*(
@@ -226,304 +325,195 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-    # TODO: after slashing is enabled on the contract, use atomicBatch internally
+method generateProof*(
+    g: OnchainGroupManager,
+    data: seq[byte],
+    epoch: Epoch,
+    messageId: MessageId,
+    rlnIdentifier = DefaultRlnIdentifier,
+): GroupManagerResult[RateLimitProof] {.gcsafe, raises: [].} =
+  ## Generates an RLN proof using the cached Merkle proof and custom witness
+  # Ensure identity credentials and membership index are set
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  if g.userMessageLimit.isNone():
+    return err("user message limit is not set")
 
-proc parseEvent(
-    event: type MemberRegistered, log: JsonNode
-): GroupManagerResult[Membership] =
-  ## parses the `data` parameter of the `MemberRegistered` event `log`
-  ## returns an error if it cannot parse the `data` parameter
-  var rateCommitment: UInt256
-  var index: UInt256
-  var data: seq[byte]
+  debug "calling generateProof from group_manager onchain",
+    data = data,
+    membershipIndex = g.membershipIndex.get(),
+    userMessageLimit = g.userMessageLimit.get()
+
   try:
-    data = hexToSeqByte(log["data"].getStr())
-  except ValueError:
-    return err(
-      "failed to parse the data field of the MemberRegistered event: " &
-        getCurrentExceptionMsg()
-    )
-  var offset = 0
-  try:
-    # Parse the rateCommitment
-    offset += decode(data, 0, offset, rateCommitment)
-    # Parse the index
-    offset += decode(data, 0, offset, index)
-    return ok(
-      Membership(
-        rateCommitment: rateCommitment.toRateCommitment(),
-        index: index.toMembershipIndex(),
-      )
-    )
+    discard waitFor g.updateRoots()
   except CatchableError:
-    return err("failed to parse the data field of the MemberRegistered event")
+    error "Failed to update roots", error = getCurrentExceptionMsg()
 
-type BlockTable* = OrderedTable[BlockNumber, seq[(Membership, bool)]]
-
-proc backfillRootQueue*(
-    g: OnchainGroupManager, len: uint
-): Future[void] {.async: (raises: [Exception]).} =
-  if len > 0:
-    # backfill the tree's acceptable roots
-    for i in 0 .. len - 1:
-      # remove the last root
-      g.validRoots.popLast()
-    for i in 0 .. len - 1:
-      # add the backfilled root
-      g.validRoots.addLast(g.validRootBuffer.popLast())
-
-proc insert(
-    blockTable: var BlockTable,
-    blockNumber: BlockNumber,
-    member: Membership,
-    removed: bool,
-) =
-  let memberTuple = (member, removed)
-  if blockTable.hasKeyOrPut(blockNumber, @[memberTuple]):
-    try:
-      blockTable[blockNumber].add(memberTuple)
-    except KeyError: # qed
-      error "could not insert member into block table",
-        blockNumber = blockNumber, member = member
-
-proc getRawEvents(
-    g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
-): Future[JsonNode] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  let ethRpc = g.ethRpc.get()
-  let wakuRlnContract = g.wakuRlnContract.get()
-
-  var eventStrs: seq[JsonString]
-  g.retryWrapper(eventStrs, "Failed to get the events"):
-    await wakuRlnContract.getJsonLogs(
-      MemberRegistered,
-      fromBlock = Opt.some(fromBlock.blockId()),
-      toBlock = Opt.some(toBlock.blockId()),
-    )
-
-  var events = newJArray()
-  for eventStr in eventStrs:
-    events.add(parseJson(eventStr.string))
-  return events
-
-proc getBlockTable(
-    g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
-): Future[BlockTable] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  var blockTable = default(BlockTable)
-
-  let events = await g.getRawEvents(fromBlock, toBlock)
-
-  if events.len == 0:
-    trace "no events found"
-    return blockTable
-
-  for event in events:
-    let blockNumber = parseHexInt(event["blockNumber"].getStr()).BlockNumber
-    let removed = event["removed"].getBool()
-    let parsedEventRes = parseEvent(MemberRegistered, event)
-    if parsedEventRes.isErr():
-      error "failed to parse the MemberRegistered event", error = parsedEventRes.error()
-      raise newException(ValueError, "failed to parse the MemberRegistered event")
-    let parsedEvent = parsedEventRes.get()
-    blockTable.insert(blockNumber, parsedEvent, removed)
-
-  return blockTable
-
-proc handleEvents(
-    g: OnchainGroupManager, blockTable: BlockTable
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  for blockNumber, members in blockTable.pairs():
-    try:
-      let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
-      let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
-      let rateCommitments = members.mapIt(it[0].rateCommitment)
-      await g.atomicBatch(
-        start = startIndex,
-        rateCommitments = rateCommitments,
-        toRemoveIndices = removalIndices,
-      )
-      g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
-      trace "new members added to the Merkle tree",
-        commitments = rateCommitments.mapIt(it.inHex)
-    except CatchableError:
-      error "failed to insert members into the tree", error = getCurrentExceptionMsg()
-      raise newException(ValueError, "failed to insert members into the tree")
-
-  return
-
-proc handleRemovedEvents(
-    g: OnchainGroupManager, blockTable: BlockTable
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  # count number of blocks that have been removed
-  var numRemovedBlocks: uint = 0
-  for blockNumber, members in blockTable.pairs():
-    if members.anyIt(it[1]):
-      numRemovedBlocks += 1
-
-  await g.backfillRootQueue(numRemovedBlocks)
-
-proc getAndHandleEvents(
-    g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
-): Future[bool] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-  let blockTable = await g.getBlockTable(fromBlock, toBlock)
   try:
-    await g.handleEvents(blockTable)
-    await g.handleRemovedEvents(blockTable)
+    let proofResult = waitFor g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      return err("Failed to fetch Merkle proof: " & proofResult.error)
+    g.merkleProofCache = proofResult.get()
   except CatchableError:
-    error "failed to handle events", error = getCurrentExceptionMsg()
-    raise newException(ValueError, "failed to handle events")
+    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
-  g.latestProcessedBlock = toBlock
-  return true
+  let identity_secret = seqToField(g.idCredentials.get().idSecretHash)
+  let user_message_limit = uint64ToField(g.userMessageLimit.get())
+  let message_id = uint64ToField(messageId)
+  var path_elements = newSeq[byte](0)
 
-proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
-  g.blockFetchingActive = false
+  debug "--- identitySecret ---", before = identity_secret, after = identity_secret
+  debug "--- userMessageLimit ---",
+    before = g.userMessageLimit.get(), after = user_message_limit
+  debug "--- messageId ---", before = messageId, after = message_id
 
-  proc runIntervalLoop() {.async, gcsafe.} =
-    g.blockFetchingActive = true
+  if (g.merkleProofCache.len mod 32) != 0:
+    return err("Invalid merkle proof cache length")
 
-    while g.blockFetchingActive:
-      var retCb: bool
-      g.retryWrapper(retCb, "Failed to run the interval block fetching loop"):
-        await cb()
-      await sleepAsync(interval)
+  g.merkleProofCache.reverse()
+  var i = 0
+  while i + 31 < g.merkleProofCache.len:
+    for j in countdown(31, 0):
+      path_elements.add(g.merkleProofCache[i+j])
+    i += 32
 
-  # using asyncSpawn is OK here since
-  # we make use of the error handling provided by
-  # OnFatalErrorHandler
-  asyncSpawn runIntervalLoop()
+  debug "--- pathElements ---",
+    before = g.merkleProofCache,
+    after = path_elements,
+    before_len = g.merkleProofCache.len,
+    after_len = path_elements.len
 
-proc getNewBlockCallback(g: OnchainGroupManager): proc =
-  let ethRpc = g.ethRpc.get()
-  proc wrappedCb(): Future[bool] {.async, gcsafe.} =
-    var latestBlock: BlockNumber
-    g.retryWrapper(latestBlock, "Failed to get the latest block number"):
-      cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+  let index_len = int(g.merkleProofCache.len / 32)
+  let identity_path_index = uint64ToIndex(uint64(g.membershipIndex.get()), index_len)
 
-    if latestBlock <= g.latestProcessedBlock:
-      return
-    # get logs from the last block
-    # inc by 1 to prevent double processing
-    let fromBlock = g.latestProcessedBlock + 1
-    var handleBlockRes: bool
-    g.retryWrapper(handleBlockRes, "Failed to handle new block"):
-      await g.getAndHandleEvents(fromBlock, latestBlock)
+  debug "--- identityPathIndex ---",
+    before = g.membershipIndex.get(),
+    after = identity_path_index,
+    len = identity_path_index.len
+  # Convert seq[byte] to Buffer and get the hash
+  var
+    hash_input_buffer = toBuffer(data) # Convert input data to Buffer
+    hash_output_buffer: Buffer # Create output buffer for the hash
+  let hash_success = sha256(addr hash_input_buffer, addr hash_output_buffer)
+  if not hash_success:
+    return err("Failed to compute sha256 hash")
 
-    # cannot use isOkOr here because results in a compile-time error that
-    # shows the error is void for some reason
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
+  var hash_output_seq = newSeq[byte](hash_output_buffer.len)
+  copyMem(addr hash_output_seq[0], hash_output_buffer.ptr, hash_output_buffer.len)
+  let x = seqToField(hash_output_seq)
 
-    return handleBlockRes
+  let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
+  if extNullifierRes.isErr():
+    return err("Failed to compute external nullifier: " & extNullifierRes.error)
+  let extNullifier = extNullifierRes.get()
 
-  return wrappedCb
+  debug "--- x ( data hash ) ---", before = data, after = x
+  debug "--- externalNullifier ---", before = extNullifier, after = extNullifier
 
-proc startListeningToEvents(
-    g: OnchainGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+  let witness = RLNWitnessInput(
+    identity_secret: identity_secret,
+    user_message_limit: user_message_limit,
+    message_id: message_id,
+    path_elements: path_elements,
+    identity_path_index: identity_path_index,
+    x: x,
+    external_nullifier: extNullifier,
+  )
 
-  let ethRpc = g.ethRpc.get()
-  let newBlockCallback = g.getNewBlockCallback()
-  g.runInInterval(newBlockCallback, DefaultBlockPollRate)
+  let serializedWitness = serialize(witness)
 
-proc batchAwaitBlockHandlingFuture(
-    g: OnchainGroupManager, futs: seq[Future[bool]]
-): Future[void] {.async: (raises: [Exception]).} =
-  for fut in futs:
-    try:
-      var handleBlockRes: bool
-      g.retryWrapper(handleBlockRes, "Failed to handle block"):
-        await fut
-    except CatchableError:
-      raise newException(
-        CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
-      )
+  debug "--- serializedWitness ---", before = witness, after = serializedWitness
+  var input_witness_buffer = toBuffer(serializedWitness)
 
-proc startOnchainSync(
-    g: OnchainGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+  # Generate the proof using the zerokit API
+  var output_witness_buffer: Buffer
+  let witness_success = generate_proof_with_witness(
+    g.rlnInstance, addr input_witness_buffer, addr output_witness_buffer
+  )
+  if not witness_success:
+    return err("Failed to generate proof")
+  else:
+    debug "Proof generated successfully"
 
-  let ethRpc = g.ethRpc.get()
+  # Parse the proof into a RateLimitProof object
+  var proofValue = cast[ptr array[320, byte]](output_witness_buffer.`ptr`)
+  let proofBytes: array[320, byte] = proofValue[]
 
-  # static block chunk size
-  let blockChunkSize = 2_000.BlockNumber
-  # delay between rpc calls to not overload the rate limit
-  let rpcDelay = 200.milliseconds
-  # max number of futures to run concurrently
-  let maxFutures = 10
+  ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+  let
+    proofOffset = 128
+    rootOffset = proofOffset + 32
+    externalNullifierOffset = rootOffset + 32
+    shareXOffset = externalNullifierOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
 
-  var fromBlock: BlockNumber =
-    if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
-      info "syncing from last processed block", blockNumber = g.latestProcessedBlock
-      g.latestProcessedBlock + 1
-    else:
-      info "syncing from rln contract deployed block",
-        blockNumber = g.rlnContractDeployedBlockNumber
-      g.rlnContractDeployedBlockNumber
+  var
+    zkproof: ZKSNARK
+    proofRoot, shareX, shareY: MerkleNode
+    externalNullifier: ExternalNullifier
+    nullifier: Nullifier
 
-  var futs = newSeq[Future[bool]]()
-  var currentLatestBlock: BlockNumber
-  g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
-    cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+  discard zkproof.copyFrom(proofBytes[0 .. proofOffset - 1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset .. rootOffset - 1])
+  discard
+    externalNullifier.copyFrom(proofBytes[rootOffset .. externalNullifierOffset - 1])
+  discard shareX.copyFrom(proofBytes[externalNullifierOffset .. shareXOffset - 1])
+  discard shareY.copyFrom(proofBytes[shareXOffset .. shareYOffset - 1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset .. nullifierOffset - 1])
 
-  try:
-    # we always want to sync from last processed block => latest
-    # chunk events
-    while true:
-      # if the fromBlock is less than 2k blocks behind the current block
-      # then fetch the new toBlock
-      if fromBlock >= currentLatestBlock:
-        break
+  # Create the RateLimitProof object
+  let output = RateLimitProof(
+    proof: zkproof,
+    merkleRoot: proofRoot,
+    externalNullifier: externalNullifier,
+    epoch: epoch,
+    rlnIdentifier: rlnIdentifier,
+    shareX: shareX,
+    shareY: shareY,
+    nullifier: nullifier,
+  )
+  waku_rln_remaining_proofs_per_epoch.dec()
+  waku_rln_total_generated_proofs.inc()
+  return ok(output)
 
-      if fromBlock + blockChunkSize > currentLatestBlock:
-        g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
-          cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+method verifyProof*(
+    g: OnchainGroupManager, input: openArray[byte], proof: RateLimitProof
+): GroupManagerResult[bool] {.gcsafe, raises: [].} =
+  ## verifies the proof, returns an error if the proof verification fails
+  ## returns true if the proof is valid
+  var normalizedProof = proof
+  # when we do this, we ensure that we compute the proof for the derived value
+  # of the externalNullifier. The proof verification will fail if a malicious peer
+  # attaches invalid epoch+rlnidentifier pair
 
-      let toBlock = min(fromBlock + blockChunkSize, currentLatestBlock)
-      debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
-      await sleepAsync(rpcDelay)
-      futs.add(g.getAndHandleEvents(fromBlock, toBlock))
-      if futs.len >= maxFutures or toBlock == currentLatestBlock:
-        await g.batchAwaitBlockHandlingFuture(futs)
-        g.setMetadata(lastProcessedBlock = some(toBlock)).isOkOr:
-          error "failed to persist rln metadata", error = $error
-        futs = newSeq[Future[bool]]()
-      fromBlock = toBlock + 1
-  except CatchableError:
-    raise newException(
-      CatchableError,
-      "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg(),
-    )
+  normalizedProof.externalNullifier = poseidon(
+    @[@(proof.epoch), @(proof.rlnIdentifier)]
+  ).valueOr:
+    return err("could not construct the external nullifier")
+  var
+    proofBytes = serialize(normalizedProof, input)
+    proofBuffer = proofBytes.toBuffer()
+    validProof: bool
+    rootsBytes = serialize(g.validRoots.items().toSeq())
+    rootsBuffer = rootsBytes.toBuffer()
 
-  # listen to blockheaders and contract events
-  try:
-    await g.startListeningToEvents()
-  except CatchableError:
-    raise newException(
-      ValueError, "failed to start listening to events: " & getCurrentExceptionMsg()
-    )
+  trace "serialized proof", proof = byteutils.toHex(proofBytes)
 
-method startGroupSync*(
-    g: OnchainGroupManager
-): Future[GroupManagerResult[void]] {.async.} =
-  ?resultifiedInitGuard(g)
-  # Get archive history
-  try:
-    await startOnchainSync(g)
-    return ok()
-  except CatchableError, Exception:
-    return err("failed to start group sync: " & getCurrentExceptionMsg())
+  let verifyIsSuccessful = verify_with_roots(
+    g.rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof
+  )
+  if not verifyIsSuccessful:
+    # something went wrong in verification call
+    warn "could not verify validity of the proof", proof = proof
+    return err("could not verify the proof")
+
+  if not validProof:
+    return ok(false)
+  else:
+    return ok(true)
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
@@ -609,53 +599,28 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     let metadata = metadataGetOptRes.get().get()
     if metadata.chainId != uint(g.chainId):
       return err("persisted data: chain id mismatch")
-
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
-    g.latestProcessedBlock = metadata.lastProcessedBlock.BlockNumber
-    g.validRoots = metadata.validRoots.toDeque()
 
-  var deployedBlockNumber: Uint256
-  g.retryWrapper(
-    deployedBlockNumber,
-    "Failed to get the deployed block number. Have you set the correct contract address?",
-  ):
-    await wakuRlnContract.deployedBlockNumber().call()
-  debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
-  g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
-  g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
   g.rlnRelayMaxMessageLimit =
     cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
-    let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
-    info "reconnecting with the Ethereum client, and restarting group sync",
-      fromBlock = fromBlock
     var newEthRpc: Web3
     g.retryWrapper(newEthRpc, "Failed to reconnect with the Ethereum client"):
       await newWeb3(g.ethClientUrl)
     newEthRpc.ondisconnect = ethRpc.ondisconnect
     g.ethRpc = some(newEthRpc)
 
-    try:
-      await g.startOnchainSync()
-    except CatchableError, Exception:
-      g.onFatalErrorAction(
-        "failed to restart group sync" & ": " & getCurrentExceptionMsg()
-      )
-
   ethRpc.ondisconnect = proc() =
     asyncSpawn onDisconnect()
 
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
-
   return ok()
 
 method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
-  g.blockFetchingActive = false
-
   if g.ethRpc.isSome():
     g.ethRpc.get().ondisconnect = nil
     await g.ethRpc.get().close()
@@ -664,27 +629,3 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
     error "failed to flush to the tree db"
 
   g.initialized = false
-
-proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async, gcsafe.} =
-  let ethRpc = g.ethRpc.get()
-
-  var syncing: SyncingStatus
-  g.retryWrapper(syncing, "Failed to get the syncing status"):
-    await ethRpc.provider.eth_syncing()
-  return syncing.syncing
-
-method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
-  initializedGuard(g)
-
-  if g.ethRpc.isNone():
-    return false
-
-  var currentBlock: BlockNumber
-  g.retryWrapper(currentBlock, "Failed to get the current block number"):
-    cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
-
-  # the node is still able to process messages if it is behind the latest block by a factor of the valid roots
-  if u256(g.latestProcessedBlock.uint64) < (u256(currentBlock) - u256(g.validRoots.len)):
-    return false
-
-  return not (await g.isSyncing())

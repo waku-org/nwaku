@@ -70,6 +70,7 @@ proc sendRlnMessageWithInvalidProof*(
     completionFuture: Future[bool],
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
+  debug "calling generateProof from sendRlnMessageWithInvalidProof from utils_static"
   let
     extraBytes: seq[byte] = @[byte(1), 2, 3]
     rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
