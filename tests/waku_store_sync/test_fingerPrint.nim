@@ -1,9 +1,9 @@
-#import unittest
-#import chronicles
-##import ../../waku/waku_store_sync/common
-#import ../../waku/waku_store_sync/codec
-#import ../../waku/waku_store_sync/storage/seq_storage  
-#import ./sync_utils  
+import unittest
+import chronicles
+import ../../waku/waku_store_sync/common
+import ../../waku/waku_store_sync/codec
+import ../../waku/waku_store_sync/storage/seq_storage  
+import ./sync_utils  
 
 suite "Fingerprint-Based Range Comparison":
 
