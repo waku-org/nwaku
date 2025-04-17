@@ -6265,7 +6265,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(direction, protocol) (total_bytes_exchanged_sum{instance=~\"[[host]].([[dc:pipe]]).*.([[fleet:pipe]])\"})",
+          "expr": "sum by(direction, protocol) (total_bytes_exchanged_total{instance=~\"[[host]].([[dc:pipe]]).*.([[fleet:pipe]])\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "__auto",
@@ -9050,6 +9050,6 @@
   "timezone": "browser",
   "title": "Nim-Waku V2",
   "uid": "qrp_ZCTGz",
-  "version": 177,
+  "version": 178,
   "weekStart": ""
 }
