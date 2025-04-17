@@ -10,7 +10,7 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/[strutils, tables],
+  std/[strutils, tables, algorithm],
   stew/[byteutils, arrayops],
   sequtils
 import
@@ -375,8 +375,8 @@ method generateProof*(
   g.merkleProofCache.reverse()
   var i = 0
   while i + 31 < g.merkleProofCache.len:
-    for j in countdown(32 .. 1):
-      path_elements.add(g.merkleProofCache[i + j])
+    for j in countdown(32, 1):
+      path_elements.add(g.merkleProofCache[i+j])
     i += 32
 
   debug "--- pathElements ---",
