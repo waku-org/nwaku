@@ -51,7 +51,7 @@ proc sendMessage(
 ): Future[Result[void, string]] {.async.} =
   let rawPayload = payload.encode().buffer
 
-  total_bytes_exchanged.observe(rawPayload.len, labelValues = [Transfer, Sending])
+  total_bytes_exchanged.inc(rawPayload.len, labelValues = [Transfer, Sending])
 
   let writeRes = catch:
     await conn.writeLP(rawPayload)
@@ -144,7 +144,7 @@ proc initProtocolHandler(self: SyncTransfer) =
         # connection closed normally
         break
 
-      total_bytes_exchanged.observe(buffer.len, labelValues = [Transfer, Receiving])
+      total_bytes_exchanged.inc(buffer.len, labelValues = [Transfer, Receiving])
 
       let payload = WakuMessageAndTopic.decode(buffer).valueOr:
         error "decoding error", error = $error

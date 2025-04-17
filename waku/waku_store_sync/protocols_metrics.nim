@@ -8,13 +8,13 @@ const
 
 declarePublicHistogram reconciliation_roundtrips,
   "the nubmer of roundtrips for each reconciliation",
-  buckets = [0.0, 1.0, 2.0, 3.0, 5.0, 10.0, Inf]
+  buckets = [1.0, 2.0, 3.0, 5.0, 8.0, 13.0, Inf]
 
 declarePublicHistogram reconciliation_differences,
   "the nubmer of differences for each reconciliation",
-  buckets = [0.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 10000.0, Inf]
+  buckets = [0.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, Inf]
 
-declarePublicSummary total_bytes_exchanged,
+declarePublicCounter total_bytes_exchanged,
   "the number of bytes sent and received by the protocols", ["protocol", "direction"]
 
 declarePublicCounter total_transfer_messages_exchanged,
