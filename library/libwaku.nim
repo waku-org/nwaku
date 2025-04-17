@@ -225,7 +225,7 @@ proc waku_content_topic(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  let contentTopic = fmt"/{$appName}/{appVersion}/{$contentTopicName}/{$encoding}"
+  let contentTopic = fmt"/{$appName}/{$appVersion}/{$contentTopicName}/{$encoding}"
   callback(
     RET_OK, unsafeAddr contentTopic[0], cast[csize_t](len(contentTopic)), userData
   )
