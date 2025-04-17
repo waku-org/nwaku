@@ -451,9 +451,9 @@ procSuite "WakuNode - RLN relay":
           completionFut1.complete(true)
         if msg == wm2:
           completionFut2.complete(true)
-        if msg == wm3:
+        if msg.payload == wm3.payload:
           completionFut3.complete(true)
-        if msg == wm4:
+        if msg.payload == wm4.payload:
           completionFut4.complete(true)
 
     # mount the relay handler for node3
