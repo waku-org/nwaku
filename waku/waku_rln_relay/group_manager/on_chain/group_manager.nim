@@ -108,7 +108,7 @@ proc seqToField*(s: seq[byte]): array[32, byte] =
 
 proc uint64ToIndex*(value: uint64, numBits: int = 64): seq[uint8] =
   result = newSeq[uint8](numBits)
-  for i in 0..<numBits:
+  for i in 0 ..< numBits:
     result[i] = uint8((value shr i) and 1)
 
 proc fetchMerkleProofElements*(
@@ -372,10 +372,12 @@ method generateProof*(
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
+  g.merkleProofCache.reverse()
   var i = 0
-  while i < g.merkleProofCache.len:
-    path_elements.add(g.merkleProofCache[i])
-    i += 1
+  while i + 31 < g.merkleProofCache.len:
+    for j in countdown(32 .. 1):
+      path_elements.add(g.merkleProofCache[i + j])
+    i += 32
 
   debug "--- pathElements ---",
     before = g.merkleProofCache,
@@ -384,8 +386,7 @@ method generateProof*(
     after_len = path_elements.len
 
   let index_len = int(g.merkleProofCache.len / 32)
-  let identity_path_index =
-    uint64ToIndex(uint64(g.membershipIndex.get()), index_len)
+  let identity_path_index = uint64ToIndex(uint64(g.membershipIndex.get()), index_len)
 
   debug "--- identityPathIndex ---",
     before = g.membershipIndex.get(),
