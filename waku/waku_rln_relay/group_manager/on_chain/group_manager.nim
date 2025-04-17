@@ -375,7 +375,7 @@ method generateProof*(
   g.merkleProofCache.reverse()
   var i = 0
   while i + 31 < g.merkleProofCache.len:
-    for j in countdown(32, 1):
+    for j in countdown(31, 0):
       path_elements.add(g.merkleProofCache[i+j])
     i += 32
 
