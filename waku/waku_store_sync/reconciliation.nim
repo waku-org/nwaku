@@ -108,7 +108,7 @@ proc processRequest(
       await conn.close()
       return err("remote " & $conn.peerId & " connection read error: " & error.msg)
 
-    total_bytes_exchanged.observe(buffer.len, labelValues = [Reconciliation, Receiving])
+    total_bytes_exchanged.inc(buffer.len, labelValues = [Reconciliation, Receiving])
 
     let recvPayload = RangesData.deltaDecode(buffer).valueOr:
       await conn.close()
@@ -148,9 +148,7 @@ proc processRequest(
 
       rawPayload = sendPayload.deltaEncode()
 
-    total_bytes_exchanged.observe(
-      rawPayload.len, labelValues = [Reconciliation, Sending]
-    )
+    total_bytes_exchanged.inc(rawPayload.len, labelValues = [Reconciliation, Sending])
 
     let writeRes = catch:
       await conn.writeLP(rawPayload)
@@ -197,9 +195,7 @@ proc initiate(
 
   let sendPayload = initPayload.deltaEncode()
 
-  total_bytes_exchanged.observe(
-    sendPayload.len, labelValues = [Reconciliation, Sending]
-  )
+  total_bytes_exchanged.inc(sendPayload.len, labelValues = [Reconciliation, Sending])
 
   let writeRes = catch:
     await connection.writeLP(sendPayload)
