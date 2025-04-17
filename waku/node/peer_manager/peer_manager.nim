@@ -506,8 +506,16 @@ proc getStreamByPeerIdAndProtocol*(
   ## Notice that the "Connection" type represents a stream within a transport connection
   ## (we will need to adapt this term.)
 
+  let remotePeerInfo = pm.getPeer(peerId)
+  debug "AAAAAAA getStreamByPeerIdAndProtocol",
+    peerId = peerId,
+    protocol = protocol,
+    remoteAgent = remotePeerInfo.agent,
+    remotePeerInfo = remotePeerInfo
+
   let peerIdsMuxers: Table[PeerId, seq[Muxer]] = pm.switch.connManager.getConnections()
   if not peerIdsMuxers.contains(peerId):
+    debug "AAAAAAA peerId not found in connManager", peerId = peerId
     return err("peerId not found in connManager: " & $peerId)
 
   let muxers = peerIdsMuxers[peerId]
@@ -525,13 +533,18 @@ proc getStreamByPeerIdAndProtocol*(
   )
 
   if streamsOfInterest.len > 0:
+    debug "AAAAAAA open stream found, using it", peerId = peerId, protocol = protocol
     ## In theory there should be one stream per protocol. Then we just pick up the 1st
     return ok(streamsOfInterest[0])
 
   ## There isn't still a stream. Let's dial to create one
   let streamRes = await pm.dialPeer(peerId, protocol)
   if streamRes.isNone():
+    debug "AAAAAAA dial failed, no connection to peer",
+      peerId = peerId, protocol = protocol
     return err("getStreamByPeerIdProto no connection to peer: " & $peerId)
+
+  debug "AAAAAAA dialed stream", peerId = peerId, protocol = protocol
 
   return ok(streamRes.get())
 
