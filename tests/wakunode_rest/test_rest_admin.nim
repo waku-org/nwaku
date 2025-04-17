@@ -2,7 +2,6 @@
 
 import
   std/[sequtils, strformat, net],
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -203,3 +202,57 @@ suite "Waku v2 Rest API - Admin":
       getRes.data.anyIt(it.origin == Discv5)
       # Check peer 3
       getRes.data.anyIt(it.origin == PeerExchange)
+
+  asyncTest "get peers by id":
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
+
+    check:
+      postRes.status == 200
+
+    let getRes = await client.getPeerById($peerInfo2.peerId)
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.protocols.find(WakuRelayCodec) >= 0
+      getRes.data.multiaddr == constructMultiaddrStr(peerInfo2)
+
+    let getRes2 = await client.getPeerById("bad peer id")
+
+    check:
+      getRes2.status == 400
+
+  asyncTest "get connected peers":
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
+
+    check:
+      postRes.status == 200
+
+    let getRes = await client.getConnectedPeers()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 2
+      # Check peer 2
+      getRes.data.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo2))
+      # Check peer 3
+      getRes.data.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo3))
+
+    let getRes2 = await client.getConnectedPeersByShard(0)
+    check:
+      getRes2.status == 200
+      $getRes2.contentType == $MIMETYPE_JSON
+      getRes2.data.len() == 2
+
+    let getRes3 = await client.getConnectedPeersByShard(99)
+    check:
+      getRes3.status == 200
+      $getRes3.contentType == $MIMETYPE_JSON
+      getRes3.data.len() == 0

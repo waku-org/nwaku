@@ -4,21 +4,26 @@ import
   chronicles,
   json_serialization,
   json_serialization/std/options,
-  json_serialization/lexer
-import ../serdes, ../../../waku_core
+  json_serialization/lexer,
+  results
+import waku/[waku_core], ../serdes
 
 #### Types
-
-type ProtocolState* = object
-  protocol*: string
-  connected*: bool
-
 type WakuPeer* = object
   multiaddr*: string
-  protocols*: seq[ProtocolState]
+  protocols*: seq[string]
+  shards*: seq[uint16]
+  connected*: Connectedness
+  agent*: string
   origin*: PeerOrigin
 
 type WakuPeers* = seq[WakuPeer]
+
+type PeersOfShard* = object
+  shard*: uint16
+  peers*: WakuPeers
+
+type PeersOfShards* = seq[PeersOfShard]
 
 type FilterTopic* = object
   pubsubTopic*: string
@@ -29,22 +34,24 @@ type FilterSubscription* = object
   filterCriteria*: seq[FilterTopic]
 
 #### Serialization and deserialization
-
-proc writeValue*(
-    writer: var JsonWriter[RestJson], value: ProtocolState
-) {.raises: [IOError].} =
-  writer.beginRecord()
-  writer.writeField("protocol", value.protocol)
-  writer.writeField("connected", value.connected)
-  writer.endRecord()
-
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: WakuPeer
 ) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("multiaddr", value.multiaddr)
   writer.writeField("protocols", value.protocols)
+  writer.writeField("shards", value.shards)
+  writer.writeField("connected", value.connected)
+  writer.writeField("agent", value.agent)
   writer.writeField("origin", value.origin)
+  writer.endRecord()
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: PeersOfShard
+) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("shard", value.shard)
+  writer.writeField("peers", value.peers)
   writer.endRecord()
 
 proc writeValue*(
@@ -64,44 +71,20 @@ proc writeValue*(
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader[RestJson], value: var ProtocolState
-) {.gcsafe, raises: [SerializationError, IOError].} =
-  var
-    protocol: Option[string]
-    connected: Option[bool]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "protocol":
-      if protocol.isSome():
-        reader.raiseUnexpectedField("Multiple `protocol` fields found", "ProtocolState")
-      protocol = some(reader.readValue(string))
-    of "connected":
-      if connected.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `connected` fields found", "ProtocolState"
-        )
-      connected = some(reader.readValue(bool))
-    else:
-      unrecognizedFieldWarning(value)
-
-  if connected.isNone():
-    reader.raiseUnexpectedValue("Field `connected` is missing")
-
-  if protocol.isNone():
-    reader.raiseUnexpectedValue("Field `protocol` is missing")
-
-  value = ProtocolState(protocol: protocol.get(), connected: connected.get())
-
-proc readValue*(
     reader: var JsonReader[RestJson], value: var WakuPeer
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     multiaddr: Option[string]
-    protocols: Option[seq[ProtocolState]]
+    protocols: Option[seq[string]]
+    shards: Option[seq[uint16]]
+    connected: Option[Connectedness]
+    agent: Option[string]
     origin: Option[PeerOrigin]
 
+  echo "NZP readValue WakuPeer"
+
   for fieldName in readObjectFields(reader):
+    echo "NZP readValue WakuPeer fieldName: ", fieldName
     case fieldName
     of "multiaddr":
       if multiaddr.isSome():
@@ -110,7 +93,19 @@ proc readValue*(
     of "protocols":
       if protocols.isSome():
         reader.raiseUnexpectedField("Multiple `protocols` fields found", "WakuPeer")
-      protocols = some(reader.readValue(seq[ProtocolState]))
+      protocols = some(reader.readValue(seq[string]))
+    of "shards":
+      if shards.isSome():
+        reader.raiseUnexpectedField("Multiple `shards` fields found", "WakuPeer")
+      shards = some(reader.readValue(seq[uint16]))
+    of "connected":
+      if connected.isSome():
+        reader.raiseUnexpectedField("Multiple `connected` fields found", "WakuPeer")
+      connected = some(reader.readValue(Connectedness))
+    of "agent":
+      if agent.isSome():
+        reader.raiseUnexpectedField("Multiple `agent` fields found", "WakuPeer")
+      agent = some(reader.readValue(string))
     of "origin":
       if origin.isSome():
         reader.raiseUnexpectedField("Multiple `origin` fields found", "WakuPeer")
@@ -124,12 +119,54 @@ proc readValue*(
   if protocols.isNone():
     reader.raiseUnexpectedValue("Field `protocols` are missing")
 
+  if shards.isNone():
+    reader.raiseUnexpectedValue("Field `shards` are missing")
+
+  if connected.isNone():
+    reader.raiseUnexpectedValue("Field `connected` is missing")
+
+  if agent.isNone():
+    reader.raiseUnexpectedValue("Field `agent` is missing")
+
   if origin.isNone():
     reader.raiseUnexpectedValue("Field `origin` is missing")
 
   value = WakuPeer(
-    multiaddr: multiaddr.get(), protocols: protocols.get(), origin: origin.get()
+    multiaddr: multiaddr.get(),
+    protocols: protocols.get(),
+    shards: shards.get(),
+    connected: connected.get(),
+    agent: agent.get(),
+    origin: origin.get(),
   )
+
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var PeersOfShard
+) {.gcsafe, raises: [SerializationError, IOError].} =
+  var
+    shard: Option[uint16]
+    peers: Option[WakuPeers]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "shard":
+      if shard.isSome():
+        reader.raiseUnexpectedField("Multiple `shard` fields found", "PeersOfShard")
+      shard = some(reader.readValue(uint16))
+    of "peers":
+      if peers.isSome():
+        reader.raiseUnexpectedField("Multiple `peers` fields found", "PeersOfShard")
+      peers = some(reader.readValue(WakuPeers))
+    else:
+      unrecognizedFieldWarning(value)
+
+  if shard.isNone():
+    reader.raiseUnexpectedValue("Field `shard` is missing")
+
+  if peers.isNone():
+    reader.raiseUnexpectedValue("Field `peers` are missing")
+
+  value = PeersOfShard(shard: shard.get(), peers: peers.get())
 
 proc readValue*(
     reader: var JsonReader[RestJson], value: var FilterTopic
@@ -195,26 +232,34 @@ proc readValue*(
 
   value = FilterSubscription(peerId: peerId.get(), filterCriteria: filterCriteria.get())
 
-## Utility for populating WakuPeers and ProtocolState
-func `==`*(a, b: ProtocolState): bool {.inline.} =
-  return a.protocol == b.protocol
-
-func `==`*(a: ProtocolState, b: string): bool {.inline.} =
-  return a.protocol == b
-
 func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr
+
+proc init*(T: type WakuPeer, peerInfo: RemotePeerInfo): WakuPeer =
+  result = WakuPeer(
+    multiaddr: constructMultiaddrStr(peerInfo),
+    protocols: peerInfo.protocols,
+    shards: peerInfo.getShards(),
+    connected: peerInfo.connectedness,
+    agent: peerInfo.agent,
+    origin: peerInfo.origin,
+  )
 
 proc add*(
     peers: var WakuPeers,
     multiaddr: string,
     protocol: string,
-    connected: bool,
+    shards: seq[uint16],
+    connected: Connectedness,
+    agent: string,
     origin: PeerOrigin,
 ) =
   var peer: WakuPeer = WakuPeer(
     multiaddr: multiaddr,
-    protocols: @[ProtocolState(protocol: protocol, connected: connected)],
+    protocols: @[protocol],
+    shards: shards,
+    connected: connected,
+    agent: agent,
     origin: origin,
   )
   let idx = peers.find(peer)
@@ -222,4 +267,4 @@ proc add*(
   if idx < 0:
     peers.add(peer)
   else:
-    peers[idx].protocols.add(ProtocolState(protocol: protocol, connected: connected))
+    peers[idx].protocols.add(protocol)
