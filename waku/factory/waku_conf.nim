@@ -38,7 +38,7 @@ type StoreServiceConf* {.requiresInit.} = object
   dbMigration*: bool
   dbURl*: string
   dbVacuum*: bool
-  legacy*: bool
+  supportV2*: bool
   maxNumDbConnections*: int
   retentionPolicy*: string
   resume*: bool
