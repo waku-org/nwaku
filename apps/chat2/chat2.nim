@@ -553,14 +553,19 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       echo "rln-relay preparation is in progress..."
 
       let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+        dynamic: conf.rlnRelayDynamic,
+        credIndex: conf.rlnRelayCredIndex,
+        chainId: conf.rlnRelayChainId,
+        ethContractAddress: conf.rlnRelayEthContractAddress,
+        ethClientAddress: string(conf.rlnRelayethClientAddress),
+        creds: some(
+          RlnRelayCreds(
+            path: conf.rlnRelayCredPath, password: conf.rlnRelayCredPassword
+          )
+        ),
+        userMessageLimit: conf.rlnRelayUserMessageLimit,
+        epochSizeSec: conf.rlnEpochSizeSec,
+        treePath: conf.rlnRelayTreePath,
       )
 
       waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))

@@ -195,7 +195,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let netConfig = NetConfig.init(
     bindIp = bindIp,
     bindPort = nodeTcpPort,
-    wsBindPort = wsBindPort,
+    wsBindPort = some(wsBindPort),
     wsEnabled = isWs,
     wssEnabled = isWss,
   )

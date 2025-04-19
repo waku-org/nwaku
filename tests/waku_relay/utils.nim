@@ -43,10 +43,10 @@ proc newTestWakuRelay*(switch = newTestSwitch()): Future[WakuRelay] {.async.} =
 proc setupRln*(node: WakuNode, identifier: uint) {.async.} =
   await node.mountRlnRelay(
     WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(identifier),
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $identifier),
-      rlnEpochSizeSec: 1,
+      dynamic: false,
+      credIndex: some(identifier),
+      treePath: genTempPath("rln_tree", "wakunode_" & $identifier),
+      epochSizeSec: 1,
     )
   )
 

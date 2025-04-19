@@ -213,6 +213,13 @@ type
       name: "rln-relay"
     .}: bool
 
+    rlnRelayChainId* {.
+      desc:
+        "Chain ID of the provided contract (optional, will fetch from RPC provider if not used)",
+      defaultValue: 0,
+      name: "rln-relay-chain-id"
+    .}: uint
+
     rlnRelayCredPath* {.
       desc: "The path for peristing rln-relay credential",
       defaultValue: "",
@@ -272,6 +279,12 @@ type
       defaultValue: 1,
       name: "rln-relay-epoch-sec"
     .}: uint64
+
+    rlnRelayTreePath* {.
+      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+      defaultValue: "",
+      name: "rln-relay-tree-path"
+    .}: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =

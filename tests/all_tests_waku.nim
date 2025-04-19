@@ -107,4 +107,4 @@ import
 import ./waku_rln_relay/test_all
 
 # Node Factory
-import ./factory/test_config
+import ./factory/test_external_config
