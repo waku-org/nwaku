@@ -17,7 +17,7 @@ import
     discovery/waku_discv5,
     factory/internal_config,
     factory/waku_conf,
-    factory/waku_conf_builder,
+    factory/conf_builder/conf_builder,
     factory/builder,
   ],
   ./common
@@ -25,11 +25,9 @@ import
 # Waku node
 
 # TODO: migrate to usage of a test cluster conf
-proc defaultTestWakuConf*(): WakuConf =
+proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
   var builder = WakuConfBuilder.init()
   builder.withP2pTcpPort(Port(60000))
-  builder.webSocketConf.withEnabled(true)
-  builder.webSocketConf.withWebSocketPort(Port(8000))
   builder.withP2pListenAddress(parseIpAddress("0.0.0.0"))
   builder.restServerConf.withListenAddress(parseIpAddress("127.0.0.1"))
   builder.withDnsAddrsNameServers(
@@ -43,6 +41,12 @@ proc defaultTestWakuConf*(): WakuConf =
   builder.withShards(@[DefaultShardId])
   builder.withRelay(true)
   builder.withRendezvous(true)
+  builder.storeServiceConf.withDbMigration(false)
+  builder.storeServiceConf.withSupportV2(false)
+  return builder
+
+proc defaultTestWakuConf*(): WakuConf =
+  var builder = defaultTestWakuConfBuilder()
   return builder.build().value
 
 proc newTestWakuNode*(

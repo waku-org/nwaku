@@ -174,7 +174,7 @@ proc setupProtocols(
 
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
-    if storeServiceConf.legacy:
+    if storeServiceConf.supportV2:
       let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
         storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
         storeServiceConf.maxNumDbConnections, onFatalErrorAction,
@@ -204,7 +204,7 @@ proc setupProtocols(
     let engine = engineRes.get()
 
     let migrate =
-      if engine == "sqlite" and storeServiceConf.legacy:
+      if engine == "sqlite" and storeServiceConf.supportV2:
         false
       else:
         storeServiceConf.dbMigration
@@ -224,7 +224,7 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    if storeServiceConf.legacy:
+    if storeServiceConf.supportV2:
       # Store legacy setup
       try:
         await mountLegacyStore(node, node.rateLimitSettings.getSetting(STOREV2))

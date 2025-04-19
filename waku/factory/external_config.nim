@@ -18,7 +18,7 @@ import
 
 import
   ./waku_conf,
-  ./waku_conf_builder,
+  ./conf_builder/conf_builder,
   ./networks_config,
   ../common/confutils/envvar/defs as confEnvvarDefs,
   ../common/confutils/envvar/std/net as confEnvvarNet,
@@ -359,7 +359,7 @@ hence would have reachability issues.""",
     .}: bool
 
     legacyStore* {.
-      desc: "Enable/disable waku store legacy mode",
+      desc: "Enable/disable support of Waku Store v2 as a service",
       defaultValue: true,
       name: "legacy-store"
     .}: bool
@@ -976,7 +976,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withContentTopics(n.contentTopics)
 
   b.storeServiceConf.withEnabled(n.store)
-  b.storeServiceConf.withLegacy(n.legacyStore)
+  b.storeServiceConf.withSupportV2(n.legacyStore)
   b.storeServiceConf.withRetentionPolicy(n.storeMessageRetentionPolicy)
   b.storeServiceConf.withDbUrl(n.storeMessageDbUrl)
   b.storeServiceConf.withDbVacuum(n.storeMessageDbVacuum)

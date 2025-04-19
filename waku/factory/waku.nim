@@ -53,14 +53,14 @@ const git_version* {.strdefine.} = "n/a"
 
 type Waku* = ref object
   version: string
-  conf: WakuConf
-  rng: ref HmacDrbgContext
+  conf*: WakuConf
+  rng*: ref HmacDrbgContext
 
   # TODO: remove, part of the conf
   key: crypto.PrivateKey
 
   wakuDiscv5*: WakuDiscoveryV5
-  dynamicBootstrapNodes: seq[RemotePeerInfo]
+  dynamicBootstrapNodes*: seq[RemotePeerInfo]
   dnsRetryLoopHandle: Future[void]
   networkConnLoopHandle: Future[void]
   discoveryMngr: DiscoveryManager

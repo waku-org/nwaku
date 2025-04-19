@@ -6,7 +6,7 @@ import
   ../testlib/wakunode,
   waku/factory/node_factory,
   waku/waku_node,
-  waku/factory/external_config
+  waku/factory/conf_builder/conf_builder
 
 suite "Node Factory":
   test "Set up a node based on default configurations":
@@ -24,9 +24,10 @@ suite "Node Factory":
       not node.wakuRendezvous.isNil()
 
   test "Set up a node with Store enabled":
-    var conf = defaultTestWakuConf()
-    nodeConf.store = true
-    let conf = nodeConf.toWakuConf().get()
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.storeServiceConf.withEnabled(true)
+    confBuilder.storeServiceConf.withDbUrl("sqlite://store.sqlite3")
+    let conf = confBuilder.build().value
 
     let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
@@ -37,9 +38,9 @@ suite "Node Factory":
       not node.wakuArchive.isNil()
 
 test "Set up a node with Filter enabled":
-  var nodeConf = defaultTestWakuNodeConf()
-  nodeConf.filter = true
-  let conf = nodeConf.toWakuConf().get()
+  var confBuilder = defaultTestWakuConfBuilder()
+  confBuilder.filterServiceConf.withEnabled(true)
+  let conf = confBuilder.build().value
 
   let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error
@@ -49,8 +50,7 @@ test "Set up a node with Filter enabled":
     not node.wakuFilter.isNil()
 
 test "Start a node based on default configurations":
-  let nodeConf = defaultTestWakuNodeConf()
-  let conf = nodeConf.toWakuConf().get()
+  let conf = defaultTestWakuConf()
 
   let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error
