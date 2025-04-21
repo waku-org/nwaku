@@ -231,8 +231,7 @@ proc mountMix*(
 
   let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
   # TODO: Pass bootnodes from config,
-  let protoRes =
-    WakuMix.new(nodeAddr, node.switch, node.peerManager, clusterId, mixPrivKey)
+  let protoRes = WakuMix.new(nodeAddr, node.peerManager, clusterId, mixPrivKey)
   if protoRes.isErr:
     error "Waku Mix protocol initialization failed", err = protoRes.error
     return

@@ -632,17 +632,13 @@ with the drawback of consuming some more bandwidth.""",
     .}: bool
 
     #Mix config
-    mix* {.
-      desc: "Enable mix protocol: true|false",
-      defaultValue: false,
-      name: "mix"
-    .}: bool
-    mixkey* {.
-      desc: "ED25519 private key as 64 char hex string.",
-      name: "mixkey"
-    .}: Option[string]
+    mix* {.desc: "Enable mix protocol: true|false", defaultValue: false, name: "mix".}:
+      bool
+
+    mixkey* {.desc: "ED25519 private key as 64 char hex string.", name: "mixkey".}:
+      Option[string]
     #TODO: Temp config for simulations.Ideally need to get this info from bootstrap ENRs
-#[     mixBootstrapNodes* {. 
+    #[     mixBootstrapNodes* {. 
       desc:
         "Text-encoded data for mix bootstrap node. Encoded in the format Multiaddress:libp2pPubKey:MixPubKey. Argument may be repeated.",
       name: "mix-bootstrap-node"

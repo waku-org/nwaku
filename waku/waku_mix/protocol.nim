@@ -131,7 +131,6 @@ proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
 proc new*(
     T: type WakuMix,
     nodeAddr: string,
-    switch: Switch,
     peermgr: PeerManager,
     clusterId: uint16,
     mixPrivKey: Curve25519Key,
@@ -140,13 +139,13 @@ proc new*(
   info "mixPrivKey", mixPrivKey = mixPrivKey, mixPubKey = mixPubKey
 
   let localMixNodeInfo = initMixNodeInfo(
-    nodeAddr, mixPubKey, mixPrivKey, switch.peerInfo.publicKey.skkey,
-    switch.peerInfo.privateKey.skkey,
+    nodeAddr, mixPubKey, mixPrivKey, peermgr.switch.peerInfo.publicKey.skkey,
+    peermgr.switch.peerInfo.privateKey.skkey,
   )
 
   # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
   var m = WakuMix(peerManager: peermgr, clusterId: clusterId)
-  m.init(localMixNodeInfo, switch, initTable[PeerId, MixPubInfo]())
+  m.init(localMixNodeInfo, peermgr.switch, initTable[PeerId, MixPubInfo]())
   procCall MixProtocol(m).init()
 
   return ok(m)
