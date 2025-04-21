@@ -145,13 +145,20 @@ proc publishMessages(
       lightpushContentTopic,
       renderMsgSize,
     )
+
+    let publishStartTime = Moment.now()
+
     let wlpRes = await wakuNode.legacyLightpushPublish(
       some(lightpushPubsubTopic), message, actualServicePeer
     )
 
+    let publishDuration = Moment.now() - publishStartTime
+
     let msgHash = computeMessageHash(lightpushPubsubTopic, message).to0xHex
 
     if wlpRes.isOk():
+      lpt_publish_duration_seconds.observe(publishDuration.milliseconds.float / 1000)
+
       sentMessages[messagesSent] = (hash: msgHash, relayed: true)
       notice "published message using lightpush",
         index = messagesSent + 1,
@@ -251,7 +258,7 @@ proc setupAndPublish*(
   asyncSpawn publishMessages(
     wakuNode,
     servicePeer,
-    conf.pubsubTopics[0],
+    conf.getPubsubTopic(),
     conf.contentTopics[0],
     conf.numMessages,
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),

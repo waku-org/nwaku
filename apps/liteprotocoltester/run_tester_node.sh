@@ -93,10 +93,10 @@ else
   FULL_NODE=--bootstrap-node="${SERIVCE_NODE_ADDR}"
 fi
 
-if [ -n "${PUBSUB}" ]; then
-    PUBSUB=--pubsub-topic="${PUBSUB}"
+if [ -n "${SHARD}" ]; then
+    SHARD=--shard="${SHARD}"
 else
-    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
+    SHARD=--shard="0"
 fi
 
 if [ -n "${CONTENT_TOPIC}" ]; then
@@ -128,19 +128,25 @@ if [ -n "${MESSAGE_INTERVAL_MILLIS}" ]; then
     MESSAGE_INTERVAL_MILLIS=--message-interval="${MESSAGE_INTERVAL_MILLIS}"
 fi
 
+if [ -n "${LOG_LEVEL}" ]; then
+    LOG_LEVEL=--log-level=${LOG_LEVEL}
+else
+    LOG_LEVEL=--log-level=INFO
+fi
+
 echo "Running binary: ${BINARY_PATH}"
 echo "Tester node: ${FUNCTION}"
 echo "Using service node: ${SERIVCE_NODE_ADDR}"
 echo "My external IP: ${MY_EXT_IP}"
 
 exec "${BINARY_PATH}"\
-      --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
       --test-peers\
+      ${LOG_LEVEL}\
       ${FULL_NODE}\
       ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\
-      ${PUBSUB}\
+      ${SHARD}\
       ${CONTENT_TOPIC}\
       ${CLUSTER_ID}\
       ${FUNCTION}\

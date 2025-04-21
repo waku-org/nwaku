@@ -65,9 +65,13 @@ proc sendPushRequest(
 proc publish*(
     wl: WakuLightPushClient,
     pubSubTopic: Option[PubsubTopic] = none(PubsubTopic),
-    message: WakuMessage,
+    wakuMessage: WakuMessage,
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
+
   when peer is PeerId:
     info "publish",
       peerId = shortLog(peer),
@@ -88,10 +92,14 @@ proc publish*(
   return lightpushSuccessResult(publishedCount)
 
 proc publishToAny*(
-    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
+    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, wakuMessage: WakuMessage
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we don't specify a particular peer and instead we get it from peer manager
+
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
 
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?

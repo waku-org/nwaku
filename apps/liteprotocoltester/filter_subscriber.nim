@@ -130,7 +130,9 @@ proc setupAndSubscribe*(
   var stats: PerPeerStatistics
   actualFilterPeer = servicePeer
 
-  let pushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
+  let pushHandler = proc(
+      pubsubTopic: PubsubTopic, message: WakuMessage
+  ): Future[void] {.async, closure.} =
     let payloadStr = string.fromBytes(message.payload)
     let testerMessage = js.Json.decode(payloadStr, ProtocolTesterMessage)
     let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
@@ -163,7 +165,7 @@ proc setupAndSubscribe*(
 
       if conf.numMessages > 0 and
           waitFor stats.checkIfAllMessagesReceived(maxWaitForLastMessage):
-        waitFor unsubscribe(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
+        waitFor unsubscribe(wakuNode, conf.getPubsubTopic(), conf.contentTopics[0])
         info "All messages received. Exiting."
 
         ## for gracefull shutdown through signal hooks
@@ -176,5 +178,5 @@ proc setupAndSubscribe*(
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(
-    wakuNode, conf.pubsubTopics[0], conf.contentTopics[0], conf.fixedServicePeer
+    wakuNode, conf.getPubsubTopic(), conf.contentTopics[0], conf.fixedServicePeer
   )

@@ -90,6 +90,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
@@ -279,6 +280,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
@@ -327,6 +329,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
@@ -379,6 +382,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
@@ -429,6 +433,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
@@ -487,6 +492,7 @@ suite "WakuNode - Relay":
         topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
+        msg.timestamp > 0
       completionFut.complete(true)
 
     node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))

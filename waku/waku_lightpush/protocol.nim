@@ -75,12 +75,13 @@ proc handleRequest*(
 
     waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
+    let msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex()
     notice "handling lightpush request",
       my_peer_id = wl.peerManager.switch.peerInfo.peerId,
       peer_id = peerId,
       requestId = pushRequest.requestId,
       pubsubTopic = pushRequest.pubsubTopic,
-      msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex(),
+      msg_hash = msg_hash,
       receivedTime = getNowInNanosecondTime()
 
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)

@@ -127,7 +127,7 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 | ---: | :--- | :--- |
 | NUM_MESSAGES   | Number of message to publish, 0 means infinite | 120 |
 | MESSAGE_INTERVAL_MILLIS | Frequency of messages in milliseconds | 1000 |
-| PUBSUB | Used pubsub_topic for testing | /waku/2/rs/66/0 |
+| SHARD | Used shard for testing | 0 |
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | CLUSTER_ID  | cluster_id of the network | 16 |
 | START_PUBLISHING_AFTER_SECS | Delay in seconds before starting to publish to let service node connected | 5 |
@@ -272,7 +272,7 @@ export NUM_MESSAGES=200
 export MESSAGE_INTERVAL_MILLIS=1000
 export MIN_MESSAGE_SIZE=15Kb
 export MAX_MESSAGE_SIZE=145Kb
-export PUBSUB=/waku/2/rs/16/32
+export SHARD=32
 export CONTENT_TOPIC=/tester/2/light-pubsub-test/fleet
 export CLUSTER_ID=16
 
@@ -307,7 +307,7 @@ export NUM_MESSAGES=300
 export MESSAGE_INTERVAL_MILLIS=7000
 export MIN_MESSAGE_SIZE=15Kb
 export MAX_MESSAGE_SIZE=145Kb
-export PUBSUB=/waku/2/rs/1/4
+export SHARD=4
 export CONTENT_TOPIC=/tester/2/light-pubsub-test/twn
 export CLUSTER_ID=1
 

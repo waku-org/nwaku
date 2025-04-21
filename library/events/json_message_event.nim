@@ -71,7 +71,7 @@ type JsonMessageEvent* = ref object of JsonEvent
 
 proc new*(T: type JsonMessageEvent, pubSubTopic: string, msg: WakuMessage): T =
   # Returns a WakuMessage event as indicated in
-  # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
+  # https://github.com/vacp2p/rfc/blob/master/content/docs/rfcs/36/README.md#jsonmessageevent-type
 
   var payload = newSeq[byte](len(msg.payload))
   if len(msg.payload) != 0:
