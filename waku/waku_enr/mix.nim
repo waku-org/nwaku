@@ -1,15 +1,10 @@
 {.push raises: [].}
 
-import 
-    std/[options],
-    results,
-    libp2p/crypto/curve25519,
-    nimcrypto/utils as ncrutils
+import std/[options], results, libp2p/crypto/curve25519, nimcrypto/utils as ncrutils
 
 import ../common/enr
 
 const MixKeyEnrField* = "mix-key"
-
 
 func withMixKey*(builder: var EnrBuilder, mixPubKey: Curve25519Key) =
   builder.addFieldPair(MixKeyEnrField, getBytes(mixPubKey))

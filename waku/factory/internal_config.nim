@@ -18,7 +18,10 @@ import
   ./networks_config
 
 proc enrConfiguration*(
-    conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey, mixPubKey: Option[Curve25519Key]
+    conf: WakuNodeConf,
+    netConfig: NetConfig,
+    key: crypto.PrivateKey,
+    mixPubKey: Option[Curve25519Key],
 ): Result[enr.Record, string] =
   var enrBuilder = EnrBuilder.init(key)
 
