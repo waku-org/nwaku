@@ -115,6 +115,7 @@ proc publishToAny*(
 
   return lightpushSuccessResult(publishedCount)
 
+#TODO: Remove multiple publishX procs and use Option pattern instead
 proc publishWithConn*(
     wl: WakuLightPushClient,
     pubSubTopic: PubsubTopic,

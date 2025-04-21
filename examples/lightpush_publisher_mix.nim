@@ -31,9 +31,6 @@ import
   ./lightpush_publisher_mix_config,
   ./lightpush_publisher_mix_metrics
 
-proc now*(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
-
 const clusterId = 66
 const shardId = @[0'u16]
 
@@ -52,7 +49,7 @@ proc splitPeerIdAndAddr(maddr: string): (string, string) =
     peerId = parts[1]
   return (address, peerId)
 
-proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
+proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.} =
   # use notice to filter all waku messaging
   setupLog(logging.LogLevel.DEBUG, logging.LogFormat.TEXT)
 
@@ -72,13 +69,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     "Building ENR with relay sharding failed"
   )
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create enr record", error = recordRes.error
-      quit(QuitFailure)
-    else:
-      recordRes.get()
+  let record = enrBuilder.build().valueOr:
+    error "failed to create enr record", error = error
+    quit(QuitFailure)
+
   setLogLevel(logging.LogLevel.TRACE)
   var builder = WakuNodeBuilder.init()
   builder.withNodeKey(nodeKey)
@@ -92,14 +86,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   try:
     await node.mountPeerExchange(some(uint16(clusterId)))
   except CatchableError:
-    error "failed to mount waku peer-exchange protocol: ",
-      errmsg = getCurrentExceptionMsg()
+    error "failed to mount waku peer-exchange protocol",
+      error = getCurrentExceptionMsg()
     return
 
   let (destPeerAddr, destPeerId) = splitPeerIdAndAddr(conf.destPeerAddr)
   let (pxPeerAddr, pxPeerId) = splitPeerIdAndAddr(conf.pxAddr)
-  info "dest peer address: ", destPeerAddr = destPeerAddr, destPeerId = destPeerId
-  info "peer exchange address: ", pxPeerAddr = pxPeerAddr, pxPeerId = pxPeerId
+  info "dest peer address", destPeerAddr = destPeerAddr, destPeerId = destPeerId
+  info "peer exchange address", pxPeerAddr = pxPeerAddr, pxPeerId = pxPeerId
   let pxPeerInfo =
     RemotePeerInfo.init(destPeerId, @[MultiAddress.init(destPeerAddr).get()])
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
@@ -108,11 +102,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     RemotePeerInfo.init(pxPeerId, @[MultiAddress.init(pxPeerAddr).get()])
   node.peerManager.addServicePeer(pxPeerInfo1, WakuPeerExchangeCodec)
 
-  if not conf.withoutMix:
-    let keyPairResult = generateKeyPair()
-    if keyPairResult.isErr:
+  if not conf.mixDisabled:
+    let (mixPrivKey, mixPubKey) = generateKeyPair().valueOr:
+      error "failed to generate mix key pair", error = error
       return
-    let (mixPrivKey, mixPubKey) = keyPairResult.get()
     (await node.mountMix(clusterId, mixPrivKey)).isOkOr:
       error "failed to mount waku mix protocol: ", error = $error
       return
@@ -121,7 +114,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     error "Failed to initialize PeerId", err = error
     return
   var conn: Connection
-  if not conf.withoutMix:
+  if not conf.mixDisabled:
     conn = MixEntryConnection.newConn(
       destPeerAddr, dPeerId, ProtocolType.fromString(WakuLightPushCodec), node.mix
     )
@@ -136,7 +129,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   (await node.fetchPeerExchangePeers()).isOkOr:
     warn "Cannot fetch peers from peer exchange", cause = error
 
-  if not conf.withoutMix:
+  if not conf.mixDisabled:
     while node.getMixNodePoolSize() < conf.minMixPoolSize:
       info "waiting for mix nodes to be discovered",
         currentpoolSize = node.getMixNodePoolSize()
@@ -146,10 +139,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
 
   var i = 0
   while i < conf.numMsgs:
-    if conf.withoutMix:
+    if conf.mixDisabled:
       let connOpt = await node.peerManager.dialPeer(dPeerId, WakuLightPushCodec)
       if connOpt.isNone():
-        error "failed to dial peer"
+        error "failed to dial peer with WakuLightPushCodec", target_peer_id = dPeerId
         return
       conn = connOpt.get()
     i = i + 1
@@ -166,14 +159,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       payload: toBytes(text), # content of the message
       contentTopic: LightpushContentTopic, # content topic to publish to
       ephemeral: true, # tell store nodes to not store it
-      timestamp: now(),
+      timestamp: getNowInNanosecondTime(),
     ) # current timestamp
 
     let res = await node.wakuLightpushClient.publishWithConn(
       LightpushPubsubTopic, message, conn, dPeerId
     )
 
-    if res.isOk:
+    if res.isOk():
       lp_mix_success.inc()
       notice "published message",
         text = text,
@@ -184,14 +177,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       error "failed to publish message", error = res.error
       lp_mix_failed.inc(labelValues = ["publish_error"])
 
-    if conf.withoutMix:
+    if conf.mixDisabled:
       await conn.close()
-    await sleepAsync(conf.msgInterval)
+    await sleepAsync(conf.msgIntervalMilliseconds)
   info "###########Sent all messages via mix"
   quit(0)
 
 when isMainModule:
-  let conf = LPMixConf.load()
+  let conf = LightPushMixConf.load()
   let rng = crypto.newRng()
   asyncSpawn setupAndPublish(rng, conf)
   runForever()

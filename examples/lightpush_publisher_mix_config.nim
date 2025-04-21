@@ -1,6 +1,6 @@
 import confutils/defs
 
-type LPMixConf* = object
+type LightPushMixConf* = object
   destPeerAddr* {.desc: "Destination peer address with peerId.", name: "dp-addr".}:
     string
 
@@ -11,7 +11,7 @@ type LPMixConf* = object
   numMsgs* {.desc: "Number of messages to send.", defaultValue: 1, name: "num-msgs".}:
     int
 
-  msgInterval* {.
+  msgIntervalMilliseconds* {.
     desc: "Interval between messages in milliseconds.",
     defaultValue: 1000,
     name: "msg-interval"
@@ -23,6 +23,6 @@ type LPMixConf* = object
     name: "min-mix-pool-size"
   .}: int
 
-  withoutMix* {.
+  mixDisabled* {.
     desc: "Do not use mix for publishing.", defaultValue: false, name: "without-mix"
   .}: bool
