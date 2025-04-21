@@ -11,7 +11,7 @@ nix develop
 
 To build a Codex you can use:
 ```sh
-nix build '.?submodules=1#default'
+nix build '.#default'
 ```
 The `?submodules=1` part should eventually not be necessary.
 For more details see:
@@ -19,17 +19,19 @@ https://github.com/NixOS/nix/issues/4423
 
 It can be also done without even cloning the repo:
 ```sh
-nix build 'git+https://github.com/waku-org/nwaku?submodules=1#'
+nix build 'git+https://github.com/waku-org/nwaku'
 ```
+
+>:warning: For Nix versions below `2.27` you will need to add `?submodules=1` to URL.
 
 ## Running
 
 ```sh
-nix run 'git+https://github.com/waku-org/nwaku?submodules=1#''
+nix run 'git+https://github.com/waku-org/nwaku''
 ```
 
 ## Testing
 
 ```sh
-nix flake check ".?submodules=1#"
+nix flake check .
 ```

@@ -7,6 +7,8 @@
   };
 
   inputs = {
+    /* Removes need for '?submodules=1` in URL since Nix 2.27. */
+    self.submodules = true;
     nixpkgs.url = "github:NixOS/nixpkgs?rev=f44bd8ca21e026135061a0a57dcf3d0775b67a49";
     zerokit = {
       url = "github:vacp2p/zerokit?rev=c60e0c33fc6350a4b1c20e6b6727c44317129582";
@@ -49,7 +51,7 @@
         libwaku-android-arm64 = pkgs.callPackage ./nix/default.nix {
           inherit stableSystems;
           src = self;
-          targets = ["libwaku-android-arm64"]; 
+          targets = ["libwaku-android-arm64"];
           androidArch = "aarch64-linux-android";
           zerokitPkg = zerokit.packages.${system}.zerokit-android-arm64;
         };
