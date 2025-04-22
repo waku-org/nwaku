@@ -19,7 +19,8 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
-  libp2p/utility
+  libp2p/utility,
+  libp2p/nameresolving/dnsresolver
 import
   ../waku_core,
   ../waku_core/topics/sharding,
@@ -1526,21 +1527,32 @@ proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
   node.rateLimitSettings = rateLimitConfig.get()
   return ok()
 
-proc checkDnsServerSimple(ip: IpAddress, timeout = 2.seconds): Future[bool] {.async.} =
-  var socket = newAsyncSocket()
-  try:
-    # Create a timeout future
-    let connectFut = await socket.connect($ip, Port(53))
+proc checkDnsServerSimple(
+    nameServerIps: seq[IpAddress], timeout = 2.seconds
+): Future[bool] {.async.} =
+  echo "----------------- sending DNS query"
 
-    result = true
-  except:
-    result = false
-  finally:
-    socket.close()
+  var nameServers: seq[TransportAddress]
+  for ip in nameServerIps:
+    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+  let dnsResolver = DnsResolver.new(nameServers)
+
+  # Resolve domain IP
+  let resolved = await dnsResolver.resolveIp("status.app", 0.Port, Domain.AF_UNSPEC)
+
+  if resolved.len > 0:
+    return true
+    echo "----------------- successful DNS query"
+  else:
+    echo "----------------- DNS query failed"
+    return false
 
 proc isOnline*(node: WakuNode): Future[bool] {.async.} =
+  "--------------- checking isOnline"
+
   let numConnectedPeers =
-    node.peerManager.wakuPeerStore.peers().countIt(it.connectedness == Connected)
+    node.peerManager.switch.peerStore.peers().countIt(it.connectedness == Connected)
 
   if numConnectedPeers > 0:
     return true
@@ -1551,10 +1563,4 @@ proc isOnline*(node: WakuNode): Future[bool] {.async.} =
   var isConnected = false
   let dnsNameServers = node.netConfig.dnsNameServers.get()
 
-  for dnsServer in dnsNameServers:
-    let res = await checkDnsServerSimple(dnsServer)
-
-    if res == true:
-      isConnected = true
-
-  return isConnected
+  return await checkDnsServerSimple(dnsNameServers)

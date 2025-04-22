@@ -462,6 +462,8 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   let peerStore = pm.switch.peerStore
   let failedAttempts = peerStore[NumberFailedConnBook][peerId]
 
+  # only attempt if current node is online
+
   # if it never errored, we can try to connect
   if failedAttempts == 0:
     return true
