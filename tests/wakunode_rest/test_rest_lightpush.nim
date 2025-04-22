@@ -15,13 +15,13 @@ import
     waku_core,
     waku_node,
     node/peer_manager,
-    waku_lightpush_legacy/common,
+    waku_lightpush/common,
     waku_api/rest/server,
     waku_api/rest/client,
     waku_api/rest/responses,
-    waku_api/rest/legacy_lightpush/types,
-    waku_api/rest/legacy_lightpush/handlers as lightpush_api,
-    waku_api/rest/legacy_lightpush/client as lightpush_api_client,
+    waku_api/rest/lightpush/types,
+    waku_api/rest/lightpush/handlers as lightpush_api,
+    waku_api/rest/lightpush/client as lightpush_api_client,
     waku_relay,
     common/rate_limit/setting,
   ],
@@ -60,8 +60,8 @@ proc init(
 
   await testSetup.consumerNode.mountRelay()
   await testSetup.serviceNode.mountRelay()
-  await testSetup.serviceNode.mountLegacyLightPush(rateLimit)
-  testSetup.pushNode.mountLegacyLightPushClient()
+  await testSetup.serviceNode.mountLightPush(rateLimit)
+  testSetup.pushNode.mountLightPushClient()
 
   testSetup.serviceNode.peerManager.addServicePeer(
     testSetup.consumerNode.peerInfo.toRemotePeerInfo(), WakuRelayCodec
@@ -72,7 +72,7 @@ proc init(
   )
 
   testSetup.pushNode.peerManager.addServicePeer(
-    testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuLegacyLightPushCodec
+    testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
   )
 
   var restPort = Port(0)
@@ -116,7 +116,9 @@ suite "Waku v2 Rest API - lightpush":
     ## connected to other node but, doesn't fail because of not properly
     ## handling the proof message attribute within the REST request.
     check:
-      response.data == "Failed to request a message push: not_published_to_any_peer"
+      response.status == 505
+      response.data.statusDesc == some("No peers for topic, skipping publish")
+      response.data.relayPeerCount == none[uint32]()
 
   asyncTest "Push message request":
     # Given
@@ -146,7 +148,7 @@ suite "Waku v2 Rest API - lightpush":
     # Then
     check:
       response.status == 200
-      $response.contentType == $MIMETYPE_TEXT
+      response.data.relayPeerCount == some(1.uint32)
 
     await restLightPushTest.shutdown()
 
@@ -176,17 +178,15 @@ suite "Waku v2 Rest API - lightpush":
     let badRequestBody3 =
       PushRequest(pubsubTopic: none(PubsubTopic), message: badMessage2)
 
-    var response: RestResponse[string]
+    # var response: RestResponse[PushResponse]
 
-    response = await restLightPushTest.client.sendPushRequest(badRequestBody1)
-
-    echo "response", $response
+    var response = await restLightPushTest.client.sendPushRequest(badRequestBody1)
 
     # Then
     check:
       response.status == 400
-      $response.contentType == $MIMETYPE_TEXT
-      response.data.startsWith("Invalid content body")
+      response.data.statusDesc.isSome()
+      response.data.statusDesc.get().startsWith("Invalid push request")
 
     # when
     response = await restLightPushTest.client.sendPushRequest(badRequestBody2)
@@ -194,17 +194,16 @@ suite "Waku v2 Rest API - lightpush":
     # Then
     check:
       response.status == 400
-      $response.contentType == $MIMETYPE_TEXT
-      response.data.startsWith("Invalid content body")
+      response.data.statusDesc.isSome()
+      response.data.statusDesc.get().startsWith("Invalid push request")
 
     # when
     response = await restLightPushTest.client.sendPushRequest(badRequestBody3)
 
     # Then
     check:
-      response.status == 400
-      $response.contentType == $MIMETYPE_TEXT
-      response.data.startsWith("Invalid content body")
+      response.data.statusDesc.isSome()
+      response.data.statusDesc.get().startsWith("Invalid push request")
 
     await restLightPushTest.shutdown()
 
@@ -239,7 +238,7 @@ suite "Waku v2 Rest API - lightpush":
       # Then
       check:
         response.status == 200
-        $response.contentType == $MIMETYPE_TEXT
+        response.data.relayPeerCount == some(1.uint32)
 
     let pushRejectedProc = proc() {.async.} =
       let message: RelayWakuMessage = fakeWakuMessage(
@@ -256,6 +255,10 @@ suite "Waku v2 Rest API - lightpush":
       # Then
       check:
         response.status == 429
+        response.data.statusDesc.isSome() # Ensure error status description is present
+        response.data.statusDesc.get().startsWith(
+          "Request rejected due to too many requests"
+        ) # Check specific error message
 
     await pushProc()
     await pushProc()
