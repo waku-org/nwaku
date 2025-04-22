@@ -1,6 +1,11 @@
 {.used.}
 
-import std/[options, strscans], testutils/unittests, chronos, libp2p/crypto/crypto
+import
+  std/[options, strscans],
+  testutils/unittests,
+  chronos,
+  chronicles,
+  libp2p/crypto/crypto
 
 import
   waku/[
@@ -306,6 +311,39 @@ suite "Waku Lightpush Client":
 
       # Cleanup
       await serverSwitch2.stop()
+
+    asyncTest "Check timestamp is not zero":
+      ## This test validates that, even the generated message has a timestamp of 0,
+      ## the node will eventually set a timestamp when publishing the message.
+      let
+        zeroTimestamp = 0
+        meta = "TEST-META"
+        message = fakeWakuMessage(
+          payloads.ALPHABETIC, content_topics.CURRENT, meta, zeroTimestamp
+        )
+
+      # When publishing a valid payload
+      let publishResponse =
+        await client.publish(some(pubsubTopic), message, serverRemotePeerInfo)
+
+      # Then the message is received by the server
+      discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+      assertResultOk publishResponse
+      check handlerFuture.finished()
+
+      # And the message is received with the correct topic and payload
+      let (readPubsubTopic, readMessage) = handlerFuture.read()
+
+      check:
+        pubsubTopic == readPubsubTopic
+        message.payload == readMessage.payload
+        message.contentTopic == readMessage.contentTopic
+        message.meta == readMessage.meta
+        message.timestamp != readMessage.timestamp
+        message.ephemeral == readMessage.ephemeral
+        message.proof == readMessage.proof
+        message.version == readMessage.version
+        readMessage.timestamp > 0
 
   suite "Verification of PushResponse Payload":
     asyncTest "Positive Responses":

@@ -48,10 +48,10 @@ fi
 
 MY_EXT_IP=$(wget -qO- --no-check-certificate https://api4.ipify.org)
 
-if [ -n "${PUBSUB}" ]; then
-    PUBSUB=--pubsub-topic="${PUBSUB}"
+if [ -n "${SHARD}" ]; then
+    SHARD=--shard="${SHARD}"
 else
-    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
+    SHARD=--shard="0"
 fi
 
 if [ -n "${CONTENT_TOPIC}" ]; then
@@ -83,19 +83,25 @@ if [ -n "${MESSAGE_INTERVAL_MILLIS}" ]; then
     MESSAGE_INTERVAL_MILLIS=--message-interval="${MESSAGE_INTERVAL_MILLIS}"
 fi
 
+if [ -n "${LOG_LEVEL}" ]; then
+    LOG_LEVEL=--log-level=${LOG_LEVEL}
+else
+    LOG_LEVEL=--log-level=INFO
+fi
+
 echo "Running binary: ${BINARY_PATH}"
 echo "Node function is: ${FUNCTION}"
 echo "Using service/bootstrap node as: ${NODE_ARG}"
 echo "My external IP: ${MY_EXT_IP}"
 
 exec "${BINARY_PATH}"\
-      --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
       --test-peers\
+      ${LOG_LEVEL}\
       ${NODE_ARG}\
       ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\
-      ${PUBSUB}\
+      ${SHARD}\
       ${CONTENT_TOPIC}\
       ${CLUSTER_ID}\
       ${FUNCTION}\

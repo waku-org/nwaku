@@ -18,6 +18,7 @@ import
     common/logging,
     factory/external_config,
     waku_core,
+    waku_core/topics/pubsub_topic,
   ]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
@@ -95,18 +96,9 @@ type LiteProtocolTesterConf* = object
     name: "message-interval"
   .}: uint32
 
-  pubsubTopics* {.
-    desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
-    defaultValue: @[LitePubsubTopic],
-    name: "pubsub-topic"
-  .}: seq[PubsubTopic]
+  shard* {.desc: "Shards index to subscribe to. ", defaultValue: 0, name: "shard".}:
+    uint16
 
-  ## TODO: extend lite protocol tester configuration based on testing needs
-  # shards* {.
-  #   desc: "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
-  #   defaultValue: @[],
-  #   name: "shard"
-  # .}: seq[uint16]
   contentTopics* {.
     desc: "Default content topic to subscribe to. Argument may be repeated.",
     defaultValue: @[LiteContentTopic],
@@ -194,5 +186,8 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
+
+proc getPubsubTopic*(conf: LiteProtocolTesterConf): PubsubTopic =
+  return $RelayShard(clusterId: conf.clusterId, shardId: conf.shard)
 
 {.pop.}
