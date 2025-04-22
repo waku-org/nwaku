@@ -5,10 +5,10 @@ IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
 
 echo "Service node IP: ${IP}"
 
-if [ -n "${PUBSUB}" ]; then
-    PUBSUB=--pubsub-topic="${PUBSUB}"
+if [ -n "${SHARD}" ]; then
+    SHARD=--shard="${SHARD}"
 else
-    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
+    SHARD=--shard="0"
 fi
 
 if [ -n "${CLUSTER_ID}" ]; then
@@ -59,5 +59,5 @@ exec /usr/bin/wakunode\
       --metrics-server-port=8003\
       --metrics-server-address=0.0.0.0\
       --nat=extip:${IP}\
-      ${PUBSUB}\
+      ${SHARD}\
       ${CLUSTER_ID}

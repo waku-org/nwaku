@@ -55,6 +55,8 @@ RUN chmod +x /usr/bin/liteprotocoltester
 FROM base_lpt AS standalone_lpt
 
 COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node.sh /usr/bin/
+COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node_on_fleet.sh /usr/bin/
+
 RUN chmod +x /usr/bin/run_tester_node.sh
 
 ENTRYPOINT ["/usr/bin/run_tester_node.sh", "/usr/bin/liteprotocoltester"]
