@@ -20,7 +20,7 @@ import ./noise
 
 logScope:
   topics = "waku noise"
-
+type Digest = MDigest[256]
 #################################################################
 
 #################################
@@ -68,6 +68,8 @@ proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
     sequence.add digest.data[i]
   return sequence
 
+proc toDigest*(s: string): Digest =
+  seqToDigest256(toBytes(s))
 # Serializes input parameters to a base64 string for exposure through QR code (used by WakuPairing)
 proc toQr*(
     applicationName: string,
