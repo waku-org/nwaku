@@ -75,18 +75,24 @@ proc populateAdminPeerInfo(peers: var WakuPeers, node: WakuNode, codec: string) 
     )
   tuplesToWakuPeers(peers, peersForCodec)
 
+proc populateAdminPeerInfoForCodecs(node: WakuNode, codecs: seq[string]): WakuPeers =
+  var peers: WakuPeers = @[]
+
+  for codec in codecs:
+    populateAdminPeerInfo(peers, node, codec)
+
+  return peers
+
 proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
-    var peers: WakuPeers = @[]
-
-    populateAdminPeerInfo(peers, node, WakuRelayCodec)
-    populateAdminPeerInfo(peers, node, WakuFilterSubscribeCodec)
-    populateAdminPeerInfo(peers, node, WakuStoreCodec)
-    populateAdminPeerInfo(peers, node, WakuLegacyStoreCodec)
-    populateAdminPeerInfo(peers, node, WakuLegacyLightPushCodec)
-    populateAdminPeerInfo(peers, node, WakuLightPushCodec)
-    populateAdminPeerInfo(peers, node, WakuPeerExchangeCodec)
-    populateAdminPeerInfo(peers, node, WakuReconciliationCodec)
+    let peers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
 
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
@@ -121,16 +127,14 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       return RestApiResponse.notFound(fmt("Peer with ID {peerId} not found"))
 
   router.api(MethodGet, ROUTE_ADMIN_V1_CONNECTED_PEERS) do() -> RestApiResponse:
-    var allPeers: WakuPeers = @[]
-
-    populateAdminPeerInfo(allPeers, node, WakuRelayCodec)
-    populateAdminPeerInfo(allPeers, node, WakuFilterSubscribeCodec)
-    populateAdminPeerInfo(allPeers, node, WakuStoreCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLegacyStoreCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLegacyLightPushCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLightPushCodec)
-    populateAdminPeerInfo(allPeers, node, WakuPeerExchangeCodec)
-    populateAdminPeerInfo(allPeers, node, WakuReconciliationCodec)
+    let allPeers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
 
     let connectedPeers = allPeers.filterIt(it.connected == Connectedness.Connected)
 
@@ -149,15 +153,14 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
-    var allPeers: WakuPeers = @[]
-    populateAdminPeerInfo(allPeers, node, WakuRelayCodec)
-    populateAdminPeerInfo(allPeers, node, WakuFilterSubscribeCodec)
-    populateAdminPeerInfo(allPeers, node, WakuStoreCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLegacyStoreCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLegacyLightPushCodec)
-    populateAdminPeerInfo(allPeers, node, WakuLightPushCodec)
-    populateAdminPeerInfo(allPeers, node, WakuPeerExchangeCodec)
-    populateAdminPeerInfo(allPeers, node, WakuReconciliationCodec)
+    let allPeers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
 
     let connectedPeers = allPeers.filterIt(
       it.connected == Connectedness.Connected and it.shards.contains(shard)
