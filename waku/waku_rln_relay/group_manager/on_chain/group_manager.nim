@@ -329,8 +329,9 @@ method withdrawBatch*(
 proc poseidonHash(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
 ): GroupManagerResult[array[32, byte]] =
-  # Compute leaf hash from idCommitment
-  let leafHashRes = poseidon(@[g.idCredentials.get().idCommitment])
+  # Compute leaf hash from idCommitment and messageLimit
+  let messageLimitField = uint64ToField(g.userMessageLimit.get())
+  let leafHashRes = poseidon(@[g.idCredentials.get().idCommitment, @messageLimitField])
   if leafHashRes.isErr():
     return err("Failed to compute leaf hash: " & leafHashRes.error)
 
@@ -400,19 +401,12 @@ method generateProof*(
   # Proposed fix using index bits
   let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
     # 20-bit for depth 20
-  var pathIndex = 0
   for i in 0 ..< g.merkleProofCache.len div 32:
-    let bit = identity_path_index[i]
     let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]
-    path_elements.add(
-      if bit == 0:
-        chunk.reversed()
-      else:
-        chunk
-    )
+    # ABI returns bytes32 in big‑endian; convert to little‑endian for Poseidon
+    path_elements.add(chunk.reversed())
 
   # After proof generation, verify against contract root
-
   var generatedRoot: array[32, byte]
   try:
     let generatedRootRes = g.poseidonHash(path_elements, identity_path_index)
@@ -452,6 +446,8 @@ method generateProof*(
 
   var hash_output_seq = newSeq[byte](hash_output_buffer.len)
   copyMem(addr hash_output_seq[0], hash_output_buffer.ptr, hash_output_buffer.len)
+  # SHA‑256 digest is big‑endian; convert to little‑endian for Poseidon/BN254 field
+  hash_output_seq = hash_output_seq.reversed()
   let x = seqToField(hash_output_seq)
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
