@@ -562,8 +562,14 @@ proc isOnline*(pm: PeerManager): Future[bool] {.async.} =
   # check to somewhere disable discv5 if node is offline
   echo "--------------- checking isOnline"
 
+  let (inPeers, outPeers) = pm.connectedPeers()
+  echo "------------ len(inPeers): ", len(inPeers)
+  echo "------------ len(outPeers): ", len(outPeers)
+
   let numConnectedPeers =
     pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
+
+  echo "---------- numConnectedPeers: ", numConnectedPeers
 
   if numConnectedPeers > 0:
     echo "--------------- checking isOnline: online true (connected to peers)"
@@ -749,6 +755,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       # we don't want to await for the callback to finish
       asyncSpawn pm.onConnectionChange(peerId, Joined)
   of Left:
+    echo "------------ disconnect peer event for peerId: ", $peerId
     direction = UnknownDirection
     connectedness = CanConnect
 
