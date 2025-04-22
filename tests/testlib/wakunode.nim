@@ -43,6 +43,8 @@ proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
   builder.withRendezvous(true)
   builder.storeServiceConf.withDbMigration(false)
   builder.storeServiceConf.withSupportV2(false)
+  builder.webSocketConf.withWebSocketPort(Port(8000))
+  builder.webSocketConf.withEnabled(true)
   return builder
 
 proc defaultTestWakuConf*(): WakuConf =
