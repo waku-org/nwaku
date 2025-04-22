@@ -571,6 +571,11 @@ proc isOnline*(pm: PeerManager): Future[bool] {.async.} =
 
   echo "---------- numConnectedPeers: ", numConnectedPeers
 
+  let peersByConnBook =
+    pm.switch.peerStore[ConnectionBook].book.values().countIt(it == Connected)
+
+  echo "-------------- peersByConnBook: ", peersByConnBook
+
   if numConnectedPeers > 0:
     echo "--------------- checking isOnline: online true (connected to peers)"
     return true
@@ -727,6 +732,8 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   of Joined:
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
+
+    echo "------------ joined event for peerId: ", $peerId
 
     ## Check max allowed in-relay peers
     let inRelayPeers = pm.connectedPeers(WakuRelayCodec)[0]
