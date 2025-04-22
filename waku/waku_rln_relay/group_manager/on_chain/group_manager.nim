@@ -30,11 +30,11 @@ logScope:
 
 type EthereumUInt40* = StUint[40]
 type EthereumUInt32* = StUint[32]
-type EthereumUInt16* = StUint[16]
+
 type MembershipInfoResult = object
-  value1: UInt256
-  value2: UInt256
-  value3: UInt256
+  rateLimit: UInt256
+  index: UInt256
+  rateCommitment: UInt256
 
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
@@ -255,15 +255,15 @@ proc getMembershipFromMembershipInfo(
   var memInfo: MembershipInfoResult
   g.retryWrapper(memInfo, "Failed to get membership info"):
     await wakuRlnContract.getMembershipInfo(idCommitment).call()
-  trace "membershipinfo",
-    rateLim = memInfo.value1,
-    index = memInfo.value2,
-    rateCommitment =   memInfo.value3
-  let rateCommitment = memInfo.value3
+  trace "membership info from contract",
+    rateLim = memInfo.rateLimit,
+    index = memInfo.index,
+    rateCommitment = memInfo.rateCommitment
+  let rateCommitment = memInfo.rateCommitment
   return ok(
       Membership(
         rateCommitment: rateCommitment.toRateCommitment(),
-        index: memInfo.value2.toMembershipIndex(),
+        index: memInfo.index.toMembershipIndex(),
       )
     )
 
@@ -273,7 +273,6 @@ proc parseEvent(
   ## parses the `data` parameter of the `MembershipRegistered` event `log`
   ## returns an error if it cannot parse the `data` parameter
   ##  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: EthereumUInt32)
-  var rateCommitment: UInt256
   var idCommitment: UInt256
   var membershipRateLimit: UInt256
   var index: UInt256
@@ -296,7 +295,7 @@ proc parseEvent(
     offset += decode(data, 0, offset, index)
 
     if idCommitment == 0:
-        return err("the getMembershipInfo does not have a membership")
+        return err("membership registration failed")
     
     return ok(idCommitment)
   except CatchableError:
