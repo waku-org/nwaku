@@ -8,6 +8,7 @@ import
   libp2p/multistream,
   libp2p/muxers/muxer,
   libp2p/nameresolving/nameresolver,
+  libp2p/nameresolving/dnsresolver,
   libp2p/peerstore
 
 import
@@ -95,6 +96,7 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
+  dnsNameServers*: Option[seq[IpAddress]]
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -462,8 +464,6 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   let peerStore = pm.switch.peerStore
   let failedAttempts = peerStore[NumberFailedConnBook][peerId]
 
-  # only attempt if current node is online
-
   # if it never errored, we can try to connect
   if failedAttempts == 0:
     return true
@@ -537,7 +537,50 @@ proc getStreamByPeerIdAndProtocol*(
 
   return ok(streamRes.get())
 
+proc checkDnsServerSimple(
+    nameServerIps: seq[IpAddress], timeout = 2.seconds
+): Future[bool] {.async.} =
+  echo "----------------- sending DNS query"
+
+  var nameServers: seq[TransportAddress]
+  for ip in nameServerIps:
+    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+  let dnsResolver = DnsResolver.new(nameServers)
+
+  # Resolve domain IP
+  let resolved = await dnsResolver.resolveIp("status.app", 0.Port, Domain.AF_UNSPEC)
+
+  if resolved.len > 0:
+    return true
+    echo "----------------- successful DNS query"
+  else:
+    echo "----------------- DNS query failed"
+    return false
+
+proc isOnline*(pm: PeerManager): Future[bool] {.async.} =
+  # check to somewhere disable discv5 if node is offline
+  echo "--------------- checking isOnline"
+
+  let numConnectedPeers =
+    pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
+
+  if numConnectedPeers > 0:
+    echo "--------------- checking isOnline: online true (connected to peers)"
+    return true
+
+  if pm.dnsNameServers.isNone():
+    echo "--------------- checking isOnline: online false (no name servers)"
+    return false
+
+  return await checkDnsServerSimple(pm.dnsNameServers.get())
+
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  # only attempt if current node is online
+  if not await pm.isOnline():
+    echo "------ connectToRelayPeers cannot connect - node is offline"
+    return
+
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
@@ -780,6 +823,10 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
 
+  if not await pm.isOnline():
+    echo "------ manageRelayPeers cannot connect - node is offline"
+    return
+
   var peersToConnect: HashSet[PeerId] # Can't use RemotePeerInfo as they are ref objects
   var peersToDisconnect: int
 
@@ -1007,6 +1054,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    dnsNameServers = none(seq[IpAddress]),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1057,6 +1105,7 @@ proc new*(
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
+    dnsNameServers: dnsNameServers,
   )
 
   proc peerHook(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
