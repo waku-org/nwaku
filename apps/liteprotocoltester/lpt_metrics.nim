@@ -47,3 +47,10 @@ declarePublicGauge lpt_px_peers,
 declarePublicGauge lpt_dialed_peers, "Number of peers successfully dialed", ["agent"]
 
 declarePublicGauge lpt_dial_failures, "Number of dial failures by cause", ["agent"]
+
+declarePublicHistogram lpt_publish_duration_seconds,
+  "duration to lightpush messages",
+  buckets = [
+    0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0,
+    15.0, 20.0, 30.0, Inf,
+  ]
