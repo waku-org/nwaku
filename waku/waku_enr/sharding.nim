@@ -16,7 +16,7 @@ logScope:
 const MaxShardIndex*: uint16 = 1023
 
 const
-  ShardingIndicesListEnrField* = "rs"/topics/pubsub_topic
+  ShardingIndicesListEnrField* = "rs"
   ShardingIndicesListMaxLength* = 64
   ShardingBitVectorEnrField* = "rsv"
 

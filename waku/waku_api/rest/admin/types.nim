@@ -5,8 +5,9 @@ import
   json_serialization,
   json_serialization/std/options,
   json_serialization/lexer,
-  results
-import waku/[waku_core], ../serdes
+  results,
+  libp2p/protocols/pubsub/pubsubpeer
+import waku/[waku_core, node/peer_manager], ../serdes
 
 #### Types
 type WakuPeer* = object
@@ -16,6 +17,7 @@ type WakuPeer* = object
   connected*: Connectedness
   agent*: string
   origin*: PeerOrigin
+  score*: Option[float64]
 
 type WakuPeers* = seq[WakuPeer]
 
@@ -44,6 +46,7 @@ proc writeValue*(
   writer.writeField("connected", value.connected)
   writer.writeField("agent", value.agent)
   writer.writeField("origin", value.origin)
+  writer.writeField("score", value.score)
   writer.endRecord()
 
 proc writeValue*(
@@ -80,8 +83,7 @@ proc readValue*(
     connected: Option[Connectedness]
     agent: Option[string]
     origin: Option[PeerOrigin]
-
-  echo "NZP readValue WakuPeer"
+    score: Option[float64]
 
   for fieldName in readObjectFields(reader):
     echo "NZP readValue WakuPeer fieldName: ", fieldName
@@ -110,6 +112,10 @@ proc readValue*(
       if origin.isSome():
         reader.raiseUnexpectedField("Multiple `origin` fields found", "WakuPeer")
       origin = some(reader.readValue(PeerOrigin))
+    of "score":
+      if score.isSome():
+        reader.raiseUnexpectedField("Multiple `score` fields found", "WakuPeer")
+      score = some(reader.readValue(float64))
     else:
       unrecognizedFieldWarning(value)
 
@@ -138,6 +144,7 @@ proc readValue*(
     connected: connected.get(),
     agent: agent.get(),
     origin: origin.get(),
+    score: score,
   )
 
 proc readValue*(
@@ -243,6 +250,19 @@ proc init*(T: type WakuPeer, peerInfo: RemotePeerInfo): WakuPeer =
     connected: peerInfo.connectedness,
     agent: peerInfo.agent,
     origin: peerInfo.origin,
+    score: none(float64),
+  )
+
+proc init*(T: type WakuPeer, pubsubPeer: PubSubPeer, pm: PeerManager): WakuPeer =
+  let peerInfo = pm.getPeer(pubsubPeer.peerId)
+  result = WakuPeer(
+    multiaddr: constructMultiaddrStr(peerInfo),
+    protocols: peerInfo.protocols,
+    shards: peerInfo.getShards(),
+    connected: peerInfo.connectedness,
+    agent: peerInfo.agent,
+    origin: peerInfo.origin,
+    score: some(pubsubPeer.score),
   )
 
 proc add*(

@@ -1,11 +1,11 @@
 {.push raises: [].}
 
 import
-  std/[strformat, sequtils, tables],
+  std/[sets, strformat, sequtils, tables],
   chronicles,
   json_serialization,
   presto/route,
-  libp2p/[peerinfo, switch, peerid]
+  libp2p/[peerinfo, switch, peerid, protocols/pubsub/pubsubpeer]
 
 import
   waku/[
@@ -183,11 +183,13 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       let relayShard = RelayShard.parse(topic).valueOr:
         error "Invalid subscribed topic", error = error, topic = topic
         continue
-      let peers = node.wakuRelay.getConnectedPeers(topic).get(@[]).mapIt(
-          node.peerManager.getPeer(it)
-        )
+      let pubsubPeers =
+        node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
       relayPeers.add(
-        PeersOfShard(shard: relayShard.shardId, peers: peers.mapIt(WakuPeer.init(it)))
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
       )
 
     let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200)
@@ -212,10 +214,11 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
 
     let topic =
       toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
-    let peers = node.wakuRelay.getConnectedPeers(topic).get(@[]).mapIt(
-        node.peerManager.getPeer(it)
-      )
-    let relayPeer = PeersOfShard(shard: shard, peers: peers.mapIt(WakuPeer.init(it)))
+    let pubsubPeers =
+      node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+    let relayPeer = PeersOfShard(
+      shard: shard, peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager))
+    )
 
     let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200)
     if resp.isErr():
@@ -237,11 +240,13 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       let relayShard = RelayShard.parse(topic).valueOr:
         error "Invalid subscribed topic", error = error, topic = topic
         continue
-      let peers = node.wakuRelay.getPeersInMesh(topic).get(@[]).mapIt(
-          node.peerManager.getPeer(it)
-        )
+      let peers =
+        node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
       relayPeers.add(
-        PeersOfShard(shard: relayShard.shardId, peers: peers.mapIt(WakuPeer.init(it)))
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
       )
 
     let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200)
@@ -267,8 +272,10 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let topic =
       toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
     let peers =
-      node.wakuRelay.getPeersInMesh(topic).get(@[]).mapIt(node.peerManager.getPeer(it))
-    let relayPeer = PeersOfShard(shard: shard, peers: peers.mapIt(WakuPeer.init(it)))
+      node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+    let relayPeer = PeersOfShard(
+      shard: shard, peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager))
+    )
 
     let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200)
     if resp.isErr():
