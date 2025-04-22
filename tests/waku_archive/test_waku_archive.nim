@@ -4,12 +4,10 @@ import std/[options, sequtils], testutils/unittests, chronos, libp2p/crypto/cryp
 
 import
   waku/[
-    common/databases/db_sqlite,
     common/databases/db_postgres/dbconn,
     common/paging,
     waku_core,
     waku_core/message/digest,
-    waku_archive/driver/sqlite_driver,
     waku_archive,
   ],
   ../waku_archive/archive_utils,

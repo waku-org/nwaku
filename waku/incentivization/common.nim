@@ -1,6 +1,6 @@
 import std/options
 
-import waku/incentivization/[rpc, eligibility_manager]
+import waku/incentivization/rpc
 
 proc init*(T: type EligibilityStatus, isEligible: bool): T =
   if isEligible:

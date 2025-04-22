@@ -1,6 +1,6 @@
 {.used.}
 
-import std/options, chronicles, chronos, libp2p/crypto/crypto
+import std/options, chronos, chronicles, libp2p/crypto/crypto
 
 import
   waku/node/peer_manager,

@@ -9,9 +9,9 @@ type Instr {.union.} = object
 proc mockImpl*(target, replacement: pointer) =
   # YOLO who needs alignment
   #doAssert (cast[ByteAddress](target) and ByteAddress(0x07)) == 0
-  var page = cast[pointer](cast[ByteAddress](target) and (not 0xfff))
+  var page = cast[pointer](cast[uint](target) and (not 0xfff))
   doAssert mprotect(page, 4096, PROT_WRITE or PROT_EXEC) == 0
-  let rel = cast[ByteAddress](replacement) - cast[ByteAddress](target) - 5
+  let rel = cast[uint](replacement) - cast[uint](target) - 5
   var instr = Instr(
     bytes: [
       0xe9.byte,

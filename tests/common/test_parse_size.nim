@@ -1,6 +1,6 @@
 {.used.}
 
-import testutils/unittests, stew/results
+import testutils/unittests, results
 import waku/common/utils/parse_size_units
 
 suite "Size serialization test":

@@ -1,6 +1,6 @@
 {.used.}
 
-import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
+import std/options, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
@@ -10,7 +10,7 @@ import
     waku_store_legacy/client,
     common/paging,
   ],
-  ../testlib/[common, wakucore, testasync, futures],
+  ../testlib/[wakucore, testasync, futures],
   ./store_utils
 
 suite "Store Client":

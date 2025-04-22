@@ -15,8 +15,6 @@ import
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/connectivity/autonat/client,
-  libp2p/protocols/connectivity/autonat/service,
   libp2p/builders,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
@@ -50,8 +48,7 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../common/rate_limit/setting,
-  ../discovery/autonat_service
+  ../common/rate_limit/setting
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -515,6 +512,10 @@ proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
   ## Giving option for application level to choose btw own push message handling or
   ## rely on node provided cache. - This only applies for v2 filter client
   info "mounting filter client"
+
+  if not node.wakuFilterClient.isNil():
+    trace "Filter client already mounted."
+    return
 
   node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
 
@@ -1024,8 +1025,9 @@ proc mountLegacyLightPush*(
 proc mountLegacyLightPushClient*(node: WakuNode) =
   info "mounting legacy light push client"
 
-  node.wakuLegacyLightpushClient =
-    WakuLegacyLightPushClient.new(node.peerManager, node.rng)
+  if node.wakuLegacyLightpushClient.isNil():
+    node.wakuLegacyLightpushClient =
+      WakuLegacyLightPushClient.new(node.peerManager, node.rng)
 
 proc legacyLightpushPublish*(
     node: WakuNode,
@@ -1136,7 +1138,8 @@ proc mountLightPush*(
 proc mountLightPushClient*(node: WakuNode) =
   info "mounting light push client"
 
-  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
+  if node.wakuLightpushClient.isNil():
+    node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
 
 proc lightpushPublishHandler(
     node: WakuNode,

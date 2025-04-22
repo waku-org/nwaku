@@ -9,7 +9,6 @@ import
     waku_store_legacy/rpc,
     waku_store_legacy/rpc_codec,
   ],
-  ../testlib/common,
   ../testlib/wakucore
 
 procSuite "Waku Store - RPC codec":

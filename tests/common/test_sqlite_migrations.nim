@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[strutils, os], stew/results, testutils/unittests
+import std/[strutils, os], results, testutils/unittests
 import waku/common/databases/db_sqlite {.all.}, ../waku_archive/archive_utils
 
 template sourceDir(): string =

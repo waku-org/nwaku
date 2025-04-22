@@ -544,10 +544,14 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler)
   procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
 
 proc publish*(
-    w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
+    w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
 ): Future[Result[int, PublishOutcome]] {.async.} =
   if pubsubTopic.isEmptyOrWhitespace():
     return err(NoTopicSpecified)
+
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
 
   let data = message.encode().buffer
 

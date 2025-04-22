@@ -1,11 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils, tables, net],
+  std/[options, sequtils, net],
   testutils/unittests,
   chronos,
-  chronicles,
-  libp2p/[switch, peerId, crypto/crypto, multistream, muxers/muxer],
+  libp2p/[switch, peerId, crypto/crypto],
   eth/[keys, p2p/discoveryv5/enr]
 
 import
@@ -18,14 +17,11 @@ import
     waku_peer_exchange/rpc_codec,
     waku_peer_exchange/protocol,
     node/peer_manager,
-    waku_relay/protocol,
-    waku_relay,
     waku_core,
-    waku_core/message/codec,
     common/enr/builder,
     waku_enr/sharding,
   ],
-  ../testlib/[wakucore, wakunode, simple_mock, assertions],
+  ../testlib/[wakucore, wakunode, assertions],
   ./utils.nim
 
 suite "Waku Peer Exchange":
