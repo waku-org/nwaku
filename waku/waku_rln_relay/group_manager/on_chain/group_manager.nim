@@ -295,11 +295,6 @@ proc parseEvent(
     # Parse the index
     offset += decode(data, 0, offset, index)
 
-    trace "parsed MembershipRegistered Event",
-      idCommitment = idCommitment,
-      membershipRateLimit = membershipRateLimit,
-      index = index
-
     if idCommitment == 0:
         return err("the getMembershipInfo does not have a membership")
     
@@ -391,10 +386,7 @@ proc handleEvents(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-  trace "handling block event"
-  var hasEntries = false
   for blockNumber, members in blockTable.pairs():
-    hasEntries = true
     try:
       let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
       let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
@@ -411,8 +403,6 @@ proc handleEvents(
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
     
-  if not hasEntries:
-    trace "no blocks to process"
 
   return
 
@@ -651,16 +641,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
-    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
-    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
-    let idCommitmentHex =  idCommitmentBytes.inHex()
-    debug "Keystore idCommitment in bytes",
-      idCommitmentBytes = idCommitmentBytes
-    debug "Keystore idCommitment in UInt256 ",
-      idCommitmentUInt256 = idCommitmentUInt256
-    debug "Keystore idCommitment in hex ",
-      idCommitmentHex = idCommitmentHex
-    let idCommitment = idCommitmentUInt256
+    let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
     try:
       let membershipExists = await wakuRlnContract
       .isInMembershipSet(idCommitment).call()
