@@ -562,7 +562,7 @@ method verifyProof*(
     return err("could not verify the proof")
 
   debug "Verification successfully", proof = proof
-  debug "------"output = ffiOk
+  debug "------", output = ffiOk
 
   return ok(validProof)
 
