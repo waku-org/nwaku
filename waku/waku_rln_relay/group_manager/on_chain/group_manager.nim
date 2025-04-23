@@ -340,11 +340,6 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "calling generateProof from group_manager onchain",
-    data = data,
-    membershipIndex = g.membershipIndex.get(),
-    userMessageLimit = g.userMessageLimit.get()
-
   try:
     discard waitFor g.updateRoots()
   except CatchableError:
@@ -474,6 +469,7 @@ method verifyProof*(
     addr proofBuffer, # (proof + signal)
     addr rootsBuffer, # valid Merkle roots
     addr validProof # will be set by the FFI call
+    ,
   )
 
   if not ffiOk:

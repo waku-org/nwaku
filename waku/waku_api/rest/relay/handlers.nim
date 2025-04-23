@@ -265,7 +265,6 @@ proc installRelayApiHandlers*(
       error "publish error", err = msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)
 
-    debug "calling appendRLNProof from post_waku_v2_relay_v1_auto_messages_no_topic"
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
@@ -273,7 +272,6 @@ proc installRelayApiHandlers*(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
 
-    debug "calling validateMessage from post_waku_v2_relay_v1_auto_messages_no_topic"
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
 

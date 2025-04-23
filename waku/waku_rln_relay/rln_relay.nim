@@ -193,8 +193,6 @@ proc validateMessage*(
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
-  debug "calling validateMessage from rln_relay", msg_len = msg.payload.len
-
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
@@ -246,6 +244,7 @@ proc validateMessage*(
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
     warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
+
   if not proofVerificationRes.value():
     # invalid proof
     warn "invalid message: invalid proof", payloadLen = msg.payload.len
@@ -313,8 +312,6 @@ proc appendRLNProof*(
 
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
-
-  debug "calling generateProof from appendRLNProof from rln_relay", input = input
 
   let nonce = rlnPeer.nonceManager.getNonce().valueOr:
     return err("could not get new message id to generate an rln proof: " & $error)
