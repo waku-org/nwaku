@@ -425,6 +425,7 @@ method generateProof*(
 
   debug "--- generatedRoot and contractRoots",
     generatedRoot = generatedRoot, contractRoots = g.validRoots.toSeq()
+
   # if contractRoot != generatedRoot:
   #   return err("Root mismatch: contract=" & $contractRoot & " local=" & $generatedRoot)
 
@@ -440,8 +441,8 @@ method generateProof*(
     len = identity_path_index.len
 
   # --- x = Keccak256(signal) ---
-  let keccakDigest = keccak.keccak256.digest(data) # 32‑byte BE array
-  let x = seqToField(keccakDigest.data) # convert to LE for BN254
+  let x = keccak.keccak256.digest(data) # 32‑byte BE array
+  # let x = seqToField(keccakDigest.data) 
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
   if extNullifierRes.isErr():
