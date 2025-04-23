@@ -561,7 +561,8 @@ method verifyProof*(
     warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
 
-  debug "Verification successfully", proof = proof, output = ffiOk
+  debug "Verification successfully", proof = proof
+  debug "------"output = ffiOk
 
   return ok(validProof)
 
