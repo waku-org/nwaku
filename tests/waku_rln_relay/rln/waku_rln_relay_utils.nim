@@ -11,7 +11,6 @@ proc unsafeAppendRLNProof*(
   ## this proc derived from appendRLNProof, does not perform nonce check to
   ## facilitate bad message id generation for testing
 
-  debug "calling generateProof from unsafeAppendRLNProof from waku_rln_relay_utils"
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
 
