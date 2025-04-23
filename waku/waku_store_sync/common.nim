@@ -26,8 +26,8 @@ type
     ItemSet = 2
 
   RangesData* = object
-    cluster*: uint16
-    shards*: seq[uint16]
+    pubsubTopics*: seq[PubsubTopic]
+    contentTopics*: seq[ContentTopic]
 
     ranges*: seq[(Slice[SyncID], RangeType)]
     fingerprints*: seq[Fingerprint] # Range type fingerprint stored here in order
