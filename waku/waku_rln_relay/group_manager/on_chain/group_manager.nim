@@ -451,7 +451,7 @@ method generateProof*(
 
 method verifyProof*(
     g: OnchainGroupManager, # verifier context
-    input: openArray[byte], # raw message data (signal)
+    input: seq[byte], # raw message data (signal)
     proof: RateLimitProof, # proof received from the peer
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
   ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
