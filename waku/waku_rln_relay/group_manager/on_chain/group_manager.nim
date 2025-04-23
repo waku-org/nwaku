@@ -321,7 +321,10 @@ method register*(
   # TODO: make this robust. search within the event list for the event
   debug "ts receipt", receipt = tsReceipt[]
 
-  if tsReceipt.status.isNone() or tsReceipt.status.get() != 1.Quantity:
+  if tsReceipt.status.isNone():
+    raise newException(ValueError, "register: transaction failed isNone")
+
+  if tsReceipt.status.get() != 1.Quantity:
     raise newException(ValueError, "register: transaction failed")
 
   let firstTopic = tsReceipt.logs[2].topics[0]
