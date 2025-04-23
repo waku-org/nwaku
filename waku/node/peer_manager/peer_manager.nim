@@ -1099,6 +1099,7 @@ proc new*(
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
     dnsNameServers: dnsNameServers,
+    isOnline: true,
   )
 
   proc peerHook(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
