@@ -362,6 +362,8 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
 
     let count = self.storage.prune(time)
 
+    total_messages_cached.set(self.storage.length())
+
     debug "periodic prune done", elements_pruned = count
 
 proc idsReceiverLoop(self: SyncReconciliation) {.async.} =
