@@ -211,21 +211,6 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
     if proofResult.isErr():
       error "Failed to fetch Merkle proof", error = proofResult.error
     g.merkleProofCache = proofResult.get()
-
-    # debug "Roots and MerkleProof status",
-    #   roots = g.validRoots.toSeq(),
-    #   rootsCount = g.validRoots.len,
-    #   firstProofElement =
-    #     if g.merkleProofCache.len >= 32:
-    #       g.merkleProofCache[0 .. 31]
-    #     else:
-    #       @[],
-    #   lastProofElement =
-    #     if g.merkleProofCache.len >= 32:
-    #       g.merkleProofCache[^32 ..^ 1]
-    #     else:
-    #       @[],
-    #   proofLength = g.merkleProofCache.len
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -400,13 +385,10 @@ method generateProof*(
 
   # Proposed fix using index bits
   let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
-    # 20-bit for depth 20
   for i in 0 ..< g.merkleProofCache.len div 32:
     let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]
-    # ABI returns bytes32 in big‑endian; convert to little‑endian for Poseidon
     path_elements.add(chunk.reversed())
 
-  # After proof generation, verify against contract root
   var generatedRoot: array[32, byte]
   try:
     let generatedRootRes = g.poseidonHash(path_elements, identity_path_index)
@@ -423,34 +405,12 @@ method generateProof*(
   except CatchableError:
     error "Failed to update roots", error = getCurrentExceptionMsg()
 
-  debug "--- generatedRoot and contractRoots",
-    generatedRoot = generatedRoot, contractRoots = g.validRoots.toSeq()
-
-  # if contractRoot != generatedRoot:
-  #   return err("Root mismatch: contract=" & $contractRoot & " local=" & $generatedRoot)
-
-  debug "--- pathElements ---",
-    before = g.merkleProofCache,
-    after = path_elements,
-    before_len = g.merkleProofCache.len,
-    after_len = path_elements.len
-
-  debug "--- identityPathIndex ---",
-    before = g.membershipIndex.get(),
-    after = identity_path_index,
-    len = identity_path_index.len
-
-  # --- x = Keccak256(signal) ---
   let x = keccak.keccak256.digest(data) # 32‑byte BE array
-  # let x = seqToField(keccakDigest.data) 
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
   if extNullifierRes.isErr():
     return err("Failed to compute external nullifier: " & extNullifierRes.error)
   let extNullifier = extNullifierRes.get()
-
-  debug "--- x ( data hash ) ---", before = data, after = x
-  debug "--- externalNullifier ---", before = extNullifier, after = extNullifier
 
   let witness = RLNWitnessInput(
     identity_secret: identity_secret,
@@ -464,7 +424,6 @@ method generateProof*(
 
   let serializedWitness = serialize(witness)
 
-  debug "--- serializedWitness ---", before = witness, after = serializedWitness
   var input_witness_buffer = toBuffer(serializedWitness)
 
   # Generate the proof using the zerokit API
@@ -515,7 +474,7 @@ method generateProof*(
     nullifier: nullifier,
   )
 
-  debug "Proof generated successfully", Proof = output
+  debug "Proof generated successfully"
 
   waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()
@@ -527,27 +486,19 @@ method verifyProof*(
     proof: RateLimitProof, # proof received from the peer
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
   ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
-  ## Returns `ok(true)`  → proof is valid
-  ##         `ok(false)` → proof is syntactically correct *but* fails verification
-  ##         `err(msg)`  → internal failure (serialization, FFI, etc.)
-
-  # 1. Re-compute the external-nullifier so peers can’t tamper with
-  #    the `(epoch, rlnIdentifier)` public input.
-  var normalizedProof = proof # copy so we don’t mutate caller’s value
+  
+  var normalizedProof = proof 
   let extNullRes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)])
   if extNullRes.isErr():
     return err("could not construct external nullifier: " & extNullRes.error)
   normalizedProof.externalNullifier = extNullRes.get()
 
-  # 2. Serialize `(proof, signal)` exactly the way Zerokit expects.
   let proofBytes = serialize(normalizedProof, input)
   let proofBuffer = proofBytes.toBuffer()
 
-  # 3. Serialize the sliding window of Merkle roots we trust.
   let rootsBytes = serialize(g.validRoots.items().toSeq())
   let rootsBuffer = rootsBytes.toBuffer()
 
-  # 4. Hand everything to the RLN FFI verifier.
   var validProof: bool # out-param
   let ffiOk = verify_with_roots(
     g.rlnInstance, # RLN context created at init()
@@ -560,9 +511,8 @@ method verifyProof*(
   if not ffiOk:
     warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
-
-  debug "Verification successfully", proof = proof
-  debug "------", output = ffiOk
+  else:
+    debug "Proof verified successfully !"
 
   return ok(validProof)
 
