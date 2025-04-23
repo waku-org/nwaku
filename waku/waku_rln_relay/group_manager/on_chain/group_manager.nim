@@ -441,7 +441,7 @@ method generateProof*(
 
   # --- x = Keccak256(signal) ---
   let keccakDigest = keccak.keccak256.digest(data) # 32‑byte BE array
-  let x = seqToField(keccakDigest.data.reversed()) # convert to LE for BN254
+  let x = seqToField(keccakDigest.data) # convert to LE for BN254
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
   if extNullifierRes.isErr():
@@ -560,7 +560,7 @@ method verifyProof*(
     warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
 
-  debug "Verification successfully", proof = proof
+  debug "Verification successfully", proof = proof, output = ffiOk
 
   return ok(validProof)
 
