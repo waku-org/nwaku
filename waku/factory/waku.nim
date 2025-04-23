@@ -59,6 +59,7 @@ type Waku* = ref object
   wakuDiscv5*: WakuDiscoveryV5
   dynamicBootstrapNodes: seq[RemotePeerInfo]
   dnsRetryLoopHandle: Future[void]
+  networkConnLoopHandle: Future[void]
   discoveryMngr: DiscoveryManager
 
   node*: WakuNode
@@ -363,6 +364,27 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
       error "failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg()
     return
 
+proc manageDiscv5(waku: ptr Waku): Future[void] {.async.} =
+  if waku[].wakuDiscv5.isNil():
+    return
+
+  if not waku[].node.peerManager.isOnline and waku[].wakuDiscv5.listening:
+    # If node is offline with discv5 active, stop it
+    await waku[].wakuDiscv5.stop()
+  elif waku[].node.peerManager.isOnline and not waku[].wakuDiscv5.listening:
+    # If node is online with discv5 stopped, restart it
+    (await waku[].wakuDiscV5.start()).isOkOr:
+      error "manageDiscv5: failed to start waku discovery v5", error = $error
+
+proc startNetworkConnectivityLoop(waku: ptr Waku): Future[void] {.async.} =
+  while true:
+    await sleepAsync(15.seconds)
+
+    # Update online state
+    await waku[].node.peerManager.updateOnlineState()
+    # stop/restart discv5 depending on the online state
+    await waku.manageDiscv5()
+
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
 
@@ -400,6 +422,9 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   if not waku[].deliveryMonitor.isNil():
     waku[].deliveryMonitor.startDeliveryMonitor()
 
+  # Start network connectivity check loop
+  waku[].networkConnLoopHandle = waku.startNetworkConnectivityLoop()
+
   return ok()
 
 # Waku shutdown
@@ -410,6 +435,9 @@ proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
 
   if not waku.metricsServer.isNil():
     await waku.metricsServer.stop()
+
+  if not waku.networkConnLoopHandle.isNil():
+    await waku.networkConnLoopHandle.cancelAndWait()
 
   if not waku.wakuDiscv5.isNil():
     await waku.wakuDiscv5.stop()

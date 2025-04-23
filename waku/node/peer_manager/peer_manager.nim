@@ -97,6 +97,7 @@ type PeerManager* = ref object of RootObj
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
   dnsNameServers*: Option[seq[IpAddress]]
+  isOnline*: bool
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -537,11 +538,9 @@ proc getStreamByPeerIdAndProtocol*(
 
   return ok(streamRes.get())
 
-proc checkDnsServerSimple(
+proc checkInternetConnectivity(
     nameServerIps: seq[IpAddress], timeout = 2.seconds
 ): Future[bool] {.async.} =
-  echo "----------------- sending DNS query"
-
   var nameServers: seq[TransportAddress]
   for ip in nameServerIps:
     nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
@@ -553,43 +552,26 @@ proc checkDnsServerSimple(
 
   if resolved.len > 0:
     return true
-    echo "----------------- successful DNS query"
   else:
-    echo "----------------- DNS query failed"
     return false
 
-proc isOnline*(pm: PeerManager): Future[bool] {.async.} =
-  # check to somewhere disable discv5 if node is offline
-  echo "--------------- checking isOnline"
-
-  let (inPeers, outPeers) = pm.connectedPeers()
-  echo "------------ len(inPeers): ", len(inPeers)
-  echo "------------ len(outPeers): ", len(outPeers)
-
+proc updateOnlineState*(pm: PeerManager): Future[void] {.async.} =
   let numConnectedPeers =
     pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
 
-  echo "---------- numConnectedPeers: ", numConnectedPeers
-
-  let peersByConnBook =
-    pm.switch.peerStore[ConnectionBook].book.values().countIt(it == Connected)
-
-  echo "-------------- peersByConnBook: ", peersByConnBook
-
   if numConnectedPeers > 0:
-    echo "--------------- checking isOnline: online true (connected to peers)"
-    return true
-
-  if pm.dnsNameServers.isNone():
-    echo "--------------- checking isOnline: online false (no name servers)"
-    return false
-
-  return await checkDnsServerSimple(pm.dnsNameServers.get())
+    pm.isOnline = true
+  elif pm.dnsNameServers.isNone():
+    warn "Node has no peers nor a configured DNS server to check internet connectivity. Node might be offline."
+    # Mark the peer as online if it has no DNS servers, otherwise it will be stuck as offline forever
+    pm.isOnline = true
+  else:
+    pm.isOnline = await checkInternetConnectivity(pm.dnsNameServers.get())
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   # only attempt if current node is online
-  if not await pm.isOnline():
-    echo "------ connectToRelayPeers cannot connect - node is offline"
+  if not pm.isOnline:
+    error "connectToRelayPeers: won't attempt new connections - node is offline"
     return
 
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
@@ -733,8 +715,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
 
-    echo "------------ joined event for peerId: ", $peerId
-
     ## Check max allowed in-relay peers
     let inRelayPeers = pm.connectedPeers(WakuRelayCodec)[0]
     if inRelayPeers.len > pm.inRelayPeersTarget and
@@ -762,7 +742,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       # we don't want to await for the callback to finish
       asyncSpawn pm.onConnectionChange(peerId, Joined)
   of Left:
-    echo "------------ disconnect peer event for peerId: ", $peerId
     direction = UnknownDirection
     connectedness = CanConnect
 
@@ -837,8 +816,8 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
 
-  if not await pm.isOnline():
-    echo "------ manageRelayPeers cannot connect - node is offline"
+  if not pm.isOnline:
+    error "manageRelayPeers: won't attempt new connections - node is offline"
     return
 
   var peersToConnect: HashSet[PeerId] # Can't use RemotePeerInfo as they are ref objects
