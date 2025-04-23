@@ -220,17 +220,18 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex",
-    idCommitmentNoConvert = idCommitmentHex
+  debug "identityCredential idCommitmentHex", idCommitmentNoConvert = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
-    idCommitment = idCommitment, userMessageLimit = userMessageLimit, idCommitmentsToErase = idCommitmentsToErase
+    idCommitment = idCommitment,
+    userMessageLimit = userMessageLimit,
+    idCommitmentsToErase = idCommitmentsToErase
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32),idCommitmentsToErase).send(
-      gasPrice = gasPrice
-    )
+    await wakuRlnContract
+    .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
+    .send(gasPrice = gasPrice)
 
   # wait for the transaction to be mined
   var tsReceipt: ReceiptObject
@@ -253,7 +254,9 @@ method register*(
   debug "third topic", firstTopic = firstTopic
   # the hash of the signature of MembershipRegistered(uint256,uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest("MembershipRegistered(uint256,uint256,uint32)").data):
+      cast[FixedBytes[32]](keccak.keccak256.digest(
+        "MembershipRegistered(uint256,uint256,uint32)"
+      ).data):
     raise newException(ValueError, "register: unexpected event signature")
 
   # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
@@ -549,8 +552,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     # now we check on the contract if the commitment actually has a membership
     let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
     try:
-      let membershipExists = await wakuRlnContract
-      .isInMembershipSet(idCommitment).call()
+      let membershipExists =
+        await wakuRlnContract.isInMembershipSet(idCommitment).call()
       if membershipExists == false:
         return err("the idCommitmentUInt256 does not have a membership")
     except CatchableError:
