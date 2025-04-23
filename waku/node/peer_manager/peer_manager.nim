@@ -555,7 +555,7 @@ proc checkInternetConnectivity(
   else:
     return false
 
-proc updateOnlineState*(pm: PeerManager): Future[void] {.async.} =
+proc updateOnlineState*(pm: PeerManager) {.async.} =
   let numConnectedPeers =
     pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
 

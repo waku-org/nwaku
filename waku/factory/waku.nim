@@ -376,6 +376,8 @@ proc manageDiscv5(waku: Waku): Future[void] {.async.} =
     (await waku.wakuDiscV5.start()).isOkOr:
       error "manageDiscv5: failed to start waku discovery v5", error = $error
 
+# The network connectivity loop checks periodically whether the node is online or not
+# and triggers any change that depends on the network connectivity state
 proc startNetworkConnectivityLoop(waku: Waku): Future[void] {.async.} =
   while true:
     await sleepAsync(15.seconds)
