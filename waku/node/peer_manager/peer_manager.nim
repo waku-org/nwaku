@@ -548,7 +548,7 @@ proc checkInternetConnectivity(
   let dnsResolver = DnsResolver.new(nameServers)
 
   # Resolve domain IP
-  let resolved = await dnsResolver.resolveIp("status.app", 0.Port, Domain.AF_UNSPEC)
+  let resolved = await dnsResolver.resolveIp("waku.org", 0.Port, Domain.AF_UNSPEC)
 
   if resolved.len > 0:
     return true
