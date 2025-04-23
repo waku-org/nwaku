@@ -198,8 +198,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
 
   let netConfig = builder.netConfig.get()
 
-  echo "------------- build netConfig.dnsNameServers: ", netConfig.dnsNameServers
-
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),

@@ -492,8 +492,6 @@ proc setupNode*(
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  echo "------ setupNode netConfig.dnsNameServers: ", netConfig.dnsNameServers
-
   let record = enrConfiguration(conf, netConfig, key).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os, net, asyncnet],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
   chronos,
   chronicles,
   metrics,
