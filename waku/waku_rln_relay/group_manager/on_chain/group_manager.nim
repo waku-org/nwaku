@@ -21,25 +21,22 @@ import
   ../group_manager_base,
   ./retry_wrapper
 
-from strutils import parseHexInt
-
 export group_manager_base
 
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
-type EthereumUInt40* = StUint[40]
-type EthereumUInt32* = StUint[32]
-type EthereumUInt16* = StUint[16]
+type UInt40* = StUint[40]
+type UInt32* = StUint[32]
 
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: EthereumUInt32)
+  proc register(idCommitment: UInt256, userMessageLimit: UInt32)
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(rateCommitment: UInt256, index: EthereumUInt32) {.event.}
+  proc MemberRegistered(rateCommitment: UInt256, index: UInt32) {.event.}
   # this function denotes existence of a given user
   proc memberExists(idCommitment: UInt256): UInt256 {.view.}
   # this constant describes the next index of a new member
@@ -49,7 +46,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index 
-  proc merkleProofElements(index: EthereumUInt40): seq[byte] {.view.}
+  proc merkleProofElements(index: UInt40): seq[byte] {.view.}
   # this function returns the merkle root 
   proc root(): UInt256 {.view.}
 
@@ -106,7 +103,6 @@ proc seqToField*(s: seq[byte]): array[32, byte] =
   for i in 0 ..< len:
     result[i] = s[i]
 
-# Convert membership index to 20-bit LSB-first binary sequence
 proc uint64ToIndex(index: MembershipIndex, depth: int): seq[byte] =
   result = newSeq[byte](depth)
   for i in 0 ..< depth:
@@ -155,13 +151,6 @@ proc fetchMerkleRoot*(
   except CatchableError:
     error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
 
-proc fetchCommitmentIndex*(
-    g: OnchainGroupManager
-): Future[Result[UInt256, string]] {.async.} =
-  let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
-  let commitmentIndex = await commitmentIndexInvocation.call()
-  return ok(commitmentIndex)
-
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
@@ -188,10 +177,8 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
     return true
 
   if g.validRoots[g.validRoots.len - 1] != merkleRoot:
-    var overflow = g.validRoots.len - AcceptableRootWindowSize + 1
-    while overflow > 0:
+    if g.validRoots.len > AcceptableRootWindowSize:
       discard g.validRoots.popFirst()
-      overflow = overflow - 1
     g.validRoots.addLast(merkleRoot)
     return true
 
@@ -207,10 +194,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
   while true:
     let rootUpdated = await g.updateRoots()
 
-    let proofResult = await g.fetchMerkleProofElements()
-    if proofResult.isErr():
-      error "Failed to fetch Merkle proof", error = proofResult.error
-    g.merkleProofCache = proofResult.get()
+    if rootUpdated:
+      let proofResult = await g.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      g.merkleProofCache = proofResult.get()
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -311,7 +299,7 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-proc poseidonHash(
+proc getRootFromProofAndIndex(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
 ): GroupManagerResult[array[32, byte]] =
   # Compute leaf hash from idCommitment and messageLimit
@@ -370,42 +358,23 @@ method generateProof*(
   except CatchableError:
     error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
+  if (g.merkleProofCache.len mod 32) != 0:
+    return err("Invalid merkle proof cache length")
+
   let identity_secret = seqToField(g.idCredentials.get().idSecretHash)
   let user_message_limit = uint64ToField(g.userMessageLimit.get())
   let message_id = uint64ToField(messageId)
   var path_elements = newSeq[byte](0)
 
-  debug "--- identitySecret ---", before = identity_secret, after = identity_secret
-  debug "--- userMessageLimit ---",
-    before = g.userMessageLimit.get(), after = user_message_limit
-  debug "--- messageId ---", before = messageId, after = message_id
-
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
-  # Proposed fix using index bits
   let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
   for i in 0 ..< g.merkleProofCache.len div 32:
     let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]
     path_elements.add(chunk.reversed())
 
-  var generatedRoot: array[32, byte]
-  try:
-    let generatedRootRes = g.poseidonHash(path_elements, identity_path_index)
-    generatedRoot = generatedRootRes.get()
-  except CatchableError:
-    error "Failed to update roots", error = getCurrentExceptionMsg()
-
-  var contractRoot: array[32, byte]
-  try:
-    let contractRootRes = waitFor g.fetchMerkleRoot()
-    if contractRootRes.isErr():
-      return err("Failed to fetch Merkle proof: " & contractRootRes.error)
-    contractRoot = UInt256ToField(contractRootRes.get())
-  except CatchableError:
-    error "Failed to update roots", error = getCurrentExceptionMsg()
-
-  let x = keccak.keccak256.digest(data) # 32‑byte BE array
+  let x = keccak.keccak256.digest(data)
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
   if extNullifierRes.isErr():
@@ -486,8 +455,8 @@ method verifyProof*(
     proof: RateLimitProof, # proof received from the peer
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
   ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
-  
-  var normalizedProof = proof 
+
+  var normalizedProof = proof
   let extNullRes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)])
   if extNullRes.isErr():
     return err("could not construct external nullifier: " & extNullRes.error)
@@ -505,7 +474,6 @@ method verifyProof*(
     addr proofBuffer, # (proof + signal)
     addr rootsBuffer, # valid Merkle roots
     addr validProof # will be set by the FFI call
-    ,
   )
 
   if not ffiOk:
