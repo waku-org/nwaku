@@ -37,9 +37,9 @@ type SyncTransfer* = ref object of LPProtocol
   idsTx: AsyncQueue[SyncID]
 
   # Receive Hashes from reconciliation protocol for reception
-  localWantsRx: AsyncQueue[(PeerId, WakuMessageHash)]
+  localWantsRx: AsyncQueue[PeerId]
   localWantsRxFut: Future[void]
-  inSessions: Table[PeerId, HashSet[WakuMessageHash]]
+  inSessions: HashSet[PeerId]
 
   # Receive Hashes from reconciliation protocol for transmission
   remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)]
@@ -83,14 +83,10 @@ proc wantsReceiverLoop(self: SyncTransfer) {.async.} =
   ## "supposed to be received"
 
   while true: # infinite loop
-    let (peerId, fingerprint) = await self.localWantsRx.popFirst()
+    let peerId = await self.localWantsRx.popFirst()
 
-    self.inSessions.withValue(peerId, value):
-      value[].incl(fingerprint)
-    do:
-      var hashes = initHashSet[WakuMessageHash]()
-      hashes.incl(fingerprint)
-      self.inSessions[peerId] = hashes
+    if self.inSessions.containsOrIncl(peerId):
+      self.inSessions.excl(peerId)
 
   return
 
@@ -137,6 +133,10 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
 proc initProtocolHandler(self: SyncTransfer) =
   let handler = proc(conn: Connection, proto: string) {.async, closure.} =
     while true:
+      if not self.inSessions.contains(conn.peerId):
+        error "unwanted peer, disconnecting", remote = conn.peerId
+        break
+
       let readRes = catch:
         await conn.readLp(int64(DefaultMaxWakuMessageSize))
 
@@ -156,16 +156,6 @@ proc initProtocolHandler(self: SyncTransfer) =
       let pubsub = payload.pubsub
 
       let hash = computeMessageHash(pubsub, msg)
-
-      self.inSessions.withValue(conn.peerId, value):
-        if value[].missingOrExcl(hash):
-          error "unwanted hash received, disconnecting"
-          self.inSessions.del(conn.peerId)
-          break
-      do:
-        error "unwanted hash received, disconnecting"
-        self.inSessions.del(conn.peerId)
-        break
 
       #TODO verify msg RLN proof...
 
@@ -193,7 +183,7 @@ proc new*(
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     idsTx: AsyncQueue[SyncID],
-    localWantsRx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsRx: AsyncQueue[PeerId],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): T =
   var transfer = SyncTransfer(

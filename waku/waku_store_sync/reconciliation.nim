@@ -49,8 +49,8 @@ type SyncReconciliation* = ref object of LPProtocol
   # Receive IDs from transfer protocol for storage
   idsRx: AsyncQueue[SyncID]
 
-  # Send Hashes to transfer protocol for reception
-  localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)]
+  # Send peer ids to transfer protocol for reception
+  localWantsTx: AsyncQueue[PeerId]
 
   # Send Hashes to transfer protocol for transmission
   remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
@@ -100,6 +100,9 @@ proc processRequest(
     roundTrips = 0
     diffs = 0
 
+  # Signal to transfer protocol that this reconciliation is starting
+  await self.localWantsTx.addLast(conn.peerId)
+
   while true:
     let readRes = catch:
       await conn.readLp(int.high)
@@ -143,7 +146,6 @@ proc processRequest(
         diffs.inc()
 
       for hash in hashToRecv:
-        self.localWantsTx.addLastNoWait((conn.peerId, hash))
         diffs.inc()
 
       rawPayload = sendPayload.deltaEncode()
@@ -167,6 +169,9 @@ proc processRequest(
       break
 
     continue
+
+  # Signal to transfer protocol that this reconciliation is done
+  await self.localWantsTx.addLast(conn.peerId)
 
   reconciliation_roundtrips.observe(roundTrips)
   reconciliation_differences.observe(diffs)
@@ -296,7 +301,7 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
     idsRx: AsyncQueue[SyncID],
-    localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsTx: AsyncQueue[PeerId],
     remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
