@@ -189,8 +189,6 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "calling proofGen from generateProof from group_manager_base", data = data
-
   waku_rln_proof_generation_duration_seconds.nanosecondTime:
     let proof = proofGen(
       rlnInstance = g.rlnInstance,
