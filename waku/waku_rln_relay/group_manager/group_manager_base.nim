@@ -122,23 +122,17 @@ method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base, gcsafe.} =
 proc slideRootQueue*(
     rootQueue: var Deque[MerkleNode], root: MerkleNode
 ): seq[MerkleNode] =
-  ## updates the root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
   let overflowCount = rootQueue.len - AcceptableRootWindowSize + 1
   var overflowedRoots = newSeq[MerkleNode]()
   if overflowCount > 0:
-    # Delete the oldest `overflowCount` roots in the deque (index 0..`overflowCount`)
-    # insert into overflowedRoots seq and return
     for i in 0 ..< overflowCount:
       overFlowedRoots.add(rootQueue.popFirst())
-  # Push the next root into the queue
   rootQueue.addLast(root)
   return overFlowedRoots
 
 method indexOfRoot*(
     g: GroupManager, root: MerkleNode
 ): int {.base, gcsafe, raises: [].} =
-  ## returns the index of the root in the merkle tree.
-  ## returns -1 if the root is not found
   return g.validRoots.find(root)
 
 method validateRoot*(
