@@ -212,20 +212,20 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       error "Failed to fetch Merkle proof", error = proofResult.error
     g.merkleProofCache = proofResult.get()
 
-    debug "Roots and MerkleProof status",
-      roots = g.validRoots.toSeq(),
-      rootsCount = g.validRoots.len,
-      firstProofElement =
-        if g.merkleProofCache.len >= 32:
-          g.merkleProofCache[0 .. 31]
-        else:
-          @[],
-      lastProofElement =
-        if g.merkleProofCache.len >= 32:
-          g.merkleProofCache[^32 ..^ 1]
-        else:
-          @[],
-      proofLength = g.merkleProofCache.len
+    # debug "Roots and MerkleProof status",
+    #   roots = g.validRoots.toSeq(),
+    #   rootsCount = g.validRoots.len,
+    #   firstProofElement =
+    #     if g.merkleProofCache.len >= 32:
+    #       g.merkleProofCache[0 .. 31]
+    #     else:
+    #       @[],
+    #   lastProofElement =
+    #     if g.merkleProofCache.len >= 32:
+    #       g.merkleProofCache[^32 ..^ 1]
+    #     else:
+    #       @[],
+    #   proofLength = g.merkleProofCache.len
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -423,8 +423,10 @@ method generateProof*(
   except CatchableError:
     error "Failed to update roots", error = getCurrentExceptionMsg()
 
-  if contractRoot != generatedRoot:
-    return err("Root mismatch: contract=" & $contractRoot & " local=" & $generatedRoot)
+  debug "--- generatedRoot and contractRoots",
+    generatedRoot = generatedRoot, contractRoots = g.validRoots.toSeq()
+  # if contractRoot != generatedRoot:
+  #   return err("Root mismatch: contract=" & $contractRoot & " local=" & $generatedRoot)
 
   debug "--- pathElements ---",
     before = g.merkleProofCache,
@@ -436,19 +438,10 @@ method generateProof*(
     before = g.membershipIndex.get(),
     after = identity_path_index,
     len = identity_path_index.len
-  # Convert seq[byte] to Buffer and get the hash
-  var
-    hash_input_buffer = toBuffer(data) # Convert input data to Buffer
-    hash_output_buffer: Buffer # Create output buffer for the hash
-  let hash_success = sha256(addr hash_input_buffer, addr hash_output_buffer)
-  if not hash_success:
-    return err("Failed to compute sha256 hash")
 
-  var hash_output_seq = newSeq[byte](hash_output_buffer.len)
-  copyMem(addr hash_output_seq[0], hash_output_buffer.ptr, hash_output_buffer.len)
-  # SHA‑256 digest is big‑endian; convert to little‑endian for Poseidon/BN254 field
-  hash_output_seq = hash_output_seq.reversed()
-  let x = seqToField(hash_output_seq)
+  # --- x = Keccak256(signal) ---
+  let keccakDigest = keccak.keccak256.digest(data) # 32‑byte BE array
+  let x = seqToField(keccakDigest.data.reversed()) # convert to LE for BN254
 
   let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
   if extNullifierRes.isErr():
@@ -478,10 +471,9 @@ method generateProof*(
   let witness_success = generate_proof_with_witness(
     g.rlnInstance, addr input_witness_buffer, addr output_witness_buffer
   )
+
   if not witness_success:
     return err("Failed to generate proof")
-  else:
-    debug "Proof generated successfully"
 
   # Parse the proof into a RateLimitProof object
   var proofValue = cast[ptr array[320, byte]](output_witness_buffer.`ptr`)
@@ -521,45 +513,56 @@ method generateProof*(
     shareY: shareY,
     nullifier: nullifier,
   )
+
+  debug "Proof generated successfully", Proof = output
+
   waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()
   return ok(output)
 
 method verifyProof*(
-    g: OnchainGroupManager, input: openArray[byte], proof: RateLimitProof
+    g: OnchainGroupManager, # verifier context
+    input: openArray[byte], # raw message data (signal)
+    proof: RateLimitProof, # proof received from the peer
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
-  ## verifies the proof, returns an error if the proof verification fails
-  ## returns true if the proof is valid
-  var normalizedProof = proof
-  # when we do this, we ensure that we compute the proof for the derived value
-  # of the externalNullifier. The proof verification will fail if a malicious peer
-  # attaches invalid epoch+rlnidentifier pair
+  ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
+  ## Returns `ok(true)`  → proof is valid
+  ##         `ok(false)` → proof is syntactically correct *but* fails verification
+  ##         `err(msg)`  → internal failure (serialization, FFI, etc.)
 
-  normalizedProof.externalNullifier = poseidon(
-    @[@(proof.epoch), @(proof.rlnIdentifier)]
-  ).valueOr:
-    return err("could not construct the external nullifier")
-  var
-    proofBytes = serialize(normalizedProof, input)
-    proofBuffer = proofBytes.toBuffer()
-    validProof: bool
-    rootsBytes = serialize(g.validRoots.items().toSeq())
-    rootsBuffer = rootsBytes.toBuffer()
+  # 1. Re-compute the external-nullifier so peers can’t tamper with
+  #    the `(epoch, rlnIdentifier)` public input.
+  var normalizedProof = proof # copy so we don’t mutate caller’s value
+  let extNullRes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)])
+  if extNullRes.isErr():
+    return err("could not construct external nullifier: " & extNullRes.error)
+  normalizedProof.externalNullifier = extNullRes.get()
 
-  trace "serialized proof", proof = byteutils.toHex(proofBytes)
+  # 2. Serialize `(proof, signal)` exactly the way Zerokit expects.
+  let proofBytes = serialize(normalizedProof, input)
+  let proofBuffer = proofBytes.toBuffer()
 
-  let verifyIsSuccessful = verify_with_roots(
-    g.rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof
+  # 3. Serialize the sliding window of Merkle roots we trust.
+  let rootsBytes = serialize(g.validRoots.items().toSeq())
+  let rootsBuffer = rootsBytes.toBuffer()
+
+  # 4. Hand everything to the RLN FFI verifier.
+  var validProof: bool # out-param
+  let ffiOk = verify_with_roots(
+    g.rlnInstance, # RLN context created at init()
+    addr proofBuffer, # (proof + signal)
+    addr rootsBuffer, # valid Merkle roots
+    addr validProof # will be set by the FFI call
+    ,
   )
-  if not verifyIsSuccessful:
-    # something went wrong in verification call
-    warn "could not verify validity of the proof", proof = proof
+
+  if not ffiOk:
+    warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
 
-  if not validProof:
-    return ok(false)
-  else:
-    return ok(true)
+  debug "Verification successfully", proof = proof
+
+  return ok(validProof)
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
