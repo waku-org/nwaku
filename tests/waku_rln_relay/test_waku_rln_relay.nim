@@ -722,13 +722,13 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1, some(time))
+      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
       # wm2 is published within the same Epoch as wm1 and should be found as spam
-      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2, some(time))
+      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
       # a valid message should be validated successfully
-      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3, some(time))
+      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3)
       # wm4 has no rln proof and should not be validated
-      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
+      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
@@ -778,9 +778,9 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1, some(time))
+      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1)
       # since this message is from a different sender, it should be validated successfully
-      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2, some(time))
+      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
