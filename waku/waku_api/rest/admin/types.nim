@@ -86,7 +86,6 @@ proc readValue*(
     score: Option[float64]
 
   for fieldName in readObjectFields(reader):
-    echo "NZP readValue WakuPeer fieldName: ", fieldName
     case fieldName
     of "multiaddr":
       if multiaddr.isSome():
@@ -126,7 +125,7 @@ proc readValue*(
     reader.raiseUnexpectedValue("Field `protocols` are missing")
 
   if shards.isNone():
-    reader.raiseUnexpectedValue("Field `shards` are missing")
+    reader.raiseUnexpectedValue("Field `shards` is missing")
 
   if connected.isNone():
     reader.raiseUnexpectedValue("Field `connected` is missing")
