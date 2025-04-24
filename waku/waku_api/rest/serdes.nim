@@ -1,9 +1,9 @@
 {.push raises: [].}
 
 import
-  std/typetraits,
+  std/[typetraits, parseutils],
   results,
-  stew/byteutils,
+  stew/[byteutils, base10],
   chronicles,
   serialization,
   json_serialization,
@@ -100,3 +100,13 @@ proc encodeString*(value: string): RestResult[string] =
 
 proc decodeString*(t: typedesc[string], value: string): RestResult[string] =
   ok(value)
+
+proc encodeString*(value: SomeUnsignedInt): RestResult[string] =
+  ok(Base10.toString(value))
+
+proc decodeString*(T: typedesc[SomeUnsignedInt], value: string): RestResult[T] =
+  let v = Base10.decode(T, value)
+  if v.isErr():
+    return err(v.error())
+  else:
+    return ok(v.get())
