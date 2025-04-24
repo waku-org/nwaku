@@ -1,22 +1,26 @@
 {.push raises: [].}
 
 import
-  std/[strformat, sequtils, tables],
+  std/[sets, strformat, sequtils, tables],
   chronicles,
   json_serialization,
   presto/route,
-  libp2p/[peerinfo, switch]
+  libp2p/[peerinfo, switch, peerid, protocols/pubsub/pubsubpeer]
 
 import
-  ../../../waku_core,
-  ../../../waku_store_legacy/common,
-  ../../../waku_store/common,
-  ../../../waku_filter_v2,
-  ../../../waku_lightpush_legacy/common,
-  ../../../waku_relay,
-  ../../../waku_peer_exchange,
-  ../../../waku_node,
-  ../../../node/peer_manager,
+  waku/[
+    waku_core,
+    waku_core/topics/pubsub_topic,
+    waku_store_legacy/common,
+    waku_store/common,
+    waku_filter_v2,
+    waku_lightpush_legacy/common,
+    waku_relay,
+    waku_peer_exchange,
+    waku_node,
+    node/peer_manager,
+    waku_enr/sharding,
+  ],
   ../responses,
   ../serdes,
   ../rest_serdes,
@@ -27,103 +31,260 @@ export types
 logScope:
   topics = "waku node rest admin api"
 
-const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
+const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers" # returns all peers
+const ROUTE_ADMIN_V1_SINGLE_PEER* = "/admin/v1/peer/{peerId}"
+
+const ROUTE_ADMIN_V1_CONNECTED_PEERS* = "/admin/v1/peers/connected"
+const ROUTE_ADMIN_V1_CONNECTED_PEERS_ON_SHARD* =
+  "/admin/v1/peers/connected/on/{shardId}"
+const ROUTE_ADMIN_V1_CONNECTED_RELAY_PEERS* = "/admin/v1/peers/connected/relay"
+const ROUTE_ADMIN_V1_CONNECTED_RELAY_PEERS_ON_SHARD* =
+  "/admin/v1/peers/connected/relay/on/{shardId}"
+const ROUTE_ADMIN_V1_MESH_PEERS* = "/admin/v1/peers/mesh"
+const ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD* = "/admin/v1/peers/mesh/on/{shardId}"
+
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
 
 type PeerProtocolTuple =
-  tuple[multiaddr: string, protocol: string, connected: bool, origin: PeerOrigin]
+  tuple[
+    multiaddr: string,
+    protocol: string,
+    shards: seq[uint16],
+    connected: Connectedness,
+    agent: string,
+    origin: PeerOrigin,
+  ]
 
 proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
   for peer in peersTup:
-    peers.add(peer.multiaddr, peer.protocol, peer.connected, peer.origin)
+    peers.add(
+      peer.multiaddr, peer.protocol, peer.shards, peer.connected, peer.agent,
+      peer.origin,
+    )
+
+proc populateAdminPeerInfo(peers: var WakuPeers, node: WakuNode, codec: string) =
+  let peersForCodec = node.peerManager.switch.peerStore.peers(codec).mapIt(
+      (
+        multiaddr: constructMultiaddrStr(it),
+        protocol: codec,
+        shards: it.getShards(),
+        connected: it.connectedness,
+        agent: it.agent,
+        origin: it.origin,
+      )
+    )
+  tuplesToWakuPeers(peers, peersForCodec)
+
+proc populateAdminPeerInfoForCodecs(node: WakuNode, codecs: seq[string]): WakuPeers =
+  var peers: WakuPeers = @[]
+
+  for codec in codecs:
+    populateAdminPeerInfo(peers, node, codec)
+
+  return peers
 
 proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
-    var peers: WakuPeers = @[]
-
-    let relayPeers = node.peerManager.switch.peerStore.peers(WakuRelayCodec).mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuRelayCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, relayPeers)
-
-    let filterV2Peers = node.peerManager.switch.peerStore
-      .peers(WakuFilterSubscribeCodec)
-      .mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuFilterSubscribeCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, filterV2Peers)
-
-    let storePeers = node.peerManager.switch.peerStore.peers(WakuStoreCodec).mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuStoreCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, storePeers)
-
-    let legacyStorePeers = node.peerManager.switch.peerStore
-      .peers(WakuLegacyStoreCodec)
-      .mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuLegacyStoreCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, legacyStorePeers)
-
-    let legacyLightpushPeers = node.peerManager.switch.peerStore
-      .peers(WakuLegacyLightPushCodec)
-      .mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuLegacyLightPushCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, legacyLightpushPeers)
-
-    let lightpushPeers = node.peerManager.switch.peerStore
-      .peers(WakuLightPushCodec)
-      .mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuLightPushCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, lightpushPeers)
-
-    let pxPeers = node.peerManager.switch.peerStore.peers(WakuPeerExchangeCodec).mapIt(
-        (
-          multiaddr: constructMultiaddrStr(it),
-          protocol: WakuPeerExchangeCodec,
-          connected: it.connectedness == Connectedness.Connected,
-          origin: it.origin,
-        )
-      )
-    tuplesToWakuPeers(peers, pxPeers)
+    let peers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
 
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
-      error "An error ocurred while building the json respose: ", error = resp.error
+      error "An error occurred while building the json response: ", error = resp.error
       return RestApiResponse.internalServerError(
-        fmt("An error ocurred while building the json respose: {resp.error}")
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_SINGLE_PEER) do(
+    peerId: string
+  ) -> RestApiResponse:
+    let peerIdString = peerId.valueOr:
+      return RestApiResponse.badRequest("Invalid argument:" & $error)
+
+    let peerIdVal: PeerId = PeerId.init(peerIdString).valueOr:
+      return RestApiResponse.badRequest("Invalid argument:" & $error)
+
+    if node.peerManager.switch.peerStore.peerExists(peerIdVal):
+      let peerInfo = node.peerManager.switch.peerStore.getPeer(peerIdVal)
+      let peer = WakuPeer.init(peerInfo)
+      let resp = RestApiResponse.jsonResponse(peer, status = Http200)
+      if resp.isErr():
+        error "An error occurred while building the json response: ", error = resp.error
+        return RestApiResponse.internalServerError(
+          fmt("An error occurred while building the json response: {resp.error}")
+        )
+
+      return resp.get()
+    else:
+      return RestApiResponse.notFound(fmt("Peer with ID {peerId} not found"))
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_CONNECTED_PEERS) do() -> RestApiResponse:
+    let allPeers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
+
+    let connectedPeers = allPeers.filterIt(it.connected == Connectedness.Connected)
+
+    let resp = RestApiResponse.jsonResponse(connectedPeers, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_CONNECTED_PEERS_ON_SHARD) do(
+    shardId: uint16
+  ) -> RestApiResponse:
+    let shard = shardId.valueOr:
+      return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
+
+    let allPeers = populateAdminPeerInfoForCodecs(
+      node,
+      @[
+        WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
+        WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
+        WakuReconciliationCodec,
+      ],
+    )
+
+    let connectedPeers = allPeers.filterIt(
+      it.connected == Connectedness.Connected and it.shards.contains(shard)
+    )
+
+    let resp = RestApiResponse.jsonResponse(connectedPeers, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_CONNECTED_RELAY_PEERS) do() -> RestApiResponse:
+    if node.wakuRelay.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Relay Protocol is not mounted to the node"
+      )
+
+    var relayPeers: PeersOfShards = @[]
+    for topic in node.wakuRelay.getSubscribedTopics():
+      let relayShard = RelayShard.parse(topic).valueOr:
+        error "Invalid subscribed topic", error = error, topic = topic
+        continue
+      let pubsubPeers =
+        node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+      relayPeers.add(
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
+      )
+
+    let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_CONNECTED_RELAY_PEERS_ON_SHARD) do(
+    shardId: uint16
+  ) -> RestApiResponse:
+    let shard = shardId.valueOr:
+      return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
+
+    if node.wakuRelay.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Relay Protocol is not mounted to the node"
+      )
+
+    let topic =
+      toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
+    let pubsubPeers =
+      node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+    let relayPeer = PeersOfShard(
+      shard: shard, peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager))
+    )
+
+    let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_MESH_PEERS) do() -> RestApiResponse:
+    if node.wakuRelay.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Relay Protocol is not mounted to the node"
+      )
+
+    var relayPeers: PeersOfShards = @[]
+    for topic in node.wakuRelay.getSubscribedTopics():
+      let relayShard = RelayShard.parse(topic).valueOr:
+        error "Invalid subscribed topic", error = error, topic = topic
+        continue
+      let peers =
+        node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+      relayPeers.add(
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
+      )
+
+    let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
+      )
+
+    return resp.get()
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD) do(
+    shardId: uint16
+  ) -> RestApiResponse:
+    let shard = shardId.valueOr:
+      return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
+
+    if node.wakuRelay.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Relay Protocol is not mounted to the node"
+      )
+
+    let topic =
+      toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
+    let peers =
+      node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+    let relayPeer = PeersOfShard(
+      shard: shard, peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager))
+    )
+
+    let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200)
+    if resp.isErr():
+      error "An error occurred while building the json response: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {resp.error}")
       )
 
     return resp.get()

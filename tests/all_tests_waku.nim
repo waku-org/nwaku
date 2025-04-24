@@ -99,6 +99,7 @@ import
   ./wakunode_rest/test_rest_relay_serdes,
   ./wakunode_rest/test_rest_serdes,
   ./wakunode_rest/test_rest_filter,
+  ./wakunode_rest/test_rest_lightpush,
   ./wakunode_rest/test_rest_lightpush_legacy,
   ./wakunode_rest/test_rest_admin,
   ./wakunode_rest/test_rest_cors,
