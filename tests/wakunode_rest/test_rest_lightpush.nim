@@ -42,7 +42,7 @@ type RestLightPushTest = object
   pushNode: WakuNode
   consumerNode: WakuNode
   restServer: WakuRestServerRef
-  client: RestClientRef
+  restClient: RestClientRef
 
 proc init(
     T: type RestLightPushTest, rateLimit: RateLimitSetting = (0, 0.millis)
@@ -79,20 +79,22 @@ proc init(
   let restAddress = parseIpAddress("127.0.0.1")
   testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
   restPort = testSetup.restServer.httpServer.address.port
-    # update with bound port for client use
+    # update with bound port for restClient use
 
   installLightPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)
 
   testSetup.restServer.start()
 
-  testSetup.client = newRestHttpClient(initTAddress(restAddress, restPort))
+  testSetup.restClient = newRestHttpClient(initTAddress(restAddress, restPort))
 
   return testSetup
 
 proc shutdown(self: RestLightPushTest) {.async.} =
   await self.restServer.stop()
   await self.restServer.closeWait()
-  await allFutures(self.serviceNode.stop(), self.pushNode.stop())
+  await allFutures(
+    self.serviceNode.stop(), self.pushNode.stop(), self.consumerNode.stop()
+  )
 
 suite "Waku v2 Rest API - lightpush":
   asyncTest "Push message with proof":
@@ -110,7 +112,8 @@ suite "Waku v2 Rest API - lightpush":
     let requestBody =
       PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
 
-    let response = await restLightPushTest.client.sendPushRequest(body = requestBody)
+    let response =
+      await restLightPushTest.restClient.sendPushRequest(body = requestBody)
 
     ## Validate that the push request failed because the node is not
     ## connected to other node but, doesn't fail because of not properly
@@ -141,7 +144,7 @@ suite "Waku v2 Rest API - lightpush":
 
     let requestBody =
       PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
-    let response = await restLightPushTest.client.sendPushRequest(requestBody)
+    let response = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
     echo "response", $response
 
@@ -180,7 +183,7 @@ suite "Waku v2 Rest API - lightpush":
 
     # var response: RestResponse[PushResponse]
 
-    var response = await restLightPushTest.client.sendPushRequest(badRequestBody1)
+    var response = await restLightPushTest.restClient.sendPushRequest(badRequestBody1)
 
     # Then
     check:
@@ -189,7 +192,7 @@ suite "Waku v2 Rest API - lightpush":
       response.data.statusDesc.get().startsWith("Invalid push request")
 
     # when
-    response = await restLightPushTest.client.sendPushRequest(badRequestBody2)
+    response = await restLightPushTest.restClient.sendPushRequest(badRequestBody2)
 
     # Then
     check:
@@ -198,7 +201,7 @@ suite "Waku v2 Rest API - lightpush":
       response.data.statusDesc.get().startsWith("Invalid push request")
 
     # when
-    response = await restLightPushTest.client.sendPushRequest(badRequestBody3)
+    response = await restLightPushTest.restClient.sendPushRequest(badRequestBody3)
 
     # Then
     check:
@@ -231,7 +234,7 @@ suite "Waku v2 Rest API - lightpush":
 
       let requestBody =
         PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
-      let response = await restLightPushTest.client.sendPushRequest(requestBody)
+      let response = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
       echo "response", $response
 
@@ -248,7 +251,7 @@ suite "Waku v2 Rest API - lightpush":
 
       let requestBody =
         PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
-      let response = await restLightPushTest.client.sendPushRequest(requestBody)
+      let response = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
       echo "response", $response
 
