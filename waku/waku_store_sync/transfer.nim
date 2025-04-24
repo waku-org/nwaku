@@ -78,9 +78,8 @@ proc openConnection(
   return ok(conn)
 
 proc wantsReceiverLoop(self: SyncTransfer) {.async.} =
-  ## Waits for message hashes,
-  ## store the peers and hashes locally as
-  ## "supposed to be received"
+  ## Waits for peer ids of nodes
+  ## we are reconciliating with
 
   while true: # infinite loop
     let peerId = await self.localWantsRx.popFirst()

@@ -61,7 +61,6 @@ suite "Waku Sync: reconciliation":
   asyncTest "sync 2 nodes both empty":
     check:
       idsChannel.len == 0
-      #localWants.len == 0
       remoteNeeds.len == 0
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
@@ -69,7 +68,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       idsChannel.len == 0
-      #localWants.len == 0
       remoteNeeds.len == 0
 
   asyncTest "sync 2 nodes empty client full server":
@@ -141,8 +139,6 @@ suite "Waku Sync: reconciliation":
     check:
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
       remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
-      #localWants.contains((clientPeerInfo.peerId, hash3)) == false
-      #localWants.contains((serverPeerInfo.peerId, hash2)) == false
 
     var syncRes = await client.storeSynchronization(some(serverPeerInfo))
     assert syncRes.isOk(), $syncRes.error
@@ -150,8 +146,6 @@ suite "Waku Sync: reconciliation":
     check:
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == true
       remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == true
-      #localWants.contains((clientPeerInfo.peerId, hash3)) == true
-      #localWants.contains((serverPeerInfo.peerId, hash2)) == true
 
   asyncTest "sync 2 nodes different shards":
     let
@@ -170,8 +164,6 @@ suite "Waku Sync: reconciliation":
     check:
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
       remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
-      #localWants.contains((clientPeerInfo.peerId, hash3)) == false
-      #localWants.contains((serverPeerInfo.peerId, hash2)) == false
 
     server = await newTestWakuRecon(
       serverSwitch, idsChannel, localWants, remoteNeeds, shards = @[0.uint16, 1, 2, 3]
@@ -185,7 +177,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 0
-      #localWants.len == 0
 
   asyncTest "sync 2 nodes same hashes":
     let
@@ -200,14 +191,12 @@ suite "Waku Sync: reconciliation":
     client.messageIngress(hash2, msg2)
 
     check:
-      #localWants.len == 0
       remoteNeeds.len == 0
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
     check:
-      #localWants.len == 0
       remoteNeeds.len == 0
 
   asyncTest "sync 2 nodes 100K msgs 1 diff":
@@ -236,14 +225,12 @@ suite "Waku Sync: reconciliation":
       timestamp += Timestamp(part)
 
     check:
-      #localWants.contains((serverPeerInfo.peerId, WakuMessageHash(diff))) == false
       remoteNeeds.contains((clientPeerInfo.peerId, WakuMessageHash(diff))) == false
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
     check:
-      #localWants.contains((serverPeerInfo.peerId, WakuMessageHash(diff))) == true
       remoteNeeds.contains((clientPeerInfo.peerId, WakuMessageHash(diff))) == true
 
   asyncTest "sync 2 nodes 10K msgs 1K diffs":
@@ -286,7 +273,6 @@ suite "Waku Sync: reconciliation":
       continue
 
     check:
-      #localWants.len == 0
       remoteNeeds.len == 0
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
@@ -294,7 +280,6 @@ suite "Waku Sync: reconciliation":
 
     # timimg issue make it hard to match exact numbers
     check:
-      #localWants.len > 900
       remoteNeeds.len > 900
 
 suite "Waku Sync: transfer":

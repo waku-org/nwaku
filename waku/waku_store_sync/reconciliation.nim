@@ -46,13 +46,10 @@ type SyncReconciliation* = ref object of LPProtocol
 
   storage: SyncStorage
 
-  # Receive IDs from transfer protocol for storage
+  # AsyncQueues are used as communication channels between
+  # reconciliation and transfer protocols.
   idsRx: AsyncQueue[SyncID]
-
-  # Send peer ids to transfer protocol for reception
   localWantsTx: AsyncQueue[PeerId]
-
-  # Send Hashes to transfer protocol for transmission
   remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
 
   # params
