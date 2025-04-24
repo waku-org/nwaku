@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, times, sugar, net],
+  std/[sequtils, times, sugar, net],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -27,7 +27,6 @@ import
     waku_relay/protocol,
     waku_filter_v2/common,
     waku_store/common,
-    waku_lightpush/common,
     waku_peer_exchange,
     waku_metadata,
   ],

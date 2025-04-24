@@ -1,5 +1,5 @@
 import std/options
-import ../common/protobuf, ../waku_core, ./rpc
+import ../common/protobuf, ./rpc
 
 # Codec for EligibilityProof
 

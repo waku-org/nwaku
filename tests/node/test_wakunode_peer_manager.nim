@@ -18,18 +18,15 @@ import
     waku_core,
     node/peer_manager,
     node/waku_node,
-    waku_enr/sharding,
     discovery/waku_discv5,
     waku_filter_v2/common,
     waku_relay/protocol,
   ],
-  ../testlib/
-    [wakucore, wakunode, testasync, testutils, assertions, comparisons, futures],
+  ../testlib/[wakucore, wakunode, testasync, testutils, comparisons],
   ../waku_enr/utils,
   ../waku_archive/archive_utils,
   ../waku_discv5/utils,
-  ./peer_manager/peer_store/utils,
-  ./utils
+  ./peer_manager/peer_store/utils
 
 const DEFAULT_PROTOCOLS: seq[string] =
   @["/ipfs/id/1.0.0", "/libp2p/autonat/1.0.0", "/libp2p/circuit/relay/0.2.0/hop"]

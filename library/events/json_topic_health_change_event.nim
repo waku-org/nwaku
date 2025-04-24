@@ -10,9 +10,6 @@ type JsonTopicHealthChangeEvent* = ref object of JsonEvent
 proc new*(
     T: type JsonTopicHealthChangeEvent, pubsubTopic: string, topicHealth: TopicHealth
 ): T =
-  # Returns a TopicHealthChange event as indicated in
-  # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
-
   return JsonTopicHealthChangeEvent(
     eventType: "relay_topic_health_change",
     pubsubTopic: pubsubTopic,

@@ -3,8 +3,9 @@
 {.push raises: [].}
 
 import
-  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
-  stew/[results, byteutils],
+  std/[options, sequtils, deques],
+  results,
+  stew/byteutils,
   testutils/unittests,
   chronos,
   chronicles,
@@ -17,19 +18,15 @@ import
 
 import
   waku/[
-    waku_node,
-    node/waku_node,
     waku_rln_relay,
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
-    waku_rln_relay/contract,
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
     waku_rln_relay/group_manager/on_chain/group_manager,
   ],
-  ../testlib/[wakucore, wakunode, common],
-  ./utils_onchain,
-  ./utils
+  ../testlib/wakucore,
+  ./utils_onchain
 
 suite "Onchain group manager":
   # We run Anvil

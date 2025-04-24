@@ -2,7 +2,7 @@
 
 {.push raises: [].}
 
-import stew/results, stint
+import results
 
 import
   ./rln/waku_rln_relay_utils,

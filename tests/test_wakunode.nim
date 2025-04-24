@@ -17,9 +17,7 @@ import
   libp2p/nameresolving/mockresolver,
   eth/p2p/discoveryv5/enr
 import
-  waku/[waku_core, waku_node, node/peer_manager, waku_relay, waku_peer_exchange],
-  ./testlib/wakucore,
-  ./testlib/wakunode
+  waku/[waku_core, waku_node, node/peer_manager], ./testlib/wakucore, ./testlib/wakunode
 
 suite "WakuNode":
   asyncTest "Protocol matcher works as expected":

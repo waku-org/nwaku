@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,

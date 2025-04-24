@@ -4,7 +4,6 @@ import
   std/[strutils, sequtils, tempfiles],
   stew/byteutils,
   stew/shims/net as stewNet,
-  testutils/unittests,
   chronos,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
@@ -23,8 +22,7 @@ import
     ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, futures],
-  ../resources/payloads
+  ../testlib/[wakucore, futures]
 
 proc noopRawHandler*(): WakuRelayHandler =
   var handler: WakuRelayHandler

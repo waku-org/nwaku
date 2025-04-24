@@ -10,10 +10,9 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/tables,
+  std/[strutils, tables, algorithm],
   stew/[byteutils, arrayops],
-  sequtils,
-  strutils
+  sequtils
 import
   ../../../waku_keystore,
   ../../rln,
@@ -22,16 +21,13 @@ import
   ../group_manager_base,
   ./retry_wrapper
 
-from strutils import parseHexInt
-
 export group_manager_base
 
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
-type EthereumUInt40* = StUint[40]
-type EthereumUInt32* = StUint[32]
-type EthereumUInt16* = StUint[16]
+type UInt40* = StUint[40]
+type UInt32* = StUint[32]
 
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
@@ -68,7 +64,7 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
-    merkleProofCache*: seq[array[32, byte]]
+    merkleProofCache*: seq[byte]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -93,47 +89,28 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc toArray32LE*(x: UInt256): array[32, byte] {.inline.} =
-  ## Convert UInt256 to byte array without endianness conversion
-  when nimvm:
-    for i in 0 ..< 32:
-      result[i] = byte((x shr (i * 8)).truncate(uint8) and 0xff)
-  else:
-    copyMem(addr result, unsafeAddr x, 32)
+proc uint64ToField*(n: uint64): array[32, byte] =
+  ## Converts uint64 to 32-byte little-endian array with zero padding
+  var bytes = toBytes(n, Endianness.littleEndian)
+  result[0 ..< bytes.len] = bytes
 
-# Hashes arbitrary signal to the underlying prime field.
-proc hash_to_field*(signal: seq[byte]): array[32, byte] =
-  var ctx: keccak256
-  ctx.init()
-  ctx.update(signal)
-  var hash = ctx.finish()
+proc UInt256ToField*(v: UInt256): array[32, byte] =
+  return cast[array[32, byte]](v)
 
-  var result: array[32, byte]
-  copyMem(result[0].addr, hash.data[0].addr, 32)
-  return result
+proc seqToField*(s: seq[byte]): array[32, byte] =
+  result = default(array[32, byte])
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    result[i] = s[i]
 
-proc toArray32LE*(x: array[32, byte]): array[32, byte] =
-  for i in 0 ..< 32:
-    result[i] = x[31 - i]
-  return result
-
-proc toArray32LE*(s: seq[byte]): array[32, byte] =
-  var output: array[32, byte]
-  for i in 0 ..< 32:
-    output[i] = 0
-  for i in 0 ..< 32:
-    output[i] = s[31 - i]
-  return output
-
-proc toArray32LE*(v: uint64): array[32, byte] =
-  let bytes = toBytes(v, Endianness.littleEndian)
-  var output: array[32, byte]
-  discard output.copyFrom(bytes)
-  return output
+proc uint64ToIndex(index: MembershipIndex, depth: int): seq[byte] =
+  result = newSeq[byte](depth)
+  for i in 0 ..< depth:
+    result[i] = byte((index shr i) and 1) # LSB-first bit decomposition
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
-): Future[Result[seq[array[32, byte]], string]] {.async.} =
+): Future[Result[seq[byte], string]] {.async.} =
   try:
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
@@ -158,30 +135,7 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    debug "---- raw response ----",
-      total_bytes = responseBytes.len, # Should be 640
-      non_zero_bytes = responseBytes.countIt(it != 0),
-      response = responseBytes
-
-    var i = 0
-    var merkleProof = newSeq[array[32, byte]]()
-    while (i * 32) + 31 < responseBytes.len:
-      var element: array[32, byte]
-      let startIndex = i * 32
-      let endIndex = startIndex + 31
-      element = responseBytes.toOpenArray(startIndex, endIndex)
-      merkleProof.add(element)
-      i += 1
-      debug "---- element ----",
-        startIndex = startIndex,
-        startElement = responseBytes[startIndex],
-        endIndex = endIndex,
-        endElement = responseBytes[endIndex],
-        element = element
-
-    # debug "merkleProof", responseBytes = responseBytes, merkleProof = merkleProof
-
-    return ok(merkleProof)
+    return ok(responseBytes)
   except CatchableError:
     error "Failed to fetch Merkle proof elements",
       errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
@@ -189,7 +143,7 @@ proc fetchMerkleProofElements*(
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
-): Future[Result[Uint256, string]] {.async.} =
+): Future[Result[UInt256, string]] {.async.} =
   try:
     let merkleRootInvocation = g.wakuRlnContract.get().root()
     let merkleRoot = await merkleRootInvocation.call()
@@ -217,18 +171,14 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   if rootRes.isErr():
     return false
 
-  let merkleRoot = toArray32LE(rootRes.get())
+  let merkleRoot = UInt256ToField(rootRes.get())
   if g.validRoots.len == 0:
     g.validRoots.addLast(merkleRoot)
     return true
 
-  debug "--- validRoots ---", rootRes = rootRes.get(), validRoots = merkleRoot
-
   if g.validRoots[g.validRoots.len - 1] != merkleRoot:
-    var overflow = g.validRoots.len - AcceptableRootWindowSize + 1
-    while overflow > 0:
+    if g.validRoots.len > AcceptableRootWindowSize:
       discard g.validRoots.popFirst()
-      overflow = overflow - 1
     g.validRoots.addLast(merkleRoot)
     return true
 
@@ -244,16 +194,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
   while true:
     let rootUpdated = await g.updateRoots()
 
-    let proofResult = await g.fetchMerkleProofElements()
-    if proofResult.isErr():
-      error "Failed to fetch Merkle proof", error = proofResult.error
-    g.merkleProofCache = proofResult.get()
-
-    debug "--- track update ---",
-      len = g.validRoots.len,
-      validRoots = g.validRoots,
-      merkleProof = g.merkleProofCache
-
+    if rootUpdated:
+      let proofResult = await g.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      g.merkleProofCache = proofResult.get()
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -357,69 +302,30 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-proc indexToPath*(membershipIndex: uint, tree_depth: int): seq[byte] =
-  result = newSeq[byte](tree_depth)
-  var idx = membershipIndex
+proc getRootFromProofAndIndex(
+    g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
+): GroupManagerResult[array[32, byte]] =
+  # Compute leaf hash from idCommitment and messageLimit
+  let messageLimitField = uint64ToField(g.userMessageLimit.get())
+  let leafHashRes = poseidon(@[g.idCredentials.get().idCommitment, @messageLimitField])
+  if leafHashRes.isErr():
+    return err("Failed to compute leaf hash: " & leafHashRes.error)
 
-  for i in 0 ..< tree_depth:
-    let bit = (idx shr (tree_depth - 1 - i)) and 1
-    result[i] = byte(bit)
+  var hash = leafHashRes.get()
+  for i in 0 ..< bits.len:
+    let sibling = elements[i * 32 .. (i + 1) * 32 - 1]
 
-  debug "indexToPath", index = membershipIndex, path = result
+    let hashRes =
+      if bits[i] == 0:
+        poseidon(@[@hash, sibling])
+      else:
+        poseidon(@[sibling, @hash])
 
-proc createZerokitWitness(
-    g: OnchainGroupManager,
-    data: seq[byte],
-    epoch: Epoch,
-    messageId: MessageId,
-    extNullifier: array[32, byte],
-): RLNWitnessInput =
-  let identitySecret = g.idCredentials.get().idSecretHash.toArray32LE()
-    # seq[byte] to array[32, byte] and convert to little-endian
-  let userMsgLimit = g.userMessageLimit.get().toArray32LE()
-    # uint64 to array[32, byte] and convert to little-endian  
-  let msgId = messageId.toArray32LE()
-    # uint64 to array[32, byte] and convert to little-endian
+    hash = hashRes.valueOr:
+      return err("Failed to compute poseidon hash: " & error)
+    hash = hashRes.get()
 
-  try:
-    discard waitFor g.updateRoots()
-  except CatchableError:
-    error "Error updating roots", error = getCurrentExceptionMsg()
-
-  try:
-    let proofResult = waitFor g.fetchMerkleProofElements()
-    if proofResult.isErr():
-      error "Failed to fetch Merkle proof", error = proofResult.error
-    g.merkleProofCache = proofResult.get()
-  except CatchableError:
-    error "Error fetching Merkle proof", error = getCurrentExceptionMsg()
-
-  var pathElements: seq[array[32, byte]]
-  for elem in g.merkleProofCache:
-    pathElements.add(toArray32LE(elem)) # convert every element to little-endian
-
-  # Convert index to byte array (no endianness needed for path index)
-  let pathIndex = indexToPath(g.membershipIndex.get(), pathElements.len)
-    # uint to seq[byte]
-
-  debug "---- pathElements & pathIndex -----",
-    pathElements = pathElements,
-    pathIndex = pathIndex,
-    pathElementsLength = pathElements.len,
-    pathIndexLength = pathIndex.len
-
-  # Calculate hash using zerokit's hash_to_field equivalent
-  let x = hash_to_field(data).toArray32LE() # convert to little-endian
-
-  RLNWitnessInput(
-    identity_secret: identitySecret,
-    user_message_limit: userMsgLimit,
-    message_id: msgId,
-    path_elements: pathElements,
-    identity_path_index: pathIndex,
-    x: x,
-    external_nullifier: extNullifier,
-  )
+  return ok(hash)
 
 method generateProof*(
     g: OnchainGroupManager,
@@ -437,39 +343,67 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  debug "calling generateProof from group_manager onchain",
-    data = data,
-    membershipIndex = g.membershipIndex.get(),
-    userMessageLimit = g.userMessageLimit.get()
-
-  let externalNullifierRes =
-    poseidon(@[hash_to_field(@epoch).toSeq(), hash_to_field(@rlnIdentifier).toSeq()])
-  let extNullifier = externalNullifierRes.get().toArray32LE()
+  try:
+    discard waitFor g.updateRoots()
+  except CatchableError:
+    error "Failed to update roots", error = getCurrentExceptionMsg()
 
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err("Failed to fetch Merkle proof: " & proofResult.error)
+<<<<<<< HEAD
+      error "Failed to fetch Merkle proof", error = proofResult.error
     g.merkleProofCache = proofResult.get()
   except CatchableError:
-    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
-  let witness = createZerokitWitness(g, data, epoch, messageId, extNullifier)
+  if (g.merkleProofCache.len mod 32) != 0:
+    return err("Invalid merkle proof cache length")
+
+  let identity_secret = seqToField(g.idCredentials.get().idSecretHash)
+  let user_message_limit = uint64ToField(g.userMessageLimit.get())
+  let message_id = uint64ToField(messageId)
+  var path_elements = newSeq[byte](0)
+
+  if (g.merkleProofCache.len mod 32) != 0:
+    return err("Invalid merkle proof cache length")
+
+  let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
+  for i in 0 ..< g.merkleProofCache.len div 32:
+    let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]
+    path_elements.add(chunk.reversed())
+
+  let x = keccak.keccak256.digest(data)
+
+  let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
+  if extNullifierRes.isErr():
+    return err("Failed to compute external nullifier: " & extNullifierRes.error)
+  let extNullifier = extNullifierRes.get()
+
+  let witness = RLNWitnessInput(
+    identity_secret: identity_secret,
+    user_message_limit: user_message_limit,
+    message_id: message_id,
+    path_elements: path_elements,
+    identity_path_index: identity_path_index,
+    x: x,
+    external_nullifier: extNullifier,
+  )
 
   let serializedWitness = serialize(witness)
-  var inputBuffer = toBuffer(serializedWitness)
+
+  var input_witness_buffer = toBuffer(serializedWitness)
 
   # Generate the proof using the zerokit API
-  var outputBuffer: Buffer
-  let success =
-    generate_proof_with_witness(g.rlnInstance, addr inputBuffer, addr outputBuffer)
-  if not success:
+  var output_witness_buffer: Buffer
+  let witness_success = generate_proof_with_witness(
+    g.rlnInstance, addr input_witness_buffer, addr output_witness_buffer
+  )
+
+  if not witness_success:
     return err("Failed to generate proof")
-  else:
-    debug "Proof generated successfully"
 
   # Parse the proof into a RateLimitProof object
-  var proofValue = cast[ptr array[320, byte]](outputBuffer.`ptr`)
+  var proofValue = cast[ptr array[320, byte]](output_witness_buffer.`ptr`)
   let proofBytes: array[320, byte] = proofValue[]
 
   ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
@@ -506,49 +440,52 @@ method generateProof*(
     shareY: shareY,
     nullifier: nullifier,
   )
+
+  debug "Proof generated successfully"
+
   waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()
   return ok(output)
 
 method verifyProof*(
-    g: OnchainGroupManager, input: openArray[byte], proof: RateLimitProof
+    g: OnchainGroupManager, # verifier context
+    input: seq[byte], # raw message data (signal)
+    proof: RateLimitProof, # proof received from the peer
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
-  ## verifies the proof, returns an error if the proof verification fails
-  ## returns true if the proof is valid
+  ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
+
   var normalizedProof = proof
-  # when we do this, we ensure that we compute the proof for the derived value
-  # of the externalNullifier. The proof verification will fail if a malicious peer
-  # attaches invalid epoch+rlnidentifier pair
+  let extNullRes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)])
+  if extNullRes.isErr():
+    return err("could not construct external nullifier: " & extNullRes.error)
+  normalizedProof.externalNullifier = extNullRes.get()
 
-  normalizedProof.externalNullifier = poseidon(
-    @[@(proof.epoch), @(proof.rlnIdentifier)]
-  ).valueOr:
-    return err("could not construct the external nullifier")
-  var
-    proofBytes = serialize(normalizedProof, input)
-    proofBuffer = proofBytes.toBuffer()
-    validProof: bool
-    rootsBytes = serialize(g.validRoots.items().toSeq())
-    rootsBuffer = rootsBytes.toBuffer()
+  let proofBytes = serialize(normalizedProof, input)
+  let proofBuffer = proofBytes.toBuffer()
 
-  trace "serialized proof", proof = byteutils.toHex(proofBytes)
+  let rootsBytes = serialize(g.validRoots.items().toSeq())
+  let rootsBuffer = rootsBytes.toBuffer()
 
-  let verifyIsSuccessful = verify_with_roots(
-    g.rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof
+  var validProof: bool # out-param
+  let ffiOk = verify_with_roots(
+    g.rlnInstance, # RLN context created at init()
+    addr proofBuffer, # (proof + signal)
+    addr rootsBuffer, # valid Merkle roots
+    addr validProof # will be set by the FFI call
+    ,
   )
-  if not verifyIsSuccessful:
-    # something went wrong in verification call
-    warn "could not verify validity of the proof", proof = proof
-    return err("could not verify the proof")
 
-  if not validProof:
-    return ok(false)
+  if not ffiOk:
+    warn "verify_with_roots() returned failure status", proof = proof
+    return err("could not verify the proof")
   else:
-    return ok(true)
+    debug "Proof verified successfully !"
+
+  return ok(validProof)
+>>>>>>> deprecate_sync_strategy
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
-
 method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 

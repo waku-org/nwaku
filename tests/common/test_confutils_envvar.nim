@@ -2,7 +2,7 @@
 
 import
   std/[os, options],
-  stew/results,
+  results,
   stew/shims/net as stewNet,
   testutils/unittests,
   confutils,

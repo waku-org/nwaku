@@ -78,6 +78,21 @@ proc serialize*(
   )
   return output
 
+proc serialize*(witness: RLNWitnessInput): seq[byte] =
+  ## Serializes the witness into a byte array according to the RLN protocol format
+  var buffer: seq[byte]
+  buffer.add(@(witness.identity_secret))
+  buffer.add(@(witness.user_message_limit))
+  buffer.add(@(witness.message_id))
+  buffer.add(toBytes(uint64(witness.path_elements.len / 32), Endianness.littleEndian))
+  for element in witness.path_elements:
+    buffer.add(element)
+  buffer.add(toBytes(uint64(witness.path_elements.len / 32), Endianness.littleEndian))
+  buffer.add(witness.identity_path_index)
+  buffer.add(@(witness.x))
+  buffer.add(@(witness.external_nullifier))
+  return buffer
+
 proc serialize*(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc

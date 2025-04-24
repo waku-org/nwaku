@@ -133,6 +133,9 @@ Binary will be created as `<path to your test file.nim>.bin` under the `build` d
 make test/tests/common/test_enr_builder.nim
 ```
 
+### Testing against `js-waku`
+Refer to [js-waku repo](https://github.com/waku-org/js-waku/tree/master/packages/tests) for instructions.
+
 ## Formatting
 
 Nim files are expected to be formatted using the [`nph`](https://github.com/arnetheduck/nph) version present in `vendor/nph`.

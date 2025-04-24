@@ -250,6 +250,7 @@ proc validateMessage*(
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
     warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
+
   if not proofVerificationRes.value():
     # invalid proof
     warn "invalid message: invalid proof", payloadLen = msg.payload.len

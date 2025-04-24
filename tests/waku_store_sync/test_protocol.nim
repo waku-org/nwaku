@@ -1,11 +1,7 @@
 {.used.}
 
 import
-  std/[options, sets, random, math],
-  testutils/unittests,
-  chronos,
-  libp2p/crypto/crypto,
-  stew/byteutils
+  std/[options, sets, random, math], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   ../../waku/[

@@ -1,6 +1,6 @@
 {.used.}
 
-import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
+import std/options, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
@@ -12,7 +12,7 @@ import
     waku_store/client,
     waku_store/common,
   ],
-  ../testlib/[common, wakucore],
+  ../testlib/wakucore,
   ./store_utils
 
 suite "Waku Store - query handler":

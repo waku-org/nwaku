@@ -6,7 +6,6 @@ import
   testutils/unittests,
   chronos,
   chronicles,
-  os,
   libp2p/[peerstore, crypto/crypto]
 
 import

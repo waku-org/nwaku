@@ -1,25 +1,18 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils, strutils, json],
+  std/[options, tables, json],
   testutils/unittests,
-  stew/[results, byteutils],
+  results,
   chronos,
   chronicles,
-  os,
   libp2p/peerstore
 
 import
-  waku/[
-    node/peer_manager,
-    waku_core,
-    common/rate_limit/setting,
-    common/rate_limit/token_bucket,
-  ],
-  waku/waku_filter_v2/[common, client, subscriptions, protocol, rpc_codec],
-  ../testlib/[wakucore, testasync, testutils, futures, sequtils],
-  ./waku_filter_utils,
-  ../resources/payloads
+  waku/[node/peer_manager, waku_core],
+  waku/waku_filter_v2/[common, client, subscriptions, protocol],
+  ../testlib/[wakucore, testasync, futures],
+  ./waku_filter_utils
 
 type AFilterClient = ref object of RootObj
   clientSwitch*: Switch

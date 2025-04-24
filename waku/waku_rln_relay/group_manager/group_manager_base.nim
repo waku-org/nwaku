@@ -145,6 +145,7 @@ method validateRoot*(
     g: GroupManager, root: MerkleNode
 ): bool {.base, gcsafe, raises: [].} =
   ## validates the root against the valid roots queue
+<<<<<<< HEAD
   # Print all validRoots in one line with square brackets
   var rootsStr = "["
   var first = true
@@ -156,6 +157,8 @@ method validateRoot*(
   rootsStr.add("]")
   debug "Valid Merkle roots in validateRoot", roots = rootsStr, root_to_validate = root
   # Check if the root is in the valid roots queue
+=======
+>>>>>>> deprecate_sync_strategy
   if g.indexOfRoot(root) >= 0:
     return true
   return false
@@ -199,8 +202,6 @@ method generateProof*(
     return err("membership index is not set")
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
-
-  debug "calling proofGen from generateProof from group_manager_base", data = data
 
   waku_rln_proof_generation_duration_seconds.nanosecondTime:
     let proof = proofGen(

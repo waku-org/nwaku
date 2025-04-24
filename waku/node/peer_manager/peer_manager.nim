@@ -154,7 +154,7 @@ proc addPeer*(
 
     pm.storage.insertOrReplace(remotePeerInfo)
 
-proc getPeer(pm: PeerManager, peerId: PeerId): RemotePeerInfo =
+proc getPeer*(pm: PeerManager, peerId: PeerId): RemotePeerInfo =
   return pm.switch.peerStore.getPeer(peerId)
 
 proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
