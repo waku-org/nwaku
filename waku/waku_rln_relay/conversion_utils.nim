@@ -76,7 +76,17 @@ proc serialize*(
   return output
 
 proc serialize*(witness: RLNWitnessInput): seq[byte] =
-  ## Serializes the witness into a byte array according to the RLN protocol format
+  ## Serializes the RLN witness into a byte array following zerokit's expected format.
+  ## The serialized format includes:
+  ## - identity_secret (32 bytes, little-endian with zero padding)
+  ## - user_message_limit (32 bytes, little-endian with zero padding)
+  ## - message_id (32 bytes, little-endian with zero padding)
+  ## - merkle tree depth (8 bytes, little-endian) = path_elements.len / 32
+  ## - path_elements (each 32 bytes, ordered bottom-to-top)
+  ## - merkle tree depth again (8 bytes, little-endian)
+  ## - identity_path_index (sequence of bits as bytes, 0 = left, 1 = right)
+  ## - x (32 bytes, little-endian with zero padding)
+  ## - external_nullifier (32 bytes, little-endian with zero padding)
   var buffer: seq[byte]
   buffer.add(@(witness.identity_secret))
   buffer.add(@(witness.user_message_limit))
