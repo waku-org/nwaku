@@ -96,7 +96,7 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
-  dnsNameServers*: Option[seq[IpAddress]]
+  dnsNameServers*: seq[IpAddress]
   online: bool
 
 #~~~~~~~~~~~~~~~~~~~#
@@ -564,12 +564,8 @@ proc updateOnlineState*(pm: PeerManager) {.async.} =
 
   if numConnectedPeers > 0:
     pm.online = true
-  elif pm.dnsNameServers.isNone():
-    warn "Node has no peers nor a configured DNS server to check internet connectivity. Node might be offline."
-    # Mark the peer as online if it has no DNS servers, otherwise it will be stuck as offline forever
-    pm.online = true
   else:
-    pm.online = await checkInternetConnectivity(pm.dnsNameServers.get())
+    pm.online = await checkInternetConnectivity(pm.dnsNameServers)
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   # only attempt if current node is online
@@ -1050,7 +1046,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
-    dnsNameServers = none(seq[IpAddress]),
+    dnsNameServers = newSeq[IpAddress](),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size

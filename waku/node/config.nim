@@ -15,7 +15,7 @@ type NetConfig* = object
   extIp*: Option[IpAddress]
   extPort*: Option[Port]
   dns4DomainName*: Option[string]
-  dnsNameServers*: Option[seq[IpAddress]]
+  dnsNameServers*: seq[IpAddress]
   announcedAddresses*: seq[MultiAddress]
   extMultiAddrs*: seq[MultiAddress]
   enrMultiAddrs*: seq[MultiAddress]
@@ -76,7 +76,7 @@ proc init*(
     discv5UdpPort = none(Port),
     clusterId: uint16 = 0,
     wakuFlags = none(CapabilitiesBitfield),
-    dnsNameServers = none(seq[IpAddress]),
+    dnsNameServers = newSeq[IpAddress](),
 ): NetConfigResult =
   ## Initialize and validate waku node network configuration
 

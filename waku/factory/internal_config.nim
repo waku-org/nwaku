@@ -138,12 +138,6 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
       return
         err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
 
-  let dnsNameServers =
-    if conf.dnsAddrsNameServers.len() > 0:
-      some(conf.dnsAddrsNameServers)
-    else:
-      none(seq[IpAddress])
-
   # Wrap in none because NetConfig does not have a default constructor
   # TODO: We could change bindIp in NetConfig to be something less restrictive
   # than IpAddress, which doesn't allow default construction
@@ -161,7 +155,7 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
-    dnsNameServers = dnsNameServers,
+    dnsNameServers = conf.dnsAddrsNameServers,
   )
 
   return netConfigRes
