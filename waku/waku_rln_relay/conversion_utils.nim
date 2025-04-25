@@ -27,9 +27,6 @@ proc inHex*(
     valueHex = "0" & valueHex
   return toLowerAscii(valueHex)
 
-proc toUserMessageLimit*(v: UInt256): UserMessageLimit =
-  return cast[UserMessageLimit](v)
-
 proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
   ## with the following format [len<8>|input<var>]
@@ -148,3 +145,22 @@ func `+`*(a, b: Quantity): Quantity {.borrow.}
 
 func u256*(n: Quantity): UInt256 {.inline.} =
   n.uint64.stuint(256)
+
+proc uint64ToField*(n: uint64): array[32, byte] =
+  ## Converts uint64 to 32-byte little-endian array with zero padding
+  var bytes = toBytes(n, Endianness.littleEndian)
+  result[0 ..< bytes.len] = bytes
+
+proc UInt256ToField*(v: UInt256): array[32, byte] =
+  return cast[array[32, byte]](v)
+
+proc seqToField*(s: seq[byte]): array[32, byte] =
+  result = default(array[32, byte])
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    result[i] = s[i]
+
+proc uint64ToIndex*(index: MembershipIndex, depth: int): seq[byte] =
+  result = newSeq[byte](depth)
+  for i in 0 ..< depth:
+    result[i] = byte((index shr i) and 1) # LSB-first bit decomposition
