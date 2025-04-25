@@ -120,7 +120,9 @@ suite "Waku v2 Rest API - Admin":
     check:
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
-      getRes.data.len() == 0
+      getRes.data.len() == 1
+      getRes.data[0].multiaddr == nonExistentPeer
+      getRes.data[0].connected == CannotConnect
 
   asyncTest "Get filter data":
     await allFutures(
