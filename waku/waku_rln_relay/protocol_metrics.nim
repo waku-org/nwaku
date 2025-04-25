@@ -120,5 +120,6 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
         info "Total proofs verified", count = freshProofsVerifiedCount
         info "Total proofs generated", count = freshProofsGeneratedCount
         info "Total proofs remaining", count = freshProofsRemainingCount
+        info "Total registered member", count = freshRegisteredMemberCount
 
   return logMetrics
