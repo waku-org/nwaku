@@ -145,20 +145,6 @@ method validateRoot*(
     g: GroupManager, root: MerkleNode
 ): bool {.base, gcsafe, raises: [].} =
   ## validates the root against the valid roots queue
-<<<<<<< HEAD
-  # Print all validRoots in one line with square brackets
-  var rootsStr = "["
-  var first = true
-  for r in g.validRoots.items():
-    if not first:
-      rootsStr.add(", ")
-    rootsStr.add($r)
-    first = false
-  rootsStr.add("]")
-  debug "Valid Merkle roots in validateRoot", roots = rootsStr, root_to_validate = root
-  # Check if the root is in the valid roots queue
-=======
->>>>>>> deprecate_sync_strategy
   if g.indexOfRoot(root) >= 0:
     return true
   return false

@@ -32,11 +32,11 @@ type UInt32* = StUint[32]
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: EthereumUInt32, idCommitmentsToErase: seq[UInt256])
+  proc register(idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256])
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: EthereumUInt32) {.event.}
+  proc MembershipRegistered(idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32) {.event.}
   # this function denotes existence of a given user
   proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
   # this constant describes the next index of a new member
@@ -46,7 +46,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc maxMembershipRateLimit(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
+  proc getMerkleProof(index: UInt40): seq[array[32, byte]] {.view.}
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
@@ -351,10 +351,11 @@ method generateProof*(
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-<<<<<<< HEAD
-      error "Failed to fetch Merkle proof", error = proofResult.error
+      return err("Failed to fetch Merkle proof: " & proofResult.error)
     g.merkleProofCache = proofResult.get()
   except CatchableError:
+    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
+
 
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
@@ -459,7 +460,7 @@ method verifyProof*(
   if extNullRes.isErr():
     return err("could not construct external nullifier: " & extNullRes.error)
   normalizedProof.externalNullifier = extNullRes.get()
-
+  
   let proofBytes = serialize(normalizedProof, input)
   let proofBuffer = proofBytes.toBuffer()
 
@@ -475,6 +476,7 @@ method verifyProof*(
     ,
   )
 
+
   if not ffiOk:
     warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
@@ -482,7 +484,6 @@ method verifyProof*(
     debug "Proof verified successfully !"
 
   return ok(validProof)
->>>>>>> deprecate_sync_strategy
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
