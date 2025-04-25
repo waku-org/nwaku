@@ -97,11 +97,14 @@ type PeerManager* = ref object of RootObj
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
   dnsNameServers*: Option[seq[IpAddress]]
-  isOnline*: bool
+  online: bool
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
 #~~~~~~~~~~~~~~~~~~~#
+
+template isOnline*(self: PeerManager): bool =
+  self.online
 
 proc calculateBackoff(
     initialBackoffInSec: int, backoffFactor: int, failedAttempts: int
@@ -560,17 +563,17 @@ proc updateOnlineState*(pm: PeerManager) {.async.} =
     pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
 
   if numConnectedPeers > 0:
-    pm.isOnline = true
+    pm.online = true
   elif pm.dnsNameServers.isNone():
     warn "Node has no peers nor a configured DNS server to check internet connectivity. Node might be offline."
     # Mark the peer as online if it has no DNS servers, otherwise it will be stuck as offline forever
-    pm.isOnline = true
+    pm.online = true
   else:
-    pm.isOnline = await checkInternetConnectivity(pm.dnsNameServers.get())
+    pm.online = await checkInternetConnectivity(pm.dnsNameServers.get())
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   # only attempt if current node is online
-  if not pm.isOnline:
+  if not pm.isOnline():
     error "connectToRelayPeers: won't attempt new connections - node is offline"
     return
 
@@ -816,7 +819,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
 
-  if not pm.isOnline:
+  if not pm.isOnline():
     error "manageRelayPeers: won't attempt new connections - node is offline"
     return
 
@@ -1099,7 +1102,7 @@ proc new*(
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
     dnsNameServers: dnsNameServers,
-    isOnline: true,
+    online: true,
   )
 
   proc peerHook(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =

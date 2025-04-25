@@ -368,10 +368,10 @@ proc manageDiscv5(waku: Waku): Future[void] {.async.} =
   if waku.wakuDiscv5.isNil():
     return
 
-  if not waku.node.peerManager.isOnline and waku.wakuDiscv5.listening:
+  if not waku.node.peerManager.isOnline() and waku.wakuDiscv5.listening:
     # If node is offline with discv5 active, stop it
     await waku.wakuDiscv5.stop()
-  elif waku.node.peerManager.isOnline and not waku.wakuDiscv5.listening:
+  elif waku.node.peerManager.isOnline() and not waku.wakuDiscv5.listening:
     # If node is online with discv5 stopped, restart it
     (await waku.wakuDiscV5.start()).isOkOr:
       error "manageDiscv5: failed to start waku discovery v5", error = $error
