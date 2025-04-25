@@ -8,6 +8,7 @@ import
   libp2p/multistream,
   libp2p/muxers/muxer,
   libp2p/nameresolving/nameresolver,
+  libp2p/nameresolving/dnsresolver,
   libp2p/peerstore
 
 import
@@ -73,6 +74,8 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
+  DNSCheckDomain = "one.one.one.one"
+
 type ConnectionChangeHandler* = proc(
   peerId: PeerId, peerEvent: PeerEventKind
 ): Future[void] {.gcsafe, raises: [Defect].}
@@ -95,10 +98,15 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
+  dnsNameServers*: seq[IpAddress]
+  online: bool
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
 #~~~~~~~~~~~~~~~~~~~#
+
+template isOnline*(self: PeerManager): bool =
+  self.online
 
 proc calculateBackoff(
     initialBackoffInSec: int, backoffFactor: int, failedAttempts: int
@@ -535,7 +543,38 @@ proc getStreamByPeerIdAndProtocol*(
 
   return ok(streamRes.get())
 
+proc checkInternetConnectivity(
+    nameServerIps: seq[IpAddress], timeout = 2.seconds
+): Future[bool] {.async.} =
+  var nameServers: seq[TransportAddress]
+  for ip in nameServerIps:
+    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+  let dnsResolver = DnsResolver.new(nameServers)
+
+  # Resolve domain IP
+  let resolved = await dnsResolver.resolveIp(DNSCheckDomain, 0.Port, Domain.AF_UNSPEC)
+
+  if resolved.len > 0:
+    return true
+  else:
+    return false
+
+proc updateOnlineState*(pm: PeerManager) {.async.} =
+  let numConnectedPeers =
+    pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
+
+  if numConnectedPeers > 0:
+    pm.online = true
+  else:
+    pm.online = await checkInternetConnectivity(pm.dnsNameServers)
+
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  # only attempt if current node is online
+  if not pm.isOnline():
+    error "connectToRelayPeers: won't attempt new connections - node is offline"
+    return
+
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
@@ -778,6 +817,10 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
 
+  if not pm.isOnline():
+    error "manageRelayPeers: won't attempt new connections - node is offline"
+    return
+
   var peersToConnect: HashSet[PeerId] # Can't use RemotePeerInfo as they are ref objects
   var peersToDisconnect: int
 
@@ -1005,6 +1048,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    dnsNameServers = newSeq[IpAddress](),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1055,6 +1099,8 @@ proc new*(
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
+    dnsNameServers: dnsNameServers,
+    online: true,
   )
 
   proc peerHook(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
