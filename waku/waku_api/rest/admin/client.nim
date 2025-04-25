@@ -28,6 +28,10 @@ proc getPeerById*(
   rest, endpoint: "/admin/v1/peer/{peerId}", meth: HttpMethod.MethodGet
 .}
 
+proc getServicePeers*(): RestResponse[seq[WakuPeer]] {.
+  rest, endpoint: "/admin/v1/peers/service", meth: HttpMethod.MethodGet
+.}
+
 proc getConnectedPeers*(): RestResponse[seq[WakuPeer]] {.
   rest, endpoint: "/admin/v1/peers/connected", meth: HttpMethod.MethodGet
 .}
@@ -38,16 +42,14 @@ proc getConnectedPeersByShard*(
   rest, endpoint: "/admin/v1/peers/connected/on/{shardId}", meth: HttpMethod.MethodGet
 .}
 
-proc getConnectedRelayPeers*(): RestResponse[PeersOfShards] {.
-  rest, endpoint: "/admin/v1/peers/connected/relay", meth: HttpMethod.MethodGet
+proc getRelayPeers*(): RestResponse[PeersOfShards] {.
+  rest, endpoint: "/admin/v1/peers/relay", meth: HttpMethod.MethodGet
 .}
 
-proc getConnectedRelayPeersByShard*(
+proc getRelayPeersByShard*(
   shardId: uint16
 ): RestResponse[PeersOfShard] {.
-  rest,
-  endpoint: "/admin/v1/peers/connected/relay/on/{shardId}",
-  meth: HttpMethod.MethodGet
+  rest, endpoint: "/admin/v1/peers/relay/on/{shardId}", meth: HttpMethod.MethodGet
 .}
 
 proc getMeshPeers*(): RestResponse[PeersOfShards] {.
