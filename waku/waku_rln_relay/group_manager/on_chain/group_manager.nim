@@ -199,6 +199,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       if proofResult.isErr():
         error "Failed to fetch Merkle proof", error = proofResult.error
       g.merkleProofCache = proofResult.get()
+
+      # also need update registerd membership
+      let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
+      waku_rln_number_registered_memberships.set(memberCount)
+
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -580,9 +585,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   ethRpc.ondisconnect = proc() =
     asyncSpawn onDisconnect()
-
-  let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
-  waku_rln_number_registered_memberships.set(memberCount)
 
   g.initialized = true
   return ok()
