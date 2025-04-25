@@ -202,7 +202,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
 
       # also need update registerd membership
       let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
-      waku_rln_number_registered_memberships.set(memberCount)
+      waku_rln_number_registered_memberships.set(10)
 
       debug "--- RLN membership metrics ---",
         registered_members = memberCount,
