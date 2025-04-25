@@ -74,6 +74,8 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
+  DNSCheckDomain = "one.one.one.one"
+
 type ConnectionChangeHandler* = proc(
   peerId: PeerId, peerEvent: PeerEventKind
 ): Future[void] {.gcsafe, raises: [Defect].}
@@ -551,7 +553,7 @@ proc checkInternetConnectivity(
   let dnsResolver = DnsResolver.new(nameServers)
 
   # Resolve domain IP
-  let resolved = await dnsResolver.resolveIp("waku.org", 0.Port, Domain.AF_UNSPEC)
+  let resolved = await dnsResolver.resolveIp(DNSCheckDomain, 0.Port, Domain.AF_UNSPEC)
 
   if resolved.len > 0:
     return true
