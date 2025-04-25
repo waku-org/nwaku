@@ -201,8 +201,8 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       g.merkleProofCache = proofResult.get()
 
       # also need update registerd membership
-      let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
-      waku_rln_number_registered_memberships.set(10)
+      let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
+      waku_rln_number_registered_memberships.set(float64(memberCount))
 
       debug "--- RLN membership metrics ---",
         registered_members = memberCount,
