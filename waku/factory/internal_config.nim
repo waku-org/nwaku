@@ -155,6 +155,7 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
+    dnsNameServers = conf.dnsAddrsNameServers,
   )
 
   return netConfigRes
