@@ -27,9 +27,6 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
-type UInt40* = StUint[40]
-type UInt32* = StUint[32]
-
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
