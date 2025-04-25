@@ -581,7 +581,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   ethRpc.ondisconnect = proc() =
     asyncSpawn onDisconnect()
 
-  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
+  let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
+  waku_rln_number_registered_memberships.set(memberCount)
+
   g.initialized = true
   return ok()
 
