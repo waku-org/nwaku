@@ -204,6 +204,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       let memberCount = cast[float64](await wakuRlnContract.commitmentIndex().call())
       waku_rln_number_registered_memberships.set(memberCount)
 
+      debug "--- RLN membership metrics ---",
+        registered_members = memberCount,
+        active_memberships = waku_rln_number_registered_memberships.value
+
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
