@@ -364,18 +364,6 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
       error "failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg()
     return
 
-proc manageDiscv5(waku: Waku): Future[void] {.async.} =
-  if waku.wakuDiscv5.isNil():
-    return
-
-  if not waku.node.peerManager.isOnline() and waku.wakuDiscv5.listening:
-    # If node is offline with discv5 active, stop it
-    await waku.wakuDiscv5.stop()
-  elif waku.node.peerManager.isOnline() and not waku.wakuDiscv5.listening:
-    # If node is online with discv5 stopped, restart it
-    (await waku.wakuDiscV5.start()).isOkOr:
-      error "manageDiscv5: failed to start waku discovery v5", error = $error
-
 # The network connectivity loop checks periodically whether the node is online or not
 # and triggers any change that depends on the network connectivity state
 proc startNetworkConnectivityLoop(waku: Waku): Future[void] {.async.} =
@@ -384,8 +372,6 @@ proc startNetworkConnectivityLoop(waku: Waku): Future[void] {.async.} =
 
     # Update online state
     await waku.node.peerManager.updateOnlineState()
-    # stop/restart discv5 depending on the online state
-    await waku.manageDiscv5()
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
