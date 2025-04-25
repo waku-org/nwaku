@@ -6,7 +6,13 @@ import
   libp2p/nameresolving/dnsresolver,
   std/[options, sequtils, net],
   results
-import ../common/utils/nat, ../node/net_config, ../waku_enr, ../waku_core, ./waku_conf
+import
+  ../common/utils/nat,
+  ../node/net_config,
+  ../waku_enr,
+  ../waku_core,
+  ./waku_conf,
+  ./network_conf
 
 proc enrConfiguration*(
     conf: WakuConf, netConfig: NetConfig

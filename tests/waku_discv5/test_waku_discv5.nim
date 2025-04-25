@@ -424,8 +424,7 @@ suite "Waku Discovery v5":
 
       confBuilder.withNodeKey(libp2p_keys.PrivateKey.random(Secp256k1, myRng[])[])
       confBuilder.discv5Conf.withEnabled(true)
-      confBuilder.discv5Conf.withUdpPort(9001.Port)
-      confBuilder.withP2pTcpPort(60001.Port)
+      confBuilder.discv5Conf.withUdpPort(9000.Port)
 
       let conf = confBuilder.build().valueOr:
         raiseAssert error
@@ -437,8 +436,10 @@ suite "Waku Discovery v5":
 
       confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
       confBuilder.discv5Conf.withBootstrapNodes(@[waku0.node.enr.toURI()])
-      confBuilder.discv5Conf.withUdpPort(9002.Port)
-      confBuilder.withP2pTcpPort(60002.Port)
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9001.Port)
+      confBuilder.withP2pTcpPort(60001.Port)
+      confBuilder.websocketConf.withEnabled(false)
 
       let conf1 = confBuilder.build().valueOr:
         raiseAssert error
@@ -455,6 +456,7 @@ suite "Waku Discovery v5":
       confBuilder.withP2pTcpPort(60003.Port)
       confBuilder.discv5Conf.withUdpPort(9003.Port)
       confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.websocketConf.withEnabled(false)
 
       let conf2 = confBuilder.build().valueOr:
         raiseAssert error

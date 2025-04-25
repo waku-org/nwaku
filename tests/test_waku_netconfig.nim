@@ -23,9 +23,17 @@ suite "Waku NetConfig":
       extIp = none(IpAddress),
       extPort = none(Port),
       extMultiAddrs = @[],
-      wsBindPort = some(conf.webSocketConf.get().port),
+      wsBindPort =
+        if conf.webSocketConf.isSome():
+          some(conf.webSocketConf.get().port)
+        else:
+          none(Port),
       wsEnabled = conf.webSocketConf.isSome(),
-      wssEnabled = conf.webSocketConf.get().secureConf.isSome(),
+      wssEnabled =
+        if conf.webSocketConf.isSome():
+          conf.webSocketConf.get().secureConf.isSome()
+        else:
+          false,
       dns4DomainName = none(string),
       discv5UdpPort = none(Port),
       wakuFlags = some(wakuFlags),

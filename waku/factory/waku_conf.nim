@@ -12,7 +12,8 @@ import
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
-  ../waku_enr/capabilities
+  ../waku_enr/capabilities,
+  ./network_conf
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
@@ -48,14 +49,6 @@ type FilterServiceConf* {.requiresInit.} = object
   maxPeersToServe*: uint32
   subscriptionTimeout*: uint16
   maxCriteria*: uint32
-
-type WebSocketSecureConf* {.requiresInit.} = object
-  keyPath*: string
-  certPath*: string
-
-type WebSocketConf* = object
-  port*: Port
-  secureConf*: Option[WebSocketSecureConf]
 
 type NetworkConfig* = object # TODO: make enum
   natStrategy*: string
