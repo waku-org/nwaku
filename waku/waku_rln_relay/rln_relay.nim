@@ -455,7 +455,7 @@ proc mount(
         (none(string), none(string))
 
     groupManager = OnchainGroupManager(
-      ethClientUrl: string(conf.ethClientAddress),
+      ethClientUrl: conf.rlnRelayEthClientAddress.mapIt(string(it)),
       ethContractAddress: $conf.ethContractAddress,
       chainId: conf.chainId,
       rlnInstance: rlnInstance,

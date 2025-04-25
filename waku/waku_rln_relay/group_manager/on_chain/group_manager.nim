@@ -51,7 +51,7 @@ contract(WakuRlnContract):
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
   OnchainGroupManager* = ref object of GroupManager
-    ethClientUrl*: string
+    ethClientUrl: seq[string]
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
