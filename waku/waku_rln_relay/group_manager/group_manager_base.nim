@@ -4,7 +4,7 @@ import
   ../protocol_metrics,
   ../constants,
   ../rln
-import options, chronos, results, std/[deques, sequtils], chronicles
+import options, chronos, results, std/[deques, sequtils]
 
 export options, chronos, results, protocol_types, protocol_metrics, deques
 
