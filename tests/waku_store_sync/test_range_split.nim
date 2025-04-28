@@ -1,70 +1,80 @@
-import unittest, chronos, stew/byteutils, nimcrypto
+import unittest, chronos, stew/byteutils, nimcrypto, std/sequtils
 import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
-import ../testlib/assertions
-import nimcrypto
+import ../testlib/assertions            
 
-export MDigest
+#  helpers 
 
 proc toDigest*(s: string): WakuMessageHash =
-  let d = keccak256.digest(s.toBytes)  # d is MDigest[256] == 32 bytes
-  var resultHash: WakuMessageHash
-  for i in 0 ..< 32:
-    resultHash[i] = d.data[i]
-  return resultHash
+  let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, (s.len - 1)))
+  for i in 0 .. 31:
+    result[i] = d.data[i]
+
+proc `..`(a, b: SyncID): Slice[SyncID] =
+  Slice[SyncID](a: a, b: b)
+
+template makeId(t, i: int): SyncID =
+  SyncID(time: t, hash: toDigest("msg" & $i))
+
+type Stats = ref object
+  sent*: int
+  fpSeen*: bool
+  itemSetSeen*: bool
+  parts*: seq[Slice[SyncID]]
 
 
-suite "Waku Sync: Reconciliation Splits Mismatched Range":
 
-  test "reconciliation produces subranges when fingerprints differ":
-    let localStorage = SeqStorage.new(@[])
+suite "Waku Sync – reconciliation":
+
+  test "splits mismatched fingerprint into two sub-ranges then item-set":
+
+    let local  = SeqStorage.new(@[])
+    let remote = SeqStorage.new(@[])
+
     for i in 0 ..< 8:
-      let id = SyncID(time: 1000 + i, hash: toDigest("msg" & $i))
-      discard localStorage.insert(id)
+      discard local.insert(makeId(1000 + i, i))
+      let t = if i == 3: 2000 + i else: 1000 + i   # single mismatch
+      discard remote.insert(makeId(t, i))
 
-    let remoteStorage = SeqStorage.new(@[])
-    for i in 0 ..< 8:
-      var hash: WakuMessageHash
-      if i == 3:
-       hash = toDigest("msg" & $i)
-      else:
-       hash = toDigest("msg" & $i)
+    var z: WakuMessageHash                        # zero hash, only time matters
+    let rng = SyncID(time: 1000, hash: z) .. SyncID(time: 1007, hash: z)
+    check local.computeFingerprint(rng) != remote.computeFingerprint(rng)
 
-      let id = SyncID(time: 1000 + i, hash: hash)
-      discard remoteStorage.insert(id)
+    let stats = Stats()
 
-    let fromId = SyncID(time: 1000, hash: toDigest("msg0"))
-    let toId   = SyncID(time: 1008, hash: toDigest("msg7"))
-    let bounds = fromId .. toId
+    proc dummySend(p: RangesData) {.async, gcsafe.} =
+      for (slc, kind) in p.ranges:
+        inc stats.sent
+        case kind
+        of RangeType.Fingerprint:
+          stats.fpSeen = true
+          stats.parts.add slc
+        of RangeType.ItemSet:
+          stats.itemSetSeen = true
+        else: discard
 
-    let localFp = localStorage.computeFingerprint(bounds)
-    let remoteFp = remoteStorage.computeFingerprint(bounds)
-    check localFp != remoteFp
-
-    var sentRanges: seq[Range] = @[]
-
-    proc dummySend(p: Payload) {.async.} =
-      for (_, r) in p.ranges:
-        sentRanges.add r
-
-    let driver = newSeqDriver(localStorage)
-    let context = ReconciliationContext(
-      driver: driver,
-      sendFn: dummySend,
+    let ctx = ReconciliationContext(
+      driver:  local,        # SeqStorage already satisfies the driver interface
+      sendFn:  dummySend,
       cluster: 0,
-      shards: @[0]
+      shards:  @[0]
     )
 
-    let recon = Reconciliation.new(driver)
+    let recon = Reconciliation.new(local)
 
-    let request: ReceivedPayload = (
+    let req: ReceivedPayload = (
       cluster: 0,
       shards: @[0],
       timestamp: 0'u64,
-      ranges: @[(bounds, Range(kind: RangeType.Fingerprint, fp: remoteFp))]
+      ranges: @[(rng, RangeType.Fingerprint))
     )
 
-    waitFor recon.processRequest(request, context)
-    check sentRanges.len > 1
-    check sentRanges.anyIt(it.kind == RangeType.Fingerprint)
+    waitFor recon.processRequest(req, ctx)
+
+    check stats.fpSeen
+    check stats.itemSetSeen
+    check stats.sent == 3
+    check stats.parts.len == 2
+    check stats.parts.anyIt(it.a.time == 1000 and it.b.time == 1003)
+    check stats.parts.anyIt(it.a.time == 1004 and it.b.time == 1007)
