@@ -89,25 +89,6 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc uint64ToField*(n: uint64): array[32, byte] =
-  ## Converts uint64 to 32-byte little-endian array with zero padding
-  var bytes = toBytes(n, Endianness.littleEndian)
-  result[0 ..< bytes.len] = bytes
-
-proc UInt256ToField*(v: UInt256): array[32, byte] =
-  return cast[array[32, byte]](v)
-
-proc seqToField*(s: seq[byte]): array[32, byte] =
-  result = default(array[32, byte])
-  let len = min(s.len, 32)
-  for i in 0 ..< len:
-    result[i] = s[i]
-
-proc uint64ToIndex(index: MembershipIndex, depth: int): seq[byte] =
-  result = newSeq[byte](depth)
-  for i in 0 ..< depth:
-    result[i] = byte((index shr i) and 1) # LSB-first bit decomposition
-
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
@@ -199,6 +180,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
       if proofResult.isErr():
         error "Failed to fetch Merkle proof", error = proofResult.error
       g.merkleProofCache = proofResult.get()
+
+      # also need update registerd membership
+      let memberCount = cast[int64](await wakuRlnContract.nextFreeIndex().call())
+      waku_rln_number_registered_memberships.set(float64(memberCount))
+
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -356,7 +342,6 @@ method generateProof*(
   except CatchableError:
     error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
-
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
@@ -460,7 +445,7 @@ method verifyProof*(
   if extNullRes.isErr():
     return err("could not construct external nullifier: " & extNullRes.error)
   normalizedProof.externalNullifier = extNullRes.get()
-  
+
   let proofBytes = serialize(normalizedProof, input)
   let proofBuffer = proofBytes.toBuffer()
 
@@ -475,7 +460,6 @@ method verifyProof*(
     addr validProof # will be set by the FFI call
     ,
   )
-
 
   if not ffiOk:
     warn "verify_with_roots() returned failure status", proof = proof
@@ -585,7 +569,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   ethRpc.ondisconnect = proc() =
     asyncSpawn onDisconnect()
 
-  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
   return ok()
 

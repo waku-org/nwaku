@@ -120,7 +120,9 @@ suite "Waku v2 Rest API - Admin":
     check:
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
-      getRes.data.len() == 0
+      getRes.data.len() == 1
+      getRes.data[0].multiaddr == nonExistentPeer
+      getRes.data[0].connected == CannotConnect
 
   asyncTest "Get filter data":
     await allFutures(
@@ -274,7 +276,7 @@ suite "Waku v2 Rest API - Admin":
     check:
       postRes.status == 200
 
-    let getRes = await client.getConnectedRelayPeers()
+    let getRes = await client.getRelayPeers()
 
     check:
       getRes.status == 200
@@ -286,13 +288,13 @@ suite "Waku v2 Rest API - Admin":
       # Check peer 3
 
     # Todo: investigate why the test setup missing remote peer's shard info
-    # let getRes2 = await client.getConnectedRelayPeersByShard(0)
+    # let getRes2 = await client.getRelayPeersByShard(0)
     # check:
     #   getRes2.status == 200
     #   $getRes2.contentType == $MIMETYPE_JSON
     #   getRes2.data.peers.len() == 2
 
-    let getRes3 = await client.getConnectedRelayPeersByShard(99)
+    let getRes3 = await client.getRelayPeersByShard(99)
     check:
       getRes3.status == 200
       $getRes3.contentType == $MIMETYPE_JSON

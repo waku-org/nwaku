@@ -27,9 +27,6 @@ proc inHex*(
     valueHex = "0" & valueHex
   return toLowerAscii(valueHex)
 
-proc toUserMessageLimit*(v: UInt256): UserMessageLimit =
-  return cast[UserMessageLimit](v)
-
 proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
   ## with the following format [len<8>|input<var>]
@@ -79,7 +76,17 @@ proc serialize*(
   return output
 
 proc serialize*(witness: RLNWitnessInput): seq[byte] =
-  ## Serializes the witness into a byte array according to the RLN protocol format
+  ## Serializes the RLN witness into a byte array following zerokit's expected format.
+  ## The serialized format includes:
+  ## - identity_secret (32 bytes, little-endian with zero padding)
+  ## - user_message_limit (32 bytes, little-endian with zero padding)
+  ## - message_id (32 bytes, little-endian with zero padding)
+  ## - merkle tree depth (8 bytes, little-endian) = path_elements.len / 32
+  ## - path_elements (each 32 bytes, ordered bottom-to-top)
+  ## - merkle tree depth again (8 bytes, little-endian)
+  ## - identity_path_index (sequence of bits as bytes, 0 = left, 1 = right)
+  ## - x (32 bytes, little-endian with zero padding)
+  ## - external_nullifier (32 bytes, little-endian with zero padding)
   var buffer: seq[byte]
   buffer.add(@(witness.identity_secret))
   buffer.add(@(witness.user_message_limit))
@@ -148,3 +155,22 @@ func `+`*(a, b: Quantity): Quantity {.borrow.}
 
 func u256*(n: Quantity): UInt256 {.inline.} =
   n.uint64.stuint(256)
+
+proc uint64ToField*(n: uint64): array[32, byte] =
+  ## Converts uint64 to 32-byte little-endian array with zero padding
+  var bytes = toBytes(n, Endianness.littleEndian)
+  result[0 ..< bytes.len] = bytes
+
+proc UInt256ToField*(v: UInt256): array[32, byte] =
+  return cast[array[32, byte]](v)
+
+proc seqToField*(s: seq[byte]): array[32, byte] =
+  result = default(array[32, byte])
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    result[i] = s[i]
+
+proc uint64ToIndex*(index: MembershipIndex, depth: int): seq[byte] =
+  result = newSeq[byte](depth)
+  for i in 0 ..< depth:
+    result[i] = byte((index shr i) and 1) # LSB-first bit decomposition

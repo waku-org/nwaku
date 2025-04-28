@@ -487,13 +487,6 @@ procSuite "WakuNode - RLN relay":
     await node3.stop()
 
   xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
-<<<<<<< HEAD
-=======
-    ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
-<<<<<<< HEAD
->>>>>>> deprecate_sync_strategy
-=======
->>>>>>> deprecate_sync_strategy
     # Given two nodes
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")

@@ -196,6 +196,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())
 
+  let netConfig = builder.netConfig.get()
+
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),
@@ -203,12 +205,13 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     maxServicePeers = some(builder.maxServicePeers),
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
+    dnsNameServers = netConfig.dnsNameServers,
   )
 
   var node: WakuNode
   try:
     node = WakuNode.new(
-      netConfig = builder.netConfig.get(),
+      netConfig = netConfig,
       enr = builder.record.get(),
       switch = switch,
       peerManager = peerManager,
