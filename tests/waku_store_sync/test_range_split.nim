@@ -2,14 +2,14 @@ import unittest, chronos, stew/byteutils, nimcrypto, std/sequtils
 import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
-import ../testlib/assertions            
+import ../testlib/assertions
+import std/algorithm
 
-#  helpers 
+# ---------- helpers ----------
 
 proc toDigest*(s: string): WakuMessageHash =
   let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, (s.len - 1)))
-  for i in 0 .. 31:
-    result[i] = d.data[i]
+  for i in 0 .. 31: result[i] = d.data[i]
 
 proc `..`(a, b: SyncID): Slice[SyncID] =
   Slice[SyncID](a: a, b: b)
@@ -17,13 +17,7 @@ proc `..`(a, b: SyncID): Slice[SyncID] =
 template makeId(t, i: int): SyncID =
   SyncID(time: t, hash: toDigest("msg" & $i))
 
-type Stats = ref object
-  sent*: int
-  fpSeen*: bool
-  itemSetSeen*: bool
-  parts*: seq[Slice[SyncID]]
-
-
+#test
 
 suite "Waku Sync – reconciliation":
 
@@ -31,50 +25,49 @@ suite "Waku Sync – reconciliation":
 
     let local  = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
-
+    var mismatchHash: WakuMessageHash
+    var remoteHash:  WakuMessageHash
+    
     for i in 0 ..< 8:
-      discard local.insert(makeId(1000 + i, i))
-      let t = if i == 3: 2000 + i else: 1000 + i   # single mismatch
-      discard remote.insert(makeId(t, i))
+      let baseTime = 1000 + i
+      let baseHash = toDigest("msg" & $i)
+      let idLocal = SyncID(time: baseTime, hash: baseHash)
+      discard local.insert(idLocal)
+      if i == 3: 
+        remoteHash=toDigest("msg" & $i & "_x")   
+        mismatchHash = remoteHash
+      else:      
+        remoteHash=baseHash
 
-    var z: WakuMessageHash                        # zero hash, only time matters
-    let rng = SyncID(time: 1000, hash: z) .. SyncID(time: 1007, hash: z)
-    check local.computeFingerprint(rng) != remote.computeFingerprint(rng)
+      let idRemote = SyncID(time: baseTime, hash: remoteHash)
+      discard remote.insert(idRemote)
 
-    let stats = Stats()
+    var z: WakuMessageHash
+    let whole = SyncID(time: 1000, hash: z) .. SyncID(time: 1007, hash: z)
 
-    proc dummySend(p: RangesData) {.async, gcsafe.} =
-      for (slc, kind) in p.ranges:
-        inc stats.sent
-        case kind
-        of RangeType.Fingerprint:
-          stats.fpSeen = true
-          stats.parts.add slc
-        of RangeType.ItemSet:
-          stats.itemSetSeen = true
-        else: discard
-
-    let ctx = ReconciliationContext(
-      driver:  local,        # SeqStorage already satisfies the driver interface
-      sendFn:  dummySend,
+    let remoteFp = remote.computeFingerprint(whole)
+    let payload  = RangesData(
       cluster: 0,
-      shards:  @[0]
+      shards:  @[0],
+      ranges:  @[(whole, RangeType.Fingerprint)],
+      fingerprints: @[remoteFp],
+      itemSets: @[]
     )
 
-    let recon = Reconciliation.new(local)
+    var toSend: seq[WakuMessageHash]
+    var toRecv: seq[WakuMessageHash]
 
-    let req: ReceivedPayload = (
-      cluster: 0,
-      shards: @[0],
-      timestamp: 0'u64,
-      ranges: @[(rng, RangeType.Fingerprint))
-    )
+    let reply = local.processPayload(payload, toSend, toRecv)
 
-    waitFor recon.processRequest(req, ctx)
+    let ranges = reply.ranges
+    check ranges.len == 1
+    check ranges[0][1] == RangeType.ItemSet
+    check reply.itemSets.len == 1                      
 
-    check stats.fpSeen
-    check stats.itemSetSeen
-    check stats.sent == 3
-    check stats.parts.len == 2
-    check stats.parts.anyIt(it.a.time == 1000 and it.b.time == 1003)
-    check stats.parts.anyIt(it.a.time == 1004 and it.b.time == 1007)
+    let iset = reply.itemSets[0]
+    let idx = iset.elements.find(proc (x: SyncID): bool = x.hash == mismatchHash)
+    check idx != -1                                   
+    let bad = iset.elements[idx]
+    check bad.time == 1000 + 3
+
+   
