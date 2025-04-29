@@ -135,6 +135,7 @@ proc generate_proof_with_witness*(
 ): bool {.importc: "generate_rln_proof_with_witness".}
 
 ## rln-v2
+## witness term refer to collection of secret inputs with proper serialization
 ## input_buffer has to be serialized as [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | external_nullifier<32> ]
 ## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
 ## rln-v1
