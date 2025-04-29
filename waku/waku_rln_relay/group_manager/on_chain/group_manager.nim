@@ -44,7 +44,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index 
-  proc merkleProofElements(index: UInt40): seq[byte] {.view.}
+  # proc merkleProofElements(index: UInt40): seq[byte] {.view.}
   # this function returns the merkle root 
   proc root(): UInt256 {.view.}
 
@@ -116,9 +116,7 @@ proc fetchMerkleProofElements*(
 
     return ok(responseBytes)
   except CatchableError:
-    error "Failed to fetch Merkle proof elements",
-      errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
-    return err("Failed to fetch Merkle proof elements: " & getCurrentExceptionMsg())
+    error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -128,7 +126,7 @@ proc fetchMerkleRoot*(
     let merkleRoot = await merkleRootInvocation.call()
     return ok(merkleRoot)
   except CatchableError:
-    error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
+    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -338,10 +336,8 @@ method generateProof*(
 
   let x = keccak.keccak256.digest(data)
 
-  let extNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
-  if extNullifierRes.isErr():
-    return err("Failed to compute external nullifier: " & extNullifierRes.error)
-  let extNullifier = extNullifierRes.get()
+  let extNullifier = poseidon(@[@(epoch), @(rlnIdentifier)]).valueOr:
+    return err("Failed to compute external nullifier: " & error)
 
   let witness = RLNWitnessInput(
     identity_secret: identity_secret,
@@ -419,10 +415,11 @@ method verifyProof*(
   ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
 
   var normalizedProof = proof
-  let extNullRes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)])
-  if extNullRes.isErr():
-    return err("could not construct external nullifier: " & extNullRes.error)
-  normalizedProof.externalNullifier = extNullRes.get()
+
+  normalizedProof.externalNullifier = poseidon(
+    @[@(proof.epoch), @(proof.rlnIdentifier)]
+  ).valueOr:
+    return err("Failed to compute external nullifier: " & error)
 
   let proofBytes = serialize(normalizedProof, input)
   let proofBuffer = proofBytes.toBuffer()
@@ -440,7 +437,6 @@ method verifyProof*(
   )
 
   if not ffiOk:
-    warn "verify_with_roots() returned failure status", proof = proof
     return err("could not verify the proof")
   else:
     debug "Proof verified successfully !"
