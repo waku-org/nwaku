@@ -117,6 +117,7 @@ proc fetchMerkleProofElements*(
     return ok(responseBytes)
   except CatchableError:
     error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle proof elements: " & getCurrentExceptionMsg())
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -127,6 +128,7 @@ proc fetchMerkleRoot*(
     return ok(merkleRoot)
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
