@@ -98,6 +98,7 @@ type WakuRLNRelay* = ref object of RootObj
   onFatalErrorAction*: OnFatalErrorHandler
   nonceManager*: NonceManager
   epochMonitorFuture*: Future[void]
+  rootChangesFuture*: Future[void]
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
@@ -469,10 +470,6 @@ proc mount(
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
 
-  if groupManager of OnchainGroupManager:
-    let onchainManager = cast[OnchainGroupManager](groupManager)
-    asyncSpawn trackRootChanges(onchainManager)
-
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
     nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
@@ -480,6 +477,13 @@ proc mount(
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
+
+  # track root changes on smart contract merkle tree
+  if groupManager of OnchainGroupManager:
+    let onchainManager = cast[OnchainGroupManager](groupManager)
+    let trackRootChangesFuture = trackRootChanges(onchainManager)
+    asyncSpawn trackRootChangesFuture
+    wakuRlnRelay.rootChangesFuture = trackRootChangesFuture
 
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)

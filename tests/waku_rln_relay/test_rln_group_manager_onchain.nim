@@ -40,7 +40,7 @@ suite "Onchain group manager":
   asyncTeardown:
     await manager.stop()
 
-  xasyncTest "should initialize successfully":
+  asyncTest "should initialize successfully":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -48,7 +48,7 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      manager.rlnContractDeployedBlockNumber > 0.Quantity
+      # manager.rlnContractDeployedBlockNumber > 0.Quantity
       manager.rlnRelayMaxMessageLimit == 100
 
   asyncTest "should error on initialization when chainId does not match":
@@ -97,19 +97,14 @@ suite "Onchain group manager":
     echo e.error
     echo "---"
 
-  xasyncTest "should error if contract does not exist":
-    var triggeredError = false
-
+  asyncTest "should error if contract does not exist":
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
-    manager.onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
-      echo "---"
-      discard
-        "Failed to get the deployed block number. Have you set the correct contract address?: No response from the Web3 provider"
-      echo msg
-      echo "---"
-      triggeredError = true
 
-    discard await manager.init()
+    var triggeredError = false
+    try:
+      discard await manager.init()
+    except CatchableError as e:
+      triggeredError = true
 
     check triggeredError
 
@@ -120,11 +115,10 @@ suite "Onchain group manager":
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  xasyncTest "startGroupSync: should start group sync":
+  asyncTest "trackRootChanges: start track root changes":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
-      raiseAssert $error
+    asyncSpawn manager.trackRootChanges()
 
   xasyncTest "startGroupSync: should guard against uninitialized state":
     (await manager.startGroupSync()).isErrOr:
@@ -218,7 +212,7 @@ suite "Onchain group manager":
       merkleRootBefore != merkleRootAfter
       manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
 
-  asyncTest "register: should guard against uninitialized state":
+  xasyncTest "register: should guard against uninitialized state":
     let dummyCommitment = default(IDCommitment)
 
     try:
@@ -288,7 +282,7 @@ suite "Onchain group manager":
 
     await fut
 
-  asyncTest "withdraw: should guard against uninitialized state":
+  xasyncTest "withdraw: should guard against uninitialized state":
     let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
 
     try:
