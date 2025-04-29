@@ -163,27 +163,32 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
 
   return false
 
-proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
-  let ethRpc = g.ethRpc.get()
-  let wakuRlnContract = g.wakuRlnContract.get()
+proc trackRootChanges*(
+    g: OnchainGroupManager
+): Future[void] {.async: (raises: [CatchableError]).} =
+  try:
+    initializedGuard(g)
+    let ethRpc = g.ethRpc.get()
+    let wakuRlnContract = g.wakuRlnContract.get()
 
-  # Set up the polling interval - more frequent to catch roots
-  const rpcDelay = 5.seconds
+    const rpcDelay = 5.seconds
 
-  while true:
-    let rootUpdated = await g.updateRoots()
+    while true:
+      let rootUpdated = await g.updateRoots()
 
-    if rootUpdated:
-      let proofResult = await g.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      g.merkleProofCache = proofResult.get()
+      if rootUpdated:
+        let proofResult = await g.fetchMerkleProofElements()
+        if proofResult.isErr():
+          error "Failed to fetch Merkle proof", error = proofResult.error
+        g.merkleProofCache = proofResult.get()
 
-      # also need update registerd membership
-      let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
-      waku_rln_number_registered_memberships.set(float64(memberCount))
+        # also need update registerd membership
+        let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
+        waku_rln_number_registered_memberships.set(float64(memberCount))
 
-    await sleepAsync(rpcDelay)
+      await sleepAsync(rpcDelay)
+  except CatchableError:
+    error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
