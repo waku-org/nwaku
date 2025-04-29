@@ -185,26 +185,6 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async.} =
 
     await sleepAsync(rpcDelay)
 
-method atomicBatch*(
-    g: OnchainGroupManager,
-    start: MembershipIndex,
-    rateCommitments = newSeq[RawRateCommitment](),
-    toRemoveIndices = newSeq[MembershipIndex](),
-): Future[void] {.async: (raises: [Exception]), base.} =
-  initializedGuard(g)
-
-  if g.registerCb.isSome():
-    var membersSeq = newSeq[Membership]()
-    for i in 0 ..< rateCommitments.len:
-      var index = start + MembershipIndex(i)
-      debug "registering member to callback",
-        rateCommitment = rateCommitments[i], index = index
-      let member = Membership(rateCommitment: rateCommitments[i], index: index)
-      membersSeq.add(member)
-    await g.registerCb.get()(membersSeq)
-
-  discard await g.updateRoots()
-
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
 ): Future[void] {.async: (raises: [Exception]).} =
@@ -212,8 +192,11 @@ method register*(
 
   try:
     let leaf = rateCommitment.toLeaf().get()
-    await g.atomicBatch(g.latestIndex, @[leaf])
-    g.latestIndex += MembershipIndex(1)
+    if g.registerCb.isSome():
+      let idx = g.latestIndex
+      debug "registering member via callback", rateCommitment = leaf, index = idx
+      await g.registerCb.get()(@[Membership(rateCommitment: leaf, index: idx)])
+    g.latestIndex.inc()
   except CatchableError:
     raise newException(ValueError, getCurrentExceptionMsg())
 
