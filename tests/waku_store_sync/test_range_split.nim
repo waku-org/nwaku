@@ -1,11 +1,7 @@
-import unittest, chronos, stew/byteutils, nimcrypto, std/sequtils
+import unittest, nimcrypto, std/sequtils
 import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
-import ../testlib/assertions
-import std/algorithm
-
-# ---------- helpers ----------
 
 proc toDigest*(s: string): WakuMessageHash =
   let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, (s.len - 1)))
@@ -14,60 +10,60 @@ proc toDigest*(s: string): WakuMessageHash =
 proc `..`(a, b: SyncID): Slice[SyncID] =
   Slice[SyncID](a: a, b: b)
 
-template makeId(t, i: int): SyncID =
-  SyncID(time: t, hash: toDigest("msg" & $i))
-
-#test
-
 suite "Waku Sync – reconciliation":
 
-  test "splits mismatched fingerprint into two sub-ranges then item-set":
+  test "fan-out: eight fingerprint sub-ranges for large slice":
+
+    const N         = 2_048
+    const mismatchI = 70
 
     let local  = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
-    var mismatchHash: WakuMessageHash
-    var remoteHash:  WakuMessageHash
-    
-    for i in 0 ..< 8:
-      let baseTime = 1000 + i
-      let baseHash = toDigest("msg" & $i)
-      let idLocal = SyncID(time: baseTime, hash: baseHash)
-      discard local.insert(idLocal)
-      if i == 3: 
-        remoteHash=toDigest("msg" & $i & "_x")   
-        mismatchHash = remoteHash
-      else:      
-        remoteHash=baseHash
 
-      let idRemote = SyncID(time: baseTime, hash: remoteHash)
-      discard remote.insert(idRemote)
+    var baseHashMismatch:   WakuMessageHash
+    var remoteHashMismatch: WakuMessageHash
+
+    for i in 0 ..< N:
+      let ts        = 1000 + i
+      let hashLocal = toDigest("msg" & $i)
+      discard local.insert(SyncID(time: ts, hash: hashLocal))
+
+      var hashRemote = hashLocal
+      if i == mismatchI:
+        baseHashMismatch   = hashLocal
+        remoteHashMismatch = toDigest("msg" & $i & "_x")
+        hashRemote         = remoteHashMismatch
+      discard remote.insert(SyncID(time: ts, hash: hashRemote))
 
     var z: WakuMessageHash
-    let whole = SyncID(time: 1000, hash: z) .. SyncID(time: 1007, hash: z)
+    let whole = SyncID(time: 1000, hash: z) .. SyncID(time: 1000 + N - 1, hash: z)
+
+    check local.computeFingerprint(whole) != remote.computeFingerprint(whole)
 
     let remoteFp = remote.computeFingerprint(whole)
     let payload  = RangesData(
-      cluster: 0,
-      shards:  @[0],
-      ranges:  @[(whole, RangeType.Fingerprint)],
+      cluster:      0,
+      shards:       @[0],
+      ranges:       @[(whole, RangeType.Fingerprint)],
       fingerprints: @[remoteFp],
-      itemSets: @[]
+      itemSets:     @[]
     )
 
-    var toSend: seq[WakuMessageHash]
-    var toRecv: seq[WakuMessageHash]
-
+    var toSend, toRecv: seq[WakuMessageHash]
     let reply = local.processPayload(payload, toSend, toRecv)
 
-    let ranges = reply.ranges
-    check ranges.len == 1
-    check ranges[0][1] == RangeType.ItemSet
-    check reply.itemSets.len == 1                      
+    check reply.ranges.len == 8
+    check reply.ranges.allIt(it[1] == RangeType.Fingerprint)
+    check reply.itemSets.len == 0
+    check reply.fingerprints.len == 8
 
-    let iset = reply.itemSets[0]
-    let idx = iset.elements.find(proc (x: SyncID): bool = x.hash == mismatchHash)
-    check idx != -1                                   
-    let bad = iset.elements[idx]
-    check bad.time == 1000 + 3
+    let mismTime = 1000 + mismatchI
+    var covered = false
+    for (slc, _) in reply.ranges:
+      if mismTime >= slc.a.time and mismTime <= slc.b.time:
+        covered = true
+        break
+    check covered
 
-   
+    check toSend.len == 0
+    check toRecv.len == 0
