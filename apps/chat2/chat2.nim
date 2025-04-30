@@ -381,7 +381,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   if conf.relay:
     let shards =
       conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
-    await node.mountRelay(shards)
+    (await node.mountRelay(shards)).isOkOr:
+      echo "failed to mount relay: " & error
+      return
 
   await node.mountLibp2pPing()
 

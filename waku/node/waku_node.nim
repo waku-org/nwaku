@@ -301,34 +301,34 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
 
 proc subscribe*(
     node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)
-) =
+): Result[void, string] =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
-    return
+    return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentSub:
       let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
         error "Autosharding error", error = error
-        return
+        return err("Autosharding error: " & error)
 
       ($shard, some(subscription.topic))
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
-      return
+      return err("Unsupported subscription type in relay subscribe")
 
   if pubSubTopic in node.wakuRelay.subscribedTopics():
     debug "already subscribed to topic", pubsubTopic
-    return
+    return err("Already subscribed to topic: " & $pubsubTopic)
 
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
     error "Invalid API call to `subscribe`. Was already subscribed"
-    return
+    return err("Invalid API call to `subscribe`. Was already subscribed")
 
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
   node.registerRelayDefaultHandler(pubsubTopic)
@@ -339,29 +339,33 @@ proc subscribe*(
     if contentTopicOp.isSome():
       node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
 
-proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
+  return ok()
+
+proc unsubscribe*(
+    node: WakuNode, subscription: SubscriptionEvent
+): Result[void, string] =
   ## Unsubscribes from a specific PubSub or Content topic.
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
-    return
+    return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
 
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentUnsub:
       let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
         error "Autosharding error", error = error
-        return
+        return err("Autosharding error: " & error)
 
       ($shard, some(subscription.topic))
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
-      return
+      return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
     error "Invalid API call to `unsubscribe`. Was not subscribed"
-    return
+    return err("Invalid API call to `unsubscribe`. Was not subscribed")
 
   if contentTopicOp.isSome():
     # Remove this handler only
@@ -375,6 +379,8 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
     debug "unsubscribe", pubsubTopic = pubsubTopic
     node.wakuRelay.unsubscribeAll(pubsubTopic)
     node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+
+  return ok()
 
 proc publish*(
     node: WakuNode, pubsubTopicOp: Option[PubsubTopic], message: WakuMessage
@@ -437,20 +443,17 @@ proc mountRelay*(
     shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
-) {.async, gcsafe.} =
+): Future[Result[void, string]] {.async.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
-    return
+    return err("wakuRelay already mounted, skipping")
 
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
-  let initRes = WakuRelay.new(node.switch, maxMessageSize)
-  if initRes.isErr():
-    error "failed mounting relay protocol", error = initRes.error
-    return
-
-  node.wakuRelay = initRes.value
+  node.wakuRelay = WakuRelay.new(node.switch, maxMessageSize).valueOr:
+    error "failed mounting relay protocol", error = error
+    return err("failed mounting relay protocol: " & error)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
@@ -467,7 +470,11 @@ proc mountRelay*(
 
   # Subscribe to shards
   for shard in shards:
-    node.subscribe((kind: PubsubSub, topic: $shard))
+    node.subscribe((kind: PubsubSub, topic: $shard)).isOkOr:
+      error "failed to subscribe to shard", error = error
+      return err("failed to subscribe to shard in mountRelay: " & error)
+
+  return ok()
 
 ## Waku filter
 

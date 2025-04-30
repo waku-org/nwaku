@@ -301,12 +301,12 @@ proc setupProtocols(
 
     debug "Setting max message size", num_bytes = parsedMaxMsgSize
 
-    try:
+    (
       await mountRelay(
         node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
       )
-    except CatchableError:
-      return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
+    ).isOkOr:
+      return err("failed to mount waku relay protocol: " & $error)
 
     # Add validation keys to protected topics
     var subscribedProtectedShards: seq[ProtectedShard]

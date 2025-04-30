@@ -619,7 +619,10 @@ when isMainModule:
 
   let (node, discv5) = nodeRes.get()
 
-  waitFor node.mountRelay()
+  (waitFor node.mountRelay()).isOkOr:
+    error "failed to mount waku relay protocol: ", err = error
+    quit 1
+
   waitFor node.mountLibp2pPing()
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
