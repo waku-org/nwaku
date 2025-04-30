@@ -59,7 +59,7 @@ proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId: PeerId): MultiAdd
     return multiaddr
   return cleanAddr
 
-proc populateMixNodePool*(mix: WakuMix) {.async.} =
+proc populateMixNodePool*(mix: WakuMix) =
   # populate only peers that i) are reachable ii) share cluster iii) support mix
   let remotePeers = mix.peerManager.switch.peerStore.getReachablePeers().filterIt(
       mixPoolFilter(some(mix.clusterId), it)
@@ -83,7 +83,6 @@ proc populateMixNodePool*(mix: WakuMix) {.async.} =
   # set the mix node pool
   mix.setNodePool(mixNodes)
   trace "mix node pool updated", poolSize = mix.getNodePoolSize()
-  return
 
 proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
   info "starting mix node pool manager"
@@ -92,12 +91,12 @@ proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
   # TODO: make initial pool size configurable
   while mix.getNodePoolSize() < 100 and attempts > 0:
     attempts -= 1
-    discard mix.populateMixNodePool()
+    mix.populateMixNodePool()
     await sleepAsync(1.seconds)
 
   # TODO: make interval configurable
   heartbeat "Updating mix node pool", 5.seconds:
-    discard mix.populateMixNodePool()
+    mix.populateMixNodePool()
 
 #[ proc getBootStrapMixNodes*(node: WakuNode): Table[PeerId, MixPubInfo] =
   var mixNodes = initTable[PeerId, MixPubInfo]()
@@ -145,8 +144,9 @@ proc new*(
 
   # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
   var m = WakuMix(peerManager: peermgr, clusterId: clusterId)
-  m.init(localMixNodeInfo, peermgr.switch, initTable[PeerId, MixPubInfo]())
-  procCall MixProtocol(m).init()
+  procCall MixProtocol(m).initialize(
+    localMixNodeInfo, peermgr.switch, initTable[PeerId, MixPubInfo]()
+  )
 
   return ok(m)
 
