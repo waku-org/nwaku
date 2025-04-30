@@ -537,7 +537,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
     node.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler))
-    )
+    ).isOkOr:
+      error "failed to subscribe to pubsub topic",
+        topic = DefaultPubsubTopic, error = error
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"
