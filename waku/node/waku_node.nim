@@ -322,6 +322,10 @@ proc subscribe*(
     else:
       return
 
+  if pubSubTopic in node.wakuRelay.subscribedTopics():
+    debug "already subscribed to topic", pubsubTopic
+    return
+
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
     error "Invalid API call to `subscribe`. Was already subscribed"
     return
