@@ -113,12 +113,12 @@ proc process*(
       (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
       handler = some(self.relayEventCallback),
     ).isOkOr:
-      let errorMsg = "Subscribe failed." & $error
+      let errorMsg = "Subscribe failed:" & $error
       error "SUBSCRIBE failed", error = errorMsg
       return err(errorMsg)
   of UNSUBSCRIBE:
     waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic)).isOkOr:
-      let errorMsg = "Unsubscribe failed." & $error
+      let errorMsg = "Unsubscribe failed:" & $error
       error "UNSUBSCRIBE failed", error = errorMsg
       return err(errorMsg)
   of PUBLISH:
