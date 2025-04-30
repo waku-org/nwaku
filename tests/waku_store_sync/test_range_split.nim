@@ -67,3 +67,180 @@ suite "Waku Sync – reconciliation":
 
     check toSend.len == 0
     check toRecv.len == 0
+
+  test "splits mismatched fingerprint into two sub-ranges then item-set":
+
+    let local  = SeqStorage.new(@[])
+    let remote = SeqStorage.new(@[])
+    var mismatchHash: WakuMessageHash
+    var remoteHash:  WakuMessageHash
+    
+    for i in 0 ..< 8:
+      let baseTime = 1000 + i
+      let baseHash = toDigest("msg" & $i)
+      let idLocal = SyncID(time: baseTime, hash: baseHash)
+      discard local.insert(idLocal)
+      if i == 3: 
+        remoteHash=toDigest("msg" & $i & "_x")   
+        mismatchHash = remoteHash
+      else:      
+        remoteHash=baseHash
+
+      let idRemote = SyncID(time: baseTime, hash: remoteHash)
+      discard remote.insert(idRemote)
+
+    var z: WakuMessageHash
+    let whole = SyncID(time: 1000, hash: z) .. SyncID(time: 1007, hash: z)
+
+    let remoteFp = remote.computeFingerprint(whole)
+    let payload  = RangesData(
+      cluster: 0,
+      shards:  @[0],
+      ranges:  @[(whole, RangeType.Fingerprint)],
+      fingerprints: @[remoteFp],
+      itemSets: @[]
+    )
+
+    var toSend: seq[WakuMessageHash]
+    var toRecv: seq[WakuMessageHash]
+
+    let reply = local.processPayload(payload, toSend, toRecv)
+
+    let ranges = reply.ranges
+    check ranges.len == 1
+    check ranges[0][1] == RangeType.ItemSet
+    check reply.itemSets.len == 1
+
+    let iset = reply.itemSets[0]
+
+    var bad: SyncID
+    var found = false
+    for sid in iset.elements:
+      if sid.hash == mismatchHash:
+        bad = sid
+        found = true
+        break
+    check found
+    check bad.time == 1000 + 3
+
+  test "second round when N =2048 & local ":
+
+    const N         = 2_048
+    const mismatchI = 70               
+
+    let local  = SeqStorage.new(@[])
+    let remote = SeqStorage.new(@[])
+
+    var baseHashMismatch, remoteHashMismatch: WakuMessageHash
+
+    for i in 0 ..< N:
+      let ts        = 1000 + i
+      let hashLocal = toDigest("msg" & $i)
+      discard local.insert(SyncID(time: ts, hash: hashLocal))
+
+      var hashRemote = hashLocal
+      if i == mismatchI:
+        baseHashMismatch   = hashLocal
+        remoteHashMismatch = toDigest("msg" & $i & "_x")
+        hashRemote         = remoteHashMismatch
+      discard remote.insert(SyncID(time: ts, hash: hashRemote))
+
+    var zero: WakuMessageHash
+    let sliceWhole = SyncID(time: 1000, hash: zero) .. SyncID(time: 1000+N-1, hash: zero)
+    check local.computeFingerprint(sliceWhole) != remote.computeFingerprint(sliceWhole)
+
+    let payload1 = RangesData(
+      cluster:      0,
+      shards:       @[0],
+      ranges:       @[(sliceWhole, RangeType.Fingerprint)],
+      fingerprints: @[remote.computeFingerprint(sliceWhole)],
+      itemSets:     @[]
+    )
+
+    var toSend, toRecv: seq[WakuMessageHash]
+    let reply1 = local.processPayload(payload1, toSend, toRecv)
+
+    check reply1.ranges.len == 8
+    check reply1.ranges.allIt(it[1] == RangeType.Fingerprint)
+
+    let mismTime = 1000 + mismatchI
+    var subSlice: Slice[SyncID]
+    for (sl, _) in reply1.ranges:
+      if mismTime >= sl.a.time and mismTime <= sl.b.time:
+        subSlice = sl
+        break
+    check subSlice.a.time != 0          
+
+    let payload2 = RangesData(
+      cluster:      0,
+      shards:       @[0],
+      ranges:       @[(subSlice, RangeType.Fingerprint)],
+      fingerprints: @[remote.computeFingerprint(subSlice)],
+      itemSets:     @[]
+    )
+
+    var toSend2, toRecv2: seq[WakuMessageHash]
+    let reply2 = local.processPayload(payload2, toSend2, toRecv2)
+
+    check reply2.ranges.len == 8
+    check reply2.ranges.allIt(it[1] == RangeType.ItemSet)
+    check reply2.itemSets.len == 8
+
+    var matchCount = 0
+    for iset in reply2.itemSets:
+      if iset.elements.anyIt(it.time == mismTime and it.hash == baseHashMismatch):
+        inc matchCount
+        check not iset.elements.anyIt(it.hash == remoteHashMismatch)
+    check matchCount == 1
+
+    
+    check toSend2.len == 0
+    check toRecv2.len == 0
+
+  test "second-round payload remote":
+
+    let local  = SeqStorage.new(@[])
+    let remote = SeqStorage.new(@[])
+
+    var baseHash:    WakuMessageHash
+    var alteredHash: WakuMessageHash
+
+    for i in 0 ..< 8:
+      let ts        = 1000 + i
+      let hashLocal = toDigest("msg" & $i)
+      discard local.insert(SyncID(time: ts, hash: hashLocal))
+
+      var hashRemote = hashLocal
+      if i == 3:
+        baseHash    = hashLocal
+        alteredHash = toDigest("msg" & $i & "_x")
+        hashRemote  = alteredHash
+      discard remote.insert(SyncID(time: ts, hash: hashRemote))
+
+    var zero: WakuMessageHash
+    let slice = SyncID(time: 1000, hash: zero) .. SyncID(time: 1007, hash: zero)
+
+    check local.computeFingerprint(slice) != remote.computeFingerprint(slice)
+
+    var toSend1, toRecv1: seq[WakuMessageHash]
+    let pay1 = RangesData(
+      cluster:      0,
+      shards:       @[0],
+      ranges:       @[(slice, RangeType.Fingerprint)],
+      fingerprints: @[remote.computeFingerprint(slice)],
+      itemSets:     @[]
+    )
+    let rep1 = local.processPayload(pay1, toSend1, toRecv1)
+
+    check rep1.ranges.len == 1
+    check rep1.ranges[0][1] == RangeType.ItemSet
+    check toSend1.len == 0
+    check toRecv1.len == 0
+
+    var toSend2, toRecv2: seq[WakuMessageHash]
+    discard remote.processPayload(rep1, toSend2, toRecv2)
+
+    check toSend2.len == 1
+    check toSend2[0] == alteredHash
+    check toRecv2.len == 1
+    check toRecv2[0] == baseHash
