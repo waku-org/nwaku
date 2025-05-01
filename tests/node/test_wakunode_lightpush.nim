@@ -205,18 +205,18 @@ suite "Waku Lightpush message delivery":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == DefaultPubsubTopic
+        topic == "/waku/2/rs/0/1"
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+    destNode.subscribe((kind: PubsubSub, topic: "/waku/2/rs/0/1"), some(relayHandler)).isOkOr:
       assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)
 
     ## When
-    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.lightpushPublish(some("/waku/2/rs/0/1"), message)
     assert res.isOk(), $res.error
     assert res.get() == 1, "Expected to relay the message to 1 node"
 

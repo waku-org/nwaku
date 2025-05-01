@@ -118,7 +118,12 @@ procSuite "WakuNode - RLN relay":
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
-    # mount the relay handler
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe from topic: " & $error
+
+    ## Subscribe to the relay topic to add the custom relay handler defined above
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     await sleepAsync(2000.millis)
@@ -129,6 +134,11 @@ procSuite "WakuNode - RLN relay":
     # prepare the epoch
     var message = WakuMessage(payload: @payload, contentTopic: contentTopic)
     doAssert(node1.wakuRlnRelay.unsafeAppendRLNProof(message, epochTime()).isOk())
+
+    debug "Nodes participating in the test",
+      node1 = shortLog(node1.switch.peerInfo.peerId),
+      node2 = shortLog(node2.switch.peerInfo.peerId),
+      node3 = shortLog(node3.switch.peerInfo.peerId)
 
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
     ## verifies the rate limit proof of the message and relays the message to node3

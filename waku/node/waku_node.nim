@@ -364,20 +364,20 @@ proc unsubscribe*(
       return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
-    error "Invalid API call to `unsubscribe`. Was not subscribed"
-    return err("Invalid API call to `unsubscribe`. Was not subscribed")
+    error "Invalid API call to `unsubscribe`. Was not subscribed", pubsubTopic
+    return
+      err("Invalid API call to `unsubscribe`. Was not subscribed to: " & $pubsubTopic)
 
   if contentTopicOp.isSome():
     # Remove this handler only
     var handler: TopicHandler
+    ## TODO: refactor this part. I think we can simplify it
     if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
       debug "unsubscribe", contentTopic = contentTopicOp.get()
-      node.wakuRelay.unsubscribe(pubsubTopic, handler)
-
-  if contentTopicOp.isNone() or node.wakuRelay.topics.getOrDefault(pubsubTopic).len == 1:
-    # Remove all handlers
+      node.wakuRelay.unsubscribe(pubsubTopic)
+  else:
     debug "unsubscribe", pubsubTopic = pubsubTopic
-    node.wakuRelay.unsubscribeAll(pubsubTopic)
+    node.wakuRelay.unsubscribe(pubsubTopic)
     node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
   return ok()
@@ -1229,6 +1229,7 @@ proc mountRlnRelay*(
     raise
       newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
+
   if (rlnConf.rlnRelayUserMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
     error "rln-relay-user-message-limit can't exceed the MAX_MESSAGE_LIMIT in the rln contract"
   let validator = generateRlnValidator(rlnRelay, spamHandler)

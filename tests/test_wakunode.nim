@@ -63,6 +63,12 @@ suite "WakuNode":
         msg.payload == payload
       completionFut.complete(true)
 
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node2.unsubscribe((kind: PubsubUnsub, topic: $shard)).isOkOr:
+      assert false, "Failed to unsubscribe from topic: " & $error
+
+    ## Subscribe to the relay topic to add the custom relay handler defined above
     node2.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
       assert false, "Failed to subscribe to topic"
     await sleepAsync(2000.millis)
