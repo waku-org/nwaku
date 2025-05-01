@@ -201,6 +201,13 @@ procSuite "WakuNode - RLN relay":
       elif topic == $shards[1]:
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
+    ## This unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[0])).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[1])).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+
     # mount the relay handlers
     nodes[2].subscribe((kind: PubsubSub, topic: $shards[0]), some(relayHandler)).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
@@ -325,6 +332,11 @@ procSuite "WakuNode - RLN relay":
       debug "The received topic:", topic
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
+
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
 
     # mount the relay handler
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
@@ -478,6 +490,11 @@ procSuite "WakuNode - RLN relay":
           completionFut3.complete(true)
         if msg.payload == wm4.payload:
           completionFut4.complete(true)
+
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
 
     # mount the relay handler for node3
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
