@@ -46,7 +46,8 @@ suite "Waku Lightpush - End To End":
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.mountLightpush() # without rln-relay
     client.mountLightpushClient()
 
@@ -137,7 +138,8 @@ suite "RLN Proofs as a Lightpush Service":
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.mountRlnRelay(wakuRlnConfig)
     await server.mountLightPush()
     client.mountLightPushClient()
@@ -182,8 +184,10 @@ suite "Waku Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    await destNode.mountRelay(@[DefaultRelayShard])
-    await bridgeNode.mountRelay(@[DefaultRelayShard])
+    (await destNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
+    (await bridgeNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
 
@@ -205,7 +209,8 @@ suite "Waku Lightpush message delivery":
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)

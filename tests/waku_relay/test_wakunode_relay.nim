@@ -30,7 +30,8 @@ suite "WakuNode - Relay":
     # Relay protocol starts if mounted after node start
 
     await node1.start()
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     check:
       GossipSub(node1.wakuRelay).heartbeatFut.isNil() == false
@@ -41,7 +42,8 @@ suite "WakuNode - Relay":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
 
-    await node2.mountRelay()
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     check:
       # Relay has not yet started as node has not yet started
@@ -69,13 +71,16 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node3.start()
-    await node3.mountRelay(@[shard])
+    (await node3.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await allFutures(
       node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()]),
@@ -93,7 +98,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     var res = await node1.publish(some($shard), message)
@@ -136,13 +142,16 @@ suite "WakuNode - Relay":
 
     # start all the nodes
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node3.start()
-    await node3.mountRelay(@[shard])
+    (await node3.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -179,7 +188,8 @@ suite "WakuNode - Relay":
       # relay handler is called
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     var res = await node1.publish(some($shard), message1)
@@ -221,7 +231,8 @@ suite "WakuNode - Relay":
       connOk == true
 
     # Node 1 subscribes to topic
-    nodes[1].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    nodes[1].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
@@ -265,10 +276,12 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -283,7 +296,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some($shard), message)
@@ -314,10 +328,12 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -332,7 +348,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some($shard), message)
@@ -363,10 +380,12 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     #delete websocket peer address
     # TODO: a better way to find the index - this is too brittle
@@ -385,7 +404,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some($shard), message)
@@ -418,10 +438,12 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -436,7 +458,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some($shard), message)
@@ -477,10 +500,12 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -495,7 +520,8 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some($shard), message)
@@ -571,7 +597,8 @@ suite "WakuNode - Relay":
       node = newTestWakuNode(nodeKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     require node.mountSharding(1, 1).isOk
 
     ## Given
@@ -593,18 +620,24 @@ suite "WakuNode - Relay":
       "topic must use the same shard"
 
     ## When
-    node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler))
-    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler))
-    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler))
+    node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     ## Then
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB))
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
+      assert false, "Failed to unsubscribe to topic: " & $error
     check node.wakuRelay.isSubscribed(shard)
 
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicA))
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicA)).isOkOr:
+      assert false, "Failed to unsubscribe to topic: " & $error
     check node.wakuRelay.isSubscribed(shard)
 
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicC))
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicC)).isOkOr:
+      assert false, "Failed to unsubscribe to topic: " & $error
     check not node.wakuRelay.isSubscribed(shard)
 
     ## Cleanup

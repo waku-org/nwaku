@@ -89,7 +89,8 @@ suite "Peer Manager":
       await sleepAsync(FUTURE_TIMEOUT)
 
       # When making an operation that triggers onPeerMetadata
-      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic"))
+      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic")).isOkOr:
+        assert false, "Failed to subscribe to relay"
       await sleepAsync(FUTURE_TIMEOUT)
 
       check:
@@ -122,7 +123,8 @@ suite "Peer Manager":
       await sleepAsync(FUTURE_TIMEOUT)
 
       # When making an operation that triggers onPeerMetadata
-      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic"))
+      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic")).isOkOr:
+        assert false, "Failed to subscribe to relay"
       await sleepAsync(FUTURE_TIMEOUT)
 
       check:

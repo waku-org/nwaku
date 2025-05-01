@@ -41,7 +41,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -95,7 +96,8 @@ suite "Waku v2 Rest API - Relay":
       shard3 = RelayShard(clusterId: DefaultClusterId, shardId: 3)
       shard4 = RelayShard(clusterId: DefaultClusterId, shardId: 4)
 
-    await node.mountRelay(@[shard0, shard1, shard2, shard3])
+    (await node.mountRelay(@[shard0, shard1, shard2, shard3])).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -144,7 +146,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -220,7 +223,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
@@ -245,7 +249,8 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic"
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -275,7 +280,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     require node.mountSharding(1, 8).isOk
 
     var restPort = Port(0)
@@ -324,7 +330,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -373,7 +380,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -437,7 +445,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
@@ -461,7 +470,8 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: ContentSub, topic: DefaultContentTopic))
+    node.subscribe((kind: ContentSub, topic: DefaultContentTopic)).isOkOr:
+      assert false, "Failed to subscribe to content topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -489,7 +499,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
@@ -539,7 +550,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
@@ -564,7 +576,8 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -594,7 +607,8 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
@@ -619,7 +633,8 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 

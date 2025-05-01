@@ -34,13 +34,15 @@ suite "WakuNode":
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
     await node1.start()
-    await node1.mountRelay(@[shard])
+    (await node1.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
     node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
-    await node2.mountRelay(@[shard])
+    (await node2.mountRelay(@[shard])).isOkOr:
+      assert false, "Failed to mount relay"
     node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
 
     check:
@@ -61,7 +63,8 @@ suite "WakuNode":
         msg.payload == payload
       completionFut.complete(true)
 
-    node2.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
+    node2.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to topic"
     await sleepAsync(2000.millis)
 
     var res = await node1.publish(some($shard), message)
@@ -92,8 +95,10 @@ suite "WakuNode":
       node2PeerId = $(node2.switch.peerInfo.peerId)
       node2Dns4Addr = "/dns4/localhost/tcp/61022/p2p/" & node2PeerId
 
-    await node1.mountRelay()
-    await node2.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     await allFutures([node1.start(), node2.start()])
 
@@ -117,7 +122,8 @@ suite "WakuNode":
 
     # Initialize and start node1
     await node1.start()
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     # Create an array to hold the other nodes
     var otherNodes: seq[WakuNode] = @[]
@@ -129,7 +135,8 @@ suite "WakuNode":
         port = 60012 + i * 2 # Ensure unique ports for each node
         node = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(port))
       await node.start()
-      await node.mountRelay()
+      (await node.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
       otherNodes.add(node)
 
     # Connect all other nodes to node1
@@ -296,10 +303,12 @@ suite "WakuNode":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(61016))
 
     await node1.start()
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay()
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
@@ -337,10 +346,12 @@ suite "WakuNode":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(61020))
 
     await node1.start()
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node2.start()
-    await node2.mountRelay()
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
