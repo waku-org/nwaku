@@ -10,6 +10,7 @@
     "x86_64-linux" "aarch64-linux"
   ],
   androidArch,
+  abidir,
   zerokitPkg,
 }:
 
@@ -32,6 +33,7 @@ in stdenv.mkDerivation rec {
   buildInputs = with pkgs; [
     openssl
     gmp
+    zip
   ];
 
   # Dependencies that should only exist in the build environment.
@@ -98,8 +100,10 @@ in stdenv.mkDerivation rec {
   '';
 
   installPhase = ''
-    mkdir -p $out/build/android
-    cp -r ./build/android/* $out/build/android/
+    mkdir -p $out/jni
+    cp -r ./build/android/${abidir}/* $out/jni/
+    echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.mylibrary" />' > $out/jni/AndroidManifest.xml
+    cd $out && zip -r libwaku.aar *
   '';
 
   meta = with pkgs.lib; {
