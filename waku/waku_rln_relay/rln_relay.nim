@@ -184,7 +184,7 @@ proc absDiff*(e1, e2: Epoch): uint64 =
     return epoch2 - epoch1
 
 proc validateMessage*(
-    rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption = none(float64)
+    rlnPeer: WakuRLNRelay, msg: WakuMessage
 ): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MaxEpochGap of the current epoch
@@ -204,12 +204,8 @@ proc validateMessage*(
 
   # checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
-  var epoch: Epoch
-  if timeOption.isSome():
-    epoch = rlnPeer.calcEpoch(timeOption.get())
-  else:
-    # get current rln epoch
-    epoch = rlnPeer.getCurrentEpoch()
+  # get current rln epoch
+  let epoch: Epoch = rlnPeer.getCurrentEpoch()
 
   let
     msgEpoch = proof.epoch
@@ -273,12 +269,12 @@ proc validateMessage*(
   return MessageValidationResult.Valid
 
 proc validateMessageAndUpdateLog*(
-    rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption = none(float64)
+    rlnPeer: WakuRLNRelay, msg: WakuMessage
 ): MessageValidationResult =
   ## validates the message and updates the log to prevent double messaging
   ## in future messages
 
-  let isValidMessage = rlnPeer.validateMessage(msg, timeOption)
+  let isValidMessage = rlnPeer.validateMessage(msg)
 
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():

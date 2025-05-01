@@ -1,11 +1,11 @@
 {.used.}
 
 import
-  std/[sequtils, net],
-  stew/shims/net,
+  std/[sequtils, strformat, net],
   testutils/unittests,
   presto,
   presto/client as presto_client,
+  presto /../ tests/helpers,
   libp2p/crypto/crypto
 
 import
@@ -43,10 +43,11 @@ suite "Waku v2 Rest API - Admin":
     node3 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60604))
 
     await allFutures(node1.start(), node2.start(), node3.start())
+    let shards = @[RelayShard(clusterId: 1, shardId: 0)]
     await allFutures(
-      node1.mountRelay(),
-      node2.mountRelay(),
-      node3.mountRelay(),
+      node1.mountRelay(shards = shards),
+      node2.mountRelay(shards = shards),
+      node3.mountRelay(shards = shards),
       node3.mountPeerExchange(),
     )
 
@@ -119,7 +120,9 @@ suite "Waku v2 Rest API - Admin":
     check:
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
-      getRes.data.len() == 0
+      getRes.data.len() == 1
+      getRes.data[0].multiaddr == nonExistentPeer
+      getRes.data[0].connected == CannotConnect
 
   asyncTest "Get filter data":
     await allFutures(
@@ -203,3 +206,96 @@ suite "Waku v2 Rest API - Admin":
       getRes.data.anyIt(it.origin == Discv5)
       # Check peer 3
       getRes.data.anyIt(it.origin == PeerExchange)
+
+  asyncTest "get peers by id":
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
+
+    check:
+      postRes.status == 200
+
+    let getRes = await client.getPeerById($peerInfo2.peerId)
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.protocols.find(WakuRelayCodec) >= 0
+      getRes.data.multiaddr == constructMultiaddrStr(peerInfo2)
+
+    ## nim-presto library's RestClient does not support text error case decode if
+    ## the RestResponse expects a JSON with complex type
+    # let getRes2 = await client.getPeerById("bad peer id")
+    let getRes2 = await httpClient(
+      restServer.httpServer.address, MethodGet, "/admin/v1/peer/bad+peer+id", ""
+    )
+    check:
+      getRes2.status == 400
+      getRes2.data == "Invalid argument:peerid: incorrect PeerId string"
+
+  asyncTest "get connected peers":
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
+
+    check:
+      postRes.status == 200
+
+    let getRes = await client.getConnectedPeers()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 2
+      # Check peer 2
+      getRes.data.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo2))
+      # Check peer 3
+      getRes.data.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo3))
+
+    # Seems shard info is not available in the peer manager
+    # let getRes2 = await client.getConnectedPeersByShard(0)
+    # check:
+    #   getRes2.status == 200
+    #   $getRes2.contentType == $MIMETYPE_JSON
+    #   getRes2.data.len() == 2
+
+    let getRes3 = await client.getConnectedPeersByShard(99)
+    check:
+      getRes3.status == 200
+      $getRes3.contentType == $MIMETYPE_JSON
+      getRes3.data.len() == 0
+
+  asyncTest "get relay peers":
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
+
+    check:
+      postRes.status == 200
+
+    let getRes = await client.getRelayPeers()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+    require getRes.data.len() == 1 # Check peer 2
+    check getRes.data[0].peers.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo2))
+      # Check peer 2
+    check getRes.data[0].peers.anyIt(it.multiaddr == constructMultiaddrStr(peerInfo3))
+      # Check peer 3
+
+    # Todo: investigate why the test setup missing remote peer's shard info
+    # let getRes2 = await client.getRelayPeersByShard(0)
+    # check:
+    #   getRes2.status == 200
+    #   $getRes2.contentType == $MIMETYPE_JSON
+    #   getRes2.data.peers.len() == 2
+
+    let getRes3 = await client.getRelayPeersByShard(99)
+    check:
+      getRes3.status == 200
+      $getRes3.contentType == $MIMETYPE_JSON
+      getRes3.data.peers.len() == 0

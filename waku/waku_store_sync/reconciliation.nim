@@ -46,13 +46,10 @@ type SyncReconciliation* = ref object of LPProtocol
 
   storage: SyncStorage
 
-  # Receive IDs from transfer protocol for storage
+  # AsyncQueues are used as communication channels between
+  # reconciliation and transfer protocols.
   idsRx: AsyncQueue[SyncID]
-
-  # Send Hashes to transfer protocol for reception
-  localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)]
-
-  # Send Hashes to transfer protocol for transmission
+  localWantsTx: AsyncQueue[PeerId]
   remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
 
   # params
@@ -100,6 +97,9 @@ proc processRequest(
     roundTrips = 0
     diffs = 0
 
+  # Signal to transfer protocol that this reconciliation is starting
+  await self.localWantsTx.addLast(conn.peerId)
+
   while true:
     let readRes = catch:
       await conn.readLp(int.high)
@@ -143,7 +143,6 @@ proc processRequest(
         diffs.inc()
 
       for hash in hashToRecv:
-        self.localWantsTx.addLastNoWait((conn.peerId, hash))
         diffs.inc()
 
       rawPayload = sendPayload.deltaEncode()
@@ -167,6 +166,9 @@ proc processRequest(
       break
 
     continue
+
+  # Signal to transfer protocol that this reconciliation is done
+  await self.localWantsTx.addLast(conn.peerId)
 
   reconciliation_roundtrips.observe(roundTrips)
   reconciliation_differences.observe(diffs)
@@ -296,7 +298,7 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
     idsRx: AsyncQueue[SyncID],
-    localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsTx: AsyncQueue[PeerId],
     remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
@@ -361,6 +363,8 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
     let time = getNowInNanosecondTime() - self.syncRange.nanos
 
     let count = self.storage.prune(time)
+
+    total_messages_cached.set(self.storage.length())
 
     debug "periodic prune done", elements_pruned = count
 

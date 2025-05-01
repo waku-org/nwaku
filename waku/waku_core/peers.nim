@@ -18,7 +18,7 @@ import
   libp2p/routing_record,
   regex,
   json_serialization
-import ../waku_enr/capabilities
+import ../waku_enr
 
 type
   Connectedness* = enum
@@ -231,7 +231,7 @@ proc parsePeerInfo*(maddrs: varargs[string]): Result[RemotePeerInfo, string] =
 
   parsePeerInfo(multiAddresses)
 
-func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
+func getTransportProtocol(typedR: enr.TypedRecord): Option[IpTransportProtocol] =
   if typedR.tcp6.isSome() or typedR.tcp.isSome():
     return some(IpTransportProtocol.tcpProtocol)
 
@@ -255,9 +255,9 @@ proc parseUrlPeerAddr*(
 
   return ok(some(parsedPeerInfo.value))
 
-proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
+proc toRemotePeerInfo*(enrRec: enr.Record): Result[RemotePeerInfo, cstring] =
   ## Converts an ENR to dialable RemotePeerInfo
-  let typedR = TypedRecord.fromRecord(enr)
+  let typedR = enr.TypedRecord.fromRecord(enrRec)
   if not typedR.secp256k1.isSome():
     return err("enr: no secp256k1 key in record")
 
@@ -303,7 +303,7 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
     return err("enr: no addresses in record")
 
   let protocolsRes = catch:
-    enr.getCapabilitiesCodecs()
+    enrRec.getCapabilitiesCodecs()
 
   var protocols: seq[string]
   if not protocolsRes.isErr():
@@ -312,7 +312,7 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
     error "Could not retrieve supported protocols from enr",
       peerId = peerId, msg = protocolsRes.error.msg
 
-  return ok(RemotePeerInfo.init(peerId, addrs, some(enr), protocols))
+  return ok(RemotePeerInfo.init(peerId, addrs, some(enrRec), protocols))
 
 converter toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
   ## Converts peer records to dialable RemotePeerInfo
@@ -350,8 +350,8 @@ func hasUdpPort*(peer: RemotePeerInfo): bool =
     return false
 
   let
-    enr = peer.enr.get()
-    typedEnr = TypedRecord.fromRecord(enr)
+    enrRec = peer.enr.get()
+    typedEnr = enr.TypedRecord.fromRecord(enrRec)
 
   typedEnr.udp.isSome() or typedEnr.udp6.isSome()
 
@@ -361,3 +361,18 @@ proc getAgent*(peer: RemotePeerInfo): string =
     return "unknown"
 
   return peer.agent
+
+proc getShards*(peer: RemotePeerInfo): seq[uint16] =
+  if peer.enr.isNone():
+    return @[]
+
+  let enrRec = peer.enr.get()
+  let typedRecord = enrRec.toTyped().valueOr:
+    trace "invalid ENR record", error = error
+    return @[]
+
+  let shards = typedRecord.relaySharding()
+  if shards.isSome():
+    return shards.get().shardIds
+
+  return @[]
