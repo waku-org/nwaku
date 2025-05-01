@@ -133,6 +133,7 @@ suite "Waku v2 Rest API - lightpush":
       (kind: PubsubSub, topic: DefaultPubsubTopic)
     ).isOkOr:
       assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
     ).isOkOr:
@@ -225,6 +226,7 @@ suite "Waku v2 Rest API - lightpush":
       (kind: PubsubSub, topic: DefaultPubsubTopic)
     ).isOkOr:
       assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
     ).isOkOr:
