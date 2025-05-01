@@ -76,8 +76,10 @@ suite "Peer Manager":
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
       discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      await client.mountRelay()
-      await server.mountRelay()
+      (await client.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
+      (await server.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
 
       # And both nodes are started
       await allFutures(server.start(), client.start())
@@ -110,8 +112,10 @@ suite "Peer Manager":
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
       discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      await client.mountRelay()
-      await server.mountRelay()
+      (await client.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
+      (await server.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
 
       # And both nodes are started
       await allFutures(server.start(), client.start())

@@ -488,9 +488,11 @@ procSuite "Peer Manager":
     await node1.start()
     await node2.start()
 
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     node1.wakuRelay.codec = betaCodec
-    await node2.mountRelay()
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     node2.wakuRelay.codec = betaCodec
 
     require:
@@ -512,7 +514,8 @@ procSuite "Peer Manager":
       peerStorage = storage,
     )
 
-    await node3.mountRelay()
+    (await node3.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     node3.wakuRelay.codec = stableCodec
     check:
       # Node 2 and 3 have differing codecs
