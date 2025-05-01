@@ -19,3 +19,6 @@ declarePublicCounter total_bytes_exchanged,
 
 declarePublicCounter total_transfer_messages_exchanged,
   "the number of messages sent and received by the transfer protocol", ["direction"]
+
+declarePublicGauge total_messages_cached,
+  "the number of messages cached by the node after prunning"

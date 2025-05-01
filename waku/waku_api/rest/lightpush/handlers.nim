@@ -26,18 +26,15 @@ logScope:
 
 const FutTimeoutForPushRequestProcessing* = 5.seconds
 
-const NoPeerNoDiscoError =
-  RestApiResponse.serviceUnavailable("No suitable service peer & no discovery method")
-
-const NoPeerNoneFoundError =
-  RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
+const NoPeerNoDiscoError = "No suitable service peer & no discovery method"
+const NoPeerNoneFoundError = "No suitable service peer & none discovered"
 
 proc useSelfHostedLightPush(node: WakuNode): bool =
   return node.wakuLightPush != nil and node.wakuLightPushClient == nil
 
 proc convertErrorKindToHttpStatus(statusCode: LightpushStatusCode): HttpCode =
   ## Lightpush status codes are matching HTTP status codes by design
-  return HttpCode(statusCode.int32)
+  return toHttpCode(statusCode.int).get(Http500)
 
 proc makeRestResponse(response: WakuLightPushResult): RestApiResponse =
   var httpStatus: HttpCode = Http200
@@ -72,10 +69,11 @@ proc installLightPushRequestHandler*(
     debug "post", ROUTE_LIGHTPUSH, contentBody
 
     let req: PushRequest = decodeRequestBody[PushRequest](contentBody).valueOr:
-      return RestApiResponse.badRequest("Invalid push request: " & $error)
+      return
+        makeRestResponse(lightpushResultBadRequest("Invalid push request! " & $error))
 
     let msg = req.message.toWakuMessage().valueOr:
-      return RestApiResponse.badRequest("Invalid message: " & $error)
+      return makeRestResponse(lightpushResultBadRequest("Invalid message! " & $error))
 
     var toPeer = none(RemotePeerInfo)
     if useSelfHostedLightPush(node):
@@ -83,19 +81,23 @@ proc installLightPushRequestHandler*(
     else:
       let aPeer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let handler = discHandler.valueOr:
-          return NoPeerNoDiscoError
+          return makeRestResponse(lightpushResultServiceUnavailable(NoPeerNoDiscoError))
 
         let peerOp = (await handler()).valueOr:
-          return RestApiResponse.internalServerError("No value in peerOp: " & $error)
+          return makeRestResponse(
+            lightpushResultInternalError("No value in peerOp: " & $error)
+          )
 
         peerOp.valueOr:
-          return NoPeerNoneFoundError
+          return
+            makeRestResponse(lightpushResultServiceUnavailable(NoPeerNoneFoundError))
       toPeer = some(aPeer)
 
     let subFut = node.lightpushPublish(req.pubsubTopic, msg, toPeer)
 
     if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"
-      return RestApiResponse.serviceUnavailable("Push request timed out")
+      return
+        makeRestResponse(lightpushResultServiceUnavailable("Push request timed out"))
 
     return makeRestResponse(subFut.value())
