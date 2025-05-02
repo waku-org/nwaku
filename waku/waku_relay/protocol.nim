@@ -564,8 +564,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
   debug "unsubscribe", pubsubTopic
   procCall GossipSub(w).unsubscribe($pubsubTopic, topicHandler)
-  ## TODO: uncomment the following when https://github.com/vacp2p/nim-libp2p/pull/1356 is merged
-  # procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
+  procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
