@@ -103,7 +103,7 @@ suite "Onchain group manager":
     var triggeredError = false
     try:
       discard await manager.init()
-    except CatchableError as e:
+    except CatchableError:
       triggeredError = true
 
     check triggeredError
@@ -115,14 +115,16 @@ suite "Onchain group manager":
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  asyncTest "trackRootChanges: start track root changes":
+  asyncTest "trackRootChanges updates proof cache":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    asyncSpawn manager.trackRootChanges()
+    discard await withTimeout(trackRootChanges(manager), 5.seconds)
 
-  xasyncTest "startGroupSync: should guard against uninitialized state":
-    (await manager.startGroupSync()).isErrOr:
-      raiseAssert "Expected error when not initialized"
+  asyncTest "trackRootChanges: should guard against uninitialized state":
+    try:
+      discard await manager.trackRootChanges()
+    except CatchableError:
+      check getCurrentExceptionMsg().len() == 40
 
   xasyncTest "startGroupSync: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)

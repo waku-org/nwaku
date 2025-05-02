@@ -132,7 +132,10 @@ proc fetchMerkleRoot*(
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
-    raise newException(CatchableError, "OnchainGroupManager is not initialized")
+    raise newException(
+      CatchableError,
+      "OnchainGroupManager is not initialized: " & getCurrentExceptionMsg(),
+    )
 
 template retryWrapper(
     g: OnchainGroupManager, res: auto, errStr: string, body: untyped
@@ -145,7 +148,7 @@ method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
     return true
   return false
 
-proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
+proc updateRoots(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
     return false
@@ -163,11 +166,10 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
 
   return false
 
-proc trackRootChanges*(
+proc utils_trackRootChanges(
     g: OnchainGroupManager
 ): Future[void] {.async: (raises: [CatchableError]).} =
   try:
-    initializedGuard(g)
     let ethRpc = g.ethRpc.get()
     let wakuRlnContract = g.wakuRlnContract.get()
 
@@ -177,18 +179,37 @@ proc trackRootChanges*(
       let rootUpdated = await g.updateRoots()
 
       if rootUpdated:
-        let proofResult = await g.fetchMerkleProofElements()
-        if proofResult.isErr():
-          error "Failed to fetch Merkle proof", error = proofResult.error
-        g.merkleProofCache = proofResult.get()
+        if g.membershipIndex.isNone():
+          error "membershipIndex is not set; skipping proof update"
+        else:
+          let proofResult = await g.fetchMerkleProofElements()
+          if proofResult.isErr():
+            error "Failed to fetch Merkle proof", error = proofResult.error
+          g.merkleProofCache = proofResult.get()
 
         # also need update registerd membership
         let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
+      debug "--- roots and merkle proofs",
+        len = g.validRoots.len,
+        roots = g.validRoots,
+        proof = g.merkleProofCache
+
       await sleepAsync(rpcDelay)
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
+
+method trackRootChanges*(
+    g: OnchainGroupManager
+): Future[GroupManagerResult[void]] {.async.} =
+  initializedGuard(g)
+  # Get archive history
+  try:
+    await utils_trackRootChanges(g)
+    return ok()
+  except CatchableError, Exception:
+    return err("failed to start group sync: " & getCurrentExceptionMsg())
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
