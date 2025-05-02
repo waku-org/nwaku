@@ -544,7 +544,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
     return
 
   if pubsubtopic notin Pubsub(w).topics:
-    error "unsubscribe no topic for this topic", pubsubTopic
+    error "not subscribed to the given topic", pubsubTopic
     return
 
   var topicHandlerSeq: seq[TopicHandler]
@@ -556,8 +556,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
       return
     topicValidator = w.topicValidator[pubsubTopic]
   except KeyError:
-    error "unsubscribe no topic for this topic",
-      pubsubTopic, error = getCurrentExceptionMsg()
+    error "exception in unsubscribe", pubsubTopic, error = getCurrentExceptionMsg()
     return
 
   let topicHandler = topicHandlerSeq[0]
