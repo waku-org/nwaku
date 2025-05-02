@@ -312,19 +312,6 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  try:
-    discard waitFor g.updateRoots()
-  except CatchableError:
-    error "Failed to update roots", error = getCurrentExceptionMsg()
-
-  try:
-    let proofResult = waitFor g.fetchMerkleProofElements()
-    if proofResult.isErr():
-      return err("Failed to fetch Merkle proof: " & proofResult.error)
-    g.merkleProofCache = proofResult.get()
-  except CatchableError:
-    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
-
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
