@@ -563,7 +563,9 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
   debug "unsubscribe", pubsubTopic
   procCall GossipSub(w).unsubscribe($pubsubTopic, topicHandler)
-  procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
+  ## TODO: uncomment the following line when https://github.com/vacp2p/nim-libp2p/pull/1356
+  ## is available in a nim-libp2p release.
+  # procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
