@@ -136,13 +136,9 @@ proc startRestServerProtocolSupport*(
     for shard in conf.shards:
       let pubsubTopic = $RelayShard(clusterId: conf.clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
-      node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler)).isOkOr:
-        error "failed to subscribe to pubsub topic", pubsubTopic, error = error
 
     for contentTopic in conf.contentTopics:
       cache.contentSubscribe(contentTopic)
-      node.subscribe((kind: ContentSub, topic: contentTopic), some(handler)).isOkOr:
-        error "failed to subscribe to content topic", contentTopic, error = error
 
     installRelayApiHandlers(router, node, cache)
   else:
