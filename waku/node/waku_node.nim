@@ -256,7 +256,7 @@ proc mountStoreSync*(
 
 ## Waku relay
 
-proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
+proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
@@ -322,7 +322,7 @@ proc subscribe*(
     else:
       return err("Unsupported subscription type in relay subscribe")
 
-  if pubSubTopic in node.wakuRelay.subscribedTopics():
+  if node.wakuRelay.isSubscribed(pubsubTopic):
     debug "already subscribed to topic", pubsubTopic
     return err("Already subscribed to topic: " & $pubsubTopic)
 
