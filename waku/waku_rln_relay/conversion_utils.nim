@@ -157,20 +157,23 @@ func u256*(n: Quantity): UInt256 {.inline.} =
   n.uint64.stuint(256)
 
 proc uint64ToField*(n: uint64): array[32, byte] =
-  ## Converts uint64 to 32-byte little-endian array with zero padding
-  var bytes = toBytes(n, Endianness.littleEndian)
-  result[0 ..< bytes.len] = bytes
+  var output: array[32, byte]
+  let bytes = toBytes(n, Endianness.littleEndian)
+  output[0 ..< bytes.len] = bytes
+  return output
 
 proc UInt256ToField*(v: UInt256): array[32, byte] =
-  return cast[array[32, byte]](v)
+  return cast[array[32, byte]](v) # already doesn't use `result`
 
 proc seqToField*(s: seq[byte]): array[32, byte] =
-  result = default(array[32, byte])
+  var output: array[32, byte]
   let len = min(s.len, 32)
   for i in 0 ..< len:
-    result[i] = s[i]
+    output[i] = s[i]
+  return output
 
 proc uint64ToIndex*(index: MembershipIndex, depth: int): seq[byte] =
-  result = newSeq[byte](depth)
+  var output = newSeq[byte](depth)
   for i in 0 ..< depth:
-    result[i] = byte((index shr i) and 1) # LSB-first bit decomposition
+    output[i] = byte((index shr i) and 1) # LSB-first bit decomposition
+  return output
