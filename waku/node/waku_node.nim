@@ -469,14 +469,13 @@ proc mountRelay*(
   ## Make sure we don't have duplicates
   let uniqueShards = deduplicate(shards)
 
-  info "relay mounted successfully", shards = uniqueShards
-
   # Subscribe to shards
   for shard in uniqueShards:
     node.subscribe((kind: PubsubSub, topic: $shard)).isOkOr:
       error "failed to subscribe to shard", error = error
       return err("failed to subscribe to shard in mountRelay: " & error)
 
+  info "relay mounted successfully", shards = uniqueShards
   return ok()
 
 ## Waku filter
