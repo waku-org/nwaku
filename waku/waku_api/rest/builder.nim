@@ -18,7 +18,8 @@ import
   waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
   waku/waku_api/rest/health/handlers as rest_health_api,
   waku/waku_api/rest/admin/handlers as rest_admin_api,
-  waku/waku_core/topics
+  waku/waku_core/topics,
+  waku/waku_relay/protocol
 
 ## Monitoring and external interfaces
 
@@ -129,16 +130,25 @@ proc startRestServerProtocolSupport*(
 
   ## Relay REST API
   if conf.relay:
+    ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
+    ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
     let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
 
-    let handler = messageCacheHandler(cache)
+    let handler: WakuRelayHandler = messageCacheHandler(cache)
 
     for shard in conf.shards:
       let pubsubTopic = $RelayShard(clusterId: conf.clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
+      discard node.wakuRelay.subscribe(pubsubTopic, handler) ## TODO: remove this line. use observer-observable pattern within waku_node::registerRelayDefaultHandler
 
     for contentTopic in conf.contentTopics:
       cache.contentSubscribe(contentTopic)
+
+      let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+        error "Autosharding error in REST", error = error
+        continue
+      let pubsubTopic = $shard
+      discard node.wakuRelay.subscribe(pubsubTopic, handler) ## TODO: remove this line. use observer-observable pattern within waku_node::registerRelayDefaultHandler
 
     installRelayApiHandlers(router, node, cache)
   else:
