@@ -115,7 +115,7 @@ suite "Onchain group manager":
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  asyncTest "trackRootChanges updates proof cache":
+  asyncTest "trackRootChanges: start tracking roots":
     (await manager.init()).isOkOr:
       raiseAssert $error
     discard await withTimeout(trackRootChanges(manager), 5.seconds)
@@ -126,45 +126,31 @@ suite "Onchain group manager":
     except CatchableError:
       check getCurrentExceptionMsg().len() == 40
 
-  xasyncTest "startGroupSync: should sync to the state of the group":
+  asyncTest "startGroupSync: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
-    let rateCommitment = getRateCommitment(credentials, UserMessageLimit(1)).valueOr:
-      raiseAssert $error
     (await manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
-
-    let fut = newFuture[void]("startGroupSync")
-
-    proc generateCallback(fut: Future[void]): OnRegisterCallback =
-      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        check:
-          registrations.len == 1
-          registrations[0].index == 0
-          registrations[0].rateCommitment == rateCommitment
-        fut.complete()
-
-      return callback
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
-      manager.onRegister(generateCallback(fut))
       await manager.register(credentials, UserMessageLimit(1))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await fut
+    discard await withTimeout(trackRootChanges(manager), 15.seconds)
 
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootAfter = manager.fetchMerkleRoot()
 
+    let metadataSetRes = manager.setMetadata()
+    assert metadataSetRes.isOk(), metadataSetRes.error
     let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
       raiseAssert $error
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
+
     check:
-      metadataOpt.get().validRoots == manager.validRoots.toSeq()
+      metadata.validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
 
   xasyncTest "startGroupSync: should fetch history correctly":
