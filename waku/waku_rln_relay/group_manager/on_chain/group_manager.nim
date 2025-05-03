@@ -148,7 +148,7 @@ method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
     return true
   return false
 
-proc updateRoots(g: OnchainGroupManager): Future[bool] {.async.} =
+proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
     return false
@@ -166,7 +166,7 @@ proc updateRoots(g: OnchainGroupManager): Future[bool] {.async.} =
 
   return false
 
-proc utils_trackRootChanges(
+proc utils_trackRootChanges*(
     g: OnchainGroupManager
 ): Future[void] {.async: (raises: [CatchableError]).} =
   try:
@@ -192,9 +192,7 @@ proc utils_trackRootChanges(
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
       debug "--- roots and merkle proofs",
-        len = g.validRoots.len,
-        roots = g.validRoots,
-        proof = g.merkleProofCache
+        len = g.validRoots.len, roots = g.validRoots, proof = g.merkleProofCache
 
       await sleepAsync(rpcDelay)
   except CatchableError:

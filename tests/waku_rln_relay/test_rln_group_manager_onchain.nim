@@ -126,7 +126,7 @@ suite "Onchain group manager":
     except CatchableError:
       check getCurrentExceptionMsg().len() == 40
 
-  asyncTest "startGroupSync: should sync to the state of the group":
+  asyncTest "trackRootChanges: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -144,8 +144,10 @@ suite "Onchain group manager":
 
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
-    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
+
+    let metadataOpt = getMetadata(manager.rlnInstance).valueOr:
       raiseAssert $error
+
     assert metadataOpt.isSome(), "metadata is not set"
     let metadata = metadataOpt.get()
 
@@ -153,54 +155,33 @@ suite "Onchain group manager":
       metadata.validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
 
-  xasyncTest "startGroupSync: should fetch history correctly":
+  asyncTest "trackRootChanges: should fetch history correctly":
+    # TODO: We can't use `trackRootChanges()` directly in this test because its current implementation
+    #       relies on a busy loop rather than event-based monitoring. As a result, some root changes
+    #       may be missed, leading to inconsistent test results (i.e., it may randomly return true or false).
+    #       To ensure reliability, we use the `updateRoots()` function to validate the `validRoots` window
+    #       after each registration. 
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
-
-    type TestGroupSyncFuts = array[0 .. credentialCount - 1, Future[void]]
-    var futures: TestGroupSyncFuts
-    for i in 0 ..< futures.len():
-      futures[i] = newFuture[void]()
-    proc generateCallback(
-        futs: TestGroupSyncFuts, credentials: seq[IdentityCredential]
-    ): OnRegisterCallback =
-      var futureIndex = 0
-      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        let rateCommitment =
-          getRateCommitment(credentials[futureIndex], UserMessageLimit(1))
-        if registrations.len == 1 and
-            registrations[0].rateCommitment == rateCommitment.get() and
-            registrations[0].index == MembershipIndex(futureIndex):
-          futs[futureIndex].complete()
-          futureIndex += 1
-
-      return callback
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
-      manager.onRegister(generateCallback(futures, credentials))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
-
       for i in 0 ..< credentials.len():
         await manager.register(credentials[i], UserMessageLimit(1))
+        discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await allFutures(futures)
-
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootAfter = manager.fetchMerkleRoot()
 
     check:
       merkleRootBefore != merkleRootAfter
-      manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
+      manager.validRoots.len() == credentialCount
 
-  xasyncTest "register: should guard against uninitialized state":
+  asyncTest "register: should guard against uninitialized state":
     let dummyCommitment = default(IDCommitment)
 
     try:
