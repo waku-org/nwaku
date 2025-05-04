@@ -139,7 +139,10 @@ proc startRestServerProtocolSupport*(
     for shard in conf.shards:
       let pubsubTopic = $RelayShard(clusterId: conf.clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
-      discard node.wakuRelay.subscribe(pubsubTopic, handler) ## TODO: remove this line. use observer-observable pattern within waku_node::registerRelayDefaultHandler
+
+      ## TODO: remove this line. use observer-observable pattern
+      ## within waku_node::registerRelayDefaultHandler
+      discard node.wakuRelay.subscribe(pubsubTopic, handler)
 
     for contentTopic in conf.contentTopics:
       cache.contentSubscribe(contentTopic)
@@ -148,7 +151,10 @@ proc startRestServerProtocolSupport*(
         error "Autosharding error in REST", error = error
         continue
       let pubsubTopic = $shard
-      discard node.wakuRelay.subscribe(pubsubTopic, handler) ## TODO: remove this line. use observer-observable pattern within waku_node::registerRelayDefaultHandler
+
+      ## TODO: remove this line. use observer-observable pattern
+      ## within waku_node::registerRelayDefaultHandler
+      discard node.wakuRelay.subscribe(pubsubTopic, handler)
 
     installRelayApiHandlers(router, node, cache)
   else:
