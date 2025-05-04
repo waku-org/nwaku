@@ -158,192 +158,86 @@ suite "Waku Sync – reconciliation":
         inc hit
     check hit == 1  
 
-  test "high-load N=80 K,timestamp collision":
+  test "test N=80K,3FP,2IS,SKIP":
 
-    const N         = 80_000          # large slice
-    const win       = 128             # equal-timestamp tail window
-    const badIndex  = N - 10          # altered hash inside window
-
-    let local  = SeqStorage.new(@[])  # thr=100, parts=8
-    let remote = SeqStorage.new(@[])
-
-    var baseH, altH: WakuMessageHash
-    for i in 0 ..< N:
-      let ts =
-        if i < N - win: 1000 + i else: 1000 + N     # last 128 share ts
-      let h = toDigest("msg" & $i)
-      discard local.insert(SyncID(time: ts, hash: h))
-
-      var hr = h
-      if i == badIndex:
-        baseH = h
-        altH  = toDigest("msg" & $i & "_x")
-        hr    = altH
-      discard remote.insert(SyncID(time: ts, hash: hr))
-
-    # full slice:  time 1000 .. 1000+N,  hash 0xFF..FF to include window
-    var fullHash: WakuMessageHash
-    for i in 0 .. 31: fullHash[i] = 0xFF'u8
-    var slice = SyncID(time: 1000,     hash: fullHash) ..
-                SyncID(time: 1000 + N, hash: fullHash)
-
-    var sendQ, recvQ: seq[WakuMessageHash]
-
-    # ── ROUND-1 — eight Fingerprints ────────────────────────────────────
-    let rep1 = local.processPayload(
-      RangesData(cluster: 0, shards: @[0],
-                 ranges:       @[(slice, RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets:     @[]),
-      sendQ, recvQ)
-    echo "R1 → 8 FP"; check rep1.ranges.len == 8
-    check rep1.ranges.allIt(it[1] == RangeType.Fingerprint)
-
-    # choose sub-slice where remote vs local fingerprint differ
-    for sl in rep1.ranges.mapIt(it[0]):
-      if remote.computeFingerprint(sl) != local.computeFingerprint(sl):
-        slice = sl; break
-
-    # ── ROUND-2 — eight more Fingerprints ───────────────────────────────
-    let rep2 = local.processPayload(
-      RangesData(cluster: 0, shards: @[0],
-                 ranges:       @[(slice, RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets:     @[]),
-      sendQ, recvQ)
-    echo "R2 → 8 FP"; check rep2.ranges.len == 8
-    check rep2.ranges.allIt(it[1] == RangeType.Fingerprint)
-
-    for sl in rep2.ranges.mapIt(it[0]):
-      if remote.computeFingerprint(sl) != local.computeFingerprint(sl):
-        slice = sl; break
-
-    # ── ROUND-3 — eight ItemSets (slice ≤ threshold) ────────────────────
-    let rep3 = local.processPayload(
-      RangesData(cluster: 0, shards: @[0],
-                 ranges:       @[(slice, RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets:     @[]),
-      sendQ, recvQ)
-    echo "R3 → 8 IS"; check rep3.ranges.len == 8
-    check rep3.ranges.allIt(it[1] == RangeType.ItemSet)
-
-    # remote diff queues
-    var qSend, qRecv: seq[WakuMessageHash]
-    discard remote.processPayload(rep3, qSend, qRecv)
-    echo "remote queued diff"
-    check qSend.len == 1 and qSend[0] == altH
-    check qRecv.len == 1 and qRecv[0] == baseH
-
-    # simulate transfer
-    discard local.insert(SyncID(time: slice.a.time, hash: altH))
-    discard remote.insert(SyncID(time: slice.a.time, hash: baseH))
-
-    # ── ROUND-4 — empty reply (all Skip) ────────────────────────────────
-    let rep4 = local.processPayload(
-      RangesData(cluster: 0, shards: @[0],
-                 ranges:       @[(slice, RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets:     @[]),
-      sendQ, recvQ)
-    echo "R4 → empty"; check rep4.ranges.len == 0
-    check sendQ.len == 0 and recvQ.len == 0
-
-  
-  test "high-load N=80 K,timestamp collision":
-
-    const N        = 80_000
-    const winSize  = 128         
-    const badIdx   = N - 10     
+    const N   = 80_000
+    const bad = N - 10
 
     let local  = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
 
     var baseH, altH: WakuMessageHash
     for i in 0 ..< N:
-      let ts =
-        if i < N - winSize: 1000 + i else: 1000 + N
+      let ts = 1000 + i
       let h  = toDigest("msg" & $i)
       discard local.insert(SyncID(time: ts, hash: h))
-      var hr = h
-      if i == badIdx:
-        baseH = h
-        altH  = toDigest("msg" & $i & "_x")
-        hr    = altH
+
+      let hr = if i == bad:
+                 baseH = h
+                 altH  = toDigest("msg" & $i & "_x")
+                 altH
+               else:
+                 h
       discard remote.insert(SyncID(time: ts, hash: hr))
 
-    var hi: WakuMessageHash
-    for i in 0 .. 31: hi[i] = 0xFF'u8
-    var slice = SyncID(time: 1000,     hash: hi) ..
-                SyncID(time: 1000 + N, hash: hi)
+    var slice = SyncID(time: 1000,       hash: EmptyFingerprint) ..
+                SyncID(time: 1000 + N - 1, hash: FullFingerprint)
 
-    var sendQ, recvQ: seq[WakuMessageHash]
+    proc fpReply(s: Slice[SyncID],
+                 sendQ, recvQ: var seq[WakuMessageHash]): RangesData =
+      local.processPayload(
+        RangesData(cluster: 0, shards: @[0],
+                   ranges: @[(s, RangeType.Fingerprint)],
+                   fingerprints: @[remote.computeFingerprint(s)],
+                   itemSets: @[]),
+        sendQ, recvQ)
 
-    let rep1 = local.processPayload(
-      RangesData(cluster:0, shards: @[0],
-                 ranges: @[(slice,RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets: @[]),
-      sendQ, recvQ)
-    echo "R1 → 8 FP" ; check rep1.ranges.len == 8
-    check rep1.ranges.allIt(it[1] == RangeType.Fingerprint)
+    var tmpS, tmpR: seq[WakuMessageHash]
 
-    for i, (sl, _) in rep1.ranges.pairs:
-      if local.computeFingerprint(sl) != rep1.fingerprints[i]:
-        slice = sl ; break
+    for r in 1 .. 3:
+      let rep = fpReply(slice, tmpS, tmpR)
+      echo "R{r} len={rep.ranges.len} expecting 8 FP"
+      check rep.ranges.len == 8
+      check rep.ranges.allIt(it[1] == RangeType.Fingerprint)
+      for (sl, _) in rep.ranges:
+        if local.computeFingerprint(sl) != remote.computeFingerprint(sl):
+          slice = sl
+          break
 
-    let rep2 = local.processPayload(
-      RangesData(cluster:0, shards: @[0],
-                 ranges: @[(slice,RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets: @[]),
-      sendQ, recvQ)
-    echo "R2 → 8 FP" ; check rep2.ranges.len == 8
-    check rep2.ranges.allIt(it[1] == RangeType.Fingerprint)
-
-    for i, (sl, _) in rep2.ranges.pairs:
-      if local.computeFingerprint(sl) != rep2.fingerprints[i]:
-        slice = sl ; break
-
-    let rep3 = local.processPayload(
-      RangesData(cluster:0, shards: @[0],
-                 ranges: @[(slice,RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets: @[]),
-      sendQ, recvQ)
-    echo "R3 → 8 FP" ; check rep3.ranges.len == 8
-    check rep3.ranges.allIt(it[1] == RangeType.Fingerprint)
-
-    for i, (sl, _) in rep3.ranges.pairs:
-      if local.computeFingerprint(sl) != rep3.fingerprints[i]:
-        slice = sl ; break        
-
-
-    let rep4 = local.processPayload(
-      RangesData(cluster:0, shards: @[0],
-                 ranges: @[(slice,RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets: @[]),
-      sendQ, recvQ)
-    echo "R4 → 8 IS" ; check rep4.ranges.len == 8
+    let rep4 = fpReply(slice, tmpS, tmpR)
+    echo "R4 len={rep4.ranges.len} expecting 8 IS"
+    check rep4.ranges.len == 8
     check rep4.ranges.allIt(it[1] == RangeType.ItemSet)
+    for (sl, _) in rep4.ranges:
+      if sl.a.time <= 1000 + bad and sl.b.time >= 1000 + bad:
+        slice = sl
+        break
+
+    var send5, recv5: seq[WakuMessageHash]
+    let rep5 = fpReply(slice, send5, recv5)
+    echo "R5 len={rep5.ranges.len} expecting 1 IS"
+    check rep5.ranges.len == 1
+    check rep5.ranges[0][1] == RangeType.ItemSet
 
     var qSend, qRecv: seq[WakuMessageHash]
-    discard remote.processPayload(rep4, qSend, qRecv)
-    echo "remote queued one diff"
+    discard remote.processPayload(rep5, qSend, qRecv)
+    echo "queue send={qSend.len} recv={qRecv.len}"
     check qSend.len == 1 and qSend[0] == altH
     check qRecv.len == 1 and qRecv[0] == baseH
 
     discard local.insert(SyncID(time: slice.a.time, hash: altH))
     discard remote.insert(SyncID(time: slice.a.time, hash: baseH))
 
+    var send6, recv6: seq[WakuMessageHash]
+    let rep6 = fpReply(slice, send6, recv6)
+    echo "R6 len={rep6.ranges.len} expecting 0"
+    check rep6.ranges.len == 0
+    check send6.len == 0 and recv6.len == 0
 
-    let rep5 = local.processPayload(
-      RangesData(cluster:0, shards: @[0],
-                 ranges: @[(slice,RangeType.Fingerprint)],
-                 fingerprints: @[remote.computeFingerprint(slice)],
-                 itemSets: @[]),
-      sendQ, recvQ)
-    echo "R5 → empty"
-    check rep5.ranges.len == 0
-    check sendQ.len == 0 and recvQ.len == 0  
+
+
+
+
+
+
+
