@@ -42,7 +42,8 @@ suite "Waku v2 REST API - health":
     let node = testWakuNode()
     let healthMonitor = WakuNodeHealthMonitor()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     healthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 

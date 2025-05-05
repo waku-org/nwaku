@@ -5,6 +5,7 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   chronos,
+  chronicles,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 
@@ -45,7 +46,10 @@ proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bo
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler)).isOkOr:
+    error "failed to subscribe to relay", topic = pubsubTopic, error = error
+    completionFut.complete(false)
+
   return completionFut
 
 proc sendRlnMessage*(
