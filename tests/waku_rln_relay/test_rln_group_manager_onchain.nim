@@ -48,7 +48,6 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      # manager.rlnContractDeployedBlockNumber > 0.Quantity
       manager.rlnRelayMaxMessageLimit == 100
 
   asyncTest "should error on initialization when chainId does not match":
@@ -195,15 +194,13 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  xasyncTest "register: should register successfully":
+  asyncTest "register: should register successfully":
+    # TODO :- similar to ```trackRootChanges: should fetch history correctly```
     (await manager.init()).isOkOr:
-      raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
       await manager.register(
@@ -215,13 +212,13 @@ suite "Onchain group manager":
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootAfter = manager.fetchMerkleRoot()
+
     check:
-      merkleRootAfter.inHex() != merkleRootBefore.inHex()
+      merkleRootAfter != merkleRootBefore
       manager.latestIndex == 1
 
-  xasyncTest "register: callback is called":
+  asyncTest "register: callback is called":
     let idCredentials = generateCredentials(manager.rlnInstance)
     let idCommitment = idCredentials.idCommitment
 
@@ -239,8 +236,6 @@ suite "Onchain group manager":
     (await manager.init()).isOkOr:
       raiseAssert $error
     try:
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
       await manager.register(
         RateCommitment(
           idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1)
@@ -251,7 +246,7 @@ suite "Onchain group manager":
 
     await fut
 
-  xasyncTest "withdraw: should guard against uninitialized state":
+  asyncTest "withdraw: should guard against uninitialized state":
     let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
 
     try:
@@ -279,13 +274,14 @@ suite "Onchain group manager":
     manager.onRegister(callback)
 
     try:
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
+      discard await manager.updateRoots()
       await manager.register(credentials, UserMessageLimit(1))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
+
+    discard await manager.updateRoots()
 
     let messageBytes = "Hello".toBytes()
 
