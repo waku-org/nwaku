@@ -7,6 +7,7 @@ import
   ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../../waku/waku_core/topics,
   ../../../../../waku/waku_relay/protocol,
   ../../../../../waku/node/peer_manager,
   ../../../../alloc
@@ -108,12 +109,18 @@ proc process*(
 
   case self.operation
   of SUBSCRIBE:
-    # TO DO: properly perform 'subscribe'
-    waku.node.registerRelayDefaultHandler($self.pubsubTopic)
-    discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
+    waku.node.subscribe(
+      (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
+      handler = some(self.relayEventCallback),
+    ).isOkOr:
+      let errorMsg = "Subscribe failed:" & $error
+      error "SUBSCRIBE failed", error = errorMsg
+      return err(errorMsg)
   of UNSUBSCRIBE:
-    # TODO: properly perform 'unsubscribe'
-    waku.node.wakuRelay.unsubscribeAll($self.pubsubTopic)
+    waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic)).isOkOr:
+      let errorMsg = "Unsubscribe failed:" & $error
+      error "UNSUBSCRIBE failed", error = errorMsg
+      return err(errorMsg)
   of PUBLISH:
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic

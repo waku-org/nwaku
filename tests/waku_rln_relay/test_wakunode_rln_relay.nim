@@ -58,7 +58,8 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultRelayShard])
+    (await node1.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
@@ -74,7 +75,8 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultRelayShard])
+    (await node2.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
       rlnRelayDynamic: false,
@@ -89,7 +91,8 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultRelayShard])
+    (await node3.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = WakuRlnConfig(
       rlnRelayDynamic: false,
@@ -115,8 +118,14 @@ procSuite "WakuNode - RLN relay":
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
-    # mount the relay handler
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe from topic: " & $error
+
+    ## Subscribe to the relay topic to add the custom relay handler defined above
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -125,6 +134,11 @@ procSuite "WakuNode - RLN relay":
     # prepare the epoch
     var message = WakuMessage(payload: @payload, contentTopic: contentTopic)
     doAssert(node1.wakuRlnRelay.unsafeAppendRLNProof(message, epochTime()).isOk())
+
+    debug "Nodes participating in the test",
+      node1 = shortLog(node1.switch.peerInfo.peerId),
+      node2 = shortLog(node2.switch.peerInfo.peerId),
+      node3 = shortLog(node3.switch.peerInfo.peerId)
 
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
     ## verifies the rate limit proof of the message and relays the message to node3
@@ -187,9 +201,18 @@ procSuite "WakuNode - RLN relay":
       elif topic == $shards[1]:
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
+    ## This unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[0])).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[1])).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+
     # mount the relay handlers
-    nodes[2].subscribe((kind: PubsubSub, topic: $shards[0]), some(relayHandler))
-    nodes[2].subscribe((kind: PubsubSub, topic: $shards[1]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: $shards[0]), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
+    nodes[2].subscribe((kind: PubsubSub, topic: $shards[1]), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     await sleepAsync(1000.millis)
 
     # generate some messages with rln proofs first. generating
@@ -250,7 +273,8 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultRelayShard])
+    (await node1.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
@@ -266,7 +290,8 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultRelayShard])
+    (await node2.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
       rlnRelayDynamic: false,
@@ -281,7 +306,8 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultRelayShard])
+    (await node3.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = WakuRlnConfig(
       rlnRelayDynamic: false,
@@ -307,8 +333,14 @@ procSuite "WakuNode - RLN relay":
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+
     # mount the relay handler
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -366,7 +398,8 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultRelayShard])
+    (await node1.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
@@ -382,7 +415,8 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultRelayShard])
+    (await node2.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
@@ -397,7 +431,8 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultRelayShard])
+    (await node3.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig3 = WakuRlnConfig(
@@ -456,8 +491,14 @@ procSuite "WakuNode - RLN relay":
         if msg.payload == wm4.payload:
           completionFut4.complete(true)
 
+    ## The following unsubscription is necessary to remove the default relay handler, which is
+    ## added when mountRelay is called.
+    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+
     # mount the relay handler for node3
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
     await sleepAsync(2000.millis)
 
     ## node1 publishes and relays 4 messages to node2
@@ -500,12 +541,15 @@ procSuite "WakuNode - RLN relay":
       epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
 
     # Given both nodes mount relay and rlnrelay
-    await node1.mountRelay(shardSeq)
+    (await node1.mountRelay(shardSeq)).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
-    await node1.mountRlnRelay(wakuRlnConfig1)
+    (await node1.mountRlnRelay(wakuRlnConfig1)).isOkOr:
+      assert false, "Failed to mount rlnrelay"
 
     # Mount rlnrelay in node2 in off-chain mode
-    await node2.mountRelay(@[DefaultRelayShard])
+    (await node2.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig2 = buildWakuRlnConfig(2, epochSizeSec, "wakunode_11")
     await node2.mountRlnRelay(wakuRlnConfig2)
 
@@ -548,7 +592,8 @@ procSuite "WakuNode - RLN relay":
         if msg == wm6:
           completionFut6.complete(true)
 
-    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
 
     # Given all messages have an rln proof and are published by the node 1
     let publishSleepDuration: Duration = 5000.millis
@@ -638,12 +683,14 @@ procSuite "WakuNode - RLN relay":
 
     # Given both nodes mount relay and rlnrelay
     # Mount rlnrelay in node1 in off-chain mode
-    await node1.mountRelay(shardSeq)
+    (await node1.mountRelay(shardSeq)).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
     await node1.mountRlnRelay(wakuRlnConfig1)
 
     # Mount rlnrelay in node2 in off-chain mode
-    await node2.mountRelay(@[DefaultRelayShard])
+    (await node2.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     let wakuRlnConfig2 = buildWakuRlnConfig(2, epochSizeSec, "wakunode_11")
     await node2.mountRlnRelay(wakuRlnConfig2)
 

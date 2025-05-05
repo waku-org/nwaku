@@ -263,7 +263,9 @@ suite "Waku RlnRelay - End to End - Static":
           completionFut.complete((topic, msg))
 
       let subscriptionEvent = (kind: PubsubSub, topic: pubsubTopic)
-      server.subscribe(subscriptionEvent, some(relayHandler))
+      server.subscribe(subscriptionEvent, some(relayHandler)).isOkOr:
+        assert false, "Failed to subscribe to pubsub topic"
+
       await sleepAsync(FUTURE_TIMEOUT)
 
       # Generate Messages
@@ -357,7 +359,9 @@ suite "Waku RlnRelay - End to End - Static":
           completionFut.complete((topic, msg))
 
       let subscriptionEvent = (kind: PubsubSub, topic: pubsubTopic)
-      server.subscribe(subscriptionEvent, some(relayHandler))
+      server.subscribe(subscriptionEvent, some(relayHandler)).isOkOr:
+        assert false, "Failed to subscribe to pubsub topic"
+
       await sleepAsync(FUTURE_TIMEOUT)
 
       # Generate Messages
