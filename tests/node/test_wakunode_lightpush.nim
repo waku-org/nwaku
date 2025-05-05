@@ -198,6 +198,7 @@ suite "Waku Lightpush message delivery":
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
 
     ## Given
+    const CustomPubsubTopic = "/waku/2/rs/0/1"
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
@@ -205,18 +206,18 @@ suite "Waku Lightpush message delivery":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == "/waku/2/rs/0/1"
+        topic == CustomPubsubTopic
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: "/waku/2/rs/0/1"), some(relayHandler)).isOkOr:
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), some(relayHandler)).isOkOr:
       assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)
 
     ## When
-    let res = await lightNode.lightpushPublish(some("/waku/2/rs/0/1"), message)
+    let res = await lightNode.lightpushPublish(some(CustomPubsubTopic), message)
     assert res.isOk(), $res.error
     assert res.get() == 1, "Expected to relay the message to 1 node"
 
