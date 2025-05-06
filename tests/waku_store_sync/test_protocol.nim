@@ -2,7 +2,8 @@
 
 import
   std/[options, sets, random, math], testutils/unittests, chronos, libp2p/crypto/crypto
-
+import std/[sets, sequtils]
+import chronos
 import
   ../../waku/[
     node/peer_manager,
@@ -396,3 +397,40 @@ suite "Waku Sync: transfer":
 
     check:
       response.messages.len > 0
+
+  asyncTest "Check the exact missing messages are received":
+    let timeSlice = calculateTimeRange()
+    let timeWindow = int64(timeSlice.b) - int64(timeSlice.a)
+    let (part, _) = divmod(timeWindow, 3)
+
+    var ts = timeSlice.a
+
+    let msgA = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+    ts += Timestamp(part)
+    let msgB = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+    ts += Timestamp(part)
+    let msgC = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+
+    let hA = computeMessageHash(DefaultPubsubTopic, msgA)
+    let hB = computeMessageHash(DefaultPubsubTopic, msgB)
+    let hC = computeMessageHash(DefaultPubsubTopic, msgC)
+
+    discard serverDriver.put(DefaultPubsubTopic, @[msgA, msgB, msgC])
+    discard clientDriver.put(DefaultPubsubTopic, @[msgA])
+
+    await serverRemoteNeeds.put((clientPeerInfo.peerId, hB))
+    await serverRemoteNeeds.put((clientPeerInfo.peerId, hC))
+    await clientLocalWants.put(serverPeerInfo.peerId)
+
+    await sleepAsync(1.seconds)
+    check serverRemoteNeeds.len == 0
+
+    let sid1 = await clientIds.get()
+    let sid2 = await clientIds.get()
+
+    let received = [sid1.hash, sid2.hash].toHashSet()
+    let expected = [hB, hC].toHashSet
+
+    check received == expected
+
+    check clientIds.len == 0
