@@ -56,7 +56,6 @@ type Waku* = ref object
   conf*: WakuConf
   rng*: ref HmacDrbgContext
 
-  # TODO: remove, part of the conf
   key: crypto.PrivateKey
 
   wakuDiscv5*: WakuDiscoveryV5
@@ -176,7 +175,7 @@ proc new*(
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
   if wakuConf.p2pReliability:
-    if wakuConf.remoteStoreNode.isNone:
+    if wakuConf.remoteStoreNode.isNone():
       return err("A remoteStoreNode should be set when reliability mode is on")
 
     let deliveryMonitorRes = DeliveryMonitor.new(
@@ -227,7 +226,7 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
   if tcpPort.isSome():
     conf.networkConf.p2pTcpPort = tcpPort.get()
 
-  if websocketPort.isSome() and conf.webSocketConf.isSome:
+  if websocketPort.isSome() and conf.webSocketConf.isSome():
     conf.webSocketConf.get().port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
@@ -296,7 +295,7 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
 proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
   while true:
     await sleepAsync(30.seconds)
-    if waku.conf.dnsDiscoveryConf.isSome:
+    if waku.conf.dnsDiscoveryConf.isSome():
       let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
       let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
         dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
@@ -334,7 +333,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
   let conf = waku[].conf
 
-  if conf.dnsDiscoveryConf.isSome:
+  if conf.dnsDiscoveryConf.isSome():
     let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
     let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
       dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
