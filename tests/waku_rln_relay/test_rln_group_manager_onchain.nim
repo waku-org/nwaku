@@ -117,7 +117,7 @@ suite "Onchain group manager":
   asyncTest "trackRootChanges: start tracking roots":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    discard await withTimeout(trackRootChanges(manager), 5.seconds)
+    discard await withTimeout(trackRootChanges(manager), 1.seconds)
 
   asyncTest "trackRootChanges: should guard against uninitialized state":
     try:

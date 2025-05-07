@@ -91,7 +91,6 @@ proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
   try:
-    debug "----- membershipIndex -----", membershipIndex = g.membershipIndex
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
 
@@ -109,7 +108,6 @@ proc fetchMerkleProofElements*(
       callData.add(b)
     callData.add(paddedParam)
 
-    debug "----- contract address -----", contractAddress = g.ethContractAddress
     var tx: TransactionArgs
     tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
     tx.data = Opt.some(callData)
