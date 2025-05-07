@@ -139,7 +139,8 @@ proc startRestServerProtocolSupport*(
   if relayEnabled:
     ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
     ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
-    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
+    const RestRelayCacheCapacity = 50
+    let cache = MessageCache.init(int(RestRelayCacheCapacity))
 
     let handler: WakuRelayHandler = messageCacheHandler(cache)
 

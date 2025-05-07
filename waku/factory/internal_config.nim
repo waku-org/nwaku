@@ -139,7 +139,6 @@ proc networkConfiguration*(
     dns4DomainName = conf.dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
-    dnsNameServers = conf.dnsAddrsNameServers,
   )
 
   return netConfigRes
