@@ -91,6 +91,7 @@ proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
   try:
+    debug "----- membershipIndex -----", membershipIndex = g.membershipIndex
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
 
@@ -108,6 +109,7 @@ proc fetchMerkleProofElements*(
       callData.add(b)
     callData.add(paddedParam)
 
+    debug "----- contract address -----", contractAddress = g.ethContractAddress
     var tx: TransactionArgs
     tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
     tx.data = Opt.some(callData)
@@ -277,6 +279,18 @@ method register*(
   debug "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
+  g.idCredentials = some(identityCredential)
+
+  let rateCommitment = RateCommitment(
+      idCommitment: identityCredential.idCommitment, userMessageLimit: userMessageLimit
+    )
+    .toLeaf()
+    .get()
+
+  if g.registerCb.isSome():
+    let member = Membership(rateCommitment: rateCommitment, index: g.latestIndex)
+    await g.registerCb.get()(@[member])
+  g.latestIndex.inc()
 
   return
 
@@ -439,6 +453,10 @@ method verifyProof*(
 
   let rootsBytes = serialize(g.validRoots.items().toSeq())
   let rootsBuffer = rootsBytes.toBuffer()
+
+  debug "------ validRoots ------", x = g.validRoots
+  debug "------ rootsBuffer ------", x = rootsBuffer
+  debug "------ proofBuffer ------", x = proofBuffer
 
   var validProof: bool # out-param
   let ffiOk = verify_with_roots(
