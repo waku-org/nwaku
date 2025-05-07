@@ -226,11 +226,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 20,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
@@ -456,11 +456,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 20,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
@@ -510,11 +510,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 20,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
@@ -561,11 +561,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 20,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
@@ -618,11 +618,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 20,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)

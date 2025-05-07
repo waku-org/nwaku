@@ -8,13 +8,14 @@ logScope:
 
 ## Due to the design of nim-eth/nat module we must ensure it is only initialized once.
 ## see: https://github.com/waku-org/nwaku/issues/2628
-## Details: nim-eth/nat module starts a meaintenance thread for refreshing the NAT mappings, but everything in the module is global,
+## Details: nim-eth/nat module starts a maintenance thread for refreshing the NAT mappings, but everything in the module is global,
 ## there is no room to store multiple configurations.
 ## Exact meaning: redirectPorts cannot be called twice in a program lifetime.
 ## During waku tests we happen to start several node instances in parallel thus resulting in multiple NAT configurations and multiple threads.
 ## Those threads will dead lock each other in tear down.
 var singletonNat: bool = false
 
+# TODO: pass `NatStrategy`, not a string
 proc setupNat*(
     natConf, clientId: string, tcpPort, udpPort: Port
 ): Result[

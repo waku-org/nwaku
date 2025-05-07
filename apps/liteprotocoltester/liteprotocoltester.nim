@@ -127,7 +127,7 @@ when isMainModule:
   nodeHealthMonitor = WakuNodeHealthMonitor()
   nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-  let restServer = rest_server_builder.startRestServerEsentials(
+  let restServer = rest_server_builder.startRestServerEssentials(
     nodeHealthMonitor, wakuConf
   ).valueOr:
     error "Starting esential REST server failed.", error = $error

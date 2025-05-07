@@ -11,13 +11,22 @@ import
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
     waku_rln_relay/group_manager/on_chain,
-    factory/external_config,
   ]
 
 logScope:
   topics = "rln_keystore_generator"
 
-proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
+type RlnKeystoreGeneratorConf* = object
+  execute*: bool
+  ethContractAddress*: string
+  ethClientAddress*: string
+  chainId*: uint
+  credPath*: string
+  credPassword*: string
+  userMessageLimit*: uint64
+  ethPrivateKey*: string
+
+proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   # 1. load configuration
   trace "configuration", conf = $conf
 
@@ -56,13 +65,13 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
 
   # 4. initialize OnchainGroupManager
   let groupManager = OnchainGroupManager(
-    ethClientUrl: string(conf.rlnRelayethClientAddress),
-    chainId: conf.rlnRelayChainId,
-    ethContractAddress: conf.rlnRelayEthContractAddress,
+    ethClientUrl: string(conf.ethClientAddress),
+    chainId: conf.chainId,
+    ethContractAddress: conf.ethContractAddress,
     rlnInstance: rlnInstance,
     keystorePath: none(string),
     keystorePassword: none(string),
-    ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
+    ethPrivateKey: some(conf.ethPrivateKey),
     onFatalErrorAction: onFatalErrorAction,
   )
   try:
@@ -77,7 +86,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
 
   # 5. register on-chain
   try:
-    waitFor groupManager.register(credential, conf.rlnRelayUserMessageLimit)
+    waitFor groupManager.register(credential, conf.userMessageLimit)
   except Exception, CatchableError:
     error "failure while registering credentials on-chain",
       error = getCurrentExceptionMsg()
@@ -87,28 +96,27 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
 
   info "Your membership has been registered on-chain.",
     chainId = $groupManager.chainId,
-    contractAddress = conf.rlnRelayEthContractAddress,
+    contractAddress = conf.ethContractAddress,
     membershipIndex = groupManager.membershipIndex.get()
-  info "Your user message limit is", userMessageLimit = conf.rlnRelayUserMessageLimit
+  info "Your user message limit is", userMessageLimit = conf.userMessageLimit
 
   # 6. write to keystore
   let keystoreCred = KeystoreMembership(
     membershipContract: MembershipContract(
-      chainId: $groupManager.chainId, address: conf.rlnRelayEthContractAddress
+      chainId: $groupManager.chainId, address: conf.ethContractAddress
     ),
     treeIndex: groupManager.membershipIndex.get(),
     identityCredential: credential,
-    userMessageLimit: conf.rlnRelayUserMessageLimit,
+    userMessageLimit: conf.userMessageLimit,
   )
 
-  let persistRes = addMembershipCredentials(
-    conf.rlnRelayCredPath, keystoreCred, conf.rlnRelayCredPassword, RLNAppInfo
-  )
+  let persistRes =
+    addMembershipCredentials(conf.credPath, keystoreCred, conf.credPassword, RLNAppInfo)
   if persistRes.isErr():
     error "failed to persist credentials", error = persistRes.error
     quit(1)
 
-  info "credentials persisted", path = conf.rlnRelayCredPath
+  info "credentials persisted", path = conf.credPath
 
   try:
     waitFor groupManager.stop()
