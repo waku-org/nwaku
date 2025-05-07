@@ -51,7 +51,7 @@ contract(WakuRlnContract):
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
   OnchainGroupManager* = ref object of GroupManager
-    ethClientUrl: seq[string]
+    ethClientUrl*: seq[string]
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
@@ -458,11 +458,30 @@ method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
+proc establishConnection(
+    g: OnchainGroupManager
+): Future[GroupManagerResult[Web3]] {.async.} =
+  var ethRpc: Web3
+
+  g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
+    var innerEthRpc: Web3
+    for clientUrl in g.ethClientUrl:
+      ## We give a chance to the user to provide multiple clients
+      ## and we try to connect to each of them
+      try:
+        innerEthRpc = await newWeb3(clientUrl)
+        break
+      except CatchableError:
+        error "failed connect Eth client", error = getCurrentExceptionMsg()
+
+    innerEthRpc
+
+  return ok(ethRpc)
+
 method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
-  var ethRpc: Web3
-  g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
-    await newWeb3(g.ethClientUrl)
+  let ethRpc: Web3 = (await establishConnection(g)).valueOr:
+    return err("failed to connect to Ethereum clients: " & $error)
 
   var fetchedChainId: uint
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
@@ -544,9 +563,11 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
-    var newEthRpc: Web3
-    g.retryWrapper(newEthRpc, "Failed to reconnect with the Ethereum client"):
-      await newWeb3(g.ethClientUrl)
+
+    var newEthRpc: Web3 = (await g.establishConnection()).valueOr:
+      g.onFatalErrorAction("failed to connect to Ethereum clients onDisconnect")
+      return
+
     newEthRpc.ondisconnect = ethRpc.ondisconnect
     g.ethRpc = some(newEthRpc)
 
