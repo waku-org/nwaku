@@ -25,11 +25,11 @@ proc buildWakuRlnConfig(
   let treePath = genTempPath("rln_tree", treeFilename)
   # Off-chain
   return WakuRlnConfig(
-    rlnRelayDynamic: false,
-    rlnRelayCredIndex: some(credIndex.uint),
-    rlnRelayUserMessageLimit: userMessageLimit,
-    rlnEpochSizeSec: epochSizeSec,
-    rlnRelayTreePath: treePath,
+    dynamic: false,
+    credIndex: some(credIndex.uint),
+    userMessageLimit: userMessageLimit,
+    epochSizeSec: epochSizeSec,
+    treePath: treePath,
   )
 
 proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
@@ -63,11 +63,11 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode"),
     )
 
     await node1.mountRlnRelay(wakuRlnConfig1)
@@ -79,11 +79,11 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"),
+      dynamic: false,
+      credIndex: some(2.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_2"),
     )
 
     await node2.mountRlnRelay(wakuRlnConfig2)
@@ -95,11 +95,11 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"),
+      dynamic: false,
+      credIndex: some(3.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_3"),
     )
 
     await node3.mountRlnRelay(wakuRlnConfig3)
@@ -174,11 +174,11 @@ procSuite "WakuNode - RLN relay":
     # mount rlnrelay in off-chain mode
     for index, node in nodes:
       let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index.uint + 1),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index + 1)),
+        dynamic: false,
+        credIndex: some(index.uint + 1),
+        userMessageLimit: 1,
+        epochSizeSec: 1,
+        treePath: genTempPath("rln_tree", "wakunode_" & $(index + 1)),
       )
 
       await node.mountRlnRelay(wakuRlnConfig)
@@ -278,11 +278,11 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_4"),
     )
 
     await node1.mountRlnRelay(wakuRlnConfig1)
@@ -294,11 +294,11 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
+      dynamic: false,
+      credIndex: some(2.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_5"),
     )
 
     await node2.mountRlnRelay(wakuRlnConfig2)
@@ -310,11 +310,11 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
+      dynamic: false,
+      credIndex: some(3.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_6"),
     )
 
     await node3.mountRlnRelay(wakuRlnConfig3)
@@ -403,11 +403,11 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_7"),
     )
 
     await node1.mountRlnRelay(wakuRlnConfig1)
@@ -420,11 +420,11 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
+      dynamic: false,
+      credIndex: some(2.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_8"),
     )
 
     await node2.mountRlnRelay(wakuRlnConfig2)
@@ -436,11 +436,11 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig3 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
+      dynamic: false,
+      credIndex: some(3.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_9"),
     )
 
     await node3.mountRlnRelay(wakuRlnConfig3)

@@ -32,18 +32,26 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type WakuRlnConfig* = object
-  rlnRelayDynamic*: bool
-  rlnRelayCredIndex*: Option[uint]
-  rlnRelayEthContractAddress*: string
-  rlnRelayEthClientAddress*: string
-  rlnRelayChainId*: uint
-  rlnRelayCredPath*: string
-  rlnRelayCredPassword*: string
-  rlnRelayTreePath*: string
-  rlnEpochSizeSec*: uint64
+type RlnRelayCreds* {.requiresInit.} = object
+  path*: string
+  password*: string
+
+type RlnRelayConf* = object of RootObj
+  # TODO: severals parameters are only needed when it's dynamic
+  # change the config to either nest or use enum/type variant so it's obvious
+  # and then it can be set to `requiresInit`
+  dynamic*: bool
+  credIndex*: Option[uint]
+  ethContractAddress*: string
+  ethClientAddress*: string
+  chainId*: uint
+  creds*: Option[RlnRelayCreds]
+  treePath*: string
+  epochSizeSec*: uint64
+  userMessageLimit*: uint64
+
+type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
-  rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(
     rln: ptr RLN, n: int
@@ -421,10 +429,10 @@ proc mount(
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstance = createRLNInstance(tree_path = conf.rlnRelayTreePath).valueOr:
+  let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
     return err("could not create RLN instance: " & $error)
 
-  if not conf.rlnRelayDynamic:
+  if not conf.dynamic:
     # static setup
     let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
       return err("could not parse static group keys: " & $error)
@@ -432,31 +440,27 @@ proc mount(
     groupManager = StaticGroupManager(
       groupSize: StaticGroupSize,
       groupKeys: parsedGroupKeys,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       rlnInstance: rlnInstance,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
-    # dynamic setup
-    proc useValueOrNone(s: string): Option[string] =
-      if s == "":
-        none(string)
+    let (rlnRelayCredPath, rlnRelayCredPassword) =
+      if conf.creds.isSome:
+        (some(conf.creds.get().path), some(conf.creds.get().password))
       else:
-        some(s)
+        (none(string), none(string))
 
-    let
-      rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
-      rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
     groupManager = OnchainGroupManager(
-      ethClientUrl: string(conf.rlnRelayethClientAddress),
-      ethContractAddress: $conf.rlnRelayEthContractAddress,
-      chainId: conf.rlnRelayChainId,
+      ethClientUrl: string(conf.ethClientAddress),
+      ethContractAddress: $conf.ethContractAddress,
+      chainId: conf.chainId,
       rlnInstance: rlnInstance,
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,
       keystorePassword: rlnRelayCredPassword,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
 
@@ -469,10 +473,9 @@ proc mount(
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
-    nonceManager:
-      NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-    rlnEpochSizeSec: conf.rlnEpochSizeSec,
-    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+    nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
+    rlnEpochSizeSec: conf.epochSizeSec,
+    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 
