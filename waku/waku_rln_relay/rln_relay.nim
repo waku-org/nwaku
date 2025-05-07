@@ -36,13 +36,14 @@ type RlnRelayCreds* {.requiresInit.} = object
   path*: string
   password*: string
 
+type RlnRelayConf* = object of RootObj
   # TODO: severals parameters are only needed when it's dynamic
   # change the config to either nest or use enum/type variant so it's obvious
   # and then it can be set to `requiresInit`
   dynamic*: bool
   credIndex*: Option[uint]
   ethContractAddress*: string
-  ethClientAddress*: string
+  ethClientUrls*: seq[string]
   chainId*: uint
   creds*: Option[RlnRelayCreds]
   treePath*: string
@@ -454,7 +455,7 @@ proc mount(
         (none(string), none(string))
 
     groupManager = OnchainGroupManager(
-      ethClientUrl: conf.rlnRelayEthClientAddress.mapIt(string(it)),
+      ethClientUrls: conf.ethClientUrls,
       ethContractAddress: $conf.ethContractAddress,
       chainId: conf.chainId,
       rlnInstance: rlnInstance,

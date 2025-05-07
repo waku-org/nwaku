@@ -51,7 +51,7 @@ contract(WakuRlnContract):
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
   OnchainGroupManager* = ref object of GroupManager
-    ethClientUrl*: seq[string]
+    ethClientUrls*: seq[string]
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
@@ -465,7 +465,7 @@ proc establishConnection(
 
   g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
     var innerEthRpc: Web3
-    for clientUrl in g.ethClientUrl:
+    for clientUrl in g.ethClientUrls:
       ## We give a chance to the user to provide multiple clients
       ## and we try to connect to each of them
       try:

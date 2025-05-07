@@ -72,7 +72,6 @@ type Waku* = ref object
   metricsServer*: MetricsHttpServerRef
   appCallbacks*: AppCallbacks
 
-      rlnRelayEthClientAddress = conf.rlnRelayEthClientAddress.mapIt(string(it))
 func version*(waku: Waku): string =
   waku.version
 

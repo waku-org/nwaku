@@ -248,7 +248,7 @@ type
       name: "rln-relay-id-commitment-key"
     .}: string
 
-    rlnRelayEthClientAddress* {.
+    ethClientUrls* {.
       desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
       defaultValue: "http://localhost:8540/",
       name: "rln-relay-eth-client-address"

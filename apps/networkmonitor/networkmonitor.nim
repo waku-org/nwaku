@@ -638,7 +638,7 @@ when isMainModule:
       dynamic: conf.rlnRelayDynamic,
       credIndex: some(uint(0)),
       ethContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress.mapIt(string(it)),
+      ethClientUrls: conf.ethClientUrls,
       treePath: conf.rlnRelayTreePath,
       epochSizeSec: conf.rlnEpochSizeSec,
       creds: none(RlnRelayCreds),
