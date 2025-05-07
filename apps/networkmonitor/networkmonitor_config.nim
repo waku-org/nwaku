@@ -8,7 +8,7 @@ import
   stew/shims/net,
   regex
 
-type EthRpcUrl = distinct string
+type EthRpcUrl* = distinct string
 
 type NetworkMonitorConf* = object
   logLevel* {.
@@ -85,7 +85,7 @@ type NetworkMonitorConf* = object
   ethClientUrls* {.
     desc:
       "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
-    defaultValue: "http://localhost:8540/",
+    defaultValue: newSeq[EthRpcUrl](0),
     name: "rln-relay-eth-client-address"
   .}: seq[EthRpcUrl]
 
