@@ -123,7 +123,7 @@ suite "Onchain group manager":
     try:
       discard await manager.trackRootChanges()
     except CatchableError:
-      check getCurrentExceptionMsg().len() == 40
+      check getCurrentExceptionMsg().len == 40
 
   asyncTest "trackRootChanges: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
@@ -391,7 +391,7 @@ suite "Onchain group manager":
     check:
       verified
 
-  xasyncTest "verifyProof: should reject invalid proof":
+  asyncTest "verifyProof: should reject invalid proof":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -403,14 +403,9 @@ suite "Onchain group manager":
       assert false,
         "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
-    let idCredential2 = generateCredentials(manager.rlnInstance)
-
-    ## Assume the registration occured out of band
-    manager.idCredentials = some(idCredential2)
-    manager.membershipIndex = some(MembershipIndex(0))
-    manager.userMessageLimit = some(UserMessageLimit(1))
-
     let messageBytes = "Hello".toBytes()
+
+    let rootUpdated = await manager.updateRoots()
 
     manager.merkleProofCache = newSeq[byte](640)
     for i in 0 ..< 640:
@@ -435,8 +430,8 @@ suite "Onchain group manager":
     check:
       verified == false
 
-  xasyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
-    const credentialCount = 6
+  asyncTest "root queue should be updated correctly":
+    const credentialCount = 12
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -462,35 +457,19 @@ suite "Onchain group manager":
 
     try:
       manager.onRegister(generateCallback(futures, credentials))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
 
       for i in 0 ..< credentials.len():
         await manager.register(credentials[i], UserMessageLimit(1))
+        discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await allFutures(futures)
 
-    # At this point, we should have a full root queue, 5 roots, and partial buffer of 1 root
     check:
-      manager.validRoots.len() == credentialCount - 1
-      manager.validRootBuffer.len() == 1
+      manager.validRoots.len() == credentialCount
 
-    # We can now simulate a chain reorg by calling backfillRootQueue
-    let expectedLastRoot = manager.validRootBuffer[0]
-    try:
-      await manager.backfillRootQueue(1)
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    # We should now have 5 roots in the queue, and no partial buffer
-    check:
-      manager.validRoots.len() == credentialCount - 1
-      manager.validRootBuffer.len() == 0
-      manager.validRoots[credentialCount - 2] == expectedLastRoot
-
-  xasyncTest "isReady should return false if ethRpc is none":
+  asyncTest "isReady should return false if ethRpc is none":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -505,24 +484,8 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-  xasyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
+  asyncTest "isReady should return true if ethRpc is ready":
     (await manager.init()).isOkOr:
-      raiseAssert $error
-
-    var isReady = true
-    try:
-      isReady = await manager.isReady()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    check:
-      isReady == false
-
-  xasyncTest "isReady should return true if ethRpc is ready":
-    (await manager.init()).isOkOr:
-      raiseAssert $error
-    # node can only be ready after group sync is done
-    (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
     var isReady = false

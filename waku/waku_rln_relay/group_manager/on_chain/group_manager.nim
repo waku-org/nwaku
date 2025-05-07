@@ -193,9 +193,6 @@ proc utils_trackRootChanges*(
         let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
-      debug "--- roots and merkle proofs",
-        len = g.validRoots.len, roots = g.validRoots, proof = g.merkleProofCache
-
       await sleepAsync(rpcDelay)
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
@@ -209,7 +206,7 @@ method trackRootChanges*(
     await utils_trackRootChanges(g)
     return ok()
   except CatchableError, Exception:
-    return err("failed to start group sync: " & getCurrentExceptionMsg())
+    return err("failed to start root change tracking: " & getCurrentExceptionMsg())
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
@@ -304,6 +301,8 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+# this is a helper function to get root from merkle proof elements and index
+# it's currently not used anywhere, but can be used to verify the root from the proof and index
 proc getRootFromProofAndIndex(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
 ): GroupManagerResult[array[32, byte]] =
@@ -454,10 +453,6 @@ method verifyProof*(
   let rootsBytes = serialize(g.validRoots.items().toSeq())
   let rootsBuffer = rootsBytes.toBuffer()
 
-  debug "------ validRoots ------", x = g.validRoots
-  debug "------ rootsBuffer ------", x = rootsBuffer
-  debug "------ proofBuffer ------", x = proofBuffer
-
   var validProof: bool # out-param
   let ffiOk = verify_with_roots(
     g.rlnInstance, # RLN context created at init()
@@ -587,3 +582,14 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
     error "failed to flush to the tree db"
 
   g.initialized = false
+
+method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
+  initializedGuard(g)
+
+  if g.ethRpc.isNone():
+    return false
+
+  if g.wakuRlnContract.isNone():
+    return false
+
+  return true
