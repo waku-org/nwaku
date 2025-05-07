@@ -930,7 +930,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withClusterId(n.clusterId)
 
   let clusterConf = toClusterConf(n.preset, some(n.clusterId)).valueOr:
-    return err($error)
+    return err("Error determining cluster from preset: " & $error)
 
   if clusterConf.isSome():
     b.withClusterConf(clusterConf.get())

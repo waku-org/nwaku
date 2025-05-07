@@ -87,7 +87,7 @@ proc networkConfiguration*(
 
   let
     discv5UdpPort =
-      if discv5Conf.isSome:
+      if discv5Conf.isSome():
         some(Port(uint16(discv5Conf.get().udpPort) + portsShift))
       else:
         none(Port)

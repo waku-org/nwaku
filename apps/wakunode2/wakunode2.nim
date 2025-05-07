@@ -66,7 +66,7 @@ when isMainModule:
 
     var restServer: WakuRestServerRef = nil
 
-    if conf.restServerConf.isSome:
+    if conf.restServerConf.isSome():
       restServer = rest_server_builder.startRestServerEssentials(
         nodeHealthMonitor, conf.restServerConf.get(), conf.portsShift
       ).valueOr:
