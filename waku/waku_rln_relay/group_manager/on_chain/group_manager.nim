@@ -448,7 +448,7 @@ method verifyProof*(
   if not ffiOk:
     return err("could not verify the proof")
   else:
-    debug "Proof verified successfully !"
+    trace "Proof verified successfully !"
 
   return ok(validProof)
 
