@@ -481,8 +481,7 @@ proc mount(
   # track root changes on smart contract merkle tree
   if groupManager of OnchainGroupManager:
     let onchainManager = cast[OnchainGroupManager](groupManager)
-    (await onchainManager.trackRootChanges()).isOkOr:
-      return err("failed to track root changes in background: " & error)
+    wakuRlnRelay.rootChangesFuture = utils_trackRootChanges(onchainManager)
 
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
