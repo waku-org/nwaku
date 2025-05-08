@@ -163,10 +163,9 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
 
   return false
 
-proc utils_trackRootChanges*(
-    g: OnchainGroupManager
-): Future[void] {.async: (raises: [CatchableError]).} =
+proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError]).} =
   try:
+    initializedGuard(g)
     let ethRpc = g.ethRpc.get()
     let wakuRlnContract = g.wakuRlnContract.get()
 
@@ -191,17 +190,6 @@ proc utils_trackRootChanges*(
       await sleepAsync(rpcDelay)
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
-
-method trackRootChanges*(
-    g: OnchainGroupManager
-): Future[GroupManagerResult[void]] {.async.} =
-  initializedGuard(g)
-  # Get archive history
-  try:
-    await utils_trackRootChanges(g)
-    return ok()
-  except CatchableError, Exception:
-    return err("failed to start root change tracking: " & getCurrentExceptionMsg())
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment

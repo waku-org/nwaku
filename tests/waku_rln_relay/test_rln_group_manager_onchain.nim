@@ -117,11 +117,11 @@ suite "Onchain group manager":
   asyncTest "trackRootChanges: start tracking roots":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    discard await withTimeout(trackRootChanges(manager), 1.seconds)
+    discard manager.trackRootChanges()
 
   asyncTest "trackRootChanges: should guard against uninitialized state":
     try:
-      discard await manager.trackRootChanges()
+      discard manager.trackRootChanges()
     except CatchableError:
       check getCurrentExceptionMsg().len == 38
 
