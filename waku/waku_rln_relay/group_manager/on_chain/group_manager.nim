@@ -284,11 +284,11 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-# this is a helper function to get root from merkle proof elements and index
-# it's currently not used anywhere, but can be used to verify the root from the proof and index
 proc getRootFromProofAndIndex(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
 ): GroupManagerResult[array[32, byte]] =
+  # this is a helper function to get root from merkle proof elements and index
+  # it's currently not used anywhere, but can be used to verify the root from the proof and index
   # Compute leaf hash from idCommitment and messageLimit
   let messageLimitField = uint64ToField(g.userMessageLimit.get())
   let leafHashRes = poseidon(@[g.idCredentials.get().idCommitment, @messageLimitField])
