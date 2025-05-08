@@ -2,8 +2,7 @@
 
 import
   std/[options, sets, random, math], testutils/unittests, chronos, libp2p/crypto/crypto
-import std/[sets, sequtils]
-import chronos
+import chronos, chronos/asyncsync 
 import
   ../../waku/[
     node/peer_manager,
@@ -22,6 +21,13 @@ import
   ../waku_archive/archive_utils,
   ./sync_utils
 
+proc collectDiffs*(chan: var Channel[SyncID]; diffCount: int): HashSet[WakuMessageHash] =
+  var received: HashSet[WakuMessageHash]
+  while received.len < diffCount:
+    let sid = chan.recv()         # synchronous receive
+    received.incl sid.hash
+  result = received
+    
 suite "Waku Sync: reconciliation":
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
@@ -235,53 +241,131 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.contains((clientPeerInfo.peerId, WakuMessageHash(diff))) == true
 
   asyncTest "sync 2 nodes 10K msgs 1K diffs":
-    let msgCount = 10_000
-    var diffCount = 1_000
 
-    var diffMsgHashes: HashSet[WakuMessageHash]
-    var randIndexes: HashSet[int]
+    const
+        msgCount  = 200_000          # total messages on the server
+        diffCount = 100              # messages initially missing on the client
 
-    # Diffs
-    for i in 0 ..< diffCount:
-      var randInt = rand(0 ..< msgCount)
+    ## ── choose which messages will be absent from the client ─────────────
+    var missingIdx: HashSet[int]
+    while missingIdx.len < diffCount:
+        missingIdx.incl rand(0 ..< msgCount)
 
-      #make sure we actually have the right number of diffs
-      while randInt in randIndexes:
-        randInt = rand(0 ..< msgCount)
-
-      randIndexes.incl(randInt)
-
-    # sync window is 1 hour, spread msg equally in that time
-    let timeSlice = calculateTimeRange()
-    let timeWindow = int64(timeSlice.b) - int64(timeSlice.a)
-    let (part, _) = divmod(timeWindow, 100_000)
-
-    var timestamp = timeSlice.a
+    ## ── generate messages and pre-load the two reconcilers ───────────────
+    let slice    = calculateTimeRange()       # 1-hour window
+    let step     = (int64(slice.b) - int64(slice.a)) div msgCount
+    var ts       = slice.a
 
     for i in 0 ..< msgCount:
-      let
-        msg = fakeWakuMessage(ts = timestamp, contentTopic = DefaultContentTopic)
-        hash = computeMessageHash(DefaultPubsubTopic, msg)
+        let
+            msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+            h   = computeMessageHash(DefaultPubsubTopic, msg)
 
-      server.messageIngress(hash, msg)
+        server.messageIngress(h, msg)           # every msg is on the server
+        if i notin missingIdx:
+            client.messageIngress(h, msg)       # all but 100 are on the client
+        ts += Timestamp(step)
 
-      if i in randIndexes:
-        diffMsgHashes.incl(hash)
-      else:
-        client.messageIngress(hash, msg)
+    ## ── sanity before we start the round ─────────────────────────────────
+    check remoteNeeds.len == 0
 
-      timestamp += Timestamp(part)
-      continue
+    ## ── launch reconciliation from the client towards the server ─────────
+    let res = await client.storeSynchronization(some(serverPeerInfo))
+    assert res.isOk(), $res.error
 
-    check:
-      remoteNeeds.len == 0
+    ## ── verify that ≈100 diffs were queued (allow 10 % slack) ────────────
+    check remoteNeeds.len >= 90          # ≈ 100 × 0.9
+
+  asyncTest "sync 2 nodes 400K msgs 100k diffs":
+   
+    
+    const
+        msgCount  = 400_000        
+        diffCount = 100_000
+        tol = 1000          
+
+    var diffMsgHashes: HashSet[WakuMessageHash]
+    var missingIdx: HashSet[int]
+    while missingIdx.len < diffCount:
+        missingIdx.incl rand(0 ..< msgCount)
+
+    let slice    = calculateTimeRange()      
+    let step     = (int64(slice.b) - int64(slice.a)) div msgCount
+    var ts       = slice.a
+
+    for i in 0 ..< msgCount:
+        let
+            msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+            h   = computeMessageHash(DefaultPubsubTopic, msg)
+
+        server.messageIngress(h, msg)          
+        if i notin missingIdx:
+            client.messageIngress(h, msg)
+        else:
+          diffMsgHashes.incl h 
+
+        ts += Timestamp(step)
+
+
+    check remoteNeeds.len == 0
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
-    # timimg issue make it hard to match exact numbers
-    check:
-      remoteNeeds.len > 900
+    check remoteNeeds.len >= diffCount - tol   and remoteNeeds.len < diffCount
+    let (_, deliveredHash) = await remoteNeeds.get()
+    check deliveredHash in diffMsgHashes
+
+  asyncTest "sync 2 nodes 100 msgs 10 diff – 1-second window":
+    const
+      msgCount  = 100
+      diffCount = 10
+
+    let missingIdx = rand(0 ..< msgCount)
+    var diffMsgHashes: HashSet[WakuMessageHash]
+
+    let sliceEnd   = now()                    
+    let sliceStart = Timestamp(uint64(sliceEnd) - 1_000_000_000'u64) 
+    let step       = (int64(sliceEnd) - int64(sliceStart)) div msgCount
+    var ts         = sliceStart
+
+    for i in 0 ..< msgCount:
+      let
+        msg  = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+        hash = computeMessageHash(DefaultPubsubTopic, msg)
+
+      server.messageIngress(hash, msg)
+
+      if i == missingIdx:
+        diffMsgHashes.incl hash        
+      else:
+        client.messageIngress(hash, msg)
+
+      ts += Timestamp(step)           
+
+    check remoteNeeds.len == 0
+
+    let res = await client.storeSynchronization(some(serverPeerInfo))
+    assert res.isOk(), $res.error
+
+    check remoteNeeds.len == diffCount
+
+    let (_, deliveredHash) = await remoteNeeds.get()
+    check deliveredHash in diffMsgHashes
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
 
 suite "Waku Sync: transfer":
   var
@@ -434,3 +518,5 @@ suite "Waku Sync: transfer":
     check received == expected
 
     check clientIds.len == 0
+
+
