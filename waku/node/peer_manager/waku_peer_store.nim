@@ -100,16 +100,22 @@ proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo, origin = UnknownOrigin
       protos.add($new_proto)
   peerStore[ProtoBook][peer.peerId] = protos
 
-  peerStore[AgentBook][peer.peerId] = peer.agent
-  peerStore[ProtoVersionBook][peer.peerId] = peer.protoVersion
-  peerStore[KeyBook][peer.peerId] = peer.publicKey
-  peerStore[ConnectionBook][peer.peerId] = peer.connectedness
-  peerStore[DisconnectBook][peer.peerId] = peer.disconnectTime
-  peerStore[SourceBook][peer.peerId] =
-    if origin != UnknownOrigin: origin else: peer.origin
-  peerStore[DirectionBook][peer.peerId] = peer.direction
-  peerStore[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
-  peerStore[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
+  discard peerStore[AgentBook].book.hasKeyOrPut(peer.peerId, peer.agent)
+  discard peerStore[ProtoVersionBook].book.hasKeyOrPut(peer.peerId, peer.protoVersion)
+  discard peerStore[KeyBook].book.hasKeyOrPut(peer.peerId, peer.publicKey)
+
+  discard peerStore[ConnectionBook].book.hasKeyOrPut(peer.peerId, peer.connectedness)
+  discard peerStore[DisconnectBook].book.hasKeyOrPut(peer.peerId, peer.disconnectTime)
+  if origin != UnknownOrigin:
+    peerStore[SourceBook][peer.peerId] = origin
+  else:
+    discard peerStore[SourceBook].book.hasKeyOrPut(peer.peerId, peer.origin)
+
+  discard peerStore[DirectionBook].book.hasKeyOrPut(peer.peerId, peer.direction)
+  discard
+    peerStore[LastFailedConnBook].book.hasKeyOrPut(peer.peerId, peer.lastFailedConn)
+  discard
+    peerStore[NumberFailedConnBook].book.hasKeyOrPut(peer.peerId, peer.numberFailedConn)
   if peer.enr.isSome():
     peerStore[ENRBook][peer.peerId] = peer.enr.get()
 
