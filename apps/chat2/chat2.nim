@@ -560,7 +560,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         dynamic: conf.rlnRelayDynamic,
         credIndex: conf.rlnRelayCredIndex,
         chainId: conf.rlnRelayChainId,
-        ethClientUrls: conf.ethClientUrls,
+        ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
         creds: some(
           RlnRelayCreds(
             path: conf.rlnRelayCredPath, password: conf.rlnRelayCredPassword
