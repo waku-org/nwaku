@@ -132,10 +132,7 @@ proc fetchMerkleRoot*(
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
-    raise newException(
-      CatchableError,
-      "OnchainGroupManager is not initialized: " & getCurrentExceptionMsg(),
-    )
+    raise newException(CatchableError, "OnchainGroupManager is not initialized")
 
 template retryWrapper(
     g: OnchainGroupManager, res: auto, errStr: string, body: untyped

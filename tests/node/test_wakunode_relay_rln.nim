@@ -455,7 +455,7 @@ suite "Waku RlnRelay - End to End - OnChain":
       except CatchableError:
         assert true
 
-    xasyncTest "Unregistered contract":
+    asyncTest "Unregistered contract":
       # This is a very slow test due to the retries RLN does. Might take upwards of 1m-2m to finish.
       let
         invalidContractAddress = "0x0000000000000000000000000000000000000000"
