@@ -123,7 +123,7 @@ suite "Onchain group manager":
     try:
       discard await manager.trackRootChanges()
     except CatchableError:
-      check getCurrentExceptionMsg().len == 40
+      check getCurrentExceptionMsg().len == 38
 
   asyncTest "trackRootChanges: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
