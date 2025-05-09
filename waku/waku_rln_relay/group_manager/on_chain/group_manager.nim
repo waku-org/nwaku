@@ -465,14 +465,19 @@ proc establishConnection(
 
   g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
     var innerEthRpc: Web3
+    var connected = false
     for clientUrl in g.ethClientUrls:
       ## We give a chance to the user to provide multiple clients
       ## and we try to connect to each of them
       try:
         innerEthRpc = await newWeb3(clientUrl)
+        connected = true
         break
       except CatchableError:
         error "failed connect Eth client", error = getCurrentExceptionMsg()
+
+    if not connected:
+      raise newException(CatchableError, "all failed")
 
     innerEthRpc
 
