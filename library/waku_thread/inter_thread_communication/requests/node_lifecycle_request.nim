@@ -92,16 +92,16 @@ proc process*(
   of CREATE_NODE:
     waku[] = (await createWaku(self.configJson, self.appCallbacks)).valueOr:
       error "CREATE_NODE failed", error = error
-      return err("error processing createWaku request: " & $error)
+      return err($error)
   of START_NODE:
     (await waku.startWaku()).isOkOr:
       error "START_NODE failed", error = error
-      return err("problem starting waku: " & $error)
+      return err($error)
   of STOP_NODE:
     try:
       await waku[].stop()
     except Exception:
       error "STOP_NODE failed", error = getCurrentExceptionMsg()
-      return err("exception stopping node: " & getCurrentExceptionMsg())
+      return err(getCurrentExceptionMsg())
 
   return ok("")
