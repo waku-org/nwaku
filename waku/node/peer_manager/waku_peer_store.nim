@@ -100,6 +100,7 @@ proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo, origin = UnknownOrigin
       protos.add($new_proto)
   peerStore[ProtoBook][peer.peerId] = protos
 
+  ## We don't care whether the item was already present in the table or not. Hence, we always discard the hasKeyOrPut's bool returned value
   discard peerStore[AgentBook].book.hasKeyOrPut(peer.peerId, peer.agent)
   discard peerStore[ProtoVersionBook].book.hasKeyOrPut(peer.peerId, peer.protoVersion)
   discard peerStore[KeyBook].book.hasKeyOrPut(peer.peerId, peer.publicKey)
