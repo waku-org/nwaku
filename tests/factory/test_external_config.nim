@@ -26,7 +26,7 @@ suite "Waku config - apply preset":
       cmd: noCommand,
       preset: "twn",
       relay: true,
-      rlnRelayEthClientAddress: "http://someaddress".EthRpcUrl,
+      ethClientUrls: @["http://someaddress".EthRpcUrl],
       rlnRelayTreePath: "/tmp/sometreepath",
     )
 
@@ -109,7 +109,7 @@ suite "Waku config - apply preset":
       cmd: noCommand,
       clusterId: 1.uint16,
       relay: true,
-      rlnRelayEthClientAddress: "http://someaddress".EthRpcUrl,
+      ethClientUrls: @["http://someaddress".EthRpcUrl],
       rlnRelayTreePath: "/tmp/sometreepath",
     )
 
