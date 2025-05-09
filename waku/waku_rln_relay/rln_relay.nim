@@ -43,7 +43,7 @@ type RlnRelayConf* = object of RootObj
   dynamic*: bool
   credIndex*: Option[uint]
   ethContractAddress*: string
-  ethClientAddress*: string
+  ethClientUrls*: seq[string]
   chainId*: uint
   creds*: Option[RlnRelayCreds]
   treePath*: string
@@ -455,7 +455,7 @@ proc mount(
         (none(string), none(string))
 
     groupManager = OnchainGroupManager(
-      ethClientUrl: string(conf.ethClientAddress),
+      ethClientUrls: conf.ethClientUrls,
       ethContractAddress: $conf.ethContractAddress,
       chainId: conf.chainId,
       rlnInstance: rlnInstance,

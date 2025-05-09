@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronicles, results, std/tempfiles
+import chronicles, results, std/[tempfiles, sequtils]
 
 import
   waku/[
@@ -19,7 +19,7 @@ logScope:
 type RlnKeystoreGeneratorConf* = object
   execute*: bool
   ethContractAddress*: string
-  ethClientAddress*: string
+  ethClientUrls*: seq[string]
   chainId*: uint
   credPath*: string
   credPassword*: string
@@ -65,7 +65,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
 
   # 4. initialize OnchainGroupManager
   let groupManager = OnchainGroupManager(
-    ethClientUrl: string(conf.ethClientAddress),
+    ethClientUrls: conf.ethClientUrls,
     chainId: conf.chainId,
     ethContractAddress: conf.ethContractAddress,
     rlnInstance: rlnInstance,

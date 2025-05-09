@@ -9,9 +9,8 @@ logScope:
 ##############################
 type RlnRelayConfBuilder* = object
   enabled*: Option[bool]
-
   chainId*: Option[uint]
-  ethClientAddress*: Option[string]
+  ethClientUrls*: Option[seq[string]]
   ethContractAddress*: Option[string]
   credIndex*: Option[uint]
   credPassword*: Option[string]
@@ -42,8 +41,8 @@ proc withCredPath*(b: var RlnRelayConfBuilder, credPath: string) =
 proc withDynamic*(b: var RlnRelayConfBuilder, dynamic: bool) =
   b.dynamic = some(dynamic)
 
-proc withEthClientAddress*(b: var RlnRelayConfBuilder, ethClientAddress: string) =
-  b.ethClientAddress = some(ethClientAddress)
+proc withEthClientUrls*(b: var RlnRelayConfBuilder, ethClientUrls: seq[string]) =
+  b.ethClientUrls = some(ethClientUrls)
 
 proc withEthContractAddress*(b: var RlnRelayConfBuilder, ethContractAddress: string) =
   b.ethContractAddress = some(ethContractAddress)
@@ -76,8 +75,8 @@ proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
 
   if b.dynamic.isNone():
     return err("rlnRelay.dynamic is not specified")
-  if b.ethClientAddress.get("") == "":
-    return err("rlnRelay.ethClientAddress is not specified")
+  if b.ethClientUrls.get(newSeq[string](0)).len == 0:
+    return err("rlnRelay.ethClientUrls is not specified")
   if b.ethContractAddress.get("") == "":
     return err("rlnRelay.ethContractAddress is not specified")
   if b.epochSizeSec.isNone():
@@ -94,7 +93,7 @@ proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
         credIndex: b.credIndex,
         creds: creds,
         dynamic: b.dynamic.get(),
-        ethClientAddress: b.ethClientAddress.get(),
+        ethClientUrls: b.ethClientUrls.get(),
         ethContractAddress: b.ethContractAddress.get(),
         epochSizeSec: b.epochSizeSec.get(),
         userMessageLimit: b.userMessageLimit.get(),

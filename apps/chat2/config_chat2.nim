@@ -18,7 +18,8 @@ type
     prod
     test
 
-  EthRpcUrl = distinct string
+  EthRpcUrl* = distinct string
+
   Chat2Conf* = object ## General node config
     logLevel* {.
       desc: "Sets the log level.", defaultValue: LogLevel.INFO, name: "log-level"
@@ -248,11 +249,12 @@ type
       name: "rln-relay-id-commitment-key"
     .}: string
 
-    rlnRelayEthClientAddress* {.
-      desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-      defaultValue: "http://localhost:8540/",
+    ethClientUrls* {.
+      desc:
+        "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
+      defaultValue: newSeq[EthRpcUrl](0),
       name: "rln-relay-eth-client-address"
-    .}: EthRpcUrl
+    .}: seq[EthRpcUrl]
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",

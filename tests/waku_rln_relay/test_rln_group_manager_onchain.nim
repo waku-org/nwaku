@@ -77,10 +77,10 @@ suite "Onchain group manager":
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
 
-    let differentContractAddress = await uploadRLNContract(manager.ethClientUrl)
+    let differentContractAddress = await uploadRLNContract(manager.ethClientUrls[0])
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
-      ethClientUrl: EthClient,
+      ethClientUrls: @[EthClient],
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
