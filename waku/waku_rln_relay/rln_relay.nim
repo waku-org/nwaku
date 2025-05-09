@@ -98,6 +98,7 @@ type WakuRLNRelay* = ref object of RootObj
   onFatalErrorAction*: OnFatalErrorHandler
   nonceManager*: NonceManager
   epochMonitorFuture*: Future[void]
+  rootChangesFuture*: Future[void]
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
@@ -252,6 +253,7 @@ proc validateMessage*(
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
     warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
+
   if not proofVerificationRes.value():
     # invalid proof
     warn "invalid message: invalid proof", payloadLen = msg.payload.len
@@ -467,9 +469,6 @@ proc mount(
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
-  # Start the group sync
-  (await groupManager.startGroupSync()).isOkOr:
-    return err("could not start the group sync: " & $error)
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
@@ -478,6 +477,11 @@ proc mount(
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
+
+  # track root changes on smart contract merkle tree
+  if groupManager of OnchainGroupManager:
+    let onchainManager = cast[OnchainGroupManager](groupManager)
+    wakuRlnRelay.rootChangesFuture = onchainManager.trackRootChanges()
 
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
