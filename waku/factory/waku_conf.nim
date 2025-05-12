@@ -160,7 +160,7 @@ proc logConf*(conf: WakuConf) =
         maxMessageSize = conf.maxMessageSizeBytes,
         rlnEpochSizeSec = rlnRelayConf.epochSizeSec,
         rlnRelayUserMessageLimit = rlnRelayConf.userMessageLimit,
-        rlnRelayEthClientAddress = string(rlnRelayConf.ethClientAddress)
+        ethClientUrls = rlnRelayConf.ethClientUrls
 
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   wakuConf.nodeKey.getPublicKey().isOkOr:
@@ -224,8 +224,8 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
 
     if isEmptyOrWhiteSpace(rlnRelayConf.treePath):
       return err("rlnRelayConf.treepath is an empty string")
-    if isEmptyOrWhiteSpace(rlnRelayConf.ethClientAddress):
-      return err("rlnRelayConf.ethClientAddress is an empty string")
+    if rlnRelayConf.ethClientUrls.len == 0:
+      return err("rlnRelayConf.ethClientUrls is empty")
     if isEmptyOrWhiteSpace(rlnRelayConf.ethContractAddress):
       return err("rlnRelayConf.ethContractAddress is an empty string")
 

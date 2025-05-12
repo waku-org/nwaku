@@ -1,5 +1,5 @@
 import
-  std/[strutils, strformat],
+  std/[strutils, strformat, sequtils],
   results,
   chronicles,
   chronos,
@@ -75,11 +75,12 @@ type WakuNodeConf* = object
     name: "rln-relay-cred-path"
   .}: string
 
-  rlnRelayEthClientAddress* {.
-    desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-    defaultValue: "http://localhost:8540/",
+  ethClientUrls* {.
+    desc:
+      "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
+    defaultValue: @[EthRpcUrl("http://localhost:8540/")],
     name: "rln-relay-eth-client-address"
-  .}: EthRpcUrl
+  .}: seq[EthRpcUrl]
 
   rlnRelayEthContractAddress* {.
     desc: "Address of membership contract on an Ethereum testnet.",
@@ -867,7 +868,7 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
   RlnKeystoreGeneratorConf(
     execute: n.execute,
     chainId: n.rlnRelayChainId,
-    ethClientAddress: n.rlnRelayEthClientAddress.string,
+    ethClientUrls: n.ethClientUrls.mapIt(string(it)),
     ethContractAddress: n.rlnRelayEthContractAddress,
     userMessageLimit: n.rlnRelayUserMessageLimit,
     ethPrivateKey: n.rlnRelayEthPrivateKey,
@@ -907,8 +908,8 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     b.rlnRelayConf.withCredPath(n.rlnRelayCredPath)
   if n.rlnRelayCredPassword != "":
     b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
-  if n.rlnRelayEthClientAddress.string != "":
-    b.rlnRelayConf.withEthClientAddress(n.rlnRelayEthClientAddress.string)
+  if n.ethClientUrls.len > 0:
+    b.rlnRelayConf.withEthClientUrls(n.ethClientUrls.mapIt(string(it)))
   if n.rlnRelayEthContractAddress != "":
     b.rlnRelayConf.withEthContractAddress(n.rlnRelayEthContractAddress)
 

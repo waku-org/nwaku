@@ -354,7 +354,7 @@ proc setupProtocols(
       credIndex: rlnRelayConf.credIndex,
       ethContractAddress: rlnRelayConf.ethContractAddress,
       chainId: rlnRelayConf.chainId,
-      ethClientAddress: rlnRelayConf.ethClientAddress,
+      ethClientUrls: rlnRelayConf.ethClientUrls,
       creds: rlnRelayConf.creds,
       treePath: rlnRelayConf.treePath,
       userMessageLimit: rlnRelayConf.userMessageLimit,

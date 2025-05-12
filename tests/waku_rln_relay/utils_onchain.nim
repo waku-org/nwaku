@@ -250,7 +250,7 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setupOnchainGroupManager*(
-    ethClientAddress: string = EthClient, amountEth: UInt256 = 10.u256
+    ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes =
     createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
@@ -259,9 +259,9 @@ proc setupOnchainGroupManager*(
 
   let rlnInstance = rlnInstanceRes.get()
 
-  let contractAddress = await uploadRLNContract(ethClientAddress)
+  let contractAddress = await uploadRLNContract(ethClientUrl)
   # connect to the eth client
-  let web3 = await newWeb3(ethClientAddress)
+  let web3 = await newWeb3(ethClientUrl)
 
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[0]
@@ -275,7 +275,7 @@ proc setupOnchainGroupManager*(
   )
 
   let manager = OnchainGroupManager(
-    ethClientUrl: ethClientAddress,
+    ethClientUrls: @[ethClientUrl],
     ethContractAddress: $contractAddress,
     chainId: CHAIN_ID,
     ethPrivateKey: some($privateKey),
