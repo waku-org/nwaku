@@ -78,7 +78,7 @@ type WakuNodeConf* = object
   ethClientUrls* {.
     desc:
       "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
-    defaultValue: newSeq[EthRpcUrl](0),
+    defaultValue: @[EthRpcUrl("http://localhost:8540/")],
     name: "rln-relay-eth-client-address"
   .}: seq[EthRpcUrl]
 
