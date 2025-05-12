@@ -94,7 +94,7 @@ proc fetchMerkleProofElements*(
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
 
-    let methodSig = "merkleProofElements(uint40)"
+    let methodSig = "getMerkleProof(uint40)"
     let methodIdDigest = keccak.keccak256.digest(methodSig)
     let methodId = methodIdDigest.data[0 .. 3]
 
@@ -183,8 +183,8 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
             error "Failed to fetch Merkle proof", error = proofResult.error
           g.merkleProofCache = proofResult.get()
 
-        # also need update registerd membership
-        let memberCount = cast[int64](await wakuRlnContract.commitmentIndex().call())
+        # also need to update registered membership
+        let memberCount = cast[int64](await wakuRlnContract.nextFreeIndex().call())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
       await sleepAsync(rpcDelay)
