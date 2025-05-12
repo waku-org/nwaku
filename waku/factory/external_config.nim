@@ -70,7 +70,7 @@ type WakuNodeConf* = object
   .}: logging.LogFormat
 
   rlnRelayCredPath* {.
-    desc: "The path for peristing rln-relay credential",
+    desc: "The path for persisting rln-relay credential",
     defaultValue: "",
     name: "rln-relay-cred-path"
   .}: string
