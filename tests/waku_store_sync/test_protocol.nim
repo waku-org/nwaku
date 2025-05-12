@@ -401,65 +401,69 @@ suite "Waku Sync: reconciliation":
       let (_, deliveredHash) = await remoteNeeds.get()
       check deliveredHash in diffMsgHashes
 
-  asyncTest "test 20 diff - 10 outside sync window":
+  asyncTest "sync 2 nodes, 40 msgs: 20 in-window diff, 20 out-window ignored":
     
     const
-        msgCount    = 200
-        diffInWin   = 8
-        diffOutWin  = 2
-        diffTotal   = diffInWin + diffOutWin
+         diffInWin  = 20
+         diffOutWin = 20
+         stepOutNs   =   100_000_000'u64
+         outOffsetNs = 2_000_000_000'u64  # for 20 mesg they sent 2 seconds earlier 
 
     randomize()
-    var inIdx: seq[int] = @[]
-    while inIdx.len < diffInWin:
-        let n = rand(0 ..< msgCount)
-        if n notin inIdx:
-            inIdx.add n
 
-    var outIdx: seq[int] = @[]
-    while outIdx.len < diffOutWin:
-        let n = rand(0 ..< msgCount)
-        if (n notin inIdx) and (n notin outIdx):
-            outIdx.add n
+    let nowNs      = getNowInNanosecondTime()
+    let sliceStart = Timestamp(uint64(nowNs) - 700_000_000'u64)
+    let sliceEnd   = nowNs
+    let stepIn     = (sliceEnd.int64 - sliceStart.int64) div diffInWin
 
-    var diffHashesIn:  HashSet[WakuMessageHash]
-    var diffHashesOut: HashSet[WakuMessageHash]
+    let oldStart = Timestamp(uint64(sliceStart) - outOffsetNs)
+    let stepOut    = Timestamp( stepOutNs)
 
-    let sliceEnd   = now()
-    let sliceStart = Timestamp uint64(sliceEnd) - 1_000_000_000'u64  
-    let step       = (int64(sliceEnd) - int64(sliceStart)) div msgCount
-    var ts         = sliceStart
+    var inWinHashes, outWinHashes: HashSet[WakuMessageHash]
 
-    for i in 0 ..< msgCount:
-        var thisTs = ts
-        if i in outIdx:
-            thisTs = Timestamp uint64(sliceStart) - 3_000_000_000'u64 
-        let msg  = fakeWakuMessage(ts = thisTs,
-                                   contentTopic = DefaultContentTopic)
-        let hash = computeMessageHash(DefaultPubsubTopic, msg)
-        server.messageIngress(hash, msg)
+    var ts = sliceStart
+    for _ in 0 ..< diffInWin:
+      let msg  = fakeWakuMessage(ts = Timestamp ts,
+                                    contentTopic = DefaultContentTopic)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      server.messageIngress(hash, msg)
+      inWinHashes.incl hash
+      ts += Timestamp(stepIn)
 
-        if i in inIdx:
-            diffHashesIn.incl hash
-        elif i in outIdx:
-            diffHashesOut.incl hash
-        else:
-            client.messageIngress(hash, msg)
+    ts = oldStart
+    for _ in 0 ..< diffOutWin:
+      let msg  = fakeWakuMessage(ts = Timestamp ts,
+                                    contentTopic = DefaultContentTopic)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      server.messageIngress(hash, msg)
+      outWinHashes.incl hash
+      ts += Timestamp(stepOut)
 
-        ts += Timestamp(step)
+    check remoteNeeds.len == 0      
+   
+    let oneSec = timer.seconds(1)
 
-    check remoteNeeds.len == 0
+    server = await newTestWakuRecon(
+         serverSwitch, idsChannel, localWants, remoteNeeds,
+         syncRange = oneSec)
+
+    client = await newTestWakuRecon(
+         clientSwitch, idsChannel, localWants, remoteNeeds,
+         syncRange = oneSec)
+
+    defer:
+         server.stop()
+         client.stop()
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
-    check remoteNeeds.len == 20
+    check remoteNeeds.len == diffInWin
 
     for _ in 0 ..< diffInWin:
-        #let (_, deliveredHash) = await remoteNeeds.get()
-        #check deliveredHash in diffHashesIn
-        #check deliveredHash notin diffHashesOut
-
+         let (_, deliveredHashes) = await remoteNeeds.get()
+         check deliveredHashes in inWinHashes
+         check deliveredHashes notin outWinHashes
 
 suite "Waku Sync: transfer":
   var

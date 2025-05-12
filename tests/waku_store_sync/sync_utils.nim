@@ -26,6 +26,7 @@ proc newTestWakuRecon*(
     wantsTx: AsyncQueue[PeerId],
     needsTx: AsyncQueue[(PeerId, Fingerprint)],
     cluster: uint16 = 1,
+    syncRange:   timer.Duration       = DefaultSyncRange,
     shards: seq[uint16] = @[0, 1, 2, 3, 4, 5, 6, 7],
 ): Future[SyncReconciliation] {.async.} =
   let peerManager = PeerManager.new(switch)
@@ -36,6 +37,7 @@ proc newTestWakuRecon*(
     peerManager = peerManager,
     wakuArchive = nil,
     relayJitter = 0.seconds,
+    syncRange       = syncRange,
     idsRx = idsRx,
     localWantsTx = wantsTx,
     remoteNeedsTx = needsTx,
