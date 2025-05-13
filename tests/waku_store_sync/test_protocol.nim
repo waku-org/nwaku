@@ -1,7 +1,10 @@
 {.used.}
 
 import
-  std/[options, sets, random, math,algorithm], testutils/unittests, chronos, libp2p/crypto/crypto
+  std/[options, sets, random, math, algorithm],
+  testutils/unittests,
+  chronos,
+  libp2p/crypto/crypto
 import chronos, chronos/asyncsync
 import nimcrypto
 import
@@ -464,25 +467,26 @@ suite "Waku Sync: reconciliation":
       check deliveredHashes notin outWinHashes
 
   asyncTest "hash-fingerprint collision, same timestamp – stable sort":
-
-    let ts = Timestamp(getNowInNanosecondTime()) 
+    let ts = Timestamp(getNowInNanosecondTime())
 
     var msg1 = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
     var msg2 = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
-    msg2.payload[0] = msg2.payload[0]  xor 0x01
+    msg2.payload[0] = msg2.payload[0] xor 0x01
     echo msg2
-    var h1 = computeMessageHash(DefaultPubsubTopic, msg1)  
+    var h1 = computeMessageHash(DefaultPubsubTopic, msg1)
     var h2 = computeMessageHash(DefaultPubsubTopic, msg2)
 
-    for i in 0 ..< 8: h2[i] = h1[i]
-    for i in 0 ..< 8: check h1[i] == h2[i]
+    for i in 0 ..< 8:
+      h2[i] = h1[i]
+    for i in 0 ..< 8:
+      check h1[i] == h2[i]
 
-    check  h1 != h2
+    check h1 != h2
 
     server.messageIngress(h1, msg1)
     client.messageIngress(h2, msg2)
 
-    check remoteNeeds.len == 0 
+    check remoteNeeds.len == 0
     server = await newTestWakuRecon(serverSwitch, idsChannel, localWants, remoteNeeds)
 
     client = await newTestWakuRecon(clientSwitch, idsChannel, localWants, remoteNeeds)
@@ -498,28 +502,27 @@ suite "Waku Sync: reconciliation":
 
     var vec = @[SyncID(time: ts, hash: h2), SyncID(time: ts, hash: h1)]
     vec.shuffle()
-    vec.sort() 
+    vec.sort()
 
-    let hFirst  = vec[0].hash   
+    let hFirst = vec[0].hash
     let hSecond = vec[1].hash
     check vec[0].time == ts and vec[1].time == ts
 
   asyncTest "malformed message-ID is ignored during reconciliation":
-  
     let nowTs = Timestamp(getNowInNanosecondTime())
 
-    let goodMsg  = fakeWakuMessage(ts = nowTs, contentTopic = DefaultContentTopic)
+    let goodMsg = fakeWakuMessage(ts = nowTs, contentTopic = DefaultContentTopic)
     var goodHash = computeMessageHash(DefaultPubsubTopic, goodMsg)
 
-    var badHash: WakuMessageHash                          
-    for i in 0 ..< 32: badHash[i] = 0'u8
-    let badMsg  = fakeWakuMessage(ts = Timestamp(0),    
-                                   contentTopic = DefaultContentTopic)
+    var badHash: WakuMessageHash
+    for i in 0 ..< 32:
+      badHash[i] = 0'u8
+    let badMsg = fakeWakuMessage(ts = Timestamp(0), contentTopic = DefaultContentTopic)
 
     server.messageIngress(goodHash, goodMsg)
     server.messageIngress(badHash, badMsg)
 
-    check remoteNeeds.len == 0       
+    check remoteNeeds.len == 0
 
     server = await newTestWakuRecon(serverSwitch, idsChannel, localWants, remoteNeeds)
     client = await newTestWakuRecon(clientSwitch, idsChannel, localWants, remoteNeeds)
@@ -534,27 +537,26 @@ suite "Waku Sync: reconciliation":
     check remoteNeeds.len == 1
     let (_, neededHash) = await remoteNeeds.get()
     check neededHash == goodHash
-    check neededHash != badHash    
+    check neededHash != badHash
 
   asyncTest "malformed ID: future-timestamp msg is ignored":
-
     let nowNs = getNowInNanosecondTime()
     let tsNow = Timestamp(nowNs)
 
-    let goodMsg  = fakeWakuMessage(ts = tsNow, contentTopic = DefaultContentTopic)
+    let goodMsg = fakeWakuMessage(ts = tsNow, contentTopic = DefaultContentTopic)
     let goodHash = computeMessageHash(DefaultPubsubTopic, goodMsg)
 
-    const tenYearsSec  = 10 * 365 * 24 * 60 * 60        
-    let futureNs       = nowNs + int64(tenYearsSec) * 1_000_000_000'i64
-    let badTs          = Timestamp(futureNs.uint64)
+    const tenYearsSec = 10 * 365 * 24 * 60 * 60
+    let futureNs = nowNs + int64(tenYearsSec) * 1_000_000_000'i64
+    let badTs = Timestamp(futureNs.uint64)
 
-    let badMsg  = fakeWakuMessage(ts = badTs, contentTopic = DefaultContentTopic)
+    let badMsg = fakeWakuMessage(ts = badTs, contentTopic = DefaultContentTopic)
     let badHash = computeMessageHash(DefaultPubsubTopic, badMsg)
 
     server.messageIngress(goodHash, goodMsg)
-    server.messageIngress(badHash,  badMsg)
+    server.messageIngress(badHash, badMsg)
 
-    check remoteNeeds.len == 0          
+    check remoteNeeds.len == 0
     server = await newTestWakuRecon(serverSwitch, idsChannel, localWants, remoteNeeds)
     client = await newTestWakuRecon(clientSwitch, idsChannel, localWants, remoteNeeds)
 
@@ -568,17 +570,16 @@ suite "Waku Sync: reconciliation":
     check remoteNeeds.len == 1
     let (_, neededHash) = await remoteNeeds.get()
     check neededHash == goodHash
-    check neededHash != badHash 
-  
-  asyncTest "duplicate ID is queued only once":
+    check neededHash != badHash
 
+  asyncTest "duplicate ID is queued only once":
     let ts = Timestamp(getNowInNanosecondTime())
     let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
-    let h   = computeMessageHash(DefaultPubsubTopic, msg)
+    let h = computeMessageHash(DefaultPubsubTopic, msg)
 
     server.messageIngress(h, msg)
-    server.messageIngress(h, msg)         
-    check remoteNeeds.len == 0            
+    server.messageIngress(h, msg)
+    check remoteNeeds.len == 0
 
     server = await newTestWakuRecon(serverSwitch, idsChannel, localWants, remoteNeeds)
     client = await newTestWakuRecon(clientSwitch, idsChannel, localWants, remoteNeeds)
@@ -586,7 +587,6 @@ suite "Waku Sync: reconciliation":
     defer:
       server.stop()
       client.stop()
-
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
@@ -596,29 +596,28 @@ suite "Waku Sync: reconciliation":
     check neededHash == h
 
   asyncTest "sync terminates immediately when no diffs exist":
-   
-     let ts = Timestamp(getNowInNanosecondTime())
-     let msg  = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
-     let hash = computeMessageHash(DefaultPubsubTopic, msg)
+    let ts = Timestamp(getNowInNanosecondTime())
+    let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+    let hash = computeMessageHash(DefaultPubsubTopic, msg)
 
-     server.messageIngress(hash, msg)   
-     client.messageIngress(hash, msg)   
+    server.messageIngress(hash, msg)
+    client.messageIngress(hash, msg)
 
-     let idsQ   = newAsyncQueue[SyncID]()
-     let wantsQ = newAsyncQueue[PeerId]()
-     let needsQ = newAsyncQueue[(PeerId, Fingerprint)]()
+    let idsQ = newAsyncQueue[SyncID]()
+    let wantsQ = newAsyncQueue[PeerId]()
+    let needsQ = newAsyncQueue[(PeerId, Fingerprint)]()
 
-     server = await newTestWakuRecon(serverSwitch, idsQ, wantsQ, needsQ)
-     client = await newTestWakuRecon(clientSwitch, idsQ, wantsQ, needsQ)
+    server = await newTestWakuRecon(serverSwitch, idsQ, wantsQ, needsQ)
+    client = await newTestWakuRecon(clientSwitch, idsQ, wantsQ, needsQ)
 
-     defer:
-          server.stop()
-          client.stop()
+    defer:
+      server.stop()
+      client.stop()
 
-     let res = await client.storeSynchronization(some(serverPeerInfo))
-     assert res.isOk(), $res.error      
+    let res = await client.storeSynchronization(some(serverPeerInfo))
+    assert res.isOk(), $res.error
 
-     check needsQ.len == 0            
+    check needsQ.len == 0
 
 suite "Waku Sync: transfer":
   var
