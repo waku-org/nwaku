@@ -58,8 +58,10 @@ proc init(
     testSetup.consumerNode.start(),
   )
 
-  await testSetup.consumerNode.mountRelay()
-  await testSetup.serviceNode.mountRelay()
+  (await testSetup.consumerNode.mountRelay()).isOkOr:
+    assert false, "Failed to mount relay: " & $error
+  (await testSetup.serviceNode.mountRelay()).isOkOr:
+    assert false, "Failed to mount relay: " & $error
   await testSetup.serviceNode.mountLightPush(rateLimit)
   testSetup.pushNode.mountLightPushClient()
 
@@ -129,10 +131,13 @@ suite "Waku v2 Rest API - lightpush":
 
     restLightPushTest.consumerNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
@@ -161,7 +166,8 @@ suite "Waku v2 Rest API - lightpush":
 
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
@@ -218,10 +224,13 @@ suite "Waku v2 Rest API - lightpush":
 
     restLightPushTest.consumerNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 

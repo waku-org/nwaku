@@ -145,7 +145,6 @@ method validateRoot*(
     g: GroupManager, root: MerkleNode
 ): bool {.base, gcsafe, raises: [].} =
   ## validates the root against the valid roots queue
-  # Check if the root is in the valid roots queue
   if g.indexOfRoot(root) >= 0:
     return true
   return false
@@ -175,7 +174,7 @@ method verifyProof*(
 
 method generateProof*(
     g: GroupManager,
-    data: openArray[byte],
+    data: seq[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
@@ -189,6 +188,7 @@ method generateProof*(
     return err("membership index is not set")
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
+
   waku_rln_proof_generation_duration_seconds.nanosecondTime:
     let proof = proofGen(
       rlnInstance = g.rlnInstance,
@@ -201,8 +201,6 @@ method generateProof*(
     ).valueOr:
       return err("proof generation failed: " & $error)
 
-  waku_rln_remaining_proofs_per_epoch.dec()
-  waku_rln_total_generated_proofs.inc()
   return ok(proof)
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =

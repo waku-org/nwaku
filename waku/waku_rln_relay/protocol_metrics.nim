@@ -85,6 +85,7 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
   var cumulativeProofsVerified = 0.float64
   var cumulativeProofsGenerated = 0.float64
   var cumulativeProofsRemaining = 100.float64
+  var cumulativeRegisteredMember = 0.float64
 
   when defined(metrics):
     logMetrics = proc() =
@@ -107,6 +108,9 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
         let freshProofsRemainingCount = parseAndAccumulate(
           waku_rln_remaining_proofs_per_epoch, cumulativeProofsRemaining
         )
+        let freshRegisteredMemberCount = parseAndAccumulate(
+          waku_rln_number_registered_memberships, cumulativeRegisteredMember
+        )
 
         info "Total messages", count = freshMsgCount
         info "Total spam messages", count = freshSpamCount
@@ -116,5 +120,6 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
         info "Total proofs verified", count = freshProofsVerifiedCount
         info "Total proofs generated", count = freshProofsGeneratedCount
         info "Total proofs remaining", count = freshProofsRemainingCount
+        info "Total registered members", count = freshRegisteredMemberCount
 
   return logMetrics

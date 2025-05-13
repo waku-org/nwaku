@@ -36,7 +36,6 @@ proc setup*(): Waku =
   conf.clusterId = twnClusterConf.clusterId
   conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
   conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-  conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
   conf.discv5Discovery = twnClusterConf.discv5Discovery
   conf.discv5BootstrapNodes =
     conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes

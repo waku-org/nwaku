@@ -22,9 +22,19 @@ template parseAndAccumulate*(collector: Collector, cumulativeValue: float64): fl
     cumulativeValue = total
     freshCount
 
+template parseAndAccumulate*(
+    collector: typedesc[IgnoredCollector], cumulativeValue: float64
+): float64 =
+  ## Used when metrics are disabled (undefined `metrics` compilation flag)
+  0.0
+
 template collectorAsF64*(collector: Collector): float64 =
   ## This template is used to get metrics from 0
   ## Serves as a wrapper for parseCollectorIntoF64 which is gcsafe
   {.gcsafe.}:
     let total = parseCollectorIntoF64(collector)
     total
+
+template collectorAsF64*(collector: typedesc[IgnoredCollector]): float64 =
+  ## Used when metrics are disabled (undefined `metrics` compilation flag)
+  0.0

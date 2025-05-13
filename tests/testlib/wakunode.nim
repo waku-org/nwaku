@@ -15,35 +15,41 @@ import
     node/peer_manager,
     waku_enr,
     discovery/waku_discv5,
-    factory/external_config,
     factory/internal_config,
+    factory/waku_conf,
+    factory/conf_builder/conf_builder,
     factory/builder,
   ],
   ./common
 
 # Waku node
 
-proc defaultTestWakuNodeConf*(): WakuNodeConf =
-  ## set cluster-id == 0 to not use TWN as that needs a background blockchain (e.g. anvil)
-  ## running because RLN is mounted if TWN (cluster-id == 1) is configured.
-  WakuNodeConf(
-    cmd: noCommand,
-    tcpPort: Port(60000),
-    websocketPort: Port(8000),
-    listenAddress: parseIpAddress("0.0.0.0"),
-    restAddress: parseIpAddress("127.0.0.1"),
-    metricsServerAddress: parseIpAddress("127.0.0.1"),
-    dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-    nat: "any",
-    maxConnections: 50,
-    relayServiceRatio: "60:40",
-    maxMessageSize: "1024 KiB",
-    clusterId: DefaultClusterId,
-    shards: @[DefaultShardId],
-    relay: true,
-    rendezvous: true,
-    storeMessageDbUrl: "sqlite://store.sqlite3",
+# TODO: migrate to usage of a test cluster conf
+proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
+  var builder = WakuConfBuilder.init()
+  builder.withP2pTcpPort(Port(60000))
+  builder.withP2pListenAddress(parseIpAddress("0.0.0.0"))
+  builder.restServerConf.withListenAddress(parseIpAddress("127.0.0.1"))
+  builder.withDnsAddrsNameServers(
+    @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
   )
+  builder.withNatStrategy("any")
+  builder.withMaxConnections(50)
+  builder.withRelayServiceRatio("60:40")
+  builder.withMaxMessageSize("1024 KiB")
+  builder.withClusterId(DefaultClusterId)
+  builder.withShards(@[DefaultShardId])
+  builder.withRelay(true)
+  builder.withRendezvous(true)
+  builder.storeServiceConf.withDbMigration(false)
+  builder.storeServiceConf.withSupportV2(false)
+  builder.webSocketConf.withWebSocketPort(Port(8000))
+  builder.webSocketConf.withEnabled(true)
+  return builder
+
+proc defaultTestWakuConf*(): WakuConf =
+  var builder = defaultTestWakuConfBuilder()
+  return builder.build().value
 
 proc newTestWakuNode*(
     nodeKey: crypto.PrivateKey,
@@ -78,31 +84,31 @@ proc newTestWakuNode*(
     else:
       extPort
 
-  var conf = defaultTestWakuNodeConf()
+  var conf = defaultTestWakuConf()
 
   conf.clusterId = clusterId
   conf.shards = shards
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
-    let dns = (waitFor dnsResolve(dns4DomainName.get(), conf)).valueOr:
+    let dns = (waitFor dnsResolve(dns4DomainName.get(), conf.dnsAddrsNameServers)).valueOr:
       raise newException(Defect, error)
 
     resolvedExtIp = some(parseIpAddress(dns))
 
   let netConf = NetConfig.init(
-    bindIp = bindIp,
     clusterId = conf.clusterId,
+    bindIp = bindIp,
     bindPort = bindPort,
     extIp = resolvedExtIp,
     extPort = extPort,
     extMultiAddrs = extMultiAddrs,
-    wsBindPort = wsBindPort,
+    wsBindPort = some(wsBindPort),
     wsEnabled = wsEnabled,
     wssEnabled = wssEnabled,
-    wakuFlags = wakuFlags,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
+    wakuFlags = wakuFlags,
   ).valueOr:
     raise newException(Defect, "Invalid network configuration: " & error)
 

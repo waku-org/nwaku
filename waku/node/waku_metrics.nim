@@ -5,13 +5,17 @@ import
   ../waku_rln_relay/protocol_metrics as rln_metrics,
   ../utils/collector,
   ./peer_manager,
-  ./waku_node,
-  ../factory/external_config
+  ./waku_node
 
 const LogInterval = 10.minutes
 
 logScope:
   topics = "waku node metrics"
+
+type MetricsServerConf* = object
+  httpAddress*: IpAddress
+  httpPort*: Port
+  logging*: bool
 
 proc startMetricsLog*() =
   var logMetrics: CallbackFunc
@@ -70,17 +74,15 @@ proc startMetricsServer(
   return ok(server)
 
 proc startMetricsServerAndLogging*(
-    conf: WakuNodeConf
+    conf: MetricsServerConf, portsShift: uint16
 ): Result[MetricsHttpServerRef, string] =
   var metricsServer: MetricsHttpServerRef
-  if conf.metricsServer:
-    metricsServer = startMetricsServer(
-      conf.metricsServerAddress, Port(conf.metricsServerPort + conf.portsShift)
-    ).valueOr:
-      return
-        err("Starting metrics server failed. Continuing in current state:" & $error)
+  metricsServer = startMetricsServer(
+    conf.httpAddress, Port(conf.httpPort.uint16 + portsShift)
+  ).valueOr:
+    return err("Starting metrics server failed. Continuing in current state:" & $error)
 
-  if conf.metricsLogging:
+  if conf.logging:
     startMetricsLog()
 
   return ok(metricsServer)

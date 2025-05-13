@@ -308,7 +308,8 @@ suite "Peer Manager":
 
       asyncTest "Peer Protocol Support Verification (Before Connection)":
         # Given the server has mounted some Waku protocols
-        await server.mountRelay()
+        (await server.mountRelay()).isOkOr:
+          assert false, "Failed to mount relay"
         await server.mountFilter()
 
         # When connecting to the server
@@ -335,7 +336,8 @@ suite "Peer Manager":
           server2RemotePeerInfo = server2.switch.peerInfo.toRemotePeerInfo()
           server2PeerId = server2RemotePeerInfo.peerId
 
-        await server2.mountRelay()
+        (await server2.mountRelay()).isOkOr:
+          assert false, "Failed to mount relay"
 
         # When connecting to both servers
         await client.connectToNodes(@[serverRemotePeerInfo, server2RemotePeerInfo])
@@ -533,8 +535,10 @@ suite "Peer Manager":
       suite "Peer Connectivity States":
         asyncTest "State Tracking & Transition":
           # Given two correctly initialised nodes, but not connected
-          await server.mountRelay()
-          await client.mountRelay()
+          (await server.mountRelay()).isOkOr:
+            assert false, "Failed to mount relay"
+          (await client.mountRelay()).isOkOr:
+            assert false, "Failed to mount relay"
 
           # Then their connectedness should be NotConnected
           check:
@@ -587,8 +591,10 @@ suite "Peer Manager":
       suite "Automatic Reconnection":
         asyncTest "Automatic Reconnection Implementation":
           # Given two correctly initialised nodes, that are available for reconnection
-          await server.mountRelay()
-          await client.mountRelay()
+          (await server.mountRelay()).isOkOr:
+            assert false, "Failed to mount relay"
+          (await client.mountRelay()).isOkOr:
+            assert false, "Failed to mount relay"
           await client.connectToNodes(@[serverRemotePeerInfo])
 
           waitActive:
@@ -810,7 +816,8 @@ suite "Mount Order":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, listenIp, listenPort)
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.start()
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
@@ -834,7 +841,8 @@ suite "Mount Order":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, listenIp, listenPort)
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
@@ -859,7 +867,8 @@ suite "Mount Order":
       server = newTestWakuNode(serverKey, listenIp, listenPort)
 
     await server.start()
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
@@ -886,7 +895,8 @@ suite "Mount Order":
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     # When connecting to the server
     await client.connectToNodes(@[serverRemotePeerInfo])
@@ -910,7 +920,8 @@ suite "Mount Order":
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
     await server.start()
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     # When connecting to the server
     await client.connectToNodes(@[serverRemotePeerInfo])
@@ -932,7 +943,8 @@ suite "Mount Order":
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.start()
 
     # When connecting to the server

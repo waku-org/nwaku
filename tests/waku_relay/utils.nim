@@ -5,6 +5,7 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   chronos,
+  chronicles,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 
@@ -43,18 +44,12 @@ proc newTestWakuRelay*(switch = newTestSwitch()): Future[WakuRelay] {.async.} =
 proc setupRln*(node: WakuNode, identifier: uint) {.async.} =
   await node.mountRlnRelay(
     WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(identifier),
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $identifier),
-      rlnEpochSizeSec: 1,
+      dynamic: false,
+      credIndex: some(identifier),
+      treePath: genTempPath("rln_tree", "wakunode_" & $identifier),
+      epochSizeSec: 1,
     )
   )
-
-proc setupRelayWithRln*(
-    node: WakuNode, identifier: uint, shards: seq[RelayShard]
-) {.async.} =
-  await node.mountRelay(shards)
-  await setupRln(node, identifier)
 
 proc subscribeToContentTopicWithHandler*(
     node: WakuNode, contentTopic: string
@@ -66,7 +61,9 @@ proc subscribeToContentTopicWithHandler*(
     if topic == topic:
       completionFut.complete(true)
 
-  node.subscribe((kind: ContentSub, topic: contentTopic), some(relayHandler))
+  (node.subscribe((kind: ContentSub, topic: contentTopic), some(relayHandler))).isOkOr:
+    error "Failed to subscribe to content topic", error
+    completionFut.complete(true)
   return completionFut
 
 proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bool] =
@@ -77,7 +74,9 @@ proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bo
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+  (node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))).isOkOr:
+    error "Failed to subscribe to pubsub topic", error
+    completionFut.complete(false)
   return completionFut
 
 proc sendRlnMessage*(

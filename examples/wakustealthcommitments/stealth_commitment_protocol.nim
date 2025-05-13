@@ -187,5 +187,7 @@ proc new*(
       except CatchableError:
         error "could not handle SCP message: ", err = getCurrentExceptionMsg()
 
-  waku.node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
+  waku.node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler)).isOkOr:
+    error "could not subscribe to pubsub topic: ", err = $error
+    return err("could not subscribe to pubsub topic: " & $error)
   return ok(SCP)

@@ -54,7 +54,9 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
 
   await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
 
-  await testSetup.serviceNode.mountRelay()
+  (await testSetup.serviceNode.mountRelay()).isOkOr:
+    assert false, "Failed to mount relay: " & $error
+
   await testSetup.serviceNode.mountFilter(messageCacheTTL = 1.seconds)
   await testSetup.subscriberNode.mountFilterClient()
 
@@ -278,7 +280,8 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
     restFilterTest.messageCache.pubsubSubscribe(DefaultPubsubTopic)
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     # When
     var requestBody = FilterSubscribeRequest(
@@ -323,7 +326,8 @@ suite "Waku v2 Rest API - Filter V2":
     # setup filter service and client node
     let restFilterTest = await RestFilterTest.init()
     let subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     let requestBody = FilterSubscribeRequest(
       requestId: "1001",
@@ -394,7 +398,8 @@ suite "Waku v2 Rest API - Filter V2":
     # setup filter service and client node
     let restFilterTest = await RestFilterTest.init()
     let subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     let requestBody = FilterSubscribeRequest(
       requestId: "1001",

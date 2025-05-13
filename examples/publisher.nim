@@ -86,7 +86,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   )
 
   await node.start()
-  await node.mountRelay()
+  (await node.mountRelay()).isOkOr:
+    error "failed to mount relay", error = error
+    quit(1)
+
   node.peerManager.start()
 
   (await wakuDiscv5.start()).isOkOr:
