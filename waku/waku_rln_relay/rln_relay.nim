@@ -214,17 +214,20 @@ proc validateMessage*(
 
   # checks if the message's timestamp is within acceptable range
   # it corresponds to the validation of message timing
-  let currentTime = getNanosecondTime(getTime().toUnixFloat())
+  let currentTime = Timestamp(getTime().toUnixFloat())
 
   var timeDiff = uint64(currentTime - msg.timestamp)
 
-  trace "time info",
-    currentTime = currentTime, msgTime = msg.timestamp, timeDiff = timeDiff
+  debug "time info",
+    currentTime = currentTime,
+    msgTime = msg.timestamp,
+    timeDiff = timeDiff,
+    maxTimestampGap = rlnPeer.rlnMaxTimestampGap
 
   # validate the timestamp
   if timeDiff > rlnPeer.rlnMaxTimestampGap:
     # message's timestamp is too old or too far in the future
-    # accept messages whose timestamp is within +-MaxMessageTimestampVariance from current time
+    # accept messages whose timestamp is within rlnMaxTimestampGap
     warn "invalid message: timestamp difference exceeds threshold",
       timeDiff = timeDiff, payloadLen = msg.payload.len, msgTime = msg.timestamp
     waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
@@ -475,7 +478,7 @@ proc mount(
     nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
     rlnEpochSizeSec: conf.epochSizeSec,
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
-    rlnMaxTimestampGap: uint64(getNanoSecondTime(20)),
+    rlnMaxTimestampGap: uint64(20),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 
