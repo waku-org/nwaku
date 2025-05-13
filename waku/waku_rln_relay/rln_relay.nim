@@ -229,7 +229,7 @@ proc validateMessage*(
     # message's timestamp is too old or too far in the future
     # accept messages whose timestamp is within rlnMaxTimestampGap
     warn "invalid message: timestamp difference exceeds threshold",
-      timeDiff = timeDiff, payloadLen = msg.payload.len, msgTime = msg.timestamp
+      payloadLen = msg.payload.len
     waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
     return MessageValidationResult.Invalid
 
@@ -478,7 +478,7 @@ proc mount(
     nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
     rlnEpochSizeSec: conf.epochSizeSec,
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
-    rlnMaxTimestampGap: uint64(20),
+    rlnMaxTimestampGap: uint64(MaxTimestampGapSeconds),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 
