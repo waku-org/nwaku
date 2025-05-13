@@ -93,6 +93,7 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   rlnEpochSizeSec*: uint64
+  rlnMaxTimestampGap*: uint64
   rlnMaxEpochGap*: uint64
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
@@ -211,25 +212,22 @@ proc validateMessage*(
   # track message count for metrics
   waku_rln_messages_total.inc()
 
-  # checks if the `msg`'s epoch is far from the current epoch
-  # it corresponds to the validation of rln external nullifier
-  # get current rln epoch
-  let epoch: Epoch = rlnPeer.getCurrentEpoch()
+  # checks if the message's timestamp is within acceptable range
+  # it corresponds to the validation of message timing
+  let currentTime = getNanosecondTime(getTime().toUnixFloat())
 
-  let
-    msgEpoch = proof.epoch
-    # calculate the gaps
-    gap = absDiff(epoch, msgEpoch)
+  var timeDiff = uint64(currentTime - msg.timestamp)
 
-  trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
+  trace "time info",
+    currentTime = currentTime, msgTime = msg.timestamp, timeDiff = timeDiff
 
-  # validate the epoch
-  if gap > rlnPeer.rlnMaxEpochGap:
-    # message's epoch is too old or too ahead
-    # accept messages whose epoch is within +-MaxEpochGap from the current epoch
-    warn "invalid message: epoch gap exceeds a threshold",
-      gap = gap, payloadLen = msg.payload.len, msgEpoch = fromEpoch(proof.epoch)
-    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_epoch"])
+  # validate the timestamp
+  if timeDiff > rlnPeer.rlnMaxTimestampGap:
+    # message's timestamp is too old or too far in the future
+    # accept messages whose timestamp is within +-MaxMessageTimestampVariance from current time
+    warn "invalid message: timestamp difference exceeds threshold",
+      timeDiff = timeDiff, payloadLen = msg.payload.len, msgTime = msg.timestamp
+    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
     return MessageValidationResult.Invalid
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
@@ -265,6 +263,8 @@ proc validateMessage*(
   if proofMetadataRes.isErr():
     waku_rln_errors_total.inc(labelValues = ["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
+
+  let msgEpoch = proof.epoch
   let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues = ["duplicate_check"])
@@ -475,6 +475,7 @@ proc mount(
     nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
     rlnEpochSizeSec: conf.epochSizeSec,
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
+    rlnMaxTimestampGap: uint64(getNanoSecondTime(20)),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 
