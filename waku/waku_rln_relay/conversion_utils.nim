@@ -27,9 +27,6 @@ proc inHex*(
     valueHex = "0" & valueHex
   return toLowerAscii(valueHex)
 
-proc toUserMessageLimit*(v: UInt256): UserMessageLimit =
-  return cast[UserMessageLimit](v)
-
 proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
   ## with the following format [len<8>|input<var>]
@@ -77,6 +74,31 @@ proc serialize*(
     lenPrefMsg,
   )
   return output
+
+proc serialize*(witness: RLNWitnessInput): seq[byte] =
+  ## Serializes the RLN witness into a byte array following zerokit's expected format.
+  ## The serialized format includes:
+  ## - identity_secret (32 bytes, little-endian with zero padding)
+  ## - user_message_limit (32 bytes, little-endian with zero padding)
+  ## - message_id (32 bytes, little-endian with zero padding)
+  ## - merkle tree depth (8 bytes, little-endian) = path_elements.len / 32
+  ## - path_elements (each 32 bytes, ordered bottom-to-top)
+  ## - merkle tree depth again (8 bytes, little-endian)
+  ## - identity_path_index (sequence of bits as bytes, 0 = left, 1 = right)
+  ## - x (32 bytes, little-endian with zero padding)
+  ## - external_nullifier (32 bytes, little-endian with zero padding)
+  var buffer: seq[byte]
+  buffer.add(@(witness.identity_secret))
+  buffer.add(@(witness.user_message_limit))
+  buffer.add(@(witness.message_id))
+  buffer.add(toBytes(uint64(witness.path_elements.len / 32), Endianness.littleEndian))
+  for element in witness.path_elements:
+    buffer.add(element)
+  buffer.add(toBytes(uint64(witness.path_elements.len / 32), Endianness.littleEndian))
+  buffer.add(witness.identity_path_index)
+  buffer.add(@(witness.x))
+  buffer.add(@(witness.external_nullifier))
+  return buffer
 
 proc serialize*(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and data to a byte seq
@@ -133,3 +155,25 @@ func `+`*(a, b: Quantity): Quantity {.borrow.}
 
 func u256*(n: Quantity): UInt256 {.inline.} =
   n.uint64.stuint(256)
+
+proc uint64ToField*(n: uint64): array[32, byte] =
+  var output: array[32, byte]
+  let bytes = toBytes(n, Endianness.littleEndian)
+  output[0 ..< bytes.len] = bytes
+  return output
+
+proc UInt256ToField*(v: UInt256): array[32, byte] =
+  return cast[array[32, byte]](v) # already doesn't use `result`
+
+proc seqToField*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[i]
+  return output
+
+proc uint64ToIndex*(index: MembershipIndex, depth: int): seq[byte] =
+  var output = newSeq[byte](depth)
+  for i in 0 ..< depth:
+    output[i] = byte((index shr i) and 1) # LSB-first bit decomposition
+  return output

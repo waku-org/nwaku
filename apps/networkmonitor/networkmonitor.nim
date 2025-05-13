@@ -462,7 +462,7 @@ proc initAndStartApp(
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
-  nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
+  nodeBuilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
 
   nodeBuilder.withPeerManagerConfig(
     maxConnections = MaxConnectedPeers,
@@ -554,7 +554,9 @@ proc subscribeAndHandleMessages(
     else:
       msgPerContentTopic[msg.contentTopic] = 1
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler)))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler))).isOkOr:
+    error "failed to subscribe to pubsub topic", pubsubTopic, error
+    quit(1)
 
 when isMainModule:
   # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -619,7 +621,10 @@ when isMainModule:
 
   let (node, discv5) = nodeRes.get()
 
-  waitFor node.mountRelay()
+  (waitFor node.mountRelay()).isOkOr:
+    error "failed to mount waku relay protocol: ", err = error
+    quit 1
+
   waitFor node.mountLibp2pPing()
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
@@ -630,14 +635,13 @@ when isMainModule:
 
   if conf.rlnRelay and conf.rlnRelayEthContractAddress != "":
     let rlnConf = WakuRlnConfig(
-      rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: some(uint(0)),
-      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-      rlnRelayCredPath: "",
-      rlnRelayCredPassword: "",
-      rlnRelayTreePath: conf.rlnRelayTreePath,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      dynamic: conf.rlnRelayDynamic,
+      credIndex: some(uint(0)),
+      ethContractAddress: conf.rlnRelayEthContractAddress,
+      ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
+      treePath: conf.rlnRelayTreePath,
+      epochSizeSec: conf.rlnEpochSizeSec,
+      creds: none(RlnRelayCreds),
       onFatalErrorAction: onFatalErrorAction,
     )
 

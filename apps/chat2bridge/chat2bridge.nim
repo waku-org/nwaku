@@ -215,7 +215,10 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Always mount relay for bridge
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  await cmb.nodev2.mountRelay()
+  (await cmb.nodev2.mountRelay()).isOkOr:
+    error "failed to mount relay", error = error
+    return
+
   cmb.nodev2.wakuRelay.triggerSelf = false
 
   # Bridging
@@ -229,7 +232,9 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     except:
       error "exception in relayHandler: " & getCurrentExceptionMsg()
 
-  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+    error "failed to subscribe to relay", topic = DefaultPubsubTopic, error = error
+    return
 
 proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
   info "Stopping Chat2MatterBridge"

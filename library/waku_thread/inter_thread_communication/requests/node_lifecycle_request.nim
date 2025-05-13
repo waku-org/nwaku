@@ -72,7 +72,11 @@ proc createWaku(
     appCallbacks.relayHandler = nil
     appCallbacks.topicHealthChangeHandler = nil
 
-  let wakuRes = Waku.new(conf, appCallbacks).valueOr:
+  # TODO: Convert `confJson` directly to `WakuConf`
+  let wakuConf = conf.toWakuConf().valueOr:
+    return err("Configuration error: " & $error)
+
+  let wakuRes = Waku.new(wakuConf, appCallbacks).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 

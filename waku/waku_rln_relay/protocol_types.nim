@@ -52,6 +52,20 @@ type RateLimitProof* = object
   ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
   externalNullifier*: ExternalNullifier
 
+type UInt40* = StUint[40]
+type UInt32* = StUint[32]
+
+type
+  Field = array[32, byte] # Field element representation (256 bits)
+  RLNWitnessInput* = object
+    identity_secret*: Field
+    user_message_limit*: Field
+    message_id*: Field
+    path_elements*: seq[byte]
+    identity_path_index*: seq[byte]
+    x*: Field
+    external_nullifier*: Field
+
 type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode
