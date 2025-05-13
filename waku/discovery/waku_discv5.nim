@@ -134,13 +134,13 @@ proc updateENRShards(
 ): Result[void, string] =
   ## Add or remove shards from the Discv5 ENR
   let newShardOp = topicsToRelayShards(newTopics).valueOr:
-    return err("ENR update failed: " & error)
+    return err("ENR update failed topicsToRelayShards: " & error)
 
   let newShard = newShardOp.valueOr:
     return ok()
 
   let typedRecord = wd.protocol.localNode.record.toTyped().valueOr:
-    return err("ENR update failed: " & $error)
+    return err("ENR update failed toTyped: " & $error)
 
   let currentShardsOp = typedRecord.relaySharding()
 
@@ -149,17 +149,17 @@ proc updateENRShards(
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR update failed: clusterId id mismatch")
+        return err("ENR update failed: clusterId id mismatch in add")
 
       RelayShards.init(
         currentShard.clusterId, currentShard.shardIds & newShard.shardIds
       ).valueOr:
-        return err("ENR update failed: " & error)
+        return err("ENR update failed RelayShards.init in add: " & error)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR update failed: clusterId id mismatch")
+        return err("ENR update failed: clusterId id mismatch in not add")
 
       let currentSet = toHashSet(currentShard.shardIds)
       let newSet = toHashSet(newShard.shardIds)
@@ -170,7 +170,7 @@ proc updateENRShards(
         return err("ENR update failed: cannot remove all shards")
 
       RelayShards.init(currentShard.clusterId, indices).valueOr:
-        return err("ENR update failed: " & error)
+        return err("ENR update failed RelayShards.init in not add: " & error)
     elif add and currentShardsOp.isNone():
       newShard
     else:
@@ -181,12 +181,12 @@ proc updateENRShards(
       (ShardingBitVectorEnrField, resultShard.toBitVector())
     else:
       let list = resultShard.toIndicesList().valueOr:
-        return err("ENR update failed: " & $error)
+        return err("ENR update failed toIndicesList: " & $error)
 
       (ShardingIndicesListEnrField, list)
 
   wd.protocol.updateRecord([(field, value)]).isOkOr:
-    return err("ENR update failed: " & $error)
+    return err("ENR update failed updateRecord: " & $error)
 
   return ok()
 

@@ -164,7 +164,7 @@ proc logConf*(conf: WakuConf) =
 
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   wakuConf.nodeKey.getPublicKey().isOkOr:
-    return err("Node key is invalid")
+    return err("nodekey param is invalid")
   return ok()
 
 proc validateShards(wakuConf: WakuConf): Result[void, string] =
@@ -187,58 +187,52 @@ proc validateShards(wakuConf: WakuConf): Result[void, string] =
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
   if wakuConf.networkConf.dns4DomainName.isSome() and
       isEmptyOrWhiteSpace(wakuConf.networkConf.dns4DomainName.get().string):
-    return err("dns4DomainName is an empty string, set it to none(string) instead")
+    return err("dns4-domain-name is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):
-    return err("relayServiceRatio is an empty string")
+    return err("relay-service-ratio is an empty string")
 
   for sn in wakuConf.staticNodes:
     if isEmptyOrWhiteSpace(sn):
-      return err("staticNodes contain an empty string")
+      return err("staticnode contain an empty string")
 
   if wakuConf.remoteStoreNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteStoreNode.get()):
-    return err("remoteStoreNode is an empty string, set it to none(string) instead")
+    return err("storenode is an empty string, set it to none(string) instead")
 
   if wakuConf.remoteLightPushNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteLightPushNode.get()):
-    return err("remoteLightPushNode is an empty string, set it to none(string) instead")
+    return err("lightpushnode is an empty string, set it to none(string) instead")
 
   if wakuConf.remotePeerExchangeNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remotePeerExchangeNode.get()):
-    return
-      err("remotePeerExchangeNode is an empty string, set it to none(string) instead")
+    return err("peer-exchange-node is an empty string, set it to none(string) instead")
 
   if wakuConf.remoteFilterNode.isSome() and
       isEmptyOrWhiteSpace(wakuConf.remoteFilterNode.get()):
-    return
-      err("remotePeerExchangeNode is an empty string, set it to none(string) instead")
+    return err("filternode is an empty string, set it to none(string) instead")
 
   if wakuConf.dnsDiscoveryConf.isSome() and
       isEmptyOrWhiteSpace(wakuConf.dnsDiscoveryConf.get().enrTreeUrl):
-    return err("dnsDiscoveryConf.enrTreeUrl is an empty string")
+    return err("dns-discovery-url is an empty string")
 
   # TODO: rln relay config should validate itself
   if wakuConf.rlnRelayConf.isSome():
     let rlnRelayConf = wakuConf.rlnRelayConf.get()
 
     if isEmptyOrWhiteSpace(rlnRelayConf.treePath):
-      return err("rlnRelayConf.treepath is an empty string")
+      return err("rln-relay-tree-path is an empty string")
     if rlnRelayConf.ethClientUrls.len == 0:
-      return err("rlnRelayConf.ethClientUrls is empty")
+      return err("rln-relay-eth-client-address is empty")
     if isEmptyOrWhiteSpace(rlnRelayConf.ethContractAddress):
-      return err("rlnRelayConf.ethContractAddress is an empty string")
+      return err("rln-relay-eth-contract-address is an empty string")
 
     if rlnRelayConf.creds.isSome():
       let creds = rlnRelayConf.creds.get()
       if isEmptyOrWhiteSpace(creds.path):
-        return err (
-          "rlnRelayConf.creds.path is an empty string, set rlnRelayConf.creds it to none instead"
-        )
+        return err ("rln-relay-cred-path is an empty string")
       if isEmptyOrWhiteSpace(creds.password):
-        return err (
-          "rlnRelayConf.creds.password is an empty string, set rlnRelayConf.creds to none instead"
-        )
+        return err ("rln-relay-cred-password is an empty string")
 
   return ok()
 

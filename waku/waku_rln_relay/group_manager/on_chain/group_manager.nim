@@ -335,9 +335,6 @@ method generateProof*(
   let message_id = uint64ToField(messageId)
   var path_elements = newSeq[byte](0)
 
-  if (g.merkleProofCache.len mod 32) != 0:
-    return err("Invalid merkle proof cache length")
-
   let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
   for i in 0 ..< g.merkleProofCache.len div 32:
     let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]

@@ -177,7 +177,7 @@ proc new*(
   var deliveryMonitor: DeliveryMonitor
   if wakuConf.p2pReliability:
     if wakuConf.remoteStoreNode.isNone():
-      return err("A remoteStoreNode should be set when reliability mode is on")
+      return err("A storenode should be set when reliability mode is on")
 
     let deliveryMonitorRes = DeliveryMonitor.new(
       node.wakuStoreClient, node.wakuRelay, node.wakuLightpushClient,
@@ -222,7 +222,7 @@ proc getPorts(
 proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
   var conf = waku[].conf
   let (tcpPort, websocketPort) = getPorts(waku[].node.switch.peerInfo.listenAddrs).valueOr:
-    return err("Could not retrieve ports " & error)
+    return err("Could not retrieve ports: " & error)
 
   if tcpPort.isSome():
     conf.networkConf.p2pTcpPort = tcpPort.get()
@@ -246,7 +246,7 @@ proc updateEnr(waku: ptr Waku): Result[void, string] =
     return err("ENR setup failed: " & error)
 
   if isClusterMismatched(record, waku[].conf.clusterId):
-    return err("cluster id mismatch configured shards")
+    return err("cluster-id mismatch configured shards")
 
   waku[].node.enr = record
 
