@@ -593,7 +593,32 @@ suite "Waku Sync: reconciliation":
 
     check remoteNeeds.len == 1
     let (_, neededHash) = await remoteNeeds.get()
-    check neededHash == h   
+    check neededHash == h
+
+  asyncTest "sync terminates immediately when no diffs exist":
+   
+     let ts = Timestamp(getNowInNanosecondTime())
+     let msg  = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
+     let hash = computeMessageHash(DefaultPubsubTopic, msg)
+
+     server.messageIngress(hash, msg)   
+     client.messageIngress(hash, msg)   
+
+     let idsQ   = newAsyncQueue[SyncID]()
+     let wantsQ = newAsyncQueue[PeerId]()
+     let needsQ = newAsyncQueue[(PeerId, Fingerprint)]()
+
+     server = await newTestWakuRecon(serverSwitch, idsQ, wantsQ, needsQ)
+     client = await newTestWakuRecon(clientSwitch, idsQ, wantsQ, needsQ)
+
+     defer:
+          server.stop()
+          client.stop()
+
+     let res = await client.storeSynchronization(some(serverPeerInfo))
+     assert res.isOk(), $res.error      
+
+     check needsQ.len == 0            
 
 suite "Waku Sync: transfer":
   var
