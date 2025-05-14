@@ -10,6 +10,7 @@ import
   json,
   web3/eth_api_types,
   eth/keys,
+  stint,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   results,
@@ -44,7 +45,7 @@ type RlnRelayConf* = object of RootObj
   credIndex*: Option[uint]
   ethContractAddress*: string
   ethClientUrls*: seq[string]
-  chainId*: uint
+  chainId*: UInt256
   creds*: Option[RlnRelayCreds]
   treePath*: string
   epochSizeSec*: uint64

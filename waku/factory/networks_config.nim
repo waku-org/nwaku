@@ -1,5 +1,7 @@
 {.push raises: [].}
 
+import stint
+
 # TODO: Rename this type to match file name
 
 type ClusterConf* = object
