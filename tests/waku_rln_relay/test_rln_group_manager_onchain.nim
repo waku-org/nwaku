@@ -48,7 +48,7 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      manager.rlnRelayMaxMessageLimit == 100
+      manager.rlnRelayMaxMessageLimit == 600
 
   asyncTest "should error on initialization when chainId does not match":
     manager.chainId = utils_onchain.CHAIN_ID + 1
@@ -75,11 +75,11 @@ suite "Onchain group manager":
     assert metadataOpt.isSome(), "metadata is not set"
     let metadata = metadataOpt.get()
 
-    assert metadata.chainId == 1337, "chainId is not equal to 1337"
+    assert metadata.chainId == 1234, "chainId is not equal to 1234"
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
 
-    let differentContractAddress = await uploadRLNContract(manager.ethClientUrls[0])
+    let differentContractAddress = await executeForgeContractDeployScripts(manager.ethClientUrls[0])
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
