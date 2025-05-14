@@ -104,6 +104,7 @@ type WakuRLNRelay* = ref object of RootObj
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and returns its corresponding rln `Epoch` value
+
   let e = uint64(t / rlnPeer.rlnEpochSizeSec.float64)
   return toEpoch(e)
 
@@ -213,24 +214,30 @@ proc validateMessage*(
   waku_rln_messages_total.inc()
 
   # checks if the message's timestamp is within acceptable range
-  # it corresponds to the validation of message timing
   let currentTime = Timestamp(getTime().toUnixFloat())
 
   var timeDiff = uint64(currentTime - msg.timestamp)
 
-  debug "time info",
-    currentTime = currentTime,
-    msgTime = msg.timestamp,
-    timeDiff = timeDiff,
-    maxTimestampGap = rlnPeer.rlnMaxTimestampGap
+  debug "time info", currentTime = currentTime, messageTime = msg.timestamp
 
-  # validate the timestamp
+  if msg.timestamp > currentTime:
+    warn "invalid message: timestamp is in the future", payloadLen = msg.payload.len
+    waku_rln_invalid_messages_total.inc(labelValues = ["future_timestamp"])
+    return MessageValidationResult.Invalid
+
   if timeDiff > rlnPeer.rlnMaxTimestampGap:
-    # message's timestamp is too old or too far in the future
-    # accept messages whose timestamp is within rlnMaxTimestampGap
     warn "invalid message: timestamp difference exceeds threshold",
-      payloadLen = msg.payload.len
+      payloadLen = msg.payload.len,
+      timeDiff = timeDiff,
+      maxTimestampGap = rlnPeer.rlnMaxTimestampGap
     waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
+    return MessageValidationResult.Invalid
+
+  let computedEpoch = rlnPeer.calcEpoch(msg.timestamp.float64)
+  if proof.epoch != computedEpoch:
+    warn "invalid message: epoch mismatch",
+      proofEpoch = fromEpoch(proof.epoch), computedEpoch = fromEpoch(computedEpoch)
+    waku_rln_invalid_messages_total.inc(labelValues = ["epoch_mismatch"])
     return MessageValidationResult.Invalid
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
@@ -243,8 +250,9 @@ proc validateMessage*(
 
   # verify the proof
   let
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(msg.contentTopic)
+    timestampBytes = toBytes(msg.timestamp.uint64)
+    input = concat(msg.payload, contentTopicBytes, @(timestampBytes))
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
@@ -309,9 +317,11 @@ proc validateMessageAndUpdateLog*(
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
   ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+
   let
-    contentTopicBytes = wakumessage.contentTopic.toBytes()
-    output = concat(wakumessage.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(wakumessage.contentTopic)
+    timestampBytes = toBytes(wakumessage.timestamp.uint64)
+    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
   return output
 
 proc appendRLNProof*(
@@ -321,6 +331,9 @@ proc appendRLNProof*(
   ## returns false otherwise
   ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
   ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
+
+  # need to update the timestamp to the sender's timestamp bcz now we are using the sender's timestamp to generate the proof
+  msg.timestamp = senderEpochTime.int64
 
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)

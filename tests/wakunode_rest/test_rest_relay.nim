@@ -312,32 +312,12 @@ suite "Waku v2 Rest API - Relay":
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
-    # Test Case 1: 4 second wait (validation should fail bcz of timestamp gap)
-    block:
-      let msg = RelayWakuMessage(
-        payload: base64.encode("TEST-PAYLOAD-5s"),
-        contentTopic: some(DefaultContentTopic),
-        timestamp: some(Timestamp(getTime().toUnixFloat())),
-      )
-
-      await sleepAsync(4000) # Wait 4 seconds
-
-      let response = await client.relayPostMessagesV1(DefaultPubsubTopic, msg)
-
-      # Then
-      check:
-        response.status == 400
-        response.data.len == 40
-
-    # Test Case 2: 1 second wait (validation should pass)
     block:
       let msg = RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD-2s"),
         contentTopic: some(DefaultContentTopic),
         timestamp: some(Timestamp(getTime().toUnixFloat())),
       )
-
-      await sleepAsync(1000) # Wait 1 seconds
 
       let response = await client.relayPostMessagesV1(DefaultPubsubTopic, msg)
 
