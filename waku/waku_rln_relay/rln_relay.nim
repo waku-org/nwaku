@@ -414,9 +414,12 @@ proc generateRlnValidator*(
 proc monitorEpochs(wakuRlnRelay: WakuRLNRelay) {.async.} =
   while true:
     try:
-      waku_rln_remaining_proofs_per_epoch.set(
-        wakuRlnRelay.groupManager.userMessageLimit.get().float64
-      )
+      if wakuRlnRelay.groupManager.userMessageLimit.isSome():
+        waku_rln_remaining_proofs_per_epoch.set(
+          wakuRlnRelay.groupManager.userMessageLimit.get().float64
+        )
+      else:
+        error "userMessageLimit is not set in monitorEpochs"
     except CatchableError:
       error "Error in epoch monitoring", error = getCurrentExceptionMsg()
 
@@ -455,6 +458,7 @@ proc mount(
         (none(string), none(string))
 
     groupManager = OnchainGroupManager(
+      userMessageLimit: some(conf.userMessageLimit),
       ethClientUrls: conf.ethClientUrls,
       ethContractAddress: $conf.ethContractAddress,
       chainId: conf.chainId,
