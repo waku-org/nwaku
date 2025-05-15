@@ -3,7 +3,6 @@
 import
   os,
   std/[options, tables],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   # chronos/timer,

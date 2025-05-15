@@ -11,7 +11,6 @@ import
   confutils,
   chronicles,
   chronos,
-  stew/shims/net as stewNet,
   eth/keys,
   bearssl,
   stew/[byteutils, results],

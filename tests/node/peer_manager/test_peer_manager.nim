@@ -1,7 +1,6 @@
 import
   chronicles,
   std/[options, tables, strutils],
-  stew/shims/net,
   chronos,
   testutils/unittests
 

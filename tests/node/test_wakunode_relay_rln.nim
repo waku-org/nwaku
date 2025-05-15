@@ -2,7 +2,6 @@
 
 import
   std/[tempfiles, strutils, options],
-  stew/shims/net as stewNet,
   stew/results,
   testutils/unittests,
   chronos,

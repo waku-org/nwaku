@@ -2,7 +2,6 @@ import
   std/[strutils, sequtils, tables],
   confutils,
   chronos,
-  stew/shims/net,
   chronicles/topics_registry,
   os
 import

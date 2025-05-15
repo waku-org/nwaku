@@ -3,7 +3,6 @@
 import
   std/[options, os, sequtils, times, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,

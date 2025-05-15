@@ -2,7 +2,6 @@
 
 import
   std/[sequtils, times, sugar, net],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   json_rpc/rpcserver,

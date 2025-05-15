@@ -4,13 +4,11 @@ import
   std/[options, sequtils, tempfiles],
   testutils/unittests,
   chronos,
-  chronicles,
-  stew/shims/net as stewNet
+  chronicles
 
 import
   std/[sequtils, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/switch,

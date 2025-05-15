@@ -3,7 +3,6 @@
 import
   std/[sequtils, strformat, tempfiles],
   stew/byteutils,
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
