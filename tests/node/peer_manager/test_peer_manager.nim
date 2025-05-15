@@ -1,8 +1,4 @@
-import
-  chronicles,
-  std/[options, tables, strutils],
-  chronos,
-  testutils/unittests
+import chronicles, std/[options, tables, strutils], chronos, testutils/unittests
 
 import
   waku/node/waku_node,
@@ -22,7 +18,7 @@ suite "Peer Manager":
 
     asyncSetup:
       listenPort = Port(0)
-      listenAddress = ValidIpAddress.init("0.0.0.0")
+      listenAddress = parseIpAddress("0.0.0.0")
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
       clusterId = 1

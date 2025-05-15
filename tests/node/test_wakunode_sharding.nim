@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/[options, sequtils, tempfiles],
-  testutils/unittests,
-  chronos,
-  chronicles
+import std/[options, sequtils, tempfiles], testutils/unittests, chronos, chronicles
 
 import
   std/[sequtils, tempfiles],
@@ -33,7 +29,7 @@ import
 import waku_relay/protocol
 
 const
-  listenIp = ValidIpAddress.init("0.0.0.0")
+  listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
 
 suite "Sharding":
