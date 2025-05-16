@@ -128,7 +128,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
 
     trace "sending transfer message",
-      local = self.peerManager.switch.peerInfo.peerId, remote = peerId, msg = msg
+      my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId, msg = msg
 
     (await sendMessage(connection, msg)).isOkOr:
       self.outSessions.del(peerId)
