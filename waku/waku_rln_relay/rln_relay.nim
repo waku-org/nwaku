@@ -218,7 +218,8 @@ proc validateMessage*(
 
   var timeDiff = uint64(currentTime - msg.timestamp)
 
-  debug "time info", currentTime = currentTime, messageTime = msg.timestamp
+  debug "time info",
+    currentTime = currentTime, messageTime = msg.timestamp, msgHash = msg.hash
 
   if msg.timestamp > currentTime:
     warn "invalid message: timestamp is in the future", payloadLen = msg.payload.len
@@ -227,9 +228,7 @@ proc validateMessage*(
 
   if timeDiff > rlnPeer.rlnMaxTimestampGap:
     warn "invalid message: timestamp difference exceeds threshold",
-      payloadLen = msg.payload.len,
-      timeDiff = timeDiff,
-      maxTimestampGap = rlnPeer.rlnMaxTimestampGap
+      timeDiff = timeDiff, maxTimestampGap = rlnPeer.rlnMaxTimestampGap
     waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
     return MessageValidationResult.Invalid
 

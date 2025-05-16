@@ -11,6 +11,9 @@ proc unsafeAppendRLNProof*(
   ## this proc derived from appendRLNProof, does not perform nonce check to
   ## facilitate bad message id generation for testing
 
+  # need to update the timestamp to the sender's timestamp bcz now we are using the sender's timestamp to generate the proof
+  msg.timestamp = senderEpochTime.int64
+
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
 

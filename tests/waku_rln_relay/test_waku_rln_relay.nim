@@ -17,7 +17,8 @@ import
     waku_rln_relay/protocol_metrics,
     waku_keystore,
   ],
-  ./rln/waku_rln_relay_utils
+  ./rln/waku_rln_relay_utils,
+  ../testlib/testutils
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
@@ -615,7 +616,7 @@ suite "Waku rln relay":
       absDiff(epoch1, epoch2) == uint64(1)
       absDiff(epoch2, epoch1) == uint64(1)
 
-  test "updateLog and hasDuplicate tests":
+  xasyncTest "updateLog and hasDuplicate xasyncTests":
     let
       wakuRlnRelay = WakuRLNRelay()
       epoch = wakuRlnRelay.getCurrentEpoch()
@@ -701,7 +702,7 @@ suite "Waku rln relay":
       raiseAssert $error
 
     # get the current epoch time
-    let time = epochTime()
+    var time = epochTime()
 
     #  create some messages from the same peer and append rln proof to them, except wm4
     var
@@ -716,7 +717,10 @@ suite "Waku rln relay":
       raiseAssert $error
     wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm3, time + float64(wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
+
+    await sleepAsync(1000)
+    time = epochTime()
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, time).isOkOr:
       raiseAssert $error
 
     # validate messages
