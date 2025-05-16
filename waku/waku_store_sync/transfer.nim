@@ -132,9 +132,9 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
 proc initProtocolHandler(self: SyncTransfer) =
   let handler = proc(conn: Connection, proto: string) {.async, closure.} =
     while true:
-      if not self.inSessions.contains(conn.peerId):
-        error "unwanted peer, disconnecting", remote = conn.peerId
-        break
+      # if not self.inSessions.contains(conn.peerId):
+      #   error "unwanted peer, disconnecting", remote = conn.peerId
+      #   break
 
       let readRes = catch:
         await conn.readLp(int64(DefaultMaxWakuMessageSize))
