@@ -102,7 +102,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       self.outSessions[peerId].isClosedRemotely: ## quite possibly remote end has closed the connection, believing transfer to be done
       
       debug "opening transfer connection to remote peer",
-        local = self.peerManager.switch.peerInfo.peerId, remote = peerId
+        my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId
       
       let connection = (await self.openConnection(peerId)).valueOr:
         error "failed to establish transfer connection", error = error
