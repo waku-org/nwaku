@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strformat, tempfiles],
+  std/[sequtils, strformat, tempfiles, times],
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
@@ -23,6 +23,7 @@ import
     waku_relay,
     waku_rln_relay,
   ],
+  ../testlib/testutils,
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../resources/payloads
@@ -260,7 +261,7 @@ suite "Waku v2 Rest API - Relay":
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
       ),
     )
 
@@ -269,6 +270,61 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()
+
+  asyncTest "Test timestamp of messages":
+    ## "Relay API: publish and subscribe/unsubscribe":
+    # Given
+    let node = testWakuNode()
+    await node.start()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    let wakuRlnConfig = WakuRlnConfig(
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 20,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode_1"),
+    )
+
+    await node.mountRlnRelay(wakuRlnConfig)
+    node.wakuRlnRelay.rlnMaxTimestampGap = 3 # just to make sure the test become faster 
+
+    # RPC server setup
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
+
+    let cache = MessageCache.init()
+
+    installRelayApiHandlers(restServer.router, node, cache)
+    restServer.start()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic"
+    require:
+      toSeq(node.wakuRelay.subscribedTopics).len == 1
+
+    block:
+      let msg = RelayWakuMessage(
+        payload: base64.encode("TEST-PAYLOAD-2s"),
+        contentTopic: some(DefaultContentTopic),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
+      )
+
+      let response = await client.relayPostMessagesV1(DefaultPubsubTopic, msg)
+
+      # Then
+      check:
+        response.status == 200
+        response.data == "OK"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -488,7 +544,7 @@ suite "Waku v2 Rest API - Relay":
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
       )
     )
 
@@ -538,7 +594,7 @@ suite "Waku v2 Rest API - Relay":
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
         contentTopic: some(invalidContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
       )
     )
 
@@ -596,7 +652,7 @@ suite "Waku v2 Rest API - Relay":
         payload: base64.encode(getByteSequence(DefaultMaxWakuMessageSize)),
           # Message will be bigger than the max size
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
       ),
     )
 
@@ -652,7 +708,7 @@ suite "Waku v2 Rest API - Relay":
         payload: base64.encode(getByteSequence(DefaultMaxWakuMessageSize)),
           # Message will be bigger than the max size
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(Timestamp(getTime().toUnixFloat())),
       )
     )
 

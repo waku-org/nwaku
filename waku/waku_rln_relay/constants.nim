@@ -60058,7 +60058,10 @@ else:
 const StaticGroupMerkleRoot* =
   "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
 
-const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in seconds
+# the maximum clock difference between peers in seconds
+const MaxClockGapSeconds* = 20.0
+# the maximum timestamp difference between the message and the current time
+const MaxTimestampGapSeconds* = 20.0
 
 # RLN Keystore defaults
 const RLNAppInfo* = AppInfo(
