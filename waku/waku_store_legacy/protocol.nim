@@ -110,7 +110,7 @@ proc initProtocolHandler(ws: WakuStore) =
     ),
   ).encode().buffer
 
-  proc handler(conn: Connection, proto: string) {.async, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: StoreResp
     var queryDuration: float
@@ -127,7 +127,13 @@ proc initProtocolHandler(ws: WakuStore) =
       )
 
       let queryStartTime = getTime().toUnixFloat()
-      resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
+      try:
+        resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
+      except CatchableError:
+        error "legacy store query handler failed",
+          remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
+        return
+
       queryDuration = getTime().toUnixFloat() - queryStartTime
       waku_legacy_store_time_seconds.set(queryDuration, ["query-db-time"])
       successfulQuery = true

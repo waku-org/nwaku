@@ -4,6 +4,7 @@ import
   options,
   eth/keys,
   stew/[arrayops, byteutils, endians2],
+  stint,
   results,
   std/[sequtils, strutils, tables]
 
@@ -410,7 +411,7 @@ proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
 
 type RlnMetadata* = object
   lastProcessedBlock*: uint64
-  chainId*: uint64
+  chainId*: UInt256
   contractAddress*: string
   validRoots*: seq[MerkleNode]
 
@@ -419,7 +420,7 @@ proc serialize(metadata: RlnMetadata): seq[byte] =
   ## returns the serialized metadata
   return concat(
     @(metadata.lastProcessedBlock.toBytes()),
-    @(metadata.chainId.toBytes()),
+    @(metadata.chainId.toBytes(Endianness.bigEndian)),
     @(hexToSeqByte(toLower(metadata.contractAddress))),
     @(uint64(metadata.validRoots.len()).toBytes()),
     @(serialize(metadata.validRoots)),
@@ -489,7 +490,7 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
 
   var
     lastProcessedBlock: uint64
-    chainId: uint64
+    chainId: UInt256
     contractAddress: string
     validRoots: MerkleNodeSeq
 
@@ -500,7 +501,9 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
 
   lastProcessedBlock =
     uint64.fromBytes(metadataBytes[lastProcessedBlockOffset .. chainIdOffset - 1])
-  chainId = uint64.fromBytes(metadataBytes[chainIdOffset .. contractAddressOffset - 1])
+  chainId = UInt256.fromBytes(
+    metadataBytes[chainIdOffset .. contractAddressOffset - 1], Endianness.bigEndian
+  )
   contractAddress =
     byteutils.toHex(metadataBytes[contractAddressOffset .. validRootsOffset - 1])
   let validRootsBytes = metadataBytes[validRootsOffset .. metadataBytes.high]
