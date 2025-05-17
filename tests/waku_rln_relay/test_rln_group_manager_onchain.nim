@@ -57,7 +57,7 @@ suite "Onchain group manager":
       raiseAssert "Expected error when chainId does not match"
 
   asyncTest "should initialize when chainId is set to 0":
-    manager.chainId = 0
+    manager.chainId = 0x0'u256
 
     (await manager.init()).isOkOr:
       raiseAssert $error

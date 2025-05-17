@@ -26,8 +26,11 @@ proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
 proc withEnabled*(b: var RlnRelayConfBuilder, enabled: bool) =
   b.enabled = some(enabled)
 
-proc withChainId*(b: var RlnRelayConfBuilder, chainId: uint) =
-  b.chainId = some(UInt256.fromBytesBE(chainId.toBytesBE()))
+proc withChainId*(b: var RlnRelayConfBuilder, chainId: uint | UInt256) =
+  when chainId is uint:
+    b.chainId = some(UInt256.fromBytesBE(chainId.toBytesBE()))
+  else:
+    b.chainId = some(chainId)
 
 proc withCredIndex*(b: var RlnRelayConfBuilder, credIndex: uint) =
   b.credIndex = some(credIndex)
