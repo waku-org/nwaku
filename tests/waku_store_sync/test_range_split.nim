@@ -3,7 +3,7 @@ import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
 
-proc toDigest*(s: string): WakuMessageHash =
+proc toDigest(s: string): WakuMessageHash =
   let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, (s.len - 1)))
   var res: WakuMessageHash
   for i in 0 .. 31:
