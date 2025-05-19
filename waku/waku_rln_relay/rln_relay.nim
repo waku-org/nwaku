@@ -10,7 +10,6 @@ import
   json,
   web3/eth_api_types,
   eth/keys,
-  stint,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   results,
