@@ -1,4 +1,4 @@
-import unittest, nimcrypto, std/sequtils ,results
+import unittest, nimcrypto, std/sequtils, results
 import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
@@ -14,29 +14,27 @@ proc `..`(a, b: SyncID): Slice[SyncID] =
   Slice[SyncID](a: a, b: b)
 
 suite "Waku Sync – reconciliation":
-
   test "fan-out: eight fingerprint sub-ranges for large slice":
-
-    const N         = 2_048
+    const N = 2_048
     const mismatchI = 70
 
-    let local  = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
 
-    var baseHashMismatch:   WakuMessageHash
+    var baseHashMismatch: WakuMessageHash
     var remoteHashMismatch: WakuMessageHash
 
     for i in 0 ..< N:
-      let ts        = 1000 + i
+      let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
       local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
       if i == mismatchI:
-        baseHashMismatch   = hashLocal
+        baseHashMismatch = hashLocal
         remoteHashMismatch = toDigest("msg" & $i & "_x")
-        hashRemote         = remoteHashMismatch
+        hashRemote = remoteHashMismatch
       remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
         assert false, "failed to insert hash: " & $error
 
@@ -46,12 +44,12 @@ suite "Waku Sync – reconciliation":
     check local.computeFingerprint(whole) != remote.computeFingerprint(whole)
 
     let remoteFp = remote.computeFingerprint(whole)
-    let payload  = RangesData(
-      cluster:      0,
-      shards:       @[0],
-      ranges:       @[(whole, RangeType.Fingerprint)],
+    let payload = RangesData(
+      cluster: 0,
+      shards: @[0],
+      ranges: @[(whole, RangeType.Fingerprint)],
       fingerprints: @[remoteFp],
-      itemSets:     @[]
+      itemSets: @[],
     )
 
     var toSend, toRecv: seq[WakuMessageHash]
@@ -74,85 +72,84 @@ suite "Waku Sync – reconciliation":
     check toRecv.len == 0
 
   test "splits mismatched fingerprint into two sub-ranges then item-set":
-    
-    const threshold    = 4   
-    const partitions   = 2   
+    const threshold = 4
+    const partitions = 2
 
-    let local  = SeqStorage.new(@[], threshold = threshold, partitions = partitions)
+    let local = SeqStorage.new(@[], threshold = threshold, partitions = partitions)
     let remote = SeqStorage.new(@[], threshold = threshold, partitions = partitions)
 
     var mismatchHash: WakuMessageHash
     for i in 0 ..< 8:
-      let t        = 1000 + i
+      let t = 1000 + i
       let baseHash = toDigest("msg" & $i)
 
-      var localHash  = baseHash
+      var localHash = baseHash
       var remoteHash = baseHash
 
-      if i == 3:                    
+      if i == 3:
         mismatchHash = toDigest("msg" & $i & "_x")
-        localHash    = mismatchHash
+        localHash = mismatchHash
 
       discard local.insert (SyncID(time: t, hash: localHash))
       discard remote.insert(SyncID(time: t, hash: remoteHash))
 
-    var zeroHash: WakuMessageHash                
-    let wholeRange = SyncID(time: 1000, hash: zeroHash) ..
-                     SyncID(time: 1007, hash: zeroHash)
+    var zeroHash: WakuMessageHash
+    let wholeRange =
+      SyncID(time: 1000, hash: zeroHash) .. SyncID(time: 1007, hash: zeroHash)
 
     var toSend, toRecv: seq[WakuMessageHash]
 
     let payload = RangesData(
-      cluster:      0,
-      shards:       @[0],
-      ranges:       @[(wholeRange, RangeType.Fingerprint)],
+      cluster: 0,
+      shards: @[0],
+      ranges: @[(wholeRange, RangeType.Fingerprint)],
       fingerprints: @[remote.computeFingerprint(wholeRange)],
-      itemSets:     @[]
+      itemSets: @[],
     )
 
     let reply = local.processPayload(payload, toSend, toRecv)
 
-    check reply.ranges.len   == partitions        
-    check reply.itemSets.len == partitions        
+    check reply.ranges.len == partitions
+    check reply.itemSets.len == partitions
 
     check reply.itemSets.anyIt(
       it.elements.anyIt(it.hash == mismatchHash and it.time == 1003)
     )
 
   test "second round when N =2048 & local ":
+    const N = 2_048
+    const mismatchI = 70
 
-    const N         = 2_048
-    const mismatchI = 70               
-
-    let local  = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
 
     var baseHashMismatch, remoteHashMismatch: WakuMessageHash
 
     for i in 0 ..< N:
-      let ts        = 1000 + i
+      let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
       local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
       if i == mismatchI:
-        baseHashMismatch   = hashLocal
+        baseHashMismatch = hashLocal
         remoteHashMismatch = toDigest("msg" & $i & "_x")
-        hashRemote         = remoteHashMismatch
+        hashRemote = remoteHashMismatch
         remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
           assert false, "failed to insert hash: " & $error
 
     var zero: WakuMessageHash
-    let sliceWhole = SyncID(time: 1000, hash: zero) .. SyncID(time: 1000+N-1, hash: zero)
+    let sliceWhole =
+      SyncID(time: 1000, hash: zero) .. SyncID(time: 1000 + N - 1, hash: zero)
     check local.computeFingerprint(sliceWhole) != remote.computeFingerprint(sliceWhole)
 
     let payload1 = RangesData(
-      cluster:      0,
-      shards:       @[0],
-      ranges:       @[(sliceWhole, RangeType.Fingerprint)],
+      cluster: 0,
+      shards: @[0],
+      ranges: @[(sliceWhole, RangeType.Fingerprint)],
       fingerprints: @[remote.computeFingerprint(sliceWhole)],
-      itemSets:     @[]
+      itemSets: @[],
     )
 
     var toSend, toRecv: seq[WakuMessageHash]
@@ -167,14 +164,14 @@ suite "Waku Sync – reconciliation":
       if mismTime >= sl.a.time and mismTime <= sl.b.time:
         subSlice = sl
         break
-    check subSlice.a.time != 0          
+    check subSlice.a.time != 0
 
     let payload2 = RangesData(
-      cluster:      0,
-      shards:       @[0],
-      ranges:       @[(subSlice, RangeType.Fingerprint)],
+      cluster: 0,
+      shards: @[0],
+      ranges: @[(subSlice, RangeType.Fingerprint)],
       fingerprints: @[remote.computeFingerprint(subSlice)],
-      itemSets:     @[]
+      itemSets: @[],
     )
 
     var toSend2, toRecv2: seq[WakuMessageHash]
@@ -191,29 +188,27 @@ suite "Waku Sync – reconciliation":
         check not iset.elements.anyIt(it.hash == remoteHashMismatch)
     check matchCount == 1
 
-    
     check toSend2.len == 0
     check toRecv2.len == 0
 
   test "second-round payload remote":
-
-    let local  = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[])
     let remote = SeqStorage.new(@[])
 
-    var baseHash:    WakuMessageHash
+    var baseHash: WakuMessageHash
     var alteredHash: WakuMessageHash
 
     for i in 0 ..< 8:
-      let ts        = 1000 + i
+      let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
       local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
       if i == 3:
-        baseHash    = hashLocal
+        baseHash = hashLocal
         alteredHash = toDigest("msg" & $i & "_x")
-        hashRemote  = alteredHash
+        hashRemote = alteredHash
         remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
           assert false, "failed to insert hash: " & $error
 
@@ -224,11 +219,11 @@ suite "Waku Sync – reconciliation":
 
     var toSend1, toRecv1: seq[WakuMessageHash]
     let pay1 = RangesData(
-      cluster:      0,
-      shards:       @[0],
-      ranges:       @[(slice, RangeType.Fingerprint)],
+      cluster: 0,
+      shards: @[0],
+      ranges: @[(slice, RangeType.Fingerprint)],
       fingerprints: @[remote.computeFingerprint(slice)],
-      itemSets:     @[]
+      itemSets: @[],
     )
     let rep1 = local.processPayload(pay1, toSend1, toRecv1)
 
