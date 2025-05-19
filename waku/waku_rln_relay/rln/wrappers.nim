@@ -420,7 +420,7 @@ proc serialize(metadata: RlnMetadata): seq[byte] =
   ## returns the serialized metadata
   return concat(
     @(metadata.lastProcessedBlock.toBytes()),
-    @(metadata.chainId.toBytes(Endianness.bigEndian)),
+    @(metadata.chainId.toBytes(Endianness.littleEndian)[0 .. 7]),
     @(hexToSeqByte(toLower(metadata.contractAddress))),
     @(uint64(metadata.validRoots.len()).toBytes()),
     @(serialize(metadata.validRoots)),
@@ -428,7 +428,7 @@ proc serialize(metadata: RlnMetadata): seq[byte] =
 
 type MerkleNodeSeq = seq[MerkleNode]
 
-proc deserialize*(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
+proc deserialize(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
   ## deserializes a byte seq to a seq of MerkleNodes
   ## the order of serialization is |merkle_node_len<8>|merkle_node[len]|
 
@@ -502,7 +502,7 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
   lastProcessedBlock =
     uint64.fromBytes(metadataBytes[lastProcessedBlockOffset .. chainIdOffset - 1])
   chainId = UInt256.fromBytes(
-    metadataBytes[chainIdOffset .. contractAddressOffset - 1], Endianness.bigEndian
+    metadataBytes[chainIdOffset .. contractAddressOffset - 1], Endianness.littleEndian
   )
   contractAddress =
     byteutils.toHex(metadataBytes[contractAddressOffset .. validRootsOffset - 1])
