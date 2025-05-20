@@ -22,6 +22,8 @@ proc withEnabled*(b: var WebSocketConfBuilder, enabled: bool) =
 
 proc withSecureEnabled*(b: var WebSocketConfBuilder, secureEnabled: bool) =
   b.secureEnabled = some(secureEnabled)
+  if b.secureEnabled.get():
+    b.enabled = some(true) # ws must be enabled to use wss
 
 proc withWebSocketPort*(b: var WebSocketConfBuilder, webSocketPort: Port) =
   b.webSocketPort = some(webSocketPort)
