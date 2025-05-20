@@ -239,8 +239,12 @@ method register*(
   # TODO: make this robust. search within the event list for the event
   debug "ts receipt", receipt = tsReceipt[]
 
-  if tsReceipt.status.isNone() or tsReceipt.status.get() != 1.Quantity:
-    raise newException(ValueError, "register: transaction failed")
+  if tsReceipt.status.isNone():
+    raise newException(ValueError, "register: transaction failed status is None")
+  if tsReceipt.status.get() != 1.Quantity:
+    raise newException(
+      ValueError, "register: transaction failed status is: " & $tsReceipt.status.get()
+    )
 
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
