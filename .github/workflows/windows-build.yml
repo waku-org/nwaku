@@ -68,28 +68,6 @@ jobs:
         ./build_all.bat
         cd ../../../..
 
-    - name: Building libunwind
-      run: |
-        cd vendor/nim-libbacktrace
-        mkdir -p vendor/libunwind/build
-        pushd vendor/libunwind
-        
-        cmake -S runtimes \
-          -DLLVM_ENABLE_RUNTIMES="libunwind" \
-          -DLIBUNWIND_ENABLE_SHARED=OFF -DLIBUNWIND_ENABLE_STATIC=ON \
-          -DLIBUNWIND_INCLUDE_DOCS=OFF -DLIBUNWIND_INSTALL_HEADERS=ON \
-          -DCMAKE_INSTALL_PREFIX="$(pwd)/../install/usr" \
-          -G "MinGW Makefiles" -B build
-          
-        cd build
-        mingw32-make VERBOSE=1 clean
-        mingw32-make VERBOSE=1 unwind_static
-        mingw32-make VERBOSE=1 install-unwind
-        
-        popd
-        mkdir -p install/usr/lib
-        cp -r vendor/libunwind/build/lib/libunwind.a install/usr/lib/
-
     - name: Building miniupnpc
       run: |
         cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
