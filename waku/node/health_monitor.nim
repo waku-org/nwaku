@@ -139,6 +139,9 @@ proc getRendezvousHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.asyn
   if hm.node.get().wakuRendezvous == nil:
     return HealthStatus.NOT_MOUNTED
 
+  if hm.node.peerManager.switch.peerStore.peers(RendezVousCodec).len() == 0:
+    return HealthStatus.NOT_READY
+
   return HealthStatus.READY
 
 proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.async.} =
