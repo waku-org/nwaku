@@ -260,7 +260,7 @@ suite "Waku v2 Rest API - Relay":
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(now()),
       ),
     )
 
@@ -488,7 +488,7 @@ suite "Waku v2 Rest API - Relay":
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
         contentTopic: some(DefaultContentTopic),
-        timestamp: some(int64(2022)),
+        timestamp: some(now()),
       )
     )
 
