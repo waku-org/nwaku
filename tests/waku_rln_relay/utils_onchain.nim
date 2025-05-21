@@ -62,61 +62,79 @@ proc generateCredentials*(rlnInstance: ptr RLN, n: int): seq[IdentityCredential]
   return credentials
 
 proc getContractAddressFromDeployScriptOutput*(output: string): Result[string, string] =
-  const searchStr = "\"contract_address\":\""
+  const searchStr = "Return ==\n0: address "
   let idx = output.find(searchStr)
   if idx >= 0:
     let startPos = idx + searchStr.len
-    let endPos = output.find('\"', startPos)
-    if endPos >= 0:
+    let endPos = output.find('\n', startPos)
+    if (endPos - startPos) >= 42:
       let address = output[startPos ..< endPos]
       return ok(address)
   return err("Unable to find contract address in deploy script output")
 
-proc executeForgeContractDeployScripts*(
-    ethClientAddress: string
-): Future[Address] {.async.} =
-  ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
-  ## submodulePath: path to the submodule containing contracts
+proc getForgePath*(): string =
+  var forgePath = ""
+  if existsEnv("XDG_CONFIG_HOME"):
+    forgePath = joinPath(forgePath, os.getEnv("XDG_CONFIG_HOME", ""))
+  else:
+    forgePath = joinPath(forgePath, os.getEnv("HOME", ""))
+  forgePath = joinPath(forgePath, ".foundry/bin/forge")
+  return $forgePath
 
+proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
+  ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
+  ## submodulePath: path to the submodule containing contract deploy scripts
+
+  # All RLN related tests should be run from the root directory of the project
   let submodulePath = "./vendor/waku-rlnv2-contract"
   # Default Anvil account[1] privatekey
   let PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
-  let forgePath = expandTilde("~/.foundry/bin/forge")
+  let forgePath = getForgePath()
+  debug "Forge path", forgePath
 
   # Build the Foundry project
-  let (forgeCleanOutput, forgeCleanExitCode) = execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
-  debug "Executed forge clean command", output = forgeCleanOutput
+  let (forgeCleanOutput, forgeCleanExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
+  trace "Executed forge clean command", output = forgeCleanOutput
   if forgeCleanExitCode != 0:
-    warn "forge install failed", output = forgeCleanOutput
+    error "forge clean failed", output = forgeCleanOutput
 
-  let (forgeInstallOutput, forgeInstallExitCode) = execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
-  debug "Executed forge install command", output = forgeInstallOutput
+  let (forgeInstallOutput, forgeInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
+  trace "Executed forge install command", output = forgeInstallOutput
   if forgeInstallExitCode != 0:
-    warn "forge install failed", output = forgeInstallOutput
+    error "forge install failed", output = forgeInstallOutput
 
-  let (pnpmInstallOutput, pnpmInstallExitCode) = execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
-  debug "Executed pnpm install command", output = pnpmInstallOutput
+  let (pnpmInstallOutput, pnpmInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+  trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    warn "pnpm install failed", output = pnpmInstallOutput
+    error "pnpm install failed", output = pnpmInstallOutput
 
-  let (forgeBuildOutput, forgeBuildExitCode) = execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
-  debug "Executed forge build command", output = forgeBuildOutput
+  let (forgeBuildOutput, forgeBuildExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
+  trace "Executed forge build command", output = forgeBuildOutput
   if forgeBuildExitCode != 0:
-    warn "forge build failed", output = forgeBuildOutput
+    error "forge build failed", output = forgeBuildOutput
 
   # Set the environment variable API keys to anything for testing
   putEnv("API_KEY_CARDONA", "123")
   putEnv("API_KEY_LINEASCAN", "123")
   putEnv("API_KEY_ETHERSCAN", "123")
 
-  # Deploy TestToken contract and get contract address
+  # Deploy TestToken contract
   let forgeCmdTestToken =
-    fmt"""cd {submodulePath} && {forgePath} script test/TestToken.sol --broadcast -vvvv --json --rpc-url http://localhost:8540 --tc TestTokenFactory --private-key {PRIVATE_KEY}"""
+    fmt"""cd {submodulePath} && {forgePath} script test/TestToken.sol --broadcast -vv --rpc-url http://localhost:8540 --tc TestTokenFactory --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployTestToken, exitCodeDeployTestToken) = execCmdEx(forgeCmdTestToken)
-  debug "Executed forge command to deploy TestToken contract", output = outputDeployTestToken
+  trace "Executed forge command to deploy TestToken contract",
+    output = outputDeployTestToken
   if exitCodeDeployTestToken != 0:
     # error "Forge command to deploy TestToken contract failed", output = outputDeployTestToken
-    raise newException(CatchableError, "Forge command to deploy TestToken contract failed, output=" & outputDeployTestToken)
+    raise newException(
+      CatchableError,
+      "Forge command to deploy TestToken contract failed, output=" &
+        outputDeployTestToken,
+    )
     ##TODO: raise exception here?
 
   # Parse the output to find contract address
@@ -126,43 +144,67 @@ proc executeForgeContractDeployScripts*(
     error "Failed to get TestToken contract address from deploy script output"
     ##TODO: raise exception here?
   let testTokenAddress = testTokenAddressRes.get()
-  debug "Address of the TestToken contract: ", testTokenAddress
+  debug "Address of the TestToken contract", testTokenAddress
   putEnv("TOKEN_ADDRESS", testTokenAddress)
-  
-  # Deploy LinearPriceCalculator contract and get contract address
+
+  # Deploy LinearPriceCalculator contract
   let forgeCmdPriceCalculator =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --json --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {PRIVATE_KEY}"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
     execCmdEx(forgeCmdPriceCalculator)
-  debug "Executed forge command to deploy LinearPriceCalculator contract", output = outputDeployTestToken
+  trace "Executed forge command to deploy LinearPriceCalculator contract",
+    output = outputDeployPriceCalculator
   if exitCodeDeployPriceCalculator != 0:
-    error "Forge command to deploy LinearPriceCalculator contract failed", output = outputDeployPriceCalculator
+    error "Forge command to deploy LinearPriceCalculator contract failed",
+      output = outputDeployPriceCalculator
+
+  # Parse the output to find contract address
+  let priceCalculatorAddressRes =
+    getContractAddressFromDeployScriptOutput(outputDeployPriceCalculator)
+  if priceCalculatorAddressRes.isErr():
+    error "Failed to get LinearPriceCalculator contract address from deploy script output"
+    ##TODO: raise exception here?
+  let priceCalculatorAddress = priceCalculatorAddressRes.get()
+  debug "Address of the LinearPriceCalculator contract", priceCalculatorAddress
+  putEnv("PRICE_CALCULATOR_ADDRESS", priceCalculatorAddress)
 
   let forgeCmdWakuRln =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --json --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {PRIVATE_KEY}"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployWakuRln, exitCodeDeployWakuRln) = execCmdEx(forgeCmdWakuRln)
+  trace "Executed forge command to deploy WakuRlnV2 contract",
+    output = outputDeployWakuRln
   if exitCodeDeployWakuRln != 0:
-    error "Forge command to deploy WakuRlnV2 contractfailed", output = outputDeployWakuRln
+    error "Forge command to deploy WakuRlnV2 contract failed",
+      output = outputDeployWakuRln
 
-  let wakuRlnV2AddressRes = getContractAddressFromDeployScriptOutput(outputDeployWakuRln)
+  # Parse the output to find contract address
+  let wakuRlnV2AddressRes =
+    getContractAddressFromDeployScriptOutput(outputDeployWakuRln)
   if wakuRlnV2AddressRes.isErr():
-    error "Failed to get WakuRlnV2 contract address from deploy script output"
+    error "Failed to get LinearPriceCalculator contract address from deploy script output"
+    ##TODO: raise exception here?
   let wakuRlnV2Address = wakuRlnV2AddressRes.get()
-  debug "Address of the WakuRlnV2 contract: ", wakuRlnV2Address
+  debug "Address of the LinearPriceCalculator contract", wakuRlnV2Address
+  putEnv("WAKURLNV2_ADDRESS", wakuRlnV2Address)
 
+  # Deploy Proxy contract
   let forgeCmdProxy =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --json --rpc-url http://localhost:8540 --tc DeployProxy --private-key {PRIVATE_KEY}"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vv --rpc-url http://localhost:8540 --tc DeployProxy --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployProxy, exitCodeDeployProxy) = execCmdEx(forgeCmdProxy)
-  debug "Executed forge command to deploy proxy contract", output = outputDeployProxy
+  trace "Executed forge command to deploy proxy contract", output = outputDeployProxy
   if exitCodeDeployProxy != 0:
-    error "Forge command to deploy Proxy failed: ", output = outputDeployProxy
+    error "Forge command to deploy Proxy failed"
+    raise newException(
+      CatchableError,
+      "Forge command to deploy proxy contract failed, exitCodeDeployProxy=",
+    )
 
   let proxyAddress = getContractAddressFromDeployScriptOutput(outputDeployProxy)
   let proxyAddressBytes = hexToByteArray[20](proxyAddress.get())
   let proxyAddressAddress = Address(proxyAddressBytes)
 
-  info "Address of the Proxy contract: ", proxyAddressAddress
-  
+  info "Address of the Proxy contract", proxyAddressAddress
+
   return proxyAddressAddress
 
 #  a util function used for testing purposes
@@ -365,7 +407,7 @@ proc setupOnchainGroupManager*(
 
   let rlnInstance = rlnInstanceRes.get()
 
-  let contractAddress = await executeForgeContractDeployScripts(ethClientUrl)
+  let contractAddress = await executeForgeContractDeployScripts()
   # connect to the eth client
   let web3 = await newWeb3(ethClientUrl)
 
