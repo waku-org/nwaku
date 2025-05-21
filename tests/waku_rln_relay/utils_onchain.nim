@@ -81,13 +81,13 @@ proc getForgePath*(): string =
   forgePath = joinPath(forgePath, ".foundry/bin/forge")
   return $forgePath
 
-proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
-  ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
+proc deployTestToken*(): Future[string] {.async.} =
+  ## Executes a Foundry forge script that deploys the a token contract (ERC-20) used for testing. This is a prerequisite to enable the contract deployment and this token contract address needs to be minted and approved for the accounts that need to register membership with the contract
   ## submodulePath: path to the submodule containing contract deploy scripts
 
   # All RLN related tests should be run from the root directory of the project
   let submodulePath = "./vendor/waku-rlnv2-contract"
-  # Default Anvil account[1] privatekey
+
   let PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
   let forgePath = getForgePath()
   debug "Forge path", forgePath
@@ -135,7 +135,6 @@ proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
       "Forge command to deploy TestToken contract failed, output=" &
         outputDeployTestToken,
     )
-    ##TODO: raise exception here?
 
   # Parse the output to find contract address
   let testTokenAddressRes =
@@ -146,6 +145,49 @@ proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
   let testTokenAddress = testTokenAddressRes.get()
   debug "Address of the TestToken contract", testTokenAddress
   putEnv("TOKEN_ADDRESS", testTokenAddress)
+
+  return testTokenAddress
+
+proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
+  ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
+  ## submodulePath: path to the submodule containing contract deploy scripts
+
+  # All RLN related tests should be run from the root directory of the project
+  let submodulePath = "./vendor/waku-rlnv2-contract"
+  # Default Anvil account[1] privatekey
+  let PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+  let forgePath = getForgePath()
+  debug "Forge path", forgePath
+
+  # Build the Foundry project
+  let (forgeCleanOutput, forgeCleanExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
+  trace "Executed forge clean command", output = forgeCleanOutput
+  if forgeCleanExitCode != 0:
+    error "forge clean failed", output = forgeCleanOutput
+
+  let (forgeInstallOutput, forgeInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
+  trace "Executed forge install command", output = forgeInstallOutput
+  if forgeInstallExitCode != 0:
+    error "forge install failed", output = forgeInstallOutput
+
+  let (pnpmInstallOutput, pnpmInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+  trace "Executed pnpm install command", output = pnpmInstallOutput
+  if pnpmInstallExitCode != 0:
+    error "pnpm install failed", output = pnpmInstallOutput
+
+  let (forgeBuildOutput, forgeBuildExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
+  trace "Executed forge build command", output = forgeBuildOutput
+  if forgeBuildExitCode != 0:
+    error "forge build failed", output = forgeBuildOutput
+
+  # Set the environment variable API keys to anything for testing
+  putEnv("API_KEY_CARDONA", "123")
+  putEnv("API_KEY_LINEASCAN", "123")
+  putEnv("API_KEY_ETHERSCAN", "123")
 
   # Deploy LinearPriceCalculator contract
   let forgeCmdPriceCalculator =
@@ -406,6 +448,9 @@ proc setupOnchainGroupManager*(
     rlnInstanceRes.isOk()
 
   let rlnInstance = rlnInstanceRes.get()
+
+  let testTokenAddress = await deployTestToken()
+  putEnv("TOKEN_ADDRESS", testTokenAddress)
 
   let contractAddress = await executeForgeContractDeployScripts()
   # connect to the eth client
