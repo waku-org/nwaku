@@ -79,7 +79,7 @@ suite "Onchain group manager":
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
 
-    let differentContractAddress = await executeForgeContractDeployScripts(manager.ethClientUrls[0])
+    let differentContractAddress = await executeForgeContractDeployScripts()
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
