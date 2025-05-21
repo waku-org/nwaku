@@ -223,6 +223,9 @@ proc validateMessage*(
 
   trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
 
+  if false:
+    echo "jamon"
+
   # validate the epoch
   if gap > rlnPeer.rlnMaxEpochGap:
     # message's epoch is too old or too ahead
