@@ -7,7 +7,7 @@ import
   json_serialization/std/options,
   presto/[route, client]
 
-import ../../../waku_core, ../relay/types as relay_types, ../serdes
+import ../../../waku_core, ../../../incentivization/rpc, ../relay/types as relay_types, ../serdes
 
 export relay_types
 
@@ -17,6 +17,7 @@ type
   PushRequest* = object
     pubsubTopic*: Option[PubSubTopic]
     message*: RelayWakuMessage
+    eligibilityProof*: Option[EligibilityProof]
 
   PushResponse* = object
     statusDesc*: Option[string]
@@ -30,6 +31,8 @@ proc writeValue*(
   if value.pubsubTopic.isSome():
     writer.writeField("pubsubTopic", value.pubsubTopic.get())
   writer.writeField("message", value.message)
+  if value.eligibilityProof.isSome():  
+    writer.writeField("eligibilityProof", value.eligibilityProof.get())
   writer.endRecord()
 
 proc readValue*(
@@ -38,6 +41,7 @@ proc readValue*(
   var
     pubsubTopic = none(PubsubTopic)
     message = none(RelayWakuMessage)
+    eligibilityProof = none(EligibilityProof)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -55,6 +59,8 @@ proc readValue*(
       pubsubTopic = some(reader.readValue(PubsubTopic))
     of "message":
       message = some(reader.readValue(RelayWakuMessage))
+    of "eligibilityProof":
+      eligibilityProof = some(reader.readValue(EligibilityProof))
     else:
       unrecognizedFieldWarning(value)
 
@@ -68,6 +74,7 @@ proc readValue*(
       else:
         some(pubsubTopic.get()),
     message: message.get(),
+    eligibilityProof: eligibilityProof,
   )
 
 proc writeValue*(
