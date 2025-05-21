@@ -2,6 +2,7 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   std/[net, options, sequtils, strutils],
+  stint,
   chronicles,
   chronos,
   results
@@ -292,7 +293,7 @@ proc nodeKey(
 proc applyClusterConf(builder: var WakuConfBuilder) =
   # Apply cluster conf, overrides most values passed individually
   # If you want to tweak values, don't use clusterConf
-  if builder.clusterConf.isNone:
+  if builder.clusterConf.isNone():
     return
   let clusterConf = builder.clusterConf.get()
 
@@ -417,7 +418,7 @@ proc build*(
       warn("Cluster Id was not specified, defaulting to 0")
       0.uint16
     else:
-      builder.clusterId.get()
+      builder.clusterId.get().uint16
 
   let numShardsInNetwork =
     if builder.numShardsInNetwork.isSome():

@@ -8,7 +8,8 @@ import
   libp2p/multiaddress,
   nimcrypto/utils,
   secp256k1,
-  confutils
+  confutils,
+  stint
 import
   ../../waku/factory/external_config,
   ../../waku/factory/networks_config,

@@ -3,7 +3,6 @@
 import
   os,
   std/[options, tables],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   # chronos/timer,
@@ -32,7 +31,7 @@ const DEFAULT_PROTOCOLS: seq[string] =
   @["/ipfs/id/1.0.0", "/libp2p/autonat/1.0.0", "/libp2p/circuit/relay/0.2.0/hop"]
 
 let
-  listenIp = ValidIpAddress.init("0.0.0.0")
+  listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
 
 suite "Peer Manager":

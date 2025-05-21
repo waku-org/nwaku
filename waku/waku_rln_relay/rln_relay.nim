@@ -44,7 +44,7 @@ type RlnRelayConf* = object of RootObj
   credIndex*: Option[uint]
   ethContractAddress*: string
   ethClientUrls*: seq[string]
-  chainId*: uint
+  chainId*: UInt256
   creds*: Option[RlnRelayCreds]
   treePath*: string
   epochSizeSec*: uint64

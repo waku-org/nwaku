@@ -2,7 +2,6 @@
 
 import
   std/[options, sugar],
-  stew/shims/net as stewNet,
   chronicles,
   chronos/timer,
   testutils/unittests,

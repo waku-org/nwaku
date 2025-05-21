@@ -2,7 +2,6 @@
 
 import
   std/[options, strformat],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/protocols/pubsub/[pubsub, gossipsub],

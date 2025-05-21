@@ -114,16 +114,24 @@ proc handleRequest*(
   return pushResponse
 
 proc initProtocolHandler(wl: WakuLightPush) =
-  proc handle(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var rpc: LightpushResponse
     wl.requestRateLimiter.checkUsageLimit(WakuLightPushCodec, conn):
-      let buffer = await conn.readLp(DefaultMaxRpcSize)
+      var buffer: seq[byte]
+      try:
+        buffer = await conn.readLp(DefaultMaxRpcSize)
+      except LPStreamError:
+        error "lightpush read stream failed", error = getCurrentExceptionMsg()
+        return
 
       waku_service_network_bytes.inc(
         amount = buffer.len().int64, labelValues = [WakuLightPushCodec, "in"]
       )
 
-      rpc = await handleRequest(wl, conn.peerId, buffer)
+      try:
+        rpc = await handleRequest(wl, conn.peerId, buffer)
+      except CatchableError:
+        error "lightpush failed handleRequest", error = getCurrentExceptionMsg()
     do:
       debug "lightpush request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
@@ -139,12 +147,15 @@ proc initProtocolHandler(wl: WakuLightPush) =
         )
       )
 
-    await conn.writeLp(rpc.encode().buffer)
+    try:
+      await conn.writeLp(rpc.encode().buffer)
+    except LPStreamError:
+      error "lightpush write stream failed", error = getCurrentExceptionMsg()
 
     ## For lightpush might not worth to measure outgoing trafic as it is only
     ## small respones about success/failure
 
-  wl.handler = handle
+  wl.handler = handler
   wl.codec = WakuLightPushCodec
 
 proc new*(

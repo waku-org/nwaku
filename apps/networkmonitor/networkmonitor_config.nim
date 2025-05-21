@@ -5,7 +5,6 @@ import
   chronos,
   std/strutils,
   results,
-  stew/shims/net,
   regex
 
 type EthRpcUrl* = distinct string
