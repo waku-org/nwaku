@@ -83,9 +83,6 @@ jobs:
 
     - name: Building wakunode2
       run: |
-        cd vendor/nim-libbacktrace
-        cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
-        cd ../..
         make wakunode2 LOG_LEVEL=DEBUG V=3 -j8
     
     - name: Check Executable
