@@ -217,7 +217,7 @@ proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.asy
     )
     result.protocolsHealth.add(
       ProtocolHealth(
-        protocol: "Lightpush v3", health: await hm.getLightpushHealth(relayHealth)
+        protocol: "Lightpush", health: await hm.getLightpushHealth(relayHealth)
       )
     )
     result.protocolsHealth.add(

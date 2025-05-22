@@ -85,9 +85,14 @@ suite "Waku v2 REST API - health":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.nodeHealth == HealthStatus.READY
-      response.data.protocolsHealth.len() == 1
-      response.data.protocolsHealth[0].protocol == "Rln Relay"
-      response.data.protocolsHealth[0].health == HealthStatus.READY
+      response.data.protocolsHealth.len() == 14
+      response.data.protocolsHealth[0].protocol == "Relay"
+      response.data.protocolsHealth[0].health == HealthStatus.NOT_READY
+        # Having no relay peers means not-ready
+      response.data.protocolsHealth[1].protocol == "Rln Relay"
+      response.data.protocolsHealth[1].health == HealthStatus.READY
+      response.data.protocolsHealth[2].protocol == "Lightpush"
+      response.data.protocolsHealth[2].health == HealthStatus.NOT_MOUNTED
 
     await restServer.stop()
     await restServer.closeWait()
