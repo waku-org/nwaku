@@ -1,8 +1,8 @@
 {.push raises: [].}
 
-import std/[options, sets], chronos
+import std/[options, sets], chronos, libp2p/protocols/rendezvous
 
-import waku_node, ../waku_rln_relay, ../waku_relay
+import waku_node, ../waku_rln_relay, ../waku_relay, ./peer_manager
 
 type
   HealthStatus* = enum
@@ -100,6 +100,18 @@ proc getLightpushHealth(
 
   return HealthStatus.NOT_READY
 
+proc getLightpushClientHealth(
+    hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
+): Future[HealthStatus] {.async.} =
+  if hm.node.get().wakuLightpushClient == nil:
+    return HealthStatus.NOT_MOUNTED
+
+  if (hm.node.get().wakuLightPush != nil and relayHealth == HealthStatus.READY) or
+      hm.node.get().peerManager.selectPeer(WakuLightPushCodec).isSome():
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
+
 proc getLegacyLightpushHealth(
     hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
 ): Future[HealthStatus] {.async.} =
@@ -111,11 +123,39 @@ proc getLegacyLightpushHealth(
 
   return HealthStatus.NOT_READY
 
-proc getFilterHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
+proc getLegacyLightpushClientHealth(
+    hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
+): Future[HealthStatus] {.async.} =
+  if hm.node.get().wakuLegacyLightpushClient == nil:
+    return HealthStatus.NOT_MOUNTED
+
+  if (hm.node.get().wakuLegacyLightPush != nil and relayHealth == HealthStatus.READY) or
+      hm.node.get().peerManager.selectPeer(WakuLegacyLightPushCodec).isSome():
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
+
+proc getFilterHealth(
+    hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
+): Future[HealthStatus] {.async.} =
   if hm.node.get().wakuFilter == nil:
     return HealthStatus.NOT_MOUNTED
 
-  return HealthStatus.READY
+  if relayHealth == HealthStatus.READY:
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
+
+proc getFilterClientHealth(
+    hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
+): Future[HealthStatus] {.async.} =
+  if hm.node.get().wakuFilterClient == nil:
+    return HealthStatus.NOT_MOUNTED
+
+  if hm.node.get().peerManager.selectPeer(WakuFilterSubscribeCodec).isSome():
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
 
 proc getStoreHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
   if hm.node.get().wakuStore == nil:
@@ -123,11 +163,33 @@ proc getStoreHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
 
   return HealthStatus.READY
 
+proc getStoreClientHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
+  if hm.node.get().wakuStoreClient == nil:
+    return HealthStatus.NOT_MOUNTED
+
+  if hm.node.get().peerManager.selectPeer(WakuStoreCodec).isSome() or
+      hm.node.get().wakuStore != nil:
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
+
 proc getLegacyStoreHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
   if hm.node.get().wakuLegacyStore == nil:
     return HealthStatus.NOT_MOUNTED
 
   return HealthStatus.READY
+
+proc getLegacyStoreClientHealth(
+    hm: WakuNodeHealthMonitor
+): Future[HealthStatus] {.async.} =
+  if hm.node.get().wakuLegacyStoreClient == nil:
+    return HealthStatus.NOT_MOUNTED
+
+  if hm.node.get().peerManager.selectPeer(WakuLegacyStoreCodec).isSome() or
+      hm.node.get().wakuLegacyStore != nil:
+    return HealthStatus.READY
+
+  return HealthStatus.NOT_READY
 
 proc getPeerExchangeHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.async.} =
   if hm.node.get().wakuPeerExchange == nil:
@@ -139,7 +201,7 @@ proc getRendezvousHealth(hm: WakuNodeHealthMonitor): Future[HealthStatus] {.asyn
   if hm.node.get().wakuRendezvous == nil:
     return HealthStatus.NOT_MOUNTED
 
-  if hm.node.peerManager.switch.peerStore.peers(RendezVousCodec).len() == 0:
+  if hm.node.get().peerManager.switch.peerStore.peers(RendezVousCodec).len() == 0:
     return HealthStatus.NOT_READY
 
   return HealthStatus.READY
@@ -165,7 +227,7 @@ proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.asy
       )
     )
     result.protocolsHealth.add(
-      ProtocolHealth(protocol: "Filter", health: await hm.getFilterHealth())
+      ProtocolHealth(protocol: "Filter", health: await hm.getFilterHealth(relayHealth))
     )
     result.protocolsHealth.add(
       ProtocolHealth(protocol: "Store", health: await hm.getStoreHealth())
@@ -180,6 +242,31 @@ proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.asy
     )
     result.protocolsHealth.add(
       ProtocolHealth(protocol: "Rendezvous", health: await hm.getRendezvousHealth())
+    )
+    result.protocolsHealth.add(
+      ProtocolHealth(
+        protocol: "Lightpush Client",
+        health: await hm.getLightpushClientHealth(relayHealth),
+      )
+    )
+    result.protocolsHealth.add(
+      ProtocolHealth(
+        protocol: "Legacy Lightpush Client",
+        health: await hm.getLegacyLightpushClientHealth(relayHealth),
+      )
+    )
+    result.protocolsHealth.add(
+      ProtocolHealth(protocol: "Store Client", health: await hm.getStoreClientHealth())
+    )
+    result.protocolsHealth.add(
+      ProtocolHealth(
+        protocol: "Legacy Store Client", health: await hm.getLegacyStoreClientHealth()
+      )
+    )
+    result.protocolsHealth.add(
+      ProtocolHealth(
+        protocol: "Filter Client", health: await hm.getFilterClientHealth(relayHealth)
+      )
     )
 
   return result
