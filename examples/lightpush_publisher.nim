@@ -1,7 +1,6 @@
 import
   std/[tables, times, sequtils],
   stew/byteutils,
-  stew/shims/net,
   chronicles,
   results,
   chronos,

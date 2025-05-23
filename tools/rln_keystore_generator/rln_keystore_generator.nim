@@ -20,7 +20,7 @@ type RlnKeystoreGeneratorConf* = object
   execute*: bool
   ethContractAddress*: string
   ethClientUrls*: seq[string]
-  chainId*: uint
+  chainId*: UInt256
   credPath*: string
   credPassword*: string
   userMessageLimit*: uint64

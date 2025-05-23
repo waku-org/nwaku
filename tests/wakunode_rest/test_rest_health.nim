@@ -2,7 +2,6 @@
 
 import
   std/tempfiles,
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,

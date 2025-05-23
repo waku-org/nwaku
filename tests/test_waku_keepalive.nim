@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,

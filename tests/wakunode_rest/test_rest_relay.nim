@@ -3,7 +3,6 @@
 import
   std/[sequtils, strformat, tempfiles],
   stew/byteutils,
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -320,7 +319,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       # Node should be subscribed to all shards
       node.wakuRelay.subscribedTopics ==
-        @["/waku/2/rs/1/7", "/waku/2/rs/1/2", "/waku/2/rs/1/5"]
+        @["/waku/2/rs/1/5", "/waku/2/rs/1/7", "/waku/2/rs/1/2"]
 
     await restServer.stop()
     await restServer.closeWait()

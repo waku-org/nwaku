@@ -1475,7 +1475,7 @@ proc start*(node: WakuNode) {.async.} =
   ## with announced addrs after start
   let addressMapper = proc(
       listenAddrs: seq[MultiAddress]
-  ): Future[seq[MultiAddress]] {.async.} =
+  ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
     return node.announcedAddresses
   node.switch.peerInfo.addressMappers.add(addressMapper)
 

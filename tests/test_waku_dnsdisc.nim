@@ -2,7 +2,6 @@
 
 import
   std/[sequtils, tables],
-  stew/shims/net,
   results,
   stew/base32,
   testutils/unittests,

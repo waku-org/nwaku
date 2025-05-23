@@ -1,6 +1,6 @@
 {.used.}
 
-import stew/shims/net as stewNet, std/strutils, testutils/unittests
+import std/[strutils, net], testutils/unittests
 import ../testlib/wakucore, ../testlib/wakunode
 
 suite "Waku Core - Published Address":

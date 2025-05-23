@@ -3,7 +3,6 @@
 import
   std/json,
   results,
-  stew/shims/net,
   chronicles,
   chronicles/topics_registry,
   chronos,

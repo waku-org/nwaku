@@ -322,11 +322,12 @@ proc new*(
     remoteNeedsTx: remoteNeedsTx,
   )
 
-  let handler = proc(conn: Connection, proto: string) {.async, closure.} =
-    (await sync.processRequest(conn)).isOkOr:
-      error "request processing error", error = error
-
-    return
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+    try:
+      (await sync.processRequest(conn)).isOkOr:
+        error "request processing error", error = error
+    except CatchableError:
+      error "exception in reconciliation handler", error = getCurrentExceptionMsg()
 
   sync.handler = handler
   sync.codec = WakuReconciliationCodec

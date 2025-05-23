@@ -75,8 +75,15 @@ suite "Waku Switch":
       completionFut = newFuture[bool]()
       proto = new LPProtocol
     proto.codec = customProtoCodec
-    proto.handler = proc(conn: Connection, proto: string) {.async.} =
-      assert (await conn.readLp(1024)) == msg.toBytes()
+    proto.handler = proc(
+        conn: Connection, proto: string
+    ) {.async: (raises: [CancelledError]).} =
+      try:
+        assert (await conn.readLp(1024)) == msg.toBytes()
+      except LPStreamError:
+        error "Connection read error", error = getCurrentExceptionMsg()
+        assert false, getCurrentExceptionMsg()
+
       completionFut.complete(true)
 
     await proto.start()

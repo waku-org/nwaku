@@ -1,7 +1,6 @@
 import
   std/options,
   results,
-  stew/shims/net,
   chronos,
   libp2p/switch,
   libp2p/builders,

@@ -131,6 +131,13 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   output.finish3()
   return output
 
+func encode*(x: UInt32): seq[byte] =
+  ## the Ethereum ABI imposes a 32 byte width for every type
+  let numTargetBytes = 32 div 8
+  let paddingBytes = 32 - numTargetBytes
+  let paddingZeros = newSeq[byte](paddingBytes)
+  paddingZeros & @(stint.toBytesBE(x))
+
 type
   SpamHandler* =
     proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}

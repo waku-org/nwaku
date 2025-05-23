@@ -3,7 +3,6 @@
 import
   std/[os, sequtils, sysrand, math],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/switch,

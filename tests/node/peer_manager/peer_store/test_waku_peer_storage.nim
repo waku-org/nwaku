@@ -3,7 +3,6 @@ import
   testutils/unittests,
   libp2p/[multiaddress, peerid],
   libp2p/crypto/crypto,
-  stew/shims/net,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   nimcrypto/utils
