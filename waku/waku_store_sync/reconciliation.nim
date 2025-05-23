@@ -139,13 +139,11 @@ proc processRequest(
     # Only process the ranges IF the shards and cluster matches
     if self.cluster == recvPayload.cluster and
         recvPayload.shards.toPackedSet() == self.shards:
-      
       sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
-      
+
       debug "sync payload processed",
-        hash_to_send = hashToSend,
-        hash_to_recv = hashToRecv
-      
+        hash_to_send = hashToSend, hash_to_recv = hashToRecv
+
       sendPayload.cluster = self.cluster
       sendPayload.shards = self.shards.toSeq()
 
@@ -342,8 +340,8 @@ proc new*(
   sync.handler = handler
   sync.codec = WakuReconciliationCodec
 
-  info "Store Reconciliation protocol initialized", sync_range = syncRange,
-    sync_interval = syncInterval, relay_jitter = relayJitter
+  info "Store Reconciliation protocol initialized",
+    sync_range = syncRange, sync_interval = syncInterval, relay_jitter = relayJitter
 
   return ok(sync)
 
