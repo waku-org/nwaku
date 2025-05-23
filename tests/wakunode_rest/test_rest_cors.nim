@@ -13,10 +13,7 @@ import
     waku_node,
     node/waku_node as waku_node2,
     waku_api/rest/server,
-    waku_api/rest/client,
-    waku_api/rest/responses,
     waku_api/rest/debug/handlers as debug_api,
-    waku_api/rest/debug/client as debug_api_client,
   ],
   ../testlib/common,
   ../testlib/wakucore,
@@ -105,7 +102,8 @@ suite "Waku v2 REST API CORS Handling":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -158,7 +156,8 @@ suite "Waku v2 REST API CORS Handling":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -214,7 +213,8 @@ suite "Waku v2 REST API CORS Handling":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -261,7 +261,8 @@ suite "Waku v2 REST API CORS Handling":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")

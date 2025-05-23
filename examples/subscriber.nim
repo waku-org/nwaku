@@ -84,7 +84,9 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
   )
 
   await node.start()
-  await node.mountRelay()
+  (await node.mountRelay()).isOkOr:
+    error "failed to mount relay", error = error
+    quit(1)
   node.peerManager.start()
 
   (await wakuDiscv5.start()).isOkOr:
@@ -93,7 +95,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
 
   # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
   while true:
-    let numConnectedPeers = node.peerManager.wakuPeerStore[ConnectionBook].book
+    let numConnectedPeers = node.peerManager.switch.peerStore[ConnectionBook].book
       .values()
       .countIt(it == Connected)
     if numConnectedPeers >= 6:
@@ -118,7 +120,9 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         contentTopic = msg.contentTopic,
         timestamp = msg.timestamp
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler)))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler))).isOkOr:
+    error "failed to subscribe to pubsub topic", pubsubTopic, error
+    quit(1)
 
 when isMainModule:
   let rng = crypto.newRng()

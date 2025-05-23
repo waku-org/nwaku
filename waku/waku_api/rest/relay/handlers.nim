@@ -66,9 +66,13 @@ proc installRelayApiHandlers*(
 
     for pubsubTopic in newTopics:
       cache.pubsubSubscribe(pubsubTopic)
+
       node.subscribe(
         (kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache))
-      )
+      ).isOkOr:
+        let errorMsg = "Subscribe failed:" & $error
+        error "SUBSCRIBE failed", error = errorMsg
+        return RestApiResponse.internalServerError(errorMsg)
 
     return RestApiResponse.ok()
 
@@ -88,7 +92,10 @@ proc installRelayApiHandlers*(
     # Unsubscribe all handlers from requested topics
     for pubsubTopic in req:
       cache.pubsubUnsubscribe(pubsubTopic)
-      node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
+      node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic)).isOkOr:
+        let errorMsg = "Unsubscribe failed:" & $error
+        error "UNSUBSCRIBE failed", error = errorMsg
+        return RestApiResponse.internalServerError(errorMsg)
 
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
@@ -193,9 +200,13 @@ proc installRelayApiHandlers*(
 
     for contentTopic in newTopics:
       cache.contentSubscribe(contentTopic)
+
       node.subscribe(
         (kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache))
-      )
+      ).isOkOr:
+        let errorMsg = "Subscribe failed:" & $error
+        error "SUBSCRIBE failed", error = errorMsg
+        return RestApiResponse.internalServerError(errorMsg)
 
     return RestApiResponse.ok()
 
@@ -211,7 +222,10 @@ proc installRelayApiHandlers*(
 
     for contentTopic in req:
       cache.contentUnsubscribe(contentTopic)
-      node.unsubscribe((kind: ContentUnsub, topic: contentTopic))
+      node.unsubscribe((kind: ContentUnsub, topic: contentTopic)).isOkOr:
+        let errorMsg = "Unsubscribe failed:" & $error
+        error "UNSUBSCRIBE failed", error = errorMsg
+        return RestApiResponse.internalServerError(errorMsg)
 
     return RestApiResponse.ok()
 

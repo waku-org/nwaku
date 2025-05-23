@@ -3,7 +3,8 @@
 import
   std/[sequtils, tables],
   stew/shims/net,
-  stew/[base32, results],
+  results,
+  stew/base32,
   testutils/unittests,
   chronicles,
   chronos,
@@ -36,9 +37,12 @@ suite "Waku DNS Discovery":
       node3 = newTestWakuNode(nodeKey3, bindIp, Port(63503))
       enr3 = node3.enr
 
-    await node1.mountRelay()
-    await node2.mountRelay()
-    await node3.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node3.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await allFutures([node1.start(), node2.start(), node3.start()])
 
     # Build and sign tree
@@ -74,7 +78,8 @@ suite "Waku DNS Discovery":
       nodeKey4 = generateSecp256k1Key()
       node4 = newTestWakuNode(nodeKey4, bindIp, Port(63504))
 
-    await node4.mountRelay()
+    (await node4.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await node4.start()
 
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
@@ -94,20 +99,20 @@ suite "Waku DNS Discovery":
 
     check:
       # We have successfully connected to all discovered nodes
-      node4.peerManager.wakuPeerStore.peers().anyIt(
+      node4.peerManager.switch.peerStore.peers().anyIt(
         it.peerId == node1.switch.peerInfo.peerId
       )
-      node4.peerManager.wakuPeerStore.connectedness(node1.switch.peerInfo.peerId) ==
+      node4.peerManager.switch.peerStore.connectedness(node1.switch.peerInfo.peerId) ==
         Connected
-      node4.peerManager.wakuPeerStore.peers().anyIt(
+      node4.peerManager.switch.peerStore.peers().anyIt(
         it.peerId == node2.switch.peerInfo.peerId
       )
-      node4.peerManager.wakuPeerStore.connectedness(node2.switch.peerInfo.peerId) ==
+      node4.peerManager.switch.peerStore.connectedness(node2.switch.peerInfo.peerId) ==
         Connected
-      node4.peerManager.wakuPeerStore.peers().anyIt(
+      node4.peerManager.switch.peerStore.peers().anyIt(
         it.peerId == node3.switch.peerInfo.peerId
       )
-      node4.peerManager.wakuPeerStore.connectedness(node3.switch.peerInfo.peerId) ==
+      node4.peerManager.switch.peerStore.connectedness(node3.switch.peerInfo.peerId) ==
         Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])

@@ -1,27 +1,16 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils, tempfiles, strutils],
+  std/[options, tempfiles],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
-  chronicles,
   std/strformat,
-  os,
-  libp2p/[peerstore, crypto/crypto]
+  libp2p/crypto/crypto
 
 import
-  waku/[
-    waku_core,
-    node/peer_manager,
-    node/waku_node,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-    waku_lightpush,
-    waku_rln_relay,
-  ],
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
+  waku/[waku_core, node/peer_manager, node/waku_node, waku_lightpush, waku_rln_relay],
+  ../testlib/[wakucore, wakunode, testasync, futures],
   ../resources/payloads
 
 const PublishedToOnePeer = 1
@@ -57,7 +46,8 @@ suite "Waku Lightpush - End To End":
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.mountLightpush() # without rln-relay
     client.mountLightpushClient()
 
@@ -138,17 +128,18 @@ suite "RLN Proofs as a Lightpush Service":
 
     # mount rln-relay
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode"),
     )
 
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.mountRlnRelay(wakuRlnConfig)
     await server.mountLightPush()
     client.mountLightPushClient()
@@ -193,8 +184,10 @@ suite "Waku Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    await destNode.mountRelay(@[DefaultRelayShard])
-    await bridgeNode.mountRelay(@[DefaultRelayShard])
+    (await destNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
+    (await bridgeNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
 
@@ -205,6 +198,7 @@ suite "Waku Lightpush message delivery":
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
 
     ## Given
+    const CustomPubsubTopic = "/waku/2/rs/0/1"
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
@@ -212,17 +206,18 @@ suite "Waku Lightpush message delivery":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == DefaultPubsubTopic
+        topic == CustomPubsubTopic
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), some(relayHandler)).isOkOr:
+      assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)
 
     ## When
-    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.lightpushPublish(some(CustomPubsubTopic), message)
     assert res.isOk(), $res.error
     assert res.get() == 1, "Expected to relay the message to 1 node"
 

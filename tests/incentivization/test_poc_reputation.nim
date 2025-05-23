@@ -13,6 +13,9 @@ import
   waku/[node/peer_manager, waku_core],
   waku/incentivization/[rpc, reputation_manager],
   waku/waku_lightpush/[rpc, common]
+import std/options, testutils/unittests, chronos, web3
+
+import waku/incentivization/reputation_manager, waku/waku_lightpush_legacy/rpc
 
 suite "Waku Incentivization PoC Reputation":
   var manager {.threadvar.}: ReputationManager

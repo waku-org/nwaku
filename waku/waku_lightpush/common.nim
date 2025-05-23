@@ -43,6 +43,12 @@ func lightpushSuccessResult*(relayPeerCount: uint32): WakuLightPushResult =
 func lightpushResultInternalError*(msg: string): WakuLightPushResult =
   return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, some(msg)))
 
+func lightpushResultBadRequest*(msg: string): WakuLightPushResult =
+  return err((LightpushStatusCode.BAD_REQUEST, some(msg)))
+
+func lightpushResultServiceUnavailable*(msg: string): WakuLightPushResult =
+  return err((LightpushStatusCode.SERVICE_NOT_AVAILABLE, some(msg)))
+
 func lighpushErrorResult*(
     statusCode: LightpushStatusCode, desc: Option[string]
 ): WakuLightPushResult =
@@ -79,5 +85,3 @@ func mapPubishingErrorToPushResult*(
         some("Error generating message id, skipping publish"),
       )
     )
-  else:
-    return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, none[string]()))

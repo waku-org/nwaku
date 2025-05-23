@@ -2,12 +2,7 @@
 
 import std/sequtils, testutils/unittests, chronos
 import
-  waku/[
-    common/databases/db_sqlite,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
-    waku_core,
-  ],
+  waku/[waku_archive, waku_archive/driver/sqlite_driver, waku_core],
   ../waku_archive/archive_utils,
   ../testlib/wakucore
 

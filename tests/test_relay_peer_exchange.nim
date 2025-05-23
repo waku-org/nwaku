@@ -4,10 +4,8 @@ import
   std/[sequtils, options],
   stew/shims/net,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/peerid,
-  libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub
 
 import waku/waku_core, waku/waku_node, ./testlib/wakucore, ./testlib/wakunode
@@ -25,8 +23,10 @@ procSuite "Relay (GossipSub) Peer Exchange":
         newTestWakuNode(node2Key, listenAddress, port, sendSignedPeerRecord = true)
 
     # When both client and server mount relay without a handler
-    await node1.mountRelay(@[DefaultRelayShard])
-    await node2.mountRelay(@[DefaultRelayShard], none(RoutingRecordsHandler))
+    (await node1.mountRelay(@[DefaultRelayShard])).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node2.mountRelay(@[DefaultRelayShard], none(RoutingRecordsHandler))).isOkOr:
+      assert false, "Failed to mount relay"
 
     # Then the relays are mounted without a handler
     check:
@@ -75,9 +75,12 @@ procSuite "Relay (GossipSub) Peer Exchange":
       peerExchangeHandle: RoutingRecordsHandler = peerExchangeHandler
 
     # Givem the nodes mount relay with a peer exchange handler
-    await node1.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))
-    await node2.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))
-    await node3.mountRelay(@[DefaultRelayShard], some(peerExchangeHandle))
+    (await node1.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node2.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))).isOkOr:
+      assert false, "Failed to mount relay"
+    (await node3.mountRelay(@[DefaultRelayShard], some(peerExchangeHandle))).isOkOr:
+      assert false, "Failed to mount relay"
 
     # Ensure that node1 prunes all peers after the first connection
     node1.wakuRelay.parameters.dHigh = 1

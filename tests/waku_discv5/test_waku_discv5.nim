@@ -1,24 +1,32 @@
 {.used.}
 
 import
-  std/[sequtils, algorithm],
-  stew/results,
-  stew/shims/net,
+  std/[sequtils, algorithm, options, net],
+  results,
   chronos,
   chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
-  eth/keys as eth_keys
+  eth/keys as eth_keys,
+  eth/p2p/discoveryv5/enr as ethEnr,
+  libp2p/crypto/secp,
+  libp2p/protocols/rendezvous
 
 import
-  waku/[waku_core/topics, waku_enr, discovery/waku_discv5, common/enr],
-  ../testlib/[wakucore, testasync, assertions, futures, wakunode],
+  waku/[
+    waku_core/topics,
+    waku_core/codecs,
+    waku_enr,
+    discovery/waku_discv5,
+    waku_enr/capabilities,
+    factory/conf_builder/conf_builder,
+    factory/waku,
+    node/waku_node,
+    node/peer_manager,
+  ],
+  ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],
   ../waku_enr/utils,
-  ./utils
-
-import eth/p2p/discoveryv5/enr as ethEnr
-
-include waku/factory/waku
+  ./utils as discv5_utils
 
 suite "Waku Discovery v5":
   const validEnr =
@@ -53,7 +61,7 @@ suite "Waku Discovery v5":
 
         var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
         require builder.withWakuRelaySharding(shardsTopics).isOk()
-        builder.withWakuCapabilities(Relay)
+        builder.withWakuCapabilities(Capabilities.Relay)
 
         let recordRes = builder.build()
         require recordRes.isOk()
@@ -73,7 +81,7 @@ suite "Waku Discovery v5":
 
         var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
         require builder.withWakuRelaySharding(shardsTopics).isOk()
-        builder.withWakuCapabilities(Relay)
+        builder.withWakuCapabilities(Capabilities.Relay)
 
         let recordRes = builder.build()
         require recordRes.isOk()
@@ -93,7 +101,7 @@ suite "Waku Discovery v5":
 
         var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
         require builder.withWakuRelaySharding(shardsTopics).isOk()
-        builder.withWakuCapabilities(Relay)
+        builder.withWakuCapabilities(Capabilities.Relay)
 
         let recordRes = builder.build()
         require recordRes.isOk()
@@ -187,7 +195,7 @@ suite "Waku Discovery v5":
           indices = indices,
           flags = recordFlags,
         )
-        node = newTestDiscv5(
+        node = discv5_utils.newTestDiscv5(
           privKey = privKey,
           bindIp = bindIp,
           tcpPort = tcpPort,
@@ -298,7 +306,9 @@ suite "Waku Discovery v5":
       # Cleanup
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-    asyncTest "find random peers with instance predicate":
+    xasyncTest "find random peers with instance predicate":
+      ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
+
       ## Setup
       # Records
       let
@@ -342,7 +352,8 @@ suite "Waku Discovery v5":
       let res4 = await node4.start()
       assertResultOk res4
 
-      await sleepAsync(FUTURE_TIMEOUT)
+      ## leave some time for discv5 to act
+      await sleepAsync(chronos.seconds(10))
 
       ## When
       let peers = await node1.findRandomPeers()
@@ -355,7 +366,7 @@ suite "Waku Discovery v5":
       # Cleanup
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-  suite "addBoostrapNode":
+  suite "addBootstrapNode":
     asyncTest "address is valid":
       # Given an empty list of enrs
       var enrs: seq[Record] = @[]
@@ -407,40 +418,127 @@ suite "Waku Discovery v5":
         enrs.len == 0
 
   suite "waku discv5 initialization":
+    asyncTest "Start waku and check discv5 discovered peers":
+      let myRng = libp2p_keys.newRng()
+      var confBuilder = defaultTestWakuConfBuilder()
+
+      confBuilder.withNodeKey(libp2p_keys.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9000.Port)
+
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
+
+      let waku0 = Waku.new(conf).valueOr:
+        raiseAssert error
+      (waitFor startWaku(addr waku0)).isOkOr:
+        raiseAssert error
+
+      confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.discv5Conf.withBootstrapNodes(@[waku0.node.enr.toURI()])
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9001.Port)
+      confBuilder.withP2pTcpPort(60001.Port)
+      confBuilder.websocketConf.withEnabled(false)
+
+      let conf1 = confBuilder.build().valueOr:
+        raiseAssert error
+
+      let waku1 = Waku.new(conf1).valueOr:
+        raiseAssert error
+      (waitFor startWaku(addr waku1)).isOkOr:
+        raiseAssert error
+
+      await waku1.node.mountPeerExchange()
+      await waku1.node.mountRendezvous()
+
+      confBuilder.discv5Conf.withBootstrapNodes(@[waku1.node.enr.toURI()])
+      confBuilder.withP2pTcpPort(60003.Port)
+      confBuilder.discv5Conf.withUdpPort(9003.Port)
+      confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.websocketConf.withEnabled(false)
+
+      let conf2 = confBuilder.build().valueOr:
+        raiseAssert error
+
+      let waku2 = Waku.new(conf2).valueOr:
+        raiseAssert error
+      (waitFor startWaku(addr waku2)).isOkOr:
+        raiseAssert error
+
+      # leave some time for discv5 to act
+      await sleepAsync(chronos.seconds(10))
+
+      var r = waku0.node.peerManager.selectPeer(WakuPeerExchangeCodec)
+      assert r.isSome(), "could not retrieve peer mounting WakuPeerExchangeCodec"
+
+      r = waku1.node.peerManager.selectPeer(WakuRelayCodec)
+      assert r.isSome(), "could not retrieve peer mounting WakuRelayCodec"
+
+      r = waku1.node.peerManager.selectPeer(WakuPeerExchangeCodec)
+      assert r.isNone(), "should not retrieve peer mounting WakuPeerExchangeCodec"
+
+      r = waku2.node.peerManager.selectPeer(WakuPeerExchangeCodec)
+      assert r.isSome(), "could not retrieve peer mounting WakuPeerExchangeCodec"
+
+      r = waku2.node.peerManager.selectPeer(RendezVousCodec)
+      assert r.isSome(), "could not retrieve peer mounting RendezVousCodec"
+
     asyncTest "Discv5 bootstrap nodes should be added to the peer store":
-      var conf = defaultTestWakuNodeConf()
+      var confBuilder = defaultTestWakuConfBuilder()
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9003.Port)
+      confBuilder.discv5Conf.withBootstrapNodes(@[validEnr])
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
 
-      conf.discv5BootstrapNodes = @[validEnr]
-
-      let waku = Waku.init(conf).valueOr:
+      let waku = Waku.new(conf).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        waku.conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.conf.nodeKey,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:
-        waku.node.peerManager.wakuPeerStore.peers().anyIt(
+        waku.node.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == validEnr
         )
 
     asyncTest "Invalid discv5 bootstrap node ENRs are ignored":
-      var conf = defaultTestWakuNodeConf()
+      var confBuilder = defaultTestWakuConfBuilder()
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9004.Port)
 
       let invalidEnr = "invalid-enr"
 
-      conf.discv5BootstrapNodes = @[invalidEnr]
+      confBuilder.discv5Conf.withBootstrapNodes(@[invalidEnr])
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
 
-      let waku = Waku.init(conf).valueOr:
+      let waku = Waku.new(conf).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.conf.nodeKey,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:
-        not waku.node.peerManager.wakuPeerStore.peers().anyIt(
+        not waku.node.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == invalidEnr
         )

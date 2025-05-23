@@ -1,13 +1,12 @@
 {.used.}
 
 import
-  std/[options, sequtils, strutils, strformat],
+  std/[options, strformat],
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  libp2p/[multihash, stream/connection, switch],
+  libp2p/[stream/connection, switch],
   ./crypto_utils,
   std/json
 
@@ -19,7 +18,7 @@ import
     waku_core,
     waku_core/message/codec,
   ],
-  ../testlib/[wakucore, testasync, testutils, futures, sequtils],
+  ../testlib/[wakucore, testasync, futures, sequtils],
   ./utils,
   ../resources/payloads
 

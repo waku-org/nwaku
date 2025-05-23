@@ -21,6 +21,13 @@ The standard developer tools, including a C compiler, GNU Make, Bash, and Git. M
 
 > In some distributions (Fedora linux for example), you may need to install `which` utility separately. Nimbus build system is relying on it.
 
+You'll also need an installation of Rust and its toolchain (specifically `rustc` and `cargo`).
+The easiest way to install these, is using `rustup`:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
 ### Wakunode
 
 ```bash
@@ -125,6 +132,9 @@ Binary will be created as `<path to your test file.nim>.bin` under the `build` d
 # Build and run your test file separately
 make test/tests/common/test_enr_builder.nim
 ```
+
+### Testing against `js-waku`
+Refer to [js-waku repo](https://github.com/waku-org/js-waku/tree/master/packages/tests) for instructions.
 
 ## Formatting
 

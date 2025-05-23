@@ -72,7 +72,11 @@ proc createWaku(
     appCallbacks.relayHandler = nil
     appCallbacks.topicHealthChangeHandler = nil
 
-  let wakuRes = Waku.new(conf, appCallbacks).valueOr:
+  # TODO: Convert `confJson` directly to `WakuConf`
+  let wakuConf = conf.toWakuConf().valueOr:
+    return err("Configuration error: " & $error)
+
+  let wakuRes = Waku.new(wakuConf, appCallbacks).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 
@@ -88,16 +92,16 @@ proc process*(
   of CREATE_NODE:
     waku[] = (await createWaku(self.configJson, self.appCallbacks)).valueOr:
       error "CREATE_NODE failed", error = error
-      return err("error processing createWaku request: " & $error)
+      return err($error)
   of START_NODE:
     (await waku.startWaku()).isOkOr:
       error "START_NODE failed", error = error
-      return err("problem starting waku: " & $error)
+      return err($error)
   of STOP_NODE:
     try:
       await waku[].stop()
     except Exception:
       error "STOP_NODE failed", error = getCurrentExceptionMsg()
-      return err("exception stopping node: " & getCurrentExceptionMsg())
+      return err(getCurrentExceptionMsg())
 
   return ok("")

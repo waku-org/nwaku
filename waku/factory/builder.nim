@@ -8,7 +8,6 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
   libp2p/transports/wstransport,
-  libp2p/protocols/connectivity/relay/client,
   libp2p/protocols/connectivity/relay/relay
 import
   ../waku_enr,
@@ -90,7 +89,7 @@ proc withNetworkConfigurationDetails*(
       extIp = extIp,
       extPort = extPort,
       extMultiAddrs = extMultiAddrs,
-      wsBindPort = wsBindPort,
+      wsBindPort = some(wsBindPort),
       wsEnabled = wsEnabled,
       wssEnabled = wssEnabled,
       wakuFlags = wakuFlags,
@@ -197,6 +196,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())
 
+  let netConfig = builder.netConfig.get()
+
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),
@@ -204,12 +205,13 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     maxServicePeers = some(builder.maxServicePeers),
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
+    dnsNameServers = netConfig.dnsNameServers,
   )
 
   var node: WakuNode
   try:
     node = WakuNode.new(
-      netConfig = builder.netConfig.get(),
+      netConfig = netConfig,
       enr = builder.record.get(),
       switch = switch,
       peerManager = peerManager,

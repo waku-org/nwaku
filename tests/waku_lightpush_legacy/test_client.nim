@@ -1,11 +1,6 @@
 {.used.}
 
-import
-  std/[options, strscans],
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto
+import std/[options, strscans], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
@@ -16,9 +11,8 @@ import
     waku_lightpush_legacy/common,
     waku_lightpush_legacy/protocol_metrics,
     waku_lightpush_legacy/rpc,
-    waku_lightpush_legacy/rpc_codec,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures, testutils],
+  ../testlib/[assertions, wakucore, testasync, futures],
   ./lightpush_utils,
   ../resources/[pubsub_topics, content_topics, payloads]
 

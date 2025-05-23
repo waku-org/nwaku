@@ -1,5 +1,5 @@
 import std/[sequtils, strutils]
-import chronicles, chronos, results, options
+import chronicles, chronos, results, options, json
 import
   ../../../../waku/factory/waku,
   ../../../../waku/node/waku_node,
@@ -9,6 +9,7 @@ import
 type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
   GET_ALL_PEER_IDS
+  GET_CONNECTED_PEERS_INFO
   GET_PEER_IDS_BY_PROTOCOL
   DISCONNECT_PEER_BY_ID
   DIAL_PEER
@@ -21,6 +22,10 @@ type PeerManagementRequest* = object
   dialTimeout: Duration
   protocol: cstring
   peerId: cstring
+
+type PeerInfo = object
+  protocols: seq[string]
+  addresses: seq[string]
 
 proc createShared*(
     T: type PeerManagementRequest,
@@ -81,11 +86,29 @@ proc process*(
   of GET_ALL_PEER_IDS:
     ## returns a comma-separated string of peerIDs
     let peerIDs =
-      waku.node.peerManager.wakuPeerStore.peers().mapIt($it.peerId).join(",")
+      waku.node.peerManager.switch.peerStore.peers().mapIt($it.peerId).join(",")
     return ok(peerIDs)
+  of GET_CONNECTED_PEERS_INFO:
+    ## returns a JSON string mapping peerIDs to objects with protocols and addresses
+
+    var peersMap = initTable[string, PeerInfo]()
+    let peers = waku.node.peerManager.switch.peerStore.peers().filterIt(
+        it.connectedness == Connected
+      )
+
+    # Build a map of peer IDs to peer info objects
+    for peer in peers:
+      let peerIdStr = $peer.peerId
+      peersMap[peerIdStr] =
+        PeerInfo(protocols: peer.protocols, addresses: peer.addrs.mapIt($it))
+
+    # Convert the map to JSON string
+    let jsonObj = %*peersMap
+    let jsonStr = $jsonObj
+    return ok(jsonStr)
   of GET_PEER_IDS_BY_PROTOCOL:
     ## returns a comma-separated string of peerIDs that mount the given protocol
-    let connectedPeers = waku.node.peerManager.wakuPeerStore
+    let connectedPeers = waku.node.peerManager.switch.peerStore
       .peers($self[].protocol)
       .filterIt(it.connectedness == Connected)
       .mapIt($it.peerId)

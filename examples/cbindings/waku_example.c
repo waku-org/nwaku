@@ -14,7 +14,6 @@
 #include "base64.h"
 #include "../../library/libwaku.h"
 
-
 // Shared synchronization variables
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -28,7 +27,6 @@ void waitForCallback() {
     callback_executed = 0;
     pthread_mutex_unlock(&mutex);
 }
-
 
 #define WAKU_CALL(call)                                                        \
 do {                                                                           \
@@ -107,6 +105,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     return 0;
 }
 
+void signal_cond() {
+    pthread_mutex_lock(&mutex);
+    callback_executed = 1;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
+}
+
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
 void event_handler(int callerRet, const char* msg, size_t len, void* userData) {
@@ -118,10 +123,7 @@ void event_handler(int callerRet, const char* msg, size_t len, void* userData) {
         printf("Receiving event: %s\n", msg);
     }
 
-    pthread_mutex_lock(&mutex);
-    callback_executed = 1;
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
+    signal_cond();
 }
 
 void on_event_received(int callerRet, const char* msg, size_t len, void* userData) {
@@ -142,6 +144,7 @@ void handle_content_topic(int callerRet, const char* msg, size_t len, void* user
 
     contentTopic = malloc(len * sizeof(char) + 1);
     strcpy(contentTopic, msg);
+    signal_cond();
 }
 
 char* publishResponse = NULL;
@@ -158,33 +161,30 @@ void handle_publish_ok(int callerRet, const char* msg, size_t len, void* userDat
 
 #define MAX_MSG_SIZE 65535
 
-void publish_message(char* pubsubTopic, const char* msg) {
+void publish_message(const char* msg) {
     char jsonWakuMsg[MAX_MSG_SIZE];
     char *msgPayload = b64_encode(msg, strlen(msg));
 
-    WAKU_CALL( waku_content_topic(RET_OK,
+    WAKU_CALL( waku_content_topic(ctx,
                                   "appName",
                                   1,
                                   "contentTopicName",
                                   "encoding",
                                   handle_content_topic,
                                   userData) );
-
     snprintf(jsonWakuMsg,
              MAX_MSG_SIZE,
-             "{\"payload\":\"%s\",\"content_topic\":\"%s\"}",
+             "{\"payload\":\"%s\",\"contentTopic\":\"%s\"}",
              msgPayload, contentTopic);
 
     free(msgPayload);
 
-    WAKU_CALL( waku_relay_publish(&ctx,
-                                  pubsubTopic,
+    WAKU_CALL( waku_relay_publish(ctx,
+                                  "/waku/2/rs/16/32",
                                   jsonWakuMsg,
                                   10000 /*timeout ms*/,
                                   event_handler,
                                   userData) );
-
-    printf("waku relay response [%s]\n", publishResponse);
 }
 
 void show_help_and_exit() {
@@ -194,20 +194,12 @@ void show_help_and_exit() {
 
 void print_default_pubsub_topic(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Default pubsub topic: %s\n", msg);
-
-    pthread_mutex_lock(&mutex);
-    callback_executed = 1;
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
+    signal_cond();
 }
 
 void print_waku_version(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Git Version: %s\n", msg);
-
-    pthread_mutex_lock(&mutex);
-    callback_executed = 1;
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
+    signal_cond();
 }
 
 // Beginning of UI program logic
@@ -236,9 +228,6 @@ void handle_user_input() {
         return;
     }
 
-    int c;
-    while ( (c = getchar()) != '\n' && c != EOF ) { }
-
     switch (atoi(cmd))
     {
     case SUBSCRIBE_TOPIC_MENU:
@@ -247,7 +236,7 @@ void handle_user_input() {
         char pubsubTopic[128];
         scanf("%127s", pubsubTopic);
 
-        WAKU_CALL( waku_relay_subscribe(&ctx,
+        WAKU_CALL( waku_relay_subscribe(ctx,
                                         pubsubTopic,
                                         event_handler,
                                         userData) );
@@ -262,21 +251,17 @@ void handle_user_input() {
         printf("e.g.: /ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\n");
         char peerAddr[512];
         scanf("%511s", peerAddr);
-        WAKU_CALL(waku_connect(&ctx, peerAddr, 10000 /* timeoutMs */, event_handler, userData));
+        WAKU_CALL(waku_connect(ctx, peerAddr, 10000 /* timeoutMs */, event_handler, userData));
         show_main_menu();
     break;
 
     case PUBLISH_MESSAGE_MENU:
     {
-        printf("Indicate the Pubsubtopic:\n");
-        char pubsubTopic[128];
-        scanf("%127s", pubsubTopic);
-
-        printf("Type the message tp publish:\n");
+        printf("Type the message to publish:\n");
         char msg[1024];
         scanf("%1023s", msg);
 
-        publish_message(pubsubTopic, msg);
+        publish_message(msg);
 
         show_main_menu();
     }
@@ -311,24 +296,24 @@ int main(int argc, char** argv) {
 
     char jsonConfig[5000];
     snprintf(jsonConfig, 5000, "{ \
+                                    \"clusterId\": 16, \
+                                    \"shards\": [ 1, 32, 64, 128, 256 ], \
                                     \"listenAddress\": \"%s\",    \
                                     \"tcpPort\": %d,        \
-                                    \"nodekey\": \"%s\",     \
                                     \"relay\": %s,       \
                                     \"store\": %s,       \
                                     \"storeMessageDbUrl\": \"%s\",  \
                                     \"storeMessageRetentionPolicy\": \"%s\",  \
                                     \"storeMaxNumDbConnections\": %d , \
-                                    \"logLevel\": \"DEBUG\", \
+                                    \"logLevel\": \"FATAL\", \
                                     \"discv5Discovery\": true, \
                                     \"discv5BootstrapNodes\": \
                                         [\"enr:-QESuEB4Dchgjn7gfAvwB00CxTA-nGiyk-aALI-H4dYSZD3rUk7bZHmP8d2U6xDiQ2vZffpo45Jp7zKNdnwDUx6g4o6XAYJpZIJ2NIJpcIRA4VDAim11bHRpYWRkcnO4XAArNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwAtNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOvD3S3jUNICsrOILlmhENiWAMmMVlAl6-Q8wRB7hidY4N0Y3CCdl-DdWRwgiMohXdha3UyDw\", \"enr:-QEkuEBIkb8q8_mrorHndoXH9t5N6ZfD-jehQCrYeoJDPHqT0l0wyaONa2-piRQsi3oVKAzDShDVeoQhy0uwN1xbZfPZAYJpZIJ2NIJpcIQiQlleim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQKnGt-GSgqPSf3IAPM7bFgTlpczpMZZLF3geeoNNsxzSoN0Y3CCdl-DdWRwgiMohXdha3UyDw\"], \
                                     \"discv5UdpPort\": 9999, \
-                                    \"dnsDiscoveryUrl\": \"enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im\", \
+                                    \"dnsDiscoveryUrl\": \"enrtree://AMOJVZX4V6EXP7NTJPMAYJYST2QP6AJXYW76IU6VGJS7UVSNDYZG4@boot.prod.status.nodes.status.im\", \
                                     \"dnsDiscoveryNameServers\": [\"8.8.8.8\", \"1.0.0.1\"] \
                                 }", cfgNode.host,
                                     cfgNode.port,
-                                    cfgNode.key,
                                     cfgNode.relay ? "true":"false",
                                     cfgNode.store ? "true":"false",
                                     cfgNode.storeDbUrl,
@@ -350,14 +335,6 @@ int main(int argc, char** argv) {
     waitForCallback();
 
     WAKU_CALL( waku_listen_addresses(ctx, event_handler, userData) );
-
-    printf("Establishing connection with: %s\n", cfgNode.peers);
-
-    WAKU_CALL( waku_connect(ctx,
-                            cfgNode.peers,
-                            10000 /* timeoutMs */,
-                            event_handler,
-                            userData) );
 
     WAKU_CALL( waku_relay_subscribe(ctx,
                                     "/waku/2/rs/0/0",

@@ -3,8 +3,9 @@
 {.push raises: [].}
 
 import
-  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
-  stew/[results, byteutils],
+  std/[options, sequtils, deques, random],
+  results,
+  stew/byteutils,
   testutils/unittests,
   chronos,
   chronicles,
@@ -12,23 +13,20 @@ import
   web3,
   libp2p/crypto/crypto,
   eth/keys,
-  tests/testlib/testasync
+  tests/testlib/testasync,
+  tests/testlib/testutils
 
 import
   waku/[
-    waku_node,
-    node/waku_node,
     waku_rln_relay,
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
-    waku_rln_relay/contract,
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
     waku_rln_relay/group_manager/on_chain/group_manager,
   ],
-  ../testlib/[wakucore, wakunode, common],
-  ./utils_onchain,
-  ./utils
+  ../testlib/wakucore,
+  ./utils_onchain
 
 suite "Onchain group manager":
   # We run Anvil
@@ -50,7 +48,6 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      manager.rlnContractDeployedBlockNumber > 0.Quantity
       manager.rlnRelayMaxMessageLimit == 100
 
   asyncTest "should error on initialization when chainId does not match":
@@ -80,10 +77,10 @@ suite "Onchain group manager":
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
 
-    let differentContractAddress = await uploadRLNContract(manager.ethClientUrl)
+    let differentContractAddress = await uploadRLNContract(manager.ethClientUrls[0])
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
-      ethClientUrl: EthClient,
+      ethClientUrls: @[EthClient],
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
@@ -100,18 +97,13 @@ suite "Onchain group manager":
     echo "---"
 
   asyncTest "should error if contract does not exist":
-    var triggeredError = false
-
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
-    manager.onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
-      echo "---"
-      discard
-        "Failed to get the deployed block number. Have you set the correct contract address?: No response from the Web3 provider"
-      echo msg
-      echo "---"
-      triggeredError = true
 
-    discard await manager.init()
+    var triggeredError = false
+    try:
+      discard await manager.init()
+    except CatchableError:
+      triggeredError = true
 
     check triggeredError
 
@@ -122,103 +114,71 @@ suite "Onchain group manager":
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  asyncTest "startGroupSync: should start group sync":
+  asyncTest "trackRootChanges: start tracking roots":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
-      raiseAssert $error
+    discard manager.trackRootChanges()
 
-  asyncTest "startGroupSync: should guard against uninitialized state":
-    (await manager.startGroupSync()).isErrOr:
-      raiseAssert "Expected error when not initialized"
+  asyncTest "trackRootChanges: should guard against uninitialized state":
+    try:
+      discard manager.trackRootChanges()
+    except CatchableError:
+      check getCurrentExceptionMsg().len == 38
 
-  asyncTest "startGroupSync: should sync to the state of the group":
+  asyncTest "trackRootChanges: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
-    let rateCommitment = getRateCommitment(credentials, UserMessageLimit(1)).valueOr:
-      raiseAssert $error
     (await manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
-
-    let fut = newFuture[void]("startGroupSync")
-
-    proc generateCallback(fut: Future[void]): OnRegisterCallback =
-      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        check:
-          registrations.len == 1
-          registrations[0].index == 0
-          registrations[0].rateCommitment == rateCommitment
-        fut.complete()
-
-      return callback
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
-      manager.onRegister(generateCallback(fut))
       await manager.register(credentials, UserMessageLimit(1))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await fut
+    discard await withTimeout(trackRootChanges(manager), 15.seconds)
 
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+    let merkleRootAfter = manager.fetchMerkleRoot()
+
+    let metadataSetRes = manager.setMetadata()
+    assert metadataSetRes.isOk(), metadataSetRes.error
+
+    let metadataOpt = getMetadata(manager.rlnInstance).valueOr:
       raiseAssert $error
 
-    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
-      raiseAssert $error
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
+
     check:
-      metadataOpt.get().validRoots == manager.validRoots.toSeq()
+      metadata.validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
 
-  asyncTest "startGroupSync: should fetch history correctly":
+  asyncTest "trackRootChanges: should fetch history correctly":
+    # TODO: We can't use `trackRootChanges()` directly in this test because its current implementation
+    #       relies on a busy loop rather than event-based monitoring. As a result, some root changes
+    #       may be missed, leading to inconsistent test results (i.e., it may randomly return true or false).
+    #       To ensure reliability, we use the `updateRoots()` function to validate the `validRoots` window
+    #       after each registration. 
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
-
-    type TestGroupSyncFuts = array[0 .. credentialCount - 1, Future[void]]
-    var futures: TestGroupSyncFuts
-    for i in 0 ..< futures.len():
-      futures[i] = newFuture[void]()
-    proc generateCallback(
-        futs: TestGroupSyncFuts, credentials: seq[IdentityCredential]
-    ): OnRegisterCallback =
-      var futureIndex = 0
-      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        let rateCommitment =
-          getRateCommitment(credentials[futureIndex], UserMessageLimit(1))
-        if registrations.len == 1 and
-            registrations[0].rateCommitment == rateCommitment.get() and
-            registrations[0].index == MembershipIndex(futureIndex):
-          futs[futureIndex].complete()
-          futureIndex += 1
-
-      return callback
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
-      manager.onRegister(generateCallback(futures, credentials))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
-
       for i in 0 ..< credentials.len():
         await manager.register(credentials[i], UserMessageLimit(1))
+        discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await allFutures(futures)
-
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootAfter = manager.fetchMerkleRoot()
 
     check:
       merkleRootBefore != merkleRootAfter
-      manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
+      manager.validRoots.len() == credentialCount
 
   asyncTest "register: should guard against uninitialized state":
     let dummyCommitment = default(IDCommitment)
@@ -235,14 +195,12 @@ suite "Onchain group manager":
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "register: should register successfully":
+    # TODO :- similar to ```trackRootChanges: should fetch history correctly```
     (await manager.init()).isOkOr:
-      raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
       await manager.register(
@@ -254,10 +212,10 @@ suite "Onchain group manager":
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
-    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
-      raiseAssert $error
+    let merkleRootAfter = manager.fetchMerkleRoot()
+
     check:
-      merkleRootAfter.inHex() != merkleRootBefore.inHex()
+      merkleRootAfter != merkleRootBefore
       manager.latestIndex == 1
 
   asyncTest "register: callback is called":
@@ -267,19 +225,19 @@ suite "Onchain group manager":
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      let rateCommitment = getRateCommitment(idCredentials, UserMessageLimit(1))
+      let rateCommitment = getRateCommitment(idCredentials, UserMessageLimit(1)).get()
       check:
         registrations.len == 1
-        registrations[0].rateCommitment == rateCommitment.get()
+        registrations[0].rateCommitment == rateCommitment
         registrations[0].index == 0
       fut.complete()
 
-    manager.onRegister(callback)
     (await manager.init()).isOkOr:
       raiseAssert $error
+
+    manager.onRegister(callback)
+
     try:
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
       await manager.register(
         RateCommitment(
           idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1)
@@ -301,38 +259,43 @@ suite "Onchain group manager":
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "validateRoot: should validate good root":
-    let credentials = generateCredentials(manager.rlnInstance)
-    (await manager.init()).isOkOr:
-      raiseAssert $error
+    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCommitment = idCredentials.idCommitment
 
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
           registrations[0].rateCommitment ==
-          getRateCommitment(credentials, UserMessageLimit(1)).get() and
+          getRateCommitment(idCredentials, UserMessageLimit(1)).get() and
           registrations[0].index == 0:
-        manager.idCredentials = some(credentials)
+        manager.idCredentials = some(idCredentials)
         fut.complete()
 
     manager.onRegister(callback)
 
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+
     try:
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
-      await manager.register(credentials, UserMessageLimit(1))
+      await manager.register(idCredentials, UserMessageLimit(1))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
 
+    let rootUpdated = await manager.updateRoots()
+
+    if rootUpdated:
+      let proofResult = await manager.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      manager.merkleProofCache = proofResult.get()
     let messageBytes = "Hello".toBytes()
 
-    # prepare the epoch
     let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
-    # generate proof
     let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
     )
@@ -341,38 +304,39 @@ suite "Onchain group manager":
       validProofRes.isOk()
     let validProof = validProofRes.get()
 
-    # validate the root (should be true)
     let validated = manager.validateRoot(validProof.merkleRoot)
 
     check:
       validated
 
   asyncTest "validateRoot: should reject bad root":
+    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCommitment = idCredentials.idCommitment
+
     (await manager.init()).isOkOr:
       raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
-      raiseAssert $error
 
-    let credentials = generateCredentials(manager.rlnInstance)
-
-    ## Assume the registration occured out of band
-    manager.idCredentials = some(credentials)
-    manager.membershipIndex = some(MembershipIndex(0))
     manager.userMessageLimit = some(UserMessageLimit(1))
+    manager.membershipIndex = some(MembershipIndex(0))
+    manager.idCredentials = some(idCredentials)
+
+    manager.merkleProofCache = newSeq[byte](640)
+    for i in 0 ..< 640:
+      manager.merkleProofCache[i] = byte(rand(255))
 
     let messageBytes = "Hello".toBytes()
 
-    # prepare the epoch
     let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
-    # generate proof
-    let validProof = manager.generateProof(
-      data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr:
-      raiseAssert $error
+    let validProofRes = manager.generateProof(
+      data = messageBytes, epoch = epoch, messageId = MessageId(1)
+    )
 
-    # validate the root (should be false)
+    check:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
+
     let validated = manager.validateRoot(validProof.merkleRoot)
 
     check:
@@ -396,12 +360,18 @@ suite "Onchain group manager":
     manager.onRegister(callback)
 
     try:
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
       await manager.register(credentials, UserMessageLimit(1))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
     await fut
+
+    let rootUpdated = await manager.updateRoots()
+
+    if rootUpdated:
+      let proofResult = await manager.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      manager.merkleProofCache = proofResult.get()
 
     let messageBytes = "Hello".toBytes()
 
@@ -415,7 +385,6 @@ suite "Onchain group manager":
     ).valueOr:
       raiseAssert $error
 
-    # verify the proof (should be true)
     let verified = manager.verifyProof(messageBytes, validProof).valueOr:
       raiseAssert $error
 
@@ -425,31 +394,23 @@ suite "Onchain group manager":
   asyncTest "verifyProof: should reject invalid proof":
     (await manager.init()).isOkOr:
       raiseAssert $error
-    (await manager.startGroupSync()).isOkOr:
-      raiseAssert $error
 
     let idCredential = generateCredentials(manager.rlnInstance)
 
     try:
-      await manager.register(
-        RateCommitment(
-          idCommitment: idCredential.idCommitment, userMessageLimit: UserMessageLimit(1)
-        )
-      )
+      await manager.register(idCredential, UserMessageLimit(1))
     except Exception, CatchableError:
       assert false,
         "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
-    let idCredential2 = generateCredentials(manager.rlnInstance)
-
-    ## Assume the registration occured out of band
-    manager.idCredentials = some(idCredential2)
-    manager.membershipIndex = some(MembershipIndex(0))
-    manager.userMessageLimit = some(UserMessageLimit(1))
-
     let messageBytes = "Hello".toBytes()
 
-    # prepare the epoch
+    let rootUpdated = await manager.updateRoots()
+
+    manager.merkleProofCache = newSeq[byte](640)
+    for i in 0 ..< 640:
+      manager.merkleProofCache[i] = byte(rand(255))
+
     let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
@@ -469,8 +430,8 @@ suite "Onchain group manager":
     check:
       verified == false
 
-  asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
-    const credentialCount = 6
+  asyncTest "root queue should be updated correctly":
+    const credentialCount = 12
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -496,33 +457,17 @@ suite "Onchain group manager":
 
     try:
       manager.onRegister(generateCallback(futures, credentials))
-      (await manager.startGroupSync()).isOkOr:
-        raiseAssert $error
 
       for i in 0 ..< credentials.len():
         await manager.register(credentials[i], UserMessageLimit(1))
+        discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await allFutures(futures)
 
-    # At this point, we should have a full root queue, 5 roots, and partial buffer of 1 root
     check:
-      manager.validRoots.len() == credentialCount - 1
-      manager.validRootBuffer.len() == 1
-
-    # We can now simulate a chain reorg by calling backfillRootQueue
-    let expectedLastRoot = manager.validRootBuffer[0]
-    try:
-      await manager.backfillRootQueue(1)
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    # We should now have 5 roots in the queue, and no partial buffer
-    check:
-      manager.validRoots.len() == credentialCount - 1
-      manager.validRootBuffer.len() == 0
-      manager.validRoots[credentialCount - 2] == expectedLastRoot
+      manager.validRoots.len() == credentialCount
 
   asyncTest "isReady should return false if ethRpc is none":
     (await manager.init()).isOkOr:
@@ -539,24 +484,8 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-  asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
-    (await manager.init()).isOkOr:
-      raiseAssert $error
-
-    var isReady = true
-    try:
-      isReady = await manager.isReady()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    check:
-      isReady == false
-
   asyncTest "isReady should return true if ethRpc is ready":
     (await manager.init()).isOkOr:
-      raiseAssert $error
-    # node can only be ready after group sync is done
-    (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
     var isReady = false

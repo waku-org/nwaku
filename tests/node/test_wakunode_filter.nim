@@ -6,7 +6,6 @@ import
   testutils/unittests,
   chronos,
   chronicles,
-  os,
   libp2p/[peerstore, crypto/crypto]
 
 import
@@ -136,7 +135,8 @@ suite "Waku Filter - End to End":
 
   asyncTest "Client Node can't receive Push from Server Node, via Relay":
     # Given the server node has Relay enabled
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "error mounting relay: " & $error
 
     # And valid filter subscription
     let subscribeResponse = await client.filterSubscribe(
@@ -160,7 +160,8 @@ suite "Waku Filter - End to End":
       server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await server.start()
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "error mounting relay: " & $error
 
     let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
@@ -223,7 +224,8 @@ suite "Waku Filter - End to End":
       pushedMsg == msg
 
   asyncTest "Filter Client Node can't receive messages after subscribing and restarting, via Relay":
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "error mounting relay: " & $error
 
     # Given a valid filter subscription
     let subscribeResponse = await client.filterSubscribe(

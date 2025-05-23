@@ -5,7 +5,6 @@ import presto
 import
   waku/waku_node,
   waku/discovery/waku_discv5,
-  waku/factory/external_config,
   waku/waku_api/message_cache,
   waku/waku_api/handlers,
   waku/waku_api/rest/server,
@@ -18,7 +17,8 @@ import
   waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
   waku/waku_api/rest/health/handlers as rest_health_api,
   waku/waku_api/rest/admin/handlers as rest_admin_api,
-  waku/waku_core/topics
+  waku/waku_core/topics,
+  waku/waku_relay/protocol
 
 ## Monitoring and external interfaces
 
@@ -30,12 +30,18 @@ import
 var restServerNotInstalledTab {.threadvar.}: TableRef[string, string]
 restServerNotInstalledTab = newTable[string, string]()
 
-proc startRestServerEsentials*(
-    nodeHealthMonitor: WakuNodeHealthMonitor, conf: WakuNodeConf
-): Result[WakuRestServerRef, string] =
-  if not conf.rest:
-    return ok(nil)
+export WakuRestServerRef
 
+type RestServerConf* = object
+  allowOrigin*: seq[string]
+  listenAddress*: IpAddress
+  port*: Port
+  admin*: bool
+  relayCacheCapacity*: uint32
+
+proc startRestServerEssentials*(
+    nodeHealthMonitor: WakuNodeHealthMonitor, conf: RestServerConf, portsShift: uint16
+): Result[WakuRestServerRef, string] =
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef
   ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
@@ -71,13 +77,13 @@ proc startRestServerEsentials*(
     return defaultResponse()
 
   let allowedOrigin =
-    if len(conf.restAllowOrigin) > 0:
-      some(conf.restAllowOrigin.join(","))
+    if len(conf.allowOrigin) > 0:
+      some(conf.allowOrigin.join(","))
     else:
       none(string)
 
-  let address = conf.restAddress
-  let port = Port(conf.restPort + conf.portsShift)
+  let address = conf.listenAddress
+  let port = Port(conf.port.uint16 + portsShift)
   let server =
     ?newRestHttpServer(
       address,
@@ -111,14 +117,16 @@ proc startRestServerProtocolSupport*(
     restServer: WakuRestServerRef,
     node: WakuNode,
     wakuDiscv5: WakuDiscoveryV5,
-    conf: WakuNodeConf,
+    conf: RestServerConf,
+    relayEnabled: bool,
+    lightPushEnabled: bool,
+    clusterId: uint16,
+    shards: seq[uint16],
+    contentTopics: seq[string],
 ): Result[void, string] =
-  if not conf.rest:
-    return ok()
-
   var router = restServer.router
   ## Admin REST API
-  if conf.restAdmin:
+  if conf.admin:
     installAdminApiHandlers(router, node)
   else:
     restServerNotInstalledTab["admin"] =
@@ -128,19 +136,33 @@ proc startRestServerProtocolSupport*(
   installDebugApiHandlers(router, node)
 
   ## Relay REST API
-  if conf.relay:
-    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
+  if relayEnabled:
+    ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
+    ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
+    const RestRelayCacheCapacity = 50
+    let cache = MessageCache.init(int(RestRelayCacheCapacity))
 
-    let handler = messageCacheHandler(cache)
+    let handler: WakuRelayHandler = messageCacheHandler(cache)
 
-    for shard in conf.shards:
-      let pubsubTopic = $RelayShard(clusterId: conf.clusterId, shardId: shard)
+    for shard in shards:
+      let pubsubTopic = $RelayShard(clusterId: clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
-      node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
-    for contentTopic in conf.contentTopics:
+      ## TODO: remove this line. use observer-observable pattern
+      ## within waku_node::registerRelayDefaultHandler
+      discard node.wakuRelay.subscribe(pubsubTopic, handler)
+
+    for contentTopic in contentTopics:
       cache.contentSubscribe(contentTopic)
-      node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
+
+      let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+        error "Autosharding error in REST", error = error
+        continue
+      let pubsubTopic = $shard
+
+      ## TODO: remove this line. use observer-observable pattern
+      ## within waku_node::registerRelayDefaultHandler
+      discard node.wakuRelay.subscribe(pubsubTopic, handler)
 
     installRelayApiHandlers(router, node, cache)
   else:
@@ -178,7 +200,7 @@ proc startRestServerProtocolSupport*(
   ## or install it to be used with self-hosted lightpush service
   ## We either get lightpushnode (lightpush service node) from config or discovered or self served
   if (node.wakuLegacyLightpushClient != nil) or
-      (conf.lightpush and node.wakuLegacyLightPush != nil and node.wakuRelay != nil):
+      (lightPushEnabled and node.wakuLegacyLightPush != nil and node.wakuRelay != nil):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
         some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))

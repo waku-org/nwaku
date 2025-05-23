@@ -61,7 +61,7 @@ proc selectRandomCapablePeer*(
   elif codec.contains("filter"):
     cap = Capabilities.Filter
 
-  var supportivePeers = pm.wakuPeerStore.getPeersByCapability(cap)
+  var supportivePeers = pm.switch.peerStore.getPeersByCapability(cap)
 
   trace "Found supportive peers count", count = supportivePeers.len()
   trace "Found supportive peers", supportivePeers = $supportivePeers
@@ -102,7 +102,7 @@ proc tryCallAllPxPeers*(
   elif codec.contains("filter"):
     capability = Capabilities.Filter
 
-  var supportivePeers = pm.wakuPeerStore.getPeersByCapability(capability)
+  var supportivePeers = pm.switch.peerStore.getPeersByCapability(capability)
 
   lpt_px_peers.set(supportivePeers.len)
   debug "Found supportive peers count", count = supportivePeers.len()
@@ -189,14 +189,14 @@ proc pxLookupServiceNode*(
 
     if conf.testPeers:
       let peersOpt =
-        await tryCallAllPxPeers(node.peerManager, codec, conf.pubsubTopics[0])
+        await tryCallAllPxPeers(node.peerManager, codec, conf.getPubsubTopic())
       if peersOpt.isSome():
         info "Found service peers for codec",
           codec = codec, peer_count = peersOpt.get().len()
         return ok(peersOpt.get().len > 0)
     else:
       let peerOpt =
-        await selectRandomCapablePeer(node.peerManager, codec, conf.pubsubTopics[0])
+        await selectRandomCapablePeer(node.peerManager, codec, conf.getPubsubTopic())
       if peerOpt.isSome():
         info "Found service peer for codec", codec = codec, peer = peerOpt.get()
         return ok(true)
@@ -215,7 +215,7 @@ proc selectRandomServicePeer*(
   if actualPeer.isSome():
     alreadyUsedServicePeers.add(actualPeer.get())
 
-  let supportivePeers = pm.wakuPeerStore.getPeersByProtocol(codec).filterIt(
+  let supportivePeers = pm.switch.peerStore.getPeersByProtocol(codec).filterIt(
       it notin alreadyUsedServicePeers
     )
   if supportivePeers.len == 0:

@@ -17,7 +17,6 @@ import
     waku_rln_relay/protocol_metrics,
     waku_keystore,
   ],
-  ../testlib/common,
   ./rln/waku_rln_relay_utils
 
 suite "Waku rln relay":
@@ -691,11 +690,11 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(index),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
+      dynamic: false,
+      credIndex: some(index),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
     )
 
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
@@ -723,13 +722,13 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1, some(time))
+      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
       # wm2 is published within the same Epoch as wm1 and should be found as spam
-      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2, some(time))
+      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
       # a valid message should be validated successfully
-      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3, some(time))
+      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3)
       # wm4 has no rln proof and should not be validated
-      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
+      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
@@ -742,22 +741,22 @@ suite "Waku rln relay":
     let index2 = MembershipIndex(6)
 
     let rlnConf1 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(index1),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
+      dynamic: false,
+      credIndex: some(index1),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "waku_rln_relay_3"),
     )
 
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
     let rlnConf2 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(index2),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      dynamic: false,
+      credIndex: some(index2),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
     )
 
     let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
@@ -779,9 +778,9 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1, some(time))
+      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1)
       # since this message is from a different sender, it should be validated successfully
-      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2, some(time))
+      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
@@ -894,11 +893,11 @@ suite "Waku rln relay":
 
     proc runTestForEpochSizeSec(rlnEpochSizeSec: uint) {.async.} =
       let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: rlnEpochSizeSec,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+        dynamic: false,
+        credIndex: some(index),
+        userMessageLimit: 1,
+        epochSizeSec: rlnEpochSizeSec,
+        treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
       )
 
       let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:

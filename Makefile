@@ -4,8 +4,8 @@
 # - MIT license
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
-BUILD_SYSTEM_DIR := vendor/nimbus-build-system
-EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
+export BUILD_SYSTEM_DIR := vendor/nimbus-build-system
+export EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
 FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
@@ -40,8 +40,8 @@ ifeq ($(detected_OS),Windows)
   NIM_PARAMS += --passL:"-L$(MINGW_PATH)/lib"
   NIM_PARAMS += --passL:"-Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc"
   NIM_PARAMS += --passL:"-Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream"
-  
-  LIBS = -static -lws2_32 -lbcrypt -liphlpapi -luserenv -lntdll -lminiupnpc -lnatpmp -lpq 
+
+  LIBS = -static -lws2_32 -lbcrypt -liphlpapi -luserenv -lntdll -lminiupnpc -lnatpmp -lpq
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
 endif
 
@@ -83,7 +83,7 @@ HEAPTRACKER_INJECT ?= 0
 ifeq ($(HEAPTRACKER), 1)
 # Needed to make nimbus-build-system use the Nim's 'heaptrack_support' branch
 DOCKER_NIM_COMMIT := NIM_COMMIT=heaptrack_support
-TARGET := prod-with-heaptrack
+TARGET := heaptrack-build
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
 # the Nim compiler will load 'libheaptrack_inject.so'
@@ -152,6 +152,12 @@ endif
 
 clean: | clean-libbacktrace
 
+### Create nimble links (used when building with Nix)
+
+nimbus-build-system-nimble-dir:
+	NIMBLE_DIR="$(CURDIR)/$(NIMBLE_DIR)" \
+	PWD_CMD="$(PWD)" \
+	$(CURDIR)/scripts/generate_nimble_links.sh
 
 ##################
 ##     RLN      ##
@@ -159,7 +165,7 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-LIBRLN_VERSION := v0.5.1
+LIBRLN_VERSION := v0.7.0
 
 ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
@@ -334,6 +340,17 @@ docker-image:
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 
+docker-quick-image: MAKE_TARGET ?= wakunode2
+docker-quick-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
+docker-quick-image: DOCKER_IMAGE_NAME ?= wakuorg/nwaku:$(DOCKER_IMAGE_TAG)
+docker-quick-image: NIM_PARAMS := $(NIM_PARAMS) -d:chronicles_colors:none -d:insecure -d:postgres --passL:$(LIBRLN_FILE) --passL:-lm
+docker-quick-image: | build deps librln wakunode2
+	docker build \
+		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
+		--tag $(DOCKER_IMAGE_NAME) \
+		--file docker/binaries/Dockerfile.bn.amd64 \
+		.
+
 docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
 
@@ -359,6 +376,14 @@ docker-liteprotocoltester:
 		--target $(if $(filter deploy,$(DOCKER_LPT_TAG)),deployment_lpt,standalone_lpt) \
 		--tag $(DOCKER_LPT_NAME) \
 		--file apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile \
+		.
+
+docker-quick-liteprotocoltester: DOCKER_LPT_TAG ?= latest
+docker-quick-liteprotocoltester: DOCKER_LPT_NAME ?= wakuorg/liteprotocoltester:$(DOCKER_LPT_TAG)
+docker-quick-liteprotocoltester: | liteprotocoltester
+	docker build \
+		--tag $(DOCKER_LPT_NAME) \
+		--file apps/liteprotocoltester/Dockerfile.liteprotocoltester \
 		.
 
 docker-liteprotocoltester-push:

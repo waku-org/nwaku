@@ -9,15 +9,14 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   libp2p/switch
-import
-  ../testlib/common, ../testlib/wakucore, ../testlib/wakunode, waku/node/waku_metrics
+import ../testlib/wakucore, ../testlib/wakunode
 
-include waku/factory/waku
+include waku/factory/waku, waku/common/enr/typed_record
 
 suite "Wakunode2 - Waku":
   test "compilation version should be reported":
     ## Given
-    var conf = defaultTestWakuNodeConf()
+    let conf = defaultTestWakuConf()
 
     let waku = Waku.new(conf).valueOr:
       raiseAssert error
@@ -32,7 +31,7 @@ suite "Wakunode2 - Waku":
 suite "Wakunode2 - Waku initialization":
   test "peer persistence setup should be successfully mounted":
     ## Given
-    var conf = defaultTestWakuNodeConf()
+    var conf = defaultTestWakuConf()
     conf.peerPersistence = true
 
     let waku = Waku.new(conf).valueOr:
@@ -43,16 +42,13 @@ suite "Wakunode2 - Waku initialization":
 
   test "node setup is successful with default configuration":
     ## Given
-    var conf = defaultTestWakuNodeConf()
+    var conf = defaultTestWakuConf()
 
     ## When
     var waku = Waku.new(conf).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
-      raiseAssert error
-
-    waku.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
       raiseAssert error
 
     ## Then
@@ -69,8 +65,8 @@ suite "Wakunode2 - Waku initialization":
 
   test "app properly handles dynamic port configuration":
     ## Given
-    var conf = defaultTestWakuNodeConf()
-    conf.tcpPort = Port(0)
+    var conf = defaultTestWakuConf()
+    conf.networkConf.p2pTcpPort = Port(0)
 
     ## When
     var waku = Waku.new(conf).valueOr:
@@ -82,9 +78,12 @@ suite "Wakunode2 - Waku initialization":
     ## Then
     let
       node = waku.node
-      typedNodeEnr = node.enr.toTypedRecord()
+      typedNodeEnr = node.enr.toTyped()
 
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
+    let tcpPort = typedNodeEnr.value.tcp()
+    assert tcpPort.isSome()
+    check tcpPort.get() != 0
 
     check:
       # Waku started properly

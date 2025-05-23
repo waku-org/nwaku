@@ -46,13 +46,10 @@ type SyncReconciliation* = ref object of LPProtocol
 
   storage: SyncStorage
 
-  # Receive IDs from transfer protocol for storage
+  # AsyncQueues are used as communication channels between
+  # reconciliation and transfer protocols.
   idsRx: AsyncQueue[SyncID]
-
-  # Send Hashes to transfer protocol for reception
-  localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)]
-
-  # Send Hashes to transfer protocol for transmission
+  localWantsTx: AsyncQueue[PeerId]
   remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
 
   # params
@@ -96,19 +93,26 @@ proc messageIngress*(self: SyncReconciliation, id: SyncID) =
 proc processRequest(
     self: SyncReconciliation, conn: Connection
 ): Future[Result[void, string]] {.async.} =
-  var roundTrips = 0
+  var
+    roundTrips = 0
+    diffs = 0
+
+  # Signal to transfer protocol that this reconciliation is starting
+  await self.localWantsTx.addLast(conn.peerId)
 
   while true:
     let readRes = catch:
       await conn.readLp(int.high)
 
     let buffer: seq[byte] = readRes.valueOr:
-      return err("connection read error: " & error.msg)
+      await conn.close()
+      return err("remote " & $conn.peerId & " connection read error: " & error.msg)
 
-    total_bytes_exchanged.observe(buffer.len, labelValues = [Reconciliation, Receiving])
+    total_bytes_exchanged.inc(buffer.len, labelValues = [Reconciliation, Receiving])
 
     let recvPayload = RangesData.deltaDecode(buffer).valueOr:
-      return err("payload decoding error: " & error)
+      await conn.close()
+      return err("remote " & $conn.peerId & " payload decoding error: " & error)
 
     roundTrips.inc()
 
@@ -136,21 +140,22 @@ proc processRequest(
 
       for hash in hashToSend:
         self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
+        diffs.inc()
 
       for hash in hashToRecv:
-        self.localWantsTx.addLastNoWait((conn.peerId, hash))
+        diffs.inc()
 
       rawPayload = sendPayload.deltaEncode()
 
-    total_bytes_exchanged.observe(
-      rawPayload.len, labelValues = [Reconciliation, Sending]
-    )
+    total_bytes_exchanged.inc(rawPayload.len, labelValues = [Reconciliation, Sending])
 
     let writeRes = catch:
       await conn.writeLP(rawPayload)
 
     if writeRes.isErr():
-      return err("connection write error: " & writeRes.error.msg)
+      await conn.close()
+      return
+        err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
     trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
@@ -162,7 +167,11 @@ proc processRequest(
 
     continue
 
+  # Signal to transfer protocol that this reconciliation is done
+  await self.localWantsTx.addLast(conn.peerId)
+
   reconciliation_roundtrips.observe(roundTrips)
+  reconciliation_differences.observe(diffs)
 
   await conn.close()
 
@@ -188,20 +197,21 @@ proc initiate(
 
   let sendPayload = initPayload.deltaEncode()
 
-  total_bytes_exchanged.observe(
-    sendPayload.len, labelValues = [Reconciliation, Sending]
-  )
+  total_bytes_exchanged.inc(sendPayload.len, labelValues = [Reconciliation, Sending])
 
   let writeRes = catch:
     await connection.writeLP(sendPayload)
 
   if writeRes.isErr():
-    return err("connection write error: " & writeRes.error.msg)
+    await connection.close()
+    return err(
+      "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
+    )
 
   trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
     remote = connection.peerId,
-    payload = sendPayload
+    payload = initPayload
 
   ?await self.processRequest(connection)
 
@@ -217,7 +227,7 @@ proc storeSynchronization*(
   let connOpt = await self.peerManager.dialPeer(peer, WakuReconciliationCodec)
 
   let conn: Connection = connOpt.valueOr:
-    return err("cannot establish sync connection")
+    return err("fail to dial remote " & $peer.peerId)
 
   debug "sync session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
@@ -288,7 +298,7 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
     idsRx: AsyncQueue[SyncID],
-    localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsTx: AsyncQueue[PeerId],
     remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
@@ -353,6 +363,8 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
     let time = getNowInNanosecondTime() - self.syncRange.nanos
 
     let count = self.storage.prune(time)
+
+    total_messages_cached.set(self.storage.length())
 
     debug "periodic prune done", elements_pruned = count
 

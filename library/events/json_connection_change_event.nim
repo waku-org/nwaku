@@ -9,9 +9,6 @@ type JsonConnectionChangeEvent* = ref object of JsonEvent
 proc new*(
     T: type JsonConnectionChangeEvent, peerId: string, peerEvent: PeerEventKind
 ): T =
-  # Returns a JsonConnectionChangeEvent event as indicated in
-  # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
-
   return JsonConnectionChangeEvent(
     eventType: "connection_change", peerId: peerId, peerEvent: peerEvent
   )

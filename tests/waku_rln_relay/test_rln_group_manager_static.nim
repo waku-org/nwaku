@@ -4,7 +4,7 @@
 
 import
   testutils/unittests,
-  stew/results,
+  results,
   options,
   waku/[
     waku_rln_relay/protocol_types,

@@ -23,7 +23,6 @@ import
     node/health_monitor,
   ],
   ../testlib/common,
-  ../testlib/testutils,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -43,7 +42,8 @@ suite "Waku v2 REST API - health":
     let node = testWakuNode()
     let healthMonitor = WakuNodeHealthMonitor()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     healthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
@@ -69,10 +69,10 @@ suite "Waku v2 REST API - health":
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(
       WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+        dynamic: false,
+        credIndex: some(1.uint),
+        epochSizeSec: 1,
+        treePath: genTempPath("rln_tree", "wakunode"),
       )
     )
     healthMonitor.setNode(node)

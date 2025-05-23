@@ -1,15 +1,17 @@
 {.push raises: [].}
 
+# TODO: Rename this type to match file name
+
 type ClusterConf* = object
-  maxMessageSize*: string
+  maxMessageSize*: string # TODO: static convert to a uint64
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
   rlnRelayChainId*: uint
   rlnRelayDynamic*: bool
-  rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
+  # TODO: should be uint16 like the `shards` parameter
   numShardsInNetwork*: uint32
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
@@ -22,15 +24,13 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xCB33Aa5B38d79E3D9Fa8B10afF38AA201399a7e3",
+    rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
     rlnRelayDynamic: true,
     rlnRelayChainId: 11155111,
-    rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
     numShardsInNetwork: 8,
     discv5Discovery: true,
-      # TODO: Why is this part of the conf? eg an edge node would not have this
     discv5BootstrapNodes:
       @[
         "enr:-QESuED0qW1BCmF-oH_ARGPr97Nv767bl_43uoy70vrbah3EaCAdK3Q0iRQ6wkSTTpdrg_dU_NC2ydO8leSlRpBX4pxiAYJpZIJ2NIJpcIRA4VDAim11bHRpYWRkcnO4XAArNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwAtNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOTd-h5owwj-cx7xrmbvQKU8CV3Fomfdvcv1MBc-67T5oN0Y3CCdl-DdWRwgiMohXdha3UyDw",

@@ -99,7 +99,7 @@ when isMainModule:
   wakuConf.dnsAddrs = true
   wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
-  wakuConf.pubsubTopics = conf.pubsubTopics
+  wakuConf.shards = @[conf.shard]
   wakuConf.contentTopics = conf.contentTopics
   wakuConf.clusterId = conf.clusterId
   ## TODO: Depending on the tester needs we might extend here with shards, clusterId, etc...
@@ -118,6 +118,7 @@ when isMainModule:
   wakuConf.store = false
 
   wakuConf.rest = false
+  wakuConf.relayServiceRatio = "40:60"
 
   # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
   # It will always be called from main thread anyway.
@@ -126,7 +127,7 @@ when isMainModule:
   nodeHealthMonitor = WakuNodeHealthMonitor()
   nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-  let restServer = rest_server_builder.startRestServerEsentials(
+  let restServer = rest_server_builder.startRestServerEssentials(
     nodeHealthMonitor, wakuConf
   ).valueOr:
     error "Starting esential REST server failed.", error = $error
@@ -202,10 +203,8 @@ when isMainModule:
   var codec = WakuLightPushCodec
   # mounting relevant client, for PX filter client must be mounted ahead
   if conf.testFunc == TesterFunctionality.SENDER:
-    wakuApp.node.mountLegacyLightPushClient()
     codec = WakuLightPushCodec
   else:
-    waitFor wakuApp.node.mountFilterClient()
     codec = WakuFilterSubscribeCodec
 
   var lookForServiceNode = false

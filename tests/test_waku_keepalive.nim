@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -32,11 +31,13 @@ suite "Waku Keepalive":
       completionFut.complete(true)
 
     await node1.start()
-    await node1.mountRelay()
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await node1.mountLibp2pPing()
 
     await node2.start()
-    await node2.mountRelay()
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     let pingProto = Ping.new(handler = pingHandler)
     await pingProto.start()

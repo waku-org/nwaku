@@ -129,7 +129,8 @@ type
     # the second entry contains the error messages to be returned when the validator fails
     wakuValidators: seq[tuple[handler: WakuValidatorHandler, errorMessage: string]]
     # a map of validators to error messages to return when validation fails
-    validatorInserted: Table[PubsubTopic, bool]
+    topicValidator: Table[PubsubTopic, ValidatorHandler]
+      # map topic with its assigned validator within pubsub
     publishObservers: seq[PublishObserver]
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
@@ -323,21 +324,46 @@ proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
 proc getDHigh*(T: type WakuRelay): int =
   return GossipsubParameters.dHigh
 
-proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
-  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+proc getPubSubPeersInMesh*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[HashSet[PubSubPeer], string] =
+  ## Returns the list of PubSubPeers in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
 
   if not w.mesh.hasKey(pubsubTopic):
-    debug "getNumPeersInMesh - there is no mesh peer for the given pubsub topic",
+    debug "getPubSubPeersInMesh - there is no mesh peer for the given pubsub topic",
       pubsubTopic = pubsubTopic
-    return ok(0)
+    return ok(initHashSet[PubSubPeer]())
 
   let peersRes = catch:
     w.mesh[pubsubTopic]
 
   let peers: HashSet[PubSubPeer] = peersRes.valueOr:
-    return
-      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+    return err(
+      "getPubSubPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg
+    )
+
+  return ok(peers)
+
+proc getPeersInMesh*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[seq[PeerId], string] =
+  ## Returns the list of peerIds in a mesh defined by the passed pubsub topic.
+  ## The 'mesh' atribute is defined in the GossipSub ref object.
+  let pubSubPeers = w.getPubSubPeersInMesh(pubsubTopic).valueOr:
+    return err(error)
+  let peerIds = toSeq(pubSubPeers).mapIt(it.peerId)
+
+  return ok(peerIds)
+
+proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
+  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+
+  let peers = w.getPubSubPeersInMesh(pubsubTopic).valueOr:
+    return err(
+      "getNumPeersInMesh - failed retrieving peers in mesh: " & pubsubTopic & ": " &
+        error
+    )
 
   return ok(peers.len)
 
@@ -402,7 +428,7 @@ proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
 proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   return toSeq(GossipSub(w).topics.keys())
 
-proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
+proc generateOrderedValidator(w: WakuRelay): ValidatorHandler {.gcsafe.} =
   # rejects messages that are not WakuMessage
   let wrappedValidator = proc(
       pubsubTopic: string, message: messages.Message
@@ -491,9 +517,10 @@ proc subscribe*(
   # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
   # Otherwise this might lead to unintended behaviour.
-  if not w.validatorInserted.hasKey(pubSubTopic):
+  if not w.topicValidator.hasKey(pubSubTopic):
+    let newValidator = w.generateOrderedValidator()
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
-    w.validatorInserted[pubSubTopic] = true
+    w.topicValidator[pubSubTopic] = newValidator
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
@@ -509,20 +536,46 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe all", pubsubTopic = pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
-  w.validatorInserted.del(pubsubTopic)
+  w.topicValidator.del(pubsubTopic)
 
-proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
-  ## Unsubscribe this handler on this pubsub topic
+proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
+  if not w.topicValidator.hasKey(pubsubTopic):
+    error "unsubscribe no validator for this topic", pubsubTopic
+    return
 
-  debug "unsubscribe", pubsubTopic = pubsubTopic
+  if pubsubtopic notin Pubsub(w).topics:
+    error "not subscribed to the given topic", pubsubTopic
+    return
 
-  procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
+  var topicHandlerSeq: seq[TopicHandler]
+  var topicValidator: ValidatorHandler
+  try:
+    topicHandlerSeq = Pubsub(w).topics[pubsubTopic]
+    if topicHandlerSeq.len == 0:
+      error "unsubscribe no handler for this topic", pubsubTopic
+      return
+    topicValidator = w.topicValidator[pubsubTopic]
+  except KeyError:
+    error "exception in unsubscribe", pubsubTopic, error = getCurrentExceptionMsg()
+    return
+
+  let topicHandler = topicHandlerSeq[0]
+
+  debug "unsubscribe", pubsubTopic
+  procCall GossipSub(w).unsubscribe($pubsubTopic, topicHandler)
+  ## TODO: uncomment the following line when https://github.com/vacp2p/nim-libp2p/pull/1356
+  ## is available in a nim-libp2p release.
+  # procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
 
 proc publish*(
-    w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
+    w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
 ): Future[Result[int, PublishOutcome]] {.async.} =
   if pubsubTopic.isEmptyOrWhitespace():
     return err(NoTopicSpecified)
+
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
 
   let data = message.encode().buffer
 
@@ -539,22 +592,22 @@ proc publish*(
 
   return ok(relayedPeerCount)
 
-proc getNumConnectedPeers*(
+proc getConnectedPubSubPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic
-): Result[int, string] =
-  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+): Result[HashSet[PubsubPeer], string] =
+  ## Returns the list of peerIds of connected peers and subscribed to the passed pubsub topic.
   ## The 'gossipsub' atribute is defined in the GossipSub ref object.
 
   if pubsubTopic == "":
     ## Return all the connected peers
-    var numConnPeers = 0
+    var peerIds = initHashSet[PubsubPeer]()
     for k, v in w.gossipsub:
-      numConnPeers.inc(v.len)
-    return ok(numConnPeers)
+      peerIds = peerIds + v
+    return ok(peerIds)
 
   if not w.gossipsub.hasKey(pubsubTopic):
     return err(
-      "getNumConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
+      "getConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
         pubsubTopic
     )
 
@@ -562,15 +615,37 @@ proc getNumConnectedPeers*(
     w.gossipsub[pubsubTopic]
 
   let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  return ok(peers)
+
+proc getConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[seq[PeerId], string] =
+  ## Returns the list of peerIds of connected peers and subscribed to the passed pubsub topic.
+  ## The 'gossipsub' atribute is defined in the GossipSub ref object.
+
+  let peers = w.getConnectedPubSubPeers(pubsubTopic).valueOr:
+    return err(error)
+
+  let peerIds = toSeq(peers).mapIt(it.peerId)
+  return ok(peerIds)
+
+proc getNumConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[int, string] =
+  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+
+  ## Return all the connected peers
+  let peers = w.getConnectedPubSubPeers(pubsubTopic).valueOr:
     return err(
-      "getNumConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg
+      "getNumConnectedPeers - failed retrieving peers in mesh: " & pubsubTopic & ": " &
+        error
     )
 
   return ok(peers.len)
 
 proc getSubscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   ## Returns a seq containing the current list of subscribed topics
-  var topics: seq[PubsubTopic]
-  for t in w.validatorInserted.keys():
-    topics.add(t)
-  return topics
+  return PubSub(w).topics.keys.toSeq().mapIt(cast[PubsubTopic](it))

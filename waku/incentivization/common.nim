@@ -1,6 +1,6 @@
 import std/options
 
-import waku/incentivization/[rpc, eligibility_manager]
+import waku/incentivization/rpc
 
 type EligibilityStatusCode* = enum
   SUCCESS = uint32(200)

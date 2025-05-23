@@ -14,14 +14,11 @@ import
     node/peer_manager,
     waku_core,
     waku_store_legacy,
-    waku_store_legacy/client,
     waku_archive_legacy,
-    waku_archive_legacy/driver/sqlite_driver,
-    common/databases/db_sqlite,
   ],
   ../waku_store_legacy/store_utils,
   ../waku_archive_legacy/archive_utils,
-  ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]
+  ../testlib/[wakucore, wakunode, testasync, testutils]
 
 suite "Waku Store - End to End - Sorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic

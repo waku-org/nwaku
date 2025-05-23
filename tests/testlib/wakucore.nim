@@ -1,7 +1,7 @@
 import
   std/[options, times],
-  stew/[results, byteutils],
-  stew/shims/net,
+  results,
+  stew/byteutils,
   chronos,
   libp2p/switch,
   libp2p/builders,

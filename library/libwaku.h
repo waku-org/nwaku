@@ -117,7 +117,17 @@ int waku_relay_get_num_connected_peers(void* ctx,
                            WakuCallBack callback,
                            void* userData);
 
+int waku_relay_get_connected_peers(void* ctx,
+                           const char* pubSubTopic,
+                           WakuCallBack callback,
+                           void* userData);
+
 int waku_relay_get_num_peers_in_mesh(void* ctx,
+                           const char* pubSubTopic,
+                           WakuCallBack callback,
+                           void* userData);
+
+int waku_relay_get_peers_in_mesh(void* ctx,
                            const char* pubSubTopic,
                            WakuCallBack callback,
                            void* userData);
@@ -155,6 +165,10 @@ int waku_dial_peer_by_id(void* ctx,
                  void* userData);
 
 int waku_get_peerids_from_peerstore(void* ctx,
+                                    WakuCallBack callback,
+                                    void* userData);
+
+int waku_get_connected_peers_info(void* ctx,
                                     WakuCallBack callback,
                                     void* userData);
 

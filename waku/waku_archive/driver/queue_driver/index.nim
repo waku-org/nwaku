@@ -1,6 +1,5 @@
 {.push raises: [].}
 
-import stew/byteutils
 import ../../../waku_core
 
 type Index* = object

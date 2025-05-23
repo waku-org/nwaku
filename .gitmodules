@@ -168,7 +168,7 @@
 	path = vendor/db_connector
 	url = https://github.com/nim-lang/db_connector.git
 	ignore = untracked
-	branch = master
+	branch = devel
 [submodule "vendor/nph"]
 	ignore = untracked
 	branch = master
@@ -177,16 +177,6 @@
 [submodule "vendor/nim-minilru"]
 	path = vendor/nim-minilru
 	url = https://github.com/status-im/nim-minilru.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-quic"]
-	path = vendor/nim-quic
-	url = https://github.com/status-im/nim-quic.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-ngtcp2"]
-	path = vendor/nim-ngtcp2
-	url = https://github.com/vacp2p/nim-ngtcp2.git
 	ignore = untracked
 	branch = master
 [submodule "vendor/waku-rlnv2-contract"]
