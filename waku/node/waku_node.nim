@@ -51,7 +51,8 @@ import
   ./config,
   ./peer_manager,
   ../common/rate_limit/setting,
-  ../discovery/autonat_service
+  ../discovery/autonat_service,
+  ../incentivization/[eligibility_manager, rpc]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -1149,6 +1150,7 @@ proc lightpushPublishHandler(
     notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
+      eligibilityProof = eligibilityProof,
       target_peer_id = peer.peerId,
       msg_hash = msgHash
     return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
@@ -1157,6 +1159,7 @@ proc lightpushPublishHandler(
     notice "publishing message with self hosted lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
+      eligibilityProof = eligibilityProof,
       target_peer_id = peer.peerId,
       msg_hash = msgHash
     return
@@ -1166,6 +1169,7 @@ proc lightpushPublish*(
     node: WakuNode,
     pubsubTopic: Option[PubsubTopic],
     message: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo),
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
@@ -1193,7 +1197,10 @@ proc lightpushPublish*(
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
       return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
+  
+  # TODO: check eligibilityProof here
 
+  # TODO: eligibilityProof must be already checked if present
   return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
 
 ## Waku RLN Relay
