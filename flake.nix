@@ -51,6 +51,7 @@
           src = self;
           targets = ["libwaku-android-arm64"]; 
           androidArch = "aarch64-linux-android";
+          abidir = "arm64-v8a";
           zerokitPkg = zerokit.packages.${system}.zerokit-android-arm64;
         };
         default = libwaku-android-arm64;
