@@ -711,7 +711,7 @@ suite "Waku rln relay":
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "Spam message".toBytes(), timestamp: now())
 
-    await sleepAsync(1000)
+    await sleepAsync(1.seconds)
     let time_2 = epochTime()
 
     var
