@@ -758,7 +758,7 @@ suite "Waku rln relay":
       raiseAssert $error
 
     # usually it's 20 seconds but we set it to 2 for testing purposes which make the test faster
-    wakuRlnRelay.rlnMaxTimestampGap = 2
+    wakuRlnRelay.rlnMaxTimestampGap = 1
 
     var time = epochTime()
 
@@ -775,8 +775,8 @@ suite "Waku rln relay":
     # validate the first message because it's timestamp is the same as the generated timestamp
     let msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
 
-    # wait for 3 seconds to make the timestamp different from generated timestamp
-    await sleepAsync(3000)
+    # wait for 2 seconds to make the timestamp different from generated timestamp
+    await sleepAsync(2.seconds)
 
     # invalidate the second message because it's timestamp is different from the generated timestamp
     let msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
