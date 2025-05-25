@@ -130,7 +130,7 @@ suite "Onchain group manager":
     let merkleRootBefore = manager.fetchMerkleRoot()
 
     try:
-      await manager.register(credentials, UserMessageLimit(1))
+      await manager.register(credentials, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -166,7 +166,7 @@ suite "Onchain group manager":
 
     try:
       for i in 0 ..< credentials.len():
-        await manager.register(credentials[i], UserMessageLimit(1))
+        await manager.register(credentials[i], UserMessageLimit(20))
         discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
@@ -183,7 +183,7 @@ suite "Onchain group manager":
     try:
       await manager.register(
         RateCommitment(
-          idCommitment: dummyCommitment, userMessageLimit: UserMessageLimit(1)
+          idCommitment: dummyCommitment, userMessageLimit: UserMessageLimit(20)
         )
       )
     except CatchableError:
@@ -202,7 +202,7 @@ suite "Onchain group manager":
     try:
       await manager.register(
         RateCommitment(
-          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1)
+          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(20)
         )
       )
     except Exception, CatchableError:
@@ -222,7 +222,7 @@ suite "Onchain group manager":
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      let rateCommitment = getRateCommitment(idCredentials, UserMessageLimit(1)).get()
+      let rateCommitment = getRateCommitment(idCredentials, UserMessageLimit(20)).get()
       check:
         registrations.len == 1
         registrations[0].rateCommitment == rateCommitment
@@ -237,7 +237,7 @@ suite "Onchain group manager":
     try:
       await manager.register(
         RateCommitment(
-          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1)
+          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(20)
         )
       )
     except Exception, CatchableError:
@@ -264,7 +264,7 @@ suite "Onchain group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
           registrations[0].rateCommitment ==
-          getRateCommitment(idCredentials, UserMessageLimit(1)).get() and
+          getRateCommitment(idCredentials, UserMessageLimit(20)).get() and
           registrations[0].index == 0:
         manager.idCredentials = some(idCredentials)
         fut.complete()
@@ -275,7 +275,7 @@ suite "Onchain group manager":
       raiseAssert $error
 
     try:
-      await manager.register(idCredentials, UserMessageLimit(1))
+      await manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -313,7 +313,7 @@ suite "Onchain group manager":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
-    manager.userMessageLimit = some(UserMessageLimit(1))
+    manager.userMessageLimit = some(UserMessageLimit(20))
     manager.membershipIndex = some(MembershipIndex(0))
     manager.idCredentials = some(idCredentials)
 
@@ -349,7 +349,7 @@ suite "Onchain group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
           registrations[0].rateCommitment ==
-          getRateCommitment(credentials, UserMessageLimit(1)).get() and
+          getRateCommitment(credentials, UserMessageLimit(20)).get() and
           registrations[0].index == 0:
         manager.idCredentials = some(credentials)
         fut.complete()
@@ -357,7 +357,7 @@ suite "Onchain group manager":
     manager.onRegister(callback)
 
     try:
-      await manager.register(credentials, UserMessageLimit(1))
+      await manager.register(credentials, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
     await fut
@@ -395,7 +395,7 @@ suite "Onchain group manager":
     let idCredential = generateCredentials(manager.rlnInstance)
 
     try:
-      await manager.register(idCredential, UserMessageLimit(1))
+      await manager.register(idCredential, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false,
         "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
@@ -445,7 +445,7 @@ suite "Onchain group manager":
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
             registrations[0].rateCommitment ==
-            getRateCommitment(credentials[futureIndex], UserMessageLimit(1)).get() and
+            getRateCommitment(credentials[futureIndex], UserMessageLimit(20)).get() and
             registrations[0].index == MembershipIndex(futureIndex):
           futs[futureIndex].complete()
           futureIndex += 1
@@ -456,7 +456,7 @@ suite "Onchain group manager":
       manager.onRegister(generateCallback(futures, credentials))
 
       for i in 0 ..< credentials.len():
-        await manager.register(credentials[i], UserMessageLimit(1))
+        await manager.register(credentials[i], UserMessageLimit(20))
         discard await manager.updateRoots()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
