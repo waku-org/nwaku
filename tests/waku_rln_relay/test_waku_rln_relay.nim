@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, os, sequtils, times, tempfiles],
+  std/[options, os, sequtils, tempfiles],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -17,7 +17,10 @@ import
     waku_rln_relay/protocol_metrics,
     waku_keystore,
   ],
-  ./rln/waku_rln_relay_utils
+  ./rln/waku_rln_relay_utils,
+  ../testlib/[wakucore, futures, wakunode, testutils]
+
+from std/times import epochTime
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
@@ -686,7 +689,7 @@ suite "Waku rln relay":
     # it is a duplicate
     assert isDuplicate3, "duplicate should be found"
 
-  asyncTest "validateMessageAndUpdateLog test":
+  asyncTest "validateMessageAndUpdateLog: against epoch gap":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = WakuRlnConfig(
@@ -700,27 +703,31 @@ suite "Waku rln relay":
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
-    # get the current epoch time
-    let time = epochTime()
+    let time_1 = epochTime()
 
-    #  create some messages from the same peer and append rln proof to them, except wm4
     var
-      wm1 = WakuMessage(payload: "Valid message".toBytes())
+      # create some messages from the same peer and append rln proof to them, except wm4
+      wm1 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
       # another message in the same epoch as wm1, it will break the messaging rate limit
-      wm2 = WakuMessage(payload: "Spam".toBytes())
-      #  wm3 points to the next epoch
-      wm3 = WakuMessage(payload: "Valid message".toBytes())
-      wm4 = WakuMessage(payload: "Invalid message".toBytes())
+      wm2 = WakuMessage(payload: "Spam message".toBytes(), timestamp: now())
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+    await sleepAsync(1.seconds)
+    let time_2 = epochTime()
+
+    var
+      #  wm3 points to the next epoch bcz of the sleep 
+      wm3 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
+      wm4 = WakuMessage(payload: "Invalid message".toBytes(), timestamp: now())
+
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, time_1).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, time_1).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm3, time + float64(wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
+
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, time_2).isOkOr:
       raiseAssert $error
 
     # validate messages
-    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
       msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
       # wm2 is published within the same Epoch as wm1 and should be found as spam
@@ -735,6 +742,48 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+
+  asyncTest "validateMessageAndUpdateLog: against timestamp gap":
+    let index = MembershipIndex(5)
+
+    let wakuRlnConfig = WakuRlnConfig(
+      dynamic: false,
+      credIndex: some(index),
+      userMessageLimit: 10,
+      epochSizeSec: 10,
+      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
+    )
+
+    let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+      raiseAssert $error
+
+    # usually it's 20 seconds but we set it to 2 for testing purposes which make the test faster
+    wakuRlnRelay.rlnMaxTimestampGap = 1
+
+    var time = epochTime()
+
+    var
+      wm1 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
+      wm2 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
+
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
+
+    # validate the first message because it's timestamp is the same as the generated timestamp
+    let msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
+
+    # wait for 2 seconds to make the timestamp different from generated timestamp
+    await sleepAsync(2.seconds)
+
+    # invalidate the second message because it's timestamp is different from the generated timestamp
+    let msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
+
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Invalid
 
   asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
@@ -766,9 +815,11 @@ suite "Waku rln relay":
 
     #  create messages from different peers and append rln proofs to them
     var
-      wm1 = WakuMessage(payload: "Valid message from sender 1".toBytes())
+      wm1 =
+        WakuMessage(payload: "Valid message from sender 1".toBytes(), timestamp: now())
       # another message in the same epoch as wm1, it will break the messaging rate limit
-      wm2 = WakuMessage(payload: "Valid message from sender 2".toBytes())
+      wm2 =
+        WakuMessage(payload: "Valid message from sender 2".toBytes(), timestamp: now())
 
     wakuRlnRelay1.appendRLNProof(wm1, time).isOkOr:
       raiseAssert $error
