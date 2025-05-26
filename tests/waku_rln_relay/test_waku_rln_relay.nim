@@ -689,7 +689,7 @@ suite "Waku rln relay":
     # it is a duplicate
     assert isDuplicate3, "duplicate should be found"
 
-  asyncTest "validateMessageAndUpdateLog: again epoch":
+  asyncTest "validateMessageAndUpdateLog: against epoch gap":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = WakuRlnConfig(
@@ -743,7 +743,7 @@ suite "Waku rln relay":
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
 
-  asyncTest "validateMessageAndUpdateLog: against timestamp":
+  asyncTest "validateMessageAndUpdateLog: against timestamp gap":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = WakuRlnConfig(
