@@ -104,6 +104,14 @@ proc sendMintCall*(
     amountTokens: UInt256,
     recipientBalanceBeforeExpectedTokens: Option[UInt256] = none(UInt256),
 ): Future[TxHash] {.async.} =
+  let doBalanceAssert = recipientBalanceBeforeExpectedTokens.isSome()
+
+  if doBalanceAssert:
+    let balanceBeforeMint = await getTokenBalance(web3, tokenAddress, recipientAddress)
+    let balanceBeforeExpectedTokens = recipientBalanceBeforeExpectedTokens.get()
+    assert balanceBeforeMint == balanceBeforeExpectedTokens,
+      fmt"Balance is {balanceBeforeMint} before minting but expected {balanceBeforeExpectedTokens}"
+
   # Create mint transaction
   let mintSelector = "0x40c10f19" # Pad the address and amount to 32 bytes each
   let addressHex = recipientAddress.toHex()
@@ -137,28 +145,16 @@ proc sendMintCall*(
   # Wait a bit for transaction to be mined
   await sleepAsync(500.milliseconds)
 
-  var balanceCallTx: TransactionArgs
-  balanceCallTx.to = Opt.some(tokenAddress)
-  balanceCallTx.data = Opt.some(byteutils.hexToSeqByte(balanceCallData))
-
-  # Make the call to get updated balance
-  let balanceResponse = await web3.provider.eth_call(balanceCallTx, "latest")
-
-  let balanceHexStr = "0x" & byteutils.toHex(balanceResponse)
-  let balanceAfterTokens = stint.parse(balanceHexStr, UInt256, 16)
-  let balanceAfterExpectedTokens =
-    recipientBalanceBeforeExpectedTokens.get() + amountTokens
-  debug "token balance after minting", balanceAfterTokens = balanceAfterTokens
-  assert balanceAfterTokens == balanceAfterExpectedTokens,
-    fmt"Token balance is {balanceAfterTokens} but expected {balanceAfterExpectedTokens}"
-
-  let balance3 = await web3.provider.eth_getBalance(recipientAddress, "latest")
-  debug "sendMintCall: after mint recipientAddress account balance: ",
-    recipientAddress = recipientAddress, balance = balance3
+  if doBalanceAssert:
+    let balanceAfterMint = await getTokenBalance(web3, tokenAddress, recipientAddress)
+    let balanceAfterExpectedTokens =
+      recipientBalanceBeforeExpectedTokens.get() + amountTokens
+    assert balanceAfterMint == balanceAfterExpectedTokens,
+      fmt"Balance is {balanceAfterMint} after transfer but expected {balanceAfterExpectedTokens}"
 
   return txHash
 
-proc checkApproval*(
+proc checkAllowance*(
     web3: Web3, tokenAddress: Address, owner: Address, spender: Address
 ): Future[UInt256] {.async.} =
   let token = web3.contractSender(ERC20Token, tokenAddress)
@@ -166,17 +162,26 @@ proc checkApproval*(
   debug "Current allowance", owner = owner, spender = spender, allowance = allowance
   return allowance
 
-proc sendApproveCall*(
+proc sendTokenApproveCall*(
     web3: Web3,
     accountFrom: Address,
     privateKey: keys.PrivateKey,
     tokenAddress: Address,
     spender: Address,
     amountWei: UInt256,
+    accountAllowanceBeforeExpectedTokens: Option[UInt256] = none(UInt256),
 ): Future[TxHash] {.async.} =
   # # ERC20 approve function signature: approve(address spender, uint256 amount)
   # # Create the contract call data
   # # Method ID for approve(address,uint256) is 0x095ea7b3
+  let doBalanceAssert = accountAllowanceBeforeExpectedTokens.isSome()
+
+  if doBalanceAssert:
+    let allowanceBeforeApproval =
+      await checkAllowance(web3, tokenAddress, accountFrom, spender)
+    let allowanceBeforeExpectedTokens = accountAllowanceBeforeExpectedTokens.get()
+    assert allowanceBeforeApproval == allowanceBeforeExpectedTokens,
+      fmt"Balance is {allowanceBeforeApproval} before minting but expected {allowanceBeforeExpectedTokens}"
 
   # Temporarily set the private key
   let oldPrivateKey = web3.privateKey
@@ -189,11 +194,7 @@ proc sendApproveCall*(
   let addressHex = spender.toHex() # Already without 0x
   let paddedAddress = addressHex.align(64, '0')
   let amountHex = amountWei.toHex()
-  # let amountWithout0x =
-  #   if amountHex.startsWith("0x"):
-  #     amountHex[2 .. ^1]
-  #   else:
-  #     amountHex
+
   let paddedAmount = amountHex.align(64, '0')
   let approveCallData = approveSelector & paddedAddress & paddedAmount
 
@@ -215,6 +216,15 @@ proc sendApproveCall*(
   try:
     # Send will automatically sign because privateKey is set
     let txHash = await web3.send(tx)
+
+    if doBalanceAssert:
+      let allowanceAfterApproval =
+        await checkAllowance(web3, tokenAddress, accountFrom, spender)
+      let allowanceAfterExpectedTokens =
+        accountAllowanceBeforeExpectedTokens.get() + amountWei
+      assert allowanceAfterApproval == allowanceAfterExpectedTokens,
+        fmt"Balance is {allowanceAfterApproval} before minting but expected {allowanceAfterExpectedTokens}"
+
     return txHash
   except CatchableError as e:
     error "Failed to send approve transaction", error = e.msg
@@ -225,7 +235,7 @@ proc sendApproveCall*(
 
 proc deployTestToken*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
-): Future[Address] {.async.} =
+): Future[Result[Address, string]] {.async.} =
   ## Executes a Foundry forge script that deploys the a token contract (ERC-20) used for testing. This is a prerequisite to enable the contract deployment and this token contract address needs to be minted and approved for the accounts that need to register membership with the contract
   ## submodulePath: path to the submodule containing contract deploy scripts
 
@@ -240,25 +250,25 @@ proc deployTestToken*(
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
   trace "Executed forge clean command", output = forgeCleanOutput
   if forgeCleanExitCode != 0:
-    error "forge clean failed", output = forgeCleanOutput
+    return error("forge clean command failed")
 
   let (forgeInstallOutput, forgeInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
   trace "Executed forge install command", output = forgeInstallOutput
   if forgeInstallExitCode != 0:
-    error "forge install failed", output = forgeInstallOutput
+    return error("forge install command failed")
 
   let (pnpmInstallOutput, pnpmInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    error "pnpm install failed", output = pnpmInstallOutput
+    return error("pnpm install command failed")
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
   trace "Executed forge build command", output = forgeBuildOutput
   if forgeBuildExitCode != 0:
-    error "forge build failed", output = forgeBuildOutput
+    return error("forge build command failed")
 
   # Set the environment variable API keys to anything for testing
   putEnv("API_KEY_CARDONA", "123")
@@ -272,19 +282,20 @@ proc deployTestToken*(
   trace "Executed forge command to deploy TestToken contract",
     output = outputDeployTestToken
   if exitCodeDeployTestToken != 0:
-    # error "Forge command to deploy TestToken contract failed", output = outputDeployTestToken
-    raise newException(
-      CatchableError,
-      "Forge command to deploy TestToken contract failed, output=" &
-        outputDeployTestToken,
-    )
+    return error("Forge command to deploy TestToken contract failed")
+    # raise newException(
+    #   CatchableError,
+    #   "Forge command to deploy TestToken contract failed, output=" &
+    #     outputDeployTestToken,
+    # )
 
   # Parse the output to find contract address
   let testTokenAddressRes =
     getContractAddressFromDeployScriptOutput(outputDeployTestToken)
   if testTokenAddressRes.isErr():
-    error "Failed to get TestToken contract address from deploy script output"
-    ##TODO: raise exception here?
+    error "Failed to get TestToken contract address from deploy script output",
+      error = testTokenAddressRes.error
+    return err("Failed to get TestToken contract address from deploy script output")
   let testTokenAddress = testTokenAddressRes.get()
   debug "Address of the TestToken contract", testTokenAddress
   debug "TestToken contract deployer account details", account = acc, pk = pk
@@ -292,9 +303,9 @@ proc deployTestToken*(
   let testTokenAddressBytes = hexToByteArray[20](testTokenAddress)
   let testTokenAddressAddress = Address(testTokenAddressBytes)
 
-  return testTokenAddressAddress
+  return ok(testTokenAddressAddress)
 
-proc approveAndVerify*(
+proc approveTokenAllowanceAndVerify*(
     web3: Web3,
     accountFrom: Address,
     privateKey: keys.PrivateKey,
@@ -309,8 +320,8 @@ proc approveAndVerify*(
     amount = amountWei
 
   # Send approval
-  let txHash = await sendApproveCall(
-    web3, accountFrom, privateKey, tokenAddress, spender, amountWei
+  let txHash = await sendTokenApproveCall(
+    web3, accountFrom, privateKey, tokenAddress, spender, amountWei, some(0.u256)
   )
 
   debug "Approval transaction sent", txHash = txHash
@@ -328,7 +339,7 @@ proc approveAndVerify*(
   await sleepAsync(100.milliseconds)
 
   # Check allowance after mining
-  let allowanceAfter = await checkApproval(web3, tokenAddress, accountFrom, spender)
+  let allowanceAfter = await checkAllowance(web3, tokenAddress, accountFrom, spender)
   debug "Allowance after approval", amount = allowanceAfter
 
   return allowanceAfter >= amountWei
@@ -423,7 +434,7 @@ proc executeForgeContractDeployScripts*(): Future[Address] {.async.} =
     error "Forge command to deploy Proxy failed"
     raise newException(
       CatchableError,
-      "Forge command to deploy proxy contract failed, exitCodeDeployProxy=",
+      "Forge command to deploy proxy contract failed, output=" & outputDeployProxy,
     )
 
   let proxyAddress = getContractAddressFromDeployScriptOutput(outputDeployProxy)
@@ -520,7 +531,7 @@ proc sendEthTransfer*(
   let txHash = await web3.send(tx)
 
   # Wait a bit for transaction to be mined
-  await sleepAsync(2000.milliseconds)
+  await sleepAsync(1000.milliseconds)
 
   if doBalanceAssert:
     let balanceAfterWei = await web3.provider.eth_getBalance(accountTo, "latest")
@@ -645,18 +656,23 @@ proc setupOnchainGroupManager*(
   # we just need to fund the default account
   # the send procedure returns a tx hash that we don't use, hence discard
   discard await sendEthTransfer(
-    web3, web3.defaultAccount, acc, ethToWei(5000.u256), some(0.u256)
+    web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
   )
 
-  let testTokenAddress = await deployTestToken(privateKey, acc, web3)
+  let testTokenAddressRes = await deployTestToken(privateKey, acc, web3)
+  if testTokenAddressRes.isErr():
+    error "Failed to deploy test token contract", error = testTokenAddressRes.error
+    raise newException(CatchableError, "Failed to deploy test token contract")
+  let testTokenAddress = testTokenAddressRes.get()
   putEnv("TOKEN_ADDRESS", testTokenAddress.toHex())
 
+  # mint the token from the generated account
   discard await sendMintCall(
     web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
   )
   let contractAddress = await executeForgeContractDeployScripts()
 
-  let approvalSuccess = await approveAndVerify(
+  let approvalSuccess = await approveTokenAllowanceAndVerify(
     web3,
     acc, # owner
     privateKey,
