@@ -57,19 +57,21 @@ suite "Onchain group manager":
       raiseAssert "Expected error when chainId does not match"
 
   asyncTest "should initialize when chainId is set to 0":
-    manager.chainId = 0
+    manager.chainId = 0x0'u256
 
     (await manager.init()).isOkOr:
       raiseAssert $error
 
   asyncTest "should error on initialization when loaded metadata does not match":
     (await manager.init()).isOkOr:
-      raiseAssert $error
+      assert false, $error
 
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
     let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
-      raiseAssert $error
+      assert false, $error
+      return
+
     assert metadataOpt.isSome(), "metadata is not set"
     let metadata = metadataOpt.get()
 
@@ -84,17 +86,12 @@ suite "Onchain group manager":
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
-        raiseAssert errStr
+        assert false, errStr
       ,
     )
     let e = await manager2.init()
     (e).isErrOr:
-      raiseAssert "Expected error when contract address doesn't match"
-
-    echo "---"
-    discard "persisted data: contract address mismatch"
-    echo e.error
-    echo "---"
+      assert false, "Expected error when contract address doesn't match"
 
   asyncTest "should error if contract does not exist":
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"

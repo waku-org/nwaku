@@ -1,11 +1,6 @@
 {.used.}
 
-import
-  std/[options, sequtils, sets],
-  stew/shims/net as stewNet,
-  testutils/unittests,
-  chronos,
-  libp2p/crypto/crypto
+import std/[options, sequtils, sets], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   waku/[
@@ -75,8 +70,8 @@ suite "Waku Store - End to End - Sorted Archive":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     archiveDriver = newArchiveDriverWithMessages(pubsubTopic, messages)
     let mountArchiveResult = server.mountArchive(archiveDriver)
@@ -480,7 +475,7 @@ suite "Waku Store - End to End - Sorted Archive":
           )
           otherServerKey = generateSecp256k1Key()
           otherServer =
-            newTestWakuNode(otherServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+            newTestWakuNode(otherServerKey, parseIpAddress("0.0.0.0"), Port(0))
           mountOtherArchiveResult =
             otherServer.mountArchive(otherArchiveDriverWithMessages)
         assert mountOtherArchiveResult.isOk()
@@ -571,8 +566,8 @@ suite "Waku Store - End to End - Unsorted Archive":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     let
       unsortedArchiveDriverWithMessages =
@@ -788,8 +783,8 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     let
       unsortedArchiveDriverWithMessages =
@@ -938,8 +933,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     let archiveDriver = newSqliteArchiveDriver().put(pubsubTopic, messages[0 ..< 6]).put(
         pubsubTopicB, messages[6 ..< 10]
@@ -1189,7 +1184,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       let
         ephemeralServerKey = generateSecp256k1Key()
         ephemeralServer =
-          newTestWakuNode(ephemeralServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+          newTestWakuNode(ephemeralServerKey, parseIpAddress("0.0.0.0"), Port(0))
         mountEphemeralArchiveResult =
           ephemeralServer.mountArchive(ephemeralArchiveDriver)
       assert mountEphemeralArchiveResult.isOk()
@@ -1231,7 +1226,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       let
         mixedServerKey = generateSecp256k1Key()
         mixedServer =
-          newTestWakuNode(mixedServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+          newTestWakuNode(mixedServerKey, parseIpAddress("0.0.0.0"), Port(0))
         mountMixedArchiveResult = mixedServer.mountArchive(mixedArchiveDriver)
       assert mountMixedArchiveResult.isOk()
 
@@ -1258,7 +1253,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       let
         emptyServerKey = generateSecp256k1Key()
         emptyServer =
-          newTestWakuNode(emptyServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+          newTestWakuNode(emptyServerKey, parseIpAddress("0.0.0.0"), Port(0))
         mountEmptyArchiveResult = emptyServer.mountArchive(emptyArchiveDriver)
       assert mountEmptyArchiveResult.isOk()
 
@@ -1298,7 +1293,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       let
         voluminousServerKey = generateSecp256k1Key()
         voluminousServer =
-          newTestWakuNode(voluminousServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+          newTestWakuNode(voluminousServerKey, parseIpAddress("0.0.0.0"), Port(0))
         mountVoluminousArchiveResult =
           voluminousServer.mountArchive(voluminousArchiveDriverWithMessages)
       assert mountVoluminousArchiveResult.isOk()

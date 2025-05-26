@@ -3,7 +3,6 @@ import
   testutils/unittests,
   chronicles,
   chronos,
-  stew/shims/net as stewNet,
   eth/keys,
   bearssl,
   stew/[results],
