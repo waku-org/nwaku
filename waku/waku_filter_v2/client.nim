@@ -174,7 +174,7 @@ proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
   wfc.pushHandlers.add(handler)
 
 proc initProtocolHandler(wfc: WakuFilterClient) =
-  proc handler(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     ## Notice that the client component is acting as a server of WakuFilterPushCodec messages
     while not conn.atEof():
       var buf: seq[byte]

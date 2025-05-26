@@ -4,6 +4,8 @@ import
   chronicles,
   chronos,
   regex,
+  stew/endians2,
+  stint,
   confutils,
   confutils/defs,
   confutils/std/net,
@@ -867,7 +869,7 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
 proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
   RlnKeystoreGeneratorConf(
     execute: n.execute,
-    chainId: n.rlnRelayChainId,
+    chainId: UInt256.fromBytesBE(n.rlnRelayChainId.toBytesBE()),
     ethClientUrls: n.ethClientUrls.mapIt(string(it)),
     ethContractAddress: n.rlnRelayEthContractAddress,
     userMessageLimit: n.rlnRelayUserMessageLimit,

@@ -2,7 +2,6 @@
 
 import
   stew/results,
-  stew/shims/net,
   chronos,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,

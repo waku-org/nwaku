@@ -57,7 +57,7 @@ type
     ethRpc*: Option[Web3]
     wakuRlnContract*: Option[WakuRlnContractWithSender]
     registrationTxHash*: Option[TxHash]
-    chainId*: uint
+    chainId*: UInt256
     keystorePath*: Option[string]
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
@@ -239,8 +239,12 @@ method register*(
   # TODO: make this robust. search within the event list for the event
   debug "ts receipt", receipt = tsReceipt[]
 
-  if tsReceipt.status.isNone() or tsReceipt.status.get() != 1.Quantity:
-    raise newException(ValueError, "register: transaction failed")
+  if tsReceipt.status.isNone():
+    raise newException(ValueError, "register: transaction failed status is None")
+  if tsReceipt.status.get() != 1.Quantity:
+    raise newException(
+      ValueError, "register: transaction failed status is: " & $tsReceipt.status.get()
+    )
 
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
@@ -485,9 +489,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   let ethRpc: Web3 = (await establishConnection(g)).valueOr:
     return err("failed to connect to Ethereum clients: " & $error)
 
-  var fetchedChainId: uint
+  var fetchedChainId: UInt256
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
-    uint(await ethRpc.provider.eth_chainId())
+    await ethRpc.provider.eth_chainId()
 
   # Set the chain id
   if g.chainId == 0:
@@ -555,7 +559,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     warn "could not initialize with persisted rln metadata"
   elif metadataGetOptRes.get().isSome():
     let metadata = metadataGetOptRes.get().get()
-    if metadata.chainId != uint(g.chainId):
+    if metadata.chainId != g.chainId:
       return err("persisted data: chain id mismatch")
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")

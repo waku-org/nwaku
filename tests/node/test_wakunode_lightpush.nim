@@ -2,7 +2,6 @@
 
 import
   std/[options, tempfiles],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   std/strformat,
@@ -40,8 +39,8 @@ suite "Waku Lightpush - End To End":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
     await server.start()
@@ -63,7 +62,7 @@ suite "Waku Lightpush - End To End":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLightpushClient()
 
       # When the client publishes a message
@@ -123,8 +122,8 @@ suite "RLN Proofs as a Lightpush Service":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     # mount rln-relay
     let wakuRlnConfig = WakuRlnConfig(
@@ -156,7 +155,7 @@ suite "RLN Proofs as a Lightpush Service":
     asyncTest "Message is published when RLN enabled":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLightPushClient()
 
       # When the client publishes a message
