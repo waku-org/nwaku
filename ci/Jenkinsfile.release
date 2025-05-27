@@ -78,7 +78,7 @@ pipeline {
           "--build-arg=NIMFLAGS='${params.NIMFLAGS} -d:postgres ' " +
           "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
           "--build-arg=DEBUG='${params.DEBUG ? "1" : "0"} ' " +
-          "--target=${params.HEAPTRACK ? "heaptrack-build" : "prod"} ."
+          "--target=${params.HEAPTRACK ? "debug-with-heaptrack" : "prod"} ."
         )
       } }
     }
