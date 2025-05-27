@@ -7,6 +7,9 @@
 **Info:** before upgrading to this version, make sure you delete the previous rln_tree folder, i.e.,
 the one that is passed through this CLI: `--rln-relay-tree-path`.
 
+### Features
+* lightpush v3 ([#3279](https://github.com/waku-org/nwaku/pull/3279)) ([e0b563ff](https://github.com/waku-org/nwaku/commit/e0b563ffe5af20bd26d37cd9b4eb9ed9eb82ff80))
+
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
