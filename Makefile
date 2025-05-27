@@ -212,7 +212,7 @@ testwaku: | build deps anvil librln
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-	echo -e "NIM_PARAMS=" $(NIM_PARAMS) && \
+	\
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
 benchmarks: | build deps librln
