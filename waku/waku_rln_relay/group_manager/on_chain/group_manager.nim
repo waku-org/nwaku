@@ -558,11 +558,13 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
     let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
+    debug "checking if the idCommitment has a membership",
+      idCommitmentHex = idCommitment.toHex(), idCommitmentUInt256 = idCommitment
     try:
       let membershipExists =
         await wakuRlnContract.isInMembershipSet(idCommitment).call()
       if membershipExists == false:
-        return err("the idCommitmentUInt256 does not have a membership")
+        return err("the idCommitment does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
