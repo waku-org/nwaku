@@ -13,7 +13,7 @@ EXPOSE 30303 60000 8545
 
 # Referenced in the binary
 RUN apt-get update &&\
-    apt-get install -y libpcre3 libpq-dev curl iproute2 wget &&\
+    apt-get install -y libpcre3 libpq-dev curl iproute2 wget dnsutils &&\
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
