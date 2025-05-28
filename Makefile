@@ -84,7 +84,7 @@ ifeq ($(HEAPTRACKER), 1)
 # Needed to make nimbus-build-system use the Nim's 'heaptrack_support' branch
 DOCKER_NIM_COMMIT := NIM_COMMIT=heaptrack_support_v2.0.12
 TARGET := debug-with-heaptrack
-NIM_COMMIT=heaptrack_support_v2.0.12
+NIM_COMMIT := heaptrack_support_v2.0.12
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
 # the Nim compiler will load 'libheaptrack_inject.so'
