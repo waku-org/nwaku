@@ -226,8 +226,9 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex", idCommitmentNoConvert = idCommitmentHex
+  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
+  debug "identityCredential idCommitment toUInt256", idCommitment = idCommitment
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
     idCommitment = idCommitment,
