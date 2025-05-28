@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, strformat],
   results,
   chronicles,
   chronos,
@@ -130,8 +130,12 @@ proc setupAppCallbacks(
       conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
     let shards = confShards & autoShards
 
-    for shard in shards:
-      discard node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
+    let uniqueShards = deduplicate(shards)
+
+    for shard in uniqueShards:
+      let topic = $shard
+      node.subscribe((kind: PubsubSub, topic: topic), appCallbacks.relayHandler).isOkOr:
+        return err(fmt"Could not subscribe {topic}: " & $error)
 
   if not appCallbacks.topicHealthChangeHandler.isNil():
     if node.wakuRelay.isNil():

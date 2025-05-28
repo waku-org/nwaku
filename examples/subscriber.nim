@@ -119,7 +119,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         contentTopic = msg.contentTopic,
         timestamp = msg.timestamp
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler))).isOkOr:
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), WakuRelayHandler(handler)).isOkOr:
     error "failed to subscribe to pubsub topic", pubsubTopic, error
     quit(1)
 

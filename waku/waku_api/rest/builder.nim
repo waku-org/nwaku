@@ -148,9 +148,9 @@ proc startRestServerProtocolSupport*(
       let pubsubTopic = $RelayShard(clusterId: clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
 
-      ## TODO: remove this line. use observer-observable pattern
-      ## within waku_node::registerRelayDefaultHandler
-      discard node.wakuRelay.subscribe(pubsubTopic, handler)
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+        error "Could not subscribe", pubsubTopic, error
+        continue
 
     for contentTopic in contentTopics:
       cache.contentSubscribe(contentTopic)
@@ -160,9 +160,9 @@ proc startRestServerProtocolSupport*(
         continue
       let pubsubTopic = $shard
 
-      ## TODO: remove this line. use observer-observable pattern
-      ## within waku_node::registerRelayDefaultHandler
-      discard node.wakuRelay.subscribe(pubsubTopic, handler)
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+        error "Could not subscribe", pubsubTopic, error
+        continue
 
     installRelayApiHandlers(router, node, cache)
   else:
