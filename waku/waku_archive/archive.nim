@@ -119,6 +119,11 @@ proc handleMessage*(
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
+  let shard = RelayShard.parseStaticSharding(pubsubTopic).valueOr:
+    DefaultRelayShard
+
+  waku_archive_messages.inc(labelValues = ["stored", $shard.shardId])
+
   trace "message archived",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
@@ -267,9 +272,6 @@ proc periodicMetricReport(self: WakuArchive) {.async.} =
     if countRes.isErr():
       error "loopReportStoredMessagesMetric failed to get messages count",
         error = countRes.error
-    else:
-      let count = countRes.get()
-      waku_archive_messages.set(count, labelValues = ["stored"])
 
     await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
