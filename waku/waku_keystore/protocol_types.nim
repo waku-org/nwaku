@@ -26,11 +26,11 @@ type IdentityCredential* = object
   idCommitment*: IDCommitment
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = UInt256.fromBytesLE(idCommitment)
+  let pk = UInt256.fromBytesBE(idCommitment)
   return pk
 
 proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
-  let pk = IDCommitment(@(idCommitmentUint.toBytesLE()))
+  let pk = IDCommitment(@(idCommitmentUint.toBytesBE()))
   return pk
 
 type MembershipIndex* = uint
