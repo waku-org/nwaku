@@ -327,8 +327,8 @@ proc subscribe*(
     return ok()
 
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    error "Invalid API call to `subscribe`. Was already subscribed"
-    return err("Invalid API call to `subscribe`. Was already subscribed")
+    warn "Invalid API call to `subscribe`. Was already subscribed"
+    return ok()
 
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
   node.registerRelayDefaultHandler(pubsubTopic)
