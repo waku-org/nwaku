@@ -364,8 +364,9 @@ proc unsubscribe*(
       return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
-    warn "Call to `unsubscribe` for when not subscribed to topic", pubsubTopic
-    return ok()
+    error "Invalid API call to `unsubscribe`. Was not subscribed", pubsubTopic
+    return
+      err("Invalid API call to `unsubscribe`. Was not subscribed to: " & $pubsubTopic)
 
   if contentTopicOp.isSome():
     # Remove this handler only
