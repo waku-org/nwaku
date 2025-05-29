@@ -13,6 +13,9 @@ import
   ../../../waku_node,
   ../../../waku_relay/protocol,
   ../../../waku_rln_relay,
+  ../../../waku_rln_relay/protocol_types,
+  ../../../waku_rln_relay/conversion_utils,
+  ../../../waku_core/message/digest,
   ../../../node/waku_node,
   ../../message_cache,
   ../../handlers,
@@ -23,6 +26,7 @@ import
 
 from std/times import getTime
 from std/times import toUnix
+from std/json import `%*`
 
 export types
 
@@ -156,14 +160,33 @@ proc installRelayApiHandlers*(
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest($error)
 
-    # if RLN is mounted, append the proof to the message
+    # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
-      # append the proof to the message
+      # append the proof to the message
+      let currentTime = float64(getTime().toUnix())
+      let currentEpoch = node.wakuRlnRelay.calcEpoch(currentTime)
+      debug "REST API: Appending RLN proof to message", 
+        currentEpoch = fromEpoch(currentEpoch),
+        currentTime = currentTime,
+        pubsubTopic = pubSubTopic
 
-      node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
+      node.wakuRlnRelay.appendRLNProof(message, currentTime).isOkOr:
         return RestApiResponse.internalServerError(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
+
+      # Debug: Show the epoch that was actually used in the proof
+      let decodeRes = RateLimitProof.init(message.proof)
+      if decodeRes.isOk():
+        let proof = decodeRes.get()
+        debug "REST API: RLN proof appended successfully",
+          messageEpoch = fromEpoch(proof.epoch),
+          pubsubTopic = pubSubTopic,
+          msgHash = computeMessageHash(pubSubTopic, message).to0xHex()
+      else:
+        warn "REST API: Failed to decode RLN proof after appending",
+          error = $decodeRes.error,
+          pubsubTopic = pubSubTopic
 
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
@@ -279,7 +302,7 @@ proc installRelayApiHandlers*(
       error "publish error", err = msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)
 
-    # if RLN is mounted, append the proof to the message
+    # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError(
