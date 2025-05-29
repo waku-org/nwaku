@@ -327,7 +327,7 @@ proc subscribe*(
     return ok()
 
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    warn "Invalid API call to `subscribe`. Was already subscribed"
+    warn "No-effect API call to `subscribe`. Was already subscribed"
     return ok()
 
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
