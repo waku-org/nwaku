@@ -53,16 +53,16 @@ proc toIdentityCredentials*(
     try:
       let
         idTrapdoor = IdentityTrapdoor(
-          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesBE())
         )
         idNullifier = IdentityNullifier(
-          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesBE())
         )
         idSecretHash = IdentitySecretHash(
-          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesBE())
         )
         idCommitment =
-          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
+          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesBE()))
       groupIdCredentials.add(
         IdentityCredential(
           idTrapdoor: idTrapdoor,
