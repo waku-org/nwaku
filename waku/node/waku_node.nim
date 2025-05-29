@@ -323,12 +323,12 @@ proc subscribe*(
       return err("Unsupported subscription type in relay subscribe")
 
   if node.wakuRelay.isSubscribed(pubsubTopic):
-    debug "already subscribed to topic", pubsubTopic
-    return err("Already subscribed to topic: " & $pubsubTopic)
+    warn "No-effect API call to subscribe. Already subscribed to topic", pubsubTopic
+    return ok()
 
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    error "Invalid API call to `subscribe`. Was already subscribed"
-    return err("Invalid API call to `subscribe`. Was already subscribed")
+    warn "No-effect API call to `subscribe`. Was already subscribed"
+    return ok()
 
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
   node.registerRelayDefaultHandler(pubsubTopic)
@@ -364,9 +364,8 @@ proc unsubscribe*(
       return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
-    error "Invalid API call to `unsubscribe`. Was not subscribed", pubsubTopic
-    return
-      err("Invalid API call to `unsubscribe`. Was not subscribed to: " & $pubsubTopic)
+    warn "No-effect API call to `unsubscribe`. Was not subscribed", pubsubTopic
+    return ok()
 
   if contentTopicOp.isSome():
     # Remove this handler only
