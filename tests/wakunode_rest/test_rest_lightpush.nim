@@ -171,6 +171,7 @@ suite "Waku v2 Rest API - lightpush":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       await sleepAsync(0.milliseconds)
+
     restLightPushTest.serviceNode.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
