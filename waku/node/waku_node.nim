@@ -323,7 +323,7 @@ proc subscribe*(
       return err("Unsupported subscription type in relay subscribe")
 
   if node.wakuRelay.isSubscribed(pubsubTopic):
-    warn "already subscribed to topic", pubsubTopic
+    warn "No-effect API call to subscribe. Already subscribed to topic", pubsubTopic
     return ok()
 
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
