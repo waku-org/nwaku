@@ -282,12 +282,6 @@ type
       name: "rln-relay-epoch-sec"
     .}: uint64
 
-    rlnRelayTreePath* {.
-      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-      defaultValue: "",
-      name: "rln-relay-tree-path"
-    .}: string
-
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
