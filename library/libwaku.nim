@@ -842,5 +842,19 @@ proc waku_ping_peer(
     userData,
   )
 
+proc waku_is_online(
+    ctx: ptr WakuContext, timeoutMs: cuint, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  handleRequest(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(PeerManagementMsgType.IS_ONLINE),
+    callback,
+    userData,
+  )
+
 ### End of exported procs
 ################################################################################

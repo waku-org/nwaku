@@ -232,6 +232,11 @@ int waku_ping_peer(void* ctx,
                         WakuCallBack callback,
                         void* userData);
 
+int waku_is_online(void* ctx,
+                        int timeoutMs,
+                        WakuCallBack callback,
+                        void* userData);
+
 #ifdef __cplusplus
 }
 #endif
