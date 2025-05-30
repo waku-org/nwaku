@@ -843,7 +843,7 @@ proc waku_ping_peer(
   )
 
 proc waku_is_online(
-    ctx: ptr WakuContext, timeoutMs: cuint, callback: WakuCallBack, userData: pointer
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
