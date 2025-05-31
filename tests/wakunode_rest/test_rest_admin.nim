@@ -45,9 +45,9 @@ suite "Waku v2 Rest API - Admin":
     await allFutures(node1.start(), node2.start(), node3.start())
     let shards = @[RelayShard(clusterId: 1, shardId: 0)]
     await allFutures(
-      node1.mountRelay(shards = shards),
-      node2.mountRelay(shards = shards),
-      node3.mountRelay(shards = shards),
+      node1.mountRelay(),
+      node2.mountRelay(),
+      node3.mountRelay(),
       node3.mountPeerExchange(),
     )
 

@@ -111,7 +111,7 @@ proc process*(
   of SUBSCRIBE:
     waku.node.subscribe(
       (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
-      handler = some(self.relayEventCallback),
+      handler = self.relayEventCallback,
     ).isOkOr:
       error "SUBSCRIBE failed", error
       return err($error)

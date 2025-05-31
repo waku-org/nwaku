@@ -183,9 +183,9 @@ suite "Waku Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    (await destNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    (await bridgeNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await bridgeNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
@@ -209,7 +209,7 @@ suite "Waku Lightpush message delivery":
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), some(relayHandler)).isOkOr:
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), relayHandler).isOkOr:
       assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect

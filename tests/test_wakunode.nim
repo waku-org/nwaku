@@ -34,14 +34,14 @@ suite "WakuNode":
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
 
@@ -69,7 +69,7 @@ suite "WakuNode":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node2.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node2.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic"
     await sleepAsync(2000.millis)
 

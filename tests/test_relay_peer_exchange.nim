@@ -22,9 +22,9 @@ procSuite "Relay (GossipSub) Peer Exchange":
         newTestWakuNode(node2Key, listenAddress, port, sendSignedPeerRecord = true)
 
     # When both client and server mount relay without a handler
-    (await node1.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    (await node2.mountRelay(@[DefaultRelayShard], none(RoutingRecordsHandler))).isOkOr:
+    (await node2.mountRelay(none(RoutingRecordsHandler))).isOkOr:
       assert false, "Failed to mount relay"
 
     # Then the relays are mounted without a handler
@@ -74,17 +74,30 @@ procSuite "Relay (GossipSub) Peer Exchange":
       peerExchangeHandle: RoutingRecordsHandler = peerExchangeHandler
 
     # Givem the nodes mount relay with a peer exchange handler
-    (await node1.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))).isOkOr:
+    (await node1.mountRelay(some(emptyPeerExchangeHandle))).isOkOr:
       assert false, "Failed to mount relay"
-    (await node2.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))).isOkOr:
+    (await node2.mountRelay(some(emptyPeerExchangeHandle))).isOkOr:
       assert false, "Failed to mount relay"
-    (await node3.mountRelay(@[DefaultRelayShard], some(peerExchangeHandle))).isOkOr:
+    (await node3.mountRelay(some(peerExchangeHandle))).isOkOr:
       assert false, "Failed to mount relay"
 
     # Ensure that node1 prunes all peers after the first connection
     node1.wakuRelay.parameters.dHigh = 1
 
     await allFutures([node1.start(), node2.start(), node3.start()])
+
+    # The three nodes should be subscribed to the same shard
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node1.subscribe((kind: PubsubSub, topic: $DefaultRelayShard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node2.subscribe((kind: PubsubSub, topic: $DefaultRelayShard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node3.subscribe((kind: PubsubSub, topic: $DefaultRelayShard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     # When nodes are connected
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])

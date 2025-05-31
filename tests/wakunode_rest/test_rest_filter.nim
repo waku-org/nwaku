@@ -278,8 +278,16 @@ suite "Waku v2 Rest API - Filter V2":
       restFilterTest = await RestFilterTest.init()
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
     restFilterTest.messageCache.pubsubSubscribe(DefaultPubsubTopic)
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+
+    restFilterTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
 
     # When
@@ -325,7 +333,14 @@ suite "Waku v2 Rest API - Filter V2":
     # setup filter service and client node
     let restFilterTest = await RestFilterTest.init()
     let subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    restFilterTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
 
     let requestBody = FilterSubscribeRequest(
@@ -397,7 +412,14 @@ suite "Waku v2 Rest API - Filter V2":
     # setup filter service and client node
     let restFilterTest = await RestFilterTest.init()
     let subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    restFilterTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
 
     let requestBody = FilterSubscribeRequest(

@@ -232,7 +232,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     except:
       error "exception in relayHandler: " & getCurrentExceptionMsg()
 
-  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler)).isOkOr:
+  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
     error "failed to subscribe to relay", topic = DefaultPubsubTopic, error = error
     return
 

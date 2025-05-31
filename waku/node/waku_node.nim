@@ -116,7 +116,6 @@ type
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
-    contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
 
 proc new*(
@@ -256,7 +255,13 @@ proc mountStoreSync*(
 
 ## Waku relay
 
-proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
+proc registerRelayHandler(
+    node: WakuNode, topic: PubsubTopic, appHandler: WakuRelayHandler
+) =
+  ## Registers the only handler for the given topic.
+  ## Notice that this handler internally calls other handlers, such as filter,
+  ## archive, etc, plus the handler provided by the application.
+
   if node.wakuRelay.isSubscribed(topic):
     return
 
@@ -289,18 +294,19 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     node.wakuStoreReconciliation.messageIngress(topic, msg)
 
-  let defaultHandler = proc(
+  let uniqueTopicHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
     await syncHandler(topic, msg)
+    await appHandler(topic, msg)
 
-  discard node.wakuRelay.subscribe(topic, defaultHandler)
+  node.wakuRelay.subscribe(topic, uniqueTopicHandler)
 
 proc subscribe*(
-    node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)
+    node: WakuNode, subscription: SubscriptionEvent, handler: WakuRelayHandler
 ): Result[void, string] =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
@@ -326,18 +332,8 @@ proc subscribe*(
     warn "No-effect API call to subscribe. Already subscribed to topic", pubsubTopic
     return ok()
 
-  if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    warn "No-effect API call to `subscribe`. Was already subscribed"
-    return ok()
-
+  node.registerRelayHandler(pubsubTopic, handler)
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
-  node.registerRelayDefaultHandler(pubsubTopic)
-
-  if handler.isSome():
-    let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
-
-    if contentTopicOp.isSome():
-      node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
 
   return ok()
 
@@ -367,17 +363,9 @@ proc unsubscribe*(
     warn "No-effect API call to `unsubscribe`. Was not subscribed", pubsubTopic
     return ok()
 
-  if contentTopicOp.isSome():
-    # Remove this handler only
-    var handler: TopicHandler
-    ## TODO: refactor this part. I think we can simplify it
-    if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
-      debug "unsubscribe", contentTopic = contentTopicOp.get()
-      node.wakuRelay.unsubscribe(pubsubTopic)
-  else:
-    debug "unsubscribe", pubsubTopic = pubsubTopic
-    node.wakuRelay.unsubscribe(pubsubTopic)
-    node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+  debug "unsubscribe", pubsubTopic, contentTopicOp
+  node.wakuRelay.unsubscribe(pubsubTopic)
+  node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
   return ok()
 
@@ -439,7 +427,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ): Future[Result[void, string]] {.async.} =
@@ -465,16 +452,7 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  ## Make sure we don't have duplicates
-  let uniqueShards = deduplicate(shards)
-
-  # Subscribe to shards
-  for shard in uniqueShards:
-    node.subscribe((kind: PubsubSub, topic: $shard)).isOkOr:
-      error "failed to subscribe to shard", error = error
-      return err("failed to subscribe to shard in mountRelay: " & error)
-
-  info "relay mounted successfully", shards = uniqueShards
+  info "relay mounted successfully"
   return ok()
 
 ## Waku filter

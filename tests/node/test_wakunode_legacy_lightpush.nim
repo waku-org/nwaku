@@ -189,9 +189,9 @@ suite "Waku Legacy Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    (await destNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    (await bridgeNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await bridgeNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await bridgeNode.mountLegacyLightPush()
     lightNode.mountLegacyLightPushClient()
@@ -214,7 +214,7 @@ suite "Waku Legacy Lightpush message delivery":
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), some(relayHandler)).isOkOr:
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic:" & $error
 
     # Wait for subscription to take effect
