@@ -117,10 +117,15 @@ procSuite "WakuNode - RLN relay":
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
-    ## The following unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
-      assert false, "Failed to unsubscribe from topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
@@ -146,8 +151,7 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), message)
     await sleepAsync(2000.millis)
 
-    check:
-      (await completionFut.withTimeout(10.seconds)) == true
+    assert (await completionFut.withTimeout(10.seconds)), "completionFut timed out"
 
     await node1.stop()
     await node2.stop()
@@ -201,12 +205,15 @@ procSuite "WakuNode - RLN relay":
       elif topic == $shards[1]:
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
-    ## This unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[0])).isOkOr:
-      assert false, "Failed to unsubscribe to pubsub topic: " & $error
-    nodes[2].unsubscribe((kind: PubsubUnsub, topic: $shards[1])).isOkOr:
-      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    nodes[0].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in nodes[0]: " & $error
+    nodes[1].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in nodes[1]: " & $error
 
     # mount the relay handlers
     nodes[2].subscribe((kind: PubsubSub, topic: $shards[0]), relayHandler).isOkOr:
@@ -339,10 +346,15 @@ procSuite "WakuNode - RLN relay":
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
-    ## The following unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
-      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
 
     # mount the relay handler
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
@@ -513,10 +525,15 @@ procSuite "WakuNode - RLN relay":
         if msg.payload == wm4.payload:
           completionFut4.complete(true)
 
-    ## The following unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    node3.unsubscribe((kind: PubsubUnsub, topic: DefaultPubsubTopic)).isOkOr:
-      assert false, "Failed to unsubscribe to pubsub topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
 
     # mount the relay handler for node3
     node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
@@ -714,6 +731,16 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
     let wakuRlnConfig2 = buildWakuRlnConfig(2, epochSizeSec, "wakunode_11")
     await node2.mountRlnRelay(wakuRlnConfig2)
+
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
 
     # Given the two nodes are started and connected
     waitFor allFutures(node1.start(), node2.start())
