@@ -10,26 +10,37 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField(value.protocol, $value.health)
+  writer.writeField("desc", value.desc)
   writer.endRecord()
 
 proc readValue*(
     reader: var JsonReader[RestJson], value: var ProtocolHealth
 ) {.gcsafe, raises: [SerializationError, IOError].} =
-  var health: HealthStatus
-  var fieldCount = 0
-
+  var protocol = none[string]()
+  var health = none[HealthStatus]()
+  var desc = none[string]()
   for fieldName in readObjectFields(reader):
-    if fieldCount > 0:
-      reader.raiseUnexpectedField("Too many fields", "ProtocolHealth")
-    fieldCount += 1
+    if fieldName == "desc":
+      if desc.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `desc` fields found", "ProtocolHealth"
+        )
+      desc = some(reader.readValue(string))
 
-    let fieldValue = reader.readValue(string)
-    try:
-      health = HealthStatus.init(fieldValue)
-    except ValueError:
-      reader.raiseUnexpectedValue("Invalid `health` value")
+    else:
+      if protocol.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `protocol` fields and value found", "ProtocolHealth"
+        )
 
-    value = ProtocolHealth(protocol: fieldName, health: health)
+      let fieldValue = reader.readValue(string)
+      try:
+        health = some(HealthStatus.init(fieldValue))
+        protocol = some(fieldName)
+      except ValueError:
+        reader.raiseUnexpectedValue("Invalid `health` value")
+
+    value = ProtocolHealth(protocol: protocol.get(), health: health.get(), desc: desc)
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: HealthReport
