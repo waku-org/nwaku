@@ -5,7 +5,6 @@ import
   testutils/unittests,
   chronos,
   chronicles,
-  stew/shims/net,
   libp2p/switch,
   libp2p/peerId,
   libp2p/crypto/crypto,

@@ -123,7 +123,7 @@ proc batchRequest*(
       conn
 
   let reqCatch = catch:
-    await self.rendezvous.request(namespace, count, peers)
+    await self.rendezvous.request(Opt.some(namespace), count, peers)
 
   for conn in conns:
     await conn.close()

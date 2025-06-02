@@ -2,7 +2,6 @@
 
 import
   std/[sequtils, sysrand, math],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/crypto/crypto,

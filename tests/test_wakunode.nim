@@ -3,7 +3,6 @@
 import
   std/[sequtils, strutils, net],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
   chronos,
@@ -15,7 +14,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/mockresolver,
-  eth/p2p/discoveryv5/enr
+  eth/p2p/discoveryv5/enr,
+  eth/net/utils
 import
   waku/[waku_core, waku_node, node/peer_manager], ./testlib/wakucore, ./testlib/wakunode
 

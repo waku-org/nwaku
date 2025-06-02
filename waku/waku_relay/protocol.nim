@@ -144,7 +144,7 @@ type PublishOutcome* {.pure.} = enum
   CannotGenerateMessageId
 
 proc initProtocolHandler(w: WakuRelay) =
-  proc handler(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string
     ## e.g. ``/wakusub/0.0.1``, etc...

@@ -13,6 +13,7 @@ import
   web3,
   web3/conversions,
   web3/eth_api_types,
+  json_rpc/rpcclient,
   json,
   libp2p/crypto/crypto,
   eth/keys,
@@ -29,7 +30,7 @@ import
   ../testlib/common,
   ./utils
 
-const CHAIN_ID* = 1337
+const CHAIN_ID* = 1337'u256
 
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
@@ -74,7 +75,8 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let add = web3.defaultAccount
   debug "contract deployer account address ", add
 
-  let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  let balance =
+    await web3.provider.eth_getBalance(web3.defaultAccount, blockId("latest"))
   debug "Initial account balance: ", balance
 
   # deploy poseidon hasher bytecode

@@ -3,7 +3,6 @@
 import
   std/[sequtils, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   chronos,
   chronicles,
   libp2p/switch,

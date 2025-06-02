@@ -130,7 +130,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   return
 
 proc initProtocolHandler(self: SyncTransfer) =
-  let handler = proc(conn: Connection, proto: string) {.async, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     while true:
       if not self.inSessions.contains(conn.peerId):
         error "unwanted peer, disconnecting", remote = conn.peerId
@@ -156,10 +156,14 @@ proc initProtocolHandler(self: SyncTransfer) =
 
       let hash = computeMessageHash(pubsub, msg)
 
-      #TODO verify msg RLN proof...
-
-      (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
-        error "failed to archive message", error = $error
+      try:
+        #TODO verify msg RLN proof...
+        (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
+          error "failed to archive message", error = $error
+          continue
+      except CatchableError:
+        error "syncMessageIngress failed",
+          remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
         continue
 
       let id = SyncID(time: msg.timestamp, hash: hash)

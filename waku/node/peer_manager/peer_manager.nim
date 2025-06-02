@@ -1103,8 +1103,13 @@ proc new*(
     online: true,
   )
 
-  proc peerHook(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
-    onPeerEvent(pm, peerId, event)
+  proc peerHook(
+      peerId: PeerId, event: PeerEvent
+  ): Future[void] {.gcsafe, async: (raises: [CancelledError]).} =
+    try:
+      await onPeerEvent(pm, peerId, event)
+    except CatchableError:
+      error "exception in onPeerEvent", error = getCurrentExceptionMsg()
 
   var peerStore = pm.switch.peerStore
 

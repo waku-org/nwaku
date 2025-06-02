@@ -1,5 +1,5 @@
 # BUILD NIM APP ----------------------------------------------------------------
-FROM rust:1.77.1-alpine3.18  AS nim-build
+FROM rust:1.81.0-alpine3.19  AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
@@ -78,7 +78,7 @@ RUN make -j$(nproc)
 
 
 # Debug image
-FROM prod AS debug
+FROM prod AS debug-with-heaptrack
 
 RUN apk add --no-cache gdb libunwind
 

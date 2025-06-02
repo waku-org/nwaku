@@ -20,7 +20,7 @@ const MaxConnectionsPerPeer* = 1
 
 proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(
-    proc(upgr: Upgrade): Transport =
+    proc(upgr: Upgrade, privateKey: crypto.PrivateKey): Transport =
       WsTransport.new(upgr)
   )
 
@@ -48,7 +48,7 @@ proc withWssTransport*(
   let key: TLSPrivateKey = getSecureKey(secureKeyPath)
   let cert: TLSCertificate = getSecureCert(secureCertPath)
   b.withTransport(
-    proc(upgr: Upgrade): Transport =
+    proc(upgr: Upgrade, privateKey: crypto.PrivateKey): Transport =
       WsTransport.new(
         upgr,
         tlsPrivateKey = key,

@@ -2,7 +2,6 @@
 
 import
   std/[tempfiles, strutils, options],
-  stew/shims/net as stewNet,
   stew/results,
   testutils/unittests,
   chronos,
@@ -121,8 +120,8 @@ suite "Waku RlnRelay - End to End - Static":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
 
@@ -410,8 +409,8 @@ suite "Waku RlnRelay - End to End - OnChain":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
 

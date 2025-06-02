@@ -7,6 +7,10 @@
 **Info:** before upgrading to this version, make sure you delete the previous rln_tree folder, i.e.,
 the one that is passed through this CLI: `--rln-relay-tree-path`.
 
+### Features
+* lightpush v3 ([#3279](https://github.com/waku-org/nwaku/pull/3279)) ([e0b563ff](https://github.com/waku-org/nwaku/commit/e0b563ffe5af20bd26d37cd9b4eb9ed9eb82ff80))
+  Upgrade for Waku Llightpush protocol with enhanced error handling. Read specification [here](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md)
+
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
@@ -14,6 +18,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 | [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
 | [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
 | [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`WAKU2-LIGHTPUSH v3`](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md) | `draft` | `/vac/waku/lightpush/3.0.0` |
 | [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 | [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/feat--waku-sync/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
 

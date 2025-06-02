@@ -11,7 +11,6 @@ import
   confutils,
   chronicles,
   chronos,
-  stew/shims/net as stewNet,
   eth/keys,
   bearssl,
   stew/[byteutils, results],
@@ -559,7 +558,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       let rlnConf = WakuRlnConfig(
         dynamic: conf.rlnRelayDynamic,
         credIndex: conf.rlnRelayCredIndex,
-        chainId: conf.rlnRelayChainId,
+        chainId: UInt256.fromBytesBE(conf.rlnRelayChainId.toBytesBE()),
         ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
         creds: some(
           RlnRelayCreds(

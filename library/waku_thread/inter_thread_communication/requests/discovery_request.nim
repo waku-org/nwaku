@@ -143,7 +143,7 @@ proc process*(
   of PEER_EXCHANGE:
     let numValidPeers = (await performPeerExchangeRequestTo(self[].numPeers, waku)).valueOr:
       error "PEER_EXCHANGE failed", error = error
-      return err("error calling performPeerExchangeRequestTo: " & $error)
+      return err($error)
     return ok($numValidPeers)
 
   error "discovery request not handled"

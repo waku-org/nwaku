@@ -3,7 +3,6 @@
 import
   std/[sequtils, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
   chronos,
@@ -132,7 +131,8 @@ procSuite "WakuNode - RLN relay":
     let payload = "Hello".toBytes()
 
     # prepare the epoch
-    var message = WakuMessage(payload: @payload, contentTopic: contentTopic)
+    var message =
+      WakuMessage(payload: @payload, contentTopic: contentTopic, timestamp: now())
     doAssert(node1.wakuRlnRelay.unsafeAppendRLNProof(message, epochTime()).isOk())
 
     debug "Nodes participating in the test",
@@ -221,19 +221,25 @@ procSuite "WakuNode - RLN relay":
     var messages1: seq[WakuMessage] = @[]
     var messages2: seq[WakuMessage] = @[]
 
-    let epochTime = epochTime()
+    var epochTime = epochTime()
 
     for i in 0 ..< 3:
       var message = WakuMessage(
-        payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0]
+        payload: ("Payload_" & $i).toBytes(),
+        timestamp: now(),
+        contentTopic: contentTopics[0],
       )
       nodes[0].wakuRlnRelay.unsafeAppendRLNProof(message, epochTime).isOkOr:
         raiseAssert $error
       messages1.add(message)
 
+    epochTime = epochTime()
+
     for i in 0 ..< 3:
       var message = WakuMessage(
-        payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1]
+        payload: ("Payload_" & $i).toBytes(),
+        timestamp: now(),
+        contentTopic: contentTopics[1],
       )
       nodes[1].wakuRlnRelay.unsafeAppendRLNProof(message, epochTime).isOkOr:
         raiseAssert $error
@@ -364,8 +370,12 @@ procSuite "WakuNode - RLN relay":
       # check the proof is generated correctly outside when block to avoid duplication
     let rateLimitProof = rateLimitProofRes.get().encode().buffer
 
-    let message =
-      WakuMessage(payload: @payload, contentTopic: contentTopic, proof: rateLimitProof)
+    let message = WakuMessage(
+      payload: @payload,
+      contentTopic: contentTopic,
+      proof: rateLimitProof,
+      timestamp: now(),
+    )
 
     ## node1 publishes a message with an invalid rln proof, the message is then relayed to node2 which in turn
     ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
@@ -452,24 +462,36 @@ procSuite "WakuNode - RLN relay":
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # get the current epoch time
-    let time = epochTime()
+    let time_1 = epochTime()
+
     #  create some messages with rate limit proofs
     var
-      wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
+      wm1 = WakuMessage(
+        payload: "message 1".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
       # another message in the same epoch as wm1, it will break the messaging rate limit
-      wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
+      wm2 = WakuMessage(
+        payload: "message 2".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
       #  wm3 points to the next epoch
-      wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-      wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
 
-    node3.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+    await sleepAsync(1000.millis)
+    let time_2 = epochTime()
+
+    var
+      wm3 = WakuMessage(
+        payload: "message 3".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
+      wm4 = WakuMessage(
+        payload: "message 4".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
+
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm1, time_1).isOkOr:
       raiseAssert $error
-    node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time_1).isOkOr:
       raiseAssert $error
 
-    node3.wakuRlnRelay.unsafeAppendRLNProof(
-      wm3, time + float64(node3.wakuRlnRelay.rlnEpochSizeSec)
-    ).isOkOr:
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm3, time_2).isOkOr:
       raiseAssert $error
 
     #  relay handler for node3
@@ -700,8 +722,12 @@ procSuite "WakuNode - RLN relay":
     # Given some messages with rln proofs
     let time = epochTime()
     var
-      msg1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-      msg2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
+      msg1 = WakuMessage(
+        payload: "message 1".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
+      msg2 = WakuMessage(
+        payload: "message 2".toBytes(), timestamp: now(), contentTopic: contentTopic
+      )
 
     node1.wakuRlnRelay.unsafeAppendRLNProof(msg1, time).isOkOr:
       raiseAssert $error
