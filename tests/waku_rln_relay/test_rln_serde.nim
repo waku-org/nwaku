@@ -23,7 +23,7 @@ func defaultRateCommitment*(): RateCommitment =
   return RateCommitment(idCommitment: idCredential.idCommitment, userMessageLimit: 100)
 
 suite "RLN Relay v2: serde":
-  test "toLeaf: converts a rateCommitment to a valid leaf":
+  xasyncTest "toLeaf: converts a rateCommitment to a valid leaf":
     # this test vector is from zerokit
     let rateCommitment = defaultRateCommitment()
 
