@@ -69,13 +69,13 @@ when isMainModule:
   ## - override according to tester functionality
   ##
 
-  var wakuConf: WakuNodeConf
+  var wConf: WakuNodeConf
 
   if conf.configFile.isSome():
     try:
       var configFile {.threadvar.}: InputFile
       configFile = conf.configFile.get()
-      wakuConf = WakuNodeConf.load(
+      wConf = WakuNodeConf.load(
         version = versionString,
         printUsage = false,
         secondarySources = proc(
@@ -88,36 +88,36 @@ when isMainModule:
       error "Loading Waku configuration failed", error = getCurrentExceptionMsg()
       quit(QuitFailure)
 
-  wakuConf.logLevel = conf.logLevel
-  wakuConf.logFormat = conf.logFormat
-  wakuConf.nat = conf.nat
-  wakuConf.maxConnections = 500
-  wakuConf.restAddress = conf.restAddress
-  wakuConf.restPort = conf.restPort
-  wakuConf.restAllowOrigin = conf.restAllowOrigin
+  wConf.logLevel = conf.logLevel
+  wConf.logFormat = conf.logFormat
+  wConf.nat = conf.nat
+  wConf.maxConnections = 500
+  wConf.restAddress = conf.restAddress
+  wConf.restPort = conf.restPort
+  wConf.restAllowOrigin = conf.restAllowOrigin
 
   wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
-  wakuConf.shards = @[conf.shard]
-  wakuConf.contentTopics = conf.contentTopics
-  wakuConf.clusterId = conf.clusterId
+  wConf.shards = @[conf.shard]
+  wConf.contentTopics = conf.contentTopics
+  wConf.clusterId = conf.clusterId
   ## TODO: Depending on the tester needs we might extend here with shards, clusterId, etc...
 
-  wakuConf.metricsServer = true
-  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
-  wakuConf.metricsServerPort = conf.metricsPort
+  wConf.metricsServer = true
+  wConf.metricsServerAddress = parseIpAddress("0.0.0.0")
+  wConf.metricsServerPort = conf.metricsPort
 
   # If bootstrap option is chosen we expect our clients will not mounted
   # so we will mount PeerExchange manually to gather possible service peers,
   # if got some we will mount the client protocols afterward.
-  wakuConf.peerExchange = false
-  wakuConf.relay = false
-  wakuConf.filter = false
-  wakuConf.lightpush = false
-  wakuConf.store = false
+  wConf.peerExchange = false
+  wConf.relay = false
+  wConf.filter = false
+  wConf.lightpush = false
+  wConf.store = false
 
-  wakuConf.rest = false
-  wakuConf.relayServiceRatio = "40:60"
+  wConf.rest = false
+  wConf.relayServiceRatio = "40:60"
 
   # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
   # It will always be called from main thread anyway.
@@ -126,11 +126,19 @@ when isMainModule:
   nodeHealthMonitor = WakuNodeHealthMonitor()
   nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-  let restServer = rest_server_builder.startRestServerEssentials(
-    nodeHealthMonitor, wakuConf
-  ).valueOr:
-    error "Starting esential REST server failed.", error = $error
+  let wakuConf = wConf.toWakuConf().valueOr:
+    error "Waku configuration failed", error = error
     quit(QuitFailure)
+
+  let restServer: WakuRestServerRef =
+    if wakuConf.restServerConf.isSome():
+      rest_server_builder.startRestServerEssentials(
+        nodeHealthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
+      ).valueOr:
+        error "Starting essential REST server failed.", error = $error
+        quit(QuitFailure)
+    else:
+      nil
 
   var wakuApp = Waku.new(wakuConf).valueOr:
     error "Waku initialization failed", error = error
@@ -144,15 +152,27 @@ when isMainModule:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  rest_server_builder.startRestServerProtocolSupport(
-    restServer, wakuApp.node, wakuApp.wakuDiscv5, wakuConf
-  ).isOkOr:
-    error "Starting protocols support REST server failed.", error = $error
-    quit(QuitFailure)
+  if wakuConf.restServerConf.isSome():
+    rest_server_builder.startRestServerProtocolSupport(
+      restServer,
+      wakuApp.node,
+      wakuApp.wakuDiscv5,
+      wakuConf.restServerConf.get(),
+      wakuConf.relay,
+      wakuConf.lightPush,
+      wakuConf.clusterId,
+      wakuConf.shards,
+      wakuConf.contentTopics,
+    ).isOkOr:
+      error "Starting protocols support REST server failed.", error = $error
+      quit(QuitFailure)
 
-  wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(wakuConf).valueOr:
-    error "Starting monitoring and external interfaces failed", error = error
-    quit(QuitFailure)
+  if wakuConf.metricsServerConf.isSome():
+    wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(
+      wakuConf.metricsServerConf.get(), wakuConf.portsShift
+    ).valueOr:
+      error "Starting monitoring and external interfaces failed", error = error
+      quit(QuitFailure)
 
   nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
 
