@@ -113,28 +113,25 @@ proc process*(
       (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
       handler = some(self.relayEventCallback),
     ).isOkOr:
-      let errorMsg = "Subscribe failed:" & $error
-      error "SUBSCRIBE failed", error = errorMsg
-      return err(errorMsg)
+      error "SUBSCRIBE failed", error
+      return err($error)
   of UNSUBSCRIBE:
     waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic)).isOkOr:
-      let errorMsg = "Unsubscribe failed:" & $error
-      error "UNSUBSCRIBE failed", error = errorMsg
-      return err(errorMsg)
+      error "UNSUBSCRIBE failed", error
+      return err($error)
   of PUBLISH:
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic
 
     (await waku.node.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
-      let errorMsg = "Message not sent." & $error
-      error "PUBLISH failed", error = errorMsg
-      return err(errorMsg)
+      error "PUBLISH failed", error
+      return err($error)
 
     let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
     return ok(msgHash)
   of NUM_CONNECTED_PEERS:
     let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
-      error "NUM_CONNECTED_PEERS failed", error = error
+      error "NUM_CONNECTED_PEERS failed", error
       return err($error)
     return ok($numConnPeers)
   of LIST_CONNECTED_PEERS:
@@ -164,5 +161,5 @@ proc process*(
         @[protectedShard], uint16(self.clusterId)
       )
     except ValueError:
-      return err("ADD_PROTECTED_SHARD exception: " & getCurrentExceptionMsg())
+      return err(getCurrentExceptionMsg())
   return ok("")

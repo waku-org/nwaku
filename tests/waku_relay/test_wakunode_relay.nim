@@ -3,7 +3,6 @@
 import
   std/[os, sequtils, sysrand, math],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/switch,
@@ -632,7 +631,7 @@ suite "WakuNode - Relay":
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
 
-  asyncTest "Only one subscription is allowed for contenttopics that generate the same shard":
+  asyncTest "Multiple subscription calls are allowed for contenttopics that generate the same shard":
     ## Setup
     let
       nodeKey = generateSecp256k1Key()
@@ -664,12 +663,12 @@ suite "WakuNode - Relay":
     ## When
     node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler)).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
-    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler)).isErrOr:
+    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler)).isOkOr:
       assert false,
-        "The subscription should fail because is already subscribe to that shard"
-    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler)).isErrOr:
+        "The subscription call shouldn't error even though it's already subscribed to that shard"
+    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler)).isOkOr:
       assert false,
-        "The subscription should fail because is already subscribe to that shard"
+        "The subscription call shouldn't error even though it's already subscribed to that shard"
 
     ## Then
     node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:

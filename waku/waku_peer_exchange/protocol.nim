@@ -243,7 +243,7 @@ proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
     wpx.populateEnrCache()
 
 proc initProtocolHandler(wpx: WakuPeerExchange) =
-  proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var buffer: seq[byte]
     wpx.requestRateLimiter.checkUsageLimit(WakuPeerExchangeCodec, conn):
       try:
@@ -253,9 +253,13 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         waku_px_errors.inc(labelValues = [exc.msg])
 
         (
-          await wpx.respondError(
-            PeerExchangeResponseStatusCode.BAD_REQUEST, some(exc.msg), conn
-          )
+          try:
+            await wpx.respondError(
+              PeerExchangeResponseStatusCode.BAD_REQUEST, some(exc.msg), conn
+            )
+          except CatchableError:
+            error "could not send error response", error = getCurrentExceptionMsg()
+            return
         ).isOkOr:
           error "Failed to respond with BAD_REQUEST:", error = $error
         return
@@ -266,26 +270,41 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         error "Failed to decode PeerExchange request", error = $decBuf.error
 
         (
-          await wpx.respondError(
-            PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
-          )
+          try:
+            await wpx.respondError(
+              PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
+            )
+          except CatchableError:
+            error "could not send error response decode",
+              error = getCurrentExceptionMsg()
+            return
         ).isOkOr:
           error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
       let enrs = wpx.getEnrsFromCache(decBuf.get().request.numPeers)
       debug "peer exchange request received", enrs = $enrs
-      (await wpx.respond(enrs, conn)).isErrOr:
-        waku_px_peers_sent.inc(enrs.len().int64())
+
+      try:
+        (await wpx.respond(enrs, conn)).isErrOr:
+          waku_px_peers_sent.inc(enrs.len().int64())
+      except CatchableError:
+        error "could not send response", error = getCurrentExceptionMsg()
     do:
-      (
-        await wpx.respondError(
-          PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS, none(string), conn
-        )
-      ).isOkOr:
-        error "Failed to respond with TOO_MANY_REQUESTS:", error = $error
-    # close, no data is expected
-    await conn.closeWithEof()
+      defer:
+        # close, no data is expected
+        await conn.closeWithEof()
+
+      try:
+        (
+          await wpx.respondError(
+            PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS, none(string), conn
+          )
+        ).isOkOr:
+          error "Failed to respond with TOO_MANY_REQUESTS:", error = $error
+      except CatchableError:
+        error "could not send error response", error = getCurrentExceptionMsg()
+        return
 
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec

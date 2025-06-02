@@ -2,7 +2,6 @@
 
 import
   std/[sequtils, options],
-  stew/shims/net,
   testutils/unittests,
   chronos,
   libp2p/peerid,

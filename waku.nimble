@@ -8,7 +8,7 @@ license = "MIT or Apache License 2.0"
 #bin           = @["build/waku"]
 
 ### Dependencies
-requires "nim >= 2.0.8",
+requires "nim >= 2.2.4",
   "chronicles",
   "confutils",
   "chronos",

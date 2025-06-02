@@ -12,7 +12,6 @@ assignees: ''
 Update `nwaku` "vendor" dependencies.
 
 ### Items to bump
-- [ ] negentropy
 - [ ] dnsclient.nim ( update to the latest tag version )
 - [ ] nim-bearssl
 - [ ] nimbus-build-system
@@ -38,12 +37,12 @@ Update `nwaku` "vendor" dependencies.
 - [ ] nim-sqlite3-abi ( update to the latest tag version )
 - [ ] nim-stew
 - [ ] nim-stint
-- [ ] nim-taskpools
-- [ ] nim-testutils
+- [ ] nim-taskpools ( update to the latest tag version )
+- [ ] nim-testutils ( update to the latest tag version )
 - [ ] nim-toml-serialization
 - [ ] nim-unicodedb
-- [ ] nim-unittest2
-- [ ] nim-web3
-- [ ] nim-websock
+- [ ] nim-unittest2 ( update to the latest tag version )
+- [ ] nim-web3 ( update to the latest tag version )
+- [ ] nim-websock ( update to the latest tag version )
 - [ ] nim-zlib
-- [ ] zerokit ( this should be kept in version `v0.5.1` )
+- [ ] zerokit ( this should be kept in version `v0.7.0` )

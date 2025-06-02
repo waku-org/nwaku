@@ -1,5 +1,7 @@
 {.push raises: [].}
 
+import stint
+
 # TODO: Rename this type to match file name
 
 type ClusterConf* = object
@@ -7,7 +9,7 @@ type ClusterConf* = object
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
-  rlnRelayChainId*: uint
+  rlnRelayChainId*: UInt256
   rlnRelayDynamic*: bool
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
@@ -20,13 +22,14 @@ type ClusterConf* = object
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
 proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
+  const RelayChainId = 11155111'u256
   return ClusterConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
     rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
     rlnRelayDynamic: true,
-    rlnRelayChainId: 11155111,
+    rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
     numShardsInNetwork: 8,

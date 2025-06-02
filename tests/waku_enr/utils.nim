@@ -2,7 +2,6 @@ import
   std/options,
   sequtils,
   results,
-  stew/shims/net,
   chronos,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
