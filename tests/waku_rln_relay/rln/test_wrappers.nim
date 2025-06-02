@@ -98,7 +98,7 @@ suite "RlnConfig":
   suite "createRLNInstance":
     test "ok":
       # When we create the RLN instance
-      let rlnRes: RLNResult = createRLNInstance(15, "my.db")
+      let rlnRes: RLNResult = createRLNInstance(15)
 
       # Then it succeeds
       check:
@@ -124,7 +124,7 @@ suite "RlnConfig":
         newCircuitMock
 
       # When we create the RLN instance
-      let rlnRes: RLNResult = createRLNInstance(15, "my.db")
+      let rlnRes: RLNResult = createRLNInstance(15)
 
       # Then it fails
       check:
