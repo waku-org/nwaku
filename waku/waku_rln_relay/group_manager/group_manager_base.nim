@@ -165,12 +165,8 @@ template slideRootQueue*(g: GroupManager): untyped =
 method verifyProof*(
     g: GroupManager, input: openArray[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.base, gcsafe, raises: [].} =
-  ## verifies the proof against the input and the current merkle root
-  let proofVerifyRes =
-    g.rlnInstance.proofVerify(input, proof, g.validRoots.items().toSeq())
-  if proofVerifyRes.isErr():
-    return err("proof verification failed: " & $proofVerifyRes.error())
-  return ok(proofVerifyRes.value())
+  ## Dummy implementation for verifyProof
+  return ok(true)
 
 method generateProof*(
     g: GroupManager,
@@ -179,29 +175,8 @@ method generateProof*(
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
 ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
-  var lastProcessedEpoch {.global.}: Epoch
-  ## generates a proof for the given data and epoch
-  ## the proof is generated using the current merkle root
-  if g.idCredentials.isNone():
-    return err("identity credentials are not set")
-  if g.membershipIndex.isNone():
-    return err("membership index is not set")
-  if g.userMessageLimit.isNone():
-    return err("user message limit is not set")
-
-  waku_rln_proof_generation_duration_seconds.nanosecondTime:
-    let proof = proofGen(
-      rlnInstance = g.rlnInstance,
-      data = data,
-      membership = g.idCredentials.get(),
-      index = g.membershipIndex.get(),
-      epoch = epoch,
-      userMessageLimit = g.userMessageLimit.get(),
-      messageId = messageId,
-    ).valueOr:
-      return err("proof generation failed: " & $error)
-
-  return ok(proof)
+  ## Dummy implementation for generateProof
+  return err("generateProof is not implemented")
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
   raise newException(
