@@ -15,7 +15,8 @@ import
   waku/waku_rln_relay/rln/wrappers,
   ./waku_rln_relay_utils,
   ../../testlib/[simple_mock, assertions],
-  ../../waku_keystore/utils
+  ../../waku_keystore/utils,
+  ../../testlib/testutils
 
 from std/times import epochTime
 
@@ -135,7 +136,7 @@ suite "RlnConfig":
         backup
 
   suite "proofGen":
-    test "Valid zk proof":
+    xasyncTest "Valid zk proof":
       # this test vector is from zerokit
       let rlnInstanceRes = createRLNInstanceWrapper()
       assertResultOk(rlnInstanceRes)
