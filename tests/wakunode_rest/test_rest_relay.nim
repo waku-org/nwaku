@@ -95,8 +95,17 @@ suite "Waku v2 Rest API - Relay":
       shard3 = RelayShard(clusterId: DefaultClusterId, shardId: 3)
       shard4 = RelayShard(clusterId: DefaultClusterId, shardId: 4)
 
-    (await node.mountRelay(@[shard0, shard1, shard2, shard3, shard4])).isOkOr:
+    (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    for shard in @[$shard0, $shard1, $shard2, $shard3, $shard4]:
+      node.subscribe((kind: PubsubSub, topic: shard), simpleHandler).isOkOr:
+        assert false, "Failed to subscribe to pubsub topic: " & $error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -248,8 +257,14 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic"
+
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -477,7 +492,12 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: ContentSub, topic: DefaultContentTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node.subscribe((kind: ContentSub, topic: DefaultContentTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to content topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
@@ -583,7 +603,12 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
@@ -640,7 +665,12 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic)).isOkOr:
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1

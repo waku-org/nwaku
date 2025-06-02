@@ -77,7 +77,8 @@ suite "Waku Relay":
 
     asyncTest "Publish with Subscription (Network Size: 1)":
       # When subscribing to a Pubsub Topic
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+
+      node.subscribe(pubsubTopic, simpleFutureHandler)
 
       # Then the node is subscribed
       check:
@@ -111,7 +112,7 @@ suite "Waku Relay":
         otherHandlerFuture.complete((topic, message))
 
       # When subscribing the second node to the Pubsub Topic
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
 
       # Then the second node is subscribed, but not the first one
       check:
@@ -172,8 +173,8 @@ suite "Waku Relay":
         otherHandlerFuture.complete((topic, message))
 
       # When subscribing both nodes to the same Pubsub Topic
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
 
       # Then both nodes are subscribed
       check:
@@ -228,7 +229,7 @@ suite "Waku Relay":
 
     asyncTest "Refreshing subscription":
       # Given a subscribed node
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
@@ -244,7 +245,7 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard node.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
@@ -291,14 +292,14 @@ suite "Waku Relay":
         otherHandlerFuture.complete((topic, message))
 
       otherNode.addValidator(len4Validator)
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       await sleepAsync(500.millis)
       check:
         otherNode.isSubscribed(pubsubTopic)
 
       # Given a subscribed node with a validator
       node.addValidator(len4Validator)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       await sleepAsync(500.millis)
       check:
         node.isSubscribed(pubsubTopic)
@@ -380,8 +381,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
@@ -464,8 +465,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         handlerFuture2.complete((topic, message))
 
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
-      discard node.subscribe(pubsubTopicB, simpleFutureHandler2)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopicB, simpleFutureHandler2)
 
       # Given the other nodes are subscribed to two pubsub topics
       var otherHandlerFuture1 = newPushHandlerFuture()
@@ -492,10 +493,10 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         anotherHandlerFuture2.complete((topic, message))
 
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler1)
-      discard otherNode.subscribe(pubsubTopicC, otherSimpleFutureHandler2)
-      discard anotherNode.subscribe(pubsubTopicB, anotherSimpleFutureHandler1)
-      discard anotherNode.subscribe(pubsubTopicC, anotherSimpleFutureHandler2)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler1)
+      otherNode.subscribe(pubsubTopicC, otherSimpleFutureHandler2)
+      anotherNode.subscribe(pubsubTopicB, anotherSimpleFutureHandler1)
+      anotherNode.subscribe(pubsubTopicC, anotherSimpleFutureHandler2)
       await sleepAsync(500.millis)
 
       # When publishing a message in node for each of the pubsub topics
@@ -735,15 +736,13 @@ suite "Waku Relay":
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
       await allFutures(otherSwitch.start(), otherNode.start())
-      let otherTopicHandler: TopicHandler =
-        otherNode.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, simpleFutureHandler)
 
       # Given a node without a subscription
       check:
         node.subscribedTopics == []
 
-      # When unsubscribing from a pubsub topic from an unsubscribed topic handler
-      node.unsubscribe(pubsubTopic, otherTopicHandler)
+      node.unsubscribe(pubsubTopic)
 
       # Then the node is still not subscribed
       check:
@@ -754,11 +753,11 @@ suite "Waku Relay":
 
     asyncTest "Single Node with Single Pubsub Topic":
       # Given a node subscribed to a pubsub topic
-      let topicHandler = node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check node.subscribedTopics == pubsubTopicSeq
 
       # When unsubscribing from the pubsub topic
-      node.unsubscribe(pubsubTopic, topicHandler)
+      node.unsubscribe(pubsubTopic)
 
       # Then the node is not subscribed anymore
       check node.subscribedTopics == []
@@ -768,9 +767,8 @@ suite "Waku Relay":
       let pubsubTopicB = "/waku/2/rs/0/1"
 
       # Given a node subscribed to multiple pubsub topics
-      let
-        topicHandler = node.subscribe(pubsubTopic, simpleFutureHandler)
-        topicHandlerB = node.subscribe(pubsubTopicB, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopicB, simpleFutureHandler)
 
       assert pubsubTopic in node.subscribedTopics,
         fmt"Node is not subscribed to {pubsubTopic}"
@@ -778,13 +776,13 @@ suite "Waku Relay":
         fmt"Node is not subscribed to {pubsubTopicB}"
 
       # When unsubscribing from one of the pubsub topics
-      node.unsubscribe(pubsubTopic, topicHandler)
+      node.unsubscribe(pubsubTopic)
 
       # Then the node is still subscribed to the other pubsub topic
       check node.subscribedTopics == @[pubsubTopicB]
 
       # When unsubscribing from the other pubsub topic
-      node.unsubscribe(pubsubTopicB, topicHandlerB)
+      node.unsubscribe(pubsubTopicB)
 
       # Then the node is not subscribed anymore
       check node.subscribedTopics == []
@@ -802,7 +800,7 @@ suite "Waku Relay":
 
     asyncTest "Single Node with Single Pubsub Topic":
       # Given a node subscribed to a pubsub topic
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check node.subscribedTopics == pubsubTopicSeq
 
       # When unsubscribing from all pubsub topics
@@ -816,9 +814,9 @@ suite "Waku Relay":
       let pubsubTopicB = "/waku/2/rs/0/1"
 
       # Given a node subscribed to multiple pubsub topics
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
-      discard node.subscribe(pubsubTopicB, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      node.subscribe(pubsubTopicB, simpleFutureHandler)
 
       assert pubsubTopic in node.subscribedTopics,
         fmt"Node is not subscribed to {pubsubTopic}"
@@ -855,8 +853,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
@@ -1021,8 +1019,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
@@ -1163,8 +1161,8 @@ suite "Waku Relay":
         otherMessageSeq.add((topic, message))
         otherHandlerFuture.complete((topic, message))
 
-      discard node.subscribe(pubsubTopic, thisSimpleFutureHandler)
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, thisSimpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
@@ -1237,8 +1235,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
@@ -1332,8 +1330,8 @@ suite "Waku Relay":
       ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq

@@ -122,14 +122,18 @@ suite "Waku v2 Rest API - lightpush":
   asyncTest "Push message request":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
     restLightPushTest.consumerNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
 
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:
@@ -157,9 +161,13 @@ suite "Waku v2 Rest API - lightpush":
   asyncTest "Push message bad-request":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:
@@ -218,14 +226,18 @@ suite "Waku v2 Rest API - lightpush":
     let budgetCap = 3
     let tokenPeriod = 500.millis
     let restLightPushTest = await RestLightPushTest.init((budgetCap, tokenPeriod))
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
     restLightPushTest.consumerNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
 
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:

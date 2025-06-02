@@ -317,10 +317,7 @@ proc setupProtocols(
 
     (
       await mountRelay(
-        node,
-        shards,
-        peerExchangeHandler = peerExchangeHandler,
-        int(conf.maxMessageSizeBytes),
+        node, peerExchangeHandler = peerExchangeHandler, int(conf.maxMessageSizeBytes)
       )
     ).isOkOr:
       return err("failed to mount waku relay protocol: " & $error)
