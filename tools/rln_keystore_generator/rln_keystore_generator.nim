@@ -31,9 +31,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
-  let rlnInstanceRes = createRLNInstance(
-    d = 20, tree_path = genTempPath("rln_tree", "rln_keystore_generator")
-  )
+  let rlnInstanceRes = createRLNInstance(d = 20)
   if rlnInstanceRes.isErr():
     error "failure while creating RLN instance", error = rlnInstanceRes.error
     quit(1)
