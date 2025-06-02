@@ -15,6 +15,7 @@ type PeerManagementMsgType* {.pure.} = enum
   DIAL_PEER
   DIAL_PEER_BY_ID
   GET_CONNECTED_PEERS
+  IS_ONLINE
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
@@ -144,5 +145,7 @@ proc process*(
       (inPeerIds, outPeerIds) = waku.node.peerManager.connectedPeers()
       connectedPeerids = concat(inPeerIds, outPeerIds)
     return ok(connectedPeerids.mapIt($it).join(","))
+  of IS_ONLINE:
+    return ok($waku.node.peerManager.isOnline())
 
   return ok("")
