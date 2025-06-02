@@ -75,6 +75,10 @@ suite "Waku v2 REST API - health":
         treePath: genTempPath("rln_tree", "wakunode"),
       )
     )
+
+    node.mountLightPushClient()
+    await node.mountFilterClient()
+
     healthMonitor.setNode(node)
     healthMonitor.setOverallHealth(HealthStatus.READY)
     # When
@@ -93,6 +97,32 @@ suite "Waku v2 REST API - health":
       response.data.protocolsHealth[1].health == HealthStatus.READY
       response.data.protocolsHealth[2].protocol == "Lightpush"
       response.data.protocolsHealth[2].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[3].protocol == "Legacy Lightpush"
+      response.data.protocolsHealth[3].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[4].protocol == "Filter"
+      response.data.protocolsHealth[4].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[5].protocol == "Store"
+      response.data.protocolsHealth[5].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[6].protocol == "Legacy Store"
+      response.data.protocolsHealth[6].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[7].protocol == "Peer Exchange"
+      response.data.protocolsHealth[7].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[8].protocol == "Rendezvous"
+      response.data.protocolsHealth[8].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[9].protocol == "Lightpush Client"
+      response.data.protocolsHealth[9].health == HealthStatus.NOT_READY
+      response.data.protocolsHealth[9].desc ==
+        some("No Lightpush service peer available yet")
+      response.data.protocolsHealth[10].protocol == "Legacy Lightpush Client"
+      response.data.protocolsHealth[10].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[11].protocol == "Store Client"
+      response.data.protocolsHealth[11].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[12].protocol == "Legacy Store Client"
+      response.data.protocolsHealth[12].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[13].protocol == "Filter Client"
+      response.data.protocolsHealth[13].health == HealthStatus.NOT_READY
+      response.data.protocolsHealth[13].desc ==
+        some("No Filter service peer available yet")
 
     await restServer.stop()
     await restServer.closeWait()

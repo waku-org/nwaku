@@ -56,10 +56,10 @@ proc init*(
     raise newException(ValueError, "Invalid HealthStatus string representation")
 
 proc init*(p: typedesc[ProtocolHealth], protocol: string): ProtocolHealth =
-  result.protocol = protocol
-  result.health = HealthStatus.NOT_MOUNTED
-  result.desc = none[string]()
-  return result
+  let p = ProtocolHealth(
+    protocol: protocol, health: HealthStatus.NOT_MOUNTED, desc: none[string]()
+  )
+  return p
 
 proc notReady(p: var ProtocolHealth, desc: string): ProtocolHealth =
   p.health = HealthStatus.NOT_READY
@@ -264,26 +264,27 @@ proc getRendezvousHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
   return p.ready()
 
 proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.async.} =
-  result.nodeHealth = hm.nodeHealth
+  var report: HealthReport
+  report.nodeHealth = hm.nodeHealth
 
   if hm.node.isSome():
     let relayHealth = hm.getRelayHealth()
-    result.protocolsHealth.add(relayHealth)
-    result.protocolsHealth.add(await hm.getRlnRelayHealth())
-    result.protocolsHealth.add(hm.getLightpushHealth(relayHealth.health))
-    result.protocolsHealth.add(hm.getLegacyLightpushHealth(relayHealth.health))
-    result.protocolsHealth.add(hm.getFilterHealth(relayHealth.health))
-    result.protocolsHealth.add(hm.getStoreHealth())
-    result.protocolsHealth.add(hm.getLegacyStoreHealth())
-    result.protocolsHealth.add(hm.getPeerExchangeHealth())
-    result.protocolsHealth.add(hm.getRendezvousHealth())
+    report.protocolsHealth.add(relayHealth)
+    report.protocolsHealth.add(await hm.getRlnRelayHealth())
+    report.protocolsHealth.add(hm.getLightpushHealth(relayHealth.health))
+    report.protocolsHealth.add(hm.getLegacyLightpushHealth(relayHealth.health))
+    report.protocolsHealth.add(hm.getFilterHealth(relayHealth.health))
+    report.protocolsHealth.add(hm.getStoreHealth())
+    report.protocolsHealth.add(hm.getLegacyStoreHealth())
+    report.protocolsHealth.add(hm.getPeerExchangeHealth())
+    report.protocolsHealth.add(hm.getRendezvousHealth())
 
-    result.protocolsHealth.add(hm.getLightpushClientHealth(relayHealth.health))
-    result.protocolsHealth.add(hm.getLegacyLightpushClientHealth(relayHealth.health))
-    result.protocolsHealth.add(hm.getStoreClientHealth())
-    result.protocolsHealth.add(hm.getLegacyStoreClientHealth())
-    result.protocolsHealth.add(hm.getFilterClientHealth(relayHealth.health))
-  return result
+    report.protocolsHealth.add(hm.getLightpushClientHealth(relayHealth.health))
+    report.protocolsHealth.add(hm.getLegacyLightpushClientHealth(relayHealth.health))
+    report.protocolsHealth.add(hm.getStoreClientHealth())
+    report.protocolsHealth.add(hm.getLegacyStoreClientHealth())
+    report.protocolsHealth.add(hm.getFilterClientHealth(relayHealth.health))
+  return report
 
 proc setNode*(hm: WakuNodeHealthMonitor, node: WakuNode) =
   hm.node = some(node)
