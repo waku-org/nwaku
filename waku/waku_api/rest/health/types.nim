@@ -35,7 +35,7 @@ proc readValue*(
         health = some(HealthStatus.init(fieldValue))
         protocol = some(fieldName)
       except ValueError:
-        reader.raiseUnexpectedValue("Invalid `health` value")
+        reader.raiseUnexpectedValue("Invalid `health` value: " & getCurrentExceptionMsg())
 
     value = ProtocolHealth(protocol: protocol.get(), health: health.get(), desc: desc)
 

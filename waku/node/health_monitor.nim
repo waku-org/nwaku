@@ -16,7 +16,7 @@ type
   ProtocolHealth* = object
     protocol*: string
     health*: HealthStatus
-    desc*: Option[string]
+    desc*: Option[string] ## describes why a certain protocol is considered `NOT_READY`
 
   HealthReport* = object
     nodeHealth*: HealthStatus
@@ -110,7 +110,7 @@ proc getRelayHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
 
 proc getRlnRelayHealth(hm: WakuNodeHealthMonitor): Future[ProtocolHealth] {.async.} =
   var p = ProtocolHealth.init("Rln Relay")
-  if hm.node.get().wakuRlnRelay == nil:
+  if hm.node.get().wakuRlnRelay.isNil():
     return p.notMounted()
 
   let isReadyStateFut = hm.node.get().wakuRlnRelay.isReady()
