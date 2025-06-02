@@ -22,11 +22,8 @@ proc readValue*(
   for fieldName in readObjectFields(reader):
     if fieldName == "desc":
       if desc.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `desc` fields found", "ProtocolHealth"
-        )
+        reader.raiseUnexpectedField("Multiple `desc` fields found", "ProtocolHealth")
       desc = some(reader.readValue(string))
-
     else:
       if protocol.isSome():
         reader.raiseUnexpectedField(

@@ -72,24 +72,24 @@ proc ready(p: var ProtocolHealth): ProtocolHealth =
   return p
 
 proc notMounted(p: var ProtocolHealth): ProtocolHealth =
-    p.health = HealthStatus.NOT_MOUNTED
-    p.desc = none[string]()
-    return p
+  p.health = HealthStatus.NOT_MOUNTED
+  p.desc = none[string]()
+  return p
 
 proc synchronizing(p: var ProtocolHealth): ProtocolHealth =
-    p.health = HealthStatus.SYNCHRONIZING
-    p.desc = none[string]()
-    return p
+  p.health = HealthStatus.SYNCHRONIZING
+  p.desc = none[string]()
+  return p
 
 proc initializing(p: var ProtocolHealth): ProtocolHealth =
-    p.health = HealthStatus.INITIALIZING
-    p.desc = none[string]()
-    return p
+  p.health = HealthStatus.INITIALIZING
+  p.desc = none[string]()
+  return p
 
 proc shuttingDown(p: var ProtocolHealth): ProtocolHealth =
-    p.health = HealthStatus.SHUTTING_DOWN
-    p.desc = none[string]()
-    return p
+  p.health = HealthStatus.SHUTTING_DOWN
+  p.desc = none[string]()
+  return p
 
 const FutIsReadyTimout = 5.seconds
 
@@ -141,14 +141,14 @@ proc getLightpushHealth(
   return p.notReady("Node has no relay peers to fullfill push requests")
 
 proc getLightpushClientHealth(
-   hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
+    hm: WakuNodeHealthMonitor, relayHealth: HealthStatus
 ): ProtocolHealth =
   var p = ProtocolHealth.init("Lightpush Client")
   if hm.node.get().wakuLightpushClient == nil:
     return p.notMounted()
 
-  let selfServiceAvailable = hm.node.get().wakuLightPush != nil and
-    relayHealth == HealthStatus.READY
+  let selfServiceAvailable =
+    hm.node.get().wakuLightPush != nil and relayHealth == HealthStatus.READY
   let servicePeerAvailable =
     hm.node.get().peerManager.selectPeer(WakuLightPushCodec).isSome()
 
@@ -222,7 +222,9 @@ proc getStoreClientHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
       hm.node.get().wakuStore != nil:
     return p.ready()
 
-  return p.notReady("No Store service peer available yet, neither Store service set up for the node")
+  return p.notReady(
+    "No Store service peer available yet, neither Store service set up for the node"
+  )
 
 proc getLegacyStoreHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init("Legacy Store")
@@ -231,9 +233,7 @@ proc getLegacyStoreHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
 
   return p.ready()
 
-proc getLegacyStoreClientHealth(
-    hm: WakuNodeHealthMonitor
-): ProtocolHealth =
+proc getLegacyStoreClientHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init("Legacy Store Client")
   if hm.node.get().wakuLegacyStoreClient == nil:
     return p.notMounted()
@@ -242,7 +242,9 @@ proc getLegacyStoreClientHealth(
       hm.node.get().wakuLegacyStore != nil:
     return p.ready()
 
-  return p.notReady("No Legacy Store service peers are available yet, neither Store service set up for the node")
+  return p.notReady(
+    "No Legacy Store service peers are available yet, neither Store service set up for the node"
+  )
 
 proc getPeerExchangeHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init("Peer Exchange")
@@ -260,7 +262,6 @@ proc getRendezvousHealth(hm: WakuNodeHealthMonitor): ProtocolHealth =
     return p.notReady("No Rendezvous peers are available yet")
 
   return p.ready()
-
 
 proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.async.} =
   result.nodeHealth = hm.nodeHealth
