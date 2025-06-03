@@ -82,9 +82,7 @@ proc `%`(c: RlnConfig): JsonNode =
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
-proc createRLNInstanceLocal(
-    d = MerkleTreeDepth
-): RLNResult =
+proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree
