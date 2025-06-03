@@ -63,7 +63,6 @@ type RlnTreeConfig = ref object of RootObj
   mode: string
   compression: bool
   flush_every_ms: int
-  path: string
 
 type RlnConfig = ref object of RootObj
   resources_folder: string
@@ -78,7 +77,6 @@ proc `%`(c: RlnConfig): JsonNode =
       "mode": %c.tree_config.mode,
       "compression": %c.tree_config.compression,
       "flush_every_ms": %c.tree_config.flush_every_ms,
-      "path": %c.tree_config.path,
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
