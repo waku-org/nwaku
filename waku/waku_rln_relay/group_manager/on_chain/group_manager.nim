@@ -93,6 +93,45 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
+proc sendEthCallWithChainId*(
+    ethRpc: Web3,
+    functionSignature: string,
+    fromAddress: Address,
+    toAddress: Address,
+    chainId: UInt256,
+): Future[UInt256] {.async.} =
+  ## Generic proc to make contract calls with explicit chainId
+  ## 
+  ## Args:
+  ##   ethRpc: Web3 instance for making RPC calls
+  ##   functionSignature: Function signature (e.g., "maxMembershipRateLimit()")
+  ##   fromAddress: Address to call from
+  ##   toAddress: Contract address to call
+  ##   chainId: Chain ID for the transaction
+  ## 
+  ## Returns:
+  ##   Raw bytes response from the contract call
+
+  # Calculate the function selector (first 4 bytes of keccak256 hash)
+  let functionHash =
+    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
+  let functionSelector = functionHash.data[0 .. 3]
+
+  # Convert to hex string for the data field
+  let dataSignature = "0x" & functionSelector.mapIt(it.toHex(2)).join("")
+
+  # Create the transaction with explicit chainId
+  var tx: TransactionArgs
+  tx.`from` = Opt.some(fromAddress)
+  tx.to = Opt.some(toAddress)
+  tx.value = Opt.some(0.u256) # No ETH sent for view functions
+  tx.data = Opt.some(byteutils.hexToSeqByte(dataSignature))
+  tx.chainId = Opt.some(chainId) # Explicitly set the chain ID
+
+  # Make the RPC call using eth_call
+  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
+  return UInt256.fromBytesBE(resultBytes)
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
@@ -117,6 +156,7 @@ proc fetchMerkleProofElements*(
     var tx: TransactionArgs
     tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
     tx.data = Opt.some(callData)
+    tx.chainId = Opt.some( g.chainId) # Explicitly set the chain ID
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
@@ -129,8 +169,17 @@ proc fetchMerkleRoot*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    let merkleRootInvocation = g.wakuRlnContract.get().root()
-    let merkleRoot = await merkleRootInvocation.call()
+    # let merkleRootInvocation = g.wakuRlnContract.get().root()
+    # let merkleRoot = await merkleRootInvocation.call()
+    let functionSignature = "root()"
+    let merkleRoot = await sendEthCallWithChainId(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = functionSignature,
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress =  fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+
     return ok(merkleRoot)
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
@@ -190,7 +239,16 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
           g.merkleProofCache = proofResult.get()
 
         # also need to update registered membership
-        let memberCount = cast[int64](await wakuRlnContract.nextFreeIndex().call())
+        let functionSignature = "nextFreeIndex()"
+        let nextFreeIndex = sendEthCallWithChainId(
+          ethRpc = ethRpc,
+          functionSignature = functionSignature,
+          fromAddress = ethRpc.defaultAccount,
+          toAddress = fromHex(Address, g.ethContractAddress),
+          chainId = g.chainId,
+        )
+
+        let memberCount = cast[int64](nextFreeIndex)
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
       await sleepAsync(rpcDelay)
@@ -561,8 +619,36 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "checking if the idCommitment has a membership",
       idCommitmentHex = idCommitment.toHex(), idCommitmentUInt256 = idCommitment
     try:
-      let membershipExists =
-        await wakuRlnContract.isInMembershipSet(idCommitment).call()
+      # let membershipExists =
+      #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
+      # Function signature with parameter type
+      let functionSignature = "isInMembershipSet(uint256)"
+
+      # Calculate the function selector (first 4 bytes of keccak256 hash)
+      let functionHash = 
+        keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
+      let functionSelector = functionHash.data[0 .. 3]
+
+      # Encode the parameter (32 bytes for uint256)
+      var encodedParams: seq[byte] = @[]
+      # Convert uint256 to 32-byte big-endian representation
+      let commitmentBytes = keystoreCred.identityCredential.idCommitment
+
+      # Combine function selector + encoded parameters
+      let callData = functionSelector & commitmentBytes
+
+      # Create the transaction
+      var tx: TransactionArgs
+      tx.`from` = Opt.some(ethRpc.defaultAccount)
+      tx.to = Opt.some(contractAddress)
+      tx.value = Opt.some(0.u256)
+      tx.data = Opt.some(callData)
+      tx.chainId = Opt.some(g.chainId)
+
+      let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
+      let membershipExists = resultBytes[^1] == 1'u8
+
+      debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
         return err("the idCommitment does not have a membership")
     except CatchableError:
@@ -580,8 +666,20 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
-  g.rlnRelayMaxMessageLimit =
-    cast[uint64](await wakuRlnContract.maxMembershipRateLimit().call())
+  # g.rlnRelayMaxMessageLimit =
+  #   cast[uint64](await wakuRlnContract.maxMembershipRateLimit().call())
+
+  # Function signature for maxMembershipRateLimit()
+  let functionSignature = "maxMembershipRateLimit()"
+  let maxMembershipRateLimit = sendEthCallWithChainId(
+    ethRpc = ethRpc,
+    functionSignature = functionSignature,
+    fromAddress = ethRpc.defaultAccount,
+    toAddress = contractAddress,
+    chainId = g.chainId,
+  )
+
+  g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
