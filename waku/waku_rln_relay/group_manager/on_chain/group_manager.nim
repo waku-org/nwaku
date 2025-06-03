@@ -278,11 +278,6 @@ method withdraw*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g) # TODO: after slashing is enabled on the contract
 
-method withdrawBatch*(
-    g: OnchainGroupManager, idCommitments: seq[IDCommitment]
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
 proc getRootFromProofAndIndex(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]
 ): GroupManagerResult[array[32, byte]] =

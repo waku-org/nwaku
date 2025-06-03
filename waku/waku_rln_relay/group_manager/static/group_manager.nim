@@ -45,7 +45,7 @@ method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} 
 
 method startGroupSync*(
     g: StaticGroupManager
-): Future[GroupManagerResult[void]] {.async.} =
+): Future[GroupManagerResult[void]] {.base, async.} =
   ?g.resultifiedInitGuard()
   # No-op
   return ok()
