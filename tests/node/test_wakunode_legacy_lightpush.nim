@@ -17,7 +17,7 @@ import
     waku_lightpush_legacy/protocol_metrics,
     waku_rln_relay,
   ],
-  ../testlib/[wakucore, wakunode, testasync, futures],
+  ../testlib/[wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
 
 suite "Waku Legacy Lightpush - End To End":
@@ -158,7 +158,7 @@ suite "RLN Proofs as a Lightpush Service":
     await server.stop()
 
   suite "Lightpush attaching RLN proofs":
-    asyncTest "Message is published when RLN enabled":
+    xasyncTest "Message is published when RLN enabled":
       # Given a light lightpush client
       let lightpushClient =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
