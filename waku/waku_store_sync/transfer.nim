@@ -97,7 +97,13 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   while true: # infinite loop
     let (peerId, fingerprint) = await self.remoteNeedsRx.popFirst()
 
-    if not self.outSessions.hasKey(peerId):
+    if (not self.outSessions.hasKey(peerId)) or self.outSessions[peerId].closed() or
+      ## sanity check, should not be possible
+    self.outSessions[peerId].isClosedRemotely:
+      ## quite possibly remote end has closed the connection, believing transfer to be done
+      debug "opening transfer connection to remote peer",
+        my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId
+
       let connection = (await self.openConnection(peerId)).valueOr:
         error "failed to establish transfer connection", error = error
         continue
@@ -120,6 +126,11 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
 
     let msg =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
+
+    trace "sending transfer message",
+      my_peer_id = self.peerManager.switch.peerInfo.peerId,
+      remote_peer_id = peerId,
+      msg = msg
 
     (await sendMessage(connection, msg)).isOkOr:
       self.outSessions.del(peerId)
