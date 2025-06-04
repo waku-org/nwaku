@@ -240,7 +240,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
 
         # also need to update registered membership
         let functionSignature = "nextFreeIndex()"
-        let nextFreeIndex = sendEthCallWithChainId(
+        let nextFreeIndex = await sendEthCallWithChainId(
           ethRpc = ethRpc,
           functionSignature = functionSignature,
           fromAddress = ethRpc.defaultAccount,
@@ -671,7 +671,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   # Function signature for maxMembershipRateLimit()
   let functionSignature = "maxMembershipRateLimit()"
-  let maxMembershipRateLimit = sendEthCallWithChainId(
+  let maxMembershipRateLimit = await sendEthCallWithChainId(
     ethRpc = ethRpc,
     functionSignature = functionSignature,
     fromAddress = ethRpc.defaultAccount,
