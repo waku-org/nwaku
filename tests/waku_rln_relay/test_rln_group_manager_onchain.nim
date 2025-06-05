@@ -33,9 +33,6 @@ initLock(testLock)
 
 suite "Onchain group manager":
   setup:
-    # Acquire lock to ensure tests run sequentially
-    acquire(testLock)
-
     let runAnvil {.used.} = runAnvil()
 
     var manager {.threadvar.}: OnchainGroupManager
@@ -85,14 +82,17 @@ suite "Onchain group manager":
     let accounts = waitFor web3.provider.eth_accounts()
     web3.defaultAccount = accounts[2]
     let (privateKey, acc) = createEthAccount(web3)
-    let tokenAddress = (waitFor deployTestToken(privateKey, acc, web3)).valueOr:
-      assert false, "Failed to deploy test token contract: " & $error
-      return
-    let differentContractAddress = (
+
+    let testTokenAddressRes = waitFor deployTestToken(privateKey, acc, web3)
+    if testTokenAddressRes.isErr():
+      error "Failed to deploy test token contract", error = testTokenAddressRes.error
+      raise newException(CatchableError, "Failed to deploy test token contract")
+    let TOKEN_ADDRESS = testTokenAddressRes.get()
+
+    let differentContractAddress =
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
-    ).valueOr:
-      assert false, "Failed to deploy RLN contract: " & $error
-      return
+    if differentContractAddress.isErr():
+      error "Failed to deploy RLN contract", error = differentContractAddress.error
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],

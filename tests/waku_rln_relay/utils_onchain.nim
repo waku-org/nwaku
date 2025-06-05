@@ -574,7 +574,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--balance",
         "1000000000",
         "--chain-id",
-        $chainId,
+        $chainId
       ],
       options = {poUsePath},
     )
@@ -651,6 +651,11 @@ proc setupOnchainGroupManager*(
   discard await sendMintCall(
     web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
   )
+  let contractAddressRes =
+    await executeForgeContractDeployScripts(privateKey, acc, web3)
+  if contractAddressRes.isErr():
+    error "Failed to deploy RLN contract", error = contractAddressRes.error
+    raise newException(CatchableError, "Failed to deploy RLN contract")
 
   let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
     assert false, "Failed to deploy RLN contract: " & $error
