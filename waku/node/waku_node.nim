@@ -48,7 +48,8 @@ import
   ../waku_rln_relay,
   ./net_config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../incentivization/[eligibility_manager, rpc]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -1137,6 +1138,7 @@ proc lightpushPublishHandler(
     message: WakuMessage,
     peer: RemotePeerInfo | PeerInfo,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
+  # note: eligibilityProof is not used in this function, it has already been checked
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
     notice "publishing message with lightpush",
@@ -1159,6 +1161,7 @@ proc lightpushPublish*(
     node: WakuNode,
     pubsubTopic: Option[PubsubTopic],
     message: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo),
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
@@ -1186,7 +1189,35 @@ proc lightpushPublish*(
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
       return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
+  
+  # Checking eligibility proof of Lightpush request
+  debug "in lightpushPublish"
+  debug "eligibilityProof: ", eligibilityProof
+  if node.peerManager.eligibilityManager.isNone():
+    # the service node doesn't want to check eligibility
+    debug "eligibilityManager is disabled - skipping eligibility check"
+  else:
+    debug "eligibilityManager is enabled"
+    var em = node.peerManager.eligibilityManager.get()
+    # FIXME: where should I init eligibilityManager?
+    # FIXME: how to reuse EthClient from CLI arguments?
+    debug "initializing eligibilityManager..."
+    let ethClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
+    em = await EligibilityManager.init(ethClient)
+    debug "checking eligibilityProof..."
+    let txNonExistent = TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
+    let expectedToAddress = Address.fromHex("0xe8284Af9A5F3b0CD1334DBFaf512F09BeDA805a3")
+    let expectedValueWei = 30000000000000.u256
+    
+    let isEligible = await em.isEligibleTxId(
+      eligibilityProof.get(), expectedToAddress, expectedValueWei
+    )
+    if isEligible.isErr():
+      let msg = "Eligibility check failed!"
+      #debug msg
+      return lighpushErrorResult(PAYMENT_REQUIRED, msg)
 
+  debug "Eligibility check passed!"
   return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
 
 ## Waku RLN Relay
