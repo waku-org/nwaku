@@ -123,9 +123,9 @@ proc process*(
     await waku.node.peerManager.disconnectNode(peerId)
     return ok("")
   of DISCONNECT_ALL_PEERS:
-    let connectedPeers = waku.node.peerManager.switch.peerStore
-      .peers($self[].protocol)
-      .filterIt(it.connectedness == Connected)
+    let connectedPeers = waku.node.peerManager.switch.peerStore.peers().filterIt(
+        it.connectedness == Connected
+      )
 
     var futs: seq[Future[void]]
     for peer in connectedPeers:
