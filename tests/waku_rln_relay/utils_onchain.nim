@@ -535,7 +535,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--port",
         $port,
         "--accounts",
-        "20",
+        "25",
         "--gas-limit",
         "300000000000000",
         "--balance",
@@ -550,7 +550,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "10",
         "--disable-console-log",
         "--threads", 
-        "4",
+        "0",
         "--no-request-size-limit"
       ],
       options = {poUsePath},
