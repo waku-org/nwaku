@@ -206,6 +206,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
     dnsNameServers = netConfig.dnsNameServers,
+    eligibilityEnabled = true, # FIXME: i13n: read config or something instead
+    #reputationEnabled = true, # FIXME: i13n: read config or something instead
   )
 
   var node: WakuNode

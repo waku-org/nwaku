@@ -94,7 +94,7 @@ proc installLightPushRequestHandler*(
             makeRestResponse(lightpushResultServiceUnavailable(NoPeerNoneFoundError))
       toPeer = some(aPeer)
 
-    let subFut = node.lightpushPublish(req.pubsubTopic, msg, none(EligibilityProof), toPeer)
+    let subFut = node.lightpushPublish(req.pubsubTopic, msg, req.eligibilityProof, toPeer)
 
     if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"

@@ -430,6 +430,14 @@ proc setupProtocols(
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
+  # set up eligibility check (i13n POC)
+  # check that: rlnRelay is mounted; Lightpush is mounted
+  # FIXME: conf items are not propagated here; where are they parsed?
+  #if conf.eligibilityEnabled:
+  #  debug "i13n: eligibility enabled!"
+  #  debug "eligibilityReceiverAddress:", conf.eligibilityReceiverAddress
+  #  debug "eligibilityPaymentAmountWei:", conf.eligibilityPaymentAmountWei
+
   return ok()
 
 ## Start node

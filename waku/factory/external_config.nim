@@ -487,12 +487,14 @@ hence would have reachability issues.""",
     .}: bool
 
     ## Eligibility config
+    ## Is eligibility check enabled or not
     eligibilityEnabled* {.
       desc:
         "Enable server-side eligibility (proof-of-payment) check for light protocols: true|false",
       defaultValue: false,
       name: "eligibility"
     .}: bool
+
 
     ## Reliability config
     reliabilityEnabled* {.
