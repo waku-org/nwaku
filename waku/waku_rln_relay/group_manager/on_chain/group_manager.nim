@@ -125,7 +125,7 @@ proc sendEthCallWithChainId*(
   # Make the RPC call using eth_call
   let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
   if resultBytes.len == 0:
-    return err("Contract call returned no result")
+    return err("No result returned for function call: " & functionSignature)
   return ok(UInt256.fromBytesBE(resultBytes))
 
 proc fetchMerkleProofElements*(
@@ -567,7 +567,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   # check if the Ethereum client is reachable
   let ethRpc: Web3 = (await establishConnection(g)).valueOr:
     return err("failed to connect to Ethereum clients: " & $error)
-
+  
+  debug "fetching chainId"
   var fetchedChainId: UInt256
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
     await ethRpc.provider.eth_chainId()
@@ -595,7 +596,10 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
+  debug "contract address",
+    contractAddress = contractAddress, ethContractAddress = g.ethContractAddress
 
+  
   g.ethRpc = some(ethRpc)
   g.wakuRlnContract = some(wakuRlnContract)
 
@@ -659,11 +663,15 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       tx.chainId = Opt.some(g.chainId)
 
       let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-      let membershipExists = resultBytes[^1] == 1'u8
+      debug "resultBytes",
+        resultBytes = resultBytes, len = resultBytes.len
+      if resultBytes.len == 0:
+         return err("No result returned for function call: " & $functionSignature)
+      let membershipExists = resultBytes.len == 32 and resultBytes[^1] == 1'u8
 
       debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
-        return err("the idCommitmentUInt256 does not have a membership")
+        return err("the commitment does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
