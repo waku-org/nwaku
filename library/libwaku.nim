@@ -581,7 +581,7 @@ proc waku_disconnect_peer_by_id(
   )
 
 proc waku_disconnect_all_peers(
-    ctx: ptr WakuContext, peerId: cstring, callback: WakuCallBack, userData: pointer
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
