@@ -184,6 +184,9 @@ proc fetchMerkleRoot*(
       chainId = g.chainId,
     )
 
+    if merkleRoot.isErr():
+      error "Failed to fetch Merkle root", error = merkleRoot.error
+      return err("Failed to fetch merkle root: " & merkleRoot.error)
     return ok(merkleRoot.get())
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
@@ -258,8 +261,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
 
         if nextFreeIndex.isErr():
           error "Failed to fetch next free index", error = nextFreeIndex.error
-          return err("Failed to fetch next free index: " & nextFreeIndex.error)
-
+          raise newException(
+            CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
+          )
+        
         let memberCount = cast[int64](nextFreeIndex.get())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
@@ -692,6 +697,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     chainId = g.chainId,
   )
 
+  if maxMembershipRateLimit.isErr():
+    return err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit.get())
 
   proc onDisconnect() {.async.} =
