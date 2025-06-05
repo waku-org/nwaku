@@ -79,11 +79,24 @@ suite "Onchain group manager":
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
 
-    let differentContractAddress = await executeForgeContractDeployScripts()
+    let web3 = manager.ethRpc.get()
+    let accounts = await web3.provider.eth_accounts()
+    web3.defaultAccount = accounts[2]
+    let (privateKey, acc) = createEthAccount(web3)
+
+    let testTokenAddressRes = await deployTestToken(privateKey, acc, web3)
+    if testTokenAddressRes.isErr():
+      error "Failed to deploy test token contract", error = testTokenAddressRes.error
+      raise newException(CatchableError, "Failed to deploy test token contract")
+    let TOKEN_ADDRESS = testTokenAddressRes.get()
+
+    let differentContractAddress = await executeForgeContractDeployScripts(privateKey, acc, web3)
+    if differentContractAddress.isErr():
+      error "Failed to deploy RLN contract", error = differentContractAddress.error
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
-      ethContractAddress: $differentContractAddress,
+      ethContractAddress: $differentContractAddress.get(),
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
         assert false, errStr
@@ -96,13 +109,8 @@ suite "Onchain group manager":
   asyncTest "should error if contract does not exist":
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
 
-    var triggeredError = false
-    try:
-      discard await manager.init()
-    except CatchableError:
-      triggeredError = true
-
-    check triggeredError
+    (await manager.init()).isErrOr:
+      raiseAssert "Expected error when contract address doesn't exist"
 
   asyncTest "should error when keystore path and password are provided but file doesn't exist":
     manager.keystorePath = some("/inexistent/file")
@@ -166,6 +174,7 @@ suite "Onchain group manager":
 
     try:
       for i in 0 ..< credentials.len():
+        debug "Registering credential", index = i, credential = credentials[i]
         await manager.register(credentials[i], UserMessageLimit(20))
         discard await manager.updateRoots()
     except Exception, CatchableError:

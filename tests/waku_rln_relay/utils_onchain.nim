@@ -31,8 +31,6 @@ import
   ./utils
 
 const CHAIN_ID* = 1234'u256
-var TOKEN_ADDRESS*: Option[Address] = none(Address)
-var LINEAR_PRICE_CALCULATOR_ADDRESS*: Option[string] = none(string)
 
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
@@ -211,7 +209,7 @@ proc sendTokenApproveCall*(
   tx.gasPrice = Opt.some(Quantity(gasPrice))
   tx.gas = Opt.some(Quantity(100000)) # Add gas limit
   tx.data = Opt.some(byteutils.hexToSeqByte(approveCallData))
-  tx.chainId = Opt.some(Quantity(CHAIN_ID))
+  tx.chainId = Opt.some(CHAIN_ID)
 
   trace "Sending approve call with transaction", tx = tx
 
@@ -247,35 +245,35 @@ proc deployTestToken*(
   let forgePath = getForgePath()
   debug "Forge path", forgePath
 
-  # # Build the Foundry project
-  # let (forgeCleanOutput, forgeCleanExitCode) =
-  #   execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
-  # trace "Executed forge clean command", output = forgeCleanOutput
-  # if forgeCleanExitCode != 0:
-  #   return error("forge clean command failed")
+  # Build the Foundry project
+  let (forgeCleanOutput, forgeCleanExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
+  trace "Executed forge clean command", output = forgeCleanOutput
+  if forgeCleanExitCode != 0:
+    return error("forge clean command failed")
 
-  # let (forgeInstallOutput, forgeInstallExitCode) =
-  #   execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
-  # trace "Executed forge install command", output = forgeInstallOutput
-  # if forgeInstallExitCode != 0:
-  #   return error("forge install command failed")
+  let (forgeInstallOutput, forgeInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
+  trace "Executed forge install command", output = forgeInstallOutput
+  if forgeInstallExitCode != 0:
+    return error("forge install command failed")
 
-  # let (pnpmInstallOutput, pnpmInstallExitCode) =
-  #   execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
-  # trace "Executed pnpm install command", output = pnpmInstallOutput
-  # if pnpmInstallExitCode != 0:
-  #   return error("pnpm install command failed")
+  let (pnpmInstallOutput, pnpmInstallExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+  trace "Executed pnpm install command", output = pnpmInstallOutput
+  if pnpmInstallExitCode != 0:
+    return error("pnpm install command failed")
 
-  # let (forgeBuildOutput, forgeBuildExitCode) =
-  #   execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
-  # trace "Executed forge build command", output = forgeBuildOutput
-  # if forgeBuildExitCode != 0:
-  #   return error("forge build command failed")
+  let (forgeBuildOutput, forgeBuildExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
+  trace "Executed forge build command", output = forgeBuildOutput
+  if forgeBuildExitCode != 0:
+    return error("forge build command failed")
 
-  # # Set the environment variable API keys to anything for testing
-  # putEnv("API_KEY_CARDONA", "123")
-  # putEnv("API_KEY_LINEASCAN", "123")
-  # putEnv("API_KEY_ETHERSCAN", "123")
+  # Set the environment variable API keys to anything for testing
+  putEnv("API_KEY_CARDONA", "123")
+  putEnv("API_KEY_LINEASCAN", "123")
+  putEnv("API_KEY_ETHERSCAN", "123")
 
   # Deploy TestToken contract
   let forgeCmdTestToken =
@@ -285,13 +283,8 @@ proc deployTestToken*(
     output = outputDeployTestToken
   if exitCodeDeployTestToken != 0:
     return error("Forge command to deploy TestToken contract failed")
-    # raise newException(
-    #   CatchableError,
-    #   "Forge command to deploy TestToken contract failed, output=" &
-    #     outputDeployTestToken,
-    # )
 
-  # Parse the output to find contract address
+  # Parse the command output to find contract address
   let testTokenAddressRes =
     getContractAddressFromDeployScriptOutput(outputDeployTestToken)
   if testTokenAddressRes.isErr():
@@ -304,6 +297,7 @@ proc deployTestToken*(
 
   let testTokenAddressBytes = hexToByteArray[20](testTokenAddress)
   let testTokenAddressAddress = Address(testTokenAddressBytes)
+  putEnv("TOKEN_ADDRESS", testTokenAddressAddress.toHex())
 
   return ok(testTokenAddressAddress)
 
@@ -391,40 +385,24 @@ proc executeForgeContractDeployScripts*(
   putEnv("API_KEY_LINEASCAN", "123")
   putEnv("API_KEY_ETHERSCAN", "123")
 
-  if TOKEN_ADDRESS.isNone():
-  # we just need to fund the default account
-  # the send procedure returns a tx hash that we don't use, hence discard
-    let testTokenAddressRes = await deployTestToken(pk, acc, web3)
-    if testTokenAddressRes.isErr():
-      error "Failed to deploy test token contract", error = testTokenAddressRes.error
-      raise newException(CatchableError, "Failed to deploy test token contract")
-    TOKEN_ADDRESS = some(testTokenAddressRes.get())
-    putEnv("TOKEN_ADDRESS", TOKEN_ADDRESS.get().toHex())
+  # Deploy LinearPriceCalculator contract
+  let forgeCmdPriceCalculator =
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
+  let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
+    execCmdEx(forgeCmdPriceCalculator)
+  debug "Executed forge command to deploy LinearPriceCalculator contract",
+    output = outputDeployPriceCalculator
+  if exitCodeDeployPriceCalculator != 0:
+    return error("Forge command to deploy LinearPriceCalculator contract failed")
 
-  # Only deploy the test token once
-  if LINEAR_PRICE_CALCULATOR_ADDRESS.isNone():
-  # we just need to fund the default account
-  # the send procedure returns a tx hash that we don't use, hence discard
-
-    # Deploy LinearPriceCalculator contract
-    let forgeCmdPriceCalculator =
-      fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
-    let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
-      execCmdEx(forgeCmdPriceCalculator)
-    debug "Executed forge command to deploy LinearPriceCalculator contract",
-      output = outputDeployPriceCalculator
-    if exitCodeDeployPriceCalculator != 0:
-      return error("Forge command to deploy LinearPriceCalculator contract failed")
-
-    # Parse the output to find contract address
-    let priceCalculatorAddressRes =
-      getContractAddressFromDeployScriptOutput(outputDeployPriceCalculator)
-    if priceCalculatorAddressRes.isErr():
-      error "Failed to get LinearPriceCalculator contract address from deploy script output"
-      ##TODO: raise exception here?
-    LINEAR_PRICE_CALCULATOR_ADDRESS = some(priceCalculatorAddressRes.get())
-    debug "Address of the LinearPriceCalculator contract", LINEAR_PRICE_CALCULATOR_ADDRESS
-    putEnv("PRICE_CALCULATOR_ADDRESS", LINEAR_PRICE_CALCULATOR_ADDRESS.get())
+  # Parse the output to find contract address
+  let priceCalculatorAddressRes =
+    getContractAddressFromDeployScriptOutput(outputDeployPriceCalculator)
+  if priceCalculatorAddressRes.isErr():
+    error "Failed to get LinearPriceCalculator contract address from deploy script output"
+  let priceCalculatorAddress = priceCalculatorAddressRes.get()
+  debug "Address of the LinearPriceCalculator contract", priceCalculatorAddress
+  putEnv("PRICE_CALCULATOR_ADDRESS", priceCalculatorAddress)
 
   let forgeCmdWakuRln =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
@@ -459,67 +437,9 @@ proc executeForgeContractDeployScripts*(
   let proxyAddressAddress = Address(proxyAddressBytes)
 
   info "Address of the Proxy contract", proxyAddressAddress
-
-  return ok(proxyAddressAddress)
-
-#  a util function used for testing purposes
-#  it deploys membership contract on Anvil (or any Eth client available on EthClient address)
-#  must be edited if used for a different contract than membership contract
-# <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
-proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
-  let web3 = await newWeb3(ethClientAddress)
-  debug "web3 connected to", ethClientAddress
-
-  # fetch the list of registered accounts
-  let accounts = await web3.provider.eth_accounts()
-  web3.defaultAccount = accounts[1]
-  let add = web3.defaultAccount
-  debug "contract deployer account address ", add
-
-  let balance =
-    await web3.provider.eth_getBalance(web3.defaultAccount, blockId("latest"))
-  debug "Initial account balance: ", balance
-
-  # deploy poseidon hasher bytecode
-  let poseidonT3Receipt = await web3.deployContract(PoseidonT3)
-  let poseidonT3Address = poseidonT3Receipt.contractAddress.get()
-  let poseidonAddressStripped = strip0xPrefix($poseidonT3Address)
-
-  # deploy lazy imt bytecode
-  let lazyImtReceipt = await web3.deployContract(
-    LazyIMT.replace("__$PoseidonT3$__", poseidonAddressStripped)
-  )
-  let lazyImtAddress = lazyImtReceipt.contractAddress.get()
-  let lazyImtAddressStripped = strip0xPrefix($lazyImtAddress)
-
-  # deploy waku rlnv2 contract
-  let wakuRlnContractReceipt = await web3.deployContract(
-    WakuRlnV2Contract.replace("__$PoseidonT3$__", poseidonAddressStripped).replace(
-      "__$LazyIMT$__", lazyImtAddressStripped
-    )
-  )
-  let wakuRlnContractAddress = wakuRlnContractReceipt.contractAddress.get()
-  let wakuRlnAddressStripped = strip0xPrefix($wakuRlnContractAddress)
-
-  debug "Address of the deployed rlnv2 contract: ", wakuRlnContractAddress
-
-  # need to send concat: impl & init_bytes
-  let contractInput =
-    byteutils.toHex(encode(wakuRlnContractAddress)) & Erc1967ProxyContractInput
-  debug "contractInput", contractInput
-  let proxyReceipt =
-    await web3.deployContract(Erc1967Proxy, contractInput = contractInput)
-
-  debug "proxy receipt", contractAddress = proxyReceipt.contractAddress.get()
-  let proxyAddress = proxyReceipt.contractAddress.get()
-
-  let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-  debug "Account balance after the contract deployment: ", newBalance
-
+  
   await web3.close()
-  debug "disconnected from ", ethClientAddress
-
-  return proxyAddress
+  return ok(proxyAddressAddress)
 
 proc sendEthTransfer*(
     web3: Web3,
@@ -682,24 +602,21 @@ proc setupOnchainGroupManager*(
 
   let (privateKey, acc) = createEthAccount(web3)
 
+  # we just need to fund the default account
+  # the send procedure returns a tx hash that we don't use, hence discard
   discard await sendEthTransfer(
     web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
   )
 
-  # Only deploy the test token once
-  # if TOKEN_ADDRESS.isNone():
-  # # we just need to fund the default account
-  # # the send procedure returns a tx hash that we don't use, hence discard
-  #   let testTokenAddressRes = await deployTestToken(privateKey, acc, web3)
-  #   if testTokenAddressRes.isErr():
-  #     error "Failed to deploy test token contract", error = testTokenAddressRes.error
-  #     raise newException(CatchableError, "Failed to deploy test token contract")
-  #   TOKEN_ADDRESS = some(testTokenAddressRes.get())
-  #   putEnv("TOKEN_ADDRESS", TOKEN_ADDRESS.get().toHex())
+  let testTokenAddressRes = await deployTestToken(privateKey, acc, web3)
+  if testTokenAddressRes.isErr():
+    error "Failed to deploy test token contract", error = testTokenAddressRes.error
+    raise newException(CatchableError, "Failed to deploy test token contract")
+  let TOKEN_ADDRESS = testTokenAddressRes.get()
 
     # mint the token from the generated account
   discard await sendMintCall(
-    web3, web3.defaultAccount, TOKEN_ADDRESS.get(), acc, ethToWei(1000.u256), some(0.u256)
+    web3, web3.defaultAccount, TOKEN_ADDRESS, acc, ethToWei(1000.u256), some(0.u256)
   )
   let contractAddressRes = await executeForgeContractDeployScripts(privateKey, acc, web3)
   if contractAddressRes.isErr():
@@ -710,13 +627,13 @@ proc setupOnchainGroupManager*(
     web3,
     acc, # owner
     privateKey,
-    TOKEN_ADDRESS.get(), # ERC20 token address
+    TOKEN_ADDRESS, # ERC20 token address
     contractAddressRes.get(), # spender - the proxy contract that will spend the tokens
     ethToWei(200.u256),
   )
 
   # Also check the token balance
-  let tokenBalance = await getTokenBalance(web3, TOKEN_ADDRESS.get(), acc)
+  let tokenBalance = await getTokenBalance(web3, TOKEN_ADDRESS, acc)
   debug "Token balance before register", owner = acc, balance = tokenBalance
 
   let manager = OnchainGroupManager(
