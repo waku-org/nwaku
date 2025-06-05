@@ -12,6 +12,7 @@ type PeerManagementMsgType* {.pure.} = enum
   GET_CONNECTED_PEERS_INFO
   GET_PEER_IDS_BY_PROTOCOL
   DISCONNECT_PEER_BY_ID
+  DISCONNECT_ALL_PEERS
   DIAL_PEER
   DIAL_PEER_BY_ID
   GET_CONNECTED_PEERS
@@ -120,6 +121,16 @@ proc process*(
       error "DISCONNECT_PEER_BY_ID failed", error = $error
       return err($error)
     await waku.node.peerManager.disconnectNode(peerId)
+    return ok("")
+  of DISCONNECT_ALL_PEERS:
+    let connectedPeers = waku.node.peerManager.switch.peerStore
+      .peers($self[].protocol)
+      .filterIt(it.connectedness == Connected)
+
+    var futs: seq[Future[void]]
+    for peer in connectedPeers:
+      futs.add(waku.node.peerManager.disconnectNode(peer))
+    await allFutures(futs)
     return ok("")
   of DIAL_PEER:
     let remotePeerInfo = parsePeerInfo($self[].peerMultiAddr).valueOr:

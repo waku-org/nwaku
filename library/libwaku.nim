@@ -580,6 +580,20 @@ proc waku_disconnect_peer_by_id(
     userData,
   )
 
+proc waku_disconnect_all_peers(
+    ctx: ptr WakuContext, peerId: cstring, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  handleRequest(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(op = PeerManagementMsgType.DISCONNECT_ALL_PEERS),
+    callback,
+    userData,
+  )
+
 proc waku_dial_peer(
     ctx: ptr WakuContext,
     peerMultiAddr: cstring,
