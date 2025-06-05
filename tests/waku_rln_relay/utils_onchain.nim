@@ -341,7 +341,7 @@ proc approveTokenAllowanceAndVerify*(
   return allowanceAfter >= amountWei
 
 proc executeForgeContractDeployScripts*(
-    pk: keys.PrivateKey, acc: Address,  web3: Web3
+    pk: keys.PrivateKey, acc: Address, web3: Web3
 ): Future[Result[Address, string]] {.async, gcsafe.} =
   ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
   ## submodulePath: path to the submodule containing contract deploy scripts
@@ -437,7 +437,7 @@ proc executeForgeContractDeployScripts*(
   let proxyAddressAddress = Address(proxyAddressBytes)
 
   info "Address of the Proxy contract", proxyAddressAddress
-  
+
   await web3.close()
   return ok(proxyAddressAddress)
 
@@ -549,9 +549,9 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--transaction-block-keeper",
         "10",
         "--disable-console-log",
-        "--threads", 
+        "--threads",
         "0",
-        "--no-request-size-limit"
+        "--no-request-size-limit",
       ],
       options = {poUsePath},
     )
@@ -618,7 +618,8 @@ proc setupOnchainGroupManager*(
   discard await sendMintCall(
     web3, web3.defaultAccount, TOKEN_ADDRESS, acc, ethToWei(1000.u256), some(0.u256)
   )
-  let contractAddressRes = await executeForgeContractDeployScripts(privateKey, acc, web3)
+  let contractAddressRes =
+    await executeForgeContractDeployScripts(privateKey, acc, web3)
   if contractAddressRes.isErr():
     error "Failed to deploy RLN contract", error = contractAddressRes.error
     raise newException(CatchableError, "Failed to deploy RLN contract")

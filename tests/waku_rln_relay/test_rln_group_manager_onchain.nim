@@ -29,10 +29,7 @@ import
   ./utils_onchain
 
 suite "Onchain group manager":
-
-
   setup:
-      # We run Anvil
     let runAnvil {.used.} = runAnvil()
 
     var manager {.threadvar.}: OnchainGroupManager
@@ -92,7 +89,8 @@ suite "Onchain group manager":
       raise newException(CatchableError, "Failed to deploy test token contract")
     let TOKEN_ADDRESS = testTokenAddressRes.get()
 
-    let differentContractAddress = waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
+    let differentContractAddress =
+      waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
     if differentContractAddress.isErr():
       error "Failed to deploy RLN contract", error = differentContractAddress.error
     # simulating a change in the contractAddress
