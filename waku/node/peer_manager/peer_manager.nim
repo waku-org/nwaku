@@ -1038,7 +1038,6 @@ proc stop*(pm: PeerManager) =
 proc new*(
     T: type PeerManager,
     switch: Switch,
-    dnsNameServers: seq[IpAddress],
     wakuMetadata: WakuMetadata = nil,
     maxRelayPeers: Option[int] = none(int),
     maxServicePeers: Option[int] = none(int),
@@ -1049,6 +1048,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    dnsNameServers = newSeq[IpAddress](),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
