@@ -112,11 +112,8 @@ ifeq (, $(shell which cargo))
 	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
 endif
 
-anvil: rustup
-ifeq (, $(shell which anvil 2> /dev/null))
-# Install Anvil if it's not installed
-	./scripts/install_anvil.sh
-endif
+rln-deps: rustup
+	./scripts/install_rln_tests_dependencies.sh
 
 deps: | deps-common nat-libs waku.nims
 
