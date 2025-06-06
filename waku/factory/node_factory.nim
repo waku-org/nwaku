@@ -67,17 +67,6 @@ proc initNode(
   ## file. Optionally include persistent peer storage.
   ## No protocols are mounted yet.
 
-  var dnsResolver: DnsResolver
-  if conf.dnsAddrs:
-    # Support for DNS multiaddrs
-    var nameServers: seq[TransportAddress]
-    for ip in conf.dnsAddrsNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    dnsResolver = DnsResolver.new(nameServers)
-
-  var node: WakuNode
-
   let pStorage =
     if peerStore.isNone():
       nil
@@ -91,6 +80,9 @@ proc initNode(
     else:
       (none(string), none(string))
 
+  let nameResolver =
+    DnsResolver.new(conf.dnsAddrsNameServers.mapIt(initTAddress(it, Port(53))))
+
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
@@ -102,7 +94,7 @@ proc initNode(
     maxConnections = some(conf.maxConnections.int),
     secureKey = secureKey,
     secureCert = secureCert,
-    nameResolver = dnsResolver,
+    nameResolver = nameResolver,
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled
     agentString = some(conf.agentString),
@@ -132,7 +124,7 @@ proc initNode(
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)
 
-  node =
+  let node =
     ?builder.build().mapErr(
       proc(err: string): string =
         "failed to create waku node instance: " & err

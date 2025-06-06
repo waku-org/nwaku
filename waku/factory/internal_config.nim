@@ -12,7 +12,7 @@ import
   ../waku_enr,
   ../waku_core,
   ./waku_conf,
-  ./network_conf
+  ./networks_config
 
 proc enrConfiguration*(
     conf: WakuConf, netConfig: NetConfig
@@ -139,6 +139,7 @@ proc networkConfiguration*(
     dns4DomainName = conf.dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
+    dnsNameServers = dnsAddrsNameServers,
   )
 
   return netConfigRes
