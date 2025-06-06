@@ -140,11 +140,6 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
-method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
-  if g.validRoots.find(root) >= 0:
-    return true
-  return false
-
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
@@ -282,11 +277,6 @@ method withdraw*(
     g: OnchainGroupManager, idCommitment: IDCommitment
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g) # TODO: after slashing is enabled on the contract
-
-method withdrawBatch*(
-    g: OnchainGroupManager, idCommitments: seq[IDCommitment]
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
 
 proc getRootFromProofAndIndex(
     g: OnchainGroupManager, elements: seq[byte], bits: seq[byte]

@@ -36,17 +36,6 @@ method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} 
   g.userMessageLimit = some(DefaultUserMessageLimit)
 
   g.idCredentials = some(groupKeys[membershipIndex])
-  # Seed the received commitments into the merkle tree
-  let rateCommitments = groupKeys.mapIt(
-    RateCommitment(
-      idCommitment: it.idCommitment, userMessageLimit: g.userMessageLimit.get()
-    )
-  )
-  let leaves = rateCommitments.toLeaves().valueOr:
-    return err("Failed to convert rate commitments to leaves: " & $error)
-  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, leaves)
-
-  discard g.slideRootQueue()
 
   g.latestIndex += MembershipIndex(groupKeys.len - 1)
 
@@ -56,7 +45,7 @@ method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} 
 
 method startGroupSync*(
     g: StaticGroupManager
-): Future[GroupManagerResult[void]] {.async.} =
+): Future[GroupManagerResult[void]] {.base, async.} =
   ?g.resultifiedInitGuard()
   # No-op
   return ok()
@@ -89,8 +78,6 @@ method registerBatch*(
         )
       )
     await g.registerCb.get()(memberSeq)
-
-  discard g.slideRootQueue()
 
   g.latestIndex += MembershipIndex(rateCommitments.len)
   return
