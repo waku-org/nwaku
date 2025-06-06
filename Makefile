@@ -202,8 +202,8 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
-# install anvil only for the testwaku target
-testwaku: | build deps anvil librln
+# install rln-deps only for the testwaku target
+testwaku: | build deps rln-deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
