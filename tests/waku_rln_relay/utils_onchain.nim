@@ -262,7 +262,7 @@ proc deployTestToken*(
     execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-     return err("pnpm install command failed" & pnpmInstallOutput)
+    return err("pnpm install command failed" & pnpmInstallOutput)
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
@@ -372,7 +372,7 @@ proc executeForgeContractDeployScripts*(
     execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-     return err("pnpm install command failed" & pnpmInstallOutput)
+    return err("pnpm install command failed" & pnpmInstallOutput)
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
