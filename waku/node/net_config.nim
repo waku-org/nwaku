@@ -78,7 +78,7 @@ proc init*(
     discv5UdpPort = none(Port),
     clusterId: uint16 = 0,
     wakuFlags = none(CapabilitiesBitfield),
-    dnsNameServers = newSeq[IpAddress](),
+    dnsNameServers: seq[IpAddress],
 ): NetConfigResult =
   ## Initialize and validate waku node network configuration
 

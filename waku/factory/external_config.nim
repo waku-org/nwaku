@@ -245,12 +245,6 @@ type WakuNodeConf* = object
     .}: bool
 
     ## DNS addrs config
-    dnsAddrs* {.
-      desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
-      defaultValue: true,
-      name: "dns-addrs"
-    .}: bool
-
     dnsAddrsNameServers* {.
       desc:
         "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
@@ -566,12 +560,6 @@ with the drawback of consuming some more bandwidth.""",
       defaultValue: "",
       name: "dns-discovery-url"
     .}: string
-
-    dnsDiscoveryNameServers* {.
-      desc: "DNS name server IPs to query. Argument may be repeated.",
-      defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-      name: "dns-discovery-name-server"
-    .}: seq[IpAddress]
 
     ## Discovery v5 config
     discv5Discovery* {.
@@ -962,7 +950,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     b.withPeerStoreCapacity(n.peerStoreCapacity.get())
 
   b.withPeerPersistence(n.peerPersistence)
-  b.withDnsAddrs(n.dnsAddrs)
   b.withDnsAddrsNameServers(n.dnsAddrsNameServers)
   b.withDns4DomainName(n.dns4DomainName)
   b.withCircuitRelayClient(n.isRelayClient)
@@ -1024,7 +1011,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
 
   b.dnsDiscoveryConf.withEnabled(n.dnsDiscovery)
   b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
-  b.dnsDiscoveryConf.withNameServers(n.dnsDiscoveryNameServers)
 
   if n.discv5Discovery.isSome():
     b.discv5Conf.withEnabled(n.discv5Discovery.get())

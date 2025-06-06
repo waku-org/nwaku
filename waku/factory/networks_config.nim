@@ -1,6 +1,14 @@
 {.push raises: [].}
 
-import stint
+import stint, std/[nativesockets, options]
+
+type WebSocketSecureConf* {.requiresInit.} = object
+  keyPath*: string
+  certPath*: string
+
+type WebSocketConf* = object
+  port*: Port
+  secureConf*: Option[WebSocketSecureConf]
 
 # TODO: Rename this type to match file name
 
