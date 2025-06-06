@@ -96,7 +96,6 @@ when isMainModule:
   wakuConf.restPort = conf.restPort
   wakuConf.restAllowOrigin = conf.restAllowOrigin
 
-  wakuConf.dnsAddrs = true
   wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
   wakuConf.shards = @[conf.shard]
