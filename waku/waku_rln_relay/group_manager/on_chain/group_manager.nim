@@ -131,7 +131,7 @@ proc sendEthCallWithChainId*(
   # Make the RPC call using eth_call
   let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
   if resultBytes.len == 0:
-    return err("Contract call returned no result")
+    return err("No result returned for function call: " & functionSignature)
   return ok(UInt256.fromBytesBE(resultBytes))
 
 proc fetchMerkleProofElements*(
@@ -264,7 +264,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
           raise newException(
             CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
           )
-        
+
         let memberCount = cast[int64](nextFreeIndex.get())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
@@ -301,9 +301,8 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
+  debug "identityCredential idCommitmentHex", idCommitmentNoConvert = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
-  debug "identityCredential idCommitment toUInt256", idCommitment = idCommitment
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
     idCommitment = idCommitment,
@@ -578,6 +577,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   let ethRpc: Web3 = (await establishConnection(g)).valueOr:
     return err("failed to connect to Ethereum clients: " & $error)
 
+  debug "fetching chainId"
   var fetchedChainId: UInt256
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
     await ethRpc.provider.eth_chainId()
@@ -605,6 +605,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
+  debug "contract address",
+    contractAddress = contractAddress, ethContractAddress = g.ethContractAddress
 
   g.ethRpc = some(ethRpc)
   g.wakuRlnContract = some(wakuRlnContract)
@@ -632,9 +634,13 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
-    let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
-    debug "checking if the idCommitment has a membership",
-      idCommitmentHex = idCommitment.toHex(), idCommitmentUInt256 = idCommitment
+    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
+    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
+    let idCommitmentHex = idCommitmentBytes.inHex()
+    debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
+    debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
+    debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
+    let idCommitment = idCommitmentUInt256
     try:
       # let membershipExists =
       #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
@@ -664,11 +670,14 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       tx.chainId = Opt.some(g.chainId)
 
       let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-      let membershipExists = resultBytes[^1] == 1'u8
+      debug "resultBytes", resultBytes = resultBytes, len = resultBytes.len
+      if resultBytes.len == 0:
+        return err("No result returned for function call: " & $functionSignature)
+      let membershipExists = resultBytes.len == 32 and resultBytes[^1] == 1'u8
 
       debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
-        return err("the idCommitment does not have a membership")
+        return err("the commitment does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
@@ -698,7 +707,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   )
 
   if maxMembershipRateLimit.isErr():
-    return err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
+    return
+      err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit.get())
 
   proc onDisconnect() {.async.} =
