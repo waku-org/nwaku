@@ -140,7 +140,6 @@ jobs:
 
     secrets: inherit
 
-
   js-waku-node:
     needs: build-docker-image
     uses: waku-org/js-waku/.github/workflows/test-node.yml@master
