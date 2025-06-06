@@ -62,6 +62,10 @@ proc getMeshPeersByShard*(
   rest, endpoint: "/admin/v1/peers/mesh/on/{shardId}", meth: HttpMethod.MethodGet
 .}
 
+proc getPeersStats*(): RestResponse[PeerStats] {.
+  rest, endpoint: "/admin/v1/peers/stats", meth: HttpMethod.MethodGet
+.}
+
 proc getFilterSubscriptions*(): RestResponse[seq[FilterSubscription]] {.
   rest, endpoint: "/admin/v1/filter/subscriptions", meth: HttpMethod.MethodGet
 .}
