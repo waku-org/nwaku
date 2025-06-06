@@ -26,11 +26,11 @@ type IdentityCredential* = object
   idCommitment*: IDCommitment
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = UInt256.fromBytesBE(idCommitment)
+  let pk = UInt256.fromBytesLE(idCommitment)
   return pk
 
 proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
-  let pk = IDCommitment(@(idCommitmentUint.toBytesBE()))
+  let pk = IDCommitment(@(idCommitmentUint.toBytesLE()))
   return pk
 
 type MembershipIndex* = uint
@@ -53,16 +53,16 @@ proc toIdentityCredentials*(
     try:
       let
         idTrapdoor = IdentityTrapdoor(
-          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesBE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE())
         )
         idNullifier = IdentityNullifier(
-          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesBE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE())
         )
         idSecretHash = IdentitySecretHash(
-          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesBE())
+          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE())
         )
         idCommitment =
-          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesBE()))
+          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
       groupIdCredentials.add(
         IdentityCredential(
           idTrapdoor: idTrapdoor,
