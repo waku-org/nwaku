@@ -79,7 +79,7 @@ proc withNetworkConfigurationDetails*(
     wssEnabled: bool = false,
     wakuFlags = none(CapabilitiesBitfield),
     dns4DomainName = none(string),
-    dnsNameServers = newSeq[IpAddress](),
+    dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
 ): WakuNodeBuilderResult {.
     deprecated: "use 'builder.withNetworkConfiguration()' instead"
 .} =
