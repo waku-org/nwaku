@@ -89,14 +89,16 @@ suite "Onchain group manager":
       raise newException(CatchableError, "Failed to deploy test token contract")
     let TOKEN_ADDRESS = testTokenAddressRes.get()
 
-    let differentContractAddress =
+    let differentContractAddress = (
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
-    if differentContractAddress.isErr():
-      error "Failed to deploy RLN contract", error = differentContractAddress.error
+    ).valueOr:
+      assert false, "Failed to deploy RLN contract: " & $error
+      return
+
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
-      ethContractAddress: $differentContractAddress.get(),
+      ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
         assert false, errStr

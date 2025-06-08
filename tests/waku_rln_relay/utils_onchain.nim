@@ -119,7 +119,7 @@ proc sendMintCall*(
 
   let amountHex = amountTokens.toHex()
   let amountWithout0x =
-    if amountHex.startsWith("0x"):
+    if amountHex.toLower().startsWith("0x"):
       amountHex[2 .. ^1]
     else:
       amountHex
@@ -308,7 +308,7 @@ proc approveTokenAllowanceAndVerify*(
     tokenAddress: Address,
     spender: Address,
     amountWei: UInt256,
-): Future[bool] {.async.} =
+): Future[Result[void, string]] {.async.} =
   debug "Starting approval process",
     owner = accountFrom,
     tokenAddress = tokenAddress,
@@ -328,8 +328,7 @@ proc approveTokenAllowanceAndVerify*(
 
   # Check if status is present and successful
   if receipt.status.isNone or receipt.status.get != 1.Quantity:
-    error "Approval transaction failed"
-    return false
+    return err("Approval transaction failed")
 
   # Give it a moment for the state to settle
   await sleepAsync(100.milliseconds)
@@ -338,7 +337,12 @@ proc approveTokenAllowanceAndVerify*(
   let allowanceAfter = await checkAllowance(web3, tokenAddress, accountFrom, spender)
   debug "Allowance after approval", amount = allowanceAfter
 
-  return allowanceAfter >= amountWei
+  if allowanceAfter >= amountWei:
+    return ok()
+  else:
+    error "Allowance is insufficient after approval",
+      amount = allowanceAfter, expected = amountWei
+    return err("Allowance is insufficient after approval")
 
 proc executeForgeContractDeployScripts*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
@@ -348,12 +352,11 @@ proc executeForgeContractDeployScripts*(
 
   # All RLN related tests should be run from the root directory of the project
   let submodulePath = "./vendor/waku-rlnv2-contract"
-  # Default Anvil account[1] privatekey
-  # let PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
-  let PRIVATE_KEY = $pk
+
+  let privateKey = $pk
   let forgePath = getForgePath()
   debug "Forge path", forgePath
-  debug "contract deployer account details", account = acc, pk = pk
+  debug "contract deployer account details", account = acc, privateKey = privateKey
 
   # Build the Foundry project
   let (forgeCleanOutput, forgeCleanExitCode) =
@@ -387,7 +390,7 @@ proc executeForgeContractDeployScripts*(
 
   # Deploy LinearPriceCalculator contract
   let forgeCmdPriceCalculator =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
     execCmdEx(forgeCmdPriceCalculator)
   debug "Executed forge command to deploy LinearPriceCalculator contract",
@@ -405,7 +408,7 @@ proc executeForgeContractDeployScripts*(
   putEnv("PRICE_CALCULATOR_ADDRESS", priceCalculatorAddress)
 
   let forgeCmdWakuRln =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployWakuRln, exitCodeDeployWakuRln) = execCmdEx(forgeCmdWakuRln)
   debug "Executed forge command to deploy WakuRlnV2 contract",
     output = outputDeployWakuRln
@@ -425,7 +428,7 @@ proc executeForgeContractDeployScripts*(
 
   # Deploy Proxy contract
   let forgeCmdProxy =
-    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployProxy --private-key {PRIVATE_KEY} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
+    fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployProxy --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployProxy, exitCodeDeployProxy) = execCmdEx(forgeCmdProxy)
   debug "Executed forge command to deploy proxy contract", output = outputDeployProxy
   if exitCodeDeployProxy != 0:

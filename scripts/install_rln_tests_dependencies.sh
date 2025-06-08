@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 
 # Install Anvil
-if ! command -v anvil &> /dev/null; then
-    ./scripts/install_anvil.sh
-fi
+./scripts/install_anvil.sh
 
 #Install pnpm
-if ! command -v pnpm &> /dev/null; then
-    ./scripts/install_pnpm.sh
-fi
+./scripts/install_pnpm.sh
