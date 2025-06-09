@@ -154,83 +154,14 @@ proc sendMintCall*(
 
   return txHash
 
-proc checkAllowance*(
+# Check how many tokens a spender (the RLN contract) is allowed to spend on behalf of the owner (account which wishes to register a membership)
+proc checkTokenAllowance*(
     web3: Web3, tokenAddress: Address, owner: Address, spender: Address
 ): Future[UInt256] {.async.} =
   let token = web3.contractSender(ERC20Token, tokenAddress)
   let allowance = await token.allowance(owner, spender).call()
   trace "Current allowance", owner = owner, spender = spender, allowance = allowance
   return allowance
-
-proc sendTokenApproveCall*(
-    web3: Web3,
-    accountFrom: Address,
-    privateKey: keys.PrivateKey,
-    tokenAddress: Address,
-    spender: Address,
-    amountWei: UInt256,
-    accountAllowanceBeforeExpectedTokens: Option[UInt256] = none(UInt256),
-): Future[TxHash] {.async.} =
-  let doBalanceAssert = accountAllowanceBeforeExpectedTokens.isSome()
-
-  if doBalanceAssert:
-    let allowanceBeforeApproval =
-      await checkAllowance(web3, tokenAddress, accountFrom, spender)
-    let allowanceBeforeExpectedTokens = accountAllowanceBeforeExpectedTokens.get()
-    assert allowanceBeforeApproval == allowanceBeforeExpectedTokens,
-      fmt"Allowance is {allowanceBeforeApproval} before approval but expected {allowanceBeforeExpectedTokens}"
-
-  # Temporarily set the private key
-  let oldPrivateKey = web3.privateKey
-  web3.privateKey = Opt.some(privateKey)
-  web3.lastKnownNonce = Opt.none(Quantity) # Reset nonce tracking
-
-  # Create approve transaction
-  # ERC20 approve function signature: approve(address spender, uint256 amount)
-  # Method ID for approve(address,uint256) is 0x095ea7b3
-  let approveSelector = "0x095ea7b3"
-
-  let addressHex = spender.toHex() # Already without 0x
-  let paddedAddress = addressHex.align(64, '0')
-  let amountHex = amountWei.toHex()
-
-  let paddedAmount = amountHex.align(64, '0')
-  let approveCallData = approveSelector & paddedAddress & paddedAmount
-
-  # Get gas price
-  let gasPrice = int(await web3.provider.eth_gasPrice())
-
-  # Create the transaction
-  var tx: TransactionArgs
-  tx.`from` = Opt.some(accountFrom)
-  tx.to = Opt.some(tokenAddress)
-  tx.value = Opt.some(0.u256)
-  tx.gasPrice = Opt.some(Quantity(gasPrice))
-  tx.gas = Opt.some(Quantity(100000)) # Add gas limit
-  tx.data = Opt.some(byteutils.hexToSeqByte(approveCallData))
-  tx.chainId = Opt.some(CHAIN_ID)
-
-  trace "Sending approve call with transaction", tx = tx
-
-  try:
-    # Send will automatically sign because privateKey is set
-    let txHash = await web3.send(tx)
-
-    if doBalanceAssert:
-      let allowanceAfterApproval =
-        await checkAllowance(web3, tokenAddress, accountFrom, spender)
-      let allowanceAfterExpectedTokens =
-        accountAllowanceBeforeExpectedTokens.get() + amountWei
-      assert allowanceAfterApproval == allowanceAfterExpectedTokens,
-        fmt"Balance is {allowanceAfterApproval} after approval but expected {allowanceAfterExpectedTokens}"
-
-    return txHash
-  except CatchableError as e:
-    error "Failed to send approve transaction", error = e.msg
-    raise e
-  finally:
-    # Restore the old private key
-    web3.privateKey = oldPrivateKey
 
 proc deployTestToken*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
@@ -299,6 +230,7 @@ proc deployTestToken*(
 
   return ok(testTokenAddressAddress)
 
+# Sends an ERC20 token approval call to allow a spender to spend a certain amount of tokens on behalf of the owner
 proc approveTokenAllowanceAndVerify*(
     web3: Web3,
     accountFrom: Address,
@@ -306,41 +238,69 @@ proc approveTokenAllowanceAndVerify*(
     tokenAddress: Address,
     spender: Address,
     amountWei: UInt256,
-): Future[Result[void, string]] {.async.} =
-  debug "Starting approval process",
-    owner = accountFrom,
-    tokenAddress = tokenAddress,
-    spender = spender,
-    amount = amountWei
+    expectedAllowanceBefore: Option[UInt256] = none(UInt256),
+): Future[Result[TxHash, string]] {.async.} =
+  var allowanceBefore: UInt256
+  if expectedAllowanceBefore.isSome():
+    allowanceBefore =
+      await checkTokenAllowance(web3, tokenAddress, accountFrom, spender)
+    let expected = expectedAllowanceBefore.get()
+    if allowanceBefore != expected:
+      return
+        err(fmt"Allowance is {allowanceBefore} before approval but expected {expected}")
 
-  # Send approval
-  let txHash = await sendTokenApproveCall(
-    web3, accountFrom, privateKey, tokenAddress, spender, amountWei, some(0.u256)
-  )
+  # Temporarily set the private key
+  let oldPrivateKey = web3.privateKey
+  web3.privateKey = Opt.some(privateKey)
+  web3.lastKnownNonce = Opt.none(Quantity)
 
-  trace "Approval transaction sent", txHash = txHash
+  try:
+    # ERC20 approve function signature: approve(address spender, uint256 amount)
+    # Method ID for approve(address,uint256) is 0x095ea7b3
+    const APPROVE_SELECTOR = "0x095ea7b3"
+    let addressHex = spender.toHex().align(64, '0')
+    let amountHex = amountWei.toHex().align(64, '0')
+    let approveCallData = APPROVE_SELECTOR & addressHex & amountHex
 
-  # Wait for transaction to be mined
-  let receipt = await web3.getMinedTransactionReceipt(txHash)
-  trace "Transaction mined", status = receipt.status, blockNumber = receipt.blockNumber
+    let gasPrice = await web3.provider.eth_gasPrice()
 
-  # Check if status is present and successful
-  if receipt.status.isNone or receipt.status.get != 1.Quantity:
-    return err("Approval transaction failed")
+    var tx: TransactionArgs
+    tx.`from` = Opt.some(accountFrom)
+    tx.to = Opt.some(tokenAddress)
+    tx.value = Opt.some(0.u256)
+    tx.gasPrice = Opt.some(gasPrice)
+    tx.gas = Opt.some(Quantity(100000)) # Consider estimating gas instead
+    tx.data = Opt.some(byteutils.hexToSeqByte(approveCallData))
+    tx.chainId = Opt.some(CHAIN_ID)
 
-  # Give it a moment for the state to settle
-  await sleepAsync(100.milliseconds)
+    trace "Sending approve call", tx = tx
+    let txHash = await web3.send(tx)
+    let receipt = await web3.getMinedTransactionReceipt(txHash)
 
-  # Check allowance after mining
-  let allowanceAfter = await checkAllowance(web3, tokenAddress, accountFrom, spender)
-  trace "Allowance after approval", amount = allowanceAfter
+    # Check transaction status
+    if receipt.status.isNone or receipt.status.get != 1.Quantity:
+      return err("Approval transaction failed")
 
-  if allowanceAfter >= amountWei:
-    return ok()
-  else:
-    error "Allowance is insufficient after approval",
-      amount = allowanceAfter, expected = amountWei
-    return err("Allowance is insufficient after approval")
+    # Single verification check after mining (no extra sleep needed)
+    let allowanceAfter =
+      await checkTokenAllowance(web3, tokenAddress, accountFrom, spender)
+    let expectedAfter =
+      if expectedAllowanceBefore.isSome():
+        expectedAllowanceBefore.get() + amountWei
+      else:
+        amountWei
+
+    if allowanceAfter < expectedAfter:
+      return err(
+        fmt"Allowance is {allowanceAfter} after approval but expected at least {expectedAfter}"
+      )
+
+    return ok(txHash)
+  except CatchableError as e:
+    return err(fmt"Failed to send approve transaction: {e.msg}")
+  finally:
+    # Restore the old private key
+    web3.privateKey = oldPrivateKey
 
 proc executeForgeContractDeployScripts*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
@@ -622,7 +582,8 @@ proc setupOnchainGroupManager*(
     assert false, "Failed to deploy RLN contract: " & $error
     return
 
-  let approvalSuccess = await approveTokenAllowanceAndVerify(
+  # If the generated account wishes to register a membership, it needs to approve the contract to spend its tokens
+  let tokenApprovalResult = await approveTokenAllowanceAndVerify(
     web3,
     acc, # owner
     privateKey,
@@ -631,9 +592,7 @@ proc setupOnchainGroupManager*(
     ethToWei(200.u256),
   )
 
-  # Also check the token balance
-  let tokenBalance = await getTokenBalance(web3, testTokenAddress, acc)
-  debug "Token balance before register", owner = acc, balance = tokenBalance
+  assert tokenApprovalResult.isOk, tokenApprovalResult.error()
 
   let manager = OnchainGroupManager(
     ethClientUrls: @[ethClientUrl],
