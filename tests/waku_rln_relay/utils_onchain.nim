@@ -82,10 +82,8 @@ proc getForgePath*(): string =
   return $forgePath
 
 contract(ERC20Token):
-  proc approve(spender: Address, amount: UInt256)
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
   proc balanceOf(account: Address): UInt256 {.view.}
-  proc mint(recipient: Address, amount: UInt256)
 
 proc getTokenBalance*(
     web3: Web3, tokenAddress: Address, account: Address
@@ -113,8 +111,11 @@ proc sendMintCall*(
       fmt"Balance is {balanceBeforeMint} before minting but expected {balanceBeforeExpectedTokens}"
 
   # Create mint transaction
-  let mintSelector = "0x40c10f19" # Pad the address and amount to 32 bytes each
+  # Method ID for mint(address,uint256) is 0x40c10f19 which is part of the openzeppelin ERC20 standard
+  # The method ID for a deployed test token can be viewed here https://sepolia.lineascan.build/address/0x185A0015aC462a0aECb81beCc0497b649a64B9ea#writeContract
+  let mintSelector = "0x40c10f19"
   let addressHex = recipientAddress.toHex()
+  # Pad the address and amount to 32 bytes each
   let paddedAddress = addressHex.align(64, '0')
 
   let amountHex = amountTokens.toHex()
@@ -123,8 +124,8 @@ proc sendMintCall*(
       amountHex[2 .. ^1]
     else:
       amountHex
-  let paddedAmount = amountWithout0x.align(64, '0') # Create the call data
-  let mintCallData = mintSelector & paddedAddress & paddedAmount # Get gas price
+  let paddedAmount = amountWithout0x.align(64, '0')
+  let mintCallData = mintSelector & paddedAddress & paddedAmount
   let gasPrice = int(await web3.provider.eth_gasPrice())
 
   # Create the transaction
@@ -135,8 +136,7 @@ proc sendMintCall*(
   tx.gasPrice = Opt.some(Quantity(gasPrice))
   tx.data = Opt.some(byteutils.hexToSeqByte(mintCallData))
 
-  debug "Sending mint call"
-  # Send the transaction
+  trace "Sending mint call"
   let txHash = await web3.send(tx)
 
   let balanceOfSelector = "0x70a08231"
@@ -159,7 +159,7 @@ proc checkAllowance*(
 ): Future[UInt256] {.async.} =
   let token = web3.contractSender(ERC20Token, tokenAddress)
   let allowance = await token.allowance(owner, spender).call()
-  debug "Current allowance", owner = owner, spender = spender, allowance = allowance
+  trace "Current allowance", owner = owner, spender = spender, allowance = allowance
   return allowance
 
 proc sendTokenApproveCall*(
@@ -171,9 +171,6 @@ proc sendTokenApproveCall*(
     amountWei: UInt256,
     accountAllowanceBeforeExpectedTokens: Option[UInt256] = none(UInt256),
 ): Future[TxHash] {.async.} =
-  # # ERC20 approve function signature: approve(address spender, uint256 amount)
-  # # Create the contract call data
-  # # Method ID for approve(address,uint256) is 0x095ea7b3
   let doBalanceAssert = accountAllowanceBeforeExpectedTokens.isSome()
 
   if doBalanceAssert:
@@ -189,6 +186,8 @@ proc sendTokenApproveCall*(
   web3.lastKnownNonce = Opt.none(Quantity) # Reset nonce tracking
 
   # Create approve transaction
+  # ERC20 approve function signature: approve(address spender, uint256 amount)
+  # Method ID for approve(address,uint256) is 0x095ea7b3
   let approveSelector = "0x095ea7b3"
 
   let addressHex = spender.toHex() # Already without 0x
@@ -230,13 +229,13 @@ proc sendTokenApproveCall*(
     error "Failed to send approve transaction", error = e.msg
     raise e
   finally:
-    # Always restore the old private key
+    # Restore the old private key
     web3.privateKey = oldPrivateKey
 
 proc deployTestToken*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
 ): Future[Result[Address, string]] {.async.} =
-  ## Executes a Foundry forge script that deploys the a token contract (ERC-20) used for testing. This is a prerequisite to enable the contract deployment and this token contract address needs to be minted and approved for the accounts that need to register membership with the contract
+  ## Executes a Foundry forge script that deploys the a token contract (ERC-20) used for testing. This is a prerequisite to enable the contract deployment and this token contract address needs to be minted and approved for the accounts that need to register memberships with the contract
   ## submodulePath: path to the submodule containing contract deploy scripts
 
   # All RLN related tests should be run from the root directory of the project
@@ -270,7 +269,7 @@ proc deployTestToken*(
   if forgeBuildExitCode != 0:
     return error("forge build command failed")
 
-  # Set the environment variable API keys to anything for testing
+  # Set the environment variable API keys to anything for local testnet deployment
   putEnv("API_KEY_CARDONA", "123")
   putEnv("API_KEY_LINEASCAN", "123")
   putEnv("API_KEY_ETHERSCAN", "123")
@@ -279,7 +278,7 @@ proc deployTestToken*(
   let forgeCmdTestToken =
     fmt"""cd {submodulePath} && {forgePath} script test/TestToken.sol --broadcast -vvv --rpc-url http://localhost:8540 --tc TestTokenFactory --private-key {pk} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployTestToken, exitCodeDeployTestToken) = execCmdEx(forgeCmdTestToken)
-  debug "Executed forge command to deploy TestToken contract",
+  trace "Executed forge command to deploy TestToken contract",
     output = outputDeployTestToken
   if exitCodeDeployTestToken != 0:
     return error("Forge command to deploy TestToken contract failed")
@@ -293,7 +292,6 @@ proc deployTestToken*(
     return err("Failed to get TestToken contract address from deploy script output")
   let testTokenAddress = testTokenAddressRes.get()
   debug "Address of the TestToken contract", testTokenAddress
-  debug "TestToken contract deployer account details", account = acc, pk = pk
 
   let testTokenAddressBytes = hexToByteArray[20](testTokenAddress)
   let testTokenAddressAddress = Address(testTokenAddressBytes)
@@ -320,11 +318,11 @@ proc approveTokenAllowanceAndVerify*(
     web3, accountFrom, privateKey, tokenAddress, spender, amountWei, some(0.u256)
   )
 
-  debug "Approval transaction sent", txHash = txHash
+  trace "Approval transaction sent", txHash = txHash
 
   # Wait for transaction to be mined
   let receipt = await web3.getMinedTransactionReceipt(txHash)
-  debug "Transaction mined", status = receipt.status, blockNumber = receipt.blockNumber
+  trace "Transaction mined", status = receipt.status, blockNumber = receipt.blockNumber
 
   # Check if status is present and successful
   if receipt.status.isNone or receipt.status.get != 1.Quantity:
@@ -335,7 +333,7 @@ proc approveTokenAllowanceAndVerify*(
 
   # Check allowance after mining
   let allowanceAfter = await checkAllowance(web3, tokenAddress, accountFrom, spender)
-  debug "Allowance after approval", amount = allowanceAfter
+  trace "Allowance after approval", amount = allowanceAfter
 
   if allowanceAfter >= amountWei:
     return ok()
