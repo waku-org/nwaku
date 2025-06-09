@@ -609,38 +609,35 @@ proc setupOnchainGroupManager*(
     web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
   )
 
-  let testTokenAddressRes = await deployTestToken(privateKey, acc, web3)
-  if testTokenAddressRes.isErr():
-    error "Failed to deploy test token contract", error = testTokenAddressRes.error
-    raise newException(CatchableError, "Failed to deploy test token contract")
-  let TOKEN_ADDRESS = testTokenAddressRes.get()
+  let testTokenAddress = (await deployTestToken(privateKey, acc, web3)).valueOr:
+    assert false, "Failed to deploy test token contract: " & $error
+    return
 
-    # mint the token from the generated account
+  # mint the token from the generated account
   discard await sendMintCall(
-    web3, web3.defaultAccount, TOKEN_ADDRESS, acc, ethToWei(1000.u256), some(0.u256)
+    web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
   )
-  let contractAddressRes =
-    await executeForgeContractDeployScripts(privateKey, acc, web3)
-  if contractAddressRes.isErr():
-    error "Failed to deploy RLN contract", error = contractAddressRes.error
-    raise newException(CatchableError, "Failed to deploy RLN contract")
+
+  let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
+    assert false, "Failed to deploy RLN contract: " & $error
+    return
 
   let approvalSuccess = await approveTokenAllowanceAndVerify(
     web3,
     acc, # owner
     privateKey,
-    TOKEN_ADDRESS, # ERC20 token address
-    contractAddressRes.get(), # spender - the proxy contract that will spend the tokens
+    testTokenAddress, # ERC20 token address
+    contractAddress, # spender - the proxy contract that will spend the tokens
     ethToWei(200.u256),
   )
 
   # Also check the token balance
-  let tokenBalance = await getTokenBalance(web3, TOKEN_ADDRESS, acc)
+  let tokenBalance = await getTokenBalance(web3, testTokenAddress, acc)
   debug "Token balance before register", owner = acc, balance = tokenBalance
 
   let manager = OnchainGroupManager(
     ethClientUrls: @[ethClientUrl],
-    ethContractAddress: $contractAddressRes.get(),
+    ethContractAddress: $contractAddress,
     chainId: CHAIN_ID,
     ethPrivateKey: some($privateKey),
     rlnInstance: rlnInstance,
