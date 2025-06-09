@@ -326,9 +326,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       let relayPeers = getRelayPeers(node)
       var stat = initOrderedTable[string, int]()
       for ps in relayPeers:
-        totalRelayPeers += ps.peers.len()
-        stat[$ps.shard] = ps.peers.len()
-      stat["Total relay peers"] = relayPeers.len()
+        totalRelayPeers += ps.peers.len
+        stat[$ps.shard] = ps.peers.len
+      stat["Total relay peers"] = relayPeers.len
       stat
 
     # stats of mesh peers
@@ -337,26 +337,26 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       var totalMeshPeers = 0
       var stat = initOrderedTable[string, int]()
       for ps in meshPeers:
-        totalMeshPeers += ps.peers.len()
-        stat[$ps.shard] = ps.peers.len()
-      stat["Total mesh peers"] = meshPeers.len()
+        totalMeshPeers += ps.peers.len
+        stat[$ps.shard] = ps.peers.len
+      stat["Total mesh peers"] = meshPeers.len
       stat
 
     var protoStats = initOrderedTable[string, int]()
-    protoStats["relay"] = peers.countIt(it.protocols.contains(WakuRelayCodec))
-    protoStats["filter"] =
+    protoStats[WakuRelayCodec] = peers.countIt(it.protocols.contains(WakuRelayCodec))
+    protoStats[WakuFilterSubscribeCodec] =
       peers.countIt(it.protocols.contains(WakuFilterSubscribeCodec))
-    protoStats["filter-client"] =
+    protoStats[WakuFilterPushCodec] =
       peers.countIt(it.protocols.contains(WakuFilterPushCodec))
-    protoStats["store"] = peers.countIt(it.protocols.contains(WakuStoreCodec))
-    protoStats["legacy_store"] =
+    protoStats[WakuStoreCodec] = peers.countIt(it.protocols.contains(WakuStoreCodec))
+    protoStats[WakuLegacyStoreCodec] =
       peers.countIt(it.protocols.contains(WakuLegacyStoreCodec))
-    protoStats["lightpush"] = peers.countIt(it.protocols.contains(WakuLightPushCodec))
-    protoStats["legacy_lightpush"] =
+    protoStats[WakuLightPushCodec] = peers.countIt(it.protocols.contains(WakuLightPushCodec))
+    protoStats[WakuLegacyLightPushCodec] =
       peers.countIt(it.protocols.contains(WakuLegacyLightPushCodec))
-    protoStats["peer_exchange"] =
+    protoStats[WakuPeerExchangeCodec] =
       peers.countIt(it.protocols.contains(WakuPeerExchangeCodec))
-    protoStats["reconciliation"] =
+    protoStats[WakuReconciliationCodec] =
       peers.countIt(it.protocols.contains(WakuReconciliationCodec))
 
     stats["By Protocols"] = protoStats
