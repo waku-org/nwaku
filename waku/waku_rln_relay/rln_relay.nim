@@ -213,6 +213,9 @@ proc validateMessage*(
   # track message count for metrics
   waku_rln_messages_total.inc()
 
+  let shard = msg.contentTopic
+  waku_rln_messages_per_shard.inc(labelValues = [$shard])
+
   # checks if the message's timestamp is within acceptable range
   let currentTime = getTime().toUnixFloat()
   let messageTime = msg.timestamp.float64 / 1e9
