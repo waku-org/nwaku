@@ -502,17 +502,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--balance",
         "1000000000",
         "--chain-id",
-        $chainId,
-        "--prune-history",
-        "25",
-        "--memory-limit",
-        "268435456",
-        "--transaction-block-keeper",
-        "10",
-        "--disable-console-log",
-        "--threads",
-        "0",
-        "--no-request-size-limit",
+        $chainId
       ],
       options = {poUsePath},
     )
