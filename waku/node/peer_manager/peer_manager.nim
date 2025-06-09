@@ -34,6 +34,9 @@ declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
 declarePublicGauge waku_connected_peers,
   "Number of physical connections per direction and protocol",
   labels = ["direction", "protocol"]
+declarePublicGauge waku_connected_peers_per_shard,
+  "Number of physical connections per shard",
+  labels = ["shard"]
 declarePublicGauge waku_streams_peers,
   "Number of streams per direction and protocol", labels = ["direction", "protocol"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
@@ -807,6 +810,15 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
       )
       waku_streams_peers.set(
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
+      )
+
+    for shard in 0..63:  # Assuming shards are 0-63 as per Waku spec
+      waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
+
+    for shard in pm.wakuMetadata.shards.items:
+      let connectedPeers = peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      waku_connected_peers_per_shard.set(
+        connectedPeers.len.float64, labelValues = [$shard]
       )
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
