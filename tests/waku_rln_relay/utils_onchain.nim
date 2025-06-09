@@ -239,7 +239,7 @@ proc deployTestToken*(
   ## submodulePath: path to the submodule containing contract deploy scripts
 
   # All RLN related tests should be run from the root directory of the project
-  let submodulePath = "./vendor/waku-rlnv2-contract"
+  let submodulePath = absolutePath("./vendor/waku-rlnv2-contract")
 
   let forgePath = getForgePath()
   debug "Forge path", forgePath
