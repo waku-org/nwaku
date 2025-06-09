@@ -15,7 +15,7 @@ import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
 export protocol, waku_enr
 
 declarePublicGauge waku_discv5_discovered,
-  "number of nodes discovered", labels = ["shard"]
+  "number of nodes discovered by each shard", labels = ["shard"]
 declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 
 logScope:
