@@ -285,38 +285,54 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
 proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
 
+  echo "--------------- subscriptionsListener 1"
+
   let key = wd.topicSubscriptionQueue.register()
 
+  echo "--------------- subscriptionsListener 2"
+
   while wd.listening:
+    echo "--------------- subscriptionsListener 3"
     let events = await wd.topicSubscriptionQueue.waitEvents(key)
 
+    echo "--------------- subscriptionsListener 4"
     # Since we don't know the events we will receive we have to anticipate.
 
     let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
     let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
 
+    echo "--------------- subscriptionsListener 5"
     if subs.len == 0 and unsubs.len == 0:
+      echo "--------------- subscriptionsListener 6"
       continue
 
+    echo "--------------- subscriptionsListener 7"
     let unsubRes = wd.updateENRShards(unsubs, false)
     let subRes = wd.updateENRShards(subs, true)
+    echo "--------------- subscriptionsListener 8"
 
     if subRes.isErr():
+      echo "--------------- subscriptionsListener 9"
       debug "ENR shard addition failed", reason = $subRes.error
 
     if unsubRes.isErr():
+      echo "--------------- subscriptionsListener 10"
       debug "ENR shard removal failed", reason = $unsubRes.error
 
+    echo "--------------- subscriptionsListener 11"
     if subRes.isErr() and unsubRes.isErr():
+      echo "--------------- subscriptionsListener 12"
       continue
 
     debug "ENR updated successfully",
       enrUri = wd.protocol.localNode.record.toUri(),
       enr = $(wd.protocol.localNode.record)
 
+    echo "--------------- subscriptionsListener 13"
     wd.predicate =
       shardingPredicate(wd.protocol.localNode.record, wd.protocol.bootstrapRecords)
 
+  echo "--------------- subscriptionsListener 14"
   wd.topicSubscriptionQueue.unregister(key)
 
 proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises: []).} =
