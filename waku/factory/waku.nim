@@ -369,8 +369,10 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     updateWaku(waku).isOkOr:
       return err("Error in updateApp: " & $error)
 
+  echo "--------- before conf.discv5Conf.isSome"
   ## Discv5
   if conf.discv5Conf.isSome:
+    echo "--------- conf.discv5Conf.isSome is true"
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
       waku.node.enr,
       waku.node.peerManager,
@@ -383,6 +385,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       conf.portsShift,
     )
 
+    echo "------------- starting discv5"
     (await waku.wakuDiscV5.start()).isOkOr:
       return err("failed to start waku discovery v5: " & $error)
 

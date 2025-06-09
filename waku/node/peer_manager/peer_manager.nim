@@ -366,14 +366,13 @@ proc connectToNodes*(
   let combined = zip(connectedPeers, futConns)
   connectedPeers = combined.filterIt(it[1].read() == true).mapIt(it[0])
 
-  when defined(debugDiscv5):
-    let peerIds = connectedPeers.mapIt(it.peerId)
-    let origin = connectedPeers.mapIt(it.origin)
-    if peerIds.len > 0:
-      notice "established connections with found peers",
-        peerIds = peerIds.mapIt(shortLog(it)), origin = origin
-    else:
-      notice "could not connect to new peers", attempted = nodes.len
+  let peerIds = connectedPeers.mapIt(it.peerId)
+  let origin = connectedPeers.mapIt(it.origin)
+  if peerIds.len > 0:
+    notice "established connections with found peers",
+      peerIds = peerIds.mapIt(shortLog(it)), origin = origin
+  else:
+    notice "could not connect to new peers", attempted = nodes.len
 
   info "Finished dialing multiple peers",
     successfulConns = connectedPeers.len, attempted = nodes.len
@@ -570,6 +569,7 @@ proc updateOnlineState*(pm: PeerManager) {.async.} =
     pm.online = await checkInternetConnectivity(pm.dnsNameServers)
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  echo "------------ connectToRelayPeers 1"
   # only attempt if current node is online
   if not pm.isOnline():
     error "connectToRelayPeers: won't attempt new connections - node is offline"
@@ -577,6 +577,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+
+  echo "------------- pm.inRelayPeersTarget: ", pm.inRelayPeersTarget
+  echo "------------- inRelayPeers.len ", inRelayPeers.len
+  echo "------------- pm.inRelayPeersTarget ", pm.inRelayPeersTarget
+  echo "------------- outRelayPeers.len ", outRelayPeers.len
+  echo "------------- pm.outRelayPeersTarget ", pm.outRelayPeersTarget
 
   if inRelayPeers.len > pm.inRelayPeersTarget:
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
@@ -588,6 +594,9 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 
+  echo "------------- notConnectedPeers ", notConnectedPeers.len
+  echo "------------- outsideBackoffPeers ", outsideBackoffPeers.len
+
   shuffle(outsideBackoffPeers)
 
   var index = 0
@@ -595,7 +604,9 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
     min(outsideBackoffPeers.len, pm.outRelayPeersTarget - outRelayPeers.len)
     ## number of outstanding connection requests
 
+  echo "----------- numPendingConnReqs: ", numPendingConnReqs
   while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:
+    echo "--------- connecting to peers!"
     let numPeersToConnect = min(numPendingConnReqs, MaxParallelDials)
     await pm.connectToNodes(outsideBackoffPeers[index ..< (index + numPeersToConnect)])
 

@@ -471,6 +471,9 @@ proc startNode*(
   # 
   # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
   # periodic loop to find peers and px returned peers actually come from discv5
+
+  echo "------------ conf.peerExchange: ", conf.peerExchange
+  echo "------------ conf.discv5Conf.isSome(): ", conf.discv5Conf.isSome()
   if conf.peerExchange and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
