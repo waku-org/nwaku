@@ -83,11 +83,9 @@ suite "Onchain group manager":
     web3.defaultAccount = accounts[2]
     let (privateKey, acc) = createEthAccount(web3)
 
-    let testTokenAddressRes = waitFor deployTestToken(privateKey, acc, web3)
-    if testTokenAddressRes.isErr():
-      error "Failed to deploy test token contract", error = testTokenAddressRes.error
-      raise newException(CatchableError, "Failed to deploy test token contract")
-    let TOKEN_ADDRESS = testTokenAddressRes.get()
+    let tokenAddress = (waitFor deployTestToken(privateKey, acc, web3)).valueOr:
+      assert false, "Failed to deploy test token contract: " & $error
+      return
 
     let differentContractAddress = (
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
