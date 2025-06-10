@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, deques, random],
+  std/[options, sequtils, deques, random, locks],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -28,8 +28,14 @@ import
   ../testlib/wakucore,
   ./utils_onchain
 
+var testLock: Lock
+initLock(testLock)
+
 suite "Onchain group manager":
   setup:
+    # Acquire lock to ensure tests run sequentially
+    acquire(testLock)
+
     let runAnvil {.used.} = runAnvil()
 
     var manager {.threadvar.}: OnchainGroupManager
@@ -38,6 +44,8 @@ suite "Onchain group manager":
   teardown:
     waitFor manager.stop()
     stopAnvil(runAnvil)
+    # Release lock after test completes
+    release(testLock)
 
   test "should initialize successfully":
     (waitFor manager.init()).isOkOr:
@@ -57,42 +65,34 @@ suite "Onchain group manager":
 
   test "should initialize when chainId is set to 0":
     manager.chainId = 0x0'u256
-
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
   test "should error on initialization when loaded metadata does not match":
     (waitFor manager.init()).isOkOr:
       assert false, $error
-
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
     let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
       assert false, $error
       return
-
     assert metadataOpt.isSome(), "metadata is not set"
     let metadata = metadataOpt.get()
-
     assert metadata.chainId == 1234, "chainId is not equal to 1234"
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
-
     let web3 = manager.ethRpc.get()
     let accounts = waitFor web3.provider.eth_accounts()
     web3.defaultAccount = accounts[2]
     let (privateKey, acc) = createEthAccount(web3)
-
     let tokenAddress = (waitFor deployTestToken(privateKey, acc, web3)).valueOr:
       assert false, "Failed to deploy test token contract: " & $error
       return
-
     let differentContractAddress = (
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
     ).valueOr:
       assert false, "Failed to deploy RLN contract: " & $error
       return
-
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
@@ -502,10 +502,3 @@ suite "Onchain group manager":
 
     check:
       isReady == true
-
-  ################################
-  ## Terminating/removing Anvil
-  ################################
-
-  # We stop Anvil daemon
-  stopAnvil(runAnvil)
