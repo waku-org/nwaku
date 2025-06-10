@@ -479,6 +479,57 @@ proc getAnvilPath*(): string =
   anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
   return $anvilPath
 
+proc checkRunningAnvilInstances*(): int =
+  ## Returns the number of running Anvil processes
+  try:
+    when defined(windows):
+      let (output, exitCode) = execCmdEx(
+        "tasklist /FI \"IMAGENAME eq anvil.exe\" /FO CSV | find /C \"anvil.exe\""
+      )
+    else:
+      let (output, exitCode) = execCmdEx("pgrep -c anvil 2>/dev/null || echo 0")
+
+    if exitCode == 0:
+      # Handle case where output might have multiple lines
+      let lines = output.strip().split('\n')
+      let countStr =
+        if lines.len > 0:
+          lines[0]
+        else:
+          "0"
+      let count = parseInt(countStr)
+      debug "Found running Anvil instances", count = count
+      return count
+    else:
+      debug "Failed to check running Anvil instances", exitCode = exitCode
+      return 0
+  except ValueError:
+    debug "Could not parse Anvil instance count"
+    return 0
+  except Exception:
+    debug "Error checking Anvil instances", error = getCurrentExceptionMsg()
+    return 0
+
+proc isAnvilProcessRunning*(pid: int): bool =
+  ## Checks if a specific PID is running an Anvil process
+  try:
+    when defined(windows):
+      let (output, exitCode) = execCmdEx(
+        fmt"tasklist /FI \" PID eq {pid} \ " /FI \"IMAGENAME eq anvil.exe\" /FO CSV"
+      )
+      result = exitCode == 0 and "anvil.exe" in output.toLower()
+    else:
+      let (output, exitCode) =
+        execCmdEx(fmt"ps -p {pid} -o comm= 2>/dev/null | grep -q anvil")
+      result = exitCode == 0
+
+    debug "Checking if PID is running Anvil", pid = pid, isRunning = result
+    return result
+  except Exception:
+    debug "Error checking if PID is Anvil process",
+      pid = pid, error = getCurrentExceptionMsg()
+    return false
+
 # Runs Anvil daemon
 proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   # Passed options are
@@ -488,6 +539,11 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   # --chain-id                        Chain ID of the network.
   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
+    # Check for existing Anvil instances before starting a new one
+    let runningInstances = checkRunningAnvilInstances()
+    debug "Checking for running Anvil instances before starting",
+      runningInstances = runningInstances
+
     let anvilPath = getAnvilPath()
     debug "Anvil path", anvilPath
     let runAnvil = startProcess(
@@ -495,30 +551,45 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
       args = [
         "--port",
         $port,
-        "--accounts",
-        "25",
         "--gas-limit",
         "300000000000000",
         "--balance",
         "1000000000",
         "--chain-id",
-        $chainId
+        $chainId,
       ],
-      options = {poUsePath},
+      options = {poUsePath, poStdErrToStdOut},
     )
     let anvilPID = runAnvil.processID
+
+    # Add timeout mechanism
+    let startTime = Moment.now()
+    let timeoutDuration = 60.seconds # 60 second timeout
 
     # We read stdout from Anvil to see when daemon is ready
     var anvilStartLog: string
     var cmdline: string
-    while true:
+    while (Moment.now() - startTime) < timeoutDuration:
+      if not runAnvil.running:
+        error "Anvil process died unexpectedly"
+        raise newException(IOError, "Anvil process failed to start")
+
       try:
         if runAnvil.outputstream.readLine(cmdline):
           anvilStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:" & $port):
             break
+          else:
+            sleep(100)
       except Exception, CatchableError:
         break
+
+    # Check if we timed out
+    if (Moment.now() - startTime) >= timeoutDuration:
+      kill(runAnvil)
+      error "Anvil startup timed out after 60 seconds"
+      raise newException(IOError, "Anvil startup timed out")
+
     debug "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
     return runAnvil
   except: # TODO: Fix "BareExcept" warning
@@ -527,13 +598,40 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
 # Stops Anvil daemon
 proc stopAnvil*(runAnvil: Process) {.used.} =
   let anvilPID = runAnvil.processID
-  # We wait the daemon to exit
+
+  if not isAnvilProcessRunning(anvilPID):
+    return
+
   try:
-    # We terminate Anvil daemon by sending a SIGTERM signal to the runAnvil PID to trigger RPC server termination and clean-up
-    kill(runAnvil)
-    debug "Sent SIGTERM to Anvil", anvilPID = anvilPID
-  except:
-    error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
+    # Close Process object to release resources
+    close(runAnvil)
+    sleep(500)
+
+    if isAnvilProcessRunning(anvilPID):
+      when not defined(windows):
+        # Try SIGTERM first
+        discard execCmdEx(fmt"kill -TERM {anvilPID}")
+        sleep(1000)
+
+        if isAnvilProcessRunning(anvilPID):
+          # Try SIGKILL
+          discard execCmdEx(fmt"kill -9 {anvilPID}")
+          sleep(1000)
+
+          if isAnvilProcessRunning(anvilPID):
+            # Check if it's a zombie process and reap it
+            let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
+            if "Z" in psOutput:
+              try:
+                discard waitForExit(runAnvil)
+              except:
+                discard # Process cleanup will happen when parent exits
+      else:
+        discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")
+
+    debug "Anvil daemon stopped", anvilPID = anvilPID
+  except Exception as e:
+    debug "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
 
 proc setupOnchainGroupManager*(
     ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
