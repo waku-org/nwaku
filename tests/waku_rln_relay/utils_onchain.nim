@@ -603,31 +603,40 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     return
 
   try:
-    # Close Process object to release resources
-    close(runAnvil)
-    sleep(500)
-
+    # Try to reap any zombie process first, before closing
     if isAnvilProcessRunning(anvilPID):
-      when not defined(windows):
-        # Try SIGTERM first
-        discard execCmdEx(fmt"kill -TERM {anvilPID}")
+      let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
+      if "Z" in psOutput:
+        try:
+          discard waitForExit(runAnvil)
+          debug "Reaped zombie process before cleanup", anvilPID = anvilPID
+          return
+        except:
+          discard
+
+    # Send termination signals before closing Process object
+    when not defined(windows):
+      # Try SIGTERM first
+      discard execCmdEx(fmt"kill -TERM {anvilPID}")
+      sleep(1000)
+
+      if isAnvilProcessRunning(anvilPID):
+        # Try SIGKILL
+        discard execCmdEx(fmt"kill -9 {anvilPID}")
         sleep(1000)
+    else:
+      discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")
+      sleep(1000)
 
-        if isAnvilProcessRunning(anvilPID):
-          # Try SIGKILL
-          discard execCmdEx(fmt"kill -9 {anvilPID}")
-          sleep(1000)
+    # Close Process object to release resources after sending signals
+    close(runAnvil)
 
-          if isAnvilProcessRunning(anvilPID):
-            # Check if it's a zombie process and reap it
-            let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
-            if "Z" in psOutput:
-              try:
-                discard waitForExit(runAnvil)
-              except:
-                discard # Process cleanup will happen when parent exits
-      else:
-        discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")
+    # Final check and zombie reaping if needed
+    if isAnvilProcessRunning(anvilPID):
+      let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
+      if "Z" in psOutput:
+        debug "Process became zombie after signals, will be cleaned up by OS",
+          anvilPID = anvilPID
 
     debug "Anvil daemon stopped", anvilPID = anvilPID
   except Exception as e:
