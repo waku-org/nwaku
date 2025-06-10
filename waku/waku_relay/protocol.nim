@@ -26,6 +26,12 @@ export WakuRelayCodec
 logScope:
   topics = "waku relay"
 
+declarePublicGauge(
+  waku_relay_messages_per_shard,
+  "number of unique messages seen, grouped by shard",
+  labels = ["shard"],
+)
+
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const TopicParameters = TopicParams(
   topicWeight: 1,
@@ -195,6 +201,8 @@ proc logMessageInfo*(
       topic = topic,
       sentTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
+
+  waku_relay_messages_per_shard.inc(labelValues = [topic])
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
