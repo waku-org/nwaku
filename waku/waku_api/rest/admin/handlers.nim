@@ -351,7 +351,8 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     protoStats[WakuStoreCodec] = peers.countIt(it.protocols.contains(WakuStoreCodec))
     protoStats[WakuLegacyStoreCodec] =
       peers.countIt(it.protocols.contains(WakuLegacyStoreCodec))
-    protoStats[WakuLightPushCodec] = peers.countIt(it.protocols.contains(WakuLightPushCodec))
+    protoStats[WakuLightPushCodec] =
+      peers.countIt(it.protocols.contains(WakuLightPushCodec))
     protoStats[WakuLegacyLightPushCodec] =
       peers.countIt(it.protocols.contains(WakuLegacyLightPushCodec))
     protoStats[WakuPeerExchangeCodec] =
