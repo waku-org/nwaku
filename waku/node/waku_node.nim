@@ -333,6 +333,7 @@ proc subscribe*(
     return ok()
 
   node.registerRelayHandler(pubsubTopic, handler)
+  echo "------------ subscribe topicSubscriptionQueue.emit"
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
 
   return ok()
@@ -365,6 +366,7 @@ proc unsubscribe*(
 
   debug "unsubscribe", pubsubTopic, contentTopicOp
   node.wakuRelay.unsubscribe(pubsubTopic)
+  echo "------------ unsubscribe topicSubscriptionQueue.emit"
   node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
   return ok()
@@ -554,6 +556,7 @@ proc filterSubscribe*(
         pubsubTopic = pubsubTopic, contentTopics = contentTopics
 
       # Purpose is to update Waku Metadata
+      echo "------------ filterSubscribe topicSubscriptionQueue.emit"
       node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic.get()))
     else:
       error "failed filter v2 subscription", error = subRes.error
@@ -593,6 +596,7 @@ proc filterSubscribe*(
         info "subscribed to topic", pubsubTopic = pubsub, contentTopics = topics
 
         # Purpose is to update Waku Metadata
+        echo "------------ filterSubscribe topicSubscriptionQueue.emit 2"
         node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
     except CatchableError:
       let errMsg = "exception in filterSubscribe: " & getCurrentExceptionMsg()
@@ -633,6 +637,7 @@ proc filterUnsubscribe*(
         pubsubTopic = pubsubTopic.get(), contentTopics = contentTopics
 
       # Purpose is to update Waku Metadata
+      echo "------------ filterUnsubscribe topicSubscriptionQueue.emit"
       node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic.get()))
     else:
       error "failed filter unsubscription", error = unsubRes.error
@@ -672,6 +677,7 @@ proc filterUnsubscribe*(
         info "unsubscribed from topic", pubsubTopic = pubsub, contentTopics = topics
 
         # Purpose is to update Waku Metadata
+        echo "------------ filterUnsubscribe topicSubscriptionQueue.emit 2"
         node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
     except CatchableError:
       let errMsg = "exception in filterUnsubscribe: " & getCurrentExceptionMsg()

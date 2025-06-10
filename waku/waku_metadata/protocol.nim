@@ -129,6 +129,8 @@ proc new*(
 proc subscriptionsListener(wm: WakuMetadata) {.async.} =
   ## Listen for pubsub topics subscriptions changes
 
+  echo "--------- entered subscriptionsListener"
+
   let key = wm.topicSubscriptionQueue.register()
 
   while wm.started:
