@@ -175,6 +175,10 @@ proc deployTestToken*(
   let forgePath = getForgePath()
   debug "Forge path", forgePath
 
+  let forgeCleanCmd = fmt"""cd {submodulePath} && {forgePath} clean"""
+  debug "Forge clean command", forgeCleanCmd
+  # get current directory
+  debug "Current working directory", cwd = getCurrentDir()
   # Build the Foundry project
   let (forgeCleanOutput, forgeCleanExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
