@@ -172,8 +172,22 @@ proc deployTestToken*(
   # All RLN related tests should be run from the root directory of the project
   let submodulePath = absolutePath("./vendor/waku-rlnv2-contract")
 
+  # Verify submodule path exists
+  if not dirExists(submodulePath):
+    error "Submodule path does not exist", submodulePath = submodulePath
+    return err("Submodule path does not exist: " & submodulePath)
+
+  debug "Submodule path verified", submodulePath = submodulePath
+
   let forgePath = getForgePath()
   debug "Forge path", forgePath
+
+  # Verify forge executable exists
+  if not fileExists(forgePath):
+    error "Forge executable not found", forgePath = forgePath
+    return err("Forge executable not found: " & forgePath)
+
+  debug "Forge executable verified", forgePath = forgePath
 
   let forgeCleanCmd = fmt"""cd {submodulePath} && {forgePath} clean"""
   debug "Forge clean command", forgeCleanCmd
@@ -315,9 +329,23 @@ proc executeForgeContractDeployScripts*(
   # All RLN related tests should be run from the root directory of the project
   let submodulePath = "./vendor/waku-rlnv2-contract"
 
+  # Verify submodule path exists
+  if not dirExists(submodulePath):
+    error "Submodule path does not exist", submodulePath = submodulePath
+    return err("Submodule path does not exist: " & submodulePath)
+
+  debug "Submodule path verified", submodulePath = submodulePath
+
   let privateKey = $pk
   let forgePath = getForgePath()
   debug "Forge path", forgePath
+
+  # Verify forge executable exists
+  if not fileExists(forgePath):
+    error "Forge executable not found", forgePath = forgePath
+    return err("Forge executable not found: " & forgePath)
+
+  debug "Forge executable verified", forgePath = forgePath
   debug "contract deployer account details", account = acc, privateKey = privateKey
 
   # Build the Foundry project
