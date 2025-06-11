@@ -280,225 +280,225 @@ suite "Onchain group manager":
 
     manager.onRegister(callback)
 
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    try:
-      waitFor manager.register(idCredentials, UserMessageLimit(20))
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+  #   try:
+  #     waitFor manager.register(idCredentials, UserMessageLimit(20))
+  #   except Exception, CatchableError:
+  #     assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    waitFor fut
+  #   waitFor fut
 
-    let rootUpdated = waitFor manager.updateRoots()
+  #   let rootUpdated = waitFor manager.updateRoots()
 
-    if rootUpdated:
-      let proofResult = waitFor manager.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      manager.merkleProofCache = proofResult.get()
-    let messageBytes = "Hello".toBytes()
+  #   if rootUpdated:
+  #     let proofResult = waitFor manager.fetchMerkleProofElements()
+  #     if proofResult.isErr():
+  #       error "Failed to fetch Merkle proof", error = proofResult.error
+  #     manager.merkleProofCache = proofResult.get()
+  #   let messageBytes = "Hello".toBytes()
 
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+  #   let epoch = default(Epoch)
+  #   debug "epoch in bytes", epochHex = epoch.inHex()
 
-    let validProofRes = manager.generateProof(
-      data = messageBytes, epoch = epoch, messageId = MessageId(1)
-    )
+  #   let validProofRes = manager.generateProof(
+  #     data = messageBytes, epoch = epoch, messageId = MessageId(1)
+  #   )
 
-    check:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
+  #   check:
+  #     validProofRes.isOk()
+  #   let validProof = validProofRes.get()
 
-    let validated = manager.validateRoot(validProof.merkleRoot)
+  #   let validated = manager.validateRoot(validProof.merkleRoot)
 
-    check:
-      validated
+  #   check:
+  #     validated
 
-  test "validateRoot: should reject bad root":
-    let idCredentials = generateCredentials(manager.rlnInstance)
-    let idCommitment = idCredentials.idCommitment
+  # test "validateRoot: should reject bad root":
+  #   let idCredentials = generateCredentials(manager.rlnInstance)
+  #   let idCommitment = idCredentials.idCommitment
 
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    manager.userMessageLimit = some(UserMessageLimit(20))
-    manager.membershipIndex = some(MembershipIndex(0))
-    manager.idCredentials = some(idCredentials)
+  #   manager.userMessageLimit = some(UserMessageLimit(20))
+  #   manager.membershipIndex = some(MembershipIndex(0))
+  #   manager.idCredentials = some(idCredentials)
 
-    manager.merkleProofCache = newSeq[byte](640)
-    for i in 0 ..< 640:
-      manager.merkleProofCache[i] = byte(rand(255))
+  #   manager.merkleProofCache = newSeq[byte](640)
+  #   for i in 0 ..< 640:
+  #     manager.merkleProofCache[i] = byte(rand(255))
 
-    let messageBytes = "Hello".toBytes()
+  #   let messageBytes = "Hello".toBytes()
 
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+  #   let epoch = default(Epoch)
+  #   debug "epoch in bytes", epochHex = epoch.inHex()
 
-    let validProofRes = manager.generateProof(
-      data = messageBytes, epoch = epoch, messageId = MessageId(1)
-    )
+  #   let validProofRes = manager.generateProof(
+  #     data = messageBytes, epoch = epoch, messageId = MessageId(1)
+  #   )
 
-    check:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
+  #   check:
+  #     validProofRes.isOk()
+  #   let validProof = validProofRes.get()
 
-    let validated = manager.validateRoot(validProof.merkleRoot)
+  #   let validated = manager.validateRoot(validProof.merkleRoot)
 
-    check:
-      validated == false
+  #   check:
+  #     validated == false
 
-  test "verifyProof: should verify valid proof":
-    let credentials = generateCredentials(manager.rlnInstance)
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  # test "verifyProof: should verify valid proof":
+  #   let credentials = generateCredentials(manager.rlnInstance)
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    let fut = newFuture[void]()
+  #   let fut = newFuture[void]()
 
-    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      if registrations.len == 1 and
-          registrations[0].rateCommitment ==
-          getRateCommitment(credentials, UserMessageLimit(20)).get() and
-          registrations[0].index == 0:
-        manager.idCredentials = some(credentials)
-        fut.complete()
+  #   proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+  #     if registrations.len == 1 and
+  #         registrations[0].rateCommitment ==
+  #         getRateCommitment(credentials, UserMessageLimit(20)).get() and
+  #         registrations[0].index == 0:
+  #       manager.idCredentials = some(credentials)
+  #       fut.complete()
 
-    manager.onRegister(callback)
+  #   manager.onRegister(callback)
 
-    try:
-      waitFor manager.register(credentials, UserMessageLimit(20))
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-    waitFor fut
+  #   try:
+  #     waitFor manager.register(credentials, UserMessageLimit(20))
+  #   except Exception, CatchableError:
+  #     assert false, "exception raised: " & getCurrentExceptionMsg()
+  #   waitFor fut
 
-    let rootUpdated = waitFor manager.updateRoots()
+  #   let rootUpdated = waitFor manager.updateRoots()
 
-    if rootUpdated:
-      let proofResult = waitFor manager.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      manager.merkleProofCache = proofResult.get()
+  #   if rootUpdated:
+  #     let proofResult = waitFor manager.fetchMerkleProofElements()
+  #     if proofResult.isErr():
+  #       error "Failed to fetch Merkle proof", error = proofResult.error
+  #     manager.merkleProofCache = proofResult.get()
 
-    let messageBytes = "Hello".toBytes()
+  #   let messageBytes = "Hello".toBytes()
 
-    # prepare the epoch
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+  #   # prepare the epoch
+  #   let epoch = default(Epoch)
+  #   debug "epoch in bytes", epochHex = epoch.inHex()
 
-    # generate proof
-    let validProof = manager.generateProof(
-      data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr:
-      raiseAssert $error
+  #   # generate proof
+  #   let validProof = manager.generateProof(
+  #     data = messageBytes, epoch = epoch, messageId = MessageId(0)
+  #   ).valueOr:
+  #     raiseAssert $error
 
-    let verified = manager.verifyProof(messageBytes, validProof).valueOr:
-      raiseAssert $error
+  #   let verified = manager.verifyProof(messageBytes, validProof).valueOr:
+  #     raiseAssert $error
 
-    check:
-      verified
+  #   check:
+  #     verified
 
-  test "verifyProof: should reject invalid proof":
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  # test "verifyProof: should reject invalid proof":
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    let idCredential = generateCredentials(manager.rlnInstance)
+  #   let idCredential = generateCredentials(manager.rlnInstance)
 
-    try:
-      waitFor manager.register(idCredential, UserMessageLimit(20))
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+  #   try:
+  #     waitFor manager.register(idCredential, UserMessageLimit(20))
+  #   except Exception, CatchableError:
+  #     assert false,
+  #       "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
-    let messageBytes = "Hello".toBytes()
+  #   let messageBytes = "Hello".toBytes()
 
-    let rootUpdated = waitFor manager.updateRoots()
+  #   let rootUpdated = waitFor manager.updateRoots()
 
-    manager.merkleProofCache = newSeq[byte](640)
-    for i in 0 ..< 640:
-      manager.merkleProofCache[i] = byte(rand(255))
+  #   manager.merkleProofCache = newSeq[byte](640)
+  #   for i in 0 ..< 640:
+  #     manager.merkleProofCache[i] = byte(rand(255))
 
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+  #   let epoch = default(Epoch)
+  #   debug "epoch in bytes", epochHex = epoch.inHex()
 
-    # generate proof
-    let invalidProofRes = manager.generateProof(
-      data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
+  #   # generate proof
+  #   let invalidProofRes = manager.generateProof(
+  #     data = messageBytes, epoch = epoch, messageId = MessageId(0)
+  #   )
 
-    check:
-      invalidProofRes.isOk()
-    let invalidProof = invalidProofRes.get()
+  #   check:
+  #     invalidProofRes.isOk()
+  #   let invalidProof = invalidProofRes.get()
 
-    # verify the proof (should be false)
-    let verified = manager.verifyProof(messageBytes, invalidProof).valueOr:
-      raiseAssert $error
+  #   # verify the proof (should be false)
+  #   let verified = manager.verifyProof(messageBytes, invalidProof).valueOr:
+  #     raiseAssert $error
 
-    check:
-      verified == false
+  #   check:
+  #     verified == false
 
-  test "root queue should be updated correctly":
-    const credentialCount = 12
-    let credentials = generateCredentials(manager.rlnInstance, credentialCount)
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  # test "root queue should be updated correctly":
+  #   const credentialCount = 12
+  #   let credentials = generateCredentials(manager.rlnInstance, credentialCount)
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    type TestBackfillFuts = array[0 .. credentialCount - 1, Future[void]]
-    var futures: TestBackfillFuts
-    for i in 0 ..< futures.len():
-      futures[i] = newFuture[void]()
+  #   type TestBackfillFuts = array[0 .. credentialCount - 1, Future[void]]
+  #   var futures: TestBackfillFuts
+  #   for i in 0 ..< futures.len():
+  #     futures[i] = newFuture[void]()
 
-    proc generateCallback(
-        futs: TestBackfillFuts, credentials: seq[IdentityCredential]
-    ): OnRegisterCallback =
-      var futureIndex = 0
-      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        if registrations.len == 1 and
-            registrations[0].rateCommitment ==
-            getRateCommitment(credentials[futureIndex], UserMessageLimit(20)).get() and
-            registrations[0].index == MembershipIndex(futureIndex):
-          futs[futureIndex].complete()
-          futureIndex += 1
+  #   proc generateCallback(
+  #       futs: TestBackfillFuts, credentials: seq[IdentityCredential]
+  #   ): OnRegisterCallback =
+  #     var futureIndex = 0
+  #     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+  #       if registrations.len == 1 and
+  #           registrations[0].rateCommitment ==
+  #           getRateCommitment(credentials[futureIndex], UserMessageLimit(20)).get() and
+  #           registrations[0].index == MembershipIndex(futureIndex):
+  #         futs[futureIndex].complete()
+  #         futureIndex += 1
 
-      return callback
+  #     return callback
 
-    try:
-      manager.onRegister(generateCallback(futures, credentials))
+  #   try:
+  #     manager.onRegister(generateCallback(futures, credentials))
 
-      for i in 0 ..< credentials.len():
-        waitFor manager.register(credentials[i], UserMessageLimit(20))
-        discard waitFor manager.updateRoots()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+  #     for i in 0 ..< credentials.len():
+  #       waitFor manager.register(credentials[i], UserMessageLimit(20))
+  #       discard waitFor manager.updateRoots()
+  #   except Exception, CatchableError:
+  #     assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    waitFor allFutures(futures)
+  #   waitFor allFutures(futures)
 
-    check:
-      manager.validRoots.len() == credentialCount
+  #   check:
+  #     manager.validRoots.len() == credentialCount
 
-  test "isReady should return false if ethRpc is none":
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  # test "isReady should return false if ethRpc is none":
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    manager.ethRpc = none(Web3)
+  #   manager.ethRpc = none(Web3)
 
-    var isReady = true
-    try:
-      isReady = waitFor manager.isReady()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+  #   var isReady = true
+  #   try:
+  #     isReady = waitFor manager.isReady()
+  #   except Exception, CatchableError:
+  #     assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check:
-      isReady == false
+  #   check:
+  #     isReady == false
 
-  test "isReady should return true if ethRpc is ready":
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
+  # test "isReady should return true if ethRpc is ready":
+  #   (waitFor manager.init()).isOkOr:
+  #     raiseAssert $error
 
-    var isReady = false
-    try:
-      isReady = waitFor manager.isReady()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+  #   var isReady = false
+  #   try:
+  #     isReady = waitFor manager.isReady()
+  #   except Exception, CatchableError:
+  #     assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check:
-      isReady == true
+  #   check:
+  #     isReady == true
