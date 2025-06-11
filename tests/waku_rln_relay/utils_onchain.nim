@@ -81,6 +81,15 @@ proc getForgePath*(): string =
   forgePath = joinPath(forgePath, ".foundry/bin/forge")
   return $forgePath
 
+proc getPnpmPath*(): string =
+  var pnpmPath = ""
+  if existsEnv("XDG_DATA_HOME"):
+    pnpmPath = joinPath(pnpmPath, getEnv("XDG_DATA_HOME", ""))
+  else:
+    pnpmPath = joinPath(getEnv("HOME", ""), ".local", "share")
+  pnpmPath = joinPath(pnpmPath, "pnpm", "bin", "pnpm")
+  return $pnpmPath
+
 contract(ERC20Token):
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
   proc balanceOf(account: Address): UInt256 {.view.}
@@ -180,6 +189,7 @@ proc deployTestToken*(
   debug "Submodule path verified", submodulePath = submodulePath
 
   let forgePath = getForgePath()
+  let pnpmPath = getPnpmPath()
   debug "Forge path", forgePath
 
   # Verify forge executable exists
@@ -201,7 +211,7 @@ proc deployTestToken*(
     return error("forge install command failed")
 
   let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+    execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
     return err("pnpm install command failed" & pnpmInstallOutput)
