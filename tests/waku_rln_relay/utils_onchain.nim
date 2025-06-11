@@ -16,8 +16,7 @@ import
   json_rpc/rpcclient,
   json,
   libp2p/crypto/crypto,
-  eth/keys,
-  results
+  eth/keys
 
 import
   waku/[
@@ -109,13 +108,17 @@ proc getPnpmPath*(): string =
   for path in possiblePaths:
     if path == "pnpm":
       # For bare "pnpm", check if it's available in PATH using which/where
-      when defined(windows):
-        let (output, exitCode) = execCmdEx("where pnpm 2>nul")
-      else:
-        let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
+      try:
+        when defined(windows):
+          let (output, exitCode) = execCmdEx("where pnpm 2>nul")
+        else:
+          let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
 
-      if exitCode == 0 and output.strip() != "":
-        return "pnpm" # Let the shell find it in PATH
+        if exitCode == 0 and output.strip() != "":
+          return "pnpm" # Let the shell find it in PATH
+      except OSError:
+        # If execCmdEx fails, continue to next path
+        discard
     else:
       # For absolute paths, check if file exists
       if fileExists(path):
