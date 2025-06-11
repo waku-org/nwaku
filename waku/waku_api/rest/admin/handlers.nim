@@ -48,6 +48,8 @@ const ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD* = "/admin/v1/peers/mesh/on/{shardId}"
 
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
 
+const ROUTE_ADMIN_V1_LOG_LEVEL* = "/admin/v1/loglevel"
+
 type PeerProtocolTuple =
   tuple[
     multiaddr: string,
@@ -418,7 +420,31 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
 
     return resp.get()
 
+proc installAdminV1LogLevelHandler(router: var RestRouter, node: WakuNode) =
+  router.api(MethodPost, ROUTE_ADMIN_V1_LOG_LEVEL) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
+    let request: string = decodeRequestBody[string](contentBody).valueOr:
+      let e = $error
+      return RestApiResponse.badRequest(fmt("Failed to decode request: {e}"))
+
+    when defined(chronicles_runtime_filtering):
+      try:
+        let logLevel = parseEnum[LogLevel](request.capitalizeAscii())
+        setLogLevel(logLevel)
+      except ValueError:
+        return RestApiResponse.badRequest(
+          "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+        )
+    else:
+      return RestApiResponse.badRequest(
+        "Runtime log level filtering is not enabled. Please compile with -d:chronicles_runtime_filtering=on"
+      )
+
+    return RestApiResponse.ok()
+
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
   installAdminV1PostPeersHandler(router, node)
   installAdminV1GetFilterSubsHandler(router, node)
+  installAdminV1LogLevelHandler(router, node)
