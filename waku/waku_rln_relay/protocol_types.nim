@@ -27,7 +27,7 @@ type
   RawRateCommitment* = seq[byte]
 
 proc toRateCommitment*(rateCommitmentUint: UInt256): RawRateCommitment =
-  return RawRateCommitment(@(rateCommitmentUint.toBytesBE()))
+  return RawRateCommitment(@(rateCommitmentUint.toBytesLE()))
 
 # Custom data types defined for waku rln relay -------------------------
 type RateLimitProof* = object
