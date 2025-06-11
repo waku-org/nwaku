@@ -837,26 +837,19 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Valid
 
   test "toIDCommitment and toUInt256":
-    # create an instance of rln
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let rln = rlnInstance.get()
-
-    # create an idendity credential
     let idCredentialRes = rln.membershipKeyGen()
     require:
       idCredentialRes.isOk()
 
     let idCredential = idCredentialRes.get()
 
-    # convert the idCommitment to UInt256
+    # convert the idCommitment to UInt256 (now using big-endian)
     let idCUInt = idCredential.idCommitment.toUInt256()
     # convert the UInt256 back to ICommitment
     let idCommitment = toIDCommitment(idCUInt)
 
     # check that the conversion has not distorted the original value
+    # This test now expects big-endian round-trip
     check:
       idCredential.idCommitment == idCommitment
 
