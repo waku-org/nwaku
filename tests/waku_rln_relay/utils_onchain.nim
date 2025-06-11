@@ -82,13 +82,47 @@ proc getForgePath*(): string =
   return $forgePath
 
 proc getPnpmPath*(): string =
-  var pnpmPath = ""
-  if existsEnv("XDG_DATA_HOME"):
-    pnpmPath = joinPath(pnpmPath, getEnv("XDG_DATA_HOME", ""))
-  else:
-    pnpmPath = joinPath(getEnv("HOME", ""), ".local", "share")
-  pnpmPath = joinPath(pnpmPath, "pnpm", "bin", "pnpm")
-  return $pnpmPath
+  # Try multiple common pnpm installation paths in order of preference
+  let homeDir = getEnv("HOME", "")
+  let xdgDataHome = getEnv("XDG_DATA_HOME", joinPath(homeDir, ".local", "share"))
+
+  let possiblePaths = [
+    # Check if pnpm is in PATH first (most reliable)
+    "pnpm",
+    # Self-installer locations (most common for CI/automated installs)
+    joinPath(xdgDataHome, "pnpm", "pnpm"),
+    joinPath(xdgDataHome, "pnpm", "bin", "pnpm"),
+    joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
+    joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
+    # Global npm installation
+    joinPath(homeDir, ".npm-global", "bin", "pnpm"),
+    # Local user installation via npm
+    joinPath(homeDir, ".local", "bin", "pnpm"),
+    # Homebrew on macOS
+    "/opt/homebrew/bin/pnpm",
+    "/usr/local/bin/pnpm",
+    # System-wide installations
+    "/usr/bin/pnpm",
+    "/bin/pnpm",
+  ]
+
+  for path in possiblePaths:
+    if path == "pnpm":
+      # For bare "pnpm", check if it's available in PATH using which/where
+      when defined(windows):
+        let (output, exitCode) = execCmdEx("where pnpm 2>nul")
+      else:
+        let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
+
+      if exitCode == 0 and output.strip() != "":
+        return "pnpm" # Let the shell find it in PATH
+    else:
+      # For absolute paths, check if file exists
+      if fileExists(path):
+        return path
+
+  # If no pnpm found, return "pnpm" as fallback and let the error be more descriptive
+  return "pnpm"
 
 contract(ERC20Token):
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
@@ -191,6 +225,7 @@ proc deployTestToken*(
   let forgePath = getForgePath()
   let pnpmPath = getPnpmPath()
   debug "Forge path", forgePath
+  debug "Pnpm path", pnpmPath
 
   # Verify forge executable exists
   if not fileExists(forgePath):
@@ -214,7 +249,8 @@ proc deployTestToken*(
     execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    return err("pnpm install command failed" & pnpmInstallOutput)
+    return
+      err(fmt"pnpm install command failed using path '{pnpmPath}': {pnpmInstallOutput}")
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
@@ -393,11 +429,14 @@ proc executeForgeContractDeployScripts*(
   if forgeInstallExitCode != 0:
     return error("forge install failed")
 
+  let pnpmPath = getPnpmPath()
+  debug "Pnpm path", pnpmPath
   let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+    execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    return err("pnpm install command failed" & pnpmInstallOutput)
+    return
+      err(fmt"pnpm install command failed using path '{pnpmPath}': {pnpmInstallOutput}")
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
