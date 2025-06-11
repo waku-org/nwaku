@@ -116,7 +116,7 @@ proc getPnpmPath*(): string =
 
         if exitCode == 0 and output.strip() != "":
           return "pnpm" # Let the shell find it in PATH
-      except OSError:
+      except OSError, IOError:
         # If execCmdEx fails, continue to next path
         discard
     else:
