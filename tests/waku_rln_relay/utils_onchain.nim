@@ -124,7 +124,26 @@ proc getPnpmPath*(): string =
       if fileExists(path):
         return path
 
-  # If no pnpm found, return "pnpm" as fallback and let the error be more descriptive
+  # If no pnpm found, try to refresh PATH and check again
+  debug "pnpm not found in any known location, waiting briefly and retrying"
+  sleep(1000) # Wait 1 second for any installation to complete
+
+  # Retry the PATH check
+  try:
+    when defined(windows):
+      let (output, exitCode) = execCmdEx("where pnpm 2>nul")
+    else:
+      let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
+
+    if exitCode == 0 and output.strip() != "":
+      debug "Found pnpm in PATH after retry", path = output.strip()
+      return "pnpm"
+  except OSError, IOError:
+    discard
+
+  # If still no pnpm found, return "pnpm" as fallback and let the error be more descriptive
+  error "pnpm not found in any location after installation. Checked paths:",
+    paths = possiblePaths
   return "pnpm"
 
 contract(ERC20Token):
@@ -247,6 +266,20 @@ proc deployTestToken*(
   trace "Executed forge install command", output = forgeInstallOutput
   if forgeInstallExitCode != 0:
     return error("forge install command failed")
+
+  # Verify pnpm is actually executable before using it
+  debug "Verifying pnpm path before use", pnpmPath = pnpmPath
+  if pnpmPath != "pnpm":
+    if not fileExists(pnpmPath):
+      return err(fmt"pnpm executable not found at path: {pnpmPath}")
+  else:
+    # For bare "pnpm", try to run the install script first to ensure pnpm is available
+    debug "Running pnpm install script to ensure pnpm is available"
+    let installScriptPath = "./scripts/install_pnpm.sh"
+    if fileExists(installScriptPath):
+      let (installOutput, installExitCode) = execCmdEx(fmt"bash {installScriptPath}")
+      debug "pnpm install script output",
+        output = installOutput, exitCode = installExitCode
 
   let (pnpmInstallOutput, pnpmInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
