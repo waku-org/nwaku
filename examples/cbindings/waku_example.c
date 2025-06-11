@@ -353,9 +353,11 @@ int main(int argc, char** argv) {
     show_main_menu();
     while(1) {
         handle_user_input();
-        WAKU_CALL( waku_get_metrics(ctx,
-                                  event_handler,
-                                  userData) );
+
+        // Uncomment the following if need to test the metrics retrieval
+        // WAKU_CALL( waku_get_metrics(ctx,
+        //                           event_handler,
+        //                           userData) );
     }
 
     pthread_mutex_destroy(&mutex);
