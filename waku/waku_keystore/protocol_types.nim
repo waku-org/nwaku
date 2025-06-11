@@ -62,7 +62,7 @@ proc toIdentityCredentials*(
           @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE())
         )
         idCommitment =
-          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
+          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesBE()))
       groupIdCredentials.add(
         IdentityCredential(
           idTrapdoor: idTrapdoor,
