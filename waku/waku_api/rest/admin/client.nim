@@ -73,3 +73,9 @@ proc getFilterSubscriptions*(): RestResponse[seq[FilterSubscription]] {.
 proc getFilterSubscriptionsFilterNotMounted*(): RestResponse[string] {.
   rest, endpoint: "/admin/v1/filter/subscriptions", meth: HttpMethod.MethodGet
 .}
+
+proc postLogLevel*(
+  logLevel: string
+): RestResponse[LogLevelResponse] {.
+  rest, endpoint: "/admin/v1/loglevel", meth: HttpMethod.MethodPost
+.}
