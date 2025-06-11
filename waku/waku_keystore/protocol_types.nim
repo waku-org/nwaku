@@ -52,17 +52,46 @@ proc toIdentityCredentials*(
   for i in 0 .. groupKeys.len - 1:
     try:
       let
-        idTrapdoor = IdentityTrapdoor(
-          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE())
-        )
-        idNullifier = IdentityNullifier(
-          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE())
-        )
-        idSecretHash = IdentitySecretHash(
-          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE())
-        )
-        idCommitment =
-          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesBE()))
+        let rawIdTrapdoor = hexToUint[CredentialByteSize](groupKeys[i][0])
+        let rawIdNullifier = hexToUint[CredentialByteSize](groupKeys[i][1])
+        let rawIdSecretHash = hexToUint[CredentialByteSize](groupKeys[i][2])
+        let rawIdCommitment = hexToUint[CredentialByteSize](groupKeys[i][3])
+
+        debug "Converting group key", 
+          index=i,
+          rawIdTrapdoor=rawIdTrapdoor,
+          rawIdNullifier=rawIdNullifier, 
+          rawIdSecretHash=rawIdSecretHash,
+          rawIdCommitment=rawIdCommitment
+
+        let idTrapdoorLE = rawIdTrapdoor.toBytesLE()
+        let idTrapdoorBE = rawIdTrapdoor.toBytesBE()
+        idTrapdoor = IdentityTrapdoor(@idTrapdoorLE)
+        
+        let idNullifierLE = rawIdNullifier.toBytesLE()
+        let idNullifierBE = rawIdNullifier.toBytesBE()
+        idNullifier = IdentityNullifier(@idNullifierLE)
+        
+        let idSecretHashLE = rawIdSecretHash.toBytesLE()
+        let idSecretHashBE = rawIdSecretHash.toBytesBE()
+        idSecretHash = IdentitySecretHash(@idSecretHashLE)
+        
+        let idCommitmentLE = rawIdCommitment.toBytesLE()
+        let idCommitmentBE = rawIdCommitment.toBytesBE()
+        idCommitment = IDCommitment(@idCommitmentBE)
+        
+        debug "Bytes conversion", 
+          idTrapdoorLE=idTrapdoorLE, idTrapdoorBE=idTrapdoorBE,
+          idNullifierLE=idNullifierLE, idNullifierBE=idNullifierBE,
+          idSecretHashLE=idSecretHashLE, idSecretHashBE=idSecretHashBE,
+          idCommitmentLE=idCommitmentLE, idCommitmentBE=idCommitmentBE
+
+        debug "Converted group key",
+          index=i,
+          idTrapdoor=idTrapdoor,
+          idNullifier=idNullifier,
+          idSecretHash=idSecretHash, 
+          idCommitment=idCommitment
       groupIdCredentials.add(
         IdentityCredential(
           idTrapdoor: idTrapdoor,
