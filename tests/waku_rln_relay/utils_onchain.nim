@@ -339,10 +339,41 @@ proc executeForgeContractDeployScripts*(
 
   trace "contract deployer account details", account = acc, privateKey = privateKey
 
-  # Build the Foundry project
-  let (forgeCleanOutput, forgeCleanExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
-  trace "Executed forge clean command", output = forgeCleanOutput
+  # Build the Foundry project with timeout monitoring
+  let forgeCleanProcess = startProcess(
+    "sh",
+    args = ["-c", fmt"""cd {submodulePath} && {forgePath} clean"""],
+    options = {poUsePath, poStdErrToStdOut},
+  )
+
+  let startTime = Moment.now()
+  let timeoutDuration = 30.seconds # 30 second timeout for clean command
+  var forgeCleanOutput = ""
+  var line = ""
+
+  while forgeCleanProcess.running and (Moment.now() - startTime) < timeoutDuration:
+    try:
+      if forgeCleanProcess.outputStream.readLine(line):
+        forgeCleanOutput.add(line & "\n")
+        trace "Forge clean output line", line = line
+      else:
+        sleep(100)
+    except:
+      break
+
+  let forgeCleanExitCode =
+    if (Moment.now() - startTime) >= timeoutDuration:
+      kill(forgeCleanProcess)
+      close(forgeCleanProcess)
+      error "Forge clean command timed out after 30 seconds"
+      -1
+    else:
+      let exitCode = waitForExit(forgeCleanProcess)
+      close(forgeCleanProcess)
+      exitCode
+
+  trace "Executed forge clean command",
+    output = forgeCleanOutput, exitCode = forgeCleanExitCode
   if forgeCleanExitCode != 0:
     return error("forge clean failed")
 
