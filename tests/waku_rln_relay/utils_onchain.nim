@@ -245,7 +245,7 @@ proc deployTestToken*(
   debug "Submodule path verified", submodulePath = submodulePath
 
   let forgePath = getForgePath()
-  let pnpmPath = getPnpmPath()
+  var pnpmPath = getPnpmPath()
   debug "Forge path", forgePath
   debug "Pnpm path", pnpmPath
 
@@ -280,6 +280,20 @@ proc deployTestToken*(
       let (installOutput, installExitCode) = execCmdEx(fmt"bash {installScriptPath}")
       debug "pnpm install script output",
         output = installOutput, exitCode = installExitCode
+      
+      # After installation, try to find the actual pnpm path
+      if installExitCode == 0:
+        let homeDir = getEnv("HOME", "")
+        let commonPnpmPaths = [
+          joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
+          joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm")
+        ]
+        
+        for possiblePath in commonPnpmPaths:
+          if fileExists(possiblePath):
+            debug "Found pnpm after installation", actualPath = possiblePath
+            pnpmPath = possiblePath
+            break
 
   let (pnpmInstallOutput, pnpmInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
@@ -465,8 +479,23 @@ proc executeForgeContractDeployScripts*(
   if forgeInstallExitCode != 0:
     return error("forge install failed")
 
-  let pnpmPath = getPnpmPath()
+  var pnpmPath = getPnpmPath()
   debug "Pnpm path", pnpmPath
+  
+  # If we got bare "pnpm" and it might not be in PATH, try to find the actual installed path
+  if pnpmPath == "pnpm":
+    let homeDir = getEnv("HOME", "")
+    let commonPnpmPaths = [
+      joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
+      joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm")
+    ]
+    
+    for possiblePath in commonPnpmPaths:
+      if fileExists(possiblePath):
+        debug "Found pnpm at actual path", actualPath = possiblePath
+        pnpmPath = possiblePath
+        break
+  
   let (pnpmInstallOutput, pnpmInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
