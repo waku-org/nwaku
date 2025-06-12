@@ -78,7 +78,7 @@ type
 proc `$`*(err: ArchiveError): string =
   case err.kind
   of ArchiveErrorKind.DRIVER_ERROR:
-    "DIRVER_ERROR: " & err.cause
+    "DRIVER_ERROR: " & err.cause
   of ArchiveErrorKind.INVALID_QUERY:
     "INVALID_QUERY: " & err.cause
   of ArchiveErrorKind.UNKNOWN:
