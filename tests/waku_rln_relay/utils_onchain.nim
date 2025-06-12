@@ -187,12 +187,6 @@ proc deployTestToken*(
     error "Forge executable not found", forgePath = forgePath
     return err("Forge executable not found: " & forgePath)
 
-  debug "Forge executable verified", forgePath = forgePath
-
-  let forgeCleanCmd = fmt"""cd {submodulePath} && {forgePath} clean"""
-  debug "Forge clean command", forgeCleanCmd
-  # get current directory
-  debug "Current working directory", cwd = getCurrentDir()
   # Build the Foundry project
   let (forgeCleanOutput, forgeCleanExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
@@ -334,8 +328,6 @@ proc executeForgeContractDeployScripts*(
     error "Submodule path does not exist", submodulePath = submodulePath
     return err("Submodule path does not exist: " & submodulePath)
 
-  debug "Submodule path verified", submodulePath = submodulePath
-
   let privateKey = $pk
   let forgePath = getForgePath()
   debug "Forge path", forgePath
@@ -345,8 +337,7 @@ proc executeForgeContractDeployScripts*(
     error "Forge executable not found", forgePath = forgePath
     return err("Forge executable not found: " & forgePath)
 
-  debug "Forge executable verified", forgePath = forgePath
-  debug "contract deployer account details", account = acc, privateKey = privateKey
+  trace "contract deployer account details", account = acc, privateKey = privateKey
 
   # Build the Foundry project
   let (forgeCleanOutput, forgeCleanExitCode) =
@@ -383,7 +374,7 @@ proc executeForgeContractDeployScripts*(
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
     execCmdEx(forgeCmdPriceCalculator)
-  debug "Executed forge command to deploy LinearPriceCalculator contract",
+  trace "Executed forge command to deploy LinearPriceCalculator contract",
     output = outputDeployPriceCalculator
   if exitCodeDeployPriceCalculator != 0:
     return error("Forge command to deploy LinearPriceCalculator contract failed")
@@ -400,7 +391,7 @@ proc executeForgeContractDeployScripts*(
   let forgeCmdWakuRln =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployWakuRln, exitCodeDeployWakuRln) = execCmdEx(forgeCmdWakuRln)
-  debug "Executed forge command to deploy WakuRlnV2 contract",
+  trace "Executed forge command to deploy WakuRlnV2 contract",
     output = outputDeployWakuRln
   if exitCodeDeployWakuRln != 0:
     error "Forge command to deploy WakuRlnV2 contract failed",
@@ -420,7 +411,7 @@ proc executeForgeContractDeployScripts*(
   let forgeCmdProxy =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployProxy --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployProxy, exitCodeDeployProxy) = execCmdEx(forgeCmdProxy)
-  debug "Executed forge command to deploy proxy contract", output = outputDeployProxy
+  trace "Executed forge command to deploy proxy contract", output = outputDeployProxy
   if exitCodeDeployProxy != 0:
     error "Forge command to deploy Proxy failed", error = outputDeployProxy
     return err("Forge command to deploy Proxy failed")
@@ -461,7 +452,7 @@ proc sendEthTransfer*(
   let txHash = await web3.send(tx)
 
   # Wait a bit for transaction to be mined
-  await sleepAsync(1000.milliseconds)
+  await sleepAsync(200.milliseconds)
 
   if doBalanceAssert:
     let balanceAfterWei = await web3.provider.eth_getBalance(accountTo, "latest")
@@ -571,11 +562,6 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   # --chain-id                        Chain ID of the network.
   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
-    # Check for existing Anvil instances before starting a new one
-    let runningInstances = checkRunningAnvilInstances()
-    debug "Checking for running Anvil instances before starting",
-      runningInstances = runningInstances
-
     let anvilPath = getAnvilPath()
     debug "Anvil path", anvilPath
     let runAnvil = startProcess(
@@ -590,38 +576,21 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--chain-id",
         $chainId,
       ],
-      options = {poUsePath, poStdErrToStdOut},
+      options = {poUsePath},
     )
     let anvilPID = runAnvil.processID
-
-    # Add timeout mechanism
-    let startTime = Moment.now()
-    let timeoutDuration = 60.seconds # 60 second timeout
 
     # We read stdout from Anvil to see when daemon is ready
     var anvilStartLog: string
     var cmdline: string
-    while (Moment.now() - startTime) < timeoutDuration:
-      if not runAnvil.running:
-        error "Anvil process died unexpectedly"
-        raise newException(IOError, "Anvil process failed to start")
-
+    while true:
       try:
         if runAnvil.outputstream.readLine(cmdline):
           anvilStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:" & $port):
             break
-          else:
-            sleep(100)
       except Exception, CatchableError:
         break
-
-    # Check if we timed out
-    if (Moment.now() - startTime) >= timeoutDuration:
-      kill(runAnvil)
-      error "Anvil startup timed out after 60 seconds"
-      raise newException(IOError, "Anvil startup timed out")
-
     debug "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
     return runAnvil
   except: # TODO: Fix "BareExcept" warning
@@ -629,47 +598,24 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
 
 # Stops Anvil daemon
 proc stopAnvil*(runAnvil: Process) {.used.} =
-  let anvilPID = runAnvil.processID
-
-  if not isAnvilProcessRunning(anvilPID):
+  if runAnvil.isNil:
+    debug "stopAnvil called with nil Process"
     return
 
-  try:
-    # Try to reap any zombie process first, before closing
-    if isAnvilProcessRunning(anvilPID):
-      let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
-      if "Z" in psOutput:
-        try:
-          discard waitForExit(runAnvil)
-          debug "Reaped zombie process before cleanup", anvilPID = anvilPID
-          return
-        except:
-          discard
+  let anvilPID = runAnvil.processID
+  debug "Stopping Anvil daemon", anvilPID = anvilPID
 
-    # Send termination signals before closing Process object
+  try:
+    # Send termination signals
     when not defined(windows):
-      # Try SIGTERM first
       discard execCmdEx(fmt"kill -TERM {anvilPID}")
       sleep(1000)
-
-      if isAnvilProcessRunning(anvilPID):
-        # Try SIGKILL
-        discard execCmdEx(fmt"kill -9 {anvilPID}")
-        sleep(1000)
+      discard execCmdEx(fmt"kill -9 {anvilPID}")
     else:
       discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")
-      sleep(1000)
 
-    # Close Process object to release resources after sending signals
+    # Close Process object to release resources
     close(runAnvil)
-
-    # Final check and zombie reaping if needed
-    if isAnvilProcessRunning(anvilPID):
-      let (psOutput, _) = execCmdEx(fmt"ps -p {anvilPID} -o stat= 2>/dev/null")
-      if "Z" in psOutput:
-        debug "Process became zombie after signals, will be cleaned up by OS",
-          anvilPID = anvilPID
-
     debug "Anvil daemon stopped", anvilPID = anvilPID
   except Exception as e:
     debug "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
@@ -686,7 +632,6 @@ proc setupOnchainGroupManager*(
 
   # connect to the eth client
   let web3 = await newWeb3(ethClientUrl)
-
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[1]
 
@@ -719,7 +664,7 @@ proc setupOnchainGroupManager*(
     testTokenAddress, # ERC20 token address
     contractAddress, # spender - the proxy contract that will spend the tokens
     ethToWei(200.u256),
-    some(0.u256) # expected allowance before approval
+    some(0.u256), # expected allowance before approval
   )
 
   assert tokenApprovalResult.isOk, tokenApprovalResult.error()
