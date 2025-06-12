@@ -82,7 +82,6 @@ type WakuConfBuilder* = object
 
   # TODO: move within a relayConf
   rendezvous: Option[bool]
-  discv5Only: Option[bool]
 
   clusterConf: Option[ClusterConf]
 

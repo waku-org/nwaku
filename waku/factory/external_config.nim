@@ -610,12 +610,6 @@ with the drawback of consuming some more bandwidth.""",
       name: "discv5-bits-per-hop"
     .}: int
 
-    discv5Only* {.
-      desc: "Disable all protocols other than discv5",
-      defaultValue: false,
-      name: "discv5-only"
-    .}: bool
-
     ## waku peer exchange config
     peerExchange* {.
       desc: "Enable waku peer exchange protocol (responder side): true|false",
@@ -1021,7 +1015,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.discv5Conf.withTableIpLimit(n.discv5TableIpLimit)
   b.discv5Conf.withBucketIpLimit(n.discv5BucketIpLimit)
   b.discv5Conf.withBitsPerHop(n.discv5BitsPerHop)
-  b.discv5Conf.withDiscv5Only(n.discv5Only)
 
   b.withPeerExchange(n.peerExchange)
 
