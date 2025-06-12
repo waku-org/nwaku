@@ -93,10 +93,11 @@ suite "Onchain group manager":
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
     if differentContractAddress.isErr():
       error "Failed to deploy RLN contract", error = differentContractAddress.error
+
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
-      ethContractAddress: $differentContractAddress,
+      ethContractAddress: $differentContractAddress.get(),
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
         assert false, errStr
@@ -264,21 +265,21 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  test "validateRoot: should validate good root":
-    let idCredentials = generateCredentials(manager.rlnInstance)
-    let idCommitment = idCredentials.idCommitment
+  # test "validateRoot: should validate good root":
+  #   let idCredentials = generateCredentials(manager.rlnInstance)
+  #   let idCommitment = idCredentials.idCommitment
 
-    let fut = newFuture[void]()
+  #   let fut = newFuture[void]()
 
-    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      if registrations.len == 1 and
-          registrations[0].rateCommitment ==
-          getRateCommitment(idCredentials, UserMessageLimit(20)).get() and
-          registrations[0].index == 0:
-        manager.idCredentials = some(idCredentials)
-        fut.complete()
+  #   proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+  #     if registrations.len == 1 and
+  #         registrations[0].rateCommitment ==
+  #         getRateCommitment(idCredentials, UserMessageLimit(20)).get() and
+  #         registrations[0].index == 0:
+  #       manager.idCredentials = some(idCredentials)
+  #       fut.complete()
 
-    manager.onRegister(callback)
+  #   manager.onRegister(callback)
 
   #   (waitFor manager.init()).isOkOr:
   #     raiseAssert $error

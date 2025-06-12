@@ -280,15 +280,15 @@ proc deployTestToken*(
       let (installOutput, installExitCode) = execCmdEx(fmt"bash {installScriptPath}")
       debug "pnpm install script output",
         output = installOutput, exitCode = installExitCode
-      
+
       # After installation, try to find the actual pnpm path
       if installExitCode == 0:
         let homeDir = getEnv("HOME", "")
         let commonPnpmPaths = [
           joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
-          joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm")
+          joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
         ]
-        
+
         for possiblePath in commonPnpmPaths:
           if fileExists(possiblePath):
             debug "Found pnpm after installation", actualPath = possiblePath
@@ -481,21 +481,21 @@ proc executeForgeContractDeployScripts*(
 
   var pnpmPath = getPnpmPath()
   debug "Pnpm path", pnpmPath
-  
+
   # If we got bare "pnpm" and it might not be in PATH, try to find the actual installed path
   if pnpmPath == "pnpm":
     let homeDir = getEnv("HOME", "")
     let commonPnpmPaths = [
       joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
-      joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm")
+      joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
     ]
-    
+
     for possiblePath in commonPnpmPaths:
       if fileExists(possiblePath):
         debug "Found pnpm at actual path", actualPath = possiblePath
         pnpmPath = possiblePath
         break
-  
+
   let (pnpmInstallOutput, pnpmInstallExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
@@ -719,7 +719,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--balance",
         "1000000000",
         "--chain-id",
-        $chainId
+        $chainId,
       ],
       options = {poUsePath},
     )
@@ -740,6 +740,71 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
     return runAnvil
   except: # TODO: Fix "BareExcept" warning
     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
+
+# # Runs Anvil daemon
+# proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
+#   # Passed options are
+#   # --port                            Port to listen on.
+#   # --gas-limit                       Sets the block gas limit in WEI.
+#   # --balance                         The default account balance, specified in ether.
+#   # --chain-id                        Chain ID of the network.
+#   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
+#   try:
+#     # Check for existing Anvil instances before starting a new one
+#     let runningInstances = checkRunningAnvilInstances()
+#     debug "Checking for running Anvil instances before starting",
+#       runningInstances = runningInstances
+
+#     let anvilPath = getAnvilPath()
+#     debug "Anvil path", anvilPath
+#     let runAnvil = startProcess(
+#       anvilPath,
+#       args = [
+#         "--port",
+#         $port,
+#         "--gas-limit",
+#         "300000000000000",
+#         "--balance",
+#         "1000000000",
+#         "--chain-id",
+#         $chainId,
+#       ],
+#       options = {poUsePath, poStdErrToStdOut},
+#     )
+#     let anvilPID = runAnvil.processID
+
+#     # Add timeout mechanism
+#     let startTime = Moment.now()
+#     let timeoutDuration = 120.seconds # 60 second timeout
+
+#     # We read stdout from Anvil to see when daemon is ready
+#     var anvilStartLog: string
+#     var cmdline: string
+#     while (Moment.now() - startTime) < timeoutDuration:
+#       if not runAnvil.running:
+#         error "Anvil process died unexpectedly"
+#         raise newException(IOError, "Anvil process failed to start")
+
+#       try:
+#         if runAnvil.outputstream.readLine(cmdline):
+#           anvilStartLog.add(cmdline)
+#           if cmdline.contains("Listening on 127.0.0.1:" & $port):
+#             break
+#           else:
+#             sleep(100)
+#       except Exception, CatchableError:
+#         break
+
+#     # Check if we timed out
+#     if (Moment.now() - startTime) >= timeoutDuration:
+#       kill(runAnvil)
+#       error "Anvil startup timed out after 60 seconds"
+#       raise newException(IOError, "Anvil startup timed out")
+
+#     debug "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
+#     return runAnvil
+#   except: # TODO: Fix "BareExcept" warning
+#     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
 # Stops Anvil daemon
 proc stopAnvil*(runAnvil: Process) {.used.} =
@@ -796,11 +861,11 @@ proc setupOnchainGroupManager*(
   discard await sendMintCall(
     web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
   )
-  let contractAddressRes =
-    await executeForgeContractDeployScripts(privateKey, acc, web3)
-  if contractAddressRes.isErr():
-    error "Failed to deploy RLN contract", error = contractAddressRes.error
-    raise newException(CatchableError, "Failed to deploy RLN contract")
+  # let contractAddressRes =
+  #   await executeForgeContractDeployScripts(privateKey, acc, web3)
+  # if contractAddressRes.isErr():
+  #   error "Failed to deploy RLN contract", error = contractAddressRes.error
+  #   raise newException(CatchableError, "Failed to deploy RLN contract")
 
   let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
     assert false, "Failed to deploy RLN contract: " & $error
