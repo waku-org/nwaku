@@ -813,7 +813,7 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    for shard in 0 .. 63: # Assuming shards are 0-63 as per Waku spec
+    for shard in pm.wakuMetadata.shards.items:
       waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
 
     for shard in pm.wakuMetadata.shards.items:
