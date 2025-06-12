@@ -49,7 +49,8 @@ const ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD* = "/admin/v1/peers/mesh/on/{shardId}"
 
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
 
-const ROUTE_ADMIN_V1_POST_LOG_LEVEL* = "/admin/v1/log-level/{logLevel}" # sets the new log level for the node
+const ROUTE_ADMIN_V1_POST_LOG_LEVEL* = "/admin/v1/log-level/{logLevel}"
+  # sets the new log level for the node
 
 type PeerProtocolTuple =
   tuple[
@@ -434,12 +435,18 @@ proc installAdminV1PostLogLevelHandler(router: var RestRouter, node: WakuNode) =
 
         if newLogLevel < enabledLogLevel:
           return RestApiResponse.badRequest(
-            fmt("Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with.")
+            fmt(
+              "Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with."
+            )
           )
 
         setLogLevel(newLogLevel)
       except ValueError:
-        return RestApiResponse.badRequest(fmt("Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"))
+        return RestApiResponse.badRequest(
+          fmt(
+            "Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+          )
+        )
 
       return RestApiResponse.ok()
     else:
