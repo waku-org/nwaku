@@ -425,22 +425,27 @@ proc installAdminV1PostLogLevelHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodPost, ROUTE_ADMIN_V1_POST_LOG_LEVEL) do(
     logLevel: string
   ) -> RestApiResponse:
-    if logLevel.isErr() or logLevel.value().isEmptyOrWhitespace():
-      return RestApiResponse.badRequest("Invalid log-level, it can’t be empty")
+    when runtimeFilteringEnabled:
+      if logLevel.isErr() or logLevel.value().isEmptyOrWhitespace():
+        return RestApiResponse.badRequest("Invalid log-level, it can’t be empty")
 
-    try:
-      let newLogLevel = parseEnum[LogLevel](logLevel.value().capitalizeAscii())
+      try:
+        let newLogLevel = parseEnum[LogLevel](logLevel.value().capitalizeAscii())
 
-      if newLogLevel < enabledLogLevel:
-        return RestApiResponse.badRequest(
-          fmt("Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with.")
-        )
+        if newLogLevel < enabledLogLevel:
+          return RestApiResponse.badRequest(
+            fmt("Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with.")
+          )
 
-      setLogLevel(newLogLevel)
-    except ValueError:
-      return RestApiResponse.badRequest(fmt("Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"))
+        setLogLevel(newLogLevel)
+      except ValueError:
+        return RestApiResponse.badRequest(fmt("Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"))
 
-    return RestApiResponse.ok()
+      return RestApiResponse.ok()
+    else:
+      return RestApiResponse.serviceUnavailable(
+        "Dynamic Log level management is not enabled in this build. Please recompile with `-d:chronicles_runtime_filtering:on`."
+      )
 
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
