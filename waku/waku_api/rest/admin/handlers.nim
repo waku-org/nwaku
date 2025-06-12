@@ -3,6 +3,7 @@
 import
   std/[sets, strformat, sequtils, tables],
   chronicles,
+  chronicles/topics_registry,
   json_serialization,
   presto/route,
   libp2p/[peerinfo, switch, peerid, protocols/pubsub/pubsubpeer]
@@ -47,6 +48,9 @@ const ROUTE_ADMIN_V1_MESH_PEERS* = "/admin/v1/peers/mesh"
 const ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD* = "/admin/v1/peers/mesh/on/{shardId}"
 
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
+
+const ROUTE_ADMIN_V1_POST_LOG_LEVEL* = "/admin/v1/log-level/{logLevel}"
+  # sets the new log level for the node
 
 type PeerProtocolTuple =
   tuple[
@@ -418,7 +422,40 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
 
     return resp.get()
 
+proc installAdminV1PostLogLevelHandler(router: var RestRouter, node: WakuNode) =
+  router.api(MethodPost, ROUTE_ADMIN_V1_POST_LOG_LEVEL) do(
+    logLevel: string
+  ) -> RestApiResponse:
+    when runtimeFilteringEnabled:
+      if logLevel.isErr() or logLevel.value().isEmptyOrWhitespace():
+        return RestApiResponse.badRequest("Invalid log-level, it can’t be empty")
+
+      try:
+        let newLogLevel = parseEnum[LogLevel](logLevel.value().capitalizeAscii())
+
+        if newLogLevel < enabledLogLevel:
+          return RestApiResponse.badRequest(
+            fmt(
+              "Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with."
+            )
+          )
+
+        setLogLevel(newLogLevel)
+      except ValueError:
+        return RestApiResponse.badRequest(
+          fmt(
+            "Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+          )
+        )
+
+      return RestApiResponse.ok()
+    else:
+      return RestApiResponse.serviceUnavailable(
+        "Dynamic Log level management is not enabled in this build. Please recompile with `-d:chronicles_runtime_filtering:on`."
+      )
+
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
   installAdminV1PostPeersHandler(router, node)
   installAdminV1GetFilterSubsHandler(router, node)
+  installAdminV1PostLogLevelHandler(router, node)
