@@ -83,21 +83,19 @@ suite "Onchain group manager":
     web3.defaultAccount = accounts[2]
     let (privateKey, acc) = createEthAccount(web3)
 
-    let testTokenAddressRes = waitFor deployTestToken(privateKey, acc, web3)
-    if testTokenAddressRes.isErr():
-      error "Failed to deploy test token contract", error = testTokenAddressRes.error
-      raise newException(CatchableError, "Failed to deploy test token contract")
-    let TOKEN_ADDRESS = testTokenAddressRes.get()
-
-    let differentContractAddress =
+    let tokenAddress = (waitFor deployTestToken(privateKey, acc, web3)).valueOr:
+      assert false, "Failed to deploy test token contract: " & $error
+      return
+    let differentContractAddress = (
       waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
-    if differentContractAddress.isErr():
-      error "Failed to deploy RLN contract", error = differentContractAddress.error
+    ).valueOr:
+      assert false, "Failed to deploy RLN contract: " & $error
+      return
 
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(
       ethClientUrls: @[EthClient],
-      ethContractAddress: $differentContractAddress.get(),
+      ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
       onFatalErrorAction: proc(errStr: string) =
         assert false, errStr
@@ -265,56 +263,56 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  # test "validateRoot: should validate good root":
-  #   let idCredentials = generateCredentials(manager.rlnInstance)
-  #   let idCommitment = idCredentials.idCommitment
+  test "validateRoot: should validate good root":
+    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCommitment = idCredentials.idCommitment
 
-  #   let fut = newFuture[void]()
+    let fut = newFuture[void]()
 
-  #   proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-  #     if registrations.len == 1 and
-  #         registrations[0].rateCommitment ==
-  #         getRateCommitment(idCredentials, UserMessageLimit(20)).get() and
-  #         registrations[0].index == 0:
-  #       manager.idCredentials = some(idCredentials)
-  #       fut.complete()
+    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+      if registrations.len == 1 and
+          registrations[0].rateCommitment ==
+          getRateCommitment(idCredentials, UserMessageLimit(20)).get() and
+          registrations[0].index == 0:
+        manager.idCredentials = some(idCredentials)
+        fut.complete()
 
-  #   manager.onRegister(callback)
+    manager.onRegister(callback)
 
-  #   (waitFor manager.init()).isOkOr:
-  #     raiseAssert $error
+    (waitFor manager.init()).isOkOr:
+      raiseAssert $error
 
-  #   try:
-  #     waitFor manager.register(idCredentials, UserMessageLimit(20))
-  #   except Exception, CatchableError:
-  #     assert false, "exception raised: " & getCurrentExceptionMsg()
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  #   waitFor fut
+    waitFor fut
 
-  #   let rootUpdated = waitFor manager.updateRoots()
+    let rootUpdated = waitFor manager.updateRoots()
 
-  #   if rootUpdated:
-  #     let proofResult = waitFor manager.fetchMerkleProofElements()
-  #     if proofResult.isErr():
-  #       error "Failed to fetch Merkle proof", error = proofResult.error
-  #     manager.merkleProofCache = proofResult.get()
-  #   let messageBytes = "Hello".toBytes()
+    if rootUpdated:
+      let proofResult = waitFor manager.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      manager.merkleProofCache = proofResult.get()
+    let messageBytes = "Hello".toBytes()
 
-  #   let epoch = default(Epoch)
-  #   debug "epoch in bytes", epochHex = epoch.inHex()
+    let epoch = default(Epoch)
+    debug "epoch in bytes", epochHex = epoch.inHex()
 
-  #   let validProofRes = manager.generateProof(
-  #     data = messageBytes, epoch = epoch, messageId = MessageId(1)
-  #   )
+    let validProofRes = manager.generateProof(
+      data = messageBytes, epoch = epoch, messageId = MessageId(1)
+    )
 
-  #   check:
-  #     validProofRes.isOk()
-  #   let validProof = validProofRes.get()
+    check:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
 
-  #   let validated = manager.validateRoot(validProof.merkleRoot)
+    let validated = manager.validateRoot(validProof.merkleRoot)
 
-  #   check:
-  #     validated
+    check:
+      validated
 
   # test "validateRoot: should reject bad root":
   #   let idCredentials = generateCredentials(manager.rlnInstance)
@@ -398,11 +396,11 @@ suite "Onchain group manager":
   #   check:
   #     verified
 
-  # test "verifyProof: should reject invalid proof":
-  #   (waitFor manager.init()).isOkOr:
-  #     raiseAssert $error
+  test "verifyProof: should reject invalid proof":
+    (waitFor manager.init()).isOkOr:
+      raiseAssert $error
 
-  #   let idCredential = generateCredentials(manager.rlnInstance)
+    let idCredential = generateCredentials(manager.rlnInstance)
 
   #   try:
   #     waitFor manager.register(idCredential, UserMessageLimit(20))
