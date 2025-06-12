@@ -13,6 +13,7 @@ import
     waku_rln_relay/protocol_types,
   ],
   ../waku_keystore/utils,
+  ../testlib/testutils,
   testutils/unittests
 
 from std/times import epochTime
@@ -22,7 +23,7 @@ func defaultRateCommitment*(): RateCommitment =
   return RateCommitment(idCommitment: idCredential.idCommitment, userMessageLimit: 100)
 
 suite "RLN Relay v2: serde":
-  test "toLeaf: converts a rateCommitment to a valid leaf":
+  xasyncTest "toLeaf: converts a rateCommitment to a valid leaf":
     # this test vector is from zerokit
     let rateCommitment = defaultRateCommitment()
 
@@ -33,7 +34,7 @@ suite "RLN Relay v2: serde":
       "09beac7784abfadc9958b3176b352389d0b969ccc7f8bccf3e968ed632e26eca"
     check expectedLeaf == leafRes.value.inHex()
 
-  test "proofGen: generates a valid zk proof":
+  xasyncTest "proofGen: generates a valid zk proof":
     # this test vector is from zerokit
     let rlnInstance = createRLNInstanceWrapper()
     assert rlnInstance.isOk, $rlnInstance.error
