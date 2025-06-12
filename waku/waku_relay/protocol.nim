@@ -20,17 +20,18 @@ import
 import
   ../waku_core, ./message_id, ./topic_health, ../node/delivery_monitor/publish_observer
 
+var msgCountPerShard {.global, threadvar.}: Table[string, int64]
+var msgSizeSumPerShard {.global, threadvar.}: Table[string, int64]
+
 from ../waku_core/codecs import WakuRelayCodec
 export WakuRelayCodec
 
 logScope:
   topics = "waku relay"
 
-declarePublicGauge(
-  waku_relay_msg_count_per_shard,
-  "Number of messages seen, grouped by shard",
-  labels = ["shard"],
-)
+declareCounter waku_relay_network_bytes,
+  "total traffic per topic, distinct gross/net and direction",
+  labels = ["topic", "type", "direction"]
 
 declarePublicGauge(
   waku_relay_max_msg_bytes_per_shard,
@@ -41,12 +42,6 @@ declarePublicGauge(
 declarePublicGauge(
   waku_relay_avg_msg_bytes_per_shard,
   "Average length of messages seen per shard",
-  labels = ["shard"],
-)
-
-declarePublicGauge(
-  waku_relay_sum_msg_bytes_per_shard,
-  "Sum of message lengths seen per shard",
   labels = ["shard"],
 )
 
@@ -81,10 +76,6 @@ const TopicParameters = TopicParams(
   invalidMessageDeliveriesWeight: -100.0,
   invalidMessageDeliveriesDecay: 0.5,
 )
-
-declareCounter waku_relay_network_bytes,
-  "total traffic per topic, distinct gross/net and direction",
-  labels = ["topic", "type", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -221,25 +212,27 @@ proc logMessageInfo*(
       sentTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
 
-  # Increment message count
-  waku_relay_msg_count_per_shard.inc(labelValues = [topic])
-
-  # Add to sum of message sizes
-  waku_relay_sum_msg_bytes_per_shard.inc(payloadSize, labelValues = [topic])
-
-  # Calculate and set average (sum/count)
   try:
-    let count = waku_relay_msg_count_per_shard.value(labelValuesParam = [topic])
-    let sum = waku_relay_sum_msg_bytes_per_shard.value(labelValuesParam = [topic])
+    msgCountPerShard[topic] += 1
+    msgSizeSumPerShard[topic] += payloadSize
+  except KeyError:
+    warn "Error updating message metrics", error = getCurrentExceptionMsg()
+
+  try:
+    let count = msgCountPerShard[topic]
+    let sum = msgSizeSumPerShard[topic]
     let avg = sum / count
     waku_relay_avg_msg_bytes_per_shard.set(avg, labelValues = [topic])
   except CatchableError:
     warn "Error calculating average message size", error = getCurrentExceptionMsg()
 
   try:
-    let currentMax = waku_relay_max_msg_bytes_per_shard.value(labelValuesParam = [topic])
+    let currentMax =
+      waku_relay_max_msg_bytes_per_shard.value(labelValuesParam = [topic])
     if float64(payloadSize) > currentMax:
-      waku_relay_max_msg_bytes_per_shard.set(float64(payloadSize), labelValues = [topic])
+      waku_relay_max_msg_bytes_per_shard.set(
+        float64(payloadSize), labelValues = [topic]
+      )
   except CatchableError:
     warn "Error updating max message size", error = getCurrentExceptionMsg()
 
