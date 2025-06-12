@@ -225,6 +225,10 @@ int waku_get_my_peerid(void* ctx,
                     WakuCallBack callback,
                     void* userData);
 
+int waku_get_metrics(void* ctx,
+                    WakuCallBack callback,
+                    void* userData);
+
 int waku_peer_exchange_request(void* ctx,
                                int numPeers,
                                WakuCallBack callback,
