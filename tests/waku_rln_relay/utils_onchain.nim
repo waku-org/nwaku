@@ -287,7 +287,7 @@ proc approveTokenAllowanceAndVerify*(
     tx.to = Opt.some(tokenAddress)
     tx.value = Opt.some(0.u256)
     tx.gasPrice = Opt.some(gasPrice)
-    tx.gas = Opt.some(Quantity(100000)) # Consider estimating gas instead
+    tx.gas = Opt.some(Quantity(100000))
     tx.data = Opt.some(byteutils.hexToSeqByte(approveCallData))
     tx.chainId = Opt.some(CHAIN_ID)
 
@@ -719,6 +719,7 @@ proc setupOnchainGroupManager*(
     testTokenAddress, # ERC20 token address
     contractAddress, # spender - the proxy contract that will spend the tokens
     ethToWei(200.u256),
+    some(0.u256) # expected allowance before approval
   )
 
   assert tokenApprovalResult.isOk, tokenApprovalResult.error()

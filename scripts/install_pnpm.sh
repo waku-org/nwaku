@@ -3,6 +3,6 @@
 # Install pnpm
 if ! command -v pnpm &> /dev/null; then
     echo "pnpm is not installed, installing it now..."
-    curl -L https://unpkg.com/@pnpm/self-installer | node
+    npm i pnpm --global
 fi
 
