@@ -577,7 +577,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   let ethRpc: Web3 = (await establishConnection(g)).valueOr:
     return err("failed to connect to Ethereum clients: " & $error)
 
-  debug "fetching chainId"
   var fetchedChainId: UInt256
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
     await ethRpc.provider.eth_chainId()
@@ -605,8 +604,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
-  debug "contract address",
-    contractAddress = contractAddress, ethContractAddress = g.ethContractAddress
 
   g.ethRpc = some(ethRpc)
   g.wakuRlnContract = some(wakuRlnContract)
@@ -668,7 +665,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       tx.chainId = Opt.some(g.chainId)
 
       let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-      debug "resultBytes", resultBytes = resultBytes, len = resultBytes.len
       if resultBytes.len == 0:
         return err("No result returned for function call: " & $functionSignature)
       let membershipExists = resultBytes.len == 32 and resultBytes[^1] == 1'u8
