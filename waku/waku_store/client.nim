@@ -46,6 +46,11 @@ proc sendStoreRequest(
     waku_store_errors.inc(labelValues = [NoSuccessStatusCode])
     return err(StoreError.new(res.statusCode, res.statusDesc))
 
+  waku_relay_fleet_store_msg_size_bytes.inc(
+    res.messages.len.float64, labelValues = [request.pubsubTopic.get()]
+  )
+  waku_relay_fleet_store_msg_count.inc(1.0, labelValues = [request.pubsubTopic.get()])
+
   return ok(res)
 
 proc query*(

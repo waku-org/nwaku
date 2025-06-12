@@ -45,6 +45,25 @@ declarePublicGauge(
   labels = ["shard"],
 )
 
+# New metrics for fleet store nodes
+declarePublicGauge(
+  waku_relay_fleet_store_msg_size_bytes,
+  "Total size of messages stored by fleet store nodes per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
+  waku_relay_fleet_store_msg_count,
+  "Number of messages stored by fleet store nodes per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
+  waku_relay_fleet_store_oldest_msg_timestamp,
+  "Oldest message timestamp stored by fleet store nodes per shard",
+  labels = ["shard"],
+)
+
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const TopicParameters = TopicParams(
   topicWeight: 1,
