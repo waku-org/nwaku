@@ -264,7 +264,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
           raise newException(
             CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
           )
-        
+
         let memberCount = cast[int64](nextFreeIndex.get())
         waku_rln_number_registered_memberships.set(float64(memberCount))
 
@@ -634,7 +634,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     # now we check on the contract if the commitment actually has a membership
     let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
     debug "checking if the idCommitment has a membership",
-      idCommitmentHex = idCommitment.toHex(), idCommitmentUInt256 = idCommitment
+      idCommitmentHex = keystoreCred.identityCredential.idCommitment.inHex(),
+      idCommitmentUInt256 = idCommitment
     try:
       # let membershipExists =
       #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
@@ -649,11 +650,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
       # Encode the parameter (32 bytes for uint256)
       var encodedParams: seq[byte] = @[]
-      # Convert uint256 to 32-byte big-endian representation
       let commitmentBytes = keystoreCred.identityCredential.idCommitment
-
-      # Combine function selector + encoded parameters
-      let callData = functionSelector & commitmentBytes
+      # Combine function selector + encoded parameters, commitmentBytes store in LE and needs to be sent in BE
+      let callData = functionSelector & commitmentBytes.reversed()
 
       # Create the transaction
       var tx: TransactionArgs
@@ -698,7 +697,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   )
 
   if maxMembershipRateLimit.isErr():
-    return err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
+    return
+      err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit.get())
 
   proc onDisconnect() {.async.} =
