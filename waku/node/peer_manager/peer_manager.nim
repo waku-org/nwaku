@@ -42,9 +42,7 @@ declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer st
 declarePublicGauge waku_service_peers,
   "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
 declarePublicGauge waku_total_unique_peers, "total number of unique peers"
-declarePublicGauge waku_light_clients_inbound_connections,
-  "Number of light protocol clients with inbound connections",
-  labels = ["protocol", "shard"]
+
 logScope:
   topics = "waku node peer_manager"
 
