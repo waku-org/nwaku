@@ -196,6 +196,7 @@ proc new*(
     return err("Failed setting up node: " & $error)
 
   healthMonitor.setNodeToHealthMonitor(node)
+  healthMonitor.onlineMonitor.setPeerStoreToOnlineMonitor(node.switch.peerStore)
   healthMonitor.onlineMonitor.addOnlineStateObserver(
     node.peerManager.getOnlineStateObserver()
   )
