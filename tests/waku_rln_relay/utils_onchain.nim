@@ -163,6 +163,44 @@ proc checkTokenAllowance*(
   trace "Current allowance", owner = owner, spender = spender, allowance = allowance
   return allowance
 
+proc setupContractDeployment*(
+    forgePath: string, submodulePath: string
+): Result[void, string] =
+  trace "Contract deployer paths", forgePath = forgePath, submodulePath = submodulePath
+  # Build the Foundry project
+  try:
+    let (forgeCleanOutput, forgeCleanExitCode) =
+      execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
+    trace "Executed forge clean command", output = forgeCleanOutput
+    if forgeCleanExitCode != 0:
+      return err("forge clean command failed")
+
+    let (forgeInstallOutput, forgeInstallExitCode) =
+      execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
+    trace "Executed forge install command", output = forgeInstallOutput
+    if forgeInstallExitCode != 0:
+      return err("forge install command failed")
+
+    let (pnpmInstallOutput, pnpmInstallExitCode) =
+      execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
+    trace "Executed pnpm install command", output = pnpmInstallOutput
+    if pnpmInstallExitCode != 0:
+      return err("pnpm install command failed" & pnpmInstallOutput)
+
+    let (forgeBuildOutput, forgeBuildExitCode) =
+      execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
+    trace "Executed forge build command", output = forgeBuildOutput
+    if forgeBuildExitCode != 0:
+      return err("forge build command failed")
+
+    # Set the environment variable API keys to anything for local testnet deployment
+    putEnv("API_KEY_CARDONA", "123")
+    putEnv("API_KEY_LINEASCAN", "123")
+    putEnv("API_KEY_ETHERSCAN", "123")
+  except OSError, IOError:
+    return err("Command execution failed")
+  return ok()
+
 proc deployTestToken*(
     pk: keys.PrivateKey, acc: Address, web3: Web3
 ): Future[Result[Address, string]] {.async.} =
@@ -177,45 +215,12 @@ proc deployTestToken*(
     error "Submodule path does not exist", submodulePath = submodulePath
     return err("Submodule path does not exist: " & submodulePath)
 
-  debug "Submodule path verified", submodulePath = submodulePath
-
   let forgePath = getForgePath()
-  debug "Forge path", forgePath
 
-  # Verify forge executable exists
-  if not fileExists(forgePath):
-    error "Forge executable not found", forgePath = forgePath
-    return err("Forge executable not found: " & forgePath)
-
-  # Build the Foundry project
-  let (forgeCleanOutput, forgeCleanExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
-  trace "Executed forge clean command", output = forgeCleanOutput
-  if forgeCleanExitCode != 0:
-    return error("forge clean command failed")
-
-  let (forgeInstallOutput, forgeInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
-  trace "Executed forge install command", output = forgeInstallOutput
-  if forgeInstallExitCode != 0:
-    return error("forge install command failed")
-
-  let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
-  trace "Executed pnpm install command", output = pnpmInstallOutput
-  if pnpmInstallExitCode != 0:
-    return err("pnpm install command failed" & pnpmInstallOutput)
-
-  let (forgeBuildOutput, forgeBuildExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
-  trace "Executed forge build command", output = forgeBuildOutput
-  if forgeBuildExitCode != 0:
-    return error("forge build command failed")
-
-  # Set the environment variable API keys to anything for local testnet deployment
-  putEnv("API_KEY_CARDONA", "123")
-  putEnv("API_KEY_LINEASCAN", "123")
-  putEnv("API_KEY_ETHERSCAN", "123")
+  let setupContractEnv = setupContractDeployment(forgePath, submodulePath)
+  if setupContractEnv.isErr():
+    error "Failed to setup contract deployment"
+    return err("Failed to setup contract deployment")
 
   # Deploy TestToken contract
   let forgeCmdTestToken =
@@ -315,7 +320,7 @@ proc approveTokenAllowanceAndVerify*(
     web3.privateKey = oldPrivateKey
 
 proc executeForgeContractDeployScripts*(
-    pk: keys.PrivateKey, acc: Address, web3: Web3
+    privateKey: keys.PrivateKey, acc: Address, web3: Web3
 ): Future[Result[Address, string]] {.async, gcsafe.} =
   ## Executes a set of foundry forge scripts required to deploy the RLN contract and returns the deployed proxy contract address
   ## submodulePath: path to the submodule containing contract deploy scripts
@@ -328,7 +333,6 @@ proc executeForgeContractDeployScripts*(
     error "Submodule path does not exist", submodulePath = submodulePath
     return err("Submodule path does not exist: " & submodulePath)
 
-  let privateKey = $pk
   let forgePath = getForgePath()
   debug "Forge path", forgePath
 
@@ -338,36 +342,10 @@ proc executeForgeContractDeployScripts*(
     return err("Forge executable not found: " & forgePath)
 
   trace "contract deployer account details", account = acc, privateKey = privateKey
-
-  # Build the Foundry project
-  let (forgeCleanOutput, forgeCleanExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
-  trace "Executed forge clean command", output = forgeCleanOutput
-  if forgeCleanExitCode != 0:
-    return error("forge clean failed")
-
-  let (forgeInstallOutput, forgeInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} install""")
-  trace "Executed forge install command", output = forgeInstallOutput
-  if forgeInstallExitCode != 0:
-    return error("forge install failed")
-
-  let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
-  trace "Executed pnpm install command", output = pnpmInstallOutput
-  if pnpmInstallExitCode != 0:
-    return err("pnpm install command failed" & pnpmInstallOutput)
-
-  let (forgeBuildOutput, forgeBuildExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
-  trace "Executed forge build command", output = forgeBuildOutput
-  if forgeBuildExitCode != 0:
-    error("forge build failed")
-
-  # Set the environment variable API keys to anything for testing
-  putEnv("API_KEY_CARDONA", "123")
-  putEnv("API_KEY_LINEASCAN", "123")
-  putEnv("API_KEY_ETHERSCAN", "123")
+  let setupContractEnv = setupContractDeployment(forgePath, submodulePath)
+  if setupContractEnv.isErr():
+    error "Failed to setup contract deployment"
+    return err("Failed to setup contract deployment")
 
   # Deploy LinearPriceCalculator contract
   let forgeCmdPriceCalculator =
