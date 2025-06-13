@@ -1,6 +1,7 @@
 import std/sequtils
-import chronos, chronicles, libp2p/nameresolving/dnsresolver
-import ../waku_node
+import chronos, chronicles, libp2p/nameresolving/dnsresolver, libp2p/peerstore
+
+import ../peer_manager/waku_peer_store, waku/waku_core/peers
 
 type
   OnOnlineStateChange* = proc(online: bool) {.gcsafe, raises: [].}
@@ -10,6 +11,7 @@ type
     dnsNameServers*: seq[IpAddress]
     onlineStateObservers: seq[OnOnlineStateChange]
     networkConnLoopHandle: Future[void] # node: WakuNode
+    peerStore: PeerStore
 
 proc checkInternetConnectivity(
     nameServerIps: seq[IpAddress], timeout = 2.seconds
@@ -27,14 +29,14 @@ proc checkInternetConnectivity(
 
 proc updateOnlineState(self: OnlineMonitor) {.async.} =
   if self.onlineStateObservers.len == 0:
-    warn "No online state observers registered, cannot notify about online state change"
+    trace "No online state observers registered, cannot notify about online state change"
     return
 
   let numConnectedPeers =
-    if self.node.isNil():
+    if self.peerStore.isNil():
       0
     else:
-      self.node.switch.peerStore.peers().countIt(it.connectedness == Connected)
+      self.peerStore.peers().countIt(it.connectedness == Connected)
 
   let online =
     if numConnectedPeers > 0:
@@ -49,8 +51,8 @@ proc networkConnectivityLoop(self: OnlineMonitor): Future[void] {.async.} =
   ## Checks periodically whether the node is online or not
   ## and triggers any change that depends on the network connectivity state
   while true:
-    await sleepAsync(15.seconds)
     await self.updateOnlineState()
+    await sleepAsync(15.seconds)
 
 proc startOnlineMonitor*(self: OnlineMonitor) =
   self.networkConnLoopHandle = self.networkConnectivityLoop()
@@ -59,8 +61,8 @@ proc stopOnlineMonitor*(self: OnlineMonitor) {.async.} =
   if not self.networkConnLoopHandle.isNil():
     await self.networkConnLoopHandle.cancelAndWait()
 
-proc setNodeToOnlineMonitor*(self: OnlineMonitor, node: WakuNode) =
-  self.node = node
+proc setPeerStoreToOnlineMonitor*(self: OnlineMonitor, peerStore: PeerStore) =
+  self.peerStore = peerStore
 
 proc addOnlineStateObserver*(self: OnlineMonitor, observer: OnOnlineStateChange) =
   ## Adds an observer that will be called when the online state changes

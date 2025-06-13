@@ -249,7 +249,6 @@ proc getNodeHealthReport*(hm: NodeHealthMonitor): Future[HealthReport] {.async.}
 
 proc setNodeToHealthMonitor*(hm: NodeHealthMonitor, node: WakuNode) =
   hm.node = node
-  hm.onlineMonitor.setNodeToOnlineMonitor(node)
 
 proc setOverallHealth*(hm: NodeHealthMonitor, health: HealthStatus) =
   hm.nodeHealth = health
