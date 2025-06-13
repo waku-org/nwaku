@@ -100,7 +100,7 @@ proc sendEthCallWithChainId*(
     toAddress: Address,
     chainId: UInt256,
 ): Future[Result[UInt256, string]] {.async.} =
-  ## Generic proc to make contract calls with no arguments and with explicit chainId (workaround for automatic chainId=null with web3 call())
+  ## Generic proc to make contract calls with no arguments and with explicit chainId (workaround for automatic chainId=null with web3 call() proc)
   ## 
   ## Args:
   ##   ethRpc: Web3 instance for making RPC calls
@@ -301,7 +301,7 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex", idCommitmentNoConvert = idCommitmentHex
+  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
@@ -641,6 +641,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     try:
       # let membershipExists =
       #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
+      # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia), below is the workaround
       # Function signature with parameter type
       let functionSignature = "isInMembershipSet(uint256)"
 
