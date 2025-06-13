@@ -100,7 +100,7 @@ proc sendEthCallWithChainId*(
     toAddress: Address,
     chainId: UInt256,
 ): Future[Result[UInt256, string]] {.async.} =
-  ## Generic proc to make contract calls with no arguments and with explicit chainId (workaround for automatic chainId=null with web3 call())
+  ## Generic proc to make contract calls with no arguments and with explicit chainId (workaround for automatic chainId=null with web3 call() proc)
   ## 
   ## Args:
   ##   ethRpc: Web3 instance for making RPC calls
@@ -131,7 +131,7 @@ proc sendEthCallWithChainId*(
   # Make the RPC call using eth_call
   let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
   if resultBytes.len == 0:
-    return err("Contract call returned no result")
+    return err("No result returned for function call: " & functionSignature)
   return ok(UInt256.fromBytesBE(resultBytes))
 
 proc fetchMerkleProofElements*(
@@ -303,7 +303,6 @@ method register*(
   let idCommitmentHex = identityCredential.idCommitment.inHex()
   debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
-  debug "identityCredential idCommitment toUInt256", idCommitment = idCommitment
   let idCommitmentsToErase: seq[UInt256] = @[]
   debug "registering the member",
     idCommitment = idCommitment,
@@ -632,13 +631,17 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.membershipIndex = some(keystoreCred.treeIndex)
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
-    let idCommitment = keystoreCred.identityCredential.idCommitment.toUInt256()
-    debug "checking if the idCommitment has a membership",
-      idCommitmentHex = keystoreCred.identityCredential.idCommitment.inHex(),
-      idCommitmentUInt256 = idCommitment
+    let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
+    let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
+    let idCommitmentHex = idCommitmentBytes.inHex()
+    debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
+    debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
+    debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
+    let idCommitment = idCommitmentUInt256
     try:
       # let membershipExists =
       #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
+      # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia), below is the workaround
       # Function signature with parameter type
       let functionSignature = "isInMembershipSet(uint256)"
 
@@ -663,11 +666,13 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
       tx.chainId = Opt.some(g.chainId)
 
       let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-      let membershipExists = resultBytes[^1] == 1'u8
+      if resultBytes.len == 0:
+        return err("No result returned for function call: " & $functionSignature)
+      let membershipExists = resultBytes.len == 32 and resultBytes[^1] == 1'u8
 
       debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
-        return err("the idCommitment does not have a membership")
+        return err("the commitment does not have a membership")
     except CatchableError:
       return err("failed to check if the commitment has a membership")
 
