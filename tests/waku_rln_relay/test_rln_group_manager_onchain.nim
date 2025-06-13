@@ -28,14 +28,8 @@ import
   ../testlib/wakucore,
   ./utils_onchain
 
-var testLock: Lock
-initLock(testLock)
-
 suite "Onchain group manager":
   setup:
-    # Acquire lock to ensure tests run sequentially
-    acquire(testLock)
-
     let runAnvil {.used.} = runAnvil()
 
     var manager {.threadvar.}: OnchainGroupManager
@@ -44,8 +38,6 @@ suite "Onchain group manager":
   teardown:
     waitFor manager.stop()
     stopAnvil(runAnvil)
-    # Release lock after test completes
-    release(testLock)
 
   test "should initialize successfully":
     (waitFor manager.init()).isOkOr:
