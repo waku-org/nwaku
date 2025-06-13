@@ -16,7 +16,8 @@ import
   json_rpc/rpcclient,
   json,
   libp2p/crypto/crypto,
-  eth/keys
+  eth/keys,
+  results
 
 import
   waku/[
@@ -79,72 +80,6 @@ proc getForgePath*(): string =
     forgePath = joinPath(forgePath, os.getEnv("HOME", ""))
   forgePath = joinPath(forgePath, ".foundry/bin/forge")
   return $forgePath
-
-proc getPnpmPath*(): string =
-  # Try multiple common pnpm installation paths in order of preference
-  let homeDir = getEnv("HOME", "")
-  let xdgDataHome = getEnv("XDG_DATA_HOME", joinPath(homeDir, ".local", "share"))
-
-  let possiblePaths = [
-    # Check if pnpm is in PATH first (most reliable)
-    "pnpm",
-    # Self-installer locations (most common for CI/automated installs)
-    joinPath(xdgDataHome, "pnpm", "pnpm"),
-    joinPath(xdgDataHome, "pnpm", "bin", "pnpm"),
-    joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
-    joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
-    # Global npm installation
-    joinPath(homeDir, ".npm-global", "bin", "pnpm"),
-    # Local user installation via npm
-    joinPath(homeDir, ".local", "bin", "pnpm"),
-    # Homebrew on macOS
-    "/opt/homebrew/bin/pnpm",
-    "/usr/local/bin/pnpm",
-    # System-wide installations
-    "/usr/bin/pnpm",
-    "/bin/pnpm",
-  ]
-
-  for path in possiblePaths:
-    if path == "pnpm":
-      # For bare "pnpm", check if it's available in PATH using which/where
-      try:
-        when defined(windows):
-          let (output, exitCode) = execCmdEx("where pnpm 2>nul")
-        else:
-          let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
-
-        if exitCode == 0 and output.strip() != "":
-          return "pnpm" # Let the shell find it in PATH
-      except OSError, IOError:
-        # If execCmdEx fails, continue to next path
-        discard
-    else:
-      # For absolute paths, check if file exists
-      if fileExists(path):
-        return path
-
-  # If no pnpm found, try to refresh PATH and check again
-  debug "pnpm not found in any known location, waiting briefly and retrying"
-  sleep(1000) # Wait 1 second for any installation to complete
-
-  # Retry the PATH check
-  try:
-    when defined(windows):
-      let (output, exitCode) = execCmdEx("where pnpm 2>nul")
-    else:
-      let (output, exitCode) = execCmdEx("which pnpm 2>/dev/null")
-
-    if exitCode == 0 and output.strip() != "":
-      debug "Found pnpm in PATH after retry", path = output.strip()
-      return "pnpm"
-  except OSError, IOError:
-    discard
-
-  # If still no pnpm found, return "pnpm" as fallback and let the error be more descriptive
-  error "pnpm not found in any location after installation. Checked paths:",
-    paths = possiblePaths
-  return "pnpm"
 
 contract(ERC20Token):
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
@@ -245,9 +180,7 @@ proc deployTestToken*(
   debug "Submodule path verified", submodulePath = submodulePath
 
   let forgePath = getForgePath()
-  var pnpmPath = getPnpmPath()
   debug "Forge path", forgePath
-  debug "Pnpm path", pnpmPath
 
   # Verify forge executable exists
   if not fileExists(forgePath):
@@ -267,40 +200,11 @@ proc deployTestToken*(
   if forgeInstallExitCode != 0:
     return error("forge install command failed")
 
-  # Verify pnpm is actually executable before using it
-  debug "Verifying pnpm path before use", pnpmPath = pnpmPath
-  if pnpmPath != "pnpm":
-    if not fileExists(pnpmPath):
-      return err(fmt"pnpm executable not found at path: {pnpmPath}")
-  else:
-    # For bare "pnpm", try to run the install script first to ensure pnpm is available
-    debug "Running pnpm install script to ensure pnpm is available"
-    let installScriptPath = "./scripts/install_pnpm.sh"
-    if fileExists(installScriptPath):
-      let (installOutput, installExitCode) = execCmdEx(fmt"bash {installScriptPath}")
-      debug "pnpm install script output",
-        output = installOutput, exitCode = installExitCode
-
-      # After installation, try to find the actual pnpm path
-      if installExitCode == 0:
-        let homeDir = getEnv("HOME", "")
-        let commonPnpmPaths = [
-          joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
-          joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
-        ]
-
-        for possiblePath in commonPnpmPaths:
-          if fileExists(possiblePath):
-            debug "Found pnpm after installation", actualPath = possiblePath
-            pnpmPath = possiblePath
-            break
-
   let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
+    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    return
-      err(fmt"pnpm install command failed using path '{pnpmPath}': {pnpmInstallOutput}")
+    return err("pnpm install command failed" & pnpmInstallOutput)
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
@@ -435,41 +339,10 @@ proc executeForgeContractDeployScripts*(
 
   trace "contract deployer account details", account = acc, privateKey = privateKey
 
-  # Build the Foundry project with timeout monitoring
-  let forgeCleanProcess = startProcess(
-    "sh",
-    args = ["-c", fmt"""cd {submodulePath} && {forgePath} clean"""],
-    options = {poUsePath, poStdErrToStdOut},
-  )
-
-  let startTime = Moment.now()
-  let timeoutDuration = 30.seconds # 30 second timeout for clean command
-  var forgeCleanOutput = ""
-  var line = ""
-
-  while forgeCleanProcess.running and (Moment.now() - startTime) < timeoutDuration:
-    try:
-      if forgeCleanProcess.outputStream.readLine(line):
-        forgeCleanOutput.add(line & "\n")
-        trace "Forge clean output line", line = line
-      else:
-        sleep(100)
-    except:
-      break
-
-  let forgeCleanExitCode =
-    if (Moment.now() - startTime) >= timeoutDuration:
-      kill(forgeCleanProcess)
-      close(forgeCleanProcess)
-      error "Forge clean command timed out after 30 seconds"
-      -1
-    else:
-      let exitCode = waitForExit(forgeCleanProcess)
-      close(forgeCleanProcess)
-      exitCode
-
-  trace "Executed forge clean command",
-    output = forgeCleanOutput, exitCode = forgeCleanExitCode
+  # Build the Foundry project
+  let (forgeCleanOutput, forgeCleanExitCode) =
+    execCmdEx(fmt"""cd {submodulePath} && {forgePath} clean""")
+  trace "Executed forge clean command", output = forgeCleanOutput
   if forgeCleanExitCode != 0:
     return error("forge clean failed")
 
@@ -479,29 +352,11 @@ proc executeForgeContractDeployScripts*(
   if forgeInstallExitCode != 0:
     return error("forge install failed")
 
-  var pnpmPath = getPnpmPath()
-  debug "Pnpm path", pnpmPath
-
-  # If we got bare "pnpm" and it might not be in PATH, try to find the actual installed path
-  if pnpmPath == "pnpm":
-    let homeDir = getEnv("HOME", "")
-    let commonPnpmPaths = [
-      joinPath(homeDir, ".local", "share", "pnpm", "pnpm"),
-      joinPath(homeDir, ".local", "share", "pnpm", "bin", "pnpm"),
-    ]
-
-    for possiblePath in commonPnpmPaths:
-      if fileExists(possiblePath):
-        debug "Found pnpm at actual path", actualPath = possiblePath
-        pnpmPath = possiblePath
-        break
-
   let (pnpmInstallOutput, pnpmInstallExitCode) =
-    execCmdEx(fmt"""cd {submodulePath} && {pnpmPath} install""")
+    execCmdEx(fmt"""cd {submodulePath} && pnpm install""")
   trace "Executed pnpm install command", output = pnpmInstallOutput
   if pnpmInstallExitCode != 0:
-    return
-      err(fmt"pnpm install command failed using path '{pnpmPath}': {pnpmInstallOutput}")
+    return err("pnpm install command failed" & pnpmInstallOutput)
 
   let (forgeBuildOutput, forgeBuildExitCode) =
     execCmdEx(fmt"""cd {submodulePath} && {forgePath} build""")
@@ -741,71 +596,6 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   except: # TODO: Fix "BareExcept" warning
     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
-# # Runs Anvil daemon
-# proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
-#   # Passed options are
-#   # --port                            Port to listen on.
-#   # --gas-limit                       Sets the block gas limit in WEI.
-#   # --balance                         The default account balance, specified in ether.
-#   # --chain-id                        Chain ID of the network.
-#   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
-#   try:
-#     # Check for existing Anvil instances before starting a new one
-#     let runningInstances = checkRunningAnvilInstances()
-#     debug "Checking for running Anvil instances before starting",
-#       runningInstances = runningInstances
-
-#     let anvilPath = getAnvilPath()
-#     debug "Anvil path", anvilPath
-#     let runAnvil = startProcess(
-#       anvilPath,
-#       args = [
-#         "--port",
-#         $port,
-#         "--gas-limit",
-#         "300000000000000",
-#         "--balance",
-#         "1000000000",
-#         "--chain-id",
-#         $chainId,
-#       ],
-#       options = {poUsePath, poStdErrToStdOut},
-#     )
-#     let anvilPID = runAnvil.processID
-
-#     # Add timeout mechanism
-#     let startTime = Moment.now()
-#     let timeoutDuration = 120.seconds # 60 second timeout
-
-#     # We read stdout from Anvil to see when daemon is ready
-#     var anvilStartLog: string
-#     var cmdline: string
-#     while (Moment.now() - startTime) < timeoutDuration:
-#       if not runAnvil.running:
-#         error "Anvil process died unexpectedly"
-#         raise newException(IOError, "Anvil process failed to start")
-
-#       try:
-#         if runAnvil.outputstream.readLine(cmdline):
-#           anvilStartLog.add(cmdline)
-#           if cmdline.contains("Listening on 127.0.0.1:" & $port):
-#             break
-#           else:
-#             sleep(100)
-#       except Exception, CatchableError:
-#         break
-
-#     # Check if we timed out
-#     if (Moment.now() - startTime) >= timeoutDuration:
-#       kill(runAnvil)
-#       error "Anvil startup timed out after 60 seconds"
-#       raise newException(IOError, "Anvil startup timed out")
-
-#     debug "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
-#     return runAnvil
-#   except: # TODO: Fix "BareExcept" warning
-#     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
-
 # Stops Anvil daemon
 proc stopAnvil*(runAnvil: Process) {.used.} =
   if runAnvil.isNil:
@@ -861,11 +651,6 @@ proc setupOnchainGroupManager*(
   discard await sendMintCall(
     web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
   )
-  # let contractAddressRes =
-  #   await executeForgeContractDeployScripts(privateKey, acc, web3)
-  # if contractAddressRes.isErr():
-  #   error "Failed to deploy RLN contract", error = contractAddressRes.error
-  #   raise newException(CatchableError, "Failed to deploy RLN contract")
 
   let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
     assert false, "Failed to deploy RLN contract: " & $error
