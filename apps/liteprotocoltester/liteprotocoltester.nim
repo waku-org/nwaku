@@ -28,8 +28,8 @@ import
     waku_core/multiaddrstr,
   ],
   ./tester_config,
-  ./lightpush_publisher,
-  ./filter_subscriber,
+  ./publisher,
+  ./receiver,
   ./diagnose_connections,
   ./service_peer_management
 
@@ -96,7 +96,7 @@ when isMainModule:
   wConf.restPort = conf.restPort
   wConf.restAllowOrigin = conf.restAllowOrigin
 
-  wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
+  wConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
   wConf.shards = @[conf.shard]
   wConf.contentTopics = conf.contentTopics
@@ -219,12 +219,8 @@ when isMainModule:
 
   info "Node setup complete"
 
-  var codec = WakuLightPushCodec
+  let codec = conf.getCodec()
   # mounting relevant client, for PX filter client must be mounted ahead
-  if conf.testFunc == TesterFunctionality.SENDER:
-    codec = WakuLightPushCodec
-  else:
-    codec = WakuFilterSubscribeCodec
 
   var lookForServiceNode = false
   var serviceNodePeerInfo: RemotePeerInfo
@@ -261,6 +257,6 @@ when isMainModule:
   if conf.testFunc == TesterFunctionality.SENDER:
     setupAndPublish(wakuApp.node, conf, serviceNodePeerInfo)
   else:
-    setupAndSubscribe(wakuApp.node, conf, serviceNodePeerInfo)
+    setupAndListen(wakuApp.node, conf, serviceNodePeerInfo)
 
   runForever()
