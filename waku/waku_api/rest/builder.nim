@@ -40,7 +40,7 @@ type RestServerConf* = object
   relayCacheCapacity*: uint32
 
 proc startRestServerEssentials*(
-    nodeHealthMonitor: WakuNodeHealthMonitor, conf: RestServerConf, portsShift: uint16
+    nodeHealthMonitor: NodeHealthMonitor, conf: RestServerConf, portsShift: uint16
 ): Result[WakuRestServerRef, string] =
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef

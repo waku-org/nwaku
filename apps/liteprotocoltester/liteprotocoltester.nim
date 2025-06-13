@@ -17,10 +17,8 @@ import
     factory/waku,
     factory/external_config,
     waku_node,
-    node/health_monitor,
     node/waku_metrics,
     node/peer_manager,
-    waku_api/rest/builder as rest_server_builder,
     waku_lightpush/common,
     waku_filter_v2,
     waku_peer_exchange/protocol,
@@ -28,8 +26,8 @@ import
     waku_core/multiaddrstr,
   ],
   ./tester_config,
-  ./publisher,
-  ./receiver,
+  ./lightpush_publisher,
+  ./filter_subscriber,
   ./diagnose_connections,
   ./service_peer_management
 
@@ -69,13 +67,13 @@ when isMainModule:
   ## - override according to tester functionality
   ##
 
-  var wConf: WakuNodeConf
+  var wakuConf: WakuNodeConf
 
   if conf.configFile.isSome():
     try:
       var configFile {.threadvar.}: InputFile
       configFile = conf.configFile.get()
-      wConf = WakuNodeConf.load(
+      wakuConf = WakuNodeConf.load(
         version = versionString,
         printUsage = false,
         secondarySources = proc(
@@ -88,101 +86,49 @@ when isMainModule:
       error "Loading Waku configuration failed", error = getCurrentExceptionMsg()
       quit(QuitFailure)
 
-  wConf.logLevel = conf.logLevel
-  wConf.logFormat = conf.logFormat
-  wConf.nat = conf.nat
-  wConf.maxConnections = 500
-  wConf.restAddress = conf.restAddress
-  wConf.restPort = conf.restPort
-  wConf.restAllowOrigin = conf.restAllowOrigin
+  wakuConf.logLevel = conf.logLevel
+  wakuConf.logFormat = conf.logFormat
+  wakuConf.nat = conf.nat
+  wakuConf.maxConnections = 500
+  wakuConf.restAddress = conf.restAddress
+  wakuConf.restPort = conf.restPort
+  wakuConf.restAllowOrigin = conf.restAllowOrigin
 
-  wConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
+  wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
-  wConf.shards = @[conf.shard]
-  wConf.contentTopics = conf.contentTopics
-  wConf.clusterId = conf.clusterId
+  wakuConf.shards = @[conf.shard]
+  wakuConf.contentTopics = conf.contentTopics
+  wakuConf.clusterId = conf.clusterId
   ## TODO: Depending on the tester needs we might extend here with shards, clusterId, etc...
 
-  wConf.metricsServer = true
-  wConf.metricsServerAddress = parseIpAddress("0.0.0.0")
-  wConf.metricsServerPort = conf.metricsPort
+  wakuConf.metricsServer = true
+  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
+  wakuConf.metricsServerPort = conf.metricsPort
 
   # If bootstrap option is chosen we expect our clients will not mounted
   # so we will mount PeerExchange manually to gather possible service peers,
   # if got some we will mount the client protocols afterward.
-  wConf.peerExchange = false
-  wConf.relay = false
-  wConf.filter = false
-  wConf.lightpush = false
-  wConf.store = false
+  wakuConf.peerExchange = false
+  wakuConf.relay = false
+  wakuConf.filter = false
+  wakuConf.lightpush = false
+  wakuConf.store = false
 
-  wConf.rest = false
-  wConf.relayServiceRatio = "40:60"
+  wakuConf.rest = false
+  wakuConf.relayServiceRatio = "40:60"
 
-  # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
-  # It will always be called from main thread anyway.
-  # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
-  var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
-  nodeHealthMonitor = WakuNodeHealthMonitor()
-  nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
-
-  let wakuConf = wConf.toWakuConf().valueOr:
-    error "Waku configuration failed", error = error
-    quit(QuitFailure)
-
-  let restServer: WakuRestServerRef =
-    if wakuConf.restServerConf.isSome():
-      rest_server_builder.startRestServerEssentials(
-        nodeHealthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
-      ).valueOr:
-        error "Starting essential REST server failed.", error = $error
-        quit(QuitFailure)
-    else:
-      nil
-
-  var wakuApp = Waku.new(wakuConf).valueOr:
+  var waku = Waku.new(wakuConf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  wakuApp.restServer = restServer
-
-  nodeHealthMonitor.setNode(wakuApp.node)
-
-  (waitFor startWaku(addr wakuApp)).isOkOr:
+  (waitFor startWaku(addr waku)).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  if wakuConf.restServerConf.isSome():
-    rest_server_builder.startRestServerProtocolSupport(
-      restServer,
-      wakuApp.node,
-      wakuApp.wakuDiscv5,
-      wakuConf.restServerConf.get(),
-      wakuConf.relay,
-      wakuConf.lightPush,
-      wakuConf.clusterId,
-      wakuConf.shards,
-      wakuConf.contentTopics,
-    ).isOkOr:
-      error "Starting protocols support REST server failed.", error = $error
-      quit(QuitFailure)
-
-  if wakuConf.metricsServerConf.isSome():
-    wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(
-      wakuConf.metricsServerConf.get(), wakuConf.portsShift
-    ).valueOr:
-      error "Starting monitoring and external interfaces failed", error = error
-      quit(QuitFailure)
-
-  nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
-
   debug "Setting up shutdown hooks"
-  ## Setup shutdown hooks for this process.
-  ## Stop node gracefully on shutdown.
 
-  proc asyncStopper(wakuApp: Waku) {.async: (raises: [Exception]).} =
-    nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-    await wakuApp.stop()
+  proc asyncStopper(waku: Waku) {.async: (raises: [Exception]).} =
+    await waku.stop()
     quit(QuitSuccess)
 
   # Handle Ctrl-C SIGINT
@@ -219,8 +165,12 @@ when isMainModule:
 
   info "Node setup complete"
 
-  let codec = conf.getCodec()
+  var codec = WakuLightPushCodec
   # mounting relevant client, for PX filter client must be mounted ahead
+  if conf.testFunc == TesterFunctionality.SENDER:
+    codec = WakuLightPushCodec
+  else:
+    codec = WakuFilterSubscribeCodec
 
   var lookForServiceNode = false
   var serviceNodePeerInfo: RemotePeerInfo
@@ -257,6 +207,6 @@ when isMainModule:
   if conf.testFunc == TesterFunctionality.SENDER:
     setupAndPublish(wakuApp.node, conf, serviceNodePeerInfo)
   else:
-    setupAndListen(wakuApp.node, conf, serviceNodePeerInfo)
+    setupAndSubscribe(wakuApp.node, conf, serviceNodePeerInfo)
 
   runForever()
