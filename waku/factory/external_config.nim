@@ -503,7 +503,7 @@ with the drawback of consuming some more bandwidth.""",
 
     restRelayCacheCapacity* {.
       desc: "Capacity of the Relay REST API message cache.",
-      defaultValue: 30,
+      defaultValue: 50,
       name: "rest-relay-cache-capacity"
     .}: uint32
 
