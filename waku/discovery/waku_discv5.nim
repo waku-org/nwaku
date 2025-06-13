@@ -219,12 +219,14 @@ proc findRandomPeers*(
     wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)
 ): Future[seq[waku_enr.Record]] {.async.} =
   ## Find random peers to connect to using Discovery v5
+
+  echo "---------------- findRandomPeers 1"
   let discoveredNodes = await wd.protocol.queryRandom()
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
-  when defined(debugDiscv5):
-    logDiscv5FoundPeers(discoveredRecords)
+  echo "---------------- findRandomPeers 2"
+  logDiscv5FoundPeers(discoveredRecords)
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
@@ -245,7 +247,7 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
   info "Starting discovery v5 search"
 
   while wd.listening:
-    trace "running discv5 discovery loop"
+    echo "---------------running discv5 discovery loop"
     let discoveredRecords = await wd.findRandomPeers()
 
     var discoveredPeers: seq[RemotePeerInfo]
@@ -261,11 +263,12 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
 
       discoveredPeers.add(peerInfo)
 
-    trace "discv5 discovered peers",
+    echo "----------------- discv5 discovered peers"
+    info "discv5 discovered peers",
       num_discovered_peers = discoveredPeers.len,
       peers = toSeq(discoveredPeers.mapIt(shortLog(it.peerId)))
 
-    trace "discv5 discarded wrong records",
+    info "discv5 discarded wrong records",
       wrong_records =
         wrongRecordsReasons.mapIt("(" & it.record & "," & it.errorDescription & ")")
 
@@ -282,38 +285,54 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
 proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
 
+  echo "--------------- subscriptionsListener 1"
+
   let key = wd.topicSubscriptionQueue.register()
 
+  echo "--------------- subscriptionsListener 2"
+
   while wd.listening:
+    echo "--------------- subscriptionsListener 3"
     let events = await wd.topicSubscriptionQueue.waitEvents(key)
 
+    echo "--------------- subscriptionsListener 4"
     # Since we don't know the events we will receive we have to anticipate.
 
     let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
     let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
 
+    echo "--------------- subscriptionsListener 5"
     if subs.len == 0 and unsubs.len == 0:
+      echo "--------------- subscriptionsListener 6"
       continue
 
+    echo "--------------- subscriptionsListener 7"
     let unsubRes = wd.updateENRShards(unsubs, false)
     let subRes = wd.updateENRShards(subs, true)
+    echo "--------------- subscriptionsListener 8"
 
     if subRes.isErr():
+      echo "--------------- subscriptionsListener 9"
       debug "ENR shard addition failed", reason = $subRes.error
 
     if unsubRes.isErr():
+      echo "--------------- subscriptionsListener 10"
       debug "ENR shard removal failed", reason = $unsubRes.error
 
+    echo "--------------- subscriptionsListener 11"
     if subRes.isErr() and unsubRes.isErr():
+      echo "--------------- subscriptionsListener 12"
       continue
 
     debug "ENR updated successfully",
       enrUri = wd.protocol.localNode.record.toUri(),
       enr = $(wd.protocol.localNode.record)
 
+    echo "--------------- subscriptionsListener 13"
     wd.predicate =
       shardingPredicate(wd.protocol.localNode.record, wd.protocol.bootstrapRecords)
 
+  echo "--------------- subscriptionsListener 14"
   wd.topicSubscriptionQueue.unregister(key)
 
 proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises: []).} =
@@ -410,6 +429,7 @@ proc setupDiscoveryV5*(
   for enr in discv5BootstrapEnrs:
     let peerInfoRes = enr.toRemotePeerInfo()
     if peerInfoRes.isOk():
+      echo "------------ adding discv5 bootstrap node"
       nodePeerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
     else:
       debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
