@@ -8,7 +8,7 @@ proc new*(T: typedesc[LegacyPublisher], wakuNode: WakuNode): LegacyPublisher =
   if isNil(wakuNode.wakuLightpushClient):
     wakuNode.mountLegacyLightPushClient()
 
-  result = LegacyPublisher(wakuNode: wakuNode)
+  return LegacyPublisher(wakuNode: wakuNode)
 
 method send*(
     self: LegacyPublisher,

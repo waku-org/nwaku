@@ -8,7 +8,7 @@ proc new*(T: typedesc[V3Publisher], wakuNode: WakuNode): V3Publisher =
   if isNil(wakuNode.wakuLightpushClient):
     wakuNode.mountLegacyLightPushClient()
 
-  result = V3Publisher(wakuNode: wakuNode)
+  return V3Publisher(wakuNode: wakuNode)
 
 method send*(
     self: V3Publisher,
