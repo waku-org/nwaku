@@ -878,8 +878,8 @@ proc waku_is_online(
 
   handleRequest(
     ctx,
-    RequestType.PEER_MANAGER,
-    PeerManagementRequest.createShared(PeerManagementMsgType.IS_ONLINE),
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_ONLINE_STATE),
     callback,
     userData,
   )

@@ -12,6 +12,7 @@ type
     onlineStateObservers: seq[OnOnlineStateChange]
     networkConnLoopHandle: Future[void] # node: WakuNode
     peerStore: PeerStore
+    online: bool
 
 proc checkInternetConnectivity(
     nameServerIps: seq[IpAddress], timeout = 2.seconds
@@ -38,14 +39,14 @@ proc updateOnlineState(self: OnlineMonitor) {.async.} =
     else:
       self.peerStore.peers().countIt(it.connectedness == Connected)
 
-  let online =
+  self.online =
     if numConnectedPeers > 0:
       true
     else:
       await checkInternetConnectivity(self.dnsNameServers)
 
   for onlineStateObserver in self.onlineStateObservers:
-    onlineStateObserver(online)
+    onlineStateObserver(self.online)
 
 proc networkConnectivityLoop(self: OnlineMonitor): Future[void] {.async.} =
   ## Checks periodically whether the node is online or not
@@ -68,6 +69,9 @@ proc addOnlineStateObserver*(self: OnlineMonitor, observer: OnOnlineStateChange)
   ## Adds an observer that will be called when the online state changes
   if observer notin self.onlineStateObservers:
     self.onlineStateObservers.add(observer)
+
+proc amIOnline*(self: OnlineMonitor): bool =
+  return self.online
 
 proc init*(T: type OnlineMonitor, dnsNameServers: seq[IpAddress]): OnlineMonitor =
   T(dnsNameServers: dnsNameServers, onlineStateObservers: @[])
