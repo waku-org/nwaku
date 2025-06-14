@@ -8,6 +8,7 @@ import
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
   ../../../../waku/factory/app_callbacks,
+  ../../../../waku/waku_api/rest/builder,
   ../../../alloc
 
 type NodeLifecycleMsgType* = enum

@@ -68,7 +68,7 @@ type Waku* = ref object
 
   node*: WakuNode
 
-  healthMonitor: NodeHealthMonitor
+  healthMonitor*: NodeHealthMonitor
 
   deliveryMonitor: DeliveryMonitor
 
