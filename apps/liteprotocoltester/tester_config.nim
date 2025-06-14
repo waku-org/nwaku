@@ -33,6 +33,10 @@ type TesterFunctionality* = enum
   SENDER # pumps messages to the network
   RECEIVER # gather and analyze messages from the network
 
+type LightpushVersion* = enum
+  LEGACY # legacy lightpush protocol
+  V3 # lightpush v3 protocol
+
 type LiteProtocolTesterConf* = object
   configFile* {.
     desc:
@@ -79,6 +83,12 @@ type LiteProtocolTesterConf* = object
     defaultValue: TesterFunctionality.RECEIVER,
     name: "test-func"
   .}: TesterFunctionality
+
+  lightpushVersion* {.
+    desc: "Version of the sender to use. Supported values: legacy, v3.",
+    defaultValue: LightpushVersion.LEGACY,
+    name: "lightpush-version"
+  .}: LightpushVersion
 
   numMessages* {.
     desc: "Number of messages to send.", defaultValue: 120, name: "num-messages"
@@ -189,5 +199,15 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
 
 proc getPubsubTopic*(conf: LiteProtocolTesterConf): PubsubTopic =
   return $RelayShard(clusterId: conf.clusterId, shardId: conf.shard)
+
+proc getCodec*(conf: LiteProtocolTesterConf): string =
+  return
+    if conf.testFunc == TesterFunctionality.RECEIVER:
+      WakuFilterSubscribeCodec
+    else:
+      if conf.lightpushVersion == LightpushVersion.LEGACY:
+        WakuLegacyLightPushCodec
+      else:
+        WakuLightPushCodec
 
 {.pop.}

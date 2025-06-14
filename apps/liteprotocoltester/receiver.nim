@@ -116,7 +116,7 @@ proc maintainSubscription(
 
     await sleepAsync(30.seconds) # Subscription maintenance interval
 
-proc setupAndSubscribe*(
+proc setupAndListen*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
   if isNil(wakuNode.wakuFilterClient):

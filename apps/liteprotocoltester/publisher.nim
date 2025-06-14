@@ -21,14 +21,17 @@ import
   ./tester_message,
   ./lpt_metrics,
   ./diagnose_connections,
-  ./service_peer_management
+  ./service_peer_management,
+  ./publisher_base,
+  ./legacy_publisher,
+  ./v3_publisher
 
 randomize()
 
 type SizeRange* = tuple[min: uint64, max: uint64]
 
-var RANDOM_PALYLOAD {.threadvar.}: seq[byte]
-RANDOM_PALYLOAD = urandom(1024 * 1024)
+var RANDOM_PAYLOAD {.threadvar.}: seq[byte]
+RANDOM_PAYLOAD = urandom(1024 * 1024)
   # 1MiB of random payload to be used to extend message
 
 proc prepareMessage(
@@ -59,9 +62,8 @@ proc prepareMessage(
   if renderSize < len(contentPayload).uint64:
     renderSize = len(contentPayload).uint64
 
-  let finalPayload = concat(
-    contentPayload, RANDOM_PALYLOAD[0 .. renderSize - len(contentPayload).uint64]
-  )
+  let finalPayload =
+    concat(contentPayload, RANDOM_PAYLOAD[0 .. renderSize - len(contentPayload).uint64])
   let message = WakuMessage(
     payload: finalPayload, # content of the message
     contentTopic: contentTopic, # content topic to publish to
@@ -108,6 +110,7 @@ proc reportSentMessages() =
 
 proc publishMessages(
     wakuNode: WakuNode,
+    publisher: PublisherBase,
     servicePeer: RemotePeerInfo,
     lightpushPubsubTopic: PubsubTopic,
     lightpushContentTopic: ContentTopic,
@@ -148,9 +151,7 @@ proc publishMessages(
 
     let publishStartTime = Moment.now()
 
-    let wlpRes = await wakuNode.legacyLightpushPublish(
-      some(lightpushPubsubTopic), message, actualServicePeer
-    )
+    let wlpRes = await publisher.send(lightpushPubsubTopic, message, actualServicePeer)
 
     let publishDuration = Moment.now() - publishStartTime
 
@@ -213,10 +214,13 @@ proc publishMessages(
 proc setupAndPublish*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
-  if isNil(wakuNode.wakuLightpushClient):
-    # if we have not yet initialized lightpush client, then do it as the only way we can get here is
-    # by having a service peer discovered.
-    wakuNode.mountLegacyLightPushClient()
+  var publisher: PublisherBase
+  if conf.lightpushVersion == LightpushVersion.LEGACY:
+    info "Using legacy lightpush protocol for publishing messages"
+    publisher = LegacyPublisher.new(wakuNode)
+  else:
+    info "Using lightpush v3 protocol for publishing messages"
+    publisher = V3Publisher.new(wakuNode)
 
   # give some time to receiver side to set up
   let waitTillStartTesting = conf.startPublishingAfter.seconds
@@ -257,6 +261,7 @@ proc setupAndPublish*(
   # Start maintaining subscription
   asyncSpawn publishMessages(
     wakuNode,
+    publisher,
     servicePeer,
     conf.getPubsubTopic(),
     conf.contentTopics[0],
