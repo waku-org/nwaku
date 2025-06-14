@@ -17,10 +17,8 @@ import
     factory/waku,
     factory/external_config,
     waku_node,
-    node/health_monitor,
     node/waku_metrics,
     node/peer_manager,
-    waku_api/rest/builder as rest_server_builder,
     waku_lightpush/common,
     waku_filter_v2,
     waku_peer_exchange/protocol,
@@ -119,50 +117,18 @@ when isMainModule:
   wakuConf.rest = false
   wakuConf.relayServiceRatio = "40:60"
 
-  # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
-  # It will always be called from main thread anyway.
-  # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
-  var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
-  nodeHealthMonitor = WakuNodeHealthMonitor()
-  nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
-
-  let restServer = rest_server_builder.startRestServerEssentials(
-    nodeHealthMonitor, wakuConf
-  ).valueOr:
-    error "Starting esential REST server failed.", error = $error
-    quit(QuitFailure)
-
-  var wakuApp = Waku.new(wakuConf).valueOr:
+  var waku = Waku.new(wakuConf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  wakuApp.restServer = restServer
-
-  nodeHealthMonitor.setNode(wakuApp.node)
-
-  (waitFor startWaku(addr wakuApp)).isOkOr:
+  (waitFor startWaku(addr waku)).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  rest_server_builder.startRestServerProtocolSupport(
-    restServer, wakuApp.node, wakuApp.wakuDiscv5, wakuConf
-  ).isOkOr:
-    error "Starting protocols support REST server failed.", error = $error
-    quit(QuitFailure)
-
-  wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(wakuConf).valueOr:
-    error "Starting monitoring and external interfaces failed", error = error
-    quit(QuitFailure)
-
-  nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
-
   debug "Setting up shutdown hooks"
-  ## Setup shutdown hooks for this process.
-  ## Stop node gracefully on shutdown.
 
-  proc asyncStopper(wakuApp: Waku) {.async: (raises: [Exception]).} =
-    nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-    await wakuApp.stop()
+  proc asyncStopper(waku: Waku) {.async: (raises: [Exception]).} =
+    await waku.stop()
     quit(QuitSuccess)
 
   # Handle Ctrl-C SIGINT
