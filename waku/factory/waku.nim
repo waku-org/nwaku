@@ -361,13 +361,12 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     else:
       waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if conf.discv5Conf.isNone or not conf.discv5Conf.get().discv5Only:
-    (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
-      return err("error while calling startNode: " & $error)
+  (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+    return err("error while calling startNode: " & $error)
 
-    # Update waku data that is set dynamically on node start
-    updateWaku(waku).isOkOr:
-      return err("Error in updateApp: " & $error)
+  ## Update waku data that is set dynamically on node start
+  updateWaku(waku).isOkOr:
+    return err("Error in updateApp: " & $error)
 
   ## Discv5
   if conf.discv5Conf.isSome:

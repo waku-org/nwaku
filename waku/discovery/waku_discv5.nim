@@ -26,7 +26,6 @@ logScope:
 type Discv5Conf* {.requiresInit.} = object
   # TODO: This should probably be an option on the builder
   # But translated to everything else "false" on the config
-  discv5Only*: bool
   bootstrapNodes*: seq[string]
   udpPort*: Port
   tableIpLimit*: uint
