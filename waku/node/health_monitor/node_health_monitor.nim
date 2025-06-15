@@ -11,7 +11,7 @@ import
   ./health_status,
   ./protocol_health
 
-## This node is aimed to check the state of the "self" Waku Node
+## This module is aimed to check the state of the "self" Waku Node
 
 type
   HealthReport* = object
