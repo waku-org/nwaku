@@ -1,5 +1,6 @@
 {.push raises: [].}
 
+import results
 import chronicles, json_serialization, json_serialization/std/options
 import ../../../waku_node, ../serdes
 
@@ -31,13 +32,10 @@ proc readValue*(
         )
 
       let fieldValue = reader.readValue(string)
-      try:
-        health = some(HealthStatus.init(fieldValue))
-        protocol = some(fieldName)
-      except ValueError:
-        reader.raiseUnexpectedValue(
-          "Invalid `health` value: " & getCurrentExceptionMsg()
-        )
+      let h = HealthStatus.init(fieldValue).valueOr:
+        reader.raiseUnexpectedValue("Invalid `health` value: " & $error)
+      health = some(h)
+      protocol = some(fieldName)
 
     value = ProtocolHealth(protocol: protocol.get(), health: health.get(), desc: desc)
 
@@ -63,10 +61,11 @@ proc readValue*(
         reader.raiseUnexpectedField(
           "Multiple `nodeHealth` fields found", "HealthReport"
         )
-      try:
-        nodeHealth = some(HealthStatus.init(reader.readValue(string)))
-      except ValueError:
-        reader.raiseUnexpectedValue("Invalid `health` value")
+
+      let health = HealthStatus.init(reader.readValue(string)).valueOr:
+        reader.raiseUnexpectedValue("Invalid `health` value: " & $error)
+
+      nodeHealth = some(health)
     of "protocolsHealth":
       if protocolsHealth.isSome():
         reader.raiseUnexpectedField(
