@@ -183,7 +183,7 @@ proc new*(
         healthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
       ).valueOr:
         error "Starting essential REST server failed", error = $error
-        return err("Starting essential REST server failed: " & $error)
+        return err("Failed to start essential REST server in Waku.new: " & $error)
 
       restServer
     else:
