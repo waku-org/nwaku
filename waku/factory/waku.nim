@@ -155,16 +155,6 @@ proc setupAppCallbacks(
 
   return ok()
 
-proc startRestServerEssentials(
-    healthMonitor: NodeHealthMonitor, wakuConf: WakuConf
-): Result[WakuRestServerRef, string] =
-  let restServer = rest_server_builder.startRestServerEssentials(
-    healthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
-  ).valueOr:
-    return err("Starting essential REST server failed: " & $error)
-
-  return ok(restServer)
-
 proc new*(
     T: type Waku, wakuConf: WakuConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
