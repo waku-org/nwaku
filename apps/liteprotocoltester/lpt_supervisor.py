@@ -24,8 +24,8 @@ def run_tester_node(predefined_test_env):
   return os.system(script_cmd)
 
 if __name__ == "__main__":
-  if len(sys.argv) < 2 or sys.argv[1] not in ["RECEIVER", "SENDER"]:
-    print("Error: First argument must be either 'RECEIVER' or 'SENDER'")
+  if len(sys.argv) < 2 or sys.argv[1] not in ["RECEIVER", "SENDER", "SENDERV3"]:
+    print("Error: First argument must be either 'RECEIVER' or 'SENDER' or 'SENDERV3'")
     sys.exit(1)
 
   predefined_test_env_file = '/usr/bin/infra.env'
