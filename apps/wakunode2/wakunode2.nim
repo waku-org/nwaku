@@ -16,7 +16,6 @@ import
     factory/external_config,
     factory/waku,
     node/health_monitor,
-    node/waku_metrics,
     waku_api/rest/builder as rest_server_builder,
   ]
 
@@ -53,69 +52,21 @@ when isMainModule:
     let conf = wakuNodeConf.toInspectRlnDbConf()
     doInspectRlnDb(conf)
   of noCommand:
-    # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
-    # It will always be called from main thread anyway.
-    # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
-    var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
-    nodeHealthMonitor = WakuNodeHealthMonitor()
-    nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
-
     let conf = wakuNodeConf.toWakuConf().valueOr:
       error "Waku configuration failed", error = error
       quit(QuitFailure)
-
-    var restServer: WakuRestServerRef = nil
-
-    if conf.restServerConf.isSome():
-      restServer = rest_server_builder.startRestServerEssentials(
-        nodeHealthMonitor, conf.restServerConf.get(), conf.portsShift
-      ).valueOr:
-        error "Starting essential REST server failed.", error = $error
-        quit(QuitFailure)
 
     var waku = Waku.new(conf).valueOr:
       error "Waku initialization failed", error = error
       quit(QuitFailure)
 
-    waku.restServer = restServer
-
-    nodeHealthMonitor.setNode(waku.node)
-
     (waitFor startWaku(addr waku)).isOkOr:
       error "Starting waku failed", error = error
       quit(QuitFailure)
 
-    if conf.restServerConf.isSome():
-      rest_server_builder.startRestServerProtocolSupport(
-        restServer,
-        waku.node,
-        waku.wakuDiscv5,
-        conf.restServerConf.get(),
-        conf.relay,
-        conf.lightPush,
-        conf.clusterId,
-        conf.shards,
-        conf.contentTopics,
-      ).isOkOr:
-        error "Starting protocols support REST server failed.", error = $error
-        quit(QuitFailure)
-
-    if conf.metricsServerConf.isSome():
-      waku.metricsServer = waku_metrics.startMetricsServerAndLogging(
-        conf.metricsServerConf.get(), conf.portsShift
-      ).valueOr:
-        error "Starting monitoring and external interfaces failed", error = error
-        quit(QuitFailure)
-
-    nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
-
     debug "Setting up shutdown hooks"
-    ## Setup shutdown hooks for this process.
-    ## Stop node gracefully on shutdown.
-
-    proc asyncStopper(node: Waku) {.async: (raises: [Exception]).} =
-      nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-      await node.stop()
+    proc asyncStopper(waku: Waku) {.async: (raises: [Exception]).} =
+      await waku.stop()
       quit(QuitSuccess)
 
     # Handle Ctrl-C SIGINT
