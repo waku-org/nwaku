@@ -39,7 +39,7 @@ suite "Waku v2 REST API - health":
   asyncTest "Get node health info - GET /health":
     # Given
     let node = testWakuNode()
-    let healthMonitor = WakuNodeHealthMonitor()
+    let healthMonitor = NodeHealthMonitor()
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -78,7 +78,7 @@ suite "Waku v2 REST API - health":
     node.mountLightPushClient()
     await node.mountFilterClient()
 
-    healthMonitor.setNode(node)
+    healthMonitor.setNodeToHealthMonitor(node)
     healthMonitor.setOverallHealth(HealthStatus.READY)
     # When
     response = await client.healthCheck()

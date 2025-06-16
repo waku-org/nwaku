@@ -7,13 +7,17 @@ import
   strutils,
   libp2p/peerid,
   metrics
-import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
+import
+  ../../../../waku/factory/waku,
+  ../../../../waku/node/waku_node,
+  ../../../../waku/node/health_monitor
 
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES
   RETRIEVE_MY_ENR
   RETRIEVE_MY_PEER_ID
   RETRIEVE_METRICS
+  RETRIEVE_ONLINE_STATE
 
 type DebugNodeRequest* = object
   operation: DebugNodeMsgType
@@ -49,6 +53,8 @@ proc process*(
     return ok($waku.node.peerId())
   of RETRIEVE_METRICS:
     return ok(getMetrics())
+  of RETRIEVE_ONLINE_STATE:
+    return ok($waku.healthMonitor.onlineMonitor.amIOnline())
 
   error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")
