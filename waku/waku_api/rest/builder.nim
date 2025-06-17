@@ -40,7 +40,7 @@ type RestServerConf* = object
   relayCacheCapacity*: uint32
 
 proc startRestServerEssentials*(
-    nodeHealthMonitor: WakuNodeHealthMonitor, conf: RestServerConf, portsShift: uint16
+    nodeHealthMonitor: NodeHealthMonitor, conf: RestServerConf, portsShift: uint16
 ): Result[WakuRestServerRef, string] =
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef
@@ -139,8 +139,7 @@ proc startRestServerProtocolSupport*(
   if relayEnabled:
     ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
     ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
-    const RestRelayCacheCapacity = 50
-    let cache = MessageCache.init(int(RestRelayCacheCapacity))
+    let cache = MessageCache.init(int(conf.relayCacheCapacity))
 
     let handler: WakuRelayHandler = messageCacheHandler(cache)
 
@@ -148,9 +147,9 @@ proc startRestServerProtocolSupport*(
       let pubsubTopic = $RelayShard(clusterId: clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
 
-      ## TODO: remove this line. use observer-observable pattern
-      ## within waku_node::registerRelayDefaultHandler
-      discard node.wakuRelay.subscribe(pubsubTopic, handler)
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+        error "Could not subscribe", pubsubTopic, error
+        continue
 
     for contentTopic in contentTopics:
       cache.contentSubscribe(contentTopic)
@@ -160,9 +159,9 @@ proc startRestServerProtocolSupport*(
         continue
       let pubsubTopic = $shard
 
-      ## TODO: remove this line. use observer-observable pattern
-      ## within waku_node::registerRelayDefaultHandler
-      discard node.wakuRelay.subscribe(pubsubTopic, handler)
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+        error "Could not subscribe", pubsubTopic, error
+        continue
 
     installRelayApiHandlers(router, node, cache)
   else:

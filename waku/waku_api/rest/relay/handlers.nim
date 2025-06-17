@@ -67,9 +67,7 @@ proc installRelayApiHandlers*(
     for pubsubTopic in newTopics:
       cache.pubsubSubscribe(pubsubTopic)
 
-      node.subscribe(
-        (kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache))
-      ).isOkOr:
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), messageCacheHandler(cache)).isOkOr:
         let errorMsg = "Subscribe failed:" & $error
         error "SUBSCRIBE failed", error = errorMsg
         return RestApiResponse.internalServerError(errorMsg)
@@ -202,7 +200,7 @@ proc installRelayApiHandlers*(
       cache.contentSubscribe(contentTopic)
 
       node.subscribe(
-        (kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache))
+        (kind: ContentSub, topic: contentTopic), messageCacheHandler(cache)
       ).isOkOr:
         let errorMsg = "Subscribe failed:" & $error
         error "SUBSCRIBE failed", error = errorMsg

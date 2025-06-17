@@ -245,12 +245,6 @@ type WakuNodeConf* = object
     .}: bool
 
     ## DNS addrs config
-    dnsAddrs* {.
-      desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
-      defaultValue: true,
-      name: "dns-addrs"
-    .}: bool
-
     dnsAddrsNameServers* {.
       desc:
         "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
@@ -509,7 +503,7 @@ with the drawback of consuming some more bandwidth.""",
 
     restRelayCacheCapacity* {.
       desc: "Capacity of the Relay REST API message cache.",
-      defaultValue: 30,
+      defaultValue: 50,
       name: "rest-relay-cache-capacity"
     .}: uint32
 
@@ -567,12 +561,6 @@ with the drawback of consuming some more bandwidth.""",
       name: "dns-discovery-url"
     .}: string
 
-    dnsDiscoveryNameServers* {.
-      desc: "DNS name server IPs to query. Argument may be repeated.",
-      defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-      name: "dns-discovery-name-server"
-    .}: seq[IpAddress]
-
     ## Discovery v5 config
     discv5Discovery* {.
       desc: "Enable discovering nodes via Node Discovery v5.",
@@ -621,12 +609,6 @@ with the drawback of consuming some more bandwidth.""",
       defaultValue: 1,
       name: "discv5-bits-per-hop"
     .}: int
-
-    discv5Only* {.
-      desc: "Disable all protocols other than discv5",
-      defaultValue: false,
-      name: "discv5-only"
-    .}: bool
 
     ## waku peer exchange config
     peerExchange* {.
@@ -962,7 +944,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     b.withPeerStoreCapacity(n.peerStoreCapacity.get())
 
   b.withPeerPersistence(n.peerPersistence)
-  b.withDnsAddrs(n.dnsAddrs)
   b.withDnsAddrsNameServers(n.dnsAddrsNameServers)
   b.withDns4DomainName(n.dns4DomainName)
   b.withCircuitRelayClient(n.isRelayClient)
@@ -1024,7 +1005,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
 
   b.dnsDiscoveryConf.withEnabled(n.dnsDiscovery)
   b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
-  b.dnsDiscoveryConf.withNameServers(n.dnsDiscoveryNameServers)
 
   if n.discv5Discovery.isSome():
     b.discv5Conf.withEnabled(n.discv5Discovery.get())
@@ -1035,7 +1015,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.discv5Conf.withTableIpLimit(n.discv5TableIpLimit)
   b.discv5Conf.withBucketIpLimit(n.discv5BucketIpLimit)
   b.discv5Conf.withBitsPerHop(n.discv5BitsPerHop)
-  b.discv5Conf.withDiscv5Only(n.discv5Only)
 
   b.withPeerExchange(n.peerExchange)
 

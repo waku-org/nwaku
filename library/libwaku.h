@@ -150,6 +150,10 @@ int waku_disconnect_peer_by_id(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_disconnect_all_peers(void* ctx,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_dial_peer(void* ctx,
                  const char* peerMultiAddr,
                  const char* protocol,
@@ -218,6 +222,10 @@ int waku_get_my_enr(void* ctx,
                     void* userData);
 
 int waku_get_my_peerid(void* ctx,
+                    WakuCallBack callback,
+                    void* userData);
+
+int waku_get_metrics(void* ctx,
                     WakuCallBack callback,
                     void* userData);
 

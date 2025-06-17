@@ -8,7 +8,6 @@ import
   libp2p/multistream,
   libp2p/muxers/muxer,
   libp2p/nameresolving/nameresolver,
-  libp2p/nameresolving/dnsresolver,
   libp2p/peerstore
 
 import
@@ -21,6 +20,7 @@ import
   ../../waku_enr/sharding,
   ../../waku_enr/capabilities,
   ../../waku_metadata,
+  ../health_monitor/online_monitor,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
@@ -74,8 +74,6 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
-  DNSCheckDomain = "one.one.one.one"
-
 type ConnectionChangeHandler* = proc(
   peerId: PeerId, peerEvent: PeerEventKind
 ): Future[void] {.gcsafe, raises: [Defect].}
@@ -98,15 +96,11 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
-  dnsNameServers*: seq[IpAddress]
-  online: bool
+  online: bool ## state managed by online_monitor module
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
 #~~~~~~~~~~~~~~~~~~~#
-
-template isOnline*(self: PeerManager): bool =
-  self.online
 
 proc calculateBackoff(
     initialBackoffInSec: int, backoffFactor: int, failedAttempts: int
@@ -543,35 +537,9 @@ proc getStreamByPeerIdAndProtocol*(
 
   return ok(streamRes.get())
 
-proc checkInternetConnectivity(
-    nameServerIps: seq[IpAddress], timeout = 2.seconds
-): Future[bool] {.async.} =
-  var nameServers: seq[TransportAddress]
-  for ip in nameServerIps:
-    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-  let dnsResolver = DnsResolver.new(nameServers)
-
-  # Resolve domain IP
-  let resolved = await dnsResolver.resolveIp(DNSCheckDomain, 0.Port, Domain.AF_UNSPEC)
-
-  if resolved.len > 0:
-    return true
-  else:
-    return false
-
-proc updateOnlineState*(pm: PeerManager) {.async.} =
-  let numConnectedPeers =
-    pm.switch.peerStore.peers().countIt(it.connectedness == Connected)
-
-  if numConnectedPeers > 0:
-    pm.online = true
-  else:
-    pm.online = await checkInternetConnectivity(pm.dnsNameServers)
-
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   # only attempt if current node is online
-  if not pm.isOnline():
+  if not pm.online:
     error "connectToRelayPeers: won't attempt new connections - node is offline"
     return
 
@@ -739,6 +707,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
           debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
           asyncSpawn(pm.switch.disconnect(peerId))
           peerStore.delete(peerId)
+
     if not pm.onConnectionChange.isNil():
       # we don't want to await for the callback to finish
       asyncSpawn pm.onConnectionChange(peerId, Joined)
@@ -753,6 +722,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         if pm.ipTable[ip].len == 0:
           pm.ipTable.del(ip)
         break
+
     if not pm.onConnectionChange.isNil():
       # we don't want to await for the callback to finish
       asyncSpawn pm.onConnectionChange(peerId, Left)
@@ -809,6 +779,10 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
+proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
+  return proc(online: bool) {.gcsafe, raises: [].} =
+    pm.online = online
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Pruning and Maintenance (Stale Peers Management)    #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -817,7 +791,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
 
-  if not pm.isOnline():
+  if not pm.online:
     error "manageRelayPeers: won't attempt new connections - node is offline"
     return
 
@@ -1048,7 +1022,6 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
-    dnsNameServers = newSeq[IpAddress](),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1099,7 +1072,6 @@ proc new*(
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
-    dnsNameServers: dnsNameServers,
     online: true,
   )
 

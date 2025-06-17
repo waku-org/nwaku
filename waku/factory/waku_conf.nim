@@ -13,7 +13,7 @@ import
   ../node/waku_metrics,
   ../common/logging,
   ../waku_enr/capabilities,
-  ./network_conf
+  ./networks_config
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
@@ -95,7 +95,6 @@ type WakuConf* {.requiresInit.} = ref object
   webSocketConf*: Option[WebSocketConf]
 
   portsShift*: uint16
-  dnsAddrs*: bool
   dnsAddrsNameServers*: seq[IpAddress]
   networkConf*: NetworkConfig
   wakuFlags*: CapabilitiesBitfield

@@ -82,7 +82,6 @@ type WakuConfBuilder* = object
 
   # TODO: move within a relayConf
   rendezvous: Option[bool]
-  discv5Only: Option[bool]
 
   clusterConf: Option[ClusterConf]
 
@@ -107,7 +106,6 @@ type WakuConfBuilder* = object
   extMultiAddrs: seq[string]
   extMultiAddrsOnly: Option[bool]
 
-  dnsAddrs: Option[bool]
   dnsAddrsNameServers: seq[IpAddress]
 
   peerPersistence: Option[bool]
@@ -193,9 +191,6 @@ proc withRemotePeerExchangeNode*(
 ) =
   b.remotePeerExchangeNode = some(remotePeerExchangeNode)
 
-proc withDnsAddrs*(b: var WakuConfBuilder, dnsAddrs: bool) =
-  b.dnsAddrs = some(dnsAddrs)
-
 proc withPeerPersistence*(b: var WakuConfBuilder, peerPersistence: bool) =
   b.peerPersistence = some(peerPersistence)
 
@@ -208,7 +203,7 @@ proc withMaxConnections*(b: var WakuConfBuilder, maxConnections: int) =
 proc withDnsAddrsNameServers*(
     b: var WakuConfBuilder, dnsAddrsNameServers: seq[IpAddress]
 ) =
-  b.dnsAddrsNameServers = concat(b.dnsAddrsNameServers, dnsAddrsNameServers)
+  b.dnsAddrsNameServers.insert(dnsAddrsNameServers)
 
 proc withLogLevel*(b: var WakuConfBuilder, logLevel: logging.LogLevel) =
   b.logLevel = some(logLevel)
@@ -541,13 +536,6 @@ proc build*(
       warn "Whether to only announce external multiaddresses is not specified, defaulting to false"
       false
 
-  let dnsAddrs =
-    if builder.dnsAddrs.isSome():
-      builder.dnsAddrs.get()
-    else:
-      warn "Whether to resolve DNS multiaddresses was not specified, defaulting to false."
-      false
-
   let dnsAddrsNameServers =
     if builder.dnsAddrsNameServers.len != 0:
       builder.dnsAddrsNameServers
@@ -627,7 +615,6 @@ proc build*(
     ),
     portsShift: portsShift,
     webSocketConf: webSocketConf,
-    dnsAddrs: dnsAddrs,
     dnsAddrsNameServers: dnsAddrsNameServers,
     peerPersistence: peerPersistence,
     peerStoreCapacity: builder.peerStoreCapacity,
