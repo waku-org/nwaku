@@ -25,7 +25,12 @@ fi
 
 FUNCTION=$2
 if [ "${FUNCTION}" = "SENDER" ]; then
-  FUNCTION=--test-func=SENDER
+  FUNCTION="--test-func=SENDER --lightpush-version=LEGACY"
+  SERVICENAME=lightpush-service
+fi
+
+if [ "${FUNCTION}" = "SENDERV3" ]; then
+  FUNCTION="--test-func=SENDER --lightpush-version=V3"
   SERVICENAME=lightpush-service
 fi
 

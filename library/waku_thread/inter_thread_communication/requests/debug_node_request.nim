@@ -1,11 +1,23 @@
 import std/json
-import chronicles, chronos, results, eth/p2p/discoveryv5/enr, strutils, libp2p/peerid
-import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
+import
+  chronicles,
+  chronos,
+  results,
+  eth/p2p/discoveryv5/enr,
+  strutils,
+  libp2p/peerid,
+  metrics
+import
+  ../../../../waku/factory/waku,
+  ../../../../waku/node/waku_node,
+  ../../../../waku/node/health_monitor
 
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES
   RETRIEVE_MY_ENR
   RETRIEVE_MY_PEER_ID
+  RETRIEVE_METRICS
+  RETRIEVE_ONLINE_STATE
 
 type DebugNodeRequest* = object
   operation: DebugNodeMsgType
@@ -21,6 +33,10 @@ proc destroyShared(self: ptr DebugNodeRequest) =
 proc getMultiaddresses(node: WakuNode): seq[string] =
   return node.info().listenAddresses
 
+proc getMetrics(): string =
+  {.gcsafe.}:
+    return defaultRegistry.toText() ## defaultRegistry is {.global.} in metrics module
+
 proc process*(
     self: ptr DebugNodeRequest, waku: Waku
 ): Future[Result[string, string]] {.async.} =
@@ -35,6 +51,10 @@ proc process*(
     return ok(waku.node.enr.toURI())
   of RETRIEVE_MY_PEER_ID:
     return ok($waku.node.peerId())
+  of RETRIEVE_METRICS:
+    return ok(getMetrics())
+  of RETRIEVE_ONLINE_STATE:
+    return ok($waku.healthMonitor.onlineMonitor.amIOnline())
 
   error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")

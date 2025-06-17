@@ -3,6 +3,7 @@
 import
   std/[sets, strformat, sequtils, tables],
   chronicles,
+  chronicles/topics_registry,
   json_serialization,
   presto/route,
   libp2p/[peerinfo, switch, peerid, protocols/pubsub/pubsubpeer]
@@ -31,6 +32,8 @@ export types
 logScope:
   topics = "waku node rest admin api"
 
+const ROUTE_ADMIN_V1_PEERS_STATS* = "/admin/v1/peers/stats" # provides peer statistics
+
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers" # returns all peers
 const ROUTE_ADMIN_V1_SINGLE_PEER* = "/admin/v1/peer/{peerId}"
 
@@ -45,6 +48,9 @@ const ROUTE_ADMIN_V1_MESH_PEERS* = "/admin/v1/peers/mesh"
 const ROUTE_ADMIN_V1_MESH_PEERS_ON_SHARD* = "/admin/v1/peers/mesh/on/{shardId}"
 
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
+
+const ROUTE_ADMIN_V1_POST_LOG_LEVEL* = "/admin/v1/log-level/{logLevel}"
+  # sets the new log level for the node
 
 type PeerProtocolTuple =
   tuple[
@@ -93,6 +99,40 @@ proc populateAdminPeerInfoForCodecs(node: WakuNode, codecs: seq[string]): WakuPe
     populateAdminPeerInfo(peers, node, some(codec))
 
   return peers
+
+proc getRelayPeers(node: WakuNode): PeersOfShards =
+  var relayPeers: PeersOfShards = @[]
+  if not node.wakuRelay.isNil():
+    for topic in node.wakuRelay.getSubscribedTopics():
+      let relayShard = RelayShard.parse(topic).valueOr:
+        error "Invalid subscribed topic", error = error, topic = topic
+        continue
+      let pubsubPeers =
+        node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+      relayPeers.add(
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
+      )
+  return relayPeers
+
+proc getMeshPeers(node: WakuNode): PeersOfShards =
+  var meshPeers: PeersOfShards = @[]
+  if not node.wakuRelay.isNil():
+    for topic in node.wakuRelay.getSubscribedTopics():
+      let relayShard = RelayShard.parse(topic).valueOr:
+        error "Invalid subscribed topic", error = error, topic = topic
+        continue
+      let peers =
+        node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+      meshPeers.add(
+        PeersOfShard(
+          shard: relayShard.shardId,
+          peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager)),
+        )
+      )
+  return meshPeers
 
 proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
@@ -185,19 +225,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         "Error: Relay Protocol is not mounted to the node"
       )
 
-    var relayPeers: PeersOfShards = @[]
-    for topic in node.wakuRelay.getSubscribedTopics():
-      let relayShard = RelayShard.parse(topic).valueOr:
-        error "Invalid subscribed topic", error = error, topic = topic
-        continue
-      let pubsubPeers =
-        node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
-      relayPeers.add(
-        PeersOfShard(
-          shard: relayShard.shardId,
-          peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager)),
-        )
-      )
+    var relayPeers: PeersOfShards = getRelayPeers(node)
 
     let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200).valueOr:
       error "An error occurred while building the json response: ", error = error
@@ -240,21 +268,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         "Error: Relay Protocol is not mounted to the node"
       )
 
-    var relayPeers: PeersOfShards = @[]
-    for topic in node.wakuRelay.getSubscribedTopics():
-      let relayShard = RelayShard.parse(topic).valueOr:
-        error "Invalid subscribed topic", error = error, topic = topic
-        continue
-      let peers =
-        node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
-      relayPeers.add(
-        PeersOfShard(
-          shard: relayShard.shardId,
-          peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager)),
-        )
-      )
+    var meshPeers: PeersOfShards = getMeshPeers(node)
 
-    let resp = RestApiResponse.jsonResponse(relayPeers, status = Http200).valueOr:
+    let resp = RestApiResponse.jsonResponse(meshPeers, status = Http200).valueOr:
       error "An error occurred while building the json response: ", error = error
       return RestApiResponse.internalServerError(
         fmt("An error occurred while building the json response: {error}")
@@ -282,6 +298,75 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     )
 
     let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200).valueOr:
+      error "An error occurred while building the json response: ", error = error
+      return RestApiResponse.internalServerError(
+        fmt("An error occurred while building the json response: {error}")
+      )
+
+    return resp
+
+  router.api(MethodGet, ROUTE_ADMIN_V1_PEERS_STATS) do() -> RestApiResponse:
+    let peers = populateAdminPeerInfoForAll(node)
+
+    var stats: PeerStats = initOrderedTable[string, OrderedTable[string, int]]()
+
+    stats["Sum"] = {"Total peers": peers.len()}.toOrderedTable()
+
+    # stats of connectedness
+    var connectednessStats = initOrderedTable[string, int]()
+    connectednessStats[$Connectedness.Connected] =
+      peers.countIt(it.connected == Connectedness.Connected)
+    connectednessStats[$Connectedness.NotConnected] =
+      peers.countIt(it.connected == Connectedness.NotConnected)
+    connectednessStats[$Connectedness.CannotConnect] =
+      peers.countIt(it.connected == Connectedness.CannotConnect)
+    connectednessStats[$Connectedness.CanConnect] =
+      peers.countIt(it.connected == Connectedness.CanConnect)
+    stats["By Connectedness"] = connectednessStats
+
+    # stats of relay peers
+    var totalRelayPeers = 0
+    stats["Relay peers"] = block:
+      let relayPeers = getRelayPeers(node)
+      var stat = initOrderedTable[string, int]()
+      for ps in relayPeers:
+        totalRelayPeers += ps.peers.len
+        stat[$ps.shard] = ps.peers.len
+      stat["Total relay peers"] = relayPeers.len
+      stat
+
+    # stats of mesh peers
+    stats["Mesh peers"] = block:
+      let meshPeers = getMeshPeers(node)
+      var totalMeshPeers = 0
+      var stat = initOrderedTable[string, int]()
+      for ps in meshPeers:
+        totalMeshPeers += ps.peers.len
+        stat[$ps.shard] = ps.peers.len
+      stat["Total mesh peers"] = meshPeers.len
+      stat
+
+    var protoStats = initOrderedTable[string, int]()
+    protoStats[WakuRelayCodec] = peers.countIt(it.protocols.contains(WakuRelayCodec))
+    protoStats[WakuFilterSubscribeCodec] =
+      peers.countIt(it.protocols.contains(WakuFilterSubscribeCodec))
+    protoStats[WakuFilterPushCodec] =
+      peers.countIt(it.protocols.contains(WakuFilterPushCodec))
+    protoStats[WakuStoreCodec] = peers.countIt(it.protocols.contains(WakuStoreCodec))
+    protoStats[WakuLegacyStoreCodec] =
+      peers.countIt(it.protocols.contains(WakuLegacyStoreCodec))
+    protoStats[WakuLightPushCodec] =
+      peers.countIt(it.protocols.contains(WakuLightPushCodec))
+    protoStats[WakuLegacyLightPushCodec] =
+      peers.countIt(it.protocols.contains(WakuLegacyLightPushCodec))
+    protoStats[WakuPeerExchangeCodec] =
+      peers.countIt(it.protocols.contains(WakuPeerExchangeCodec))
+    protoStats[WakuReconciliationCodec] =
+      peers.countIt(it.protocols.contains(WakuReconciliationCodec))
+
+    stats["By Protocols"] = protoStats
+
+    let resp = RestApiResponse.jsonResponse(stats, status = Http200).valueOr:
       error "An error occurred while building the json response: ", error = error
       return RestApiResponse.internalServerError(
         fmt("An error occurred while building the json response: {error}")
@@ -337,7 +422,40 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
 
     return resp.get()
 
+proc installAdminV1PostLogLevelHandler(router: var RestRouter, node: WakuNode) =
+  router.api(MethodPost, ROUTE_ADMIN_V1_POST_LOG_LEVEL) do(
+    logLevel: string
+  ) -> RestApiResponse:
+    when runtimeFilteringEnabled:
+      if logLevel.isErr() or logLevel.value().isEmptyOrWhitespace():
+        return RestApiResponse.badRequest("Invalid log-level, it can’t be empty")
+
+      try:
+        let newLogLevel = parseEnum[LogLevel](logLevel.value().capitalizeAscii())
+
+        if newLogLevel < enabledLogLevel:
+          return RestApiResponse.badRequest(
+            fmt(
+              "Log level {newLogLevel} is lower than the lowest log level - {enabledLogLevel} - the binary is compiled with."
+            )
+          )
+
+        setLogLevel(newLogLevel)
+      except ValueError:
+        return RestApiResponse.badRequest(
+          fmt(
+            "Invalid log-level: {logLevel.value()}. Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+          )
+        )
+
+      return RestApiResponse.ok()
+    else:
+      return RestApiResponse.serviceUnavailable(
+        "Dynamic Log level management is not enabled in this build. Please recompile with `-d:chronicles_runtime_filtering:on`."
+      )
+
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
   installAdminV1PostPeersHandler(router, node)
   installAdminV1GetFilterSubsHandler(router, node)
+  installAdminV1PostLogLevelHandler(router, node)

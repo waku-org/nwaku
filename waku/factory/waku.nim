@@ -26,9 +26,11 @@ import
   ../waku_node,
   ../node/peer_manager,
   ../node/health_monitor,
+  ../node/waku_metrics,
   ../node/delivery_monitor/delivery_monitor,
   ../waku_api/message_cache,
   ../waku_api/rest/server,
+  ../waku_api/rest/builder as rest_server_builder,
   ../waku_archive,
   ../waku_relay/protocol,
   ../discovery/waku_dnsdisc,
@@ -65,6 +67,8 @@ type Waku* = ref object
   discoveryMngr: DiscoveryManager
 
   node*: WakuNode
+
+  healthMonitor*: NodeHealthMonitor
 
   deliveryMonitor: DeliveryMonitor
 
@@ -159,19 +163,33 @@ proc new*(
   logging.setupLog(wakuConf.logLevel, wakuConf.logFormat)
 
   ?wakuConf.validate()
-
   wakuConf.logConf()
 
-  info "Running nwaku node", version = git_version
+  let healthMonitor = NodeHealthMonitor.new(wakuConf.dnsAddrsNameServers)
+
+  let restServer: WakuRestServerRef =
+    if wakuConf.restServerConf.isSome():
+      let restServer = startRestServerEssentials(
+        healthMonitor, wakuConf.restServerConf.get(), wakuConf.portsShift
+      ).valueOr:
+        error "Starting essential REST server failed", error = $error
+        return err("Failed to start essential REST server in Waku.new: " & $error)
+
+      restServer
+    else:
+      nil
 
   var relay = newCircuitRelay(wakuConf.circuitRelayClient)
 
-  let nodeRes = setupNode(wakuConf, rng, relay)
-  if nodeRes.isErr():
-    error "Failed setting up node", error = nodeRes.error
-    return err("Failed setting up node: " & nodeRes.error)
+  let node = setupNode(wakuConf, rng, relay).valueOr:
+    error "Failed setting up node", error = $error
+    return err("Failed setting up node: " & $error)
 
-  let node = nodeRes.get()
+  healthMonitor.setNodeToHealthMonitor(node)
+  healthMonitor.onlineMonitor.setPeerStoreToOnlineMonitor(node.switch.peerStore)
+  healthMonitor.onlineMonitor.addOnlineStateObserver(
+    node.peerManager.getOnlineStateObserver()
+  )
 
   node.setupAppCallbacks(wakuConf, appCallbacks).isOkOr:
     error "Failed setting up app callbacks", error = error
@@ -197,8 +215,10 @@ proc new*(
     rng: rng,
     key: wakuConf.nodeKey,
     node: node,
+    healthMonitor: healthMonitor,
     deliveryMonitor: deliveryMonitor,
     appCallbacks: appCallbacks,
+    restServer: restServer,
   )
 
   waku.setupSwitchServices(wakuConf, relay, rng)
@@ -334,15 +354,6 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
       error "failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg()
     return
 
-# The network connectivity loop checks periodically whether the node is online or not
-# and triggers any change that depends on the network connectivity state
-proc startNetworkConnectivityLoop(waku: Waku): Future[void] {.async.} =
-  while true:
-    await sleepAsync(15.seconds)
-
-    # Update online state
-    await waku.node.peerManager.updateOnlineState()
-
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
   let conf = waku[].conf
@@ -361,16 +372,15 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     else:
       waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if conf.discv5Conf.isNone or not conf.discv5Conf.get().discv5Only:
-    (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
-      return err("error while calling startNode: " & $error)
+  (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+    return err("error while calling startNode: " & $error)
 
-    # Update waku data that is set dynamically on node start
-    updateWaku(waku).isOkOr:
-      return err("Error in updateApp: " & $error)
+  ## Update waku data that is set dynamically on node start
+  updateWaku(waku).isOkOr:
+    return err("Error in updateApp: " & $error)
 
   ## Discv5
-  if conf.discv5Conf.isSome:
+  if conf.discv5Conf.isSome():
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
       waku.node.enr,
       waku.node.peerManager,
@@ -390,22 +400,40 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   if not waku[].deliveryMonitor.isNil():
     waku[].deliveryMonitor.startDeliveryMonitor()
 
-  # Start network connectivity check loop
-  waku[].networkConnLoopHandle = waku[].startNetworkConnectivityLoop()
+  ## Health Monitor
+  waku[].healthMonitor.startHealthMonitor()
+
+  if conf.restServerConf.isSome():
+    rest_server_builder.startRestServerProtocolSupport(
+      waku[].restServer,
+      waku[].node,
+      waku[].wakuDiscv5,
+      conf.restServerConf.get(),
+      conf.relay,
+      conf.lightPush,
+      conf.clusterId,
+      conf.shards,
+      conf.contentTopics,
+    ).isOkOr:
+      return err ("Starting protocols support REST server failed: " & $error)
+
+  if conf.metricsServerConf.isSome():
+    waku[].metricsServer = waku_metrics.startMetricsServerAndLogging(
+      conf.metricsServerConf.get(), conf.portsShift
+    ).valueOr:
+      return err("Starting monitoring and external interfaces failed: " & error)
+
+  waku[].healthMonitor.setOverallHealth(HealthStatus.READY)
 
   return ok()
 
-# Waku shutdown
-
 proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
-  if not waku.restServer.isNil():
-    await waku.restServer.stop()
+  ## Waku shutdown
+
+  waku.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
 
   if not waku.metricsServer.isNil():
     await waku.metricsServer.stop()
-
-  if not waku.networkConnLoopHandle.isNil():
-    await waku.networkConnLoopHandle.cancelAndWait()
 
   if not waku.wakuDiscv5.isNil():
     await waku.wakuDiscv5.stop()
@@ -415,3 +443,9 @@ proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
 
   if not waku.dnsRetryLoopHandle.isNil():
     await waku.dnsRetryLoopHandle.cancelAndWait()
+
+  if not waku.healthMonitor.isNil():
+    await waku.healthMonitor.stopHealthMonitor()
+
+  if not waku.restServer.isNil():
+    await waku.restServer.stop()

@@ -8,6 +8,7 @@ import
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
   ../../../../waku/factory/app_callbacks,
+  ../../../../waku/waku_api/rest/builder,
   ../../../alloc
 
 type NodeLifecycleMsgType* = enum
@@ -73,8 +74,10 @@ proc createWaku(
     appCallbacks.topicHealthChangeHandler = nil
 
   # TODO: Convert `confJson` directly to `WakuConf`
-  let wakuConf = conf.toWakuConf().valueOr:
+  var wakuConf = conf.toWakuConf().valueOr:
     return err("Configuration error: " & $error)
+
+  wakuConf.restServerConf = none(RestServerConf) ## don't want REST in libwaku
 
   let wakuRes = Waku.new(wakuConf, appCallbacks).valueOr:
     error "waku initialization failed", error = error

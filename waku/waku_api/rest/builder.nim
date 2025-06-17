@@ -40,7 +40,7 @@ type RestServerConf* = object
   relayCacheCapacity*: uint32
 
 proc startRestServerEssentials*(
-    nodeHealthMonitor: WakuNodeHealthMonitor, conf: RestServerConf, portsShift: uint16
+    nodeHealthMonitor: NodeHealthMonitor, conf: RestServerConf, portsShift: uint16
 ): Result[WakuRestServerRef, string] =
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef
@@ -139,8 +139,7 @@ proc startRestServerProtocolSupport*(
   if relayEnabled:
     ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
     ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
-    const RestRelayCacheCapacity = 50
-    let cache = MessageCache.init(int(RestRelayCacheCapacity))
+    let cache = MessageCache.init(int(conf.relayCacheCapacity))
 
     let handler: WakuRelayHandler = messageCacheHandler(cache)
 
