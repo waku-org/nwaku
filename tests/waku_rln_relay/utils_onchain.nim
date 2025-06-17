@@ -13,6 +13,7 @@ import
   web3,
   web3/conversions,
   web3/eth_api_types,
+  json_rpc/rpcclient,
   json,
   libp2p/crypto/crypto,
   eth/keys,
@@ -29,7 +30,7 @@ import
   ../testlib/common,
   ./utils
 
-const CHAIN_ID* = 1337
+const CHAIN_ID* = 1337'u256
 
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
@@ -74,7 +75,8 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let add = web3.defaultAccount
   debug "contract deployer account address ", add
 
-  let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  let balance =
+    await web3.provider.eth_getBalance(web3.defaultAccount, blockId("latest"))
   debug "Initial account balance: ", balance
 
   # deploy poseidon hasher bytecode
@@ -250,7 +252,7 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setupOnchainGroupManager*(
-    ethClientAddress: string = EthClient, amountEth: UInt256 = 10.u256
+    ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes =
     createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
@@ -259,9 +261,9 @@ proc setupOnchainGroupManager*(
 
   let rlnInstance = rlnInstanceRes.get()
 
-  let contractAddress = await uploadRLNContract(ethClientAddress)
+  let contractAddress = await uploadRLNContract(ethClientUrl)
   # connect to the eth client
-  let web3 = await newWeb3(ethClientAddress)
+  let web3 = await newWeb3(ethClientUrl)
 
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[0]
@@ -275,7 +277,7 @@ proc setupOnchainGroupManager*(
   )
 
   let manager = OnchainGroupManager(
-    ethClientUrl: ethClientAddress,
+    ethClientUrls: @[ethClientUrl],
     ethContractAddress: $contractAddress,
     chainId: CHAIN_ID,
     ethPrivateKey: some($privateKey),

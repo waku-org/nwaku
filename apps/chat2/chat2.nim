@@ -11,7 +11,6 @@ import
   confutils,
   chronicles,
   chronos,
-  stew/shims/net as stewNet,
   eth/keys,
   bearssl,
   stew/[byteutils, results],
@@ -381,7 +380,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   if conf.relay:
     let shards =
       conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
-    await node.mountRelay(shards)
+    (await node.mountRelay()).isOkOr:
+      echo "failed to mount relay: " & error
+      return
 
   await node.mountLibp2pPing()
 
@@ -534,8 +535,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     node.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler))
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), WakuRelayHandler(handler)
+    ).isOkOr:
+      error "failed to subscribe to pubsub topic",
+        topic = DefaultPubsubTopic, error = error
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"
@@ -553,14 +556,18 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       echo "rln-relay preparation is in progress..."
 
       let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+        dynamic: conf.rlnRelayDynamic,
+        credIndex: conf.rlnRelayCredIndex,
+        chainId: UInt256.fromBytesBE(conf.rlnRelayChainId.toBytesBE()),
+        ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
+        creds: some(
+          RlnRelayCreds(
+            path: conf.rlnRelayCredPath, password: conf.rlnRelayCredPassword
+          )
+        ),
+        userMessageLimit: conf.rlnRelayUserMessageLimit,
+        epochSizeSec: conf.rlnEpochSizeSec,
+        treePath: conf.rlnRelayTreePath,
       )
 
       waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))

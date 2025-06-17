@@ -7,6 +7,7 @@ import
   ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../../waku/waku_core/topics,
   ../../../../../waku/waku_relay/protocol,
   ../../../../../waku/node/peer_manager,
   ../../../../alloc
@@ -108,26 +109,29 @@ proc process*(
 
   case self.operation
   of SUBSCRIBE:
-    # TO DO: properly perform 'subscribe'
-    waku.node.registerRelayDefaultHandler($self.pubsubTopic)
-    discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
+    waku.node.subscribe(
+      (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
+      handler = self.relayEventCallback,
+    ).isOkOr:
+      error "SUBSCRIBE failed", error
+      return err($error)
   of UNSUBSCRIBE:
-    # TODO: properly perform 'unsubscribe'
-    waku.node.wakuRelay.unsubscribeAll($self.pubsubTopic)
+    waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic)).isOkOr:
+      error "UNSUBSCRIBE failed", error
+      return err($error)
   of PUBLISH:
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic
 
     (await waku.node.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
-      let errorMsg = "Message not sent." & $error
-      error "PUBLISH failed", error = errorMsg
-      return err(errorMsg)
+      error "PUBLISH failed", error
+      return err($error)
 
     let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
     return ok(msgHash)
   of NUM_CONNECTED_PEERS:
     let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
-      error "NUM_CONNECTED_PEERS failed", error = error
+      error "NUM_CONNECTED_PEERS failed", error
       return err($error)
     return ok($numConnPeers)
   of LIST_CONNECTED_PEERS:
@@ -157,5 +161,5 @@ proc process*(
         @[protectedShard], uint16(self.clusterId)
       )
     except ValueError:
-      return err("ADD_PROTECTED_SHARD exception: " & getCurrentExceptionMsg())
+      return err(getCurrentExceptionMsg())
   return ok("")

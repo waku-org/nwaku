@@ -3,7 +3,6 @@
 import waku/[common/logging, factory/[waku, networks_config, external_config]]
 import
   std/[options, strutils, os, sequtils],
-  stew/shims/net as stewNet,
   chronicles,
   chronos,
   metrics,
@@ -36,7 +35,6 @@ proc setup*(): Waku =
   conf.clusterId = twnClusterConf.clusterId
   conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
   conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-  conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
   conf.discv5Discovery = twnClusterConf.discv5Discovery
   conf.discv5BootstrapNodes =
     conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes

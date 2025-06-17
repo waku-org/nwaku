@@ -3,7 +3,6 @@
 import
   std/sequtils,
   stew/byteutils,
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -58,8 +57,10 @@ proc init(
     testSetup.consumerNode.start(),
   )
 
-  await testSetup.consumerNode.mountRelay()
-  await testSetup.serviceNode.mountRelay()
+  (await testSetup.consumerNode.mountRelay()).isOkOr:
+    assert false, "Failed to mount relay: " & $error
+  (await testSetup.serviceNode.mountRelay()).isOkOr:
+    assert false, "Failed to mount relay: " & $error
   await testSetup.serviceNode.mountLightPush(rateLimit)
   testSetup.pushNode.mountLightPushClient()
 
@@ -127,12 +128,20 @@ suite "Waku v2 Rest API - lightpush":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
     restLightPushTest.consumerNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
@@ -158,10 +167,15 @@ suite "Waku v2 Rest API - lightpush":
   asyncTest "Push message bad-request":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
@@ -215,13 +229,20 @@ suite "Waku v2 Rest API - lightpush":
     let budgetCap = 3
     let tokenPeriod = 500.millis
     let restLightPushTest = await RestLightPushTest.init((budgetCap, tokenPeriod))
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
     restLightPushTest.consumerNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
     restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 

@@ -2,7 +2,6 @@
 
 import
   std/[tempfiles, strutils, options],
-  stew/shims/net as stewNet,
   stew/results,
   testutils/unittests,
   chronos,
@@ -83,16 +82,15 @@ proc getWakuRlnConfigOnChain*(
     ethClientAddress: Option[string] = none(string),
 ): WakuRlnConfig =
   return WakuRlnConfig(
-    rlnRelayDynamic: true,
-    rlnRelayCredIndex: some(credIndex),
-    rlnRelayEthContractAddress: rlnRelayEthContractAddress,
-    rlnRelayEthClientAddress: ethClientAddress.get(EthClient),
-    rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
-    rlnEpochSizeSec: 1,
+    dynamic: true,
+    credIndex: some(credIndex),
+    ethContractAddress: rlnRelayEthContractAddress,
+    ethClientAddress: ethClientAddress.get(EthClient),
+    treePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
+    epochSizeSec: 1,
     onFatalErrorAction: fatalErrorHandler.get(fatalErrorVoidHandler),
     # If these are used, initialisation fails with "failed to mount WakuRlnRelay: could not initialize the group manager: the commitment does not have a membership"
-    rlnRelayCredPath: keystorePath,
-    rlnRelayCredPassword: password,
+    creds: some(RlnRelayCreds(path: keystorePath, password: password)),
   )
 
 proc setupRelayWithOnChainRln*(
@@ -122,8 +120,8 @@ suite "Waku RlnRelay - End to End - Static":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
 
@@ -227,13 +225,13 @@ suite "Waku RlnRelay - End to End - Static":
 
       let contractAddress = await uploadRLNContract(EthClient)
       let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: true,
-        rlnRelayCredIndex: some(0.uint),
-        rlnRelayUserMessageLimit: 111,
-        rlnRelayTreepath: genTempPath("rln_tree", "wakunode_0"),
-        rlnRelayEthClientAddress: EthClient,
-        rlnRelayEthContractAddress: $contractAddress,
-        rlnRelayChainId: 1337,
+        dynamic: true,
+        credIndex: some(0.uint),
+        userMessageLimit: 111,
+        treepath: genTempPath("rln_tree", "wakunode_0"),
+        ethClientAddress: EthClient,
+        ethContractAddress: $contractAddress,
+        chainId: 1337,
         onFatalErrorAction: proc(errStr: string) =
           raiseAssert errStr
         ,
@@ -263,7 +261,9 @@ suite "Waku RlnRelay - End to End - Static":
           completionFut.complete((topic, msg))
 
       let subscriptionEvent = (kind: PubsubSub, topic: pubsubTopic)
-      server.subscribe(subscriptionEvent, some(relayHandler))
+      server.subscribe(subscriptionEvent, some(relayHandler)).isOkOr:
+        assert false, "Failed to subscribe to pubsub topic"
+
       await sleepAsync(FUTURE_TIMEOUT)
 
       # Generate Messages
@@ -357,7 +357,9 @@ suite "Waku RlnRelay - End to End - Static":
           completionFut.complete((topic, msg))
 
       let subscriptionEvent = (kind: PubsubSub, topic: pubsubTopic)
-      server.subscribe(subscriptionEvent, some(relayHandler))
+      server.subscribe(subscriptionEvent, some(relayHandler)).isOkOr:
+        assert false, "Failed to subscribe to pubsub topic"
+
       await sleepAsync(FUTURE_TIMEOUT)
 
       # Generate Messages
@@ -407,8 +409,8 @@ suite "Waku RlnRelay - End to End - OnChain":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
 

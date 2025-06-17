@@ -2,7 +2,6 @@
 
 import
   std/sequtils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
   chronos,

@@ -16,7 +16,6 @@ import
     factory/external_config,
     factory/waku,
     node/health_monitor,
-    node/waku_metrics,
     waku_api/rest/builder as rest_server_builder,
   ]
 
@@ -38,65 +37,36 @@ when isMainModule:
 
   const versionString = "version / git commit hash: " & waku.git_version
 
-  var conf = WakuNodeConf.load(version = versionString).valueOr:
+  var wakuNodeConf = WakuNodeConf.load(version = versionString).valueOr:
     error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  ## Also called within Waku.new. The call to startRestServerEsentials needs the following line
-  logging.setupLog(conf.logLevel, conf.logFormat)
+  ## Also called within Waku.new. The call to startRestServerEssentials needs the following line
+  logging.setupLog(wakuNodeConf.logLevel, wakuNodeConf.logFormat)
 
-  case conf.cmd
+  case wakuNodeConf.cmd
   of generateRlnKeystore:
+    let conf = wakuNodeConf.toKeystoreGeneratorConf()
     doRlnKeystoreGenerator(conf)
   of inspectRlnDb:
+    let conf = wakuNodeConf.toInspectRlnDbConf()
     doInspectRlnDb(conf)
   of noCommand:
-    # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
-    # It will always be called from main thread anyway.
-    # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
-    var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
-    nodeHealthMonitor = WakuNodeHealthMonitor()
-    nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
-
-    var confCopy = conf
-
-    let restServer = rest_server_builder.startRestServerEsentials(
-      nodeHealthMonitor, confCopy
-    ).valueOr:
-      error "Starting esential REST server failed.", error = $error
+    let conf = wakuNodeConf.toWakuConf().valueOr:
+      error "Waku configuration failed", error = error
       quit(QuitFailure)
 
-    var waku = Waku.new(confCopy).valueOr:
+    var waku = Waku.new(conf).valueOr:
       error "Waku initialization failed", error = error
       quit(QuitFailure)
-
-    waku.restServer = restServer
-
-    nodeHealthMonitor.setNode(waku.node)
 
     (waitFor startWaku(addr waku)).isOkOr:
       error "Starting waku failed", error = error
       quit(QuitFailure)
 
-    rest_server_builder.startRestServerProtocolSupport(
-      restServer, waku.node, waku.wakuDiscv5, confCopy
-    ).isOkOr:
-      error "Starting protocols support REST server failed.", error = $error
-      quit(QuitFailure)
-
-    waku.metricsServer = waku_metrics.startMetricsServerAndLogging(confCopy).valueOr:
-      error "Starting monitoring and external interfaces failed", error = error
-      quit(QuitFailure)
-
-    nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
-
     debug "Setting up shutdown hooks"
-    ## Setup shutdown hooks for this process.
-    ## Stop node gracefully on shutdown.
-
-    proc asyncStopper(node: Waku) {.async: (raises: [Exception]).} =
-      nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-      await node.stop()
+    proc asyncStopper(waku: Waku) {.async: (raises: [Exception]).} =
+      await waku.stop()
       quit(QuitSuccess)
 
     # Handle Ctrl-C SIGINT

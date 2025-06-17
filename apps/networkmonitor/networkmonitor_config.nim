@@ -5,10 +5,9 @@ import
   chronos,
   std/strutils,
   results,
-  stew/shims/net,
   regex
 
-type EthRpcUrl = distinct string
+type EthRpcUrl* = distinct string
 
 type NetworkMonitorConf* = object
   logLevel* {.
@@ -82,11 +81,12 @@ type NetworkMonitorConf* = object
     name: "rln-relay-tree-path"
   .}: string
 
-  rlnRelayEthClientAddress* {.
-    desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-    defaultValue: "http://localhost:8540/",
+  ethClientUrls* {.
+    desc:
+      "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
+    defaultValue: newSeq[EthRpcUrl](0),
     name: "rln-relay-eth-client-address"
-  .}: EthRpcUrl
+  .}: seq[EthRpcUrl]
 
   rlnRelayEthContractAddress* {.
     desc: "Address of membership contract on an Ethereum testnet",

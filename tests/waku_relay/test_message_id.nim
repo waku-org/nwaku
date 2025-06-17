@@ -1,7 +1,7 @@
 import
   unittest,
   results,
-  stew/[shims/net, byteutils],
+  stew/byteutils,
   nimcrypto/sha2,
   libp2p/protocols/pubsub/rpc/messages
 

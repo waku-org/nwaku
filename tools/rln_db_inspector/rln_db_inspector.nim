@@ -5,13 +5,15 @@ else:
 
 import chronicles, sequtils, results
 
-import
-  waku/[waku_rln_relay/rln, waku_rln_relay/conversion_utils, factory/external_config]
+import waku/[waku_rln_relay/rln, waku_rln_relay/conversion_utils]
 
 logScope:
   topics = "rln_db_inspector"
 
-proc doInspectRlnDb*(conf: WakuNodeConf) =
+type InspectRlnDbConf* = object
+  treePath*: string
+
+proc doInspectRlnDb*(conf: InspectRlnDbConf) =
   # 1. load configuration
   trace "configuration", conf = $conf
 

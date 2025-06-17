@@ -46,7 +46,7 @@ import
   ../waku_enr,
   ../waku_peer_exchange,
   ../waku_rln_relay,
-  ./config,
+  ./net_config,
   ./peer_manager,
   ../common/rate_limit/setting
 
@@ -116,7 +116,6 @@ type
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
-    contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
 
 proc new*(
@@ -207,9 +206,9 @@ proc mountSharding*(
 
 proc mountStoreSync*(
     node: WakuNode,
-    storeSyncRange = 3600,
-    storeSyncInterval = 300,
-    storeSyncRelayJitter = 20,
+    storeSyncRange = 3600.uint32,
+    storeSyncInterval = 300.uint32,
+    storeSyncRelayJitter = 20.uint32,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[SyncID](0)
   let wantsChannel = newAsyncQueue[PeerId](0)
@@ -256,7 +255,13 @@ proc mountStoreSync*(
 
 ## Waku relay
 
-proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
+proc registerRelayHandler(
+    node: WakuNode, topic: PubsubTopic, appHandler: WakuRelayHandler
+) =
+  ## Registers the only handler for the given topic.
+  ## Notice that this handler internally calls other handlers, such as filter,
+  ## archive, etc, plus the handler provided by the application.
+
   if node.wakuRelay.isSubscribed(topic):
     return
 
@@ -289,88 +294,80 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
 
     node.wakuStoreReconciliation.messageIngress(topic, msg)
 
-  let defaultHandler = proc(
+  let uniqueTopicHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
     await syncHandler(topic, msg)
+    await appHandler(topic, msg)
 
-  discard node.wakuRelay.subscribe(topic, defaultHandler)
+  node.wakuRelay.subscribe(topic, uniqueTopicHandler)
 
 proc subscribe*(
-    node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)
-) =
+    node: WakuNode, subscription: SubscriptionEvent, handler: WakuRelayHandler
+): Result[void, string] =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
-    return
+    return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentSub:
       let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
         error "Autosharding error", error = error
-        return
+        return err("Autosharding error: " & error)
 
       ($shard, some(subscription.topic))
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
-      return
+      return err("Unsupported subscription type in relay subscribe")
 
-  if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    error "Invalid API call to `subscribe`. Was already subscribed"
-    return
+  if node.wakuRelay.isSubscribed(pubsubTopic):
+    warn "No-effect API call to subscribe. Already subscribed to topic", pubsubTopic
+    return ok()
 
+  node.registerRelayHandler(pubsubTopic, handler)
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
-  node.registerRelayDefaultHandler(pubsubTopic)
 
-  if handler.isSome():
-    let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
+  return ok()
 
-    if contentTopicOp.isSome():
-      node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
-
-proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
+proc unsubscribe*(
+    node: WakuNode, subscription: SubscriptionEvent
+): Result[void, string] =
   ## Unsubscribes from a specific PubSub or Content topic.
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
-    return
+    return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
 
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentUnsub:
       let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
         error "Autosharding error", error = error
-        return
+        return err("Autosharding error: " & error)
 
       ($shard, some(subscription.topic))
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
-      return
+      return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
-    error "Invalid API call to `unsubscribe`. Was not subscribed"
-    return
+    warn "No-effect API call to `unsubscribe`. Was not subscribed", pubsubTopic
+    return ok()
 
-  if contentTopicOp.isSome():
-    # Remove this handler only
-    var handler: TopicHandler
-    if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
-      debug "unsubscribe", contentTopic = contentTopicOp.get()
-      node.wakuRelay.unsubscribe(pubsubTopic, handler)
+  debug "unsubscribe", pubsubTopic, contentTopicOp
+  node.wakuRelay.unsubscribe(pubsubTopic)
+  node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
-  if contentTopicOp.isNone() or node.wakuRelay.topics.getOrDefault(pubsubTopic).len == 1:
-    # Remove all handlers
-    debug "unsubscribe", pubsubTopic = pubsubTopic
-    node.wakuRelay.unsubscribeAll(pubsubTopic)
-    node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+  return ok()
 
 proc publish*(
     node: WakuNode, pubsubTopicOp: Option[PubsubTopic], message: WakuMessage
@@ -430,23 +427,19 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
-) {.async, gcsafe.} =
+): Future[Result[void, string]] {.async.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
-    return
+    return err("wakuRelay already mounted, skipping")
 
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
-  let initRes = WakuRelay.new(node.switch, maxMessageSize)
-  if initRes.isErr():
-    error "failed mounting relay protocol", error = initRes.error
-    return
-
-  node.wakuRelay = initRes.value
+  node.wakuRelay = WakuRelay.new(node.switch, maxMessageSize).valueOr:
+    error "failed mounting relay protocol", error = error
+    return err("failed mounting relay protocol: " & error)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
@@ -459,11 +452,8 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  info "relay mounted successfully", shards = shards
-
-  # Subscribe to shards
-  for shard in shards:
-    node.subscribe((kind: PubsubSub, topic: $shard))
+  info "relay mounted successfully"
+  return ok()
 
 ## Waku filter
 
@@ -1218,7 +1208,7 @@ proc mountRlnRelay*(
     raise
       newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
-  if (rlnConf.rlnRelayUserMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
+  if (rlnConf.userMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
     error "rln-relay-user-message-limit can't exceed the MAX_MESSAGE_LIMIT in the rln contract"
   let validator = generateRlnValidator(rlnRelay, spamHandler)
 
@@ -1462,7 +1452,7 @@ proc start*(node: WakuNode) {.async.} =
   ## with announced addrs after start
   let addressMapper = proc(
       listenAddrs: seq[MultiAddress]
-  ): Future[seq[MultiAddress]] {.async.} =
+  ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
     return node.announcedAddresses
   node.switch.peerInfo.addressMappers.add(addressMapper)
 

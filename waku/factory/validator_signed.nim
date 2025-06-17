@@ -13,7 +13,7 @@ import
 
 const MessageWindowInSec = 5 * 60 # +- 5 minutes
 
-import ./external_config, ../waku_relay/protocol, ../waku_core
+import ./waku_conf, ../waku_relay/protocol, ../waku_core
 
 declarePublicCounter waku_msg_validator_signed_outcome,
   "number of messages for each validation outcome", ["result"]

@@ -65,6 +65,8 @@ type SyncReconciliation* = ref object of LPProtocol
 proc messageIngress*(
     self: SyncReconciliation, pubsubTopic: PubsubTopic, msg: WakuMessage
 ) =
+  trace "message ingress", pubsub_topic = pubsubTopic, msg = msg
+
   if msg.ephemeral:
     return
 
@@ -78,6 +80,8 @@ proc messageIngress*(
 proc messageIngress*(
     self: SyncReconciliation, msgHash: WakuMessageHash, msg: WakuMessage
 ) =
+  trace "message ingress", msg_hash = msgHash.toHex(), msg = msg
+
   if msg.ephemeral:
     return
 
@@ -87,6 +91,8 @@ proc messageIngress*(
     error "failed to insert new message", msg_hash = msgHash.toHex(), err = error
 
 proc messageIngress*(self: SyncReconciliation, id: SyncID) =
+  trace "message ingress", id = id
+
   self.storage.insert(id).isOkOr:
     error "failed to insert new message", msg_hash = id.hash.toHex(), err = error
 
@@ -116,7 +122,7 @@ proc processRequest(
 
     roundTrips.inc()
 
-    trace "sync payload received",
+    debug "sync payload received",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = recvPayload
@@ -134,6 +140,9 @@ proc processRequest(
     if self.cluster == recvPayload.cluster and
         recvPayload.shards.toPackedSet() == self.shards:
       sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
+
+      debug "sync payload processed",
+        hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
       sendPayload.cluster = self.cluster
       sendPayload.shards = self.shards.toSeq()
@@ -157,7 +166,7 @@ proc processRequest(
       return
         err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
-    trace "sync payload sent",
+    debug "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = sendPayload
@@ -208,7 +217,7 @@ proc initiate(
       "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
     )
 
-  trace "sync payload sent",
+  debug "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
     remote = connection.peerId,
     payload = initPayload
@@ -265,7 +274,7 @@ proc initFillStorage(
 
   debug "initial storage filling started"
 
-  var ids = newSeq[SyncID](DefaultStorageCap)
+  var ids = newSeqOfCap[SyncID](DefaultStorageCap)
 
   # we assume IDs are in order
 
@@ -322,16 +331,18 @@ proc new*(
     remoteNeedsTx: remoteNeedsTx,
   )
 
-  let handler = proc(conn: Connection, proto: string) {.async, closure.} =
-    (await sync.processRequest(conn)).isOkOr:
-      error "request processing error", error = error
-
-    return
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+    try:
+      (await sync.processRequest(conn)).isOkOr:
+        error "request processing error", error = error
+    except CatchableError:
+      error "exception in reconciliation handler", error = getCurrentExceptionMsg()
 
   sync.handler = handler
   sync.codec = WakuReconciliationCodec
 
-  info "Store Reconciliation protocol initialized"
+  info "Store Reconciliation protocol initialized",
+    sync_range = syncRange, sync_interval = syncInterval, relay_jitter = relayJitter
 
   return ok(sync)
 

@@ -97,7 +97,13 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   while true: # infinite loop
     let (peerId, fingerprint) = await self.remoteNeedsRx.popFirst()
 
-    if not self.outSessions.hasKey(peerId):
+    if (not self.outSessions.hasKey(peerId)) or self.outSessions[peerId].closed() or
+      ## sanity check, should not be possible
+    self.outSessions[peerId].isClosedRemotely:
+      ## quite possibly remote end has closed the connection, believing transfer to be done
+      debug "opening transfer connection to remote peer",
+        my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId
+
       let connection = (await self.openConnection(peerId)).valueOr:
         error "failed to establish transfer connection", error = error
         continue
@@ -121,6 +127,11 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
     let msg =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
 
+    trace "sending transfer message",
+      my_peer_id = self.peerManager.switch.peerInfo.peerId,
+      remote_peer_id = peerId,
+      msg = msg
+
     (await sendMessage(connection, msg)).isOkOr:
       self.outSessions.del(peerId)
       await connection.close()
@@ -130,7 +141,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   return
 
 proc initProtocolHandler(self: SyncTransfer) =
-  let handler = proc(conn: Connection, proto: string) {.async, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     while true:
       if not self.inSessions.contains(conn.peerId):
         error "unwanted peer, disconnecting", remote = conn.peerId
@@ -156,10 +167,14 @@ proc initProtocolHandler(self: SyncTransfer) =
 
       let hash = computeMessageHash(pubsub, msg)
 
-      #TODO verify msg RLN proof...
-
-      (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
-        error "failed to archive message", error = $error
+      try:
+        #TODO verify msg RLN proof...
+        (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
+          error "failed to archive message", error = $error
+          continue
+      except CatchableError:
+        error "syncMessageIngress failed",
+          remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
         continue
 
       let id = SyncID(time: msg.timestamp, hash: hash)

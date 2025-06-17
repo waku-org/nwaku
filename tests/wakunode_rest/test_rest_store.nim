@@ -2,7 +2,6 @@
 
 import
   std/[options, sugar],
-  stew/shims/net as stewNet,
   chronicles,
   chronos/timer,
   testutils/unittests,
@@ -86,7 +85,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "invalid cursor":
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -165,7 +165,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "Filter by start and end time":
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -330,7 +331,8 @@ procSuite "Waku Rest API - Store v3":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -403,7 +405,8 @@ procSuite "Waku Rest API - Store v3":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -492,7 +495,8 @@ procSuite "Waku Rest API - Store v3":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -548,7 +552,8 @@ procSuite "Waku Rest API - Store v3":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      error "failed to mount relay", error = error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")

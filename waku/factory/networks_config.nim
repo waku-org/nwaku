@@ -1,15 +1,27 @@
 {.push raises: [].}
 
+import stint, std/[nativesockets, options]
+
+type WebSocketSecureConf* {.requiresInit.} = object
+  keyPath*: string
+  certPath*: string
+
+type WebSocketConf* = object
+  port*: Port
+  secureConf*: Option[WebSocketSecureConf]
+
+# TODO: Rename this type to match file name
+
 type ClusterConf* = object
-  maxMessageSize*: string
+  maxMessageSize*: string # TODO: static convert to a uint64
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
-  rlnRelayChainId*: uint
+  rlnRelayChainId*: UInt256
   rlnRelayDynamic*: bool
-  rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
+  # TODO: should be uint16 like the `shards` parameter
   numShardsInNetwork*: uint32
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
@@ -18,19 +30,18 @@ type ClusterConf* = object
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
 proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
+  const RelayChainId = 11155111'u256
   return ClusterConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
     rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
     rlnRelayDynamic: true,
-    rlnRelayChainId: 11155111,
-    rlnRelayBandwidthThreshold: 0,
+    rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
     numShardsInNetwork: 8,
     discv5Discovery: true,
-      # TODO: Why is this part of the conf? eg an edge node would not have this
     discv5BootstrapNodes:
       @[
         "enr:-QESuED0qW1BCmF-oH_ARGPr97Nv767bl_43uoy70vrbah3EaCAdK3Q0iRQ6wkSTTpdrg_dU_NC2ydO8leSlRpBX4pxiAYJpZIJ2NIJpcIRA4VDAim11bHRpYWRkcnO4XAArNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwAtNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOTd-h5owwj-cx7xrmbvQKU8CV3Fomfdvcv1MBc-67T5oN0Y3CCdl-DdWRwgiMohXdha3UyDw",

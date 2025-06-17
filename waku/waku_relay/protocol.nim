@@ -129,7 +129,10 @@ type
     # the second entry contains the error messages to be returned when the validator fails
     wakuValidators: seq[tuple[handler: WakuValidatorHandler, errorMessage: string]]
     # a map of validators to error messages to return when validation fails
-    validatorInserted: Table[PubsubTopic, bool]
+    topicValidator: Table[PubsubTopic, ValidatorHandler]
+      # map topic with its assigned validator within pubsub
+    topicHandlers: Table[PubsubTopic, TopicHandler]
+      # map topic with the TopicHandler proc in charge of attending topic's incoming message events
     publishObservers: seq[PublishObserver]
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
@@ -143,7 +146,7 @@ type PublishOutcome* {.pure.} = enum
   CannotGenerateMessageId
 
 proc initProtocolHandler(w: WakuRelay) =
-  proc handler(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string
     ## e.g. ``/wakusub/0.0.1``, etc...
@@ -427,7 +430,7 @@ proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
 proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   return toSeq(GossipSub(w).topics.keys())
 
-proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
+proc generateOrderedValidator(w: WakuRelay): ValidatorHandler {.gcsafe.} =
   # rejects messages that are not WakuMessage
   let wrappedValidator = proc(
       pubsubTopic: string, message: messages.Message
@@ -487,13 +490,11 @@ proc validateMessage*(
 
   return ok()
 
-proc subscribe*(
-    w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler
-): TopicHandler =
+proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic = pubsubTopic
 
   # We need to wrap the handler since gossipsub doesnt understand WakuMessage
-  let wrappedHandler = proc(
+  let topicHandler = proc(
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data)
@@ -516,17 +517,18 @@ proc subscribe*(
   # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
   # Otherwise this might lead to unintended behaviour.
-  if not w.validatorInserted.hasKey(pubSubTopic):
+  if not w.topicValidator.hasKey(pubSubTopic):
+    let newValidator = w.generateOrderedValidator()
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
-    w.validatorInserted[pubSubTopic] = true
+    w.topicValidator[pubSubTopic] = newValidator
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
 
   # subscribe to the topic with our wrapped handler
-  procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
+  procCall GossipSub(w).subscribe(pubsubTopic, topicHandler)
 
-  return wrappedHandler
+  w.topicHandlers[pubsubTopic] = topicHandler
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic
@@ -534,14 +536,33 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe all", pubsubTopic = pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
-  w.validatorInserted.del(pubsubTopic)
+  w.topicValidator.del(pubsubTopic)
+  w.topicHandlers.del(pubsubTopic)
 
-proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
-  ## Unsubscribe this handler on this pubsub topic
+proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
+  if not w.topicValidator.hasKey(pubsubTopic):
+    error "unsubscribe no validator for this topic", pubsubTopic
+    return
 
-  debug "unsubscribe", pubsubTopic = pubsubTopic
+  if not w.topicHandlers.hasKey(pubsubTopic):
+    error "not subscribed to the given topic", pubsubTopic
+    return
 
-  procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
+  var topicHandler: TopicHandler
+  var topicValidator: ValidatorHandler
+  try:
+    topicHandler = w.topicHandlers[pubsubTopic]
+    topicValidator = w.topicValidator[pubsubTopic]
+  except KeyError:
+    error "exception in unsubscribe", pubsubTopic, error = getCurrentExceptionMsg()
+    return
+
+  debug "unsubscribe", pubsubTopic
+  procCall GossipSub(w).unsubscribe(pubsubTopic, topicHandler)
+  procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
+
+  w.topicValidator.del(pubsubTopic)
+  w.topicHandlers.del(pubsubTopic)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
@@ -624,7 +645,4 @@ proc getNumConnectedPeers*(
 
 proc getSubscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   ## Returns a seq containing the current list of subscribed topics
-  var topics: seq[PubsubTopic]
-  for t in w.validatorInserted.keys():
-    topics.add(t)
-  return topics
+  return PubSub(w).topics.keys.toSeq().mapIt(cast[PubsubTopic](it))

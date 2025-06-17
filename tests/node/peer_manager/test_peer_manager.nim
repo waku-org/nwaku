@@ -1,9 +1,4 @@
-import
-  chronicles,
-  std/[options, tables, strutils],
-  stew/shims/net,
-  chronos,
-  testutils/unittests
+import chronicles, std/[options, tables, strutils], chronos, testutils/unittests
 
 import
   waku/node/waku_node,
@@ -23,7 +18,7 @@ suite "Peer Manager":
 
     asyncSetup:
       listenPort = Port(0)
-      listenAddress = ValidIpAddress.init("0.0.0.0")
+      listenAddress = parseIpAddress("0.0.0.0")
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
       clusterId = 1
@@ -76,8 +71,10 @@ suite "Peer Manager":
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
       discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      await client.mountRelay()
-      await server.mountRelay()
+      (await client.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
+      (await server.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
 
       # And both nodes are started
       await allFutures(server.start(), client.start())
@@ -89,7 +86,8 @@ suite "Peer Manager":
       await sleepAsync(FUTURE_TIMEOUT)
 
       # When making an operation that triggers onPeerMetadata
-      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic"))
+      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic")).isOkOr:
+        assert false, "Failed to subscribe to relay"
       await sleepAsync(FUTURE_TIMEOUT)
 
       check:
@@ -109,8 +107,10 @@ suite "Peer Manager":
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
       discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      await client.mountRelay()
-      await server.mountRelay()
+      (await client.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
+      (await server.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
 
       # And both nodes are started
       await allFutures(server.start(), client.start())
@@ -122,7 +122,8 @@ suite "Peer Manager":
       await sleepAsync(FUTURE_TIMEOUT)
 
       # When making an operation that triggers onPeerMetadata
-      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic"))
+      client.subscribe((kind: SubscriptionKind.PubsubSub, topic: "newTopic")).isOkOr:
+        assert false, "Failed to subscribe to relay"
       await sleepAsync(FUTURE_TIMEOUT)
 
       check:
