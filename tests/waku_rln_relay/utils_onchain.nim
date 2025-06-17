@@ -61,7 +61,7 @@ proc generateCredentials*(rlnInstance: ptr RLN, n: int): seq[IdentityCredential]
     credentials.add(generateCredentials(rlnInstance))
   return credentials
 
-proc getContractAddressFromDeployScriptOutput*(output: string): Result[string, string] =
+proc getContractAddressFromDeployScriptOutput(output: string): Result[string, string] =
   const searchStr = "Return ==\n0: address "
   let idx = output.find(searchStr)
   if idx >= 0:
@@ -72,7 +72,7 @@ proc getContractAddressFromDeployScriptOutput*(output: string): Result[string, s
       return ok(address)
   return err("Unable to find contract address in deploy script output")
 
-proc getForgePath*(): string =
+proc getForgePath(): string =
   var forgePath = ""
   if existsEnv("XDG_CONFIG_HOME"):
     forgePath = joinPath(forgePath, os.getEnv("XDG_CONFIG_HOME", ""))
@@ -85,7 +85,7 @@ contract(ERC20Token):
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
   proc balanceOf(account: Address): UInt256 {.view.}
 
-proc getTokenBalance*(
+proc getTokenBalance(
     web3: Web3, tokenAddress: Address, account: Address
 ): Future[UInt256] {.async.} =
   let token = web3.contractSender(ERC20Token, tokenAddress)
@@ -94,7 +94,7 @@ proc getTokenBalance*(
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
-proc sendMintCall*(
+proc sendMintCall(
     web3: Web3,
     accountFrom: Address,
     tokenAddress: Address,
@@ -155,7 +155,7 @@ proc sendMintCall*(
   return txHash
 
 # Check how many tokens a spender (the RLN contract) is allowed to spend on behalf of the owner (account which wishes to register a membership)
-proc checkTokenAllowance*(
+proc checkTokenAllowance(
     web3: Web3, tokenAddress: Address, owner: Address, spender: Address
 ): Future[UInt256] {.async.} =
   let token = web3.contractSender(ERC20Token, tokenAddress)
@@ -163,7 +163,7 @@ proc checkTokenAllowance*(
   trace "Current allowance", owner = owner, spender = spender, allowance = allowance
   return allowance
 
-proc setupContractDeployment*(
+proc setupContractDeployment(
     forgePath: string, submodulePath: string
 ): Result[void, string] =
   trace "Contract deployer paths", forgePath = forgePath, submodulePath = submodulePath
@@ -198,7 +198,7 @@ proc setupContractDeployment*(
     putEnv("API_KEY_LINEASCAN", "123")
     putEnv("API_KEY_ETHERSCAN", "123")
   except OSError, IOError:
-    return err("Command execution failed")
+    return err("Command execution failed: " & getCurrentExceptionMsg())
   return ok()
 
 proc deployTestToken*(
@@ -217,10 +217,9 @@ proc deployTestToken*(
 
   let forgePath = getForgePath()
 
-  let setupContractEnv = setupContractDeployment(forgePath, submodulePath)
-  if setupContractEnv.isErr():
-    error "Failed to setup contract deployment"
-    return err("Failed to setup contract deployment")
+  setupContractDeployment(forgePath, submodulePath).isOkOr:
+    error "Failed to setup contract deployment", error = $error
+    return err("Failed to setup contract deployment: " & $error)
 
   # Deploy TestToken contract
   let forgeCmdTestToken =
@@ -232,13 +231,12 @@ proc deployTestToken*(
     return error("Forge command to deploy TestToken contract failed")
 
   # Parse the command output to find contract address
-  let testTokenAddressRes =
-    getContractAddressFromDeployScriptOutput(outputDeployTestToken)
-  if testTokenAddressRes.isErr():
+  let testTokenAddress = getContractAddressFromDeployScriptOutput(outputDeployTestToken).valueOr:
     error "Failed to get TestToken contract address from deploy script output",
-      error = testTokenAddressRes.error
-    return err("Failed to get TestToken contract address from deploy script output")
-  let testTokenAddress = testTokenAddressRes.get()
+      error = $error
+    return err(
+      "Failed to get TestToken contract address from deploy script output: " & $error
+    )
   debug "Address of the TestToken contract", testTokenAddress
 
   let testTokenAddressBytes = hexToByteArray[20](testTokenAddress)
@@ -480,57 +478,6 @@ proc getAnvilPath*(): string =
   anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
   return $anvilPath
 
-proc checkRunningAnvilInstances*(): int =
-  ## Returns the number of running Anvil processes
-  try:
-    when defined(windows):
-      let (output, exitCode) = execCmdEx(
-        "tasklist /FI \"IMAGENAME eq anvil.exe\" /FO CSV | find /C \"anvil.exe\""
-      )
-    else:
-      let (output, exitCode) = execCmdEx("pgrep -c anvil 2>/dev/null || echo 0")
-
-    if exitCode == 0:
-      # Handle case where output might have multiple lines
-      let lines = output.strip().split('\n')
-      let countStr =
-        if lines.len > 0:
-          lines[0]
-        else:
-          "0"
-      let count = parseInt(countStr)
-      debug "Found running Anvil instances", count = count
-      return count
-    else:
-      debug "Failed to check running Anvil instances", exitCode = exitCode
-      return 0
-  except ValueError:
-    debug "Could not parse Anvil instance count"
-    return 0
-  except Exception:
-    debug "Error checking Anvil instances", error = getCurrentExceptionMsg()
-    return 0
-
-proc isAnvilProcessRunning*(pid: int): bool =
-  ## Checks if a specific PID is running an Anvil process
-  try:
-    when defined(windows):
-      let (output, exitCode) = execCmdEx(
-        fmt"tasklist /FI \" PID eq {pid} \ " /FI \"IMAGENAME eq anvil.exe\" /FO CSV"
-      )
-      result = exitCode == 0 and "anvil.exe" in output.toLower()
-    else:
-      let (output, exitCode) =
-        execCmdEx(fmt"ps -p {pid} -o comm= 2>/dev/null | grep -q anvil")
-      result = exitCode == 0
-
-    debug "Checking if PID is running Anvil", pid = pid, isRunning = result
-    return result
-  except Exception:
-    debug "Error checking if PID is Anvil process",
-      pid = pid, error = getCurrentExceptionMsg()
-    return false
-
 # Runs Anvil daemon
 proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   # Passed options are
@@ -587,7 +534,6 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     # Send termination signals
     when not defined(windows):
       discard execCmdEx(fmt"kill -TERM {anvilPID}")
-      sleep(1000)
       discard execCmdEx(fmt"kill -9 {anvilPID}")
     else:
       discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")

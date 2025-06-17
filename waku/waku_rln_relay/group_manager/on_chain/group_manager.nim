@@ -36,7 +36,7 @@ contract(WakuRlnContract):
 
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
-  # this event is raised when a new member is registered
+  # this event is emitted when a new member is registered
   proc MembershipRegistered(
     idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32
   ) {.event.}
@@ -73,11 +73,7 @@ type
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
 ): GroupManagerResult[void] =
-  let normalizedBlock =
-    if lastProcessedBlock.isSome():
-      lastProcessedBlock.get()
-    else:
-      g.latestProcessedBlock
+  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
       RlnMetadata(
@@ -93,51 +89,64 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc sendEthCallWithChainId*(
+proc sendEthCallWithChainId(
     ethRpc: Web3,
     functionSignature: string,
     fromAddress: Address,
     toAddress: Address,
     chainId: UInt256,
 ): Future[Result[UInt256, string]] {.async.} =
-  ## Generic proc to make contract calls with no arguments and with explicit chainId (workaround for automatic chainId=null with web3 call() proc)
-  ## 
-  ## Args:
-  ##   ethRpc: Web3 instance for making RPC calls
-  ##   functionSignature: Function signature (e.g., "maxMembershipRateLimit()")
-  ##   fromAddress: Address to call from
-  ##   toAddress: Contract address to call
-  ##   chainId: Chain ID for the transaction
-  ## 
-  ## Returns:
-  ##   Raw bytes response from the contract call
-
-  # Calculate the function selector (first 4 bytes of keccak256 hash)
+  ## Workaround for web3 chainId=null issue on some networks (e.g., linea-sepolia)
+  ## Makes contract calls with explicit chainId for view functions with no parameters
   let functionHash =
     keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
   let functionSelector = functionHash.data[0 .. 3]
-
-  # Convert to hex string for the data field
   let dataSignature = "0x" & functionSelector.mapIt(it.toHex(2)).join("")
 
-  # Create the transaction with explicit chainId
   var tx: TransactionArgs
   tx.`from` = Opt.some(fromAddress)
   tx.to = Opt.some(toAddress)
-  tx.value = Opt.some(0.u256) # No ETH sent for view functions
+  tx.value = Opt.some(0.u256)
   tx.data = Opt.some(byteutils.hexToSeqByte(dataSignature))
-  tx.chainId = Opt.some(chainId) # Explicitly set the chain ID
+  tx.chainId = Opt.some(chainId)
 
-  # Make the RPC call using eth_call
   let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
   if resultBytes.len == 0:
     return err("No result returned for function call: " & functionSignature)
   return ok(UInt256.fromBytesBE(resultBytes))
 
+proc sendEthCallWithParams(
+    ethRpc: Web3,
+    functionSignature: string,
+    params: seq[byte],
+    fromAddress: Address,
+    toAddress: Address,
+    chainId: UInt256,
+): Future[Result[seq[byte], string]] {.async.} =
+  ## Workaround for web3 chainId=null issue with parameterized contract calls
+  let functionHash =
+    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
+  let functionSelector = functionHash.data[0 .. 3]
+  let callData = functionSelector & params
+
+  var tx: TransactionArgs
+  tx.`from` = Opt.some(fromAddress)
+  tx.to = Opt.some(toAddress)
+  tx.value = Opt.some(0.u256)
+  tx.data = Opt.some(callData)
+  tx.chainId = Opt.some(chainId)
+
+  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
+  return ok(resultBytes)
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
   try:
+    # let merkleRootInvocation = g.wakuRlnContract.get().root()
+    # let merkleRoot = await merkleRootInvocation.call()
+    # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
+    # TODO: find better solution than this custom sendEthCallWithChainId call
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
 
@@ -171,23 +180,18 @@ proc fetchMerkleRoot*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    # let merkleRootInvocation = g.wakuRlnContract.get().root()
-    # let merkleRoot = await merkleRootInvocation.call()
-    # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-    # TODO: find better solution than this custom sendEthCallWithChainId call
-    let functionSignature = "root()"
-    let merkleRoot = await sendEthCallWithChainId(
-      ethRpc = g.ethRpc.get(),
-      functionSignature = functionSignature,
-      fromAddress = g.ethRpc.get().defaultAccount,
-      toAddress = fromHex(Address, g.ethContractAddress),
-      chainId = g.chainId,
-    )
-
-    if merkleRoot.isErr():
-      error "Failed to fetch Merkle root", error = merkleRoot.error
-      return err("Failed to fetch merkle root: " & merkleRoot.error)
-    return ok(merkleRoot.get())
+    let merkleRoot = (
+      await sendEthCallWithChainId(
+        ethRpc = g.ethRpc.get(),
+        functionSignature = "root()",
+        fromAddress = g.ethRpc.get().defaultAccount,
+        toAddress = fromHex(Address, g.ethContractAddress),
+        chainId = g.chainId,
+      )
+    ).valueOr:
+      error "Failed to fetch Merkle root", error = $error
+      return err("Failed to fetch merkle root: " & $error)
+    return ok(merkleRoot)
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
     return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
@@ -213,6 +217,7 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
     return false
 
   let merkleRoot = UInt256ToField(rootRes.get())
+
   if g.validRoots.len == 0:
     g.validRoots.addLast(merkleRoot)
     return true
@@ -250,10 +255,9 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
         #   cast[uint64](await wakuRlnContract.nextFreeIndex().call())
         # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
         # TODO: find better solution than this custom sendEthCallWithChainId call
-        let functionSignature = "nextFreeIndex()"
         let nextFreeIndex = await sendEthCallWithChainId(
           ethRpc = ethRpc,
-          functionSignature = functionSignature,
+          functionSignature = "nextFreeIndex()",
           fromAddress = ethRpc.defaultAccount,
           toAddress = fromHex(Address, g.ethContractAddress),
           chainId = g.chainId,
@@ -325,30 +329,29 @@ method register*(
   debug "ts receipt", receipt = tsReceipt[]
 
   if tsReceipt.status.isNone():
-    raise newException(ValueError, "register: transaction failed status is None")
+    raise newException(ValueError, "Transaction failed: status is None")
   if tsReceipt.status.get() != 1.Quantity:
     raise newException(
-      ValueError, "register: transaction failed status is: " & $tsReceipt.status.get()
+      ValueError, "Transaction failed with status: " & $tsReceipt.status.get()
     )
 
-  let firstTopic = tsReceipt.logs[2].topics[0]
-  debug "third topic", firstTopic = firstTopic
-  # the hash of the signature of MembershipRegistered(uint256,uint256,uint32) event is equal to the following hex value
-  if firstTopic !=
+  ## Extract MembershipRegistered event from transaction logs (third event)
+  let thirdTopic = tsReceipt.logs[2].topics[0]
+  debug "third topic", thirdTopic = thirdTopic
+  if thirdTopic !=
       cast[FixedBytes[32]](keccak.keccak256.digest(
         "MembershipRegistered(uint256,uint256,uint32)"
       ).data):
     raise newException(ValueError, "register: unexpected event signature")
 
-  # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
-  # data = rateCommitment encoded as 256 bits || membershipRateLimit encoded as 256 bits || index encoded as 32 bits
+  ## Parse MembershipRegistered event data: rateCommitment(256) || membershipRateLimit(256) || index(32)
   let arguments = tsReceipt.logs[2].data
   debug "tx log data", arguments = arguments
   let
-    # In TX log data, uints are encoded in big endian
+    ## Extract membership index from transaction log data (big endian)
     membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
 
-  debug "parsed membershipIndex", membershipIndex
+  trace "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
   g.idCredentials = some(identityCredential)
@@ -464,7 +467,7 @@ method generateProof*(
   var proofValue = cast[ptr array[320, byte]](output_witness_buffer.`ptr`)
   let proofBytes: array[320, byte] = proofValue[]
 
-  ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+  ## Parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
   let
     proofOffset = 128
     rootOffset = proofOffset + 32
@@ -506,9 +509,7 @@ method generateProof*(
   return ok(output)
 
 method verifyProof*(
-    g: OnchainGroupManager, # verifier context
-    input: seq[byte], # raw message data (signal)
-    proof: RateLimitProof, # proof received from the peer
+    g: OnchainGroupManager, input: seq[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
   ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
 
@@ -639,36 +640,20 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
     let idCommitment = idCommitmentUInt256
     try:
-      # let membershipExists =
-      #   await wakuRlnContract.isInMembershipSet(idCommitment).call()
-      # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia), below is the workaround
-      # Function signature with parameter type
-      let functionSignature = "isInMembershipSet(uint256)"
-
-      # Calculate the function selector (first 4 bytes of keccak256 hash)
-      let functionHash = keccak256.digest(
-        functionSignature.toOpenArrayByte(0, functionSignature.len - 1)
-      )
-      let functionSelector = functionHash.data[0 .. 3]
-
-      # Encode the parameter (32 bytes for uint256)
-      var encodedParams: seq[byte] = @[]
       let commitmentBytes = keystoreCred.identityCredential.idCommitment
-      # Combine function selector + encoded parameters, commitmentBytes store in LE and needs to be sent in BE
-      let callData = functionSelector & commitmentBytes.reversed()
-
-      # Create the transaction
-      var tx: TransactionArgs
-      tx.`from` = Opt.some(ethRpc.defaultAccount)
-      tx.to = Opt.some(contractAddress)
-      tx.value = Opt.some(0.u256)
-      tx.data = Opt.some(callData)
-      tx.chainId = Opt.some(g.chainId)
-
-      let resultBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-      if resultBytes.len == 0:
-        return err("No result returned for function call: " & $functionSignature)
-      let membershipExists = resultBytes.len == 32 and resultBytes[^1] == 1'u8
+      let params = commitmentBytes.reversed()
+      let resultBytes = await sendEthCallWithParams(
+        ethRpc = g.ethRpc.get(),
+        functionSignature = "isInMembershipSet(uint256)",
+        params = params,
+        fromAddress = ethRpc.defaultAccount,
+        toAddress = contractAddress,
+        chainId = g.chainId,
+      )
+      if resultBytes.isErr():
+        return err("Failed to check membership: " & resultBytes.error)
+      let responseBytes = resultBytes.get()
+      let membershipExists = responseBytes.len == 32 and responseBytes[^1] == 1'u8
 
       debug "membershipExists", membershipExists = membershipExists
       if membershipExists == false:
@@ -688,23 +673,18 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
-  # g.rlnRelayMaxMessageLimit =
-  #   cast[uint64](await wakuRlnContract.maxMembershipRateLimit().call())
-  # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-  # TODO: find better solution than this custom sendEthCallWithChainId call
-  let functionSignature = "maxMembershipRateLimit()"
-  let maxMembershipRateLimit = await sendEthCallWithChainId(
-    ethRpc = ethRpc,
-    functionSignature = functionSignature,
-    fromAddress = ethRpc.defaultAccount,
-    toAddress = contractAddress,
-    chainId = g.chainId,
-  )
+  let maxMembershipRateLimit = (
+    await sendEthCallWithChainId(
+      ethRpc = ethRpc,
+      functionSignature = "maxMembershipRateLimit()",
+      fromAddress = ethRpc.defaultAccount,
+      toAddress = contractAddress,
+      chainId = g.chainId,
+    )
+  ).valueOr:
+    return err("Failed to fetch max membership rate limit: " & $error)
 
-  if maxMembershipRateLimit.isErr():
-    return
-      err("Failed to fetch max membership rate limit: " & maxMembershipRateLimit.error)
-  g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit.get())
+  g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
