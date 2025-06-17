@@ -11,7 +11,6 @@ import
   confutils,
   chronicles,
   chronos,
-  stew/shims/net as stewNet,
   eth/keys,
   bearssl,
   stew/[byteutils, results],
@@ -381,7 +380,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   if conf.relay:
     let shards =
       conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
-    (await node.mountRelay(shards)).isOkOr:
+    (await node.mountRelay()).isOkOr:
       echo "failed to mount relay: " & error
       return
 
@@ -536,7 +535,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     node.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler))
+      (kind: PubsubSub, topic: DefaultPubsubTopic), WakuRelayHandler(handler)
     ).isOkOr:
       error "failed to subscribe to pubsub topic",
         topic = DefaultPubsubTopic, error = error
@@ -559,7 +558,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       let rlnConf = WakuRlnConfig(
         dynamic: conf.rlnRelayDynamic,
         credIndex: conf.rlnRelayCredIndex,
-        chainId: conf.rlnRelayChainId,
+        chainId: UInt256.fromBytesBE(conf.rlnRelayChainId.toBytesBE()),
         ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
         creds: some(
           RlnRelayCreds(

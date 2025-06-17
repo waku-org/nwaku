@@ -1,8 +1,7 @@
 import
-  std/[strutils, sequtils, tables],
+  std/[strutils, sequtils, tables, strformat],
   confutils,
   chronos,
-  stew/shims/net,
   chronicles/topics_registry,
   os
 import
@@ -21,6 +20,14 @@ const ProtocolsTable = {
   "relay": "/vac/waku/relay/",
   "lightpush": "/vac/waku/lightpush/",
   "filter": "/vac/waku/filter-subscribe/2",
+  "filter-push": "/vac/waku/filter-push/",
+  "ipfs-id": "/ipfs/id/",
+  "autonat": "/libp2p/autonat/",
+  "circuit-relay": "/libp2p/circuit/relay/",
+  "metadata": "/vac/waku/metadata/",
+  "rendezvous": "/rendezvous/",
+  "ipfs-ping": "/ipfs/ping/",
+  "peer-exchange": "/vac/waku/peer-exchange/",
 }.toTable
 
 const WebSocketPortOffset = 1000
@@ -105,21 +112,30 @@ proc parseCmdArg*(T: type chronos.Duration, p: string): T =
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
 
-# checks if rawProtocols (skipping version) are supported in nodeProtocols
 proc areProtocolsSupported(
-    rawProtocols: seq[string], nodeProtocols: seq[string]
+    toValidateProtocols: seq[string], nodeProtocols: seq[string]
 ): bool =
+  ## Checks if all toValidateProtocols are contained in nodeProtocols.
+  ## nodeProtocols contains the full list of protocols currently informed by the node under analysis.
+  ## toValidateProtocols contains the protocols, without version number, that we want to check if they are supported by the node.
   var numOfSupportedProt: int = 0
 
-  for nodeProtocol in nodeProtocols:
-    for rawProtocol in rawProtocols:
-      let protocolTag = ProtocolsTable[rawProtocol]
+  for rawProtocol in toValidateProtocols:
+    let protocolTag = ProtocolsTable[rawProtocol]
+    debug "Checking if protocol is supported", expected_protocol_tag = protocolTag
+
+    var protocolSupported = false
+    for nodeProtocol in nodeProtocols:
       if nodeProtocol.startsWith(protocolTag):
-        info "Supported protocol ok", expected = protocolTag, supported = nodeProtocol
+        info "The node supports the protocol", supported_protocol = nodeProtocol
         numOfSupportedProt += 1
+        protocolSupported = true
         break
 
-  if numOfSupportedProt == rawProtocols.len:
+    if not protocolSupported:
+      error "The node does not support the protocol", expected_protocol = protocolTag
+
+  if numOfSupportedProt == toValidateProtocols.len:
     return true
 
   return false
@@ -167,7 +183,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let peerRes = parsePeerInfo(conf.address)
   if peerRes.isErr():
     error "Couldn't parse 'conf.address'", error = peerRes.error
-    return 1
+    quit(QuitFailure)
 
   let peer = peerRes.value
 
@@ -202,6 +218,12 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
+  enrBuilder.withWakuRelaySharding(
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+  ).isOkOr:
+    error "could not initialize ENR with shards", error
+    quit(QuitFailure)
+
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
@@ -217,7 +239,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
       createDir(CertsDirectory)
     if generateSelfSignedCertificate(certPath, keyPath) != 0:
       error "Error generating key and certificate"
-      return 1
+      quit(QuitFailure)
 
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig.tryGet())
@@ -232,7 +254,11 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
       await mountLibp2pPing(node)
     except CatchableError:
       error "failed to mount libp2p ping protocol: " & getCurrentExceptionMsg()
-      return 1
+      quit(QuitFailure)
+
+  node.mountMetadata(conf.clusterId).isOkOr:
+    error "failed to mount metadata protocol", error
+    quit(QuitFailure)
 
   await node.start()
 
@@ -243,7 +269,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let timedOut = not await node.connectToNodes(@[peer]).withTimeout(conf.timeout)
   if timedOut:
     error "Timedout after", timeout = conf.timeout
-    return 1
+    quit(QuitFailure)
 
   let lp2pPeerStore = node.switch.peerStore
   let conStatus = node.peerManager.switch.peerStore[ConnectionBook][peer.peerId]
@@ -253,13 +279,14 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
+
     if not areProtocolsSupported(conf.protocols, nodeProtocols):
       error "Not all protocols are supported",
         expected = conf.protocols, supported = nodeProtocols
-      return 1
+      quit(QuitFailure)
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId
-    return 1
+    quit(QuitFailure)
   return 0
 
 when isMainModule:

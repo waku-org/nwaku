@@ -44,7 +44,7 @@ type RlnRelayConf* = object of RootObj
   credIndex*: Option[uint]
   ethContractAddress*: string
   ethClientUrls*: seq[string]
-  chainId*: uint
+  chainId*: UInt256
   creds*: Option[RlnRelayCreds]
   treePath*: string
   epochSizeSec*: uint64
@@ -93,6 +93,7 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   rlnEpochSizeSec*: uint64
+  rlnMaxTimestampGap*: uint64
   rlnMaxEpochGap*: uint64
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
@@ -103,6 +104,7 @@ type WakuRLNRelay* = ref object of RootObj
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and returns its corresponding rln `Epoch` value
+
   let e = uint64(t / rlnPeer.rlnEpochSizeSec.float64)
   return toEpoch(e)
 
@@ -211,25 +213,26 @@ proc validateMessage*(
   # track message count for metrics
   waku_rln_messages_total.inc()
 
-  # checks if the `msg`'s epoch is far from the current epoch
-  # it corresponds to the validation of rln external nullifier
-  # get current rln epoch
-  let epoch: Epoch = rlnPeer.getCurrentEpoch()
+  # checks if the message's timestamp is within acceptable range
+  let currentTime = getTime().toUnixFloat()
+  let messageTime = msg.timestamp.float64 / 1e9
 
-  let
-    msgEpoch = proof.epoch
-    # calculate the gaps
-    gap = absDiff(epoch, msgEpoch)
+  let timeDiff = uint64(abs(currentTime - messageTime))
 
-  trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
+  debug "time info",
+    currentTime = currentTime, messageTime = messageTime, msgHash = msg.hash
 
-  # validate the epoch
-  if gap > rlnPeer.rlnMaxEpochGap:
-    # message's epoch is too old or too ahead
-    # accept messages whose epoch is within +-MaxEpochGap from the current epoch
-    warn "invalid message: epoch gap exceeds a threshold",
-      gap = gap, payloadLen = msg.payload.len, msgEpoch = fromEpoch(proof.epoch)
-    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_epoch"])
+  if timeDiff > rlnPeer.rlnMaxTimestampGap:
+    warn "invalid message: timestamp difference exceeds threshold",
+      timeDiff = timeDiff, maxTimestampGap = rlnPeer.rlnMaxTimestampGap
+    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
+    return MessageValidationResult.Invalid
+
+  let computedEpoch = rlnPeer.calcEpoch(messageTime)
+  if proof.epoch != computedEpoch:
+    warn "invalid message: timestamp mismatches epoch",
+      proofEpoch = fromEpoch(proof.epoch), computedEpoch = fromEpoch(computedEpoch)
+    waku_rln_invalid_messages_total.inc(labelValues = ["timestamp_mismatch"])
     return MessageValidationResult.Invalid
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
@@ -242,8 +245,9 @@ proc validateMessage*(
 
   # verify the proof
   let
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(msg.contentTopic)
+    timestampBytes = toBytes(msg.timestamp.uint64)
+    input = concat(msg.payload, contentTopicBytes, @(timestampBytes))
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
@@ -265,6 +269,8 @@ proc validateMessage*(
   if proofMetadataRes.isErr():
     waku_rln_errors_total.inc(labelValues = ["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
+
+  let msgEpoch = proof.epoch
   let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues = ["duplicate_check"])
@@ -305,10 +311,12 @@ proc validateMessageAndUpdateLog*(
 
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
-  ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+
   let
-    contentTopicBytes = wakumessage.contentTopic.toBytes()
-    output = concat(wakumessage.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(wakumessage.contentTopic)
+    timestampBytes = toBytes(wakumessage.timestamp.uint64)
+    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
   return output
 
 proc appendRLNProof*(
@@ -479,6 +487,7 @@ proc mount(
     nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
     rlnEpochSizeSec: conf.epochSizeSec,
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
+    rlnMaxTimestampGap: uint64(MaxClockGapSeconds),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
 

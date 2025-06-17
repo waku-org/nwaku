@@ -580,6 +580,20 @@ proc waku_disconnect_peer_by_id(
     userData,
   )
 
+proc waku_disconnect_all_peers(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  handleRequest(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(op = PeerManagementMsgType.DISCONNECT_ALL_PEERS),
+    callback,
+    userData,
+  )
+
 proc waku_dial_peer(
     ctx: ptr WakuContext,
     peerMultiAddr: cstring,
@@ -782,6 +796,20 @@ proc waku_get_my_peerid(
     userData,
   )
 
+proc waku_get_metrics(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  handleRequest(
+    ctx,
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_METRICS),
+    callback,
+    userData,
+  )
+
 proc waku_start_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
@@ -838,6 +866,20 @@ proc waku_ping_peer(
     ctx,
     RequestType.PING,
     PingRequest.createShared(peerAddr, chronos.milliseconds(timeoutMs)),
+    callback,
+    userData,
+  )
+
+proc waku_is_online(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  handleRequest(
+    ctx,
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_ONLINE_STATE),
     callback,
     userData,
   )

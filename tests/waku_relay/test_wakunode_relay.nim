@@ -3,7 +3,6 @@
 import
   std/[os, sequtils, sysrand, math],
   stew/byteutils,
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   libp2p/switch,
@@ -71,15 +70,15 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node3.start()
-    (await node3.mountRelay(@[shard])).isOkOr:
+    (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await allFutures(
@@ -98,13 +97,19 @@ suite "WakuNode - Relay":
         msg.timestamp > 0
       completionFut.complete(true)
 
-    ## The following unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    node3.unsubscribe((kind: PubsubUnsub, topic: $shard)).isOkOr:
-      assert false, "Failed to unsubscribe from topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    ## node1 and node2 explicitly subscribe to the same shard as node3
+    node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node2.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node3.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -148,15 +153,15 @@ suite "WakuNode - Relay":
 
     # start all the nodes
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node3.start()
-    (await node3.mountRelay(@[shard])).isOkOr:
+    (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -194,13 +199,19 @@ suite "WakuNode - Relay":
       # relay handler is called
       completionFut.complete(true)
 
-    ## The following unsubscription is necessary to remove the default relay handler, which is
-    ## added when mountRelay is called.
-    node3.unsubscribe((kind: PubsubUnsub, topic: $shard)).isOkOr:
-      assert false, "Failed to unsubscribe from topic: " & $error
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    ## node1 and node2 explicitly subscribe to the same shard as node3
+    node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node2.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node3.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -288,11 +299,11 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -314,7 +325,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node1.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -346,11 +357,11 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -372,7 +383,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node1.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -404,11 +415,11 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     #delete websocket peer address
@@ -434,7 +445,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node1.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -468,11 +479,11 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -494,7 +505,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node1.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -536,11 +547,11 @@ suite "WakuNode - Relay":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    (await node1.mountRelay(@[shard])).isOkOr:
+    (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node2.start()
-    (await node2.mountRelay(@[shard])).isOkOr:
+    (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -562,7 +573,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to unsubscribe from topic: " & $error
 
     ## Subscribe to the relay topic to add the custom relay handler defined above
-    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler)).isOkOr:
+    node1.subscribe((kind: PubsubSub, topic: $shard), relayHandler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
     await sleepAsync(500.millis)
 
@@ -584,10 +595,15 @@ suite "WakuNode - Relay":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
     # subscribe all nodes to a topic
     let topic = "topic"
     for node in nodes:
-      discard node.wakuRelay.subscribe(topic, nil)
+      node.wakuRelay.subscribe(topic, simpleHandler)
     await sleepAsync(500.millis)
 
     # connect nodes in full mesh
@@ -632,7 +648,7 @@ suite "WakuNode - Relay":
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
 
-  asyncTest "Only one subscription is allowed for contenttopics that generate the same shard":
+  asyncTest "Multiple subscription calls are allowed for contenttopics that generate the same shard":
     ## Setup
     let
       nodeKey = generateSecp256k1Key()
@@ -662,19 +678,24 @@ suite "WakuNode - Relay":
       "topic must use the same shard"
 
     ## When
-    node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler)).isOkOr:
+    node.subscribe((kind: ContentSub, topic: contentTopicA), handler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
-    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler)).isErrOr:
+    node.subscribe((kind: ContentSub, topic: contentTopicB), handler).isOkOr:
       assert false,
-        "The subscription should fail because is already subscribe to that shard"
-    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler)).isErrOr:
+        "The subscription call shouldn't error even though it's already subscribed to that shard"
+    node.subscribe((kind: ContentSub, topic: contentTopicC), handler).isOkOr:
       assert false,
-        "The subscription should fail because is already subscribe to that shard"
+        "The subscription call shouldn't error even though it's already subscribed to that shard"
+
+    ## The node should be subscribed to the shard
+    check node.wakuRelay.isSubscribed(shard)
 
     ## Then
     node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
       assert false, "Failed to unsubscribe to topic: " & $error
-    check node.wakuRelay.isSubscribed(shard)
+
+    ## After unsubcription, the node should not be subscribed to the shard anymore
+    check not node.wakuRelay.isSubscribed(shard)
 
     ## Cleanup
     await node.stop()

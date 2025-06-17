@@ -35,6 +35,9 @@ type FilterSubscription* = object
   peerId*: string
   filterCriteria*: seq[FilterTopic]
 
+type PeerStats* = OrderedTable[string, OrderedTable[string, int]]
+  # maps high level grouping to low level grouping of counters
+
 #### Serialization and deserialization
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: WakuPeer
@@ -71,6 +74,23 @@ proc writeValue*(
   writer.beginRecord()
   writer.writeField("peerId", value.peerId)
   writer.writeField("filterCriteria", value.filterCriteria)
+  writer.endRecord()
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: OrderedTable[string, int]
+) {.raises: [IOError].} =
+  writer.beginRecord()
+  for key, value in value.pairs:
+    writer.writeField(key, value)
+  writer.endRecord()
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson],
+    value: OrderedTable[string, OrderedTable[string, int]],
+) {.raises: [IOError].} =
+  writer.beginRecord()
+  for group, subTab in value.pairs:
+    writer.writeField(group, subTab)
   writer.endRecord()
 
 proc readValue*(
@@ -237,6 +257,21 @@ proc readValue*(
     reader.raiseUnexpectedValue("Field `filterCriteria` are missing")
 
   value = FilterSubscription(peerId: peerId.get(), filterCriteria: filterCriteria.get())
+
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var OrderedTable[string, int]
+) {.gcsafe, raises: [SerializationError, IOError].} =
+  for fieldName in readObjectFields(reader):
+    let fieldValue = reader.readValue(int)
+    value[fieldName] = fieldValue
+
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var OrderedTable[string, OrderedTable[string, int]],
+) {.gcsafe, raises: [SerializationError, IOError].} =
+  for fieldName in readObjectFields(reader):
+    let fieldValue = reader.readValue(OrderedTable[string, int])
+    value[fieldName] = fieldValue
 
 func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr

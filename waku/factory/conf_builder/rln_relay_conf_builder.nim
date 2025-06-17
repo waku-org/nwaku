@@ -1,4 +1,4 @@
-import chronicles, std/options, results
+import chronicles, std/options, results, stint, stew/endians2
 import ../waku_conf
 
 logScope:
@@ -9,7 +9,7 @@ logScope:
 ##############################
 type RlnRelayConfBuilder* = object
   enabled*: Option[bool]
-  chainId*: Option[uint]
+  chainId*: Option[UInt256]
   ethClientUrls*: Option[seq[string]]
   ethContractAddress*: Option[string]
   credIndex*: Option[uint]
@@ -26,8 +26,11 @@ proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
 proc withEnabled*(b: var RlnRelayConfBuilder, enabled: bool) =
   b.enabled = some(enabled)
 
-proc withChainId*(b: var RlnRelayConfBuilder, chainId: uint) =
-  b.chainId = some(chainId)
+proc withChainId*(b: var RlnRelayConfBuilder, chainId: uint | UInt256) =
+  when chainId is uint:
+    b.chainId = some(UInt256.fromBytesBE(chainId.toBytesBE()))
+  else:
+    b.chainId = some(chainId)
 
 proc withCredIndex*(b: var RlnRelayConfBuilder, credIndex: uint) =
   b.credIndex = some(credIndex)

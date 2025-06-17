@@ -78,7 +78,7 @@ RUN make -j$(nproc)
 
 
 # Debug image
-FROM prod AS debug
+FROM prod AS debug-with-heaptrack
 
 RUN apk add --no-cache gdb libunwind
 
