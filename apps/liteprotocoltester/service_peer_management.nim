@@ -158,9 +158,7 @@ proc tryCallAllPxPeers*(
 proc pxLookupServiceNode*(
     node: WakuNode, conf: LiteProtocolTesterConf
 ): Future[Result[bool, void]] {.async.} =
-  var codec: string = WakuLightPushCodec
-  if conf.testFunc == TesterFunctionality.RECEIVER:
-    codec = WakuFilterSubscribeCodec
+  let codec: string = conf.getCodec()
 
   if node.wakuPeerExchange.isNil():
     let peerExchangeNode = translateToRemotePeerInfo(conf.bootstrapNode).valueOr:

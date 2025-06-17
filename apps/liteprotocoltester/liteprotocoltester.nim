@@ -14,13 +14,11 @@ import
   waku/[
     common/enr,
     common/logging,
-    factory/waku,
+    factory/waku as waku_factory,
     factory/external_config,
     waku_node,
-    node/health_monitor,
     node/waku_metrics,
     node/peer_manager,
-    waku_api/rest/builder as rest_server_builder,
     waku_lightpush/common,
     waku_filter_v2,
     waku_peer_exchange/protocol,
@@ -28,8 +26,8 @@ import
     waku_core/multiaddrstr,
   ],
   ./tester_config,
-  ./lightpush_publisher,
-  ./filter_subscriber,
+  ./publisher,
+  ./receiver,
   ./diagnose_connections,
   ./service_peer_management
 
@@ -49,7 +47,7 @@ when isMainModule:
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
 
-  const versionString = "version / git commit hash: " & waku.git_version
+  const versionString = "version / git commit hash: " & waku_factory.git_version
 
   let confRes = LiteProtocolTesterConf.load(version = versionString)
   if confRes.isErr():
@@ -61,7 +59,7 @@ when isMainModule:
   ## Logging setup
   logging.setupLog(conf.logLevel, conf.logFormat)
 
-  info "Running Lite Protocol Tester node", version = waku.git_version
+  info "Running Lite Protocol Tester node", version = waku_factory.git_version
   logConfig(conf)
 
   ##Prepare Waku configuration
@@ -69,13 +67,13 @@ when isMainModule:
   ## - override according to tester functionality
   ##
 
-  var wakuConf: WakuNodeConf
+  var wakuNodeConf: WakuNodeConf
 
   if conf.configFile.isSome():
     try:
       var configFile {.threadvar.}: InputFile
       configFile = conf.configFile.get()
-      wakuConf = WakuNodeConf.load(
+      wakuNodeConf = WakuNodeConf.load(
         version = versionString,
         printUsage = false,
         secondarySources = proc(
@@ -88,81 +86,54 @@ when isMainModule:
       error "Loading Waku configuration failed", error = getCurrentExceptionMsg()
       quit(QuitFailure)
 
-  wakuConf.logLevel = conf.logLevel
-  wakuConf.logFormat = conf.logFormat
-  wakuConf.nat = conf.nat
-  wakuConf.maxConnections = 500
-  wakuConf.restAddress = conf.restAddress
-  wakuConf.restPort = conf.restPort
-  wakuConf.restAllowOrigin = conf.restAllowOrigin
+  wakuNodeConf.logLevel = conf.logLevel
+  wakuNodeConf.logFormat = conf.logFormat
+  wakuNodeConf.nat = conf.nat
+  wakuNodeConf.maxConnections = 500
+  wakuNodeConf.restAddress = conf.restAddress
+  wakuNodeConf.restPort = conf.restPort
+  wakuNodeConf.restAllowOrigin = conf.restAllowOrigin
 
-  wakuConf.dnsAddrsNameServers = @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
+  wakuNodeConf.dnsAddrsNameServers =
+    @[parseIpAddress("8.8.8.8"), parseIpAddress("1.1.1.1")]
 
-  wakuConf.shards = @[conf.shard]
-  wakuConf.contentTopics = conf.contentTopics
-  wakuConf.clusterId = conf.clusterId
+  wakuNodeConf.shards = @[conf.shard]
+  wakuNodeConf.contentTopics = conf.contentTopics
+  wakuNodeConf.clusterId = conf.clusterId
   ## TODO: Depending on the tester needs we might extend here with shards, clusterId, etc...
 
-  wakuConf.metricsServer = true
-  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
-  wakuConf.metricsServerPort = conf.metricsPort
+  wakuNodeConf.metricsServer = true
+  wakuNodeConf.metricsServerAddress = parseIpAddress("0.0.0.0")
+  wakuNodeConf.metricsServerPort = conf.metricsPort
 
   # If bootstrap option is chosen we expect our clients will not mounted
   # so we will mount PeerExchange manually to gather possible service peers,
   # if got some we will mount the client protocols afterward.
-  wakuConf.peerExchange = false
-  wakuConf.relay = false
-  wakuConf.filter = false
-  wakuConf.lightpush = false
-  wakuConf.store = false
+  wakuNodeConf.peerExchange = false
+  wakuNodeConf.relay = false
+  wakuNodeConf.filter = false
+  wakuNodeConf.lightpush = false
+  wakuNodeConf.store = false
 
-  wakuConf.rest = false
-  wakuConf.relayServiceRatio = "40:60"
+  wakuNodeConf.rest = false
+  wakuNodeConf.relayServiceRatio = "40:60"
 
-  # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
-  # It will always be called from main thread anyway.
-  # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
-  var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
-  nodeHealthMonitor = WakuNodeHealthMonitor()
-  nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
-
-  let restServer = rest_server_builder.startRestServerEssentials(
-    nodeHealthMonitor, wakuConf
-  ).valueOr:
-    error "Starting esential REST server failed.", error = $error
+  let wakuConf = wakuNodeConf.toWakuConf().valueOr:
+    error "Issue converting toWakuConf", error = $error
     quit(QuitFailure)
 
-  var wakuApp = Waku.new(wakuConf).valueOr:
+  var waku = Waku.new(wakuConf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  wakuApp.restServer = restServer
-
-  nodeHealthMonitor.setNode(wakuApp.node)
-
-  (waitFor startWaku(addr wakuApp)).isOkOr:
+  (waitFor startWaku(addr waku)).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  rest_server_builder.startRestServerProtocolSupport(
-    restServer, wakuApp.node, wakuApp.wakuDiscv5, wakuConf
-  ).isOkOr:
-    error "Starting protocols support REST server failed.", error = $error
-    quit(QuitFailure)
-
-  wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(wakuConf).valueOr:
-    error "Starting monitoring and external interfaces failed", error = error
-    quit(QuitFailure)
-
-  nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
-
   debug "Setting up shutdown hooks"
-  ## Setup shutdown hooks for this process.
-  ## Stop node gracefully on shutdown.
 
-  proc asyncStopper(wakuApp: Waku) {.async: (raises: [Exception]).} =
-    nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-    await wakuApp.stop()
+  proc asyncStopper(waku: Waku) {.async: (raises: [Exception]).} =
+    await waku.stop()
     quit(QuitSuccess)
 
   # Handle Ctrl-C SIGINT
@@ -171,7 +142,7 @@ when isMainModule:
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     notice "Shutting down after receiving SIGINT"
-    asyncSpawn asyncStopper(wakuApp)
+    asyncSpawn asyncStopper(waku)
 
   setControlCHook(handleCtrlC)
 
@@ -179,7 +150,7 @@ when isMainModule:
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
       notice "Shutting down after receiving SIGTERM"
-      asyncSpawn asyncStopper(wakuApp)
+      asyncSpawn asyncStopper(waku)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
 
@@ -192,7 +163,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      waitFor wakuApp.stop()
+      waitFor waku.stop()
       quit(QuitFailure)
 
     c_signal(ansi_c.SIGSEGV, handleSigsegv)
@@ -211,7 +182,7 @@ when isMainModule:
   if conf.serviceNode.len == 0:
     if conf.bootstrapNode.len > 0:
       info "Bootstrapping with PeerExchange to gather random service node"
-      let futForServiceNode = pxLookupServiceNode(wakuApp.node, conf)
+      let futForServiceNode = pxLookupServiceNode(waku.node, conf)
       if not (waitFor futForServiceNode.withTimeout(20.minutes)):
         error "Service node not found in time via PX"
         quit(QuitFailure)
@@ -221,7 +192,7 @@ when isMainModule:
         quit(QuitFailure)
 
       serviceNodePeerInfo = selectRandomServicePeer(
-        wakuApp.node.peerManager, none(RemotePeerInfo), codec
+        waku.node.peerManager, none(RemotePeerInfo), codec
       ).valueOr:
         error "Service node selection failed"
         quit(QuitFailure)
@@ -236,11 +207,11 @@ when isMainModule:
 
   info "Service node to be used", serviceNode = $serviceNodePeerInfo
 
-  logSelfPeers(wakuApp.node.peerManager)
+  logSelfPeers(waku.node.peerManager)
 
   if conf.testFunc == TesterFunctionality.SENDER:
-    setupAndPublish(wakuApp.node, conf, serviceNodePeerInfo)
+    setupAndPublish(waku.node, conf, serviceNodePeerInfo)
   else:
-    setupAndSubscribe(wakuApp.node, conf, serviceNodePeerInfo)
+    setupAndListen(waku.node, conf, serviceNodePeerInfo)
 
   runForever()
