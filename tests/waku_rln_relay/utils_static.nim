@@ -3,8 +3,8 @@
 import
   std/[sequtils, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   chronos,
+  chronicles,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 
@@ -24,10 +24,10 @@ proc setupStaticRln*(
 ) {.async.} =
   await node.mountRlnRelay(
     WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(identifier),
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $identifier),
-      rlnEpochSizeSec: 1,
+      dynamic: false,
+      credIndex: some(identifier),
+      treePath: genTempPath("rln_tree", "wakunode_" & $identifier),
+      epochSizeSec: 1,
     )
   )
 
@@ -45,7 +45,10 @@ proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bo
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler)).isOkOr:
+    error "failed to subscribe to relay", topic = pubsubTopic, error = error
+    completionFut.complete(false)
+
   return completionFut
 
 proc sendRlnMessage*(

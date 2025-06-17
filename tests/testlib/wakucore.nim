@@ -2,7 +2,6 @@ import
   std/[options, times],
   results,
   stew/byteutils,
-  stew/shims/net,
   chronos,
   libp2p/switch,
   libp2p/builders,

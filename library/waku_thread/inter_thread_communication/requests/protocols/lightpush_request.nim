@@ -104,6 +104,6 @@ proc process*(
       )
     ).valueOr:
       error "PUBLISH failed", error = error
-      return err("LightpushRequest error publishing: " & $error)
+      return err($error)
 
     return ok(msgHashHex)

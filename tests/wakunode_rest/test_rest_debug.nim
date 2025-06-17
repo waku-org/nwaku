@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -37,7 +36,8 @@ suite "Waku v2 REST API - Debug":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -66,7 +66,8 @@ suite "Waku v2 REST API - Debug":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")

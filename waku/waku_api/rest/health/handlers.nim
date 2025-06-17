@@ -11,7 +11,7 @@ const ROUTE_HEALTH* = "/health"
 const FutHealthReportTimeout = 5.seconds
 
 proc installHealthApiHandler*(
-    router: var RestRouter, nodeHealthMonitor: WakuNodeHealthMonitor
+    router: var RestRouter, nodeHealthMonitor: NodeHealthMonitor
 ) =
   router.api(MethodGet, ROUTE_HEALTH) do() -> RestApiResponse:
     let healthReportFut = nodeHealthMonitor.getNodeHealthReport()

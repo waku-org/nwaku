@@ -52,6 +52,20 @@ type RateLimitProof* = object
   ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
   externalNullifier*: ExternalNullifier
 
+type UInt40* = StUint[40]
+type UInt32* = StUint[32]
+
+type
+  Field = array[32, byte] # Field element representation (256 bits)
+  RLNWitnessInput* = object
+    identity_secret*: Field
+    user_message_limit*: Field
+    message_id*: Field
+    path_elements*: seq[byte]
+    identity_path_index*: seq[byte]
+    x*: Field
+    external_nullifier*: Field
+
 type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode
@@ -116,6 +130,13 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
 
   output.finish3()
   return output
+
+func encode*(x: UInt32): seq[byte] =
+  ## the Ethereum ABI imposes a 32 byte width for every type
+  let numTargetBytes = 32 div 8
+  let paddingBytes = 32 - numTargetBytes
+  let paddingZeros = newSeq[byte](paddingBytes)
+  paddingZeros & @(stint.toBytesBE(x))
 
 type
   SpamHandler* =

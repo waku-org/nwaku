@@ -1,7 +1,6 @@
 import
   std/[tables, times, sequtils],
   stew/byteutils,
-  stew/shims/net,
   chronicles,
   chronos,
   confutils,
@@ -86,7 +85,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   )
 
   await node.start()
-  await node.mountRelay()
+  (await node.mountRelay()).isOkOr:
+    error "failed to mount relay", error = error
+    quit(1)
+
   node.peerManager.start()
 
   (await wakuDiscv5.start()).isOkOr:

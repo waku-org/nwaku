@@ -76,3 +76,6 @@ coverage_html_report/
 .qmake.stash
 main-qt
 waku_handler.moc.cpp
+
+# Nix build result
+result

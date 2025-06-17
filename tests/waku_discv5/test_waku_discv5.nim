@@ -1,26 +1,32 @@
 {.used.}
 
 import
-  std/[sequtils, algorithm],
+  std/[sequtils, algorithm, options, net],
   results,
-  stew/shims/net,
   chronos,
   chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys,
+  eth/p2p/discoveryv5/enr as ethEnr,
   libp2p/crypto/secp,
   libp2p/protocols/rendezvous
 
 import
-  waku/[waku_core/topics, waku_enr, discovery/waku_discv5, waku_enr/capabilities],
+  waku/[
+    waku_core/topics,
+    waku_core/codecs,
+    waku_enr,
+    discovery/waku_discv5,
+    waku_enr/capabilities,
+    factory/conf_builder/conf_builder,
+    factory/waku,
+    node/waku_node,
+    node/peer_manager,
+  ],
   ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],
   ../waku_enr/utils,
   ./utils as discv5_utils
-
-import eth/p2p/discoveryv5/enr as ethEnr
-
-include waku/factory/waku
 
 suite "Waku Discovery v5":
   const validEnr =
@@ -360,7 +366,7 @@ suite "Waku Discovery v5":
       # Cleanup
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-  suite "addBoostrapNode":
+  suite "addBootstrapNode":
     asyncTest "address is valid":
       # Given an empty list of enrs
       var enrs: seq[Record] = @[]
@@ -413,25 +419,32 @@ suite "Waku Discovery v5":
 
   suite "waku discv5 initialization":
     asyncTest "Start waku and check discv5 discovered peers":
-      let myRng = crypto.newRng()
-      var conf = defaultTestWakuNodeConf()
+      let myRng = libp2p_keys.newRng()
+      var confBuilder = defaultTestWakuConfBuilder()
 
-      conf.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
-      conf.discv5Discovery = true
-      conf.discv5UdpPort = Port(9000)
+      confBuilder.withNodeKey(libp2p_keys.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9000.Port)
+
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
 
       let waku0 = Waku.new(conf).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku0)).isOkOr:
         raiseAssert error
 
-      conf.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
-      conf.discv5BootstrapNodes = @[waku0.node.enr.toURI()]
-      conf.discv5Discovery = true
-      conf.discv5UdpPort = Port(9001)
-      conf.tcpPort = Port(60001)
+      confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.discv5Conf.withBootstrapNodes(@[waku0.node.enr.toURI()])
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9001.Port)
+      confBuilder.withP2pTcpPort(60001.Port)
+      confBuilder.websocketConf.withEnabled(false)
 
-      let waku1 = Waku.new(conf).valueOr:
+      let conf1 = confBuilder.build().valueOr:
+        raiseAssert error
+
+      let waku1 = Waku.new(conf1).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku1)).isOkOr:
         raiseAssert error
@@ -439,12 +452,14 @@ suite "Waku Discovery v5":
       await waku1.node.mountPeerExchange()
       await waku1.node.mountRendezvous()
 
-      var conf2 = conf
-      conf2.discv5BootstrapNodes = @[waku1.node.enr.toURI()]
-      conf2.discv5Discovery = true
-      conf2.tcpPort = Port(60003)
-      conf2.discv5UdpPort = Port(9003)
-      conf2.nodekey = some(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.discv5Conf.withBootstrapNodes(@[waku1.node.enr.toURI()])
+      confBuilder.withP2pTcpPort(60003.Port)
+      confBuilder.discv5Conf.withUdpPort(9003.Port)
+      confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng[])[])
+      confBuilder.websocketConf.withEnabled(false)
+
+      let conf2 = confBuilder.build().valueOr:
+        raiseAssert error
 
       let waku2 = Waku.new(conf2).valueOr:
         raiseAssert error
@@ -470,16 +485,26 @@ suite "Waku Discovery v5":
       assert r.isSome(), "could not retrieve peer mounting RendezVousCodec"
 
     asyncTest "Discv5 bootstrap nodes should be added to the peer store":
-      var conf = defaultTestWakuNodeConf()
-
-      conf.discv5BootstrapNodes = @[validEnr]
+      var confBuilder = defaultTestWakuConfBuilder()
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9003.Port)
+      confBuilder.discv5Conf.withBootstrapNodes(@[validEnr])
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
 
       let waku = Waku.new(conf).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        waku.conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.conf.nodeKey,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:
@@ -488,18 +513,29 @@ suite "Waku Discovery v5":
         )
 
     asyncTest "Invalid discv5 bootstrap node ENRs are ignored":
-      var conf = defaultTestWakuNodeConf()
+      var confBuilder = defaultTestWakuConfBuilder()
+      confBuilder.discv5Conf.withEnabled(true)
+      confBuilder.discv5Conf.withUdpPort(9004.Port)
 
       let invalidEnr = "invalid-enr"
 
-      conf.discv5BootstrapNodes = @[invalidEnr]
+      confBuilder.discv5Conf.withBootstrapNodes(@[invalidEnr])
+      let conf = confBuilder.build().valueOr:
+        raiseAssert error
 
       let waku = Waku.new(conf).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+        waku.node.enr,
+        waku.node.peerManager,
+        waku.node.topicSubscriptionQueue,
+        conf.discv5Conf.get(),
+        waku.dynamicBootstrapNodes,
+        waku.rng,
+        waku.conf.nodeKey,
+        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.portsShift,
       )
 
       check:

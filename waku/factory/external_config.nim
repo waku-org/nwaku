@@ -1,8 +1,11 @@
 import
-  std/[strutils, strformat],
+  std/[strutils, strformat, sequtils],
   results,
+  chronicles,
   chronos,
   regex,
+  stew/endians2,
+  stint,
   confutils,
   confutils/defs,
   confutils/std/net,
@@ -14,17 +17,26 @@ import
   nimcrypto/utils,
   secp256k1,
   json
+
 import
+  ./waku_conf,
+  ./conf_builder/conf_builder,
+  ./networks_config,
   ../common/confutils/envvar/defs as confEnvvarDefs,
   ../common/confutils/envvar/std/net as confEnvvarNet,
   ../common/logging,
   ../waku_enr,
   ../node/peer_manager,
-  ../waku_core/topics/pubsub_topic
+  ../waku_core/topics/pubsub_topic,
+  ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector
 
 include ../waku_core/message/default_values
 
-export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
+export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
+
+logScope:
+  topics = "waku external config"
 
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -32,10 +44,6 @@ const git_version* {.strdefine.} = "n/a"
 type ConfResult*[T] = Result[T, string]
 
 type EthRpcUrl* = distinct string
-
-type ProtectedShard* = object
-  shard*: uint16
-  key*: secp256k1.SkPublicKey
 
 type StartUpCommand* = enum
   noCommand # default, runs waku
@@ -64,16 +72,17 @@ type WakuNodeConf* = object
   .}: logging.LogFormat
 
   rlnRelayCredPath* {.
-    desc: "The path for peristing rln-relay credential",
+    desc: "The path for persisting rln-relay credential",
     defaultValue: "",
     name: "rln-relay-cred-path"
   .}: string
 
-  rlnRelayEthClientAddress* {.
-    desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-    defaultValue: "http://localhost:8540/",
+  ethClientUrls* {.
+    desc:
+      "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
+    defaultValue: @[EthRpcUrl("http://localhost:8540/")],
     name: "rln-relay-eth-client-address"
-  .}: EthRpcUrl
+  .}: seq[EthRpcUrl]
 
   rlnRelayEthContractAddress* {.
     desc: "Address of membership contract on an Ethereum testnet.",
@@ -148,7 +157,7 @@ type WakuNodeConf* = object
     ## General node config
     preset* {.
       desc:
-        "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1).",
+        "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1). Overrides other values.",
       defaultValue: "",
       name: "preset"
     .}: string
@@ -196,7 +205,7 @@ type WakuNodeConf* = object
     .}: seq[string]
 
     extMultiAddrsOnly* {.
-      desc: "Only announce external multiaddresses",
+      desc: "Only announce external multiaddresses setup with --ext-multiaddr",
       defaultValue: false,
       name: "ext-multiaddr-only"
     .}: bool
@@ -236,12 +245,6 @@ type WakuNodeConf* = object
     .}: bool
 
     ## DNS addrs config
-    dnsAddrs* {.
-      desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
-      defaultValue: true,
-      name: "dns-addrs"
-    .}: bool
-
     dnsAddrsNameServers* {.
       desc:
         "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
@@ -300,30 +303,11 @@ hence would have reachability issues.""",
       name: "rln-relay-dynamic"
     .}: bool
 
-    rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key as a Hex string",
-      defaultValue: "",
-      name: "rln-relay-id-key"
-    .}: string
-
-    rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key as a Hex string",
-      defaultValue: "",
-      name: "rln-relay-id-commitment-key"
-    .}: string
-
     rlnRelayTreePath* {.
       desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
       defaultValue: "",
       name: "rln-relay-tree-path"
     .}: string
-
-    rlnRelayBandwidthThreshold* {.
-      desc:
-        "Message rate in bytes/sec after which verification of proofs should happen.",
-      defaultValue: 0, # to maintain backwards compatibility
-      name: "rln-relay-bandwidth-threshold"
-    .}: int
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
@@ -372,7 +356,7 @@ hence would have reachability issues.""",
     .}: bool
 
     legacyStore* {.
-      desc: "Enable/disable waku store legacy mode",
+      desc: "Enable/disable support of Waku Store v2 as a service",
       defaultValue: true,
       name: "legacy-store"
     .}: bool
@@ -432,28 +416,20 @@ hence would have reachability issues.""",
       desc: "Interval between store sync attempts. In seconds.",
       defaultValue: 300, # 5 minutes
       name: "store-sync-interval"
-    .}: int64
+    .}: uint32
 
     storeSyncRange* {.
       desc: "Amount of time to sync. In seconds.",
       defaultValue: 3600, # 1 hours
       name: "store-sync-range"
-    .}: int64
+    .}: uint32
 
     storeSyncRelayJitter* {.
       hidden,
       desc: "Time offset to account for message propagation jitter. In seconds.",
       defaultValue: 20,
       name: "store-sync-relay-jitter"
-    .}: int64
-
-    storeSyncMaxPayloadSize* {.
-      hidden,
-      desc:
-        "Max size in bytes of the inner negentropy payload. Cannot be less than 5K, 0 is unlimited.",
-      defaultValue: 0,
-      name: "store-sync-max-payload-size"
-    .}: int64
+    .}: uint32
 
     ## Filter config
     filter* {.
@@ -471,7 +447,7 @@ hence would have reachability issues.""",
         "Timeout for filter subscription without ping or refresh it, in seconds. Only for v2 filter protocol.",
       defaultValue: 300, # 5 minutes
       name: "filter-subscription-timeout"
-    .}: int64
+    .}: uint16
 
     filterMaxPeersToServe* {.
       desc: "Maximum number of peers to serve at a time. Only for v2 filter protocol.",
@@ -527,7 +503,7 @@ with the drawback of consuming some more bandwidth.""",
 
     restRelayCacheCapacity* {.
       desc: "Capacity of the Relay REST API message cache.",
-      defaultValue: 30,
+      defaultValue: 50,
       name: "rest-relay-cache-capacity"
     .}: uint32
 
@@ -585,18 +561,12 @@ with the drawback of consuming some more bandwidth.""",
       name: "dns-discovery-url"
     .}: string
 
-    dnsDiscoveryNameServers* {.
-      desc: "DNS name server IPs to query. Argument may be repeated.",
-      defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-      name: "dns-discovery-name-server"
-    .}: seq[IpAddress]
-
     ## Discovery v5 config
     discv5Discovery* {.
       desc: "Enable discovering nodes via Node Discovery v5.",
-      defaultValue: false,
+      defaultValue: none(bool),
       name: "discv5-discovery"
-    .}: bool
+    .}: Option[bool]
 
     discv5UdpPort* {.
       desc: "Listening UDP port for Node Discovery v5.",
@@ -639,12 +609,6 @@ with the drawback of consuming some more bandwidth.""",
       defaultValue: 1,
       name: "discv5-bits-per-hop"
     .}: int
-
-    discv5Only* {.
-      desc: "Disable all protocols other than discv5",
-      defaultValue: false,
-      name: "discv5-only"
-    .}: bool
 
     ## waku peer exchange config
     peerExchange* {.
@@ -774,8 +738,7 @@ proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
 proc defaultListenAddress*(): IpAddress =
-  # TODO: How should we select between IPv4 and IPv6
-  # Maybe there should be a config option for this.
+  # TODO: Should probably listen on both ipv4 and ipv6 by default.
   (static parseIpAddress("0.0.0.0"))
 
 proc defaultColocationLimit*(): int =
@@ -884,3 +847,185 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
     return ok(conf)
   except CatchableError:
     return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
+
+proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
+  RlnKeystoreGeneratorConf(
+    execute: n.execute,
+    chainId: UInt256.fromBytesBE(n.rlnRelayChainId.toBytesBE()),
+    ethClientUrls: n.ethClientUrls.mapIt(string(it)),
+    ethContractAddress: n.rlnRelayEthContractAddress,
+    userMessageLimit: n.rlnRelayUserMessageLimit,
+    ethPrivateKey: n.rlnRelayEthPrivateKey,
+    credPath: n.rlnRelayCredPath,
+    credPassword: n.rlnRelayCredPassword,
+  )
+
+proc toInspectRlnDbConf*(n: WakuNodeConf): InspectRlnDbConf =
+  return InspectRlnDbConf(treePath: n.treePath)
+
+proc toClusterConf(
+    preset: string, clusterId: Option[uint16]
+): ConfResult[Option[ClusterConf]] =
+  var lcPreset = toLowerAscii(preset)
+  if clusterId.isSome() and clusterId.get() == 1:
+    warn(
+      "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
+    )
+    lcPreset = "twn"
+
+  case lcPreset
+  of "":
+    ok(none(ClusterConf))
+  of "twn":
+    ok(some(ClusterConf.TheWakuNetworkConf()))
+  else:
+    err("Invalid --preset value passed: " & lcPreset)
+
+proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
+  var b = WakuConfBuilder.init()
+
+  b.withLogLevel(n.logLevel)
+  b.withLogFormat(n.logFormat)
+
+  b.rlnRelayConf.withEnabled(n.rlnRelay)
+  if n.rlnRelayCredPath != "":
+    b.rlnRelayConf.withCredPath(n.rlnRelayCredPath)
+  if n.rlnRelayCredPassword != "":
+    b.rlnRelayConf.withCredPassword(n.rlnRelayCredPassword)
+  if n.ethClientUrls.len > 0:
+    b.rlnRelayConf.withEthClientUrls(n.ethClientUrls.mapIt(string(it)))
+  if n.rlnRelayEthContractAddress != "":
+    b.rlnRelayConf.withEthContractAddress(n.rlnRelayEthContractAddress)
+
+  if n.rlnRelayChainId != 0:
+    b.rlnRelayConf.withChainId(n.rlnRelayChainId)
+  b.rlnRelayConf.withUserMessageLimit(n.rlnRelayUserMessageLimit)
+  b.rlnRelayConf.withEpochSizeSec(n.rlnEpochSizeSec)
+
+  if n.rlnRelayCredIndex.isSome():
+    b.rlnRelayConf.withCredIndex(n.rlnRelayCredIndex.get())
+  b.rlnRelayConf.withDynamic(n.rlnRelayDynamic)
+
+  b.rlnRelayConf.withTreePath(n.rlnRelayTreePath)
+
+  if n.maxMessageSize != "":
+    b.withMaxMessageSize(n.maxMessageSize)
+
+  b.withProtectedShards(n.protectedShards)
+  b.withClusterId(n.clusterId)
+
+  let clusterConf = toClusterConf(n.preset, some(n.clusterId)).valueOr:
+    return err("Error determining cluster from preset: " & $error)
+
+  if clusterConf.isSome():
+    b.withClusterConf(clusterConf.get())
+
+  b.withAgentString(n.agentString)
+
+  if n.nodeKey.isSome():
+    b.withNodeKey(n.nodeKey.get())
+
+  b.withP2pListenAddress(n.listenAddress)
+  b.withP2pTcpPort(n.tcpPort)
+  b.withPortsShift(n.portsShift)
+  b.withNatStrategy(n.nat)
+  b.withExtMultiAddrs(n.extMultiAddrs)
+  b.withExtMultiAddrsOnly(n.extMultiAddrsOnly)
+  b.withMaxConnections(n.maxConnections)
+
+  if n.maxRelayPeers.isSome():
+    b.withMaxRelayPeers(n.maxRelayPeers.get())
+
+  if n.relayServiceRatio != "":
+    b.withRelayServiceRatio(n.relayServiceRatio)
+  b.withColocationLimit(n.colocationLimit)
+
+  if n.peerStoreCapacity.isSome:
+    b.withPeerStoreCapacity(n.peerStoreCapacity.get())
+
+  b.withPeerPersistence(n.peerPersistence)
+  b.withDnsAddrsNameServers(n.dnsAddrsNameServers)
+  b.withDns4DomainName(n.dns4DomainName)
+  b.withCircuitRelayClient(n.isRelayClient)
+  b.withRelay(n.relay)
+  b.withRelayPeerExchange(n.relayPeerExchange)
+  b.withRelayShardedPeerManagement(n.relayShardedPeerManagement)
+  b.withStaticNodes(n.staticNodes)
+  b.withKeepAlive(n.keepAlive)
+
+  if n.numShardsInNetwork != 0:
+    b.withNumShardsInNetwork(n.numShardsInNetwork)
+
+  b.withShards(n.shards)
+  b.withContentTopics(n.contentTopics)
+
+  b.storeServiceConf.withEnabled(n.store)
+  b.storeServiceConf.withSupportV2(n.legacyStore)
+  b.storeServiceConf.withRetentionPolicy(n.storeMessageRetentionPolicy)
+  b.storeServiceConf.withDbUrl(n.storeMessageDbUrl)
+  b.storeServiceConf.withDbVacuum(n.storeMessageDbVacuum)
+  b.storeServiceConf.withDbMigration(n.storeMessageDbMigration)
+  b.storeServiceConf.withMaxNumDbConnections(n.storeMaxNumDbConnections)
+  b.storeServiceConf.withResume(n.storeResume)
+
+  # TODO: can we just use `Option` on the CLI?
+  if n.storenode != "":
+    b.withRemoteStoreNode(n.storenode)
+  if n.filternode != "":
+    b.withRemoteFilterNode(n.filternode)
+  if n.lightpushnode != "":
+    b.withRemoteLightPushNode(n.lightpushnode)
+  if n.peerExchangeNode != "":
+    b.withRemotePeerExchangeNode(n.peerExchangeNode)
+
+  b.storeServiceConf.storeSyncConf.withEnabled(n.storeSync)
+  b.storeServiceConf.storeSyncConf.withIntervalSec(n.storeSyncInterval)
+  b.storeServiceConf.storeSyncConf.withRangeSec(n.storeSyncRange)
+  b.storeServiceConf.storeSyncConf.withRelayJitterSec(n.storeSyncRelayJitter)
+
+  b.filterServiceConf.withEnabled(n.filter)
+  b.filterServiceConf.withSubscriptionTimeout(n.filterSubscriptionTimeout)
+  b.filterServiceConf.withMaxPeersToServe(n.filterMaxPeersToServe)
+  b.filterServiceConf.withMaxCriteria(n.filterMaxCriteria)
+
+  b.withLightPush(n.lightpush)
+  b.withP2pReliability(n.reliabilityEnabled)
+
+  b.restServerConf.withEnabled(n.rest)
+  b.restServerConf.withListenAddress(n.restAddress)
+  b.restServerConf.withPort(n.restPort)
+  b.restServerConf.withRelayCacheCapacity(n.restRelayCacheCapacity)
+  b.restServerConf.withAdmin(n.restAdmin)
+  b.restServerConf.withAllowOrigin(n.restAllowOrigin)
+
+  b.metricsServerConf.withEnabled(n.metricsServer)
+  b.metricsServerConf.withHttpAddress(n.metricsServerAddress)
+  b.metricsServerConf.withHttpPort(n.metricsServerPort)
+  b.metricsServerConf.withLogging(n.metricsLogging)
+
+  b.dnsDiscoveryConf.withEnabled(n.dnsDiscovery)
+  b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
+
+  if n.discv5Discovery.isSome():
+    b.discv5Conf.withEnabled(n.discv5Discovery.get())
+
+  b.discv5Conf.withUdpPort(n.discv5UdpPort)
+  b.discv5Conf.withBootstrapNodes(n.discv5BootstrapNodes)
+  b.discv5Conf.withEnrAutoUpdate(n.discv5EnrAutoUpdate)
+  b.discv5Conf.withTableIpLimit(n.discv5TableIpLimit)
+  b.discv5Conf.withBucketIpLimit(n.discv5BucketIpLimit)
+  b.discv5Conf.withBitsPerHop(n.discv5BitsPerHop)
+
+  b.withPeerExchange(n.peerExchange)
+
+  b.withRendezvous(n.rendezvous)
+
+  b.webSocketConf.withEnabled(n.websocketSupport)
+  b.webSocketConf.withWebSocketPort(n.websocketPort)
+  b.webSocketConf.withSecureEnabled(n.websocketSecureSupport)
+  b.webSocketConf.withKeyPath(n.websocketSecureKeyPath)
+  b.webSocketConf.withCertPath(n.websocketSecureCertPath)
+
+  b.withRateLimits(n.rateLimits)
+
+  return b.build()

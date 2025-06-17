@@ -10,11 +10,7 @@ import
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
-import
-  ../node/peer_manager/peer_manager,
-  ../waku_core,
-  ../waku_enr,
-  ../factory/external_config
+import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
 
 export protocol, waku_enr
 
@@ -25,6 +21,17 @@ logScope:
   topics = "waku discv5"
 
 ## Config
+
+# TODO: merge both conf
+type Discv5Conf* {.requiresInit.} = object
+  # TODO: This should probably be an option on the builder
+  # But translated to everything else "false" on the config
+  bootstrapNodes*: seq[string]
+  udpPort*: Port
+  tableIpLimit*: uint
+  bucketIpLimit*: uint
+  bitsPerHop*: int
+  enrAutoUpdate*: bool
 
 type WakuDiscoveryV5Config* = object
   discv5Config*: Option[DiscoveryConfig]
@@ -126,13 +133,13 @@ proc updateENRShards(
 ): Result[void, string] =
   ## Add or remove shards from the Discv5 ENR
   let newShardOp = topicsToRelayShards(newTopics).valueOr:
-    return err("ENR update failed: " & error)
+    return err("ENR update failed topicsToRelayShards: " & error)
 
   let newShard = newShardOp.valueOr:
     return ok()
 
   let typedRecord = wd.protocol.localNode.record.toTyped().valueOr:
-    return err("ENR update failed: " & $error)
+    return err("ENR update failed toTyped: " & $error)
 
   let currentShardsOp = typedRecord.relaySharding()
 
@@ -141,17 +148,17 @@ proc updateENRShards(
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR update failed: clusterId id mismatch")
+        return err("ENR update failed: clusterId id mismatch in add")
 
       RelayShards.init(
         currentShard.clusterId, currentShard.shardIds & newShard.shardIds
       ).valueOr:
-        return err("ENR update failed: " & error)
+        return err("ENR update failed RelayShards.init in add: " & error)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR update failed: clusterId id mismatch")
+        return err("ENR update failed: clusterId id mismatch in not add")
 
       let currentSet = toHashSet(currentShard.shardIds)
       let newSet = toHashSet(newShard.shardIds)
@@ -162,7 +169,7 @@ proc updateENRShards(
         return err("ENR update failed: cannot remove all shards")
 
       RelayShards.init(currentShard.clusterId, indices).valueOr:
-        return err("ENR update failed: " & error)
+        return err("ENR update failed RelayShards.init in not add: " & error)
     elif add and currentShardsOp.isNone():
       newShard
     else:
@@ -173,12 +180,12 @@ proc updateENRShards(
       (ShardingBitVectorEnrField, resultShard.toBitVector())
     else:
       let list = resultShard.toIndicesList().valueOr:
-        return err("ENR update failed: " & $error)
+        return err("ENR update failed toIndicesList: " & $error)
 
       (ShardingIndicesListEnrField, list)
 
   wd.protocol.updateRecord([(field, value)]).isOkOr:
-    return err("ENR update failed: " & $error)
+    return err("ENR update failed updateRecord: " & $error)
 
   return ok()
 
@@ -383,10 +390,12 @@ proc setupDiscoveryV5*(
     myENR: enr.Record,
     nodePeerManager: PeerManager,
     nodeTopicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent],
-    conf: WakuNodeConf,
+    conf: Discv5Conf,
     dynamicBootstrapNodes: seq[RemotePeerInfo],
     rng: ref HmacDrbgContext,
     key: crypto.PrivateKey,
+    p2pListenAddress: IpAddress,
+    portsShift: uint16,
 ): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
@@ -394,7 +403,7 @@ proc setupDiscoveryV5*(
   var discv5BootstrapEnrs: seq[enr.Record]
 
   # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-  for enrUri in conf.discv5BootstrapNodes:
+  for enrUri in conf.bootstrapNodes:
     addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
   for enr in discv5BootstrapEnrs:
@@ -407,19 +416,18 @@ proc setupDiscoveryV5*(
 
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
-  let discv5Config = DiscoveryConfig.init(
-    conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop
-  )
+  let discv5Config =
+    DiscoveryConfig.init(conf.tableIpLimit, conf.bucketIpLimit, conf.bitsPerHop)
 
-  let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+  let discv5UdpPort = Port(uint16(conf.udpPort) + portsShift)
 
   let discv5Conf = WakuDiscoveryV5Config(
     discv5Config: some(discv5Config),
-    address: conf.listenAddress,
+    address: p2pListenAddress,
     port: discv5UdpPort,
     privateKey: eth_keys.PrivateKey(key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,
-    autoupdateRecord: conf.discv5EnrAutoUpdate,
+    autoupdateRecord: conf.enrAutoUpdate,
   )
 
   WakuDiscoveryV5.new(

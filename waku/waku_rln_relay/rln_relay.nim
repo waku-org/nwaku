@@ -32,18 +32,26 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type WakuRlnConfig* = object
-  rlnRelayDynamic*: bool
-  rlnRelayCredIndex*: Option[uint]
-  rlnRelayEthContractAddress*: string
-  rlnRelayEthClientAddress*: string
-  rlnRelayChainId*: uint
-  rlnRelayCredPath*: string
-  rlnRelayCredPassword*: string
-  rlnRelayTreePath*: string
-  rlnEpochSizeSec*: uint64
+type RlnRelayCreds* {.requiresInit.} = object
+  path*: string
+  password*: string
+
+type RlnRelayConf* = object of RootObj
+  # TODO: severals parameters are only needed when it's dynamic
+  # change the config to either nest or use enum/type variant so it's obvious
+  # and then it can be set to `requiresInit`
+  dynamic*: bool
+  credIndex*: Option[uint]
+  ethContractAddress*: string
+  ethClientUrls*: seq[string]
+  chainId*: UInt256
+  creds*: Option[RlnRelayCreds]
+  treePath*: string
+  epochSizeSec*: uint64
+  userMessageLimit*: uint64
+
+type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
-  rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(
     rln: ptr RLN, n: int
@@ -85,15 +93,18 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   rlnEpochSizeSec*: uint64
+  rlnMaxTimestampGap*: uint64
   rlnMaxEpochGap*: uint64
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
   nonceManager*: NonceManager
   epochMonitorFuture*: Future[void]
+  rootChangesFuture*: Future[void]
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and returns its corresponding rln `Epoch` value
+
   let e = uint64(t / rlnPeer.rlnEpochSizeSec.float64)
   return toEpoch(e)
 
@@ -202,25 +213,26 @@ proc validateMessage*(
   # track message count for metrics
   waku_rln_messages_total.inc()
 
-  # checks if the `msg`'s epoch is far from the current epoch
-  # it corresponds to the validation of rln external nullifier
-  # get current rln epoch
-  let epoch: Epoch = rlnPeer.getCurrentEpoch()
+  # checks if the message's timestamp is within acceptable range
+  let currentTime = getTime().toUnixFloat()
+  let messageTime = msg.timestamp.float64 / 1e9
 
-  let
-    msgEpoch = proof.epoch
-    # calculate the gaps
-    gap = absDiff(epoch, msgEpoch)
+  let timeDiff = uint64(abs(currentTime - messageTime))
 
-  trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
+  debug "time info",
+    currentTime = currentTime, messageTime = messageTime, msgHash = msg.hash
 
-  # validate the epoch
-  if gap > rlnPeer.rlnMaxEpochGap:
-    # message's epoch is too old or too ahead
-    # accept messages whose epoch is within +-MaxEpochGap from the current epoch
-    warn "invalid message: epoch gap exceeds a threshold",
-      gap = gap, payloadLen = msg.payload.len, msgEpoch = fromEpoch(proof.epoch)
-    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_epoch"])
+  if timeDiff > rlnPeer.rlnMaxTimestampGap:
+    warn "invalid message: timestamp difference exceeds threshold",
+      timeDiff = timeDiff, maxTimestampGap = rlnPeer.rlnMaxTimestampGap
+    waku_rln_invalid_messages_total.inc(labelValues = ["invalid_timestamp"])
+    return MessageValidationResult.Invalid
+
+  let computedEpoch = rlnPeer.calcEpoch(messageTime)
+  if proof.epoch != computedEpoch:
+    warn "invalid message: timestamp mismatches epoch",
+      proofEpoch = fromEpoch(proof.epoch), computedEpoch = fromEpoch(computedEpoch)
+    waku_rln_invalid_messages_total.inc(labelValues = ["timestamp_mismatch"])
     return MessageValidationResult.Invalid
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
@@ -233,8 +245,9 @@ proc validateMessage*(
 
   # verify the proof
   let
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(msg.contentTopic)
+    timestampBytes = toBytes(msg.timestamp.uint64)
+    input = concat(msg.payload, contentTopicBytes, @(timestampBytes))
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
@@ -244,6 +257,7 @@ proc validateMessage*(
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
     warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
+
   if not proofVerificationRes.value():
     # invalid proof
     warn "invalid message: invalid proof", payloadLen = msg.payload.len
@@ -255,6 +269,8 @@ proc validateMessage*(
   if proofMetadataRes.isErr():
     waku_rln_errors_total.inc(labelValues = ["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
+
+  let msgEpoch = proof.epoch
   let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues = ["duplicate_check"])
@@ -295,10 +311,12 @@ proc validateMessageAndUpdateLog*(
 
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
-  ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+
   let
-    contentTopicBytes = wakumessage.contentTopic.toBytes()
-    output = concat(wakumessage.payload, contentTopicBytes)
+    contentTopicBytes = toBytes(wakumessage.contentTopic)
+    timestampBytes = toBytes(wakumessage.timestamp.uint64)
+    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
   return output
 
 proc appendRLNProof*(
@@ -404,9 +422,12 @@ proc generateRlnValidator*(
 proc monitorEpochs(wakuRlnRelay: WakuRLNRelay) {.async.} =
   while true:
     try:
-      waku_rln_remaining_proofs_per_epoch.set(
-        wakuRlnRelay.groupManager.userMessageLimit.get().float64
-      )
+      if wakuRlnRelay.groupManager.userMessageLimit.isSome():
+        waku_rln_remaining_proofs_per_epoch.set(
+          wakuRlnRelay.groupManager.userMessageLimit.get().float64
+        )
+      else:
+        error "userMessageLimit is not set in monitorEpochs"
     except CatchableError:
       error "Error in epoch monitoring", error = getCurrentExceptionMsg()
 
@@ -421,10 +442,10 @@ proc mount(
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstance = createRLNInstance(tree_path = conf.rlnRelayTreePath).valueOr:
+  let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
     return err("could not create RLN instance: " & $error)
 
-  if not conf.rlnRelayDynamic:
+  if not conf.dynamic:
     # static setup
     let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
       return err("could not parse static group keys: " & $error)
@@ -432,49 +453,48 @@ proc mount(
     groupManager = StaticGroupManager(
       groupSize: StaticGroupSize,
       groupKeys: parsedGroupKeys,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       rlnInstance: rlnInstance,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
-    # dynamic setup
-    proc useValueOrNone(s: string): Option[string] =
-      if s == "":
-        none(string)
+    let (rlnRelayCredPath, rlnRelayCredPassword) =
+      if conf.creds.isSome:
+        (some(conf.creds.get().path), some(conf.creds.get().password))
       else:
-        some(s)
+        (none(string), none(string))
 
-    let
-      rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
-      rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
     groupManager = OnchainGroupManager(
-      ethClientUrl: string(conf.rlnRelayethClientAddress),
-      ethContractAddress: $conf.rlnRelayEthContractAddress,
-      chainId: conf.rlnRelayChainId,
+      userMessageLimit: some(conf.userMessageLimit),
+      ethClientUrls: conf.ethClientUrls,
+      ethContractAddress: $conf.ethContractAddress,
+      chainId: conf.chainId,
       rlnInstance: rlnInstance,
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,
       keystorePassword: rlnRelayCredPassword,
-      membershipIndex: conf.rlnRelayCredIndex,
+      membershipIndex: conf.credIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
     )
 
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
-  # Start the group sync
-  (await groupManager.startGroupSync()).isOkOr:
-    return err("could not start the group sync: " & $error)
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
-    nonceManager:
-      NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-    rlnEpochSizeSec: conf.rlnEpochSizeSec,
-    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+    nonceManager: NonceManager.init(conf.userMessageLimit, conf.epochSizeSec.float),
+    rlnEpochSizeSec: conf.epochSizeSec,
+    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.epochSizeSec)), 1),
+    rlnMaxTimestampGap: uint64(MaxClockGapSeconds),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
+
+  # track root changes on smart contract merkle tree
+  if groupManager of OnchainGroupManager:
+    let onchainManager = cast[OnchainGroupManager](groupManager)
+    wakuRlnRelay.rootChangesFuture = onchainManager.trackRootChanges()
 
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)

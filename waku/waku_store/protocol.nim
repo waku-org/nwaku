@@ -88,7 +88,7 @@ proc initProtocolHandler(self: WakuStore) =
     statusDesc: $ErrorCode.TOO_MANY_REQUESTS,
   ).encode().buffer
 
-  proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: StoreResp
     var queryDuration: float
@@ -106,7 +106,14 @@ proc initProtocolHandler(self: WakuStore) =
 
       let queryStartTime = getTime().toUnixFloat()
 
-      resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
+      try:
+        resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
+      except CatchableError:
+        error "store query failed in handler",
+          remote_peer_id = conn.peerId,
+          requestId = resBuf.requestId,
+          error = getCurrentExceptionMsg()
+        return
 
       queryDuration = getTime().toUnixFloat() - queryStartTime
       waku_store_time_seconds.set(queryDuration, ["query-db-time"])

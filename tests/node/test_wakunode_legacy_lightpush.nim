@@ -1,8 +1,7 @@
 {.used.}
 
 import
-  std/[options, tempfiles],
-  stew/shims/net as stewNet,
+  std/[options, tempfiles, net],
   testutils/unittests,
   chronos,
   std/strformat,
@@ -46,13 +45,15 @@ suite "Waku Legacy Lightpush - End To End":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+
     await server.mountLegacyLightpush() # without rln-relay
     client.mountLegacyLightpushClient()
 
@@ -68,7 +69,7 @@ suite "Waku Legacy Lightpush - End To End":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLegacyLightpushClient()
 
       # When the client publishes a message
@@ -127,22 +128,23 @@ suite "RLN Proofs as a Lightpush Service":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     # mount rln-relay
     let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      dynamic: false,
+      credIndex: some(1.uint),
+      userMessageLimit: 1,
+      epochSizeSec: 1,
+      treePath: genTempPath("rln_tree", "wakunode"),
     )
 
     await allFutures(server.start(), client.start())
     await server.start()
 
-    await server.mountRelay()
+    (await server.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await server.mountRlnRelay(wakuRlnConfig)
     await server.mountLegacyLightPush()
     client.mountLegacyLightPushClient()
@@ -159,7 +161,7 @@ suite "RLN Proofs as a Lightpush Service":
     asyncTest "Message is published when RLN enabled":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLegacyLightPushClient()
 
       # When the client publishes a message
@@ -187,8 +189,10 @@ suite "Waku Legacy Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    await destNode.mountRelay(@[DefaultRelayShard])
-    await bridgeNode.mountRelay(@[DefaultRelayShard])
+    (await destNode.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    (await bridgeNode.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
     await bridgeNode.mountLegacyLightPush()
     lightNode.mountLegacyLightPushClient()
 
@@ -199,24 +203,25 @@ suite "Waku Legacy Lightpush message delivery":
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
 
     ## Given
+    const CustomPubsubTopic = "/waku/2/rs/0/1"
     let message = fakeWakuMessage()
-
     var completionFutRelay = newFuture[bool]()
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == DefaultPubsubTopic
+        topic == CustomPubsubTopic
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), relayHandler).isOkOr:
+      assert false, "Failed to subscribe to topic:" & $error
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)
 
     ## When
-    let res = await lightNode.legacyLightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.legacyLightpushPublish(some(CustomPubsubTopic), message)
     assert res.isOk(), $res.error
 
     ## Then

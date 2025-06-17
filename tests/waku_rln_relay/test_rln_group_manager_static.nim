@@ -13,7 +13,7 @@ import
     waku_rln_relay/group_manager/static/group_manager,
   ]
 
-import stew/shims/net, chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
+import chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
 
 import std/tempfiles
 
