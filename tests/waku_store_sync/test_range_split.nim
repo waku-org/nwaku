@@ -209,8 +209,9 @@ suite "Waku Sync – reconciliation":
         baseHash = hashLocal
         alteredHash = toDigest("msg" & $i & "_x")
         hashRemote = alteredHash
-        remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
-          assert false, "failed to insert hash: " & $error
+      
+      remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
+        assert false, "failed to insert hash: " & $error
 
     var zero: WakuMessageHash
     let slice = SyncID(time: 1000, hash: zero) .. SyncID(time: 1007, hash: zero)
