@@ -21,6 +21,9 @@ proc withEnabled*(b: var DnsDiscoveryConfBuilder, enabled: bool) =
 proc withEnrTreeUrl*(b: var DnsDiscoveryConfBuilder, enrTreeUrl: string) =
   b.enrTreeUrl = some(enrTreeUrl)
 
+proc withNameServers*(b: var DnsDiscoveryConfBuilder, nameServers: seq[IpAddress]) =
+  b.nameServers = nameServers
+
 proc build*(b: DnsDiscoveryConfBuilder): Result[Option[DnsDiscoveryConf], string] =
   if not b.enabled.get(false):
     return ok(none(DnsDiscoveryConf))
