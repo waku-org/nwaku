@@ -39,6 +39,8 @@ proc updateOnlineState(self: OnlineMonitor) {.async.} =
     else:
       self.peerStore.peers().countIt(it.connectedness == Connected)
 
+  echo "--------------- numConnectedPeers: ", numConnectedPeers
+
   self.online =
     if numConnectedPeers > 0:
       true
@@ -53,7 +55,7 @@ proc networkConnectivityLoop(self: OnlineMonitor): Future[void] {.async.} =
   ## and triggers any change that depends on the network connectivity state
   while true:
     await self.updateOnlineState()
-    await sleepAsync(15.seconds)
+    await sleepAsync(5.seconds)
 
 proc startOnlineMonitor*(self: OnlineMonitor) =
   self.networkConnLoopHandle = self.networkConnectivityLoop()
