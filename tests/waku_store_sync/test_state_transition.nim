@@ -210,7 +210,6 @@ suite "Waku Sync – reconciliation":
 
     for r in 1 .. 3:
       let rep = fpReply(slice, tmpS, tmpR)
-      echo "R{r} len={rep.ranges.len} expecting 8 FP"
       check rep.ranges.len == 8
       check rep.ranges.allIt(it[1] == RangeType.Fingerprint)
       for (sl, _) in rep.ranges:
@@ -219,7 +218,6 @@ suite "Waku Sync – reconciliation":
           break
 
     let rep4 = fpReply(slice, tmpS, tmpR)
-    echo "R4 len={rep4.ranges.len} expecting 8 IS"
     check rep4.ranges.len == 8
     check rep4.ranges.allIt(it[1] == RangeType.ItemSet)
     for (sl, _) in rep4.ranges:
@@ -229,13 +227,11 @@ suite "Waku Sync – reconciliation":
 
     var send5, recv5: seq[WakuMessageHash]
     let rep5 = fpReply(slice, send5, recv5)
-    echo "R5 len={rep5.ranges.len} expecting 1 IS"
     check rep5.ranges.len == 1
     check rep5.ranges[0][1] == RangeType.ItemSet
 
     var qSend, qRecv: seq[WakuMessageHash]
     discard remote.processPayload(rep5, qSend, qRecv)
-    echo "queue send={qSend.len} recv={qRecv.len}"
     check qSend.len == 1 and qSend[0] == altH
     check qRecv.len == 1 and qRecv[0] == baseH
 
@@ -244,6 +240,5 @@ suite "Waku Sync – reconciliation":
 
     var send6, recv6: seq[WakuMessageHash]
     let rep6 = fpReply(slice, send6, recv6)
-    echo "R6 len={rep6.ranges.len} expecting 0"
     check rep6.ranges.len == 0
     check send6.len == 0 and recv6.len == 0

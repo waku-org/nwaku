@@ -472,7 +472,6 @@ suite "Waku Sync: reconciliation":
     var msg1 = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
     var msg2 = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
     msg2.payload[0] = msg2.payload[0] xor 0x01
-    echo msg2
     var h1 = computeMessageHash(DefaultPubsubTopic, msg1)
     var h2 = computeMessageHash(DefaultPubsubTopic, msg2)
 
