@@ -69,14 +69,17 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
     exec "nim c" & " --out:build/" & name &
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
+  elif `type` == "dynamic":
+    exec "nim c" & " --out:build/" & name &
+      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
+      extra_params & " " & srcDir & name & ".nim"
+  elif `type` == "dll":
+    exec "nim c" & " --out:build/" & name &
+      ".dll --nimcache:build/nimcache --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku -d:discv5_protocol_id=d5waku " &
+      extra_params & " " & srcDir & name & ".nim"
   else:
-    when defined(windows):
-      exec "nim c" & " --out:build/" & name &
-        ".dll --nimcache:build/nimcache --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku -d:discv5_protocol_id=d5waku " &
-        extra_params & " " & srcDir & name & ".nim"
-      exec "nim c" & " --out:build/" & name &
-        ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
-        extra_params & " " & srcDir & name & ".nim"
+    echo "Error: Unknown library type: ", `type`
+    quit(1)
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")
@@ -165,19 +168,19 @@ task testone, "Test custom target":
     exec "build/" & filepath & ".bin"
 
 ### C Bindings
+let chroniclesParams = """-d:chronicles_line_numbers -d:chronicles_runtime_filtering=on -d:chronicles_sinks="textlines,json" -d:chronicles_default_output_device=Dynamic -d:chronicles_disabled_topics="eth,dnsdisc.client" --warning:Deprecated:off --warning:UnusedImport:on -d:chronicles_log_level=TRACE """
+
 task libwakuStatic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name,
-    "library/",
-    """-d:chronicles_line_numbers -d:chronicles_runtime_filtering=on -d:chronicles_sinks="textlines,json" -d:chronicles_default_output_device=Dynamic -d:chronicles_disabled_topics="eth,dnsdisc.client" --warning:Deprecated:off --warning:UnusedImport:on -d:chronicles_log_level=TRACE """,
-    "static"
+  buildLibrary name, "library/", chroniclesParams, "static"
 
 task libwakuDynamic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name,
-    "library/",
-    """-d:chronicles_line_numbers -d:chronicles_runtime_filtering=on -d:chronicles_sinks="textlines,json" -d:chronicles_default_output_device=Dynamic -d:chronicles_disabled_topics="eth,dnsdisc.client" --warning:Deprecated:off --warning:UnusedImport:on -d:chronicles_log_level=TRACE """,
-    "dynamic"
+  buildLibrary name, "library/", chroniclesParams, "dynamic"
+
+task libwakuDLL, "Build the cbindings waku node library for windows":
+  let name = "libwaku"
+  buildLibrary name, "library/", chroniclesParams, "dll"
 
 ### Mobile Android
 task libWakuAndroid, "Build the mobile bindings for Android":

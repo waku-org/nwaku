@@ -33,6 +33,8 @@ ifneq (,$(findstring MINGW,$(detected_OS)))
   detected_OS := Windows
 endif
 
+echo "---- detected_OS: $(detected_OS)"
+
 ifeq ($(detected_OS),Windows)
   # Update MINGW_PATH to standard MinGW location
   MINGW_PATH = /mingw64
@@ -398,15 +400,16 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
+
 libwaku: | build deps librln
-		rm -f build/libwaku*
+	rm -f build/libwaku*
+
 ifeq ($(STATIC), 1)
-		echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+else ifeq ($(detected_OS),Windows)
+	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDLL $(NIM_PARAMS) waku.nims
 else
-	ifeq ($(detected_OS),Windows)
-		echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
-	else
-		echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
 #####################
