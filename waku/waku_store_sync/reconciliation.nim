@@ -122,7 +122,7 @@ proc processRequest(
 
     roundTrips.inc()
 
-    debug "sync payload received",
+    trace "sync payload received",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = recvPayload
@@ -141,7 +141,7 @@ proc processRequest(
         recvPayload.shards.toPackedSet() == self.shards:
       sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
 
-      debug "sync payload processed",
+      trace "sync payload processed",
         hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
       sendPayload.cluster = self.cluster
@@ -166,7 +166,7 @@ proc processRequest(
       return
         err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
 
-    debug "sync payload sent",
+    trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
       remote = conn.peerId,
       payload = sendPayload
@@ -217,7 +217,7 @@ proc initiate(
       "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
     )
 
-  debug "sync payload sent",
+  trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
     remote = connection.peerId,
     payload = initPayload
