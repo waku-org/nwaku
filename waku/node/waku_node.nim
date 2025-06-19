@@ -1334,8 +1334,6 @@ proc keepaliveLoop(
     allPeersKeepAlive: chronos.Duration,
     numRandomPeers = 10,
 ) {.async.} =
-  # We assume that allPeersKeepAlive > randomPeersKeepalive and randomPeersKeepalive > 0
-
   if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
     error "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
       randomPeersKeepalive = randomPeersKeepalive, allPeersKeepAlive = allPeersKeepAlive
@@ -1352,21 +1350,22 @@ proc keepaliveLoop(
       "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
     )
 
-  # If the time between consecutive pings is over sleepDetectionInterval, we deduce that
-  # our machine was sleeping
-  let sleepDetectionInterval = 3 * randomPeersKeepalive
-  let maxAllowedSubsequentPingFailures = 2
-
   let randomToAllRatio = allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds()
   # Counter, when it becomes 0 we ping all peers
   var countdownToPingAll = randomToAllRatio - 1
 
-  var outPeers: seq[PeerId]
-  var peersToPing: seq[PeerId]
+  # If the time between consecutive pings is over sleepDetectionInterval, we deduce that
+  # our machine was sleeping
+  let sleepDetectionInterval = 3 * randomPeersKeepalive
   # counter for consecutive keepalive iterations with all pings failed
   var iterationFailure = 0
+  # Maximum value we allow iterationFailure to reach before deducing that our machine has a problem
+  let maxAllowedSubsequentPingFailures = 2
   # counter for ping failures in an unique keepalive iteration
   var failureCounter = 0
+
+  var outPeers: seq[PeerId]
+  var peersToPing: seq[PeerId]
   var lastTimeExecuted = Moment.now()
 
   while true:
@@ -1393,8 +1392,7 @@ proc keepaliveLoop(
       continue
 
     outPeers = node.peerManager.connectedPeers()[1]
-    if countdownToPingAll > 0:
-      # ping random peers
+    if countdownToPingAll > 0: # ping random peers
       # prioritize peers in mesh
       var meshPeers = node.wakuRelay.getPeersInMesh().valueOr:
         error "Failed getting peers in mesh for ping", error = error
@@ -1408,8 +1406,7 @@ proc keepaliveLoop(
           0 ..< min(len(outPeersNotInMesh), max(0, numRandomPeers - len(meshPeers)))
         ]
       countdownToPingAll -= 1
-    else:
-      # ping all peers
+    else: # ping all peers
       peersToPing = outPeers
       # reset countdown
       countdownToPingAll = randomToAllRatio - 1
