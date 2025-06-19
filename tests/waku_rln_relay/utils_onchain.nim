@@ -63,11 +63,12 @@ proc generateCredentials*(rlnInstance: ptr RLN, n: int): seq[IdentityCredential]
 
 proc getContractAddressFromDeployScriptOutput(output: string): Result[string, string] =
   const searchStr = "Return ==\n0: address "
+  const addressLength = 42 # Length of an Ethereum address in hex format
   let idx = output.find(searchStr)
   if idx >= 0:
     let startPos = idx + searchStr.len
     let endPos = output.find('\n', startPos)
-    if (endPos - startPos) >= 42:
+    if (endPos - startPos) >= addressLength:
       let address = output[startPos ..< endPos]
       return ok(address)
   return err("Unable to find contract address in deploy script output")
