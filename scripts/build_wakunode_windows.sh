@@ -49,11 +49,14 @@ cd ../../../../..
 
 echo "8. -.-.-.- Building libnatpmp -.-.-.- "
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
+make CC="gcc -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
 cd ../../../../
 
 echo "9. -.-.-.- Building wakunode2 -.-.-.- "
-execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
+execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j"
+
+echo "9. -.-.-.- Building libwaku -.-.-.- "
+execute_command "make libwaku STATIC=0 LOG_LEVEL=DEBUG V=1 -j"
 
 echo "Windows setup completed successfully!"
 echo "✓ Successful commands: $success_count"
