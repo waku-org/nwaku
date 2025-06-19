@@ -293,9 +293,10 @@ proc approveTokenAllowanceAndVerify*(
     let txHash = await web3.send(tx)
     let receipt = await web3.getMinedTransactionReceipt(txHash)
 
-    # Check transaction status
-    if receipt.status.isNone or receipt.status.get != 1.Quantity:
-      return err("Approval transaction failed")
+    if receipt.status.isNone():
+      return err("Approval transaction failed receipt is none")
+    if receipt.status.get() != 1.Quantity:
+      return err("Approval transaction failed status quantity not 1")
 
     # Single verification check after mining (no extra sleep needed)
     let allowanceAfter =
