@@ -1335,7 +1335,23 @@ proc keepaliveLoop(
     numRandomPeers = 10,
 ) {.async.} =
   # We assume that allPeersKeepAlive > randomPeersKeepalive and randomPeersKeepalive > 0
-  var lastTimeExecuted = Moment.now()
+
+  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
+    error "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+      randomPeersKeepalive = randomPeersKeepalive, allPeersKeepAlive = allPeersKeepAlive
+    raise newException(
+      CatchableError,
+      "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+    )
+
+  if allPeersKeepAlive < randomPeersKeepalive:
+    error "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
+      allPeersKeepAlive = allPeersKeepAlive, randomPeersKeepalive = randomPeersKeepalive
+    raise newException(
+      CatchableError,
+      "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
+    )
+
   # If the time between consecutive pings is over sleepDetectionInterval, we deduce that
   # our machine was sleeping
   let sleepDetectionInterval = 3 * randomPeersKeepalive
@@ -1351,6 +1367,7 @@ proc keepaliveLoop(
   var iterationFailure = 0
   # counter for ping failures in an unique keepalive iteration
   var failureCounter = 0
+  var lastTimeExecuted = Moment.now()
 
   while true:
     await sleepAsync(randomPeersKeepalive)
