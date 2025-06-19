@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net, random],
   chronos,
   chronicles,
   metrics,
@@ -68,6 +68,8 @@ declarePublicGauge waku_px_peers,
 
 logScope:
   topics = "waku node"
+
+randomize()
 
 # TODO: Move to application instance (e.g., `WakuNode2`)
 # Git version in git describe format (defined compile time)
@@ -1326,9 +1328,49 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
 # TODO: Move this logic to PeerManager
-proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
+proc keepaliveLoop(
+    node: WakuNode,
+    randomPeersKeepalive: chronos.Duration,
+    allPeersKeepAlive: chronos.Duration,
+    numRandomPeers = 10,
+) {.async.} =
+  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
+    error "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+      randomPeersKeepalive = randomPeersKeepalive, allPeersKeepAlive = allPeersKeepAlive
+    raise newException(
+      CatchableError,
+      "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+    )
+
+  if allPeersKeepAlive < randomPeersKeepalive:
+    error "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
+      allPeersKeepAlive = allPeersKeepAlive, randomPeersKeepalive = randomPeersKeepalive
+    raise newException(
+      CatchableError,
+      "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
+    )
+
+  let randomToAllRatio = allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds()
+  # Counter, when it becomes 0 we ping all peers
+  var countdownToPingAll = randomToAllRatio - 1
+
+  # If the time between consecutive pings is over sleepDetectionInterval, we deduce that
+  # our machine was sleeping
+  let sleepDetectionInterval = 3 * randomPeersKeepalive
+  # counter for consecutive keepalive iterations with all pings failed
+  var iterationFailure = 0
+  # Maximum value we allow iterationFailure to reach before deducing that our machine has a problem
+  let maxAllowedSubsequentPingFailures = 2
+  # counter for ping failures in an unique keepalive iteration
+  var failureCounter = 0
+
+  var outPeers: seq[PeerId]
+  var peersToPing: seq[PeerId]
+  var lastTimeExecuted = Moment.now()
+
   while true:
-    await sleepAsync(keepalive)
+    echo "-------------- running keepaliveLoop"
+    await sleepAsync(randomPeersKeepalive)
     if not node.started:
       continue
 
@@ -1336,24 +1378,79 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     # Each node is responsible of keeping its outgoing connections alive
     trace "Running keepalive"
 
-    # First get a list of connected peer infos
-    let outPeers = node.peerManager.connectedPeers()[1]
+    let currentTime = Moment.now()
+    if currentTime - lastTimeExecuted > sleepDetectionInterval:
+      warn "Keep alive hasnt been executed recently. Killing all connections"
+      await node.peerManager.disconnectAllPeers()
+      lastTimeExecuted = currentTime
+      continue
 
-    for peerId in outPeers:
+    if iterationFailure > maxAllowedSubsequentPingFailures:
+      iterationFailure = 0
+      warn "Pinging random peers failed, node is likely disconnected. Killing all connections"
+      await node.peerManager.disconnectAllPeers()
+      lastTimeExecuted = currentTime
+      continue
+
+    outPeers = node.peerManager.connectedPeers()[1]
+    if countdownToPingAll > 0: # ping random peers
+      echo "-------------- keepaliveLoop pinging random peers. countdownToPingAll: ",
+        countdownToPingAll
+      # prioritize peers in mesh
+      var meshPeers = node.wakuRelay.getPeersInMesh().valueOr:
+        error "Failed getting peers in mesh for ping", error = error
+        continue
+      echo "------------ meshPeers: ", $meshPeers
+      var outPeersNotInMesh = outPeers.filterIt(it notin meshPeers)
+      shuffle(outPeersNotInMesh)
+      echo "------------ peersToPing: ", $peersToPing
+      # Combine mesh + random peers up to numRandomPeers total
+      peersToPing =
+        meshPeers &
+        outPeersNotInMesh[
+          0 ..< min(len(outPeersNotInMesh), max(0, numRandomPeers - len(meshPeers)))
+        ]
+      countdownToPingAll -= 1
+    else: # ping all peers
+      peersToPing = outPeers
+      echo "-------------- keepaliveLoop pinging all peers. len(peersToPing): ",
+        len(peersToPing)
+      # reset countdown
+      countdownToPingAll = randomToAllRatio - 1
+
+    failureCounter = 0
+    for peerId in peersToPing:
       try:
         let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
           warn "Failed dialing peer for keep alive", peerId = peerId
+          failureCounter += 1
           continue
         let pingDelay = await node.libp2pPing.ping(conn)
         await conn.close()
       except CatchableError as exc:
+        echo "--------- exception pinging"
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+        failureCounter += 1
+
+    echo "--------------- len(peersToPing): ", len(peersToPing)
+    echo "--------------- failureCounter: ", failureCounter
+    # if all ping attempts failed, we increase iterationFailure
+    if len(peersToPing) > 0 and failureCounter == len(peersToPing):
+      iterationFailure += 1
+      echo "--------- increasing iterationFailure to: ", iterationFailure
+    else:
+      iterationFailure = 0
+
+    lastTimeExecuted = Moment.now()
 
 # 2 minutes default - 20% of the default chronosstream timeout duration
-proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
-  info "starting keepalive", keepalive = keepalive
+proc startKeepalive*(
+    node: WakuNode, randomPeersKeepalive = 10.seconds, allPeersKeepalive = 2.minutes
+) =
+  info "starting keepalive",
+    randomPeersKeepalive = randomPeersKeepalive, allPeersKeepalive = allPeersKeepalive
 
-  asyncSpawn node.keepaliveLoop(keepalive)
+  asyncSpawn node.keepaliveLoop(randomPeersKeepalive, allPeersKeepalive)
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"

@@ -387,6 +387,15 @@ proc disconnectNode*(pm: PeerManager, peer: RemotePeerInfo) {.async.} =
   let peerId = peer.peerId
   await pm.disconnectNode(peerId)
 
+proc disconnectAllPeers*(pm: PeerManager) {.async.} =
+  let connectedPeers =
+    pm.switch.peerStore.peers().filterIt(it.connectedness == Connected)
+
+  var futs: seq[Future[void]]
+  for peer in connectedPeers:
+    futs.add(pm.disconnectNode(peer))
+  await allFutures(futs)
+
 # Dialing should be used for just protocols that require a stream to write and read
 # This shall not be used to dial Relay protocols, since that would create
 # unneccesary unused streams.
