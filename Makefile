@@ -33,8 +33,6 @@ ifneq (,$(findstring MINGW,$(detected_OS)))
   detected_OS := Windows
 endif
 
-echo "---- detected_OS: $(detected_OS)"
-
 ifeq ($(detected_OS),Windows)
   # Update MINGW_PATH to standard MinGW location
   MINGW_PATH = /mingw64
