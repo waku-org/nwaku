@@ -1369,6 +1369,7 @@ proc keepaliveLoop(
   var lastTimeExecuted = Moment.now()
 
   while true:
+    echo "-------------- running keepaliveLoop"
     await sleepAsync(randomPeersKeepalive)
     if not node.started:
       continue
@@ -1393,12 +1394,16 @@ proc keepaliveLoop(
 
     outPeers = node.peerManager.connectedPeers()[1]
     if countdownToPingAll > 0: # ping random peers
+      echo "-------------- keepaliveLoop pinging random peers. countdownToPingAll: ",
+        countdownToPingAll
       # prioritize peers in mesh
       var meshPeers = node.wakuRelay.getPeersInMesh().valueOr:
         error "Failed getting peers in mesh for ping", error = error
         continue
+      echo "------------ meshPeers: ", $meshPeers
       var outPeersNotInMesh = outPeers.filterIt(it notin meshPeers)
       shuffle(outPeersNotInMesh)
+      echo "------------ peersToPing: ", $peersToPing
       # Combine mesh + random peers up to numRandomPeers total
       peersToPing =
         meshPeers &
@@ -1408,6 +1413,8 @@ proc keepaliveLoop(
       countdownToPingAll -= 1
     else: # ping all peers
       peersToPing = outPeers
+      echo "-------------- keepaliveLoop pinging all peers. len(peersToPing): ",
+        len(peersToPing)
       # reset countdown
       countdownToPingAll = randomToAllRatio - 1
 
@@ -1421,12 +1428,16 @@ proc keepaliveLoop(
         let pingDelay = await node.libp2pPing.ping(conn)
         await conn.close()
       except CatchableError as exc:
+        echo "--------- exception pinging"
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
         failureCounter += 1
 
+    echo "--------------- len(peersToPing): ", len(peersToPing)
+    echo "--------------- failureCounter: ", failureCounter
     # if all ping attempts failed, we increase iterationFailure
     if len(peersToPing) > 0 and failureCounter == len(peersToPing):
       iterationFailure += 1
+      echo "--------- increasing iterationFailure to: ", iterationFailure
     else:
       iterationFailure = 0
 
