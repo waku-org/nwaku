@@ -1445,7 +1445,7 @@ proc keepaliveLoop(
 
 # 2 minutes default - 20% of the default chronosstream timeout duration
 proc startKeepalive*(
-    node: WakuNode, randomPeersKeepalive = 5.seconds, allPeersKeepalive = 2.minutes
+    node: WakuNode, randomPeersKeepalive = 10.seconds, allPeersKeepalive = 2.minutes
 ) =
   info "starting keepalive",
     randomPeersKeepalive = randomPeersKeepalive, allPeersKeepalive = allPeersKeepalive
