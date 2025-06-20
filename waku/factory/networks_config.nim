@@ -30,12 +30,12 @@ type ClusterConf* = object
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
 proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
-  const RelayChainId = 11155111'u256
+  const RelayChainId = 59141'u256
   return ClusterConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
+    rlnRelayEthContractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
     rlnRelayDynamic: true,
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
