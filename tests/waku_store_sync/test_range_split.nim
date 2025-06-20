@@ -209,7 +209,7 @@ suite "Waku Sync – reconciliation":
         baseHash = hashLocal
         alteredHash = toDigest("msg" & $i & "_x")
         hashRemote = alteredHash
-      
+
       remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
         assert false, "failed to insert hash: " & $error
 
