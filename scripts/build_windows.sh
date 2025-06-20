@@ -36,27 +36,27 @@ cd ../../../..
 
 echo "6. -.-.-.- Building libunwind -.-.-.-"
 cd vendor/nim-libbacktrace
-execute_command "make all V=1 -j"
-execute_command "make install/usr/lib/libunwind.a V=1 -j"
+execute_command "make all V=1 -j8"
+execute_command "make install/usr/lib/libunwind.a V=1 -j8"
 cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
 echo "7. -.-.-.- Building miniupnpc -.-.-.- "
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 execute_command "git checkout little_chore_windows_support"
-execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1 -j"
+execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1 -j8"
 cd ../../../../..
 
 echo "8. -.-.-.- Building libnatpmp -.-.-.- "
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1 -j
+make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1 -j8
 cd ../../../../
 
 echo "9. -.-.-.- Building wakunode2 -.-.-.- "
-execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j"
+execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "10. -.-.-.- Building libwaku -.-.-.- "
-execute_command "make libwaku STATIC=0 LOG_LEVEL=DEBUG V=1 -j"
+execute_command "make libwaku STATIC=0 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "Windows setup completed successfully!"
 echo "✓ Successful commands: $success_count"
