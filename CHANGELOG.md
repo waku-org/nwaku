@@ -1,3 +1,90 @@
+## v0.36.0 (2025-06-20)
+
+### Features
+
+- Update implementation for new contract abi ([#3390](https://github.com/waku-org/nwaku/issues/3390)) ([ee4058b2d](https://github.com/waku-org/nwaku/commit/ee4058b2d))
+- Lighptush v3 for lite-protocol-tester ([#3455](https://github.com/waku-org/nwaku/issues/3455)) ([3f3c59488](https://github.com/waku-org/nwaku/commit/3f3c59488))
+- Retrieve metrics from libwaku ([#3452](https://github.com/waku-org/nwaku/issues/3452)) ([f016ede60](https://github.com/waku-org/nwaku/commit/f016ede60))
+- Dynamic logging via REST API ([#3451](https://github.com/waku-org/nwaku/issues/3451)) ([9fe8ef8d2](https://github.com/waku-org/nwaku/commit/9fe8ef8d2))
+- Add waku_disconnect_all_peers to libwaku ([#3438](https://github.com/waku-org/nwaku/issues/3438)) ([7f51d103b](https://github.com/waku-org/nwaku/commit/7f51d103b))
+- Extend node /health REST endpoint with all protocol's state ([#3419](https://github.com/waku-org/nwaku/issues/3419)) ([1632496a2](https://github.com/waku-org/nwaku/commit/1632496a2))
+- Deprecate sync / local merkle tree  ([#3312](https://github.com/waku-org/nwaku/issues/3312)) ([50fe7d727](https://github.com/waku-org/nwaku/commit/50fe7d727))
+- Refactor waku sync DOS protection ([#3391](https://github.com/waku-org/nwaku/issues/3391)) ([a81f9498c](https://github.com/waku-org/nwaku/commit/a81f9498c))
+- Waku Sync dashboard new panel & update  ([#3379](https://github.com/waku-org/nwaku/issues/3379)) ([5ed6aae10](https://github.com/waku-org/nwaku/commit/5ed6aae10))
+- Enhance Waku Sync logs and metrics ([#3370](https://github.com/waku-org/nwaku/issues/3370)) ([f6c680a46](https://github.com/waku-org/nwaku/commit/f6c680a46))
+- Add waku_get_connected_peers_info to libwaku ([#3356](https://github.com/waku-org/nwaku/issues/3356)) ([0eb9c6200](https://github.com/waku-org/nwaku/commit/0eb9c6200))
+- Add waku_relay_get_peers_in_mesh to libwaku ([#3352](https://github.com/waku-org/nwaku/issues/3352)) ([ef9074443](https://github.com/waku-org/nwaku/commit/ef9074443))
+- Add waku_relay_get_connected_peers to libwaku ([#3353](https://github.com/waku-org/nwaku/issues/3353)) ([7250d7392](https://github.com/waku-org/nwaku/commit/7250d7392))
+- Introduce `preset` option ([#3346](https://github.com/waku-org/nwaku/issues/3346)) ([0eaf90465](https://github.com/waku-org/nwaku/commit/0eaf90465))
+- Add store sync dashboard panel ([#3307](https://github.com/waku-org/nwaku/issues/3307)) ([ef8ee233f](https://github.com/waku-org/nwaku/commit/ef8ee233f))
+
+### Bug Fixes
+
+- Fix typo from DIRVER to DRIVER ([#3442](https://github.com/waku-org/nwaku/issues/3442)) ([b9a4d7702](https://github.com/waku-org/nwaku/commit/b9a4d7702))
+- Fix discv5 protocol id in libwaku ([#3447](https://github.com/waku-org/nwaku/issues/3447)) ([f7be4c2f0](https://github.com/waku-org/nwaku/commit/f7be4c2f0))
+- Fix dnsresolver ([#3440](https://github.com/waku-org/nwaku/issues/3440)) ([e42e28cc6](https://github.com/waku-org/nwaku/commit/e42e28cc6))
+- Misc sync fixes, added debug logging ([#3411](https://github.com/waku-org/nwaku/issues/3411)) ([b9efa874d](https://github.com/waku-org/nwaku/commit/b9efa874d))
+- Relay unsubscribe ([#3422](https://github.com/waku-org/nwaku/issues/3422)) ([9fc631e10](https://github.com/waku-org/nwaku/commit/9fc631e10))
+- Fix build_rln.sh update version to download v0.7.0 ([#3425](https://github.com/waku-org/nwaku/issues/3425)) ([2678303bf](https://github.com/waku-org/nwaku/commit/2678303bf))
+- Timestamp based validation ([#3406](https://github.com/waku-org/nwaku/issues/3406)) ([1512bdaf0](https://github.com/waku-org/nwaku/commit/1512bdaf0))
+- Enable WebSocket connection also in case only websocket-secure-support enabled ([#3417](https://github.com/waku-org/nwaku/issues/3417)) ([698fe6525](https://github.com/waku-org/nwaku/commit/698fe6525))
+- Fix addPeer could unintentionally override metadata of previously stored peer with defaults and empty ([#3403](https://github.com/waku-org/nwaku/issues/3403)) ([5cccaaac6](https://github.com/waku-org/nwaku/commit/5cccaaac6))
+- Fix bad HttpCode conversion, add missing lightpush v3 rest api tests ([#3389](https://github.com/waku-org/nwaku/issues/3389)) ([7ff055e42](https://github.com/waku-org/nwaku/commit/7ff055e42))
+- Adjust mistaken comments and broken link ([#3381](https://github.com/waku-org/nwaku/issues/3381)) ([237f7abbb](https://github.com/waku-org/nwaku/commit/237f7abbb))
+- Avoid libwaku's redundant allocs ([#3380](https://github.com/waku-org/nwaku/issues/3380)) ([ac454a30b](https://github.com/waku-org/nwaku/commit/ac454a30b))
+- Avoid performing nil check for userData ([#3365](https://github.com/waku-org/nwaku/issues/3365)) ([b8707b6a5](https://github.com/waku-org/nwaku/commit/b8707b6a5))
+- Fix waku sync timing ([#3337](https://github.com/waku-org/nwaku/issues/3337)) ([b01b1837d](https://github.com/waku-org/nwaku/commit/b01b1837d))
+- Fix filter out ephemeral msg from waku sync ([#3332](https://github.com/waku-org/nwaku/issues/3332)) ([4b963d8f5](https://github.com/waku-org/nwaku/commit/4b963d8f5))
+- Apply latest nph formating ([#3334](https://github.com/waku-org/nwaku/issues/3334)) ([77105a6c2](https://github.com/waku-org/nwaku/commit/77105a6c2))
+- waku sync 2.0 codecs ENR support ([#3326](https://github.com/waku-org/nwaku/issues/3326)) ([bf735e777](https://github.com/waku-org/nwaku/commit/bf735e777))
+- waku sync mounting ([#3321](https://github.com/waku-org/nwaku/issues/3321)) ([380d2e338](https://github.com/waku-org/nwaku/commit/380d2e338))
+- Fix rest-relay-cache-capacity  ([#3454](https://github.com/waku-org/nwaku/issues/3454)) ([fed4dc280](https://github.com/waku-org/nwaku/commit/fed4dc280))
+
+### Changes
+
+- Lower waku sync log lvl ([#3461](https://github.com/waku-org/nwaku/issues/3461)) ([4277a5349](https://github.com/waku-org/nwaku/commit/4277a5349))
+- Refactor to unify online and health monitors ([#3456](https://github.com/waku-org/nwaku/issues/3456)) ([2e40f2971](https://github.com/waku-org/nwaku/commit/2e40f2971))
+- Refactor rm discv5-only ([#3453](https://github.com/waku-org/nwaku/issues/3453)) ([b998430d5](https://github.com/waku-org/nwaku/commit/b998430d5))
+- Add extra debug REST helper via getting peer statistics ([#3443](https://github.com/waku-org/nwaku/issues/3443)) ([f4ad7a332](https://github.com/waku-org/nwaku/commit/f4ad7a332))
+- Expose online state in libwaku ([#3433](https://github.com/waku-org/nwaku/issues/3433)) ([e7f5c8cb2](https://github.com/waku-org/nwaku/commit/e7f5c8cb2))
+- Add heaptrack support build for Nim v2.0.12 builds ([#3424](https://github.com/waku-org/nwaku/issues/3424)) ([91885fb9e](https://github.com/waku-org/nwaku/commit/91885fb9e))
+- Remove debug for js-waku ([#3423](https://github.com/waku-org/nwaku/issues/3423)) ([5628dc6ad](https://github.com/waku-org/nwaku/commit/5628dc6ad))
+- Bump dependencies for v0.36 ([#3410](https://github.com/waku-org/nwaku/issues/3410)) ([005815746](https://github.com/waku-org/nwaku/commit/005815746))
+- Enhance feedback on error CLI ([#3405](https://github.com/waku-org/nwaku/issues/3405)) ([3464d81a6](https://github.com/waku-org/nwaku/commit/3464d81a6))
+- Allow multiple rln eth clients ([#3402](https://github.com/waku-org/nwaku/issues/3402)) ([861710bc7](https://github.com/waku-org/nwaku/commit/861710bc7))
+- Separate internal and CLI configurations ([#3357](https://github.com/waku-org/nwaku/issues/3357)) ([dd8d66431](https://github.com/waku-org/nwaku/commit/dd8d66431))
+- Avoid double relay subscription  ([#3396](https://github.com/waku-org/nwaku/issues/3396)) ([7d5eb9374](https://github.com/waku-org/nwaku/commit/7d5eb9374) [#3429](https://github.com/waku-org/nwaku/issues/3429)) ([ee5932ebc](https://github.com/waku-org/nwaku/commit/ee5932ebc))
+- Improve disconnection handling ([#3385](https://github.com/waku-org/nwaku/issues/3385)) ([1ec9b8d96](https://github.com/waku-org/nwaku/commit/1ec9b8d96))
+- Return all peers from REST admin ([#3395](https://github.com/waku-org/nwaku/issues/3395)) ([f6fdd960f](https://github.com/waku-org/nwaku/commit/f6fdd960f))
+- Simplify rln_relay code a little ([#3392](https://github.com/waku-org/nwaku/issues/3392)) ([7a6c00bd0](https://github.com/waku-org/nwaku/commit/7a6c00bd0))
+- Extended /admin/v1 RESP API with different option to look at current connected/relay/mesh state of the node ([#3382](https://github.com/waku-org/nwaku/issues/3382)) ([3db00f39e](https://github.com/waku-org/nwaku/commit/3db00f39e))
+- Timestamp set to now in publish if not provided ([#3373](https://github.com/waku-org/nwaku/issues/3373)) ([f7b424451](https://github.com/waku-org/nwaku/commit/f7b424451))
+- Update lite-protocol-tester for handling shard argument ([#3371](https://github.com/waku-org/nwaku/issues/3371)) ([5ab69edd7](https://github.com/waku-org/nwaku/commit/5ab69edd7))
+- Fix unused and deprecated imports ([#3368](https://github.com/waku-org/nwaku/issues/3368)) ([6ebb49a14](https://github.com/waku-org/nwaku/commit/6ebb49a14))
+- Expect camelCase JSON for libwaku store queries ([#3366](https://github.com/waku-org/nwaku/issues/3366)) ([ccb4ed51d](https://github.com/waku-org/nwaku/commit/ccb4ed51d))
+- Maintenance to c and c++ simple examples ([#3367](https://github.com/waku-org/nwaku/issues/3367)) ([25d30d44d](https://github.com/waku-org/nwaku/commit/25d30d44d))
+- Skip two flaky tests ([#3364](https://github.com/waku-org/nwaku/issues/3364)) ([b672617b2](https://github.com/waku-org/nwaku/commit/b672617b2))
+- Retrieve protocols in new added peer from discv5 ([#3354](https://github.com/waku-org/nwaku/issues/3354)) ([df58643ea](https://github.com/waku-org/nwaku/commit/df58643ea))
+- Better keystore management ([#3358](https://github.com/waku-org/nwaku/issues/3358)) ([a914fdccc](https://github.com/waku-org/nwaku/commit/a914fdccc))
+- Remove pubsub topics arguments ([#3350](https://github.com/waku-org/nwaku/issues/3350)) ([9778b45c6](https://github.com/waku-org/nwaku/commit/9778b45c6))
+- New performance measurement metrics for non-relay protocols ([#3299](https://github.com/waku-org/nwaku/issues/3299)) ([68c50a09a](https://github.com/waku-org/nwaku/commit/68c50a09a))
+- Start triggering CI for windows build ([#3316](https://github.com/waku-org/nwaku/issues/3316)) ([55ac6ba9f](https://github.com/waku-org/nwaku/commit/55ac6ba9f))
+- Less logs for rendezvous ([#3319](https://github.com/waku-org/nwaku/issues/3319)) ([6df05bae2](https://github.com/waku-org/nwaku/commit/6df05bae2))
+- Add test reporting doc to benchmarks dir ([#3238](https://github.com/waku-org/nwaku/issues/3238)) ([94554a6e0](https://github.com/waku-org/nwaku/commit/94554a6e0))
+- Improve epoch monitoring ([#3197](https://github.com/waku-org/nwaku/issues/3197)) ([b0c025f81](https://github.com/waku-org/nwaku/commit/b0c025f81))
+
+### This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`WAKU2-LIGHTPUSH v3`](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md) | `draft` | `/vac/waku/lightpush/3.0.0` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/feat--waku-sync/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
+
+
 ## v0.35.1 (2025-03-30)
 
 ### Bug fixes
