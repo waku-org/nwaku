@@ -1,5 +1,15 @@
 ## v0.36.0 (2025-06-20)
 
+### Notes
+
+- The `rln-relay-eth-client-address` parameter, from now on, should be passed as an array of RPC addresses.
+- new `preset` parameter. `preset=twn` is the RLN-protected Waku Network (cluster 1). Overrides other values.
+- Removed `dns-addrs` parameter as it was duplicated and unused.
+- Removed `rln-relay-id-key`, `rln-relay-id-commitment-key`, `rln-relay-bandwidth-threshold` parameters.
+- Effectively removed `pubsub-topic`, which was deprecated in `v0.33.0`.
+- Removed `store-sync-max-payload-size` parameter.
+- Removed `dns-discovery-name-server` and `discv5-only` parameters.
+
 ### Features
 
 - Update implementation for new contract abi ([#3390](https://github.com/waku-org/nwaku/issues/3390)) ([ee4058b2d](https://github.com/waku-org/nwaku/commit/ee4058b2d))
