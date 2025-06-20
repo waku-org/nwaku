@@ -18,6 +18,7 @@ type DebugNodeMsgType* = enum
   RETRIEVE_MY_PEER_ID
   RETRIEVE_METRICS
   RETRIEVE_ONLINE_STATE
+  CHECK_WAKU_NOT_BLOCKED
 
 type DebugNodeRequest* = object
   operation: DebugNodeMsgType

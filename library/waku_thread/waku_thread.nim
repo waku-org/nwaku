@@ -28,7 +28,11 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
 
   var waku: Waku
 
+  const MaxTimeWaku
+
   while true:
+    var deadline = sleepAsync(10.seconds)
+
     await ctx.reqSignal.wait()
 
     if ctx.running.load == false:
