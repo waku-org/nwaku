@@ -58,6 +58,12 @@ type NetworkConfig* = object # TODO: make enum
   extMultiAddrs*: seq[MultiAddress]
   extMultiAddrsOnly*: bool
 
+type EligibilityConf* = object
+  enabled*: bool
+  receiverAddress*: string
+  paymentAmountWei*: uint32
+  ethClientUrls*: seq[string]
+
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
@@ -93,6 +99,7 @@ type WakuConf* {.requiresInit.} = ref object
   restServerConf*: Option[RestServerConf]
   metricsServerConf*: Option[MetricsServerConf]
   webSocketConf*: Option[WebSocketConf]
+  eligibilityConf*: Option[EligibilityConf]
 
   portsShift*: uint16
   dnsAddrs*: bool
@@ -133,34 +140,38 @@ type WakuConf* {.requiresInit.} = ref object
 
   p2pReliability*: bool
 
-proc logConf*(conf: WakuConf) =
+proc logConf*(wakuConf: WakuConf) =
   info "Configuration: Enabled protocols",
-    relay = conf.relay,
-    rlnRelay = conf.rlnRelayConf.isSome(),
-    store = conf.storeServiceConf.isSome(),
-    filter = conf.filterServiceConf.isSome(),
-    lightPush = conf.lightPush,
-    peerExchange = conf.peerExchange
+    relay = wakuConf.relay,
+    rlnRelay = wakuConf.rlnRelayConf.isSome(),
+    store = wakuConf.storeServiceConf.isSome(),
+    filter = wakuConf.filterServiceConf.isSome(),
+    lightPush = wakuConf.lightPush,
+    peerExchange = wakuConf.peerExchange
 
-  info "Configuration. Network", cluster = conf.clusterId
+  info "Configuration. Network", cluster = wakuConf.clusterId
 
-  for shard in conf.shards:
+  for shard in wakuConf.shards:
     info "Configuration. Shards", shard = shard
 
-  if conf.discv5Conf.isSome():
-    for i in conf.discv5Conf.get().bootstrapNodes:
+  if wakuConf.discv5Conf.isSome():
+    for i in wakuConf.discv5Conf.get().bootstrapNodes:
       info "Configuration. Bootstrap nodes", node = i.string
 
-  if conf.rlnRelayConf.isSome():
-    var rlnRelayConf = conf.rlnRelayConf.get()
+  if wakuConf.rlnRelayConf.isSome():
+    var rlnRelayConf = wakuConf.rlnRelayConf.get()
     if rlnRelayConf.dynamic:
       info "Configuration. Validation",
         mechanism = "onchain rln",
         contract = rlnRelayConf.ethContractAddress.string,
-        maxMessageSize = conf.maxMessageSizeBytes,
+        maxMessageSize = wakuConf.maxMessageSizeBytes,
         rlnEpochSizeSec = rlnRelayConf.epochSizeSec,
         rlnRelayUserMessageLimit = rlnRelayConf.userMessageLimit,
         ethClientUrls = rlnRelayConf.ethClientUrls
+
+  if wakuConf.eligibilityConf.isSome():
+    let ec = wakuConf.eligibilityConf.get()
+    debug "eligibility: EligibilityConf created", enabled = ec.enabled, receiverAddress = $ec.receiverAddress, paymentAmountWei = ec.paymentAmountWei, ethClientUrls = ec.ethClientUrls
 
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   wakuConf.nodeKey.getPublicKey().isOkOr:
@@ -240,4 +251,17 @@ proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
   ?wakuConf.validateShards()
   ?wakuConf.validateNoEmptyStrings()
+
+  if wakuConf.eligibilityConf.isSome():
+    let ec = wakuConf.eligibilityConf.get()
+    debug "eligibility: EligibilityConf validation start"
+    if ec.enabled:
+      if not wakuConf.rlnRelayConf.isSome():
+        debug "eligibility: EligibilityConf validation failed - RLN relay not enabled"
+        return err("eligibility: RLN relay must be enabled if eligibility is enabled")
+      if not wakuConf.lightPush:
+        debug "eligibility: EligibilityConf validation failed - Lightpush not enabled"
+        return err("eligibility: Lightpush must be enabled if eligibility is enabled")
+      debug "eligibility: EligibilityConf validation successful"
+
   return ok()

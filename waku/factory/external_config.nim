@@ -27,7 +27,8 @@ import
   ../node/peer_manager,
   ../waku_core/topics/pubsub_topic,
   ../../tools/rln_keystore_generator/rln_keystore_generator,
-  ../../tools/rln_db_inspector/rln_db_inspector
+  ../../tools/rln_db_inspector/rln_db_inspector,
+  ./conf_builder/eligibility_conf_builder
 
 include ../waku_core/message/default_values
 
@@ -266,8 +267,8 @@ type WakuNodeConf* = object
     isRelayClient* {.
       desc:
         """Set the node as a relay-client.
-Set it to true for nodes that run behind a NAT or firewall and
-hence would have reachability issues.""",
+        Set it to true for nodes that run behind a NAT or firewall and
+        hence would have reachability issues.""",
       defaultValue: false,
       name: "relay-client"
     .}: bool
@@ -489,12 +490,30 @@ hence would have reachability issues.""",
     ## Eligibility config
     ## Is eligibility check enabled or not
     eligibilityEnabled* {.
-      desc:
-        "Enable server-side eligibility (proof-of-payment) check for light protocols: true|false",
+      desc: "Enable server-side eligibility (proof-of-payment) check for light protocols: true|false",
       defaultValue: false,
-      name: "eligibility"
+      name: "eligibility-enabled"
     .}: bool
 
+    ## The expected blockchain address receiving payments for eligibility
+    eligibilityReceiverAddress* {.
+      desc: "Blockchain address receiving payment for eligibility from light protocol clients",
+      defaultValue: "",
+      name: "eligibility-receiver-address"
+    .}: string
+
+    ## The expected amount for eligibility payments
+    eligibilityPaymentAmountWei* {.
+      desc: "The expected payment amount from light protocol clients",
+      defaultValue: 0,
+      name: "eligibility-payment-amount-wei"
+    .}: uint32
+    
+    eligibilityEthRpcUrl* {.
+      desc: "HTTP address of an Ethereum client for eligibility checks. Argument may be repeated.",
+      defaultValue: @[EthRpcUrl("http://localhost:8540/")],
+      name: "eligibility-eth-client-address"
+    .}: seq[EthRpcUrl]
 
     ## Reliability config
     reliabilityEnabled* {.
@@ -1063,5 +1082,14 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.webSocketConf.withCertPath(n.websocketSecureCertPath)
 
   b.withRateLimits(n.rateLimits)
+
+  # Setup eligibility configuration
+  b.eligibilityConf.withEnabled(n.eligibilityEnabled)
+  if n.eligibilityReceiverAddress != "":
+    b.eligibilityConf.withReceiverAddress(n.eligibilityReceiverAddress)
+  if n.eligibilityPaymentAmountWei != 0:
+    b.eligibilityConf.withPaymentAmountWei(n.eligibilityPaymentAmountWei)
+  if n.eligibilityEthRpcUrl.len > 0:
+    b.eligibilityConf.withEthClientUrls(n.eligibilityEthRpcUrl.mapIt(string(it)))
 
   return b.build()

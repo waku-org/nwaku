@@ -109,6 +109,12 @@ proc initNode(
   )
   builder.withColocationLimit(conf.colocationLimit)
 
+  let eligibilityEnabled =
+    if conf.eligibilityConf.isSome():
+      conf.eligibilityConf.get().enabled
+    else:
+      false
+
   if conf.maxRelayPeers.isSome():
     let
       maxRelayPeers = conf.maxRelayPeers.get()
@@ -117,10 +123,12 @@ proc initNode(
       relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
       serviceRatio = 100 - relayRatio
 
+    # FIXME: DRY
     builder.withPeerManagerConfig(
       maxConnections = conf.maxConnections,
       relayServiceRatio = $relayRatio & ":" & $serviceRatio,
       shardAware = conf.relayShardedPeerManagement,
+      eligibilityEnabled = eligibilityEnabled,
     )
     error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
   else:
@@ -128,6 +136,7 @@ proc initNode(
       maxConnections = conf.maxConnections,
       relayServiceRatio = conf.relayServiceRatio,
       shardAware = conf.relayShardedPeerManagement,
+      eligibilityEnabled = eligibilityEnabled,
     )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)
