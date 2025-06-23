@@ -7,10 +7,6 @@ type JsonTopicHealthChangeEvent* = ref object of JsonEvent
   pubsubTopic*: string
   topicHealth*: TopicHealth
 
-type JsonWakuHealthChangeEvent* = ref object of JsonEvent
-  pubsubTopic*: string
-  topicHealth*: TopicHealth
-
 proc new*(
     T: type JsonTopicHealthChangeEvent, pubsubTopic: string, topicHealth: TopicHealth
 ): T =
