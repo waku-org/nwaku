@@ -70,7 +70,7 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
   else:
-    var lib_name = toDll("libwaku")
+    var lib_name = toDll("waku")
     when defined(windows):
       exec "nim c" & " --out:build/" & lib_name &
         ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
@@ -167,15 +167,12 @@ task testone, "Test custom target":
     exec "build/" & filepath & ".bin"
 
 ### C Bindings
-let chroniclesParams = 
-  "-d:chronicles_line_numbers " &
-  "-d:chronicles_runtime_filtering=on " &
+let chroniclesParams =
+  "-d:chronicles_line_numbers " & "-d:chronicles_runtime_filtering=on " &
   """-d:chronicles_sinks="textlines,json" """ &
   "-d:chronicles_default_output_device=Dynamic " &
-  """-d:chronicles_disabled_topics="eth,dnsdisc.client" """ &
-  "--warning:Deprecated:off " &
-  "--warning:UnusedImport:on " &
-  "-d:chronicles_log_level=TRACE"
+  """-d:chronicles_disabled_topics="eth,dnsdisc.client" """ & "--warning:Deprecated:off " &
+  "--warning:UnusedImport:on " & "-d:chronicles_log_level=TRACE"
 
 task libwakuStatic, "Build the cbindings waku node library":
   let name = "libwaku"
