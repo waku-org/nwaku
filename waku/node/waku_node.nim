@@ -1335,7 +1335,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
     let connResult = await node.peerManager.dialPeer(peerId, PingCodec)
     if connResult.isNone():
       error "pingPeer: failed dialing peer", peerId = peerId
-      return err("pingPeer failed dialing peer peerId: " & $peerId)
+      return err("pingPeer failed dialing peer peerId: " & peerId)
 
     let conn = connResult.get()
     defer:
@@ -1477,39 +1477,35 @@ proc keepaliveLoop(
 
     lastTimeExecuted = currentTime
 
-type
-  PingResult = object
-    peerId: PeerId
-    success: bool
-    error: string
-
-  KeepaliveResults = object
-    results: seq[PingResult]
-    failureCount: int
-
+# Returns the number of succesful pings performed
 proc performKeepalivePings(
     node: WakuNode, peerIds: seq[PeerId]
-): Future[KeepaliveResults] {.async.} =
+): Future[int] {.async.} =
   ## Perform keepalive pings on the given peers
 
   if len(peerIds) == 0:
-    return KeepaliveResults(results: @[], failureCount: 0)
+    return 0
 
-  var results = newSeq[PingResult](len(peerIds))
-  var pingTasks: seq[Future[void]]
+  var pingFuts: seq[Future[Result[void, string]]]
 
-  # Create ping tasks for each peer
+  # Create ping futures for each peer
   for i, peerId in peerIds:
-    let task = pingPeer(node, peerId, i, results)
-    pingTasks.add(task)
+    let fut = pingPeer(node, peerId, i, results)
+    pingTasks.add(fut)
 
   # Wait for all pings to complete
-  await allFutures(pingTasks)
+  await allFutures(pingFuts)
 
-  # Count failures
-  let failureCount = results.countIt(not it.success)
+  var successCount = 0
+  for fut in pingFuts:
+    if fut.failed:
+      continue
 
-  return KeepaliveResults(results: results, failureCount: failureCount)
+    let res = fut.read()
+    if res.isOk():
+      successCount += 1
+
+  return successCount
 
 # 2 minutes default - 20% of the default chronosstream timeout duration
 proc startKeepalive*(
