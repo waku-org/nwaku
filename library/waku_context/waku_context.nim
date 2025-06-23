@@ -6,8 +6,15 @@ import std/[options, atomics, os, net, locks]
 import chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, results
 import
   waku/factory/waku,
+  waku/node/peer_manager,
+  waku/waku_relay/[protocol, topic_health],
+  waku/waku_core/[topics/pubsub_topic, message],
   ./inter_thread_communication/[waku_thread_request, requests/debug_node_request],
-  ../ffi_types
+  ../ffi_types,
+  ../events/[
+    json_message_event, json_topic_health_change_event, json_connection_change_event,
+    json_waku_not_responding_event,
+  ]
 
 type WakuContext* = object
   wakuThread: Thread[(ptr WakuContext)]
@@ -22,10 +29,48 @@ type WakuContext* = object
   userData*: pointer
   eventCallback*: pointer
   eventUserdata*: pointer
-  running: Atomic[bool] # To control when the thread is running
+  running: Atomic[bool] # To control when the threads are running
 
 const git_version* {.strdefine.} = "n/a"
 const versionString = "version / git commit hash: " & waku.git_version
+
+template callEventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
+  if isNil(ctx[].eventCallback):
+    error eventName & " - eventCallback is nil"
+    return
+
+  foreignThreadGc:
+    try:
+      let event = body
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+      )
+    except Exception, CatchableError:
+      let msg =
+        "Exception " & eventName & " when calling 'eventCallBack': " &
+        getCurrentExceptionMsg()
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+      )
+
+proc onConnectionChange*(ctx: ptr WakuContext): ConnectionChangeHandler =
+  return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
+    callEventCallback(ctx, "onConnectionChange"):
+      $JsonConnectionChangeEvent.new($peerId, peerEvent)
+
+proc onReceivedMessage*(ctx: ptr WakuContext): WakuRelayHandler =
+  return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+    callEventCallback(ctx, "onReceivedMessage"):
+      $JsonMessageEvent.new(pubsubTopic, msg)
+
+proc onTopicHealthChange*(ctx: ptr WakuContext): TopicHealthChangeHandler =
+  return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
+    callEventCallback(ctx, "onTopicHealthChange"):
+      $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
+
+proc onWakuNotResponding*(ctx: ptr WakuContext) =
+  callEventCallback(ctx, "onWakuNotResponsive"):
+    $JsonWakuNotRespondingEvent.new()
 
 proc sendRequestToWakuThread*(
     ctx: ptr WakuContext,
@@ -33,16 +78,17 @@ proc sendRequestToWakuThread*(
     reqContent: pointer,
     callback: WakuCallBack,
     userData: pointer,
+    timeout = InfiniteDuration,
 ): Result[void, string] =
-  let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
-
+  ctx.lock.acquire()
   # This lock is only necessary while we use a SP Channel and while the signalling
   # between threads assumes that there aren't concurrent requests.
   # Rearchitecting the signaling + migrating to a MP Channel will allow us to receive
   # requests concurrently and spare us the need of locks
-  ctx.lock.acquire()
   defer:
     ctx.lock.release()
+
+  let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
@@ -59,7 +105,7 @@ proc sendRequestToWakuThread*(
     return err("Couldn't fireSync in time")
 
   ## wait until the Waku Thread properly received the request
-  let res = ctx.reqReceivedSignal.waitSync()
+  let res = ctx.reqReceivedSignal.waitSync(timeout)
   if res.isErr():
     deallocShared(req)
     return err("Couldn't receive reqReceivedSignal signal")
@@ -73,34 +119,32 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
 
   let watchdogRun = proc(ctx: ptr WakuContext) {.async.} =
     const WatchdogTimeinterval = 1.seconds
+    const WakuNotRespondingTimeout = 3.seconds
     while true:
-      if ctx.running.load == false:
-        break
+      await sleepAsync(WatchdogTimeinterval)
 
-      let watchdogFut = newFuture[void]("watchdog")
+      if ctx.running.load == false:
+        debug "Watchdog thread exiting because WakuContext is not running"
+        break
 
       let wakuCallback = proc(
           callerRet: cint, msg: ptr cchar, len: csize_t, userData: pointer
       ) {.cdecl, gcsafe, raises: [].} =
-        let watchdog = cast[Future[void]](userData)
-        watchdog.complete()
+        discard ## Don't do anything. Just respecting the callback signature.
+      const nilUserData = nil
+
+      trace "Sending watchdog request to Waku thread"
 
       sendRequestToWakuThread(
         ctx,
         RequestType.DEBUG,
         DebugNodeRequest.createShared(DebugNodeMsgType.CHECK_WAKU_NOT_BLOCKED),
         wakuCallback,
-        addr watchdogFut,
+        nilUserData,
+        WakuNotRespondingTimeout,
       ).isOkOr:
-        discard
-        # let msg = "libwaku error: " & $error
-        # callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-
-      if not await watchdogFut.withTimeout(WatchdogTimeinterval):
-        ## If the Waku thread is not responding, we notify the user
-        discard
-        # let msg = "Waku thread is not responding for " & $WatchdogTimeinterval
-        # ctx.eventCallback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx.eventUserdata)
+        error "Failed to send watchdog request to Waku thread", error = $error
+        onWakuNotResponding(ctx)
 
   waitFor watchdogRun(ctx)
 
@@ -150,22 +194,23 @@ proc createWakuContext*(): Result[ptr WakuContext, string] =
     return err("failed to create the Waku thread: " & getCurrentExceptionMsg())
 
   try:
-    createThread(ctx.wakuThread, watchdogThreadBody, ctx)
+    createThread(ctx.watchdogThread, watchdogThreadBody, ctx)
   except ValueError, ResourceExhaustedError:
     freeShared(ctx)
     return err("failed to create the watchdog thread: " & getCurrentExceptionMsg())
 
   return ok(ctx)
 
-proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
+proc destroyWakuContext*(ctx: ptr WakuContext): Result[void, string] =
   ctx.running.store(false)
 
   let signaledOnTime = ctx.reqSignal.fireSync().valueOr:
-    return err("error in destroyWakuThread: " & $error)
+    return err("error in destroyWakuContext: " & $error)
   if not signaledOnTime:
-    return err("failed to signal reqSignal on time in destroyWakuThread")
+    return err("failed to signal reqSignal on time in destroyWakuContext")
 
   joinThread(ctx.wakuThread)
+  joinThread(ctx.watchdogThread)
   ctx.lock.deinitLock()
   ?ctx.reqSignal.close()
   ?ctx.reqReceivedSignal.close()

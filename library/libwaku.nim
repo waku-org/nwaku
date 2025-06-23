@@ -29,8 +29,7 @@ import
   ./waku_context/inter_thread_communication/waku_thread_request,
   ./alloc,
   ./ffi_types,
-  ../waku/factory/app_callbacks,
-  ./events/waku_event_handler
+  ../waku/factory/app_callbacks
 
 ################################################################################
 ### Wrapper around the waku node
@@ -146,7 +145,7 @@ proc waku_destroy(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_context.destroyWakuThread(ctx).isOkOr:
+  waku_context.destroyWakuContext(ctx).isOkOr:
     let msg = "libwaku error: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
