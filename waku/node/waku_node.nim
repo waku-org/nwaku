@@ -1419,18 +1419,57 @@ proc keepaliveLoop(
       countdownToPingAll = randomToAllRatio - 1
 
     failureCounter = 0
+    var connectionFuts: seq[Future[Option[Connection]]]
+
     for peerId in peersToPing:
+      connectionFuts.add(node.peerManager.dialPeer(peerId, PingCodec))
+    await allFutures(connectionFuts)
+
+    var connections: seq[Connection]
+
+    for idx, fut in connectionFuts:
       try:
-        let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
-          warn "Failed dialing peer for keep alive", peerId = peerId
+        if not fut.completed():
+          warn "Failed dialing peer for keep alive", peerId = peersToPing[idx]
+          waku_node_errors.inc(labelValues = ["keep_alive_failure"])
           failureCounter += 1
           continue
-        let pingDelay = await node.libp2pPing.ping(conn)
-        await conn.close()
-      except CatchableError as exc:
-        echo "--------- exception pinging"
+
+        let connOpt = fut.read()
+        if connOpt.isNone():
+          warn "Failed dialing peer for keep alive, connection is none",
+            peerId = peersToPing[idx]
+          waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+          failureCounter += 1
+          continue
+        connections.add(connOpt.get())
+      except CatchableError:
+        warn "Failed dialing peer for keep alive, exception raised",
+          peerId = peersToPing[idx], error = getCurrentExceptionMsg()
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
         failureCounter += 1
+
+    var pingFuts: seq[Future[Duration]]
+    for conn in connections:
+      try:
+        pingFuts.add(node.libp2pPing.ping(conn))
+      except CatchableError as exc:
+        warn "Failed pinging peer for keep alive, exception raised",
+          peerId = conn.peerId, error = getCurrentExceptionMsg()
+        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+        failureCounter += 1
+
+    await allFutures(pingFuts)
+
+    for fut in pingFuts:
+      if not fut.completed():
+        warn "Failed pinging peer for keep alive"
+        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+        failureCounter += 1
+        continue
+
+    for conn in connections:
+      discard conn.close()
 
     echo "--------------- len(peersToPing): ", len(peersToPing)
     echo "--------------- failureCounter: ", failureCounter
