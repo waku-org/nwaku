@@ -9,7 +9,7 @@ import
   testutils/unittests
 import
   waku/factory/waku_conf,
-  waku/factory/waku_conf_builder,
+  waku/factory/conf_builder/conf_builder,
   waku/factory/networks_config,
   waku/common/utils/parse_size_units
 
@@ -24,7 +24,7 @@ suite "Waku Conf - build with cluster conf":
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withClusterConf(clusterConf)
     builder.withRelay(true)
     builder.rlnRelayConf.withTreePath("/tmp/test-tree-path")
@@ -65,7 +65,7 @@ suite "Waku Conf - build with cluster conf":
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withClusterConf(clusterConf)
     builder.withRelay(false)
 
@@ -95,7 +95,7 @@ suite "Waku Conf - build with cluster conf":
       expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withClusterConf(clusterConf)
     builder.rlnRelayConf.withEnabled(false)
 
@@ -122,7 +122,7 @@ suite "Waku Conf - build with cluster conf":
     let shards = @[2.uint16, 3.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withClusterConf(clusterConf)
     builder.withShards(shards)
 
@@ -148,7 +148,7 @@ suite "Waku Conf - build with cluster conf":
     let shards = @[2.uint16, 10.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withClusterConf(clusterConf)
     builder.withShards(shards)
 
@@ -162,7 +162,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
 
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
