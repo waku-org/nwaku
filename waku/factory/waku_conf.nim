@@ -20,6 +20,14 @@ export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerCon
 logScope:
   topics = "waku conf"
 
+type WebSocketSecureConf* {.requiresInit.} = object
+  keyPath*: string
+  certPath*: string
+
+type WebSocketConf* = object
+  port*: Port
+  secureConf*: Option[WebSocketSecureConf]
+
 # TODO: should be defined in validator_signed.nim and imported here
 type ProtectedShard* {.requiresInit.} = object
   shard*: uint16
@@ -68,11 +76,10 @@ type WakuConf* {.requiresInit.} = ref object
   nodeKey*: crypto.PrivateKey
 
   clusterId*: uint16
-  shards*: seq[uint16]
+  activeRelayShards*: seq[uint16]
   protectedShards*: seq[ProtectedShard]
 
-  # TODO: move to an autoShardingConf
-  numShardsInNetwork*: uint32
+  shardingConf*: ShardingConf
   contentTopics*: seq[string]
 
   relay*: bool
@@ -142,8 +149,8 @@ proc logConf*(conf: WakuConf) =
 
   info "Configuration. Network", cluster = conf.clusterId
 
-  for shard in conf.shards:
-    info "Configuration. Shards", shard = shard
+  for shard in conf.activeRelayShards:
+    info "Configuration. Active Relay Shards", shard = shard
 
   if conf.discv5Conf.isSome():
     for i in conf.discv5Conf.get().bootstrapNodes:
@@ -163,23 +170,6 @@ proc logConf*(conf: WakuConf) =
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   wakuConf.nodeKey.getPublicKey().isOkOr:
     return err("nodekey param is invalid")
-  return ok()
-
-proc validateShards(wakuConf: WakuConf): Result[void, string] =
-  let numShardsInNetwork = wakuConf.numShardsInNetwork
-
-  # TODO: fix up this behaviour
-  if numShardsInNetwork == 0:
-    return ok()
-
-  for shard in wakuConf.shards:
-    if shard >= numShardsInNetwork:
-      let msg =
-        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
-        $numShardsInNetwork # fmt doesn't work
-      error "validateShards failed", error = msg
-      return err(msg)
-
   return ok()
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
@@ -236,6 +226,6 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
 
 proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
-  ?wakuConf.validateShards()
+  ?wakuConf.shardingConf.validateShards(wakuConf.activeRelayShards)
   ?wakuConf.validateNoEmptyStrings()
   return ok()

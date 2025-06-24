@@ -948,7 +948,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withStaticNodes(n.staticNodes)
 
   if n.numShardsInNetwork != 0:
-    b.withNumShardsInNetwork(n.numShardsInNetwork)
+    b.withNumShardsInCluster(n.numShardsInNetwork)
 
   b.withShards(n.shards)
   b.withContentTopics(n.contentTopics)

@@ -59,8 +59,9 @@ type WakuConfBuilder* = object
   nodeKey: Option[crypto.PrivateKey]
 
   clusterId: Option[uint16]
-  numShardsInNetwork: Option[uint32]
-  shards: Option[seq[uint16]]
+  shardingConf: Option[ShardingConfKind]
+  numShardsInCluster: Option[uint16]
+  activeRelayShards: Option[seq[uint16]]
   protectedShards: Option[seq[ProtectedShard]]
   contentTopics: Option[seq[string]]
 
@@ -144,11 +145,14 @@ proc withNodeKey*(b: var WakuConfBuilder, nodeKey: crypto.PrivateKey) =
 proc withClusterId*(b: var WakuConfBuilder, clusterId: uint16) =
   b.clusterId = some(clusterId)
 
-proc withNumShardsInNetwork*(b: var WakuConfBuilder, numShardsInNetwork: uint32) =
-  b.numShardsInNetwork = some(numShardsInNetwork)
+proc withShardingConf*(b: var WakuConfBuilder, shardingConf: ShardingConfKind) =
+  b.shardingConf = some(shardingConf)
 
-proc withShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
-  b.shards = some(shards)
+proc withNumShardsInCluster*(b: var WakuConfBuilder, numShardsInCluster: uint16) =
+  b.numShardsInCluster = some(numShardsInCluster)
+
+proc withActiveRelayShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
+  b.activeRelayShards = some(shards)
 
 proc withProtectedShards*(
     b: var WakuConfBuilder, protectedShards: seq[ProtectedShard]
@@ -282,48 +286,49 @@ proc nodeKey(
     return ok(nodeKey)
 
 proc applyNetworkConf(builder: var WakuConfBuilder) =
-  # Apply cluster conf, overrides most values passed individually
+  # Apply network conf, overrides most values passed individually
   # If you want to tweak values, don't use networkConf
+  # TODO: networkconf should be one field of the conf builder so that this function becomes unnecessary
   if builder.networkConf.isNone():
     return
   let networkConf = builder.networkConf.get()
 
   if builder.clusterId.isSome():
-    warn "Cluster id was provided alongside a cluster conf",
+    warn "Cluster id was provided alongside a network conf",
       used = networkConf.clusterId, discarded = builder.clusterId.get()
   builder.clusterId = some(networkConf.clusterId)
 
   # Apply relay parameters
   if builder.relay.get(false) and networkConf.rlnRelay:
     if builder.rlnRelayConf.enabled.isSome():
-      warn "RLN Relay was provided alongside a cluster conf",
+      warn "RLN Relay was provided alongside a network conf",
         used = networkConf.rlnRelay, discarded = builder.rlnRelayConf.enabled
     builder.rlnRelayConf.withEnabled(true)
 
     if builder.rlnRelayConf.ethContractAddress.get("") != "":
-      warn "RLN Relay ETH Contract Address was provided alongside a cluster conf",
+      warn "RLN Relay ETH Contract Address was provided alongside a network conf",
         used = networkConf.rlnRelayEthContractAddress.string,
         discarded = builder.rlnRelayConf.ethContractAddress.get().string
     builder.rlnRelayConf.withEthContractAddress(networkConf.rlnRelayEthContractAddress)
 
     if builder.rlnRelayConf.chainId.isSome():
-      warn "RLN Relay Chain Id was provided alongside a cluster conf",
+      warn "RLN Relay Chain Id was provided alongside a network conf",
         used = networkConf.rlnRelayChainId, discarded = builder.rlnRelayConf.chainId
     builder.rlnRelayConf.withChainId(networkConf.rlnRelayChainId)
 
     if builder.rlnRelayConf.dynamic.isSome():
-      warn "RLN Relay Dynamic was provided alongside a cluster conf",
+      warn "RLN Relay Dynamic was provided alongside a network conf",
         used = networkConf.rlnRelayDynamic, discarded = builder.rlnRelayConf.dynamic
     builder.rlnRelayConf.withDynamic(networkConf.rlnRelayDynamic)
 
     if builder.rlnRelayConf.epochSizeSec.isSome():
-      warn "RLN Epoch Size in Seconds was provided alongside a cluster conf",
+      warn "RLN Epoch Size in Seconds was provided alongside a network conf",
         used = networkConf.rlnEpochSizeSec,
         discarded = builder.rlnRelayConf.epochSizeSec
     builder.rlnRelayConf.withEpochSizeSec(networkConf.rlnEpochSizeSec)
 
     if builder.rlnRelayConf.userMessageLimit.isSome():
-      warn "RLN Relay Dynamic was provided alongside a cluster conf",
+      warn "RLN Relay Dynamic was provided alongside a network conf",
         used = networkConf.rlnRelayUserMessageLimit,
         discarded = builder.rlnRelayConf.userMessageLimit
     builder.rlnRelayConf.withUserMessageLimit(networkConf.rlnRelayUserMessageLimit)
@@ -333,14 +338,25 @@ proc applyNetworkConf(builder: var WakuConfBuilder) =
   of mmskNone:
     discard
   of mmskStr, mmskInt:
-    warn "Max Message Size was provided alongside a cluster conf",
+    warn "Max Message Size was provided alongside a network conf",
       used = networkConf.maxMessageSize, discarded = $builder.maxMessageSize
   builder.withMaxMessageSize(parseCorrectMsgSize(networkConf.maxMessageSize))
 
-  if builder.numShardsInNetwork.isSome():
-    warn "Num Shards In Network was provided alongside a cluster conf",
-      used = networkConf.numShardsInNetwork, discarded = builder.numShardsInNetwork
-  builder.numShardsInNetwork = some(networkConf.numShardsInNetwork)
+  if builder.shardingConf.isSome():
+    warn "Sharding Conf was provided alongside a network conf",
+      used = networkConf.shardingConf.kind, discarded = builder.shardingConf
+
+  if builder.numShardsInCluster.isSome():
+    warn "Num Shards In Cluster was provided alongside a network conf",
+      used = networkConf.shardingConf.numShardsInCluster,
+      discarded = builder.numShardsInCluster
+
+  case networkConf.shardingConf.kind
+  of Static:
+    builder.shardingConf = some(Static)
+  of Auto:
+    builder.shardingConf = some(Auto)
+    builder.numShardsInCluster = some(networkConf.shardingConf.numShardsInCluster)
 
   if networkConf.discv5Discovery:
     if builder.discv5Conf.enabled.isNone:
@@ -348,7 +364,7 @@ proc applyNetworkConf(builder: var WakuConfBuilder) =
 
     if builder.discv5Conf.bootstrapNodes.len == 0 and
         networkConf.discv5BootstrapNodes.len > 0:
-      warn "Discv5 Boostrap nodes were provided alongside a cluster conf",
+      warn "Discv5 Bootstrap nodes were provided alongside a network conf",
         used = networkConf.discv5BootstrapNodes,
         discarded = builder.discv5Conf.bootstrapNodes
     builder.discv5Conf.withBootstrapNodes(networkConf.discv5BootstrapNodes)
@@ -411,21 +427,34 @@ proc build*(
     else:
       builder.clusterId.get().uint16
 
-  let numShardsInNetwork =
-    if builder.numShardsInNetwork.isSome():
-      builder.numShardsInNetwork.get()
+  let shardingConf =
+    if builder.shardingConf.isSome():
+      case builder.shardingConf.get()
+      of Static:
+        ShardingConf(kind: Static)
+      of Auto:
+        if builder.numShardsInCluster.isSome():
+          ShardingConf(kind: Auto, numShardsInCluster: builder.numShardsInCluster.get())
+        else:
+          return err(
+            "Number of shards in cluster must be specified with autosharding enabled"
+          )
     else:
-      warn "Number of shards in network not specified, defaulting to zero (improve is wip)"
-      0
+      warn("No sharding conf specified, defaulting to static")
+      ShardingConf(kind: Static)
 
-  let shards =
-    if builder.shards.isSome():
-      builder.shards.get()
+  let activeRelayShards =
+    if builder.activeRelayShards.isSome():
+      builder.activeRelayShards.get()
     else:
-      warn "shards not specified, defaulting to all shards in network"
-      # TODO: conversion should not be needed
-      let upperShard: uint16 = uint16(numShardsInNetwork - 1)
-      toSeq(0.uint16 .. upperShard)
+      case shardingConf.kind
+      of Auto:
+        warn "Active relay shards not specified and autosharding is enabled, defaulting to all shards in network"
+        let upperShard: uint16 = uint16(shardingConf.numShardsInCluster - 1)
+        toSeq(0.uint16 .. upperShard)
+      else:
+        warn "Active relay shards not specified and autosharding is disabled, defaulting to no shard subscription"
+        @[]
 
   let protectedShards = builder.protectedShards.get(@[])
 
@@ -584,9 +613,9 @@ proc build*(
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,
-    numShardsInNetwork: numShardsInNetwork,
+    shardingConf: shardingConf,
     contentTopics: contentTopics,
-    shards: shards,
+    activeRelayShards: activeRelayShards,
     protectedShards: protectedShards,
     relay: relay,
     lightPush: lightPush,
