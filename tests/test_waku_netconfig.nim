@@ -18,8 +18,8 @@ suite "Waku NetConfig":
     let wakuFlags = defaultTestWakuFlags()
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extIp = none(IpAddress),
       extPort = none(Port),
       extMultiAddrs = @[],
@@ -46,7 +46,8 @@ suite "Waku NetConfig":
     let conf = defaultTestWakuConf()
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress, bindPort = conf.networkConf.p2pTcpPort
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
     )
 
     assert netConfigRes.isOk(), $netConfigRes.error
@@ -57,7 +58,9 @@ suite "Waku NetConfig":
       netConfig.announcedAddresses.len == 1 # Only bind address should be present
       netConfig.announcedAddresses[0] ==
         formatListenAddress(
-          ip4TcpEndPoint(conf.networkConf.p2pListenAddress, conf.networkConf.p2pTcpPort)
+          ip4TcpEndPoint(
+            conf.endpointConf.p2pListenAddress, conf.endpointConf.p2pTcpPort
+          )
         )
 
   asyncTest "AnnouncedAddresses contains external address if extIp/Port are provided":
@@ -67,8 +70,8 @@ suite "Waku NetConfig":
       extPort = Port(1234)
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extIp = some(extIp),
       extPort = some(extPort),
     )
@@ -88,8 +91,8 @@ suite "Waku NetConfig":
       extPort = Port(1234)
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       dns4DomainName = some(dns4DomainName),
       extPort = some(extPort),
     )
@@ -110,8 +113,8 @@ suite "Waku NetConfig":
       extMultiAddrs = @[ip4TcpEndPoint(extIp, extPort)]
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extMultiAddrs = extMultiAddrs,
     )
 
@@ -131,8 +134,8 @@ suite "Waku NetConfig":
       extPort = Port(1234)
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       dns4DomainName = some(dns4DomainName),
       extIp = some(extIp),
       extPort = some(extPort),
@@ -152,8 +155,8 @@ suite "Waku NetConfig":
       wssEnabled = false
 
     var netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       wsEnabled = true,
       wssEnabled = wssEnabled,
     )
@@ -165,8 +168,9 @@ suite "Waku NetConfig":
     check:
       netConfig.announcedAddresses.len == 2 # Bind address + wsHostAddress
       netConfig.announcedAddresses[1] == (
-        ip4TcpEndPoint(conf.networkConf.p2pListenAddress, conf.webSocketConf.get().port) &
-        wsFlag(wssEnabled)
+        ip4TcpEndPoint(
+          conf.endpointConf.p2pListenAddress, conf.webSocketConf.get().port
+        ) & wsFlag(wssEnabled)
       )
 
     ## Now try the same for the case of wssEnabled = true
@@ -174,8 +178,8 @@ suite "Waku NetConfig":
     wssEnabled = true
 
     netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       wsEnabled = true,
       wssEnabled = wssEnabled,
     )
@@ -187,8 +191,9 @@ suite "Waku NetConfig":
     check:
       netConfig.announcedAddresses.len == 2 # Bind address + wsHostAddress
       netConfig.announcedAddresses[1] == (
-        ip4TcpEndPoint(conf.networkConf.p2pListenAddress, conf.websocketConf.get().port) &
-        wsFlag(wssEnabled)
+        ip4TcpEndPoint(
+          conf.endpointConf.p2pListenAddress, conf.websocketConf.get().port
+        ) & wsFlag(wssEnabled)
       )
 
   asyncTest "Announced WebSocket address contains external IP if provided":
@@ -199,8 +204,8 @@ suite "Waku NetConfig":
       wssEnabled = false
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extIp = some(extIp),
       extPort = some(extPort),
       wsEnabled = true,
@@ -224,8 +229,8 @@ suite "Waku NetConfig":
       wssEnabled = false
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       dns4DomainName = some(dns4DomainName),
       extPort = some(extPort),
       wsEnabled = true,
@@ -252,8 +257,8 @@ suite "Waku NetConfig":
       wssEnabled = false
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       dns4DomainName = some(dns4DomainName),
       extIp = some(extIp),
       extPort = some(extPort),
@@ -277,7 +282,8 @@ suite "Waku NetConfig":
     let conf = defaultTestWakuConf()
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress, bindPort = conf.networkConf.p2pTcpPort
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
     )
 
     assert netConfigRes.isOk(), $netConfigRes.error
@@ -285,8 +291,8 @@ suite "Waku NetConfig":
     let netConfig = netConfigRes.get()
 
     check:
-      netConfig.enrIp.get() == conf.networkConf.p2pListenAddress
-      netConfig.enrPort.get() == conf.networkConf.p2pTcpPort
+      netConfig.enrIp.get() == conf.endpointConf.p2pListenAddress
+      netConfig.enrPort.get() == conf.endpointConf.p2pTcpPort
 
   asyncTest "ENR is set with extIp/Port if provided":
     let
@@ -295,8 +301,8 @@ suite "Waku NetConfig":
       extPort = Port(1234)
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extIp = some(extIp),
       extPort = some(extPort),
     )
@@ -316,8 +322,8 @@ suite "Waku NetConfig":
       extPort = Port(1234)
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       dns4DomainName = some(dns4DomainName),
       extPort = some(extPort),
     )
@@ -339,8 +345,8 @@ suite "Waku NetConfig":
       extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
 
     var netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extMultiAddrs = extMultiAddrs,
       wsEnabled = wsEnabled,
     )
@@ -358,8 +364,8 @@ suite "Waku NetConfig":
     extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
 
     netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extMultiAddrs = extMultiAddrs,
       wssEnabled = wssEnabled,
     )
@@ -380,8 +386,8 @@ suite "Waku NetConfig":
       extMultiAddrs = @[ip4TcpEndPoint(extAddIp, extAddPort)]
 
     let netConfigRes = NetConfig.init(
-      bindIp = conf.networkConf.p2pListenAddress,
-      bindPort = conf.networkConf.p2pTcpPort,
+      bindIp = conf.endpointConf.p2pListenAddress,
+      bindPort = conf.endpointConf.p2pTcpPort,
       extMultiAddrs = extMultiAddrs,
       extMultiAddrsOnly = true,
     )

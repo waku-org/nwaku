@@ -503,7 +503,7 @@ suite "Waku Discovery v5":
         waku.dynamicBootstrapNodes,
         waku.rng,
         waku.conf.nodeKey,
-        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.endpointConf.p2pListenAddress,
         waku.conf.portsShift,
       )
 
@@ -534,7 +534,7 @@ suite "Waku Discovery v5":
         waku.dynamicBootstrapNodes,
         waku.rng,
         waku.conf.nodeKey,
-        waku.conf.networkConf.p2pListenAddress,
+        waku.conf.endpointConf.p2pListenAddress,
         waku.conf.portsShift,
       )
 
