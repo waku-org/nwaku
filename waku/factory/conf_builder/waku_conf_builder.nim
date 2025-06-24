@@ -601,7 +601,7 @@ proc build*(
     logLevel: logLevel,
     logFormat: logFormat,
     # TODO: Separate builders
-    networkConf: NetworkConfig(
+    endpointConf: EndpointConf(
       natStrategy: natStrategy,
       p2pTcpPort: p2pTcpPort,
       dns4DomainName: dns4DomainName,

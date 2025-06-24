@@ -50,7 +50,7 @@ type FilterServiceConf* {.requiresInit.} = object
   subscriptionTimeout*: uint16
   maxCriteria*: uint32
 
-type NetworkConfig* = object # TODO: make enum
+type EndpointConf* = object # TODO: make enum
   natStrategy*: string
   p2pTcpPort*: Port
   dns4DomainName*: Option[string]
@@ -95,7 +95,7 @@ type WakuConf* {.requiresInit.} = ref object
 
   portsShift*: uint16
   dnsAddrsNameServers*: seq[IpAddress]
-  networkConf*: NetworkConfig
+  endpointConf*: EndpointConf
   wakuFlags*: CapabilitiesBitfield
 
   # TODO: could probably make it a `PeerRemoteInfo`
@@ -183,8 +183,8 @@ proc validateShards(wakuConf: WakuConf): Result[void, string] =
   return ok()
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.networkConf.dns4DomainName.isSome() and
-      isEmptyOrWhiteSpace(wakuConf.networkConf.dns4DomainName.get().string):
+  if wakuConf.endpointConf.dns4DomainName.isSome() and
+      isEmptyOrWhiteSpace(wakuConf.endpointConf.dns4DomainName.get().string):
     return err("dns4-domain-name is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):

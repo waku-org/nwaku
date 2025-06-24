@@ -64,7 +64,7 @@ proc dnsResolve*(
 # TODO: Reduce number of parameters, can be done once the same is done on Netconfig.init
 proc networkConfiguration*(
     clusterId: uint16,
-    conf: NetworkConfig,
+    conf: EndpointConf,
     discv5Conf: Option[Discv5Conf],
     webSocketConf: Option[WebSocketConf],
     wakuFlags: CapabilitiesBitfield,
