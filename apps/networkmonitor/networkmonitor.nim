@@ -570,17 +570,17 @@ when isMainModule:
   info "cli flags", conf = conf
 
   if conf.clusterId == 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    let twnNetworkConf = NetworkConf.TheWakuNetworkConf()
 
-    conf.bootstrapNodes = twnClusterConf.discv5BootstrapNodes
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    conf.numShardsInNetwork = twnClusterConf.numShardsInNetwork
+    conf.bootstrapNodes = twnNetworkConf.discv5BootstrapNodes
+    conf.rlnRelayDynamic = twnNetworkConf.rlnRelayDynamic
+    conf.rlnRelayEthContractAddress = twnNetworkConf.rlnRelayEthContractAddress
+    conf.rlnEpochSizeSec = twnNetworkConf.rlnEpochSizeSec
+    conf.rlnRelayUserMessageLimit = twnNetworkConf.rlnRelayUserMessageLimit
+    conf.numShardsInNetwork = twnNetworkConf.numShardsInNetwork
 
     if conf.shards.len == 0:
-      conf.shards = toSeq(uint16(0) .. uint16(twnClusterConf.numShardsInNetwork - 1))
+      conf.shards = toSeq(uint16(0) .. uint16(twnNetworkConf.numShardsInNetwork - 1))
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
