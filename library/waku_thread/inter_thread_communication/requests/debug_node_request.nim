@@ -18,6 +18,7 @@ type DebugNodeMsgType* = enum
   RETRIEVE_MY_PEER_ID
   RETRIEVE_METRICS
   RETRIEVE_ONLINE_STATE
+  CHECK_WAKU_NOT_BLOCKED
 
 type DebugNodeRequest* = object
   operation: DebugNodeMsgType
@@ -55,6 +56,8 @@ proc process*(
     return ok(getMetrics())
   of RETRIEVE_ONLINE_STATE:
     return ok($waku.healthMonitor.onlineMonitor.amIOnline())
+  of CHECK_WAKU_NOT_BLOCKED:
+    return ok("waku thread is not blocked")
 
   error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")
