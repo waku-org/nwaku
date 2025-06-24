@@ -205,7 +205,7 @@ suite "Waku Conf - build with cluster conf":
 
       let rlnRelayConf = conf.rlnRelayConf.get()
       check rlnRelayConf.ethContractAddress.string ==
-        clusterConf.rlnRelayEthContractAddress
+        networkConf.rlnRelayEthContractAddress
       check rlnRelayConf.dynamic == networkConf.rlnRelayDynamic
       check rlnRelayConf.chainId == networkConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == networkConf.rlnEpochSizeSec
@@ -274,8 +274,8 @@ suite "Waku Conf - extMultiaddrs":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check multiaddrs.len == conf.networkConf.extMultiAddrs.len
-    let resMultiaddrs = conf.networkConf.extMultiAddrs.map(
+    check multiaddrs.len == conf.endpointConf.extMultiAddrs.len
+    let resMultiaddrs = conf.endpointConf.extMultiAddrs.map(
       proc(m: MultiAddress): string =
         $m
     )
