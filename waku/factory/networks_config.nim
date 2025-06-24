@@ -10,9 +10,7 @@ type WebSocketConf* = object
   port*: Port
   secureConf*: Option[WebSocketSecureConf]
 
-# TODO: Rename this type to match file name
-
-type ClusterConf* = object
+type NetworkConf* = object
   maxMessageSize*: string # TODO: static convert to a uint64
   clusterId*: uint16
   rlnRelay*: bool
@@ -29,9 +27,9 @@ type ClusterConf* = object
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
-proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
+proc TheWakuNetworkConf*(T: type NetworkConf): NetworkConf =
   const RelayChainId = 59141'u256
-  return ClusterConf(
+  return NetworkConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,

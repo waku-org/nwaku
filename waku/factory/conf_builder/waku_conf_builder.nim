@@ -83,7 +83,7 @@ type WakuConfBuilder* = object
   # TODO: move within a relayConf
   rendezvous: Option[bool]
 
-  clusterConf: Option[ClusterConf]
+  networkConf: Option[NetworkConf]
 
   staticNodes: seq[string]
 
@@ -135,8 +135,8 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     webSocketConf: WebSocketConfBuilder.init(),
   )
 
-proc withClusterConf*(b: var WakuConfBuilder, clusterConf: ClusterConf) =
-  b.clusterConf = some(clusterConf)
+proc withNetworkConf*(b: var WakuConfBuilder, networkConf: NetworkConf) =
+  b.networkConf = some(networkConf)
 
 proc withNodeKey*(b: var WakuConfBuilder, nodeKey: crypto.PrivateKey) =
   b.nodeKey = some(nodeKey)
@@ -281,52 +281,52 @@ proc nodeKey(
       return err("Failed to generate key: " & $error)
     return ok(nodeKey)
 
-proc applyClusterConf(builder: var WakuConfBuilder) =
+proc applyNetworkConf(builder: var WakuConfBuilder) =
   # Apply cluster conf, overrides most values passed individually
-  # If you want to tweak values, don't use clusterConf
-  if builder.clusterConf.isNone():
+  # If you want to tweak values, don't use networkConf
+  if builder.networkConf.isNone():
     return
-  let clusterConf = builder.clusterConf.get()
+  let networkConf = builder.networkConf.get()
 
   if builder.clusterId.isSome():
     warn "Cluster id was provided alongside a cluster conf",
-      used = clusterConf.clusterId, discarded = builder.clusterId.get()
-  builder.clusterId = some(clusterConf.clusterId)
+      used = networkConf.clusterId, discarded = builder.clusterId.get()
+  builder.clusterId = some(networkConf.clusterId)
 
   # Apply relay parameters
-  if builder.relay.get(false) and clusterConf.rlnRelay:
+  if builder.relay.get(false) and networkConf.rlnRelay:
     if builder.rlnRelayConf.enabled.isSome():
       warn "RLN Relay was provided alongside a cluster conf",
-        used = clusterConf.rlnRelay, discarded = builder.rlnRelayConf.enabled
+        used = networkConf.rlnRelay, discarded = builder.rlnRelayConf.enabled
     builder.rlnRelayConf.withEnabled(true)
 
     if builder.rlnRelayConf.ethContractAddress.get("") != "":
       warn "RLN Relay ETH Contract Address was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayEthContractAddress.string,
+        used = networkConf.rlnRelayEthContractAddress.string,
         discarded = builder.rlnRelayConf.ethContractAddress.get().string
-    builder.rlnRelayConf.withEthContractAddress(clusterConf.rlnRelayEthContractAddress)
+    builder.rlnRelayConf.withEthContractAddress(networkConf.rlnRelayEthContractAddress)
 
     if builder.rlnRelayConf.chainId.isSome():
       warn "RLN Relay Chain Id was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayChainId, discarded = builder.rlnRelayConf.chainId
-    builder.rlnRelayConf.withChainId(clusterConf.rlnRelayChainId)
+        used = networkConf.rlnRelayChainId, discarded = builder.rlnRelayConf.chainId
+    builder.rlnRelayConf.withChainId(networkConf.rlnRelayChainId)
 
     if builder.rlnRelayConf.dynamic.isSome():
       warn "RLN Relay Dynamic was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayDynamic, discarded = builder.rlnRelayConf.dynamic
-    builder.rlnRelayConf.withDynamic(clusterConf.rlnRelayDynamic)
+        used = networkConf.rlnRelayDynamic, discarded = builder.rlnRelayConf.dynamic
+    builder.rlnRelayConf.withDynamic(networkConf.rlnRelayDynamic)
 
     if builder.rlnRelayConf.epochSizeSec.isSome():
       warn "RLN Epoch Size in Seconds was provided alongside a cluster conf",
-        used = clusterConf.rlnEpochSizeSec,
+        used = networkConf.rlnEpochSizeSec,
         discarded = builder.rlnRelayConf.epochSizeSec
-    builder.rlnRelayConf.withEpochSizeSec(clusterConf.rlnEpochSizeSec)
+    builder.rlnRelayConf.withEpochSizeSec(networkConf.rlnEpochSizeSec)
 
     if builder.rlnRelayConf.userMessageLimit.isSome():
       warn "RLN Relay Dynamic was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayUserMessageLimit,
+        used = networkConf.rlnRelayUserMessageLimit,
         discarded = builder.rlnRelayConf.userMessageLimit
-    builder.rlnRelayConf.withUserMessageLimit(clusterConf.rlnRelayUserMessageLimit)
+    builder.rlnRelayConf.withUserMessageLimit(networkConf.rlnRelayUserMessageLimit)
   # End Apply relay parameters
 
   case builder.maxMessageSize.kind
@@ -334,24 +334,24 @@ proc applyClusterConf(builder: var WakuConfBuilder) =
     discard
   of mmskStr, mmskInt:
     warn "Max Message Size was provided alongside a cluster conf",
-      used = clusterConf.maxMessageSize, discarded = $builder.maxMessageSize
-  builder.withMaxMessageSize(parseCorrectMsgSize(clusterConf.maxMessageSize))
+      used = networkConf.maxMessageSize, discarded = $builder.maxMessageSize
+  builder.withMaxMessageSize(parseCorrectMsgSize(networkConf.maxMessageSize))
 
   if builder.numShardsInNetwork.isSome():
     warn "Num Shards In Network was provided alongside a cluster conf",
-      used = clusterConf.numShardsInNetwork, discarded = builder.numShardsInNetwork
-  builder.numShardsInNetwork = some(clusterConf.numShardsInNetwork)
+      used = networkConf.numShardsInNetwork, discarded = builder.numShardsInNetwork
+  builder.numShardsInNetwork = some(networkConf.numShardsInNetwork)
 
-  if clusterConf.discv5Discovery:
+  if networkConf.discv5Discovery:
     if builder.discv5Conf.enabled.isNone:
-      builder.discv5Conf.withEnabled(clusterConf.discv5Discovery)
+      builder.discv5Conf.withEnabled(networkConf.discv5Discovery)
 
     if builder.discv5Conf.bootstrapNodes.len == 0 and
-        clusterConf.discv5BootstrapNodes.len > 0:
+        networkConf.discv5BootstrapNodes.len > 0:
       warn "Discv5 Boostrap nodes were provided alongside a cluster conf",
-        used = clusterConf.discv5BootstrapNodes,
+        used = networkConf.discv5BootstrapNodes,
         discarded = builder.discv5Conf.bootstrapNodes
-    builder.discv5Conf.withBootstrapNodes(clusterConf.discv5BootstrapNodes)
+    builder.discv5Conf.withBootstrapNodes(networkConf.discv5BootstrapNodes)
 
 proc build*(
     builder: var WakuConfBuilder, rng: ref HmacDrbgContext = crypto.newRng()
@@ -361,7 +361,7 @@ proc build*(
   ## of libwaku. It aims to be agnostic so it does not apply a
   ## default when it is opinionated.
 
-  applyClusterConf(builder)
+  applyNetworkConf(builder)
 
   let relay =
     if builder.relay.isSome():
