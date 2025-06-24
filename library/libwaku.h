@@ -46,7 +46,7 @@ int waku_version(void* ctx,
                  void* userData);
 
 // Sets a callback that will be invoked whenever an event occurs.
-// It is crucial that the passed callback is fast and non-blocking.
+// It is crucial that the passed callback is fast, non-blocking and potentially thread-safe.
 void waku_set_event_callback(void* ctx,
                              WakuCallBack callback,
                              void* userData);
