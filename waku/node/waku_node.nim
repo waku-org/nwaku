@@ -1434,7 +1434,8 @@ proc keepaliveLoop(
     )
 
   # Calculate how many random peer cycles before pinging all peers
-  let randomToAllRatio = allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds()
+  let randomToAllRatio =
+    int(allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds())
   var countdownToPingAll = max(0, randomToAllRatio - 1)
 
   # Sleep detection configuration
