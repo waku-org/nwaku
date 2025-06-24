@@ -1386,17 +1386,20 @@ proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
 
   var pingFuts: seq[Future[Result[void, string]]]
 
+  echo "--------------- keepalivePings 1"
   # Create ping futures for each peer
   for i, peerId in peerIds:
     let fut = pingPeer(node, peerId)
     pingFuts.add(fut)
 
+  echo "--------------- keepalivePings 2"
   # Wait for all pings to complete
-  await allFutures(pingFuts)
+  discard await allFutures(pingFuts).withTimeout(5.seconds)
+  echo "--------------- keepalivePings 3"
 
   var successCount = 0
   for fut in pingFuts:
-    if fut.failed:
+    if not fut.completed() or fut.failed():
       waku_node_errors.inc(labelValues = ["keep_alive_failure"])
       continue
 
@@ -1406,6 +1409,7 @@ proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
     else:
       waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
+  echo "--------------- keepalivePings 4"
   return successCount
 
 proc keepaliveLoop(
