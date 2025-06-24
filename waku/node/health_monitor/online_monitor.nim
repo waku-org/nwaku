@@ -39,8 +39,6 @@ proc updateOnlineState(self: OnlineMonitor) {.async.} =
     else:
       self.peerStore.peers().countIt(it.connectedness == Connected)
 
-  echo "--------------- numConnectedPeers: ", numConnectedPeers
-
   self.online =
     if numConnectedPeers > 0:
       true
