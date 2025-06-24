@@ -1335,7 +1335,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
     let connResult = await node.peerManager.dialPeer(peerId, PingCodec)
     if connResult.isNone():
       error "pingPeer: failed dialing peer", peerId = peerId
-      return err("pingPeer failed dialing peer peerId: " & peerId)
+      return err("pingPeer failed dialing peer peerId: " & $peerId)
 
     let conn = connResult.get()
     defer:
@@ -1348,7 +1348,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
     # Perform ping
     let pingDuration = await node.libp2pPing.ping(conn)
 
-    trace "Keepalive ping successful", peerId = peerId, duration = pingDuration
+    trace "Ping successful", peerId = peerId, duration = pingDuration
     return ok()
   except CatchableError as e:
     error "pingPeer: exception raised pinging peer", peerId = peerId, error = e.msg
@@ -1359,7 +1359,6 @@ proc selectRandomPeersForKeepalive(
 ): Future[seq[PeerId]] {.async.} =
   ## Select peers for random keepalive, prioritizing mesh peers
 
-  # Get mesh peers with error handling
   let meshPeers = node.wakuRelay.getPeersInMesh().valueOr:
     error "Failed getting peers in mesh for ping", error = error
     # Fallback to random selection from all outgoing peers
@@ -1379,6 +1378,35 @@ proc selectRandomPeersForKeepalive(
 
   result = meshPeers & selectedNonMeshPeers
   debug "Selected peers for keepalive", selected = result
+
+# Returns the number of succesful pings performed
+proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.} =
+  if len(peerIds) == 0:
+    return 0
+
+  var pingFuts: seq[Future[Result[void, string]]]
+
+  # Create ping futures for each peer
+  for i, peerId in peerIds:
+    let fut = pingPeer(node, peerId)
+    pingFuts.add(fut)
+
+  # Wait for all pings to complete
+  await allFutures(pingFuts)
+
+  var successCount = 0
+  for fut in pingFuts:
+    if fut.failed:
+      waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+      continue
+
+    let res = fut.read()
+    if res.isOk():
+      successCount += 1
+    else:
+      waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+
+  return successCount
 
 proc keepaliveLoop(
     node: WakuNode,
@@ -1406,17 +1434,17 @@ proc keepaliveLoop(
     )
 
   # Calculate how many random peer cycles before pinging all peers
-  let randomToAllRatio =
-    float(allPeersKeepAlive.seconds()) / float(randomPeersKeepalive.seconds())
-  var countdownToPingAll = max(0, int(randomToAllRatio) - 1)
+  let randomToAllRatio = allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds()
+  var countdownToPingAll = max(0, randomToAllRatio - 1)
 
   # Sleep detection configuration
   let sleepDetectionInterval = 3 * randomPeersKeepalive
-  var lastTimeExecuted = Moment.now()
 
   # Failure tracking
   var consecutiveIterationFailures = 0
   const maxAllowedConsecutiveFailures = 2
+
+  var lastTimeExecuted = Moment.now()
 
   while true:
     debug "Running keepalive loop"
@@ -1457,55 +1485,22 @@ proc keepaliveLoop(
       countdownToPingAll -= 1
     else:
       debug "Pinging all peers", count = len(peersToPing)
-      countdownToPingAll = max(0, int(randomToAllRatio) - 1)
+      countdownToPingAll = max(0, randomToAllRatio - 1)
 
     # Execute keepalive pings
-    let pingResults = await performKeepalivePings(node, peersToPing)
+    let successfulPings = await keepalivePings(node, peersToPing)
 
-    # Process results
-    let totalPeers = len(peersToPing)
-    let failedPings = pingResults.failureCount
-
-    debug "Keepalive results", totalPeers = totalPeers, failedPings = failedPings
+    debug "Keepalive results",
+      attemptedPings = len(peersToPing), successfulPings = successfulPings
 
     # Update failure tracking
-    if totalPeers > 0 and failedPings == totalPeers:
+    if len(peersToPing) > 0 and successfulPings == 0:
       consecutiveIterationFailures += 1
-      debug "All pings failed", consecutiveFailures = consecutiveIterationFailures
+      error "All pings failed", consecutiveFailures = consecutiveIterationFailures
     else:
       consecutiveIterationFailures = 0
 
     lastTimeExecuted = currentTime
-
-# Returns the number of succesful pings performed
-proc performKeepalivePings(
-    node: WakuNode, peerIds: seq[PeerId]
-): Future[int] {.async.} =
-  ## Perform keepalive pings on the given peers
-
-  if len(peerIds) == 0:
-    return 0
-
-  var pingFuts: seq[Future[Result[void, string]]]
-
-  # Create ping futures for each peer
-  for i, peerId in peerIds:
-    let fut = pingPeer(node, peerId, i, results)
-    pingTasks.add(fut)
-
-  # Wait for all pings to complete
-  await allFutures(pingFuts)
-
-  var successCount = 0
-  for fut in pingFuts:
-    if fut.failed:
-      continue
-
-    let res = fut.read()
-    if res.isOk():
-      successCount += 1
-
-  return successCount
 
 # 2 minutes default - 20% of the default chronosstream timeout duration
 proc startKeepalive*(
