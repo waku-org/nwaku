@@ -38,8 +38,10 @@ suite "Waku Conf - build with cluster conf":
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkConf.clusterId
-    check conf.numShardsInNetwork == networkConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.activeRelayShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -78,8 +80,10 @@ suite "Waku Conf - build with cluster conf":
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkConf.clusterId
-    check conf.numShardsInNetwork == networkConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.activeRelayShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -108,8 +112,10 @@ suite "Waku Conf - build with cluster conf":
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkConf.clusterId
-    check conf.numShardsInNetwork == networkConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.activeRelayShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -124,7 +130,7 @@ suite "Waku Conf - build with cluster conf":
     ## Given
     builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withNetworkConf(networkConf)
-    builder.withShards(shards)
+    builder.withActiveRelayShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -135,8 +141,10 @@ suite "Waku Conf - build with cluster conf":
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkConf.clusterId
-    check conf.numShardsInNetwork == networkConf.numShardsInNetwork
-    check conf.shards == shards
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.activeRelayShards == shards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -150,7 +158,7 @@ suite "Waku Conf - build with cluster conf":
     ## Given
     builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withNetworkConf(networkConf)
-    builder.withShards(shards)
+    builder.withActiveRelayShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -183,8 +191,10 @@ suite "Waku Conf - build with cluster conf":
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkConf.clusterId
-    check conf.numShardsInNetwork == networkConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.activeRelayShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.isSome == networkConf.discv5Discovery
