@@ -158,7 +158,7 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     assert resConf.isErr(), "Invalid shard was accepted"
 
-  test "Cluster Conf is passed and RLN contract is overridden":
+  test "Cluster Conf is passed and RLN contract is **not** overridden":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
@@ -194,7 +194,8 @@ suite "Waku Conf - build with cluster conf":
       assert conf.rlnRelayConf.isSome
 
       let rlnRelayConf = conf.rlnRelayConf.get()
-      check rlnRelayConf.ethContractAddress.string == contractAddress
+      check rlnRelayConf.ethContractAddress.string ==
+        clusterConf.rlnRelayEthContractAddress
       check rlnRelayConf.dynamic == clusterConf.rlnRelayDynamic
       check rlnRelayConf.chainId == clusterConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == clusterConf.rlnEpochSizeSec
