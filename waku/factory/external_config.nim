@@ -950,7 +950,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   if n.numShardsInNetwork != 0:
     b.withNumShardsInCluster(n.numShardsInNetwork)
 
-  b.withShards(n.shards)
+  b.withActiveRelayShards(n.shards)
   b.withContentTopics(n.contentTopics)
 
   b.storeServiceConf.withEnabled(n.store)

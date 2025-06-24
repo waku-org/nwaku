@@ -37,7 +37,7 @@ proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
   builder.withRelayServiceRatio("60:40")
   builder.withMaxMessageSize("1024 KiB")
   builder.withClusterId(DefaultClusterId)
-  builder.withShards(@[DefaultShardId])
+  builder.withActiveRelayShards(@[DefaultShardId])
   builder.withRelay(true)
   builder.withRendezvous(true)
   builder.storeServiceConf.withDbMigration(false)
