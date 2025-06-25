@@ -1402,7 +1402,7 @@ proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
 
     let res = fut.read()
     if res.isOk():
-      successCount += 1
+      successCount.inc()
     else:
       waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
@@ -1464,7 +1464,7 @@ proc keepaliveLoop(
     if countdownToPingAll > 0:
       trace "Pinging random peers",
         count = len(peersToPing), countdownToPingAll = countdownToPingAll
-      countdownToPingAll -= 1
+      countdownToPingAll.dec()
     else:
       trace "Pinging all peers", count = len(peersToPing)
       countdownToPingAll = max(0, randomToAllRatio - 1)
@@ -1477,7 +1477,7 @@ proc keepaliveLoop(
 
     # Update failure tracking
     if len(peersToPing) > 0 and successfulPings == 0:
-      consecutiveIterationFailures += 1
+      consecutiveIterationFailures.inc()
       error "All pings failed", consecutiveFailures = consecutiveIterationFailures
     else:
       consecutiveIterationFailures = 0
