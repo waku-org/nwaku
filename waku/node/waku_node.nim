@@ -1408,7 +1408,7 @@ proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
 
   return successCount
 
-proc keepaliveLoop(
+proc keepaliveLoop*(
     node: WakuNode,
     randomPeersKeepalive: chronos.Duration,
     allPeersKeepAlive: chronos.Duration,
@@ -1483,32 +1483,6 @@ proc keepaliveLoop(
       consecutiveIterationFailures = 0
 
     lastTimeExecuted = currentTime
-
-# 2 minutes default - 20% of the default chronosstream timeout duration
-proc startKeepalive*(
-    node: WakuNode, randomPeersKeepalive = 10.seconds, allPeersKeepalive = 2.minutes
-): Result[void, string] =
-  # Validate input parameters
-  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
-    error "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
-      randomPeersKeepalive = $randomPeersKeepalive,
-      allPeersKeepAlive = $allPeersKeepAlive
-    return err(
-      "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0"
-    )
-
-  if allPeersKeepAlive < randomPeersKeepalive:
-    error "startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive",
-      allPeersKeepAlive = $allPeersKeepAlive,
-      randomPeersKeepalive = $randomPeersKeepalive
-    return
-      err("startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive")
-
-  info "starting keepalive",
-    randomPeersKeepalive = randomPeersKeepalive, allPeersKeepalive = allPeersKeepalive
-
-  asyncSpawn node.keepaliveLoop(randomPeersKeepalive, allPeersKeepalive)
-  return ok()
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"

@@ -22,6 +22,7 @@ type
     nodeHealth: HealthStatus
     node: WakuNode
     onlineMonitor*: OnlineMonitor
+    keepAliveFut: Future[void]
 
 template checkWakuNodeNotNil(node: WakuNode, p: ProtocolHealth): untyped =
   if node.isNil():
@@ -224,6 +225,34 @@ proc getRendezvousHealth(hm: NodeHealthMonitor): ProtocolHealth =
 
   return p.ready()
 
+# 2 minutes default - 20% of the default chronosstream timeout duration
+proc startKeepalive(
+    hm: NodeHealthMonitor,
+    randomPeersKeepalive = 10.seconds,
+    allPeersKeepalive = 2.minutes,
+): Result[void, string] =
+  # Validate input parameters
+  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
+    error "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+      randomPeersKeepalive = $randomPeersKeepalive,
+      allPeersKeepAlive = $allPeersKeepAlive
+    return err(
+      "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0"
+    )
+
+  if allPeersKeepAlive < randomPeersKeepalive:
+    error "startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive",
+      allPeersKeepAlive = $allPeersKeepAlive,
+      randomPeersKeepalive = $randomPeersKeepalive
+    return
+      err("startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive")
+
+  info "starting keepalive",
+    randomPeersKeepalive = randomPeersKeepalive, allPeersKeepalive = allPeersKeepalive
+
+  hm.keepAliveFut = hm.node.keepaliveLoop(randomPeersKeepalive, allPeersKeepalive)
+  return ok()
+
 proc getNodeHealthReport*(hm: NodeHealthMonitor): Future[HealthReport] {.async.} =
   var report: HealthReport
   report.nodeHealth = hm.nodeHealth
@@ -253,11 +282,15 @@ proc setNodeToHealthMonitor*(hm: NodeHealthMonitor, node: WakuNode) =
 proc setOverallHealth*(hm: NodeHealthMonitor, health: HealthStatus) =
   hm.nodeHealth = health
 
-proc startHealthMonitor*(hm: NodeHealthMonitor) =
+proc startHealthMonitor*(hm: NodeHealthMonitor): Result[void, string] =
   hm.onlineMonitor.startOnlineMonitor()
+  hm.startKeepalive().isOkOr:
+    return err("startHealthMonitor: failed starting keep alive: " & error)
+  return ok()
 
 proc stopHealthMonitor*(hm: NodeHealthMonitor) {.async.} =
   await hm.onlineMonitor.stopOnlineMonitor()
+  await hm.keepAliveFut.cancelAndWait()
 
 proc new*(
     T: type NodeHealthMonitor,
