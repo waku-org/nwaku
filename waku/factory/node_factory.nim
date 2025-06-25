@@ -464,7 +464,8 @@ proc startNode*(
 
   # Start keepalive, if enabled
   if conf.keepAlive:
-    node.startKeepalive()
+    node.startKeepalive().isOkOr:
+      return err("failed starting keep alive: " & error)
 
   # Maintain relay connections
   if conf.relay:

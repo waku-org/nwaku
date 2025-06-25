@@ -1414,25 +1414,6 @@ proc keepaliveLoop(
     allPeersKeepAlive: chronos.Duration,
     numRandomPeers = 10,
 ) {.async.} =
-  # Validate input parameters
-  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
-    error "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
-      randomPeersKeepalive = $randomPeersKeepalive,
-      allPeersKeepAlive = $allPeersKeepAlive
-    raise newException(
-      CatchableError,
-      "keepaliveLoop: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
-    )
-
-  if allPeersKeepAlive < randomPeersKeepalive:
-    error "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
-      allPeersKeepAlive = $allPeersKeepAlive,
-      randomPeersKeepalive = $randomPeersKeepalive
-    raise newException(
-      CatchableError,
-      "keepaliveLoop: allPeersKeepAlive can't be less than randomPeersKeepalive",
-    )
-
   # Calculate how many random peer cycles before pinging all peers
   let randomToAllRatio =
     int(allPeersKeepAlive.seconds() / randomPeersKeepalive.seconds())
@@ -1448,7 +1429,7 @@ proc keepaliveLoop(
   var lastTimeExecuted = Moment.now()
 
   while true:
-    debug "Running keepalive loop"
+    trace "Running keepalive loop"
     await sleepAsync(randomPeersKeepalive)
 
     if not node.started:
@@ -1481,17 +1462,17 @@ proc keepaliveLoop(
         outPeers
 
     if countdownToPingAll > 0:
-      debug "Pinging random peers",
+      trace "Pinging random peers",
         count = len(peersToPing), countdownToPingAll = countdownToPingAll
       countdownToPingAll -= 1
     else:
-      debug "Pinging all peers", count = len(peersToPing)
+      trace "Pinging all peers", count = len(peersToPing)
       countdownToPingAll = max(0, randomToAllRatio - 1)
 
     # Execute keepalive pings
     let successfulPings = await keepalivePings(node, peersToPing)
 
-    debug "Keepalive results",
+    trace "Keepalive results",
       attemptedPings = len(peersToPing), successfulPings = successfulPings
 
     # Update failure tracking
@@ -1506,11 +1487,28 @@ proc keepaliveLoop(
 # 2 minutes default - 20% of the default chronosstream timeout duration
 proc startKeepalive*(
     node: WakuNode, randomPeersKeepalive = 10.seconds, allPeersKeepalive = 2.minutes
-) =
+): Result[void, string] =
+  # Validate input parameters
+  if randomPeersKeepalive.isZero() or allPeersKeepAlive.isZero():
+    error "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0",
+      randomPeersKeepalive = $randomPeersKeepalive,
+      allPeersKeepAlive = $allPeersKeepAlive
+    return err(
+      "startKeepalive: allPeersKeepAlive and randomPeersKeepalive must be greater than 0"
+    )
+
+  if allPeersKeepAlive < randomPeersKeepalive:
+    error "startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive",
+      allPeersKeepAlive = $allPeersKeepAlive,
+      randomPeersKeepalive = $randomPeersKeepalive
+    return
+      err("startKeepalive: allPeersKeepAlive can't be less than randomPeersKeepalive")
+
   info "starting keepalive",
     randomPeersKeepalive = randomPeersKeepalive, allPeersKeepalive = allPeersKeepalive
 
   asyncSpawn node.keepaliveLoop(randomPeersKeepalive, allPeersKeepalive)
+  return ok()
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
