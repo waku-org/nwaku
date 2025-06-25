@@ -1,3 +1,4 @@
+import os
 mode = ScriptMode.Verbose
 
 ### Package
@@ -69,9 +70,15 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
   else:
-    exec "nim c" & " --out:build/" & name &
-      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
-      extra_params & " " & srcDir & name & ".nim"
+    var lib_name = toDll("libwaku")
+    when defined(windows):
+      exec "nim c" & " --out:build/" & lib_name &
+        " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
+        extra_params & " " & srcDir & name & ".nim"
+    else:
+      exec "nim c" & " --out:build/" & lib_name &
+        " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
+        extra_params & " " & srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")
@@ -160,33 +167,20 @@ task testone, "Test custom target":
     exec "build/" & filepath & ".bin"
 
 ### C Bindings
+let chroniclesParams =
+  "-d:chronicles_line_numbers " & "-d:chronicles_runtime_filtering=on " &
+  """-d:chronicles_sinks="textlines,json" """ &
+  "-d:chronicles_default_output_device=Dynamic " &
+  """-d:chronicles_disabled_topics="eth,dnsdisc.client" """ & "--warning:Deprecated:off " &
+  "--warning:UnusedImport:on " & "-d:chronicles_log_level=TRACE"
+
 task libwakuStatic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name,
-    "library/",
-    """-d:chronicles_line_numbers \
-       -d:chronicles_runtime_filtering=on \
-       -d:chronicles_sinks="textlines,json" \
-       -d:chronicles_default_output_device=Dynamic \
-       -d:chronicles_disabled_topics="eth,dnsdisc.client" \
-       --warning:Deprecated:off \
-       --warning:UnusedImport:on \
-       -d:chronicles_log_level=TRACE """,
-    "static"
+  buildLibrary name, "library/", chroniclesParams, "static"
 
 task libwakuDynamic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name,
-    "library/",
-    """-d:chronicles_line_numbers \
-       -d:chronicles_runtime_filtering=on \
-       -d:chronicles_sinks="textlines,json" \
-       -d:chronicles_default_output_device=Dynamic \
-       -d:chronicles_disabled_topics="eth,dnsdisc.client" \
-       --warning:Deprecated:off \
-       --warning:UnusedImport:on \
-       -d:chronicles_log_level=TRACE """,
-    "dynamic"
+  buildLibrary name, "library/", chroniclesParams, "dynamic"
 
 ### Mobile Android
 task libWakuAndroid, "Build the mobile bindings for Android":
