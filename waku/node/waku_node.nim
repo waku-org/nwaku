@@ -521,7 +521,7 @@ proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
 
 proc filterSubscribe*(
     node: WakuNode,
-    pubsubTopic: Option[PubsubTopic],
+    shard: Option[RelayShard],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
@@ -603,6 +603,15 @@ proc filterSubscribe*(
 
     # return the last error or ok
     return subRes
+
+# proc filterSubscribe* {.deprecated: "Pass a shard instead of a pubsubtopic".} (
+#     node: WakuNode,
+#     pubsubTopic: Option[PubsubTopic],
+#     contentTopics: ContentTopic | seq[ContentTopic],
+#     peer: RemotePeerInfo | string,
+# ): Future[FilterSubscribeResult] {.async: (raises: []).} =
+
+#   echo "TODO"
 
 proc filterUnsubscribe*(
     node: WakuNode,
