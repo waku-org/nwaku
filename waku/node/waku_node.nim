@@ -1365,7 +1365,7 @@ proc selectRandomPeersForKeepalive(
     shuffle(randomPeers)
     return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
 
-  debug "Mesh peers for keepalive", meshPeers = meshPeers
+  trace "Mesh peers for keepalive", meshPeers = meshPeers
 
   # Get non-mesh peers and shuffle them
   var nonMeshPeers = outPeers.filterIt(it notin meshPeers)
@@ -1375,8 +1375,9 @@ proc selectRandomPeersForKeepalive(
   let numNonMeshPeers = max(0, numRandomPeers - len(meshPeers))
   let selectedNonMeshPeers = nonMeshPeers[0 ..< min(len(nonMeshPeers), numNonMeshPeers)]
 
-  result = meshPeers & selectedNonMeshPeers
-  debug "Selected peers for keepalive", selected = result
+  let selectedPeers = meshPeers & selectedNonMeshPeers
+  trace "Selected peers for keepalive", selected = selectedPeers
+  return selectedPeers
 
 # Returns the number of succesful pings performed
 proc keepalivePings(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.} =
