@@ -1353,17 +1353,23 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
     error "pingPeer: exception raised pinging peer", peerId = peerId, error = e.msg
     return err("pingPeer: exception raised pinging peer: " & e.msg)
 
+proc selectRandomPeers(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
+  var randomPeers = peers
+  shuffle(randomPeers)
+  return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
+
 proc selectRandomPeersForKeepalive(
     node: WakuNode, outPeers: seq[PeerId], numRandomPeers: int
 ): Future[seq[PeerId]] {.async.} =
   ## Select peers for random keepalive, prioritizing mesh peers
 
+  if node.wakuRelay.isNil():
+    return selectRandomPeers(outPeers, numRandomPeers)
+
   let meshPeers = node.wakuRelay.getPeersInMesh().valueOr:
     error "Failed getting peers in mesh for ping", error = error
     # Fallback to random selection from all outgoing peers
-    var randomPeers = outPeers
-    shuffle(randomPeers)
-    return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
+    return selectRandomPeers(outPeers, numRandomPeers)
 
   trace "Mesh peers for keepalive", meshPeers = meshPeers
 
