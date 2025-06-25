@@ -590,9 +590,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   await chat.readWriteLoop()
 
-  if conf.keepAlive:
-    node.startKeepalive()
-
   runForever()
 
 proc main(rng: ref HmacDrbgContext) {.async.} =
