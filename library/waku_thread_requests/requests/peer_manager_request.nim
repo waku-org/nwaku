@@ -1,10 +1,10 @@
 import std/[sequtils, strutils]
 import chronicles, chronos, results, options, json
 import
-  ../../../../waku/factory/waku,
-  ../../../../waku/node/waku_node,
-  ../../../alloc,
-  ../../../../waku/node/peer_manager
+  ../../../waku/factory/waku,
+  ../../../waku/node/waku_node,
+  ../../alloc,
+  ../../../waku/node/peer_manager
 
 type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO

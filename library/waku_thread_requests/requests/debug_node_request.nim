@@ -8,9 +8,9 @@ import
   libp2p/peerid,
   metrics
 import
-  ../../../../waku/factory/waku,
-  ../../../../waku/node/waku_node,
-  ../../../../waku/node/health_monitor
+  ../../../waku/factory/waku,
+  ../../../waku/node/waku_node,
+  ../../../waku/node/health_monitor
 
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES

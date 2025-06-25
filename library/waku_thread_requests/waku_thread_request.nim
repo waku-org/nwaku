@@ -5,8 +5,8 @@
 import std/json, results
 import chronos, chronos/threadsync
 import
-  ../../../waku/factory/waku,
-  ../../ffi_types,
+  ../../waku/factory/waku,
+  ../ffi_types,
   ./requests/node_lifecycle_request,
   ./requests/peer_manager_request,
   ./requests/protocols/relay_request,
