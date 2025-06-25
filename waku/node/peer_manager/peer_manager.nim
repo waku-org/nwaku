@@ -391,9 +391,7 @@ proc disconnectAllPeers*(pm: PeerManager) {.async.} =
   let connectedPeers =
     pm.switch.peerStore.peers().filterIt(it.connectedness == Connected)
 
-  var futs: seq[Future[void]]
-  for peer in connectedPeers:
-    futs.add(pm.disconnectNode(peer))
+  let futs = connectedPeers.mapIt(pm.disconnectNode(it))
   await allFutures(futs)
 
 # Dialing should be used for just protocols that require a stream to write and read

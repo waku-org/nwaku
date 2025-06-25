@@ -69,6 +69,8 @@ declarePublicGauge waku_px_peers,
 logScope:
   topics = "waku node"
 
+# randomize initializes sdt/random's random number generator
+# if not called, the outcome of randomization procedures will be the same in every run
 randomize()
 
 # TODO: Move to application instance (e.g., `WakuNode2`)
@@ -1331,22 +1333,19 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
   ## Ping a single peer and return the result
 
   try:
-    # Establish connection
-    let connResult = await node.peerManager.dialPeer(peerId, PingCodec)
-    if connResult.isNone():
+    # Establish a stream
+    let stream = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
       error "pingPeer: failed dialing peer", peerId = peerId
       return err("pingPeer failed dialing peer peerId: " & $peerId)
-
-    let conn = connResult.get()
     defer:
-      # Always close the connection
+      # Always close the stream
       try:
-        await conn.close()
+        await stream.close()
       except CatchableError as e:
         debug "Error closing ping connection", peerId = peerId, error = e.msg
 
     # Perform ping
-    let pingDuration = await node.libp2pPing.ping(conn)
+    let pingDuration = await node.libp2pPing.ping(stream)
 
     trace "Ping successful", peerId = peerId, duration = pingDuration
     return ok()
