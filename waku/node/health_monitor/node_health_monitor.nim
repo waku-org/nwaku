@@ -344,7 +344,7 @@ proc keepAliveLoop(
     lastTimeExecuted = currentTime
 
 # 2 minutes default - 20% of the default chronosstream timeout duration
-proc startKeepalive(
+proc startKeepalive*(
     hm: NodeHealthMonitor,
     randomPeersKeepalive = 10.seconds,
     allPeersKeepalive = 2.minutes,
