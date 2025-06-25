@@ -1222,27 +1222,21 @@ proc lightpushPublish*(
   else:
     debug "eligibilityManager is enabled"
     var em = node.peerManager.eligibilityManager.get()
-    # FIXME: where should I init eligibilityManager?
-    # FIXME: extract values from... config parameters (which config?)
-    # FIXME: how to reuse EthClient from CLI arguments?
-    debug "initializing eligibilityManager..."
+    
     try:
-      let ethClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
-      em = await EligibilityManager.init(ethClient)
+      #let ethClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
+      #let expectedToAddress = Address.fromHex("0xe8284Af9A5F3b0CD1334DBFaf512F09BeDA805a3")
+      #let expectedValueWei = 30000000000000.u256
+      #em = await EligibilityManager.init(em.ethClient, em.expectedToAddress, em.expectedValueWei)
+
       debug "checking eligibilityProof..."
       
       # Check if eligibility proof is provided before accessing it
       if eligibilityProof.isNone():
         let msg = "Eligibility proof is required"
         return lighpushErrorResult(PAYMENT_REQUIRED, msg)
-        
-      #let txNonExistent = TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
-      let expectedToAddress = Address.fromHex("0xe8284Af9A5F3b0CD1334DBFaf512F09BeDA805a3")
-      let expectedValueWei = 30000000000000.u256
       
-      let isEligible = await em.isEligibleTxId(
-        eligibilityProof.get(), expectedToAddress, expectedValueWei
-      )
+      let isEligible = await em.isEligibleTxId(eligibilityProof.get())
       
     except CatchableError:
       let msg = "Eligibility check threw exception: " & getCurrentExceptionMsg()

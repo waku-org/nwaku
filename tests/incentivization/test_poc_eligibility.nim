@@ -130,7 +130,8 @@ suite "Waku Incentivization PoC Eligibility Proofs":
   var manager {.threadvar.}: EligibilityManager
 
   asyncSetup:
-    manager = await EligibilityManager.init(EthClient)
+    # Setup manager with expected receiver and amount
+    manager = await EligibilityManager.init(EthClient, Address.fromHex(receiverExpected.toHex()), TxValueExpectedWei)
 
     (
       txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
@@ -147,7 +148,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
     let isEligible = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
     check:
       isEligible.isErr()
@@ -158,7 +159,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCreation.bytes())))
     let isEligible = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
     check:
       isEligible.isErr()
@@ -170,7 +171,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCall.bytes())))
     let isEligible = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
     check:
       isEligible.isErr()
@@ -181,7 +182,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashRightReceiverRightAmount.bytes())))
     let isEligible = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
 
     assert isEligible.isOk(), isEligible.error
@@ -193,11 +194,11 @@ suite "Waku Incentivization PoC Eligibility Proofs":
       EligibilityProof(proofOfPayment: some(@(txHashRightReceiverRightAmount.bytes())))
 
     let isEligibleOnce = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
 
     let isEligibleTwice = await manager.isEligibleTxId(
-      eligibilityProof, receiverExpected, TxValueExpectedWei
+      eligibilityProof
     )
 
     assert isEligibleOnce.isOk()

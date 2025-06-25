@@ -445,21 +445,22 @@ proc setupProtocols(
     # Check that RLN Relay and Lightpush are mounted
     if node.wakuRlnRelay.isNil or node.wakuLightPush.isNil:
       return err("Eligibility manager requires both RLN Relay and Lightpush protocols to be mounted")
-    let ethUrl = conf.eligibilityConf.get().ethClientUrls[0]
+    let eligibilityConf = conf.eligibilityConf.get()
+    let ethUrl = eligibilityConf.ethClientUrls[0]
+    let expectedToAddress = Address.fromHex(eligibilityConf.receiverAddress)
+    let expectedValueWei = eligibilityConf.paymentAmountWei.u256
     try:
-      let manager = await EligibilityManager.init(ethUrl)
+      debug "initializing eligibilityManager..."
+      let manager = await EligibilityManager.init(
+        ethUrl,
+        expectedToAddress,
+        expectedValueWei
+      )
       node.peerManager.eligibilityManager = some(manager)
+      debug "i13n: eligibilityManager initialized with values:", ethUrl=ethUrl, expectedToAddress=expectedToAddress, expectedValueWei=$expectedValueWei
+      # FIXME: why debug displays expectedValueWei 3948404736 and not 30000000000000?
     except CatchableError:
       return err("failed to initialize eligibility manager: " & getCurrentExceptionMsg())
-
- 
-  # TODO: figure out where to store conf: expected address and expected amount
-  # NOtE: consider both client's and server's perspective!
-
-  #if conf.eligibilityEnabled:
-  #  debug "i13n: eligibility enabled!"
-  #  debug "eligibilityReceiverAddress:", conf.eligibilityReceiverAddress
-  #  debug "eligibilityPaymentAmountWei:", conf.eligibilityPaymentAmountWei
 
   return ok()
 

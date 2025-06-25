@@ -8,13 +8,19 @@ const TxReceiptQueryTimeout = 3.seconds
 type EligibilityManager* = ref object # FIXME: make web3 private?
   web3*: Web3
   seenTxIds*: HashSet[TxHash]
+  expectedToAddress*: Address
+  expectedValueWei*: UInt256
 
-# Initialize the eligibilityManager with a web3 instance
+# Initialize the eligibilityManager with a web3 instance and expected params
 proc init*(
-    T: type EligibilityManager, ethClient: string
+    T: type EligibilityManager, ethClient: string, expectedToAddress: Address, expectedValueWei: UInt256
 ): Future[EligibilityManager] {.async.} =
-  return
-    EligibilityManager(web3: await newWeb3(ethClient), seenTxIds: initHashSet[TxHash]())
+  return EligibilityManager(
+    web3: await newWeb3(ethClient),
+    seenTxIds: initHashSet[TxHash](),
+    expectedToAddress: expectedToAddress,
+    expectedValueWei: expectedValueWei
+  )
   # TODO: handle error if web3 instance is not established
 
 # Clean up the web3 instance
@@ -49,9 +55,7 @@ proc getTxAndTxReceipt(
 
 proc isEligibleTxId*(
     eligibilityManager: EligibilityManager,
-    eligibilityProof: EligibilityProof,
-    expectedToAddress: Address,
-    expectedValueWei: UInt256,
+    eligibilityProof: EligibilityProof
 ): Future[Result[void, string]] {.async.} =
   ## We consider a tx eligible,
   ## in the context of service incentivization PoC,
@@ -89,10 +93,10 @@ proc isEligibleTxId*(
     return err("A contract call tx is not eligible")
   # check that the to address is "as expected"
   let toAddress = toAddressOption.get()
-  if toAddress != expectedToAddress:
+  if toAddress != eligibilityManager.expectedToAddress:
     return err("Wrong destination address: " & $toAddress)
   # check that the amount is "as expected"
   let txValueWei = tx.value
-  if txValueWei != expectedValueWei:
-    return err("Wrong tx value: got " & $txValueWei & ", expected " & $expectedValueWei)
+  if txValueWei != eligibilityManager.expectedValueWei:
+    return err("Wrong tx value: got " & $txValueWei & ", expected " & $eligibilityManager.expectedValueWei)
   return ok()
