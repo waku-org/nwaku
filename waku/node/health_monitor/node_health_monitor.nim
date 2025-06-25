@@ -299,7 +299,8 @@ proc keepAliveLoop(
 
     # Check for consecutive failures
     if consecutiveIterationFailures > maxAllowedConsecutiveFailures:
-      warn "Too many consecutive ping failures, node likely disconnected. Killing all connections"
+      warn "Too many consecutive ping failures, node likely disconnected. Killing all connections",
+        consecutiveIterationFailures, maxAllowedConsecutiveFailures
       await node.peerManager.disconnectAllPeers()
       consecutiveIterationFailures = 0
       lastTimeExecuted = currentTime
