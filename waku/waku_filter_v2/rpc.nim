@@ -28,6 +28,11 @@ type
 
 # Convenience functions
 
+proc init*(
+    T: type MessagePush, shard: RelayShard, wakuMessage: WakuMessage
+): MessagePush =
+  MessagePush(wakuMessage: wakuMessage, pubsubTopic: shard.toPubsubTopic())
+
 proc ping*(T: type FilterSubscribeRequest, requestId: string): T =
   FilterSubscribeRequest(requestId: requestId, filterSubscribeType: SUBSCRIBER_PING)
 
