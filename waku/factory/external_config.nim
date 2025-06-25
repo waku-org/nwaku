@@ -519,7 +519,7 @@ type WakuNodeConf* = object
     reliabilityEnabled* {.
       desc:
         """Adds an extra effort in the delivery/reception of messages by leveraging store-v3 requests.
-with the drawback of consuming some more bandwidth.""",
+        with the drawback of consuming some more bandwidth.""",
       defaultValue: false,
       name: "reliability"
     .}: bool

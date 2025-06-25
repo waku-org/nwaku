@@ -36,7 +36,8 @@ import
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush_legacy/common,
   ../common/rate_limit/setting,
-  ../common/databases/dburl
+  ../common/databases/dburl,
+  ../incentivization/eligibility_manager
 
 ## Peer persistence
 
@@ -439,9 +440,22 @@ proc setupProtocols(
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
-  # set up eligibility check (i13n POC)
-  # check that: rlnRelay is mounted; Lightpush is mounted
-  # FIXME: conf items are not propagated here; where are they parsed?
+  # initialize eligibility manager if eligibility is enabled
+  if conf.eligibilityConf.isSome() and conf.eligibilityConf.get().enabled:
+    # Check that RLN Relay and Lightpush are mounted
+    if node.wakuRlnRelay.isNil or node.wakuLightPush.isNil:
+      return err("Eligibility manager requires both RLN Relay and Lightpush protocols to be mounted")
+    let ethUrl = conf.eligibilityConf.get().ethClientUrls[0]
+    try:
+      let manager = await EligibilityManager.init(ethUrl)
+      node.peerManager.eligibilityManager = some(manager)
+    except CatchableError:
+      return err("failed to initialize eligibility manager: " & getCurrentExceptionMsg())
+
+ 
+  # TODO: figure out where to store conf: expected address and expected amount
+  # NOtE: consider both client's and server's perspective!
+
   #if conf.eligibilityEnabled:
   #  debug "i13n: eligibility enabled!"
   #  debug "eligibilityReceiverAddress:", conf.eligibilityReceiverAddress

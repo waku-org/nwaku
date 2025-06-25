@@ -42,6 +42,7 @@ proc build*(b: EligibilityConfBuilder): Result[Option[EligibilityConf], string] 
     debug "eligibility: EligibilityConf validation failed - payment amount is zero"
     return err("Eligibility: payment amount must be above zero")
 
+  # FIXME: how to reuse Eth RPC URL from RLN (?) config?
   let urls = b.ethClientUrls.get(@[])
   if urls.len == 0:
     debug "eligibility: EligibilityConf validation failed - no eth rpc urls"
