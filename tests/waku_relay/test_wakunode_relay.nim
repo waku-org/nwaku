@@ -670,11 +670,14 @@ suite "WakuNode - Relay":
       ): Future[void] {.gcsafe, raises: [Defect].} =
         discard pubsubTopic
         discard message
-    assert shard == node.wakuAutoSharding.getShard(contentTopicA).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
       "topic must use the same shard"
-    assert shard == node.wakuAutoSharding.getShard(contentTopicB).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
       "topic must use the same shard"
-    assert shard == node.wakuAutoSharding.getShard(contentTopicC).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
       "topic must use the same shard"
 
     ## When
