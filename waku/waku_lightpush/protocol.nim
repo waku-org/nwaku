@@ -86,8 +86,48 @@ proc handleRequest*(
       msg_hash = msg_hash,
       receivedTime = getNowInNanosecondTime()
 
-    # FIXME: pass eligibilityProof here??????
-    # What is pushHandler, where is it defined?
+    # Check eligibility if manager is available
+    if wl.peerManager.eligibilityManager.isSome():
+      debug "eligibilityManager is enabled"
+      let em = wl.peerManager.eligibilityManager.get()
+      
+      try:
+        debug "checking eligibilityProof..."
+        
+        # Check if eligibility proof is provided
+        if pushRequest.eligibilityProof.isNone():
+          let msg = "Eligibility proof is required"
+          error "lightpush request handling error", error = msg
+          return LightpushResponse(
+            requestId: pushRequest.requestId,
+            statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
+            statusDesc: some(msg),
+          )
+        
+        let isEligible = await em.isEligibleTxId(pushRequest.eligibilityProof.get())
+        if isEligible.isErr():
+          let msg = "Eligibility check failed: " & isEligible.error
+          error "lightpush request handling error", error = msg
+          return LightpushResponse(
+            requestId: pushRequest.requestId,
+            statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
+            statusDesc: some(msg),
+          )
+        
+        debug "Eligibility check passed!"
+        
+      except CatchableError:
+        let msg = "Eligibility check threw exception: " & getCurrentExceptionMsg()
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
+          statusDesc: some(msg),
+        )
+    else:
+      # the service node doesn't want to check eligibility
+      debug "eligibilityManager is disabled - skipping eligibility check"
+    
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
 
     isSuccess = handleRes.isOk()

@@ -1218,35 +1218,6 @@ proc lightpushPublish*(
   debug "in lightpushPublish"
   debug "eligibilityProof: ", eligibilityProof
 
-  # FIXME: THIS SHOULD NOT BE CHECKED HERE!
-  # CHECKING ELIGIBILITY HERE MEANS CHECKING OUR OWN REQUEST BEFORE IT IS SENT
-  debug "in lightpushPublish"
-  debug "eligibilityProof: ", eligibilityProof
-
-  #[
-  if node.peerManager.eligibilityManager.isNone():
-    # the service node doesn't want to check eligibility
-    debug "eligibilityManager is disabled - skipping eligibility check"
-  else:
-    debug "eligibilityManager is enabled"
-    var em = node.peerManager.eligibilityManager.get()
-    
-    try:
-      debug "checking eligibilityProof..."
-      
-      # Check if eligibility proof is provided before accessing it
-      if eligibilityProof.isNone():
-        let msg = "Eligibility proof is required"
-        return lighpushErrorResult(PAYMENT_REQUIRED, msg)
-      
-      let isEligible = await em.isEligibleTxId(eligibilityProof.get())
-      
-    except CatchableError:
-      let msg = "Eligibility check threw exception: " & getCurrentExceptionMsg()
-      return lighpushErrorResult(PAYMENT_REQUIRED, msg)
-
-  debug "Eligibility check passed!"
-  ]#
   return await lightpushPublishHandler(node, pubsubForPublish, message, eligibilityProof, toPeer)
 
 ## Waku RLN Relay
