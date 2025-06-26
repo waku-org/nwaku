@@ -410,7 +410,7 @@ suite "Waku Sync: reconciliation":
       diffInWin = 20
       diffOutWin = 20
       stepOutNs = 100_000_000'u64
-      outOffsetNs = 2_000_000_000'u64 # for 20 mesg they sent 2 seconds earlier 
+      outOffsetNs = 2_300_000_000'u64 # for 20 mesg they sent 2 seconds earlier 
 
     randomize()
 

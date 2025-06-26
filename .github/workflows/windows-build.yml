@@ -81,9 +81,13 @@ jobs:
         make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
         cd ../../../../
 
-    - name: Building wakunode2
+    - name: Building wakunode2.exe
       run: |
         make wakunode2 LOG_LEVEL=DEBUG V=3 -j8
+
+    - name: Building libwaku.dll
+      run: |
+        make libwaku STATIC=0 LOG_LEVEL=DEBUG V=1 -j
     
     - name: Check Executable
       run: |
@@ -91,5 +95,11 @@ jobs:
           echo "wakunode2.exe build successful"
         else
           echo "Build failed: wakunode2.exe not found"
+          exit 1
+        fi
+        if [ -f "./build/libwaku.dll" ]; then
+          echo "libwaku.dll build successful"
+        else
+          echo "Build failed: libwaku.dll not found"
           exit 1
         fi

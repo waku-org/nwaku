@@ -108,4 +108,4 @@ import
 import ./waku_rln_relay/test_all
 
 # Node Factory
-import ./factory/test_external_config
+import ./factory/[test_external_config, test_node_factory, test_waku_conf]
