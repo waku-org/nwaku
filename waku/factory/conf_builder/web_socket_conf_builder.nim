@@ -1,5 +1,4 @@
 import chronicles, std/[net, options], results
-import ../networks_config
 import waku/factory/waku_conf
 
 logScope:

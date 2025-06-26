@@ -1,4 +1,4 @@
-import chronicles, std/[net, options, sequtils], results
+import chronicles, std/[net, options], results
 import ../waku_conf
 
 logScope:
