@@ -29,7 +29,7 @@ proc enrConfiguration*(
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.activeRelayShards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
@@ -143,11 +143,3 @@ proc networkConfiguration*(
   )
 
   return netConfigRes
-
-# TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
-proc getNumShardsInNetwork*(conf: WakuConf): uint32 =
-  if conf.numShardsInNetwork != 0:
-    return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
-  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
-  return uint32(MaxShardIndex + 1)

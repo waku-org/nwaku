@@ -137,10 +137,12 @@ proc initNode(
 proc getAutoshards*(
     node: WakuNode, contentTopics: seq[string]
 ): Result[seq[RelayShard], string] =
+  if node.wakuAutoSharding.isNone():
+    return err("Static sharding used, cannot get shards from content topics")
   var autoShards: seq[RelayShard]
   for contentTopic in contentTopics:
-    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
-      return err("Could not parse content topic: " & error)
+    let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
+        return err("Could not parse content topic: " & error)
     autoShards.add(shard)
   return ok(autoshards)
 
@@ -258,16 +260,11 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
-  # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
-  let numShardsInNetwork = getNumShardsInNetwork(conf)
-
-  if conf.numShardsInNetwork == 0:
-    warn "Number of shards in network not configured, setting it to",
-      # TODO: If not configured, it mounts 1024 shards! Make it a mandatory configuration instead
-      numShardsInNetwork = $numShardsInNetwork
-
-  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
-    return err("failed to mount waku sharding: " & error)
+  if conf.shardingConf.kind == Auto:
+    node.mountAutoSharding(conf.clusterId, conf.shardingConf.numShardsInCluster).isOkOr:
+      return err("failed to mount waku auto sharding: " & error)
+  else:
+    warn("Auto sharding is disabled")
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -290,6 +287,7 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
+  # TODO: it should be one or the other, not both
   let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
     return err("Could not get autoshards: " & error)
 
