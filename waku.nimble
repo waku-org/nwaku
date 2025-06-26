@@ -70,15 +70,12 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
   else:
-    var lib_name = toDll("libwaku")
+    var lib_name = name & ".so"
     when defined(windows):
-      exec "nim c" & " --out:build/" & lib_name &
-        " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
-        extra_params & " " & srcDir & name & ".nim"
-    else:
-      exec "nim c" & " --out:build/" & lib_name &
-        " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
-        extra_params & " " & srcDir & name & ".nim"
+      lib_name = toDll(name)      
+    exec "nim c" & " --out:build/" & lib_name &
+      " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
+      extra_params & " " & srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")
