@@ -1,16 +1,16 @@
 import options
 import chronicles, chronos, results
 import
-  ../../../../../waku/waku_core/message/message,
-  ../../../../../waku/waku_core/codecs,
-  ../../../../../waku/factory/waku,
-  ../../../../../waku/waku_core/message,
-  ../../../../../waku/waku_core/time, # Timestamp
-  ../../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../../waku/waku_lightpush_legacy/client,
-  ../../../../../waku/waku_lightpush_legacy/common,
-  ../../../../../waku/node/peer_manager/peer_manager,
-  ../../../../alloc
+  ../../../../waku/waku_core/message/message,
+  ../../../../waku/waku_core/codecs,
+  ../../../../waku/factory/waku,
+  ../../../../waku/waku_core/message,
+  ../../../../waku/waku_core/time, # Timestamp
+  ../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../waku/waku_lightpush_legacy/client,
+  ../../../../waku/waku_lightpush_legacy/common,
+  ../../../../waku/node/peer_manager/peer_manager,
+  ../../../alloc
 
 type LightpushMsgType* = enum
   PUBLISH

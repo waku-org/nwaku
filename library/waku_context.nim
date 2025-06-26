@@ -9,9 +9,9 @@ import
   waku/node/peer_manager,
   waku/waku_relay/[protocol, topic_health],
   waku/waku_core/[topics/pubsub_topic, message],
-  ./inter_thread_communication/[waku_thread_request, requests/debug_node_request],
-  ../ffi_types,
-  ../events/[
+  ./waku_thread_requests/[waku_thread_request, requests/debug_node_request],
+  ./ffi_types,
+  ./events/[
     json_message_event, json_topic_health_change_event, json_connection_change_event,
     json_waku_not_responding_event,
   ]
