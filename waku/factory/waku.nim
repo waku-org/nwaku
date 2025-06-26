@@ -130,8 +130,9 @@ proc setupAppCallbacks(
     let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
       return err("Could not get autoshards: " & error)
 
-    let confShards =
-      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+    let confShards = conf.activeRelayShards.mapIt(
+      RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+    )
     let shards = confShards & autoShards
 
     let uniqueShards = deduplicate(shards)
@@ -255,7 +256,7 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
     conf.webSocketConf.get().port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
-  let netConf = endpointConfiguration(
+  let netConf = networkConfiguration(
     conf.clusterId, conf.endpointConf, conf.discv5Conf, conf.webSocketConf,
     conf.wakuFlags, conf.dnsAddrsNameServers, conf.portsShift, clientId,
   ).valueOr:
@@ -413,7 +414,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       conf.relay,
       conf.lightPush,
       conf.clusterId,
-      conf.shards,
+      conf.activeRelayShards,
       conf.contentTopics,
     ).isOkOr:
       return err ("Starting protocols support REST server failed: " & $error)
