@@ -1159,17 +1159,19 @@ proc lightpushPublishHandler(
     node: WakuNode,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peer: RemotePeerInfo | PeerInfo,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
-  # note: eligibilityProof is not used in this function, it has already been checked
+  
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
     notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
-      msg_hash = msgHash
-    return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
+      msg_hash = msgHash,
+      eligibilityProof = eligibilityProof
+    return await node.wakuLightpushClient.publish(some(pubsubTopic), message, eligibilityProof, peer)
 
   if not node.wakuLightPush.isNil():
     notice "publishing message with self hosted lightpush",
@@ -1197,7 +1199,7 @@ proc lightpushPublish*(
     elif not node.wakuLightpushClient.isNil():
       node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
-        error "failed to publish message", msg = msg
+        error "failed to publish message", err = msg
         return lighpushErrorResult(NO_PEERS_TO_RELAY, msg)
     else:
       return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
@@ -1212,10 +1214,16 @@ proc lightpushPublish*(
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
       return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
-  
-  # Checking eligibility proof of Lightpush request
+
   debug "in lightpushPublish"
   debug "eligibilityProof: ", eligibilityProof
+
+  # FIXME: THIS SHOULD NOT BE CHECKED HERE!
+  # CHECKING ELIGIBILITY HERE MEANS CHECKING OUR OWN REQUEST BEFORE IT IS SENT
+  debug "in lightpushPublish"
+  debug "eligibilityProof: ", eligibilityProof
+
+  #[
   if node.peerManager.eligibilityManager.isNone():
     # the service node doesn't want to check eligibility
     debug "eligibilityManager is disabled - skipping eligibility check"
@@ -1224,11 +1232,6 @@ proc lightpushPublish*(
     var em = node.peerManager.eligibilityManager.get()
     
     try:
-      #let ethClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
-      #let expectedToAddress = Address.fromHex("0xe8284Af9A5F3b0CD1334DBFaf512F09BeDA805a3")
-      #let expectedValueWei = 30000000000000.u256
-      #em = await EligibilityManager.init(em.ethClient, em.expectedToAddress, em.expectedValueWei)
-
       debug "checking eligibilityProof..."
       
       # Check if eligibility proof is provided before accessing it
@@ -1243,7 +1246,8 @@ proc lightpushPublish*(
       return lighpushErrorResult(PAYMENT_REQUIRED, msg)
 
   debug "Eligibility check passed!"
-  return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
+  ]#
+  return await lightpushPublishHandler(node, pubsubForPublish, message, eligibilityProof, toPeer)
 
 ## Waku RLN Relay
 proc mountRlnRelay*(
@@ -1341,7 +1345,7 @@ proc startPeerExchangeLoop*(node: WakuNode) =
     return
   node.wakuPeerExchange.pxLoopHandle = node.peerExchangeLoop()
 
-# TODO: Move to application module (e.g., wakunode2.nim)
+# TODO: Move to application module (e.g, wakunode2.nim)
 proc setPeerExchangePeer*(
     node: WakuNode, peer: RemotePeerInfo | MultiAddress | string
 ) =

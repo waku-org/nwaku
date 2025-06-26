@@ -12,7 +12,7 @@ import
   ./protocol_metrics,
   ./rpc,
   ./rpc_codec,
-  ../incentivization/reputation_manager
+  ../incentivization/[reputation_manager, eligibility_manager, rpc]
 
 logScope:
   topics = "waku lightpush client"
@@ -78,6 +78,7 @@ proc publish*(
     wl: WakuLightPushClient,
     pubSubTopic: Option[PubsubTopic] = none(PubsubTopic),
     wakuMessage: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   var message = wakuMessage
@@ -93,13 +94,11 @@ proc publish*(
       peerId = shortLog(peer.peerId),
       msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
 
-  # TODO: i13n POC: add eligibilityProof to the request
-  # (if expected by the server - how does the client know?..)
-  # The tx must have already been sent at this point?
-
+  # i13n POC: adding eligibilityProof to the request
   let pushRequest = LightpushRequest(
-    requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message
+    requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message, eligibilityProof: eligibilityProof
   )
+  debug "in Lightpush client publish: created pushRequest: ", pushRequest
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
   for obs in wl.publishObservers:
@@ -108,7 +107,8 @@ proc publish*(
   return lightpushSuccessResult(publishedCount)
 
 proc publishToAny*(
-    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, wakuMessage: WakuMessage
+    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, wakuMessage: WakuMessage,
+    eligibilityproof: Option[EligibilityProof] = none(EligibilityProof)
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we don't specify a particular peer and instead we get it from peer manager
@@ -122,4 +122,4 @@ proc publishToAny*(
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
 
-  return await wl.publish(some(pubSubTopic), message, peer)
+  return await wl.publish(some(pubSubTopic), message, eligibilityproof, peer)

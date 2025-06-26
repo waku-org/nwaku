@@ -94,6 +94,10 @@ proc installLightPushRequestHandler*(
             makeRestResponse(lightpushResultServiceUnavailable(NoPeerNoneFoundError))
       toPeer = some(aPeer)
 
+    debug "in installLightPushRequestHandler"
+    debug "request:", req
+    debug "request.eligibilityProof:", eligibilityProof = req.eligibilityProof
+
     let subFut = node.lightpushPublish(req.pubsubTopic, msg, req.eligibilityProof, toPeer)
 
     if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):

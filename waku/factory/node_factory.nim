@@ -457,8 +457,7 @@ proc setupProtocols(
         expectedValueWei
       )
       node.peerManager.eligibilityManager = some(manager)
-      debug "i13n: eligibilityManager initialized with values:", ethUrl=ethUrl, expectedToAddress=expectedToAddress, expectedValueWei=$expectedValueWei
-      # FIXME: why debug displays expectedValueWei 3948404736 and not 30000000000000?
+      debug "i13n: eligibilityManager initialized with values:", ethUrl=ethUrl, expectedToAddress=expectedToAddress, expectedValueWei=expectedValueWei
     except CatchableError:
       return err("failed to initialize eligibility manager: " & getCurrentExceptionMsg())
 

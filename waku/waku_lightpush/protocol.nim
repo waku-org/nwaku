@@ -16,7 +16,8 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/rate_limit/request_limiter
+  ../common/rate_limit/request_limiter,
+  ../incentivization/[eligibility_manager, rpc]
 
 logScope:
   topics = "waku lightpush"
@@ -73,9 +74,6 @@ proc handleRequest*(
         statusDesc: some(msg),
       )
 
-    # TODO: i13n POC: check eligibility here (if eligibilityManager.isSome)
-    # if eligibility check fails, return a response with LightpushStatusCode.PAYMENT_REQUIRED
-
     waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
     let msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex()
@@ -84,9 +82,12 @@ proc handleRequest*(
       peer_id = peerId,
       requestId = pushRequest.requestId,
       pubsubTopic = pushRequest.pubsubTopic,
+      eligibilityProof = pushRequest.eligibilityProof,
       msg_hash = msg_hash,
       receivedTime = getNowInNanosecondTime()
 
+    # FIXME: pass eligibilityProof here??????
+    # What is pushHandler, where is it defined?
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
 
     isSuccess = handleRes.isOk()
