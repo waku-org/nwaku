@@ -48,7 +48,9 @@ suite "Waku config - apply preset":
       check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
       check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
-    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+      check conf.shardingConf.kind == expectedConf.shardingConf.kind
+      check conf.shardingConf.numShardsInCluster ==
+        expectedConf.shardingConf.numShardsInCluster
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
     if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
@@ -68,7 +70,7 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = res.get()
-    check conf.shards.len == expectedConf.numShardsInNetwork.int
+    check conf.activeRelayShards.len == expectedConf.shardingConf.numShardsInCluster.int
 
   test "Subscribes to some valid shards in twn":
     ## Setup
@@ -84,9 +86,9 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = resConf.get()
-    assert conf.shards.len() == shards.len()
+    assert conf.activeRelayShards.len() == shards.len()
     for index, shard in shards:
-      assert shard in conf.shards
+      assert shard in conf.activeRelayShards
 
   test "Subscribes to invalid shards in twn":
     ## Setup
@@ -131,7 +133,9 @@ suite "Waku config - apply preset":
       check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
       check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
-    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+      check conf.shardingConf.kind == expectedConf.shardingConf.kind
+      check conf.shardingConf.numShardsInCluster ==
+        expectedConf.shardingConf.numShardsInCluster
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
     if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
@@ -164,7 +168,7 @@ suite "Waku config - Shards":
 
     ## Given
     let shards: seq[uint16] = @[0, 2, 4]
-    let numShardsInNetwork = 5.uint32
+    let numShardsInNetwork = 5.uint16
     let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )
@@ -183,7 +187,7 @@ suite "Waku config - Shards":
 
     ## Given
     let shards: seq[uint16] = @[0, 2, 5]
-    let numShardsInNetwork = 5.uint32
+    let numShardsInNetwork = 5.uint16
     let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )

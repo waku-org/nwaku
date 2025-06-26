@@ -72,7 +72,7 @@ proc newTestWakuNode*(
     agentString = none(string),
     peerStoreCapacity = none(int),
     clusterId = DefaultClusterId,
-    shards = @[DefaultShardId],
+    activeRelayShards = @[DefaultShardId],
 ): WakuNode =
   var resolvedExtIp = extIp
 
@@ -86,7 +86,7 @@ proc newTestWakuNode*(
   var conf = defaultTestWakuConf()
 
   conf.clusterId = clusterId
-  conf.shards = shards
+  conf.activeRelayShards = activeRelayShards
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
@@ -114,7 +114,7 @@ proc newTestWakuNode*(
   var enrBuilder = EnrBuilder.init(nodeKey)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.activeRelayShards)
   ).isOkOr:
     raise newException(Defect, "Invalid record: " & $error)
 

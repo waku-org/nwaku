@@ -8,6 +8,7 @@ import nimcrypto, std/options, std/tables, stew/endians2, results, stew/byteutil
 
 import ./content_topic, ./pubsub_topic
 
+# TODO: this is autosharding, not just "sharding"
 type Sharding* = object
   clusterId*: uint16
   # TODO: generations could be stored in a table here
@@ -50,6 +51,7 @@ proc getShard*(s: Sharding, topic: ContentTopic): Result[RelayShard, string] =
 
   ok(shard)
 
+# TODO: Can be simplified by putting shards as first class citizen
 proc parseSharding*(
     s: Sharding,
     pubsubTopic: Option[PubsubTopic],

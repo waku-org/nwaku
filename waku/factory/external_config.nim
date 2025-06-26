@@ -320,13 +320,12 @@ hence would have reachability issues.""",
       name: "keep-alive"
     .}: bool
 
-    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
-    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
-      desc: "Number of shards in the network",
+      desc:
+        "Enables autosharding and set number of shards in the cluster, set to `0` to use static sharding",
       defaultValue: 0,
       name: "num-shards-in-network"
-    .}: uint32
+    .}: uint16
 
     shards* {.
       desc:
@@ -955,6 +954,9 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
 
   if n.numShardsInNetwork != 0:
     b.withNumShardsInCluster(n.numShardsInNetwork)
+    b.withShardingConf(Auto)
+  else:
+    b.withShardingConf(Static)
 
   b.withActiveRelayShards(n.shards)
   b.withContentTopics(n.contentTopics)
