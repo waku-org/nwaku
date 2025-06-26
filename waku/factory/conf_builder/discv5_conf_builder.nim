@@ -38,6 +38,9 @@ proc withTableIpLimit*(b: var Discv5ConfBuilder, tableIpLimit: uint) =
 proc withUdpPort*(b: var Discv5ConfBuilder, udpPort: Port) =
   b.udpPort = some(udpPort)
 
+proc withUdpPort*(b: var Discv5ConfBuilder, udpPort: uint) =
+  b.udpPort = some(Port(udpPort.uint16))
+
 proc withBootstrapNodes*(b: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
   b.bootstrapNodes = concat(b.bootstrapNodes, bootstrapNodes)

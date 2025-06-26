@@ -112,11 +112,8 @@ ifeq (, $(shell which cargo))
 	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
 endif
 
-anvil: rustup
-ifeq (, $(shell which anvil 2> /dev/null))
-# Install Anvil if it's not installed
-	./scripts/install_anvil.sh
-endif
+rln-deps: rustup
+	./scripts/install_rln_tests_dependencies.sh
 
 deps: | deps-common nat-libs waku.nims
 
@@ -205,8 +202,8 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
-# install anvil only for the testwaku target
-testwaku: | build deps anvil librln
+# install rln-deps only for the testwaku target
+testwaku: | build deps rln-deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
@@ -401,14 +398,16 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
+
 libwaku: | build deps librln
-		rm -f build/libwaku*
+	rm -f build/libwaku*
+
 ifeq ($(STATIC), 1)
-		echo -e $(BUILD_MSG) "build/$@.a" && \
-		$(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+else ifeq ($(detected_OS),Windows)
+	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 else
-		echo -e $(BUILD_MSG) "build/$@.so" && \
-		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
 #####################
