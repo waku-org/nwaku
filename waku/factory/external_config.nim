@@ -950,9 +950,9 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
 
   if n.numShardsInNetwork != 0:
     b.withNumShardsInCluster(n.numShardsInNetwork)
-    b.withShardingConf(Auto)
+    b.withShardingConf(AutoSharding)
   else:
-    b.withShardingConf(Static)
+    b.withShardingConf(StaticSharding)
 
   b.withActiveRelayShards(n.shards)
   b.withContentTopics(n.contentTopics)
