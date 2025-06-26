@@ -19,8 +19,8 @@ const
   MessageCacheTTL* = 2.minutes
 
 type
-  # a single filter criterion is fully defined by a pubsub topic and content topic
-  FilterCriterion* = tuple[pubsubTopic: PubsubTopic, contentTopic: ContentTopic]
+  # a single filter criterion is fully defined by a shard and content topic
+  FilterCriterion* = tuple[shard: RelayShard, contentTopic: ContentTopic]
 
   FilterCriteria* = HashSet[FilterCriterion] # a sequence of filter criteria
 
@@ -74,9 +74,9 @@ proc getPeerSubscriptions*(
   return subscribedContentTopics
 
 proc findSubscribedPeers*(
-    s: FilterSubscriptions, pubsubTopic: PubsubTopic, contentTopic: ContentTopic
+    s: FilterSubscriptions, shard: RelayShard, contentTopic: ContentTopic
 ): seq[PeerID] =
-  let filterCriterion: FilterCriterion = (pubsubTopic, contentTopic)
+  let filterCriterion: FilterCriterion = (shard, contentTopic)
 
   var foundPeers: seq[PeerID] = @[]
   # only peers subscribed to criteria and with legit subscription is counted

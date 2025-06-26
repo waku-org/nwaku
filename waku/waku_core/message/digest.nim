@@ -59,6 +59,9 @@ proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessag
 
   return ctx.finish() # Computes the hash
 
+proc computeMessageHash*(shard: RelayShard, msg: WakuMessage): WakuMessageHash =
+  return computeMessageHash(shard.toPubsubTopic(), msg)
+
 proc cmp*(x, y: WakuMessageHash): int =
   if x < y:
     return -1
