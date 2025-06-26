@@ -246,8 +246,10 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         "Error: Relay Protocol is not mounted to the node"
       )
 
-    let topic =
-      toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
+    # TODO: clusterId and shards should be uint16 across all codebase and probably be defined as a type
+    let topic = toPubsubTopic(
+      RelayShard(clusterId: node.wakuMetadata.clusterId.uint16, shardId: shard)
+    )
     let pubsubPeers =
       node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(
@@ -289,8 +291,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         "Error: Relay Protocol is not mounted to the node"
       )
 
-    let topic =
-      toPubsubTopic(RelayShard(clusterId: node.wakuSharding.clusterId, shardId: shard))
+    let topic = toPubsubTopic(
+      RelayShard(clusterId: node.wakuMetadata.clusterId.uint16, shardId: shard)
+    )
     let peers =
       node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(

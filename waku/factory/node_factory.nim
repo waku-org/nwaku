@@ -10,6 +10,7 @@ import
 
 import
   ./internal_config,
+  ./networks_config,
   ./waku_conf,
   ./builder,
   ./validator_signed,
@@ -260,7 +261,7 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
-  if conf.shardingConf.kind == Auto:
+  if conf.shardingConf.kind == AutoSharding:
     node.mountAutoSharding(conf.clusterId, conf.shardingConf.numShardsInCluster).isOkOr:
       return err("failed to mount waku auto sharding: " & error)
   else:
@@ -287,15 +288,22 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  # TODO: it should be one or the other, not both
-  let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
-    return err("Could not get autoshards: " & error)
+  # TODO: when using autosharding, the user should not be expected to pass any shards, but only content topics
+  # Hence, this joint logic should be removed in favour of an either logic:
+  # use passed shards (static) or deduce shards from content topics (auto)
+  let autoShards =
+    if node.wakuAutoSharding.isSome():
+      node.getAutoshards(conf.contentTopics).valueOr:
+        return err("Could not get autoshards: " & error)
+    else:
+      @[]
 
   debug "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
 
-  let confShards =
-    conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+  let confShards = conf.activeRelayShards.mapIt(
+    RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+  )
   let shards = confShards & autoShards
 
   if conf.relay:
@@ -311,7 +319,7 @@ proc setupProtocols(
     # Add validation keys to protected topics
     var subscribedProtectedShards: seq[ProtectedShard]
     for shardKey in conf.protectedShards:
-      if shardKey.shard notin conf.shards:
+      if shardKey.shard notin conf.activeRelayShards:
         warn "protected shard not in subscribed shards, skipping adding validator",
           protectedShard = shardKey.shard, subscribedShards = shards
         continue
@@ -470,7 +478,7 @@ proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
   let netConfig = networkConfiguration(
-    wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
+    wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
     wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
     wakuConf.portsShift, clientId,
   ).valueOr:

@@ -352,10 +352,10 @@ proc applyNetworkConf(builder: var WakuConfBuilder) =
       discarded = builder.numShardsInCluster
 
   case networkConf.shardingConf.kind
-  of Static:
-    builder.shardingConf = some(Static)
-  of Auto:
-    builder.shardingConf = some(Auto)
+  of StaticSharding:
+    builder.shardingConf = some(StaticSharding)
+  of AutoSharding:
+    builder.shardingConf = some(AutoSharding)
     builder.numShardsInCluster = some(networkConf.shardingConf.numShardsInCluster)
 
   if networkConf.discv5Discovery:
@@ -430,25 +430,27 @@ proc build*(
   let shardingConf =
     if builder.shardingConf.isSome():
       case builder.shardingConf.get()
-      of Static:
-        ShardingConf(kind: Static)
-      of Auto:
+      of StaticSharding:
+        ShardingConf(kind: StaticSharding)
+      of AutoSharding:
         if builder.numShardsInCluster.isSome():
-          ShardingConf(kind: Auto, numShardsInCluster: builder.numShardsInCluster.get())
+          ShardingConf(
+            kind: AutoSharding, numShardsInCluster: builder.numShardsInCluster.get()
+          )
         else:
           return err(
             "Number of shards in cluster must be specified with autosharding enabled"
           )
     else:
       warn("No sharding conf specified, defaulting to static")
-      ShardingConf(kind: Static)
+      ShardingConf(kind: StaticSharding)
 
   let activeRelayShards =
     if builder.activeRelayShards.isSome():
       builder.activeRelayShards.get()
     else:
       case shardingConf.kind
-      of Auto:
+      of AutoSharding:
         warn "Active relay shards not specified and autosharding is enabled, defaulting to all shards in network"
         let upperShard: uint16 = uint16(shardingConf.numShardsInCluster - 1)
         toSeq(0.uint16 .. upperShard)

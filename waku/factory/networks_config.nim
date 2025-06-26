@@ -7,14 +7,14 @@ logScope:
 
 type
   ShardingConfKind* = enum
-    Auto
-    Static
+    AutoSharding
+    StaticSharding
 
   ShardingConf* = object
     case kind*: ShardingConfKind
-    of Auto:
+    of AutoSharding:
       numShardsInCluster*: uint16
-    of Static:
+    of StaticSharding:
       discard
 
 type NetworkConf* = object
@@ -44,7 +44,7 @@ proc TheWakuNetworkConf*(T: type NetworkConf): NetworkConf =
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    shardingConf: ShardingConf(kind: Auto, numShardsInCluster: 8),
+    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
     discv5Discovery: true,
     discv5BootstrapNodes:
       @[
@@ -58,9 +58,9 @@ proc validateShards*(
     shardingConf: ShardingConf, shards: seq[uint16]
 ): Result[void, string] =
   case shardingConf.kind
-  of Static:
+  of StaticSharding:
     return ok()
-  of Auto:
+  of AutoSharding:
     let numShardsInCluster = shardingConf.numShardsInCluster
     for shard in shards:
       if shard >= numShardsInCluster:
