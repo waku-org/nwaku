@@ -122,6 +122,18 @@ proc parse*(
       "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
     return err(ParsingError.invalidFormat(errMsg))
 
+proc parse*(
+    T: type NsContentTopic, topics: seq[ContentTopic]
+): ParsingResult[seq[NsContentTopic]] =
+  var result: seq[NsContentTopic] = @[]
+  for contentTopic in topics:
+    let res = NsContentTopic.parse(contentTopic)
+    if res.isErr():
+      let error: ParsingError = res.error
+      return ParsingResult[seq[NsContentTopic]].err(error)
+    result.add(res.value)
+  return ParsingResult[seq[NsContentTopic]].ok(result)
+
 # Content topic compatibility
 
 converter toContentTopic*(topic: NsContentTopic): ContentTopic =

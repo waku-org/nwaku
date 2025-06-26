@@ -26,12 +26,19 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: RequestRateLimiter
-  sharding: Sharding
+  autoSharding: Option[Sharding]
 
 proc handleRequest(
-    wl: WakuLightPush, peerId: PeerId, pushRequest: LightPushRequest
+    wl: WakuLightPush, peerId: PeerId, pushRequest: LightpushRequest
 ): Future[WakuLightPushResult] {.async.} =
   let pubsubTopic = pushRequest.pubSubTopic.valueOr:
+    if wl.autoSharding.isNone():
+      let msg = "Pubsub topic must be specified when static sharding is enabled"
+      error "lightpush request handling error", error = msg
+      return WakuLightPushResult.err(
+        (code: LightpushStatusCode.INVALID_MESSAGE_ERROR, desc: some(msg))
+      )
+
     let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
       error "lightpush request handling error", error = msg
@@ -39,8 +46,8 @@ proc handleRequest(
         (code: LightPushStatusCode.INVALID_MESSAGE_ERROR, desc: some(msg))
       )
 
-    wl.sharding.getShard(parsedTopic).valueOr:
-      let msg = "Sharding error: " & error
+    wl.autoSharding.get().getShard(parsedTopic).valueOr:
+      let msg = "Auto-sharding error: " & error
       error "lightpush request handling error", error = msg
       return WakuLightPushResult.err(
         (code: LightPushStatusCode.INTERNAL_SERVER_ERROR, desc: some(msg))
@@ -149,7 +156,7 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
-    sharding: Sharding,
+    autoSharding: Option[Sharding],
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wl = WakuLightPush(
@@ -157,7 +164,7 @@ proc new*(
     peerManager: peerManager,
     pushHandler: pushHandler,
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
-    sharding: sharding,
+    autoSharding: autoSharding,
   )
   wl.initProtocolHandler()
   setServiceLimitMetric(WakuLightpushCodec, rateLimitSetting)

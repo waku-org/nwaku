@@ -574,8 +574,14 @@ proc filterSubscribe*(
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
     return subRes
+  elif node.wakuAutoSharding.isNone():
+    error "Failed filter subscription, pubsub topic must be specified with static sharding"
+    waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
   else:
-    let topicMapRes = node.wakuAutoSharding.parseSharding(pubsubTopic, contentTopics)
+    # No pubsub topic, autosharding is used to deduce it
+    # but content topics must be well-formed for this
+    let topicMapRes =
+      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -585,11 +591,11 @@ proc filterSubscribe*(
         topicMapRes.get()
 
     var futures = collect(newSeq):
-      for pubsub, topics in topicMap.pairs:
+      for shard, topics in topicMap.pairs:
         info "registering filter subscription to content",
-          pubsubTopic = pubsub, contentTopics = topics, peer = remotePeer.peerId
+          shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.subscribe(remotePeer, $pubsub, content)
+        node.wakuFilterClient.subscribe(remotePeer, $shard, content)
 
     var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -658,7 +664,7 @@ proc filterUnsubscribe*(
     waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
   else: # pubsubTopic.isNone
     let topicMapRes =
-      node.wakuAutoSharding.get().parseSharding(pubsubTopic, contentTopics)
+      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -668,11 +674,11 @@ proc filterUnsubscribe*(
         topicMapRes.get()
 
     var futures = collect(newSeq):
-      for pubsub, topics in topicMap.pairs:
+      for shard, topics in topicMap.pairs:
         info "deregistering filter subscription to content",
-          pubsubTopic = pubsub, contentTopics = topics, peer = remotePeer.peerId
+          shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.unsubscribe(remotePeer, $pubsub, content)
+        node.wakuFilterClient.unsubscribe(remotePeer, $shard, content)
 
     var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -1078,7 +1084,10 @@ proc legacyLightpushPublish*(
     if pubsubTopic.isSome():
       return await internalPublish(node, pubsubTopic.get(), message, peer)
 
-    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
+    if node.wakuAutoSharding.isNone():
+      return err("Pubsub topic must be specified when static sharding is enabled")
+    let topicMapRes =
+      node.wakuAutoSharding.get().getShardsFromContentTopics(message.contentTopic)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -1134,7 +1143,7 @@ proc mountLightPush*(
       lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush = WakuLightPush.new(
-    node.peerManager, node.rng, pushHandler, node.wakuSharding, some(rateLimit)
+    node.peerManager, node.rng, pushHandler, node.wakuAutoSharding, some(rateLimit)
   )
 
   if node.started:
@@ -1195,12 +1204,17 @@ proc lightpushPublish*(
       return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
 
   let pubsubForPublish = pubSubTopic.valueOr:
+    if node.wakuAutoSharding.isNone():
+      let msg = "Pubsub topic must be specified when static sharding is enabled"
+      error "lightpush publish error", error = msg
+      return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
+
     let parsedTopic = NsContentTopic.parse(message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
       error "lightpush request handling error", error = msg
       return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
 
-    node.wakuSharding.getShard(parsedTopic).valueOr:
+    node.wakuAutoSharding.get().getShard(parsedTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
       return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
