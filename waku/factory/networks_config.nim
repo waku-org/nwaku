@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import chronicles, results, stint, std/[nativesockets, options]
+import chronicles, results, stint
 
 logScope:
   topics = "waku networks conf"
