@@ -1,15 +1,15 @@
 import std/[json, sugar, strutils, options]
 import chronos, chronicles, results, stew/byteutils
 import
-  ../../../../../waku/factory/waku,
-  ../../../../alloc,
-  ../../../../utils,
-  ../../../../../waku/waku_core/peers,
-  ../../../../../waku/waku_core/time,
-  ../../../../../waku/waku_core/message/digest,
-  ../../../../../waku/waku_store/common,
-  ../../../../../waku/waku_store/client,
-  ../../../../../waku/common/paging
+  ../../../../waku/factory/waku,
+  ../../../alloc,
+  ../../../utils,
+  ../../../../waku/waku_core/peers,
+  ../../../../waku/waku_core/time,
+  ../../../../waku/waku_core/message/digest,
+  ../../../../waku/waku_store/common,
+  ../../../../waku/waku_store/client,
+  ../../../../waku/common/paging
 
 type StoreReqType* = enum
   REMOTE_QUERY ## to perform a query to another Store node
