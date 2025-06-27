@@ -158,8 +158,7 @@ proc logConf*(conf: WakuConf) =
         contract = rlnRelayConf.ethContractAddress.string,
         maxMessageSize = conf.maxMessageSizeBytes,
         rlnEpochSizeSec = rlnRelayConf.epochSizeSec,
-        rlnRelayUserMessageLimit = rlnRelayConf.userMessageLimit,
-        ethClientUrls = rlnRelayConf.ethClientUrls
+        rlnRelayUserMessageLimit = rlnRelayConf.userMessageLimit
 
 proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
   wakuConf.nodeKey.getPublicKey().isOkOr:
