@@ -241,6 +241,11 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
+    if node.wakuMetadata.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Metadata Protocol is not mounted to the node"
+      )
+
     if node.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Relay Protocol is not mounted to the node"
@@ -285,6 +290,11 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   ) -> RestApiResponse:
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
+
+    if node.wakuMetadata.isNil():
+      return RestApiResponse.serviceUnavailable(
+        "Error: Metadata Protocol is not mounted to the node"
+      )
 
     if node.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
