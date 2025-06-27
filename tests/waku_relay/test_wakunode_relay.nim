@@ -657,7 +657,7 @@ suite "WakuNode - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    require node.mountSharding(1, 1).isOk
+    require node.mountAutoSharding(1, 1).isOk
 
     ## Given
     let
@@ -670,11 +670,14 @@ suite "WakuNode - Relay":
       ): Future[void] {.gcsafe, raises: [Defect].} =
         discard pubsubTopic
         discard message
-    assert shard == node.wakuSharding.getShard(contentTopicA).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
       "topic must use the same shard"
-    assert shard == node.wakuSharding.getShard(contentTopicB).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
       "topic must use the same shard"
-    assert shard == node.wakuSharding.getShard(contentTopicC).expect("Valid Topic"),
+    assert shard ==
+      node.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
       "topic must use the same shard"
 
     ## When

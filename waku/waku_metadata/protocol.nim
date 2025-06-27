@@ -29,7 +29,7 @@ proc respond(
     m: WakuMetadata, conn: Connection
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let response =
-    WakuMetadataResponse(clusterId: some(m.clusterId), shards: toSeq(m.shards))
+    WakuMetadataResponse(clusterId: some(m.clusterId.uint32), shards: toSeq(m.shards))
 
   let res = catch:
     await conn.writeLP(response.encode().buffer)

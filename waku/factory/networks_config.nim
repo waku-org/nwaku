@@ -1,18 +1,23 @@
 {.push raises: [].}
 
-import stint, std/[nativesockets, options]
+import chronicles, results, stint
 
-type WebSocketSecureConf* {.requiresInit.} = object
-  keyPath*: string
-  certPath*: string
+logScope:
+  topics = "waku networks conf"
 
-type WebSocketConf* = object
-  port*: Port
-  secureConf*: Option[WebSocketSecureConf]
+type
+  ShardingConfKind* = enum
+    AutoSharding
+    StaticSharding
 
-# TODO: Rename this type to match file name
+  ShardingConf* = object
+    case kind*: ShardingConfKind
+    of AutoSharding:
+      numShardsInCluster*: uint16
+    of StaticSharding:
+      discard
 
-type ClusterConf* = object
+type NetworkConf* = object
   maxMessageSize*: string # TODO: static convert to a uint64
   clusterId*: uint16
   rlnRelay*: bool
@@ -21,17 +26,16 @@ type ClusterConf* = object
   rlnRelayDynamic*: bool
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
-  # TODO: should be uint16 like the `shards` parameter
-  numShardsInNetwork*: uint32
+  shardingConf*: ShardingConf
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
 
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
-proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
+proc TheWakuNetworkConf*(T: type NetworkConf): NetworkConf =
   const RelayChainId = 59141'u256
-  return ClusterConf(
+  return NetworkConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
@@ -40,7 +44,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    numShardsInNetwork: 8,
+    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
     discv5Discovery: true,
     discv5BootstrapNodes:
       @[
@@ -49,3 +53,21 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
         "enr:-QEkuEBfEzJm_kigJ2HoSS_RBFJYhKHocGdkhhBr6jSUAWjLdFPp6Pj1l4yiTQp7TGHyu1kC6FyaU573VN8klLsEm-XuAYJpZIJ2NIJpcIQI2SVcim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOwsS69tgD7u1K50r5-qG5hweuTwa0W26aYPnvivpNlrYN0Y3CCdl-DdWRwgiMohXdha3UyDw",
       ],
   )
+
+proc validateShards*(
+    shardingConf: ShardingConf, shards: seq[uint16]
+): Result[void, string] =
+  case shardingConf.kind
+  of StaticSharding:
+    return ok()
+  of AutoSharding:
+    let numShardsInCluster = shardingConf.numShardsInCluster
+    for shard in shards:
+      if shard >= numShardsInCluster:
+        let msg =
+          "validateShards invalid shard: " & $shard & " when numShardsInCluster: " &
+          $numShardsInCluster
+        error "validateShards failed", error = msg
+        return err(msg)
+
+  return ok()

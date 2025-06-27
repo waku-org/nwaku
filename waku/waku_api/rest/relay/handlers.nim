@@ -272,10 +272,15 @@ proc installRelayApiHandlers*(
     var message: WakuMessage = req.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
 
-    let pubsubTopic = node.wakuSharding.getShard(message.contentTopic).valueOr:
-      let msg = "Autosharding error: " & error
+    if node.wakuAutoSharding.isNone():
+      let msg = "Autosharding is disabled"
       error "publish error", err = msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)
+
+    let pubsubTopic = node.wakuAutoSharding.get().getShard(message.contentTopic).valueOr:
+        let msg = "Autosharding error: " & error
+        error "publish error", err = msg
+        return RestApiResponse.badRequest("Failed to publish. " & msg)
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
