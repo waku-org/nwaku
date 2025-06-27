@@ -137,24 +137,22 @@ proc startRestServerProtocolSupport*(
 
   ## Relay REST API
   if relayEnabled:
-    if node.wakuAutoSharding.isNone():
-      restServerNotInstalledTab["relay"] =
-        "/relay endpoints are not available. Please ensure autosharding is enabled"
-    else:
-      ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
-      ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
-      let cache = MessageCache.init(int(conf.relayCacheCapacity))
+    ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
+    ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
+    let cache = MessageCache.init(int(conf.relayCacheCapacity))
 
-      let handler: WakuRelayHandler = messageCacheHandler(cache)
+    let handler: WakuRelayHandler = messageCacheHandler(cache)
 
-      for shard in shards:
-        let pubsubTopic = $RelayShard(clusterId: clusterId, shardId: shard)
-        cache.pubsubSubscribe(pubsubTopic)
+    for shard in shards:
+      let pubsubTopic = $RelayShard(clusterId: clusterId, shardId: shard)
+      cache.pubsubSubscribe(pubsubTopic)
 
-        node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
-          error "Could not subscribe", pubsubTopic, error
-          continue
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+        error "Could not subscribe", pubsubTopic, error
+        continue
 
+    if node.wakuAutoSharding.isSome():
+      # Only deduce pubsub topics to subscribe to from content topics if autosharding is enabled
       for contentTopic in contentTopics:
         cache.contentSubscribe(contentTopic)
 
@@ -167,7 +165,7 @@ proc startRestServerProtocolSupport*(
           error "Could not subscribe", pubsubTopic, error
           continue
 
-      installRelayApiHandlers(router, node, cache)
+    installRelayApiHandlers(router, node, cache)
   else:
     restServerNotInstalledTab["relay"] =
       "/relay endpoints are not available. Please check your configuration: --relay"
