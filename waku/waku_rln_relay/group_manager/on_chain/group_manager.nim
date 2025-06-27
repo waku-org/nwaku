@@ -10,7 +10,7 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/[strutils, tables, algorithm],
+  std/[strutils, tables, algorithm, strformat],
   stew/[byteutils, arrayops],
   sequtils
 
@@ -669,7 +669,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   elif metadataGetOptRes.get().isSome():
     let metadata = metadataGetOptRes.get().get()
     if metadata.chainId != g.chainId:
-      return err("persisted data: chain id mismatch")
+      return err(
+        fmt"chain id mismatch. persisted={metadata.chainId}, smart_contract_chainId={g.chainId}"
+      )
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
