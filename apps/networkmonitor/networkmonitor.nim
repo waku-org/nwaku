@@ -577,10 +577,11 @@ when isMainModule:
     conf.rlnRelayEthContractAddress = twnNetworkConf.rlnRelayEthContractAddress
     conf.rlnEpochSizeSec = twnNetworkConf.rlnEpochSizeSec
     conf.rlnRelayUserMessageLimit = twnNetworkConf.rlnRelayUserMessageLimit
-    conf.numShardsInNetwork = twnNetworkConf.numShardsInNetwork
+    conf.numShardsInNetwork = twnNetworkConf.shardingConf.numShardsInCluster
 
     if conf.shards.len == 0:
-      conf.shards = toSeq(uint16(0) .. uint16(twnNetworkConf.numShardsInNetwork - 1))
+      conf.shards =
+        toSeq(uint16(0) .. uint16(twnNetworkConf.shardingConf.numShardsInCluster - 1))
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
