@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net, random],
   chronos,
   chronicles,
   metrics,
@@ -68,6 +68,10 @@ declarePublicGauge waku_px_peers,
 
 logScope:
   topics = "waku node"
+
+# randomize initializes sdt/random's random number generator
+# if not called, the outcome of randomization procedures will be the same in every run
+randomize()
 
 # TODO: Move to application instance (e.g., `WakuNode2`)
 # Git version in git describe format (defined compile time)
@@ -1325,35 +1329,60 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
-# TODO: Move this logic to PeerManager
-proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
-  while true:
-    await sleepAsync(keepalive)
-    if not node.started:
+proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.async.} =
+  ## Ping a single peer and return the result
+
+  try:
+    # Establish a stream
+    let stream = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
+      error "pingPeer: failed dialing peer", peerId = peerId
+      return err("pingPeer failed dialing peer peerId: " & $peerId)
+    defer:
+      # Always close the stream
+      try:
+        await stream.close()
+      except CatchableError as e:
+        debug "Error closing ping connection", peerId = peerId, error = e.msg
+
+    # Perform ping
+    let pingDuration = await node.libp2pPing.ping(stream)
+
+    trace "Ping successful", peerId = peerId, duration = pingDuration
+    return ok()
+  except CatchableError as e:
+    error "pingPeer: exception raised pinging peer", peerId = peerId, error = e.msg
+    return err("pingPeer: exception raised pinging peer: " & e.msg)
+
+proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
+  var randomPeers = peers
+  shuffle(randomPeers)
+  return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
+
+# Returns the number of succesful pings performed
+proc parallelPings*(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.} =
+  if len(peerIds) == 0:
+    return 0
+
+  var pingFuts: seq[Future[Result[void, string]]]
+
+  # Create ping futures for each peer
+  for i, peerId in peerIds:
+    let fut = pingPeer(node, peerId)
+    pingFuts.add(fut)
+
+  # Wait for all pings to complete
+  discard await allFutures(pingFuts).withTimeout(5.seconds)
+
+  var successCount = 0
+  for fut in pingFuts:
+    if not fut.completed() or fut.failed():
       continue
 
-    # Keep connected peers alive while running
-    # Each node is responsible of keeping its outgoing connections alive
-    trace "Running keepalive"
+    let res = fut.read()
+    if res.isOk():
+      successCount.inc()
 
-    # First get a list of connected peer infos
-    let outPeers = node.peerManager.connectedPeers()[1]
-
-    for peerId in outPeers:
-      try:
-        let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
-          warn "Failed dialing peer for keep alive", peerId = peerId
-          continue
-        let pingDelay = await node.libp2pPing.ping(conn)
-        await conn.close()
-      except CatchableError as exc:
-        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
-
-# 2 minutes default - 20% of the default chronosstream timeout duration
-proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
-  info "starting keepalive", keepalive = keepalive
-
-  asyncSpawn node.keepaliveLoop(keepalive)
+  return successCount
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"

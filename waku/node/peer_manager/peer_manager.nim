@@ -501,6 +501,13 @@ proc connectedPeers*(
 
   return (inPeers, outPeers)
 
+proc disconnectAllPeers*(pm: PeerManager) {.async.} =
+  let (inPeerIds, outPeerIds) = pm.connectedPeers()
+  let connectedPeers = concat(inPeerIds, outPeerIds)
+
+  let futs = connectedPeers.mapIt(pm.disconnectNode(it))
+  await allFutures(futs)
+
 proc getStreamByPeerIdAndProtocol*(
     pm: PeerManager, peerId: PeerId, protocol: string
 ): Future[Result[Connection, string]] {.async.} =

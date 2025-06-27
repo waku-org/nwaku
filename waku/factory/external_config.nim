@@ -314,12 +314,6 @@ hence would have reachability issues.""",
       name: "staticnode"
     .}: seq[string]
 
-    keepAlive* {.
-      desc: "Enable keep-alive for idle connections: true|false",
-      defaultValue: false,
-      name: "keep-alive"
-    .}: bool
-
     # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
     # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
@@ -951,7 +945,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withRelayPeerExchange(n.relayPeerExchange)
   b.withRelayShardedPeerManagement(n.relayShardedPeerManagement)
   b.withStaticNodes(n.staticNodes)
-  b.withKeepAlive(n.keepAlive)
 
   if n.numShardsInNetwork != 0:
     b.withNumShardsInNetwork(n.numShardsInNetwork)

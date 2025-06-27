@@ -401,7 +401,8 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     waku[].deliveryMonitor.startDeliveryMonitor()
 
   ## Health Monitor
-  waku[].healthMonitor.startHealthMonitor()
+  waku[].healthMonitor.startHealthMonitor().isOkOr:
+    return err("failed to start health monitor: " & $error)
 
   if conf.restServerConf.isSome():
     rest_server_builder.startRestServerProtocolSupport(

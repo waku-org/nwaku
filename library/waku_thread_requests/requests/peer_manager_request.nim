@@ -122,14 +122,7 @@ proc process*(
     await waku.node.peerManager.disconnectNode(peerId)
     return ok("")
   of DISCONNECT_ALL_PEERS:
-    let connectedPeers = waku.node.peerManager.switch.peerStore.peers().filterIt(
-        it.connectedness == Connected
-      )
-
-    var futs: seq[Future[void]]
-    for peer in connectedPeers:
-      futs.add(waku.node.peerManager.disconnectNode(peer))
-    await allFutures(futs)
+    await waku.node.peerManager.disconnectAllPeers()
     return ok("")
   of DIAL_PEER:
     let remotePeerInfo = parsePeerInfo($self[].peerMultiAddr).valueOr:
