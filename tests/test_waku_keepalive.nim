@@ -44,7 +44,10 @@ suite "Waku Keepalive":
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-    node1.startKeepalive(2.seconds)
+    let healthMonitor = NodeHealthMonitor()
+    healthMonitor.setNodeToHealthMonitor(node1)
+    healthMonitor.startKeepalive(2.seconds).isOkOr:
+      assert false, "Failed to start keepalive"
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true

@@ -53,7 +53,7 @@ proc networkConnectivityLoop(self: OnlineMonitor): Future[void] {.async.} =
   ## and triggers any change that depends on the network connectivity state
   while true:
     await self.updateOnlineState()
-    await sleepAsync(15.seconds)
+    await sleepAsync(5.seconds)
 
 proc startOnlineMonitor*(self: OnlineMonitor) =
   self.networkConnLoopHandle = self.networkConnectivityLoop()

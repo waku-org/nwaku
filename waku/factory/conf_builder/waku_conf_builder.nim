@@ -255,9 +255,6 @@ proc withRelayShardedPeerManagement*(
 ) =
   b.relayShardedPeerManagement = some(relayShardedPeerManagement)
 
-proc withKeepAlive*(b: var WakuConfBuilder, keepAlive: bool) =
-  b.keepAlive = some(keepAlive)
-
 proc withP2pReliability*(b: var WakuConfBuilder, p2pReliability: bool) =
   b.p2pReliability = some(p2pReliability)
 

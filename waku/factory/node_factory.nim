@@ -462,10 +462,6 @@ proc startNode*(
   if conf.peerExchange and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
-  # Start keepalive, if enabled
-  if conf.keepAlive:
-    node.startKeepalive()
-
   # Maintain relay connections
   if conf.relay:
     node.peerManager.start()
