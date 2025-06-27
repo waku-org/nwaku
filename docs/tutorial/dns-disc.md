@@ -33,12 +33,10 @@ The following command line options are available for both `wakunode2` or `chat2`
 ```
 --dns-discovery              Enable DNS Discovery
 --dns-discovery-url          URL for DNS node list in format 'enrtree://<key>@<fqdn>'
---dns-discovery-name-server  DNS name server IPs to query. Argument may be repeated.
 ```
 
 - `--dns-discovery` is used to enable DNS discovery on the node. Waku DNS discovery is disabled by default.
 - `--dns-discovery-url` is mandatory if DNS discovery is enabled. It contains the URL for the node list. The URL must be in the format `enrtree://<key>@<fqdn>` where `<fqdn>` is the fully qualified domain name and `<key>` is the base32 encoding of the compressed 32-byte public key that signed the list at that location. See [EIP-1459](https://eips.ethereum.org/EIPS/eip-1459#specification) or the example below to illustrate.
-- `--dns-discovery-name-server` is optional and contains the IP(s) of the DNS name servers to query. If left unspecified, the Cloudflare servers `1.1.1.1` and `1.0.0.1` will be used by default.
 
 A node will attempt connection to all discovered nodes.
 
@@ -63,9 +61,9 @@ Similarly, for `chat2`:
 
 The node will discover and attempt connection to all `waku.test` nodes during setup procedures.
 
-To use specific DNS name servers, one or more `--dns-discovery-name-server` arguments can be added:
+To use specific DNS name servers, one or more `--dns-addrs-name-server` arguments can be added:
 
 ```
 ./build/wakunode2 --dns-discovery:true --dns-discovery-url:enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im --dns-dis
-covery-name-server:8.8.8.8 --dns-discovery-name-server:8.8.4.4
+covery-name-server:8.8.8.8 --dns-addrs-name-server:8.8.4.4
 ```
