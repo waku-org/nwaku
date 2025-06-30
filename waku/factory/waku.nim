@@ -267,7 +267,7 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
 proc updateEnr(waku: ptr Waku): Result[void, string] =
   let netConf: NetConfig = getRunningNetConfig(waku).valueOr:
     return err("error calling updateNetConfig: " & $error)
-  let record = enrConfiguration(waku[].conf, netConf, none(Curve25519Key)).valueOr:
+  let record = enrConfiguration(waku[].conf, netConf).valueOr:
     return err("ENR setup failed: " & error)
 
   if isClusterMismatched(record, waku[].conf.clusterId):

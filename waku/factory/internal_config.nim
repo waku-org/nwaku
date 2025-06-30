@@ -11,12 +11,13 @@ import
   ../common/utils/nat,
   ../node/net_config,
   ../waku_enr,
+  ../waku_enr/mix,
   ../waku_core,
   ./waku_conf,
   ./networks_config
 
 proc enrConfiguration*(
-    conf: WakuConf, netConfig: NetConfig, mixPubKey: Option[Curve25519Key]
+    conf: WakuConf, netConfig: NetConfig
 ): Result[enr.Record, string] =
   var enrBuilder = EnrBuilder.init(conf.nodeKey)
 
@@ -34,8 +35,8 @@ proc enrConfiguration*(
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
-  if conf.mix and mixPubKey.isSome():
-    enrBuilder.withMixKey(mixPubKey.get())
+  if conf.mixConf.isSome():
+    enrBuilder.withMixKey(conf.mixConf.get().mixPubKey)
 
   let recordRes = enrBuilder.build()
   let record =
