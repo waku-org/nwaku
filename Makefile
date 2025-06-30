@@ -54,13 +54,14 @@ endif
 all: | wakunode2 example2 chat2 chat2bridge libwaku
 
 TEST_FILE := $(word 2,$(MAKECMDGOALS))
+TEST_NAME := $(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
 test:
 ifeq ($(strip $(TEST_FILE)),)
 	$(MAKE) testcommon
 	$(MAKE) testwaku
 else
-	$(MAKE) test/$(TEST_FILE)
+	$(MAKE) compile-test $(TEST_FILE) $(TEST_NAME)
 endif
 
 waku.nims:
@@ -252,9 +253,10 @@ build/%: | build deps librln
 	echo -e $(BUILD_MSG) "build/$*" && \
 		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
 
-test/%: | build deps librln
-	echo -e $(BUILD_MSG) "$*" && \
-		$(ENV_SCRIPT) nim testone $(NIM_PARAMS) waku.nims $*
+compile-test: | build deps librln
+	echo -e $(BUILD_MSG) "$(TEST_FILE)" && \
+		$(ENV_SCRIPT) nim buildTest $(NIM_PARAMS) waku.nims $(TEST_FILE) && \
+		$(ENV_SCRIPT) nim execTest $(NIM_PARAMS) waku.nims $(TEST_FILE) "$(TEST_NAME)"
 
 ################
 ## Waku tools ##
