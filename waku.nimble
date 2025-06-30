@@ -163,7 +163,7 @@ task buildone, "Build custom target":
 
 task buildTest, "Test custom target":
   let filepath = paramStr(paramCount())
-  discard buildModule(filepath):
+  discard buildModule(filepath)
 
 task execTest, "Run test":
   let filepath = paramStr(paramCount()-1)
