@@ -97,6 +97,10 @@ proc publishToAny*(
   ## This proc is similar to the publish one but in this case
   ## we don't specify a particular peer and instead we get it from peer manager
 
+  var message = wakuMessage
+  if message.timestamp == 0:
+    message.timestamp = getNowInNanosecondTime()
+
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
