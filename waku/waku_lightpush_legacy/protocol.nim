@@ -45,7 +45,8 @@ proc handleRequest*(
     let msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
 
-    notice "handling lightpush request",
+    notice "handling legacy lightpush request",
+      my_peer_id = wl.peerManager.switch.peerInfo.peerId,
       peer_id = peerId,
       requestId = requestId,
       pubsubTopic = pubsubTopic,
