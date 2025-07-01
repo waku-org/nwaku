@@ -121,7 +121,6 @@ type WakuConfBuilder* = object
   relayShardedPeerManagement: Option[bool]
   relayServiceRatio: Option[string]
   circuitRelayClient: Option[bool]
-  keepAlive: Option[bool]
   p2pReliability: Option[bool]
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
@@ -622,7 +621,6 @@ proc build*(
     relayServiceRatio: builder.relayServiceRatio.get("60:40"),
     rateLimits: rateLimits,
     circuitRelayClient: builder.circuitRelayClient.get(false),
-    keepAlive: builder.keepAlive.get(true),
     staticNodes: builder.staticNodes,
     relayShardedPeerManagement: relayShardedPeerManagement,
     p2pReliability: builder.p2pReliability.get(false),
