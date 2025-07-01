@@ -991,6 +991,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.storeServiceConf.storeSyncConf.withRelayJitterSec(n.storeSyncRelayJitter)
 
   b.mixConf.withEnabled(n.mix)
+  b.withMix(n.mix)
   if n.mixkey.isSome():
     b.mixConf.withMixKey(n.mixkey.get())
 
