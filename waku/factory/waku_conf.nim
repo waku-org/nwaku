@@ -83,7 +83,6 @@ type WakuConf* {.requiresInit.} = ref object
   relayPeerExchange*: bool
   rendezvous*: bool
   circuitRelayClient*: bool
-  keepAlive*: bool
 
   discv5Conf*: Option[Discv5Conf]
   dnsDiscoveryConf*: Option[DnsDiscoveryConf]
