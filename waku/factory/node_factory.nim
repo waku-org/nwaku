@@ -6,8 +6,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/dnsresolver,
-  libp2p/crypto/crypto,
-  libp2p/crypto/curve25519
+  libp2p/crypto/crypto
 
 import
   ./internal_config,
