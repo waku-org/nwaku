@@ -70,7 +70,7 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = res.get()
-    check conf.activeRelayShards.len == expectedConf.shardingConf.numShardsInCluster.int
+    check conf.subscribeShards.len == expectedConf.shardingConf.numShardsInCluster.int
 
   test "Subscribes to some valid shards in twn":
     ## Setup
@@ -86,9 +86,9 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = resConf.get()
-    assert conf.activeRelayShards.len() == shards.len()
+    assert conf.subscribeShards.len() == shards.len()
     for index, shard in shards:
-      assert shard in conf.activeRelayShards
+      assert shard in conf.subscribeShards
 
   test "Subscribes to invalid shards in twn":
     ## Setup

@@ -954,7 +954,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   else:
     b.withShardingConf(StaticSharding)
 
-  b.withActiveRelayShards(n.shards)
+  b.withSubscribeShards(n.shards)
   b.withContentTopics(n.contentTopics)
 
   b.storeServiceConf.withEnabled(n.store)

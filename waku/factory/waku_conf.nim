@@ -76,7 +76,7 @@ type WakuConf* {.requiresInit.} = ref object
   nodeKey*: crypto.PrivateKey
 
   clusterId*: uint16
-  activeRelayShards*: seq[uint16]
+  subscribeShards*: seq[uint16]
   protectedShards*: seq[ProtectedShard]
 
   shardingConf*: ShardingConf
@@ -149,7 +149,7 @@ proc logConf*(conf: WakuConf) =
 
   info "Configuration. Network", cluster = conf.clusterId
 
-  for shard in conf.activeRelayShards:
+  for shard in conf.subscribeShards:
     info "Configuration. Active Relay Shards", shard = shard
 
   if conf.discv5Conf.isSome():
@@ -226,6 +226,6 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
 
 proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
-  ?wakuConf.shardingConf.validateShards(wakuConf.activeRelayShards)
+  ?wakuConf.shardingConf.validateShards(wakuConf.subscribeShards)
   ?wakuConf.validateNoEmptyStrings()
   return ok()

@@ -61,7 +61,7 @@ type WakuConfBuilder* = object
   clusterId: Option[uint16]
   shardingConf: Option[ShardingConfKind]
   numShardsInCluster: Option[uint16]
-  activeRelayShards: Option[seq[uint16]]
+  subscribeShards: Option[seq[uint16]]
   protectedShards: Option[seq[ProtectedShard]]
   contentTopics: Option[seq[string]]
 
@@ -151,8 +151,8 @@ proc withShardingConf*(b: var WakuConfBuilder, shardingConf: ShardingConfKind) =
 proc withNumShardsInCluster*(b: var WakuConfBuilder, numShardsInCluster: uint16) =
   b.numShardsInCluster = some(numShardsInCluster)
 
-proc withActiveRelayShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
-  b.activeRelayShards = some(shards)
+proc withSubscribeShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
+  b.subscribeShards = some(shards)
 
 proc withProtectedShards*(
     b: var WakuConfBuilder, protectedShards: seq[ProtectedShard]
@@ -445,9 +445,9 @@ proc build*(
       warn("No sharding conf specified, defaulting to static")
       ShardingConf(kind: StaticSharding)
 
-  let activeRelayShards =
-    if builder.activeRelayShards.isSome():
-      builder.activeRelayShards.get()
+  let subscribeShards =
+    if builder.subscribeShards.isSome():
+      builder.subscribeShards.get()
     else:
       case shardingConf.kind
       of AutoSharding:
@@ -617,7 +617,7 @@ proc build*(
     clusterId: clusterId,
     shardingConf: shardingConf,
     contentTopics: contentTopics,
-    activeRelayShards: activeRelayShards,
+    subscribeShards: subscribeShards,
     protectedShards: protectedShards,
     relay: relay,
     lightPush: lightPush,

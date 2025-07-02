@@ -130,7 +130,7 @@ proc setupAppCallbacks(
     let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
       return err("Could not get autoshards: " & error)
 
-    let confShards = conf.activeRelayShards.mapIt(
+    let confShards = conf.subscribeShards.mapIt(
       RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
     )
     let shards = confShards & autoShards
@@ -414,7 +414,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       conf.relay,
       conf.lightPush,
       conf.clusterId,
-      conf.activeRelayShards,
+      conf.subscribeShards,
       conf.contentTopics,
     ).isOkOr:
       return err ("Starting protocols support REST server failed: " & $error)

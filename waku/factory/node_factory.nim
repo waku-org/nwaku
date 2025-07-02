@@ -301,7 +301,7 @@ proc setupProtocols(
   debug "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
 
-  let confShards = conf.activeRelayShards.mapIt(
+  let confShards = conf.subscribeShards.mapIt(
     RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
   )
   let shards = confShards & autoShards
@@ -319,7 +319,7 @@ proc setupProtocols(
     # Add validation keys to protected topics
     var subscribedProtectedShards: seq[ProtectedShard]
     for shardKey in conf.protectedShards:
-      if shardKey.shard notin conf.activeRelayShards:
+      if shardKey.shard notin conf.subscribeShards:
         warn "protected shard not in subscribed shards, skipping adding validator",
           protectedShard = shardKey.shard, subscribedShards = shards
         continue

@@ -23,7 +23,7 @@ proc enrConfiguration*(
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.activeRelayShards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.subscribeShards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 

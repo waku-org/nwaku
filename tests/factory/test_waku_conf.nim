@@ -41,7 +41,7 @@ suite "Waku Conf - build with cluster conf":
     check conf.shardingConf.kind == networkConf.shardingConf.kind
     check conf.shardingConf.numShardsInCluster ==
       networkConf.shardingConf.numShardsInCluster
-    check conf.activeRelayShards == expectedShards
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -83,7 +83,7 @@ suite "Waku Conf - build with cluster conf":
     check conf.shardingConf.kind == networkConf.shardingConf.kind
     check conf.shardingConf.numShardsInCluster ==
       networkConf.shardingConf.numShardsInCluster
-    check conf.activeRelayShards == expectedShards
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -115,7 +115,7 @@ suite "Waku Conf - build with cluster conf":
     check conf.shardingConf.kind == networkConf.shardingConf.kind
     check conf.shardingConf.numShardsInCluster ==
       networkConf.shardingConf.numShardsInCluster
-    check conf.activeRelayShards == expectedShards
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -130,7 +130,7 @@ suite "Waku Conf - build with cluster conf":
     ## Given
     builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withNetworkConf(networkConf)
-    builder.withActiveRelayShards(shards)
+    builder.withSubscribeShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -144,7 +144,7 @@ suite "Waku Conf - build with cluster conf":
     check conf.shardingConf.kind == networkConf.shardingConf.kind
     check conf.shardingConf.numShardsInCluster ==
       networkConf.shardingConf.numShardsInCluster
-    check conf.activeRelayShards == shards
+    check conf.subscribeShards == shards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
@@ -158,7 +158,7 @@ suite "Waku Conf - build with cluster conf":
     ## Given
     builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withNetworkConf(networkConf)
-    builder.withActiveRelayShards(shards)
+    builder.withSubscribeShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -194,7 +194,7 @@ suite "Waku Conf - build with cluster conf":
     check conf.shardingConf.kind == networkConf.shardingConf.kind
     check conf.shardingConf.numShardsInCluster ==
       networkConf.shardingConf.numShardsInCluster
-    check conf.activeRelayShards == expectedShards
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
     check conf.discv5Conf.isSome == networkConf.discv5Discovery
