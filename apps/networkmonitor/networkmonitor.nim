@@ -354,7 +354,7 @@ proc crawlNetwork(
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
 proc retrieveDynamicBootstrapNodes(
-    dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
+    dnsDiscoveryUrl: string, dnsAddrsNameServers: seq[IpAddress]
 ): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
   ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
@@ -363,7 +363,7 @@ proc retrieveDynamicBootstrapNodes(
     debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
 
     var nameServers: seq[TransportAddress]
-    for ip in dnsDiscoveryNameServers:
+    for ip in dnsAddrsNameServers:
       nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
 
     let dnsResolver = DnsResolver.new(nameServers)

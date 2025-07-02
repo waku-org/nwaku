@@ -170,10 +170,11 @@ type
       name: "dns-discovery-url"
     .}: string
 
-    dnsDiscoveryNameServers* {.
-      desc: "DNS name server IPs to query. Argument may be repeated.",
+    dnsAddrsNameServers* {.
+      desc:
+        "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated.",
       defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
-      name: "dns-discovery-name-server"
+      name: "dns-addrs-name-server"
     .}: seq[IpAddress]
 
     ## Chat2 configuration
