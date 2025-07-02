@@ -329,9 +329,9 @@ proc subscribe*(
             return err("Autosharding error: " & error)
         ($shard, some(subscription.topic))
       else:
-        let msg =
+        return err(
           "Static sharding is used, relay subscriptions must specify a pubsub topic"
-        return err("Cannot proceed with content topic subscription")
+        )
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -364,9 +364,9 @@ proc unsubscribe*(
             return err("Autosharding error: " & error)
         ($shard, some(subscription.topic))
       else:
-        let msg =
+        return err(
           "Static sharding is used, relay subscriptions must specify a pubsub topic"
-        return err("Cannot proceed with content topic subscription")
+        )
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
