@@ -69,13 +69,8 @@ proc getShardsFromContentTopics*(
 
   var topicMap = initTable[RelayShard, seq[NsContentTopic]]()
   for content in nsContentTopics:
-    let shardsRes = s.getShard(content)
-
-    let shard =
-      if shardsRes.isErr():
-        return err("Cannot deduce shard from content topic: " & $shardsRes.error)
-      else:
-        shardsRes.get()
+    let shard = s.getShard(content).valueOr:
+      return err("Cannot deduce shard from content topic: " & $error)
 
     if not topicMap.hasKey(shard):
       topicMap[shard] = @[]
