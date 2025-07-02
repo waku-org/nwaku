@@ -64,7 +64,7 @@ proc build*(b: StoreServiceConfBuilder): Result[Option[StoreServiceConf], string
         dbMigration: b.dbMigration.get(true),
         dbURl: b.dbUrl.get(),
         dbVacuum: b.dbVacuum.get(false),
-        supportV2: b.supportV2.get(true),
+        supportV2: b.supportV2.get(false),
         maxNumDbConnections: b.maxNumDbConnections.get(50),
         retentionPolicy: b.retentionPolicy.get("time:" & $2.days.seconds),
         resume: b.resume.get(false),

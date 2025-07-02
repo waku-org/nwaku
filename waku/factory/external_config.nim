@@ -351,7 +351,7 @@ hence would have reachability issues.""",
 
     legacyStore* {.
       desc: "Enable/disable support of Waku Store v2 as a service",
-      defaultValue: true,
+      defaultValue: false,
       name: "legacy-store"
     .}: bool
 
