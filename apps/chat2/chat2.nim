@@ -428,7 +428,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   if dnsDiscoveryUrl.isSome:
     var nameServers: seq[TransportAddress]
-    for ip in conf.dnsDiscoveryNameServers:
+    for ip in conf.dnsAddrsNameServers:
       nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
 
     let dnsResolver = DnsResolver.new(nameServers)
