@@ -64,12 +64,9 @@ proc handleRequest(
     msg_hash = msg_hash,
     receivedTime = getNowInNanosecondTime()
 
-  let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
-
-  if handleRes.isOk():
-    return ok(handleRes.get())
-
-  return err((code: handleRes.error.code, desc: handleRes.error.desc))
+  let res = (await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)).valueOr:
+    return err((code: error.code, desc: error.desc))
+  return ok(res)
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -79,19 +76,17 @@ proc handleRequest*(
   let pushRequest = LightPushRequest.decode(buffer).valueOr:
     let desc = decodeRpcFailure & ": " & $error
     waku_lightpush_v3_errors.inc(labelValues = [desc])
-    error "failed to push message", error = pushResponse.statusDesc
+    error "failed to push message", error = desc
     return LightPushResponse(
       requestId: "N/A", # due to decode failure we don't know requestId
       statusCode: LightPushStatusCode.BAD_REQUEST.uint32,
       statusDesc: some(desc),
     )
 
-  let res = await handleRequest(wl, peerId, pushRequest)
-
-  let relayPeerCount = res.valueOr:
+  let relayPeerCount = (await handleRequest(wl, peerId, pushRequest)).valueOr:
     let desc = error.desc
     waku_lightpush_v3_errors.inc(labelValues = [desc.valueOr("unknown")])
-    error "failed to push message", error = pushResponse.statusDesc
+    error "failed to push message", error = desc
     return LightPushResponse(
       requestId: pushRequest.requestId, statusCode: error.code.uint32, statusDesc: desc
     )
@@ -142,7 +137,7 @@ proc initProtocolHandler(wl: WakuLightPush) =
     except LPStreamError:
       error "lightpush write stream failed", error = getCurrentExceptionMsg()
 
-    ## For lightpush might not worth to measure outgoing tragfic as it is only
+    ## For lightpush might not worth to measure outgoing traffic as it is only
     ## small response about success/failure
 
   wl.handler = handler
