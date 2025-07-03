@@ -75,17 +75,18 @@ proc handleRequest*(
 
   let pushRequest = LightPushRequest.decode(buffer).valueOr:
     let desc = decodeRpcFailure & ": " & $error
-    waku_lightpush_v3_errors.inc(labelValues = [desc])
     error "failed to push message", error = desc
+    let errorCode = LightPushStatusCode.BAD_REQUEST.uint32
+    waku_lightpush_v3_errors.inc(labelValues = [$errorCode])
     return LightPushResponse(
       requestId: "N/A", # due to decode failure we don't know requestId
-      statusCode: LightPushStatusCode.BAD_REQUEST.uint32,
+      statusCode: errorCode.uint32,
       statusDesc: some(desc),
     )
 
   let relayPeerCount = (await handleRequest(wl, peerId, pushRequest)).valueOr:
     let desc = error.desc
-    waku_lightpush_v3_errors.inc(labelValues = [desc.valueOr("unknown")])
+    waku_lightpush_v3_errors.inc(labelValues = [$error.code])
     error "failed to push message", error = desc
     return LightPushResponse(
       requestId: pushRequest.requestId, statusCode: error.code.uint32, statusDesc: desc
