@@ -110,7 +110,7 @@ proc update(bucket: TokenBucket, currentTime: Moment) =
     updateStrict(bucket, currentTime)
 
 ## Returns the available capacity ratio of the bucket.
-## It is a float number between 0.0 (empty) and 1.0 (full).
+## as a float number between 0.0 (empty) and 1.0 (full).
 proc getAvailableCapacityRatio*(bucket: TokenBucket, currentTime: Moment): float =
   if periodElapsed(bucket, currentTime):
     return 1.0
