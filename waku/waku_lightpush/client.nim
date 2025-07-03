@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/options, results, chronicles, chronos, metrics, bearssl/rand, stew/byteutils
-import libp2p/peerid
+import libp2p/peerid, libp2p/stream/connection
 import
   ../waku_core/peers,
   ../node/peer_manager,
@@ -101,11 +101,15 @@ proc publishToAny*(
   if message.timestamp == 0:
     message.timestamp = getNowInNanosecondTime()
 
-  info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
-
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
+
+  info "publishToAny",
+    my_peer_id = wl.peerManager.switch.peerInfo.peerId,
+    peer_id = peer.peerId,
+    msg_hash = computeMessageHash(pubsubTopic, message).to0xHex,
+    sentTime = getNowInNanosecondTime()
 
   let pushRequest = LightpushRequest(
     requestId: generateRequestId(wl.rng),
@@ -118,3 +122,35 @@ proc publishToAny*(
     obs.onMessagePublished(pubSubTopic, message)
 
   return lightpushSuccessResult(publishedCount)
+
+#TODO: Remove multiple publishX procs and use Option pattern instead
+proc publishWithConn*(
+    wl: WakuLightPushClient,
+    pubSubTopic: PubsubTopic,
+    message: WakuMessage,
+    conn: Connection,
+    destPeer: PeerId,
+): Future[WakuLightPushResult] {.async, gcsafe.} =
+  ## This proc is similar to the publish one but in this case
+  ## we use existing connection to publish.
+
+  info "publishWithConn",
+    my_peer_id = wl.peerManager.switch.peerInfo.peerId,
+    peer_id = destPeer,
+    msg_hash = computeMessageHash(pubsubTopic, message).to0xHex,
+    sentTime = getNowInNanosecondTime()
+
+  let pushRequest = LightpushRequest(
+    requestId: generateRequestId(wl.rng),
+    pubSubTopic: some(pubSubTopic),
+    message: message,
+  )
+
+  await conn.writeLP(pushRequest.encode().buffer)
+
+  for obs in wl.publishObservers:
+    obs.onMessagePublished(pubSubTopic, message)
+
+  #TODO: Implement response handling.
+
+  return lightpushSuccessResult(1)

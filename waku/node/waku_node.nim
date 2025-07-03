@@ -9,9 +9,12 @@ import
   stew/byteutils,
   eth/keys,
   nimcrypto,
+  nimcrypto/utils as ncrutils,
   bearssl/rand,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
+  libp2p/[multiaddress, multicodec],
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
@@ -19,7 +22,13 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
-  libp2p/utility
+  libp2p/utility,
+  mix/mix_node,
+  mix/mix_protocol,
+  mix/curve25519,
+  mix/protocol,
+  mix/mix_metrics
+
 import
   ../waku_core,
   ../waku_core/topics/sharding,
@@ -48,7 +57,11 @@ import
   ../waku_rln_relay,
   ./net_config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../discovery/autonat_service,
+  ../common/nimchronos,
+  ../waku_enr/mix,
+  ../waku_mix
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -121,6 +134,8 @@ type
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     rateLimitSettings*: ProtocolRateLimitSettings
+    mix*: WakuMix
+    mixbootNodes*: Table[PeerId, MixPubInfo]
 
 proc new*(
     T: type WakuNode,
@@ -204,6 +219,33 @@ proc mountSharding*(
 ): Result[void, string] =
   info "mounting sharding", clusterId = clusterId, shardCount = shardCount
   node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+  return ok()
+
+proc getMixNodePoolSize*(node: WakuNode): int =
+  return node.mix.getNodePoolSize()
+
+proc mountMix*(
+    node: WakuNode, clusterId: uint16, mixPrivKey: Curve25519Key
+): Future[Result[void, string]] {.async.} =
+  info "mounting mix protocol", nodeId = node.info #TODO log the config used
+
+  let localaddrStr = node.announcedAddresses[0].toString().valueOr:
+    return err("Failed to convert multiaddress to string.")
+  info "local addr", localaddr = localaddrStr
+
+  let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
+  # TODO: Pass bootnodes from config,
+  let protoRes = WakuMix.new(nodeAddr, node.peerManager, clusterId, mixPrivKey)
+  if protoRes.isErr:
+    error "Waku Mix protocol initialization failed", err = protoRes.error
+    return
+  node.mix = protoRes.value
+
+  let catchRes = catch:
+    node.switch.mount(node.mix)
+  if catchRes.isErr():
+    return err(catchRes.error.msg)
+  node.mix.start()
   return ok()
 
 ## Waku Sync

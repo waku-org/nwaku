@@ -184,3 +184,7 @@
 	url = https://github.com/waku-org/waku-rlnv2-contract.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/mix"]
+	path = vendor/mix
+	url = https://github.com/vacp2p/mix/
+	branch = mix-waku-integ

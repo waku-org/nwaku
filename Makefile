@@ -240,6 +240,10 @@ liteprotocoltester: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
 
+lightpushwithmix: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim lightpushwithmix $(NIM_PARAMS) waku.nims
+
 build/%: | build deps librln
 	echo -e $(BUILD_MSG) "build/$*" && \
 		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
