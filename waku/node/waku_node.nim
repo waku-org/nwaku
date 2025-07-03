@@ -82,6 +82,8 @@ const clientId* = "Nimbus Waku v2 node"
 
 const WakuNodeVersionString* = "version / git commit hash: " & git_version
 
+const LightPushError = lightpush_protocol.ErrorCode
+
 # key and crypto modules different
 type
   # TODO: Move to application instance (e.g., `WakuNode2`)
@@ -1190,7 +1192,9 @@ proc lightpushPublish*(
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
     error "failed to publish message as lightpush not available"
-    return lighpushErrorResult(SERVICE_NOT_AVAILABLE, "Waku lightpush not available")
+    return lighpushErrorResult(
+      LightPushError.SERVICE_NOT_AVAILABLE, "Waku lightpush not available"
+    )
 
   let toPeer: RemotePeerInfo = peerOpt.valueOr:
     if not node.wakuLightPush.isNil():
@@ -1199,9 +1203,11 @@ proc lightpushPublish*(
       node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
         error "failed to publish message", msg = msg
-        return lighpushErrorResult(NO_PEERS_TO_RELAY, msg)
+        return lighpushErrorResult(LightPushError.NO_PEERS_TO_RELAY, msg)
     else:
-      return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
+      return lighpushErrorResult(
+        LightPushError.NO_PEERS_TO_RELAY, "no suitable remote peers"
+      )
 
   let pubsubForPublish = pubSubTopic.valueOr:
     if node.wakuAutoSharding.isNone():
@@ -1212,12 +1218,12 @@ proc lightpushPublish*(
     let parsedTopic = NsContentTopic.parse(message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
       error "lightpush request handling error", error = msg
-      return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
+      return lighpushErrorResult(LightPushError.INVALID_MESSAGE, msg)
 
     node.wakuAutoSharding.get().getShard(parsedTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
-      return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
+      return lighpushErrorResult(LightPushError.INTERNAL_SERVER_ERROR, msg)
 
   return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
 

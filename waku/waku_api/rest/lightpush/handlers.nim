@@ -32,7 +32,7 @@ const NoPeerNoneFoundError = "No suitable service peer & none discovered"
 proc useSelfHostedLightPush(node: WakuNode): bool =
   return node.wakuLightPush != nil and node.wakuLightPushClient == nil
 
-proc convertErrorKindToHttpStatus(statusCode: LightpushStatusCode): HttpCode =
+proc convertErrorKindToHttpStatus(statusCode: LightPushStatusCode): HttpCode =
   ## Lightpush status codes are matching HTTP status codes by design
   return toHttpCode(statusCode.int).get(Http500)
 
