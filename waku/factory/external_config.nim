@@ -550,7 +550,8 @@ with the drawback of consuming some more bandwidth.""",
     .}: bool
 
     dnsDiscoveryUrl* {.
-      desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+      desc:
+        "URL for DNS node list in format 'enrtree://<key>@<fqdn>', enables DNS Discovery",
       defaultValue: "",
       name: "dns-discovery-url"
     .}: string
@@ -996,8 +997,8 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.metricsServerConf.withHttpPort(n.metricsServerPort)
   b.metricsServerConf.withLogging(n.metricsLogging)
 
-  b.dnsDiscoveryConf.withEnabled(n.dnsDiscovery)
-  b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
+  if n.dnsDiscoveryUrl != "":
+    b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
   b.dnsDiscoveryConf.withNameServers(n.dnsAddrsNameServers)
 
   if n.discv5Discovery.isSome():
