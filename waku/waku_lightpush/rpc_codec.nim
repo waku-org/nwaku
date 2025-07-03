@@ -43,7 +43,7 @@ proc encode*(rpc: LightPushResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, rpc.requestId)
-  pb.write3(10, rpc.statusCode)
+  pb.write3(10, rpc.statusCode.uint32)
   pb.write3(11, rpc.statusDesc)
   pb.write3(12, rpc.relayPeerCount)
   pb.finish3()
@@ -64,7 +64,7 @@ proc decode*(T: type LightPushResponse, buffer: seq[byte]): ProtobufResult[T] =
   if not ?pb.getField(10, statusCode):
     return err(ProtobufError.missingRequiredField("status_code"))
   else:
-    rpc.statusCode = statusCode
+    rpc.statusCode = statusCode.LightPushStatusCode
 
   var statusDesc: string
   if not ?pb.getField(11, statusDesc):

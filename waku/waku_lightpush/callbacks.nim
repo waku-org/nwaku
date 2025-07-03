@@ -44,10 +44,10 @@ proc getRelayPushHandler*(
   ): Future[WakuLightPushResult] {.async.} =
     # append RLN proof
     let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message).valueOr:
-      return lighpushErrorResult(OUT_OF_RLN_PROOF, error)
+      return lighpushErrorResult(ErrorCode.OUT_OF_RLN_PROOF, error)
 
     (await wakuRelay.validateMessage(pubSubTopic, msgWithProof)).isOkOr:
-      return lighpushErrorResult(INVALID_MESSAGE_ERROR, $error)
+      return lighpushErrorResult(ErrorCode.INVALID_MESSAGE, $error)
 
     let publishedResult = await wakuRelay.publish(pubsubTopic, msgWithProof)
 
