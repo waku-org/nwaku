@@ -23,6 +23,7 @@ import
   ./discv5_conf_builder,
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
+  ./rate_limit_conf_builder,
   ./rln_relay_conf_builder
 
 logScope:
@@ -74,6 +75,7 @@ type WakuConfBuilder* = object
   rlnRelayConf*: RlnRelayConfBuilder
   storeServiceConf*: StoreServiceConfBuilder
   webSocketConf*: WebSocketConfBuilder
+  rateLimitConf*: RateLimitConfBuilder
   # End conf builders
   relay: Option[bool]
   lightPush: Option[bool]
@@ -116,8 +118,6 @@ type WakuConfBuilder* = object
 
   agentString: Option[string]
 
-  rateLimits: Option[seq[string]]
-
   maxRelayPeers: Option[int]
   relayShardedPeerManagement: Option[bool]
   relayServiceRatio: Option[string]
@@ -134,6 +134,7 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     rlnRelayConf: RlnRelayConfBuilder.init(),
     storeServiceConf: StoreServiceConfBuilder.init(),
     webSocketConf: WebSocketConfBuilder.init(),
+    rateLimitConf: RateLimitConfBuilder.init(),
   )
 
 proc withNetworkConf*(b: var WakuConfBuilder, networkConf: NetworkConf) =
@@ -240,9 +241,6 @@ proc withAgentString*(b: var WakuConfBuilder, agentString: string) =
 
 proc withColocationLimit*(b: var WakuConfBuilder, colocationLimit: int) =
   b.colocationLimit = some(colocationLimit)
-
-proc withRateLimits*(b: var WakuConfBuilder, rateLimits: seq[string]) =
-  b.rateLimits = some(rateLimits)
 
 proc withMaxRelayPeers*(b: var WakuConfBuilder, maxRelayPeers: int) =
   b.maxRelayPeers = some(maxRelayPeers)
@@ -489,6 +487,10 @@ proc build*(
 
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
+
+  let rateLimit = builder.rateLimitConf.build().valueOr:
+    return err("Rate limits Conf building failed: " & $error)
+
   # End - Build sub-configs
 
   let logLevel =
@@ -583,7 +585,6 @@ proc build*(
   # TODO: use `DefaultColocationLimit`. the user of this value should
   # probably be defining a config object
   let colocationLimit = builder.colocationLimit.get(5)
-  let rateLimits = builder.rateLimits.get(newSeq[string](0))
 
   # TODO: is there a strategy for experimental features? delete vs promote
   let relayShardedPeerManagement = builder.relayShardedPeerManagement.get(false)
@@ -643,7 +644,7 @@ proc build*(
     colocationLimit: colocationLimit,
     maxRelayPeers: builder.maxRelayPeers,
     relayServiceRatio: builder.relayServiceRatio.get("60:40"),
-    rateLimits: rateLimits,
+    rateLimit: rateLimit,
     circuitRelayClient: builder.circuitRelayClient.get(false),
     staticNodes: builder.staticNodes,
     relayShardedPeerManagement: relayShardedPeerManagement,
