@@ -81,13 +81,17 @@ proc sendRequestToWakuThread*(
     timeout = InfiniteDuration,
 ): Result[void, string] =
   echo "------------------- sendRequestToWakuThread 1"
+  echo "--------- acquiring lock"
   ctx.lock.acquire()
+  echo "--------- acquired lock"
   # This lock is only necessary while we use a SP Channel and while the signalling
   # between threads assumes that there aren't concurrent requests.
   # Rearchitecting the signaling + migrating to a MP Channel will allow us to receive
   # requests concurrently and spare us the need of locks
   defer:
+    echo "------- releasing lock"
     ctx.lock.release()
+    echo "------- released lock"
 
   echo "------------------- sendRequestToWakuThread 2"
   let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
