@@ -130,8 +130,9 @@ proc setupAppCallbacks(
     let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
       return err("Could not get autoshards: " & error)
 
-    let confShards =
-      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+    let confShards = conf.subscribeShards.mapIt(
+      RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+    )
     let shards = confShards & autoShards
 
     let uniqueShards = deduplicate(shards)
@@ -249,14 +250,14 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
     return err("Could not retrieve ports: " & error)
 
   if tcpPort.isSome():
-    conf.networkConf.p2pTcpPort = tcpPort.get()
+    conf.endpointConf.p2pTcpPort = tcpPort.get()
 
   if websocketPort.isSome() and conf.webSocketConf.isSome():
     conf.webSocketConf.get().port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
   let netConf = networkConfiguration(
-    conf.clusterId, conf.networkConf, conf.discv5Conf, conf.webSocketConf,
+    conf.clusterId, conf.endpointConf, conf.discv5Conf, conf.webSocketConf,
     conf.wakuFlags, conf.dnsAddrsNameServers, conf.portsShift, clientId,
   ).valueOr:
     return err("Could not update NetConfig: " & error)
@@ -306,7 +307,7 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
 
 proc updateWaku(waku: ptr Waku): Result[void, string] =
   let conf = waku[].conf
-  if conf.networkConf.p2pTcpPort == Port(0) or
+  if conf.endpointConf.p2pTcpPort == Port(0) or
       (conf.websocketConf.isSome() and conf.websocketConf.get.port == Port(0)):
     updateEnr(waku).isOkOr:
       return err("error calling updateEnr: " & $error)
@@ -389,7 +390,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       waku.dynamicBootstrapNodes,
       waku.rng,
       conf.nodeKey,
-      conf.networkConf.p2pListenAddress,
+      conf.endpointConf.p2pListenAddress,
       conf.portsShift,
     )
 
@@ -413,7 +414,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       conf.relay,
       conf.lightPush,
       conf.clusterId,
-      conf.shards,
+      conf.subscribeShards,
       conf.contentTopics,
     ).isOkOr:
       return err ("Starting protocols support REST server failed: " & $error)

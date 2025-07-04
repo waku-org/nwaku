@@ -18,8 +18,10 @@ proc newTestWakuLightpushNode*(
 ): Future[WakuLightPush] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    wakuSharding = Sharding(clusterId: 1, shardCountGenZero: 8)
-    proto = WakuLightPush.new(peerManager, rng, handler, wakuSharding, rateLimitSetting)
+    wakuAutoSharding = Sharding(clusterId: 1, shardCountGenZero: 8)
+    proto = WakuLightPush.new(
+      peerManager, rng, handler, some(wakuAutoSharding), rateLimitSetting
+    )
 
   await proto.start()
   switch.mount(proto)
