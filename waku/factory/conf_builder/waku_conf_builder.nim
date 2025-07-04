@@ -273,6 +273,8 @@ proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSize: string) =
 proc withStaticNodes*(builder: var WakuConfBuilder, staticNodes: seq[string]) =
   builder.staticNodes = concat(builder.staticNodes, staticNodes)
 
+## Building
+
 proc nodeKey(
     builder: WakuConfBuilder, rng: ref HmacDrbgContext
 ): Result[crypto.PrivateKey, string] =
@@ -284,6 +286,22 @@ proc nodeKey(
       error "Failed to generate key", error = error
       return err("Failed to generate key: " & $error)
     return ok(nodeKey)
+
+proc buildShardingConf(
+    bShardingConfKind: Option[ShardingConfKind],
+    bNumShardsInCluster: Option[uint16],
+    bSubscribeShards: Option[seq[uint16]],
+): (ShardingConf, seq[uint16]) =
+  echo "bSubscribeShards: ", bSubscribeShards
+  case bShardingConfKind.get(AutoSharding)
+  of StaticSharding:
+    (ShardingConf(kind: StaticSharding), bSubscribeShards.get(@[]))
+  of AutoSharding:
+    let numShardsInCluster = bNumShardsInCluster.get(1)
+    let shardingConf =
+      ShardingConf(kind: AutoSharding, numShardsInCluster: numShardsInCluster)
+    let upperShard = uint16(numShardsInCluster - 1)
+    (shardingConf, bSubscribeShards.get(toSeq(0.uint16 .. upperShard)))
 
 proc applyNetworkConf(builder: var WakuConfBuilder) =
   # Apply network conf, overrides most values passed individually
@@ -427,38 +445,13 @@ proc build*(
     else:
       builder.clusterId.get().uint16
 
-  let shardingConf =
-    if builder.shardingConf.isSome():
-      case builder.shardingConf.get()
-      of StaticSharding:
-        ShardingConf(kind: StaticSharding)
-      of AutoSharding:
-        if builder.numShardsInCluster.isSome():
-          ShardingConf(
-            kind: AutoSharding, numShardsInCluster: builder.numShardsInCluster.get()
-          )
-        else:
-          return err(
-            "Number of shards in cluster must be specified with autosharding enabled"
-          )
-    else:
-      warn("No sharding conf specified, defaulting to static")
-      ShardingConf(kind: StaticSharding)
-
-  let subscribeShards =
-    if builder.subscribeShards.isSome():
-      builder.subscribeShards.get()
-    else:
-      case shardingConf.kind
-      of AutoSharding:
-        warn "Active relay shards not specified and autosharding is enabled, defaulting to all shards in network"
-        let upperShard: uint16 = uint16(shardingConf.numShardsInCluster - 1)
-        toSeq(0.uint16 .. upperShard)
-      else:
-        warn "Active relay shards not specified and autosharding is disabled, defaulting to no shard subscription"
-        @[]
-
+  let (shardingConf, subscribeShards) = buildShardingConf(
+    builder.shardingConf, builder.numShardsInCluster, builder.subscribeShards
+  )
   let protectedShards = builder.protectedShards.get(@[])
+
+  info "Sharding configuration: ",
+    shardingConf = $shardingConf, subscribeShards = $subscribeShards
 
   let maxMessageSizeBytes =
     case builder.maxMessageSize.kind

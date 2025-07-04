@@ -314,29 +314,16 @@ hence would have reachability issues.""",
       name: "staticnode"
     .}: seq[string]
 
-    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
-    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
       desc:
         "Enables autosharding and set number of shards in the cluster, set to `0` to use static sharding",
-      defaultValue: 0,
+      defaultValue: 1,
       name: "num-shards-in-network"
     .}: uint16
 
     shards* {.
       desc:
-        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
-      defaultValue:
-        @[
-          uint16(0),
-          uint16(1),
-          uint16(2),
-          uint16(3),
-          uint16(4),
-          uint16(5),
-          uint16(6),
-          uint16(7),
-        ],
+        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated. Subscribes to all shards by default in auto-sharding, no shard for static sharding",
       name: "shard"
     .}: seq[uint16]
 
@@ -954,7 +941,11 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   else:
     b.withShardingConf(StaticSharding)
 
-  b.withSubscribeShards(n.shards)
+  # It is not possible to pass an empty sequence on the CLI
+  # If this is empty, it means the user did not specify any shards
+  if n.shards.len != 0:
+    b.withSubscribeShards(n.shards)
+
   b.withContentTopics(n.contentTopics)
 
   b.storeServiceConf.withEnabled(n.store)
