@@ -109,6 +109,12 @@ proc update(bucket: TokenBucket, currentTime: Moment) =
   else:
     updateStrict(bucket, currentTime)
 
+## Returns the available capacity ratio of the bucket: 0.0 (empty); 1.0 (full)
+proc getAvailableCapacityRatio*(bucket: TokenBucket, currentTime: Moment): float =
+  if periodElapsed(bucket, currentTime):
+    return 1.0
+  return bucket.budget.float / bucket.budgetCap.float
+
 proc tryConsume*(bucket: TokenBucket, tokens: int, now = Moment.now()): bool =
   ## If `tokens` are available, consume them,
   ## Otherwhise, return false.
