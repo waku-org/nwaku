@@ -46,17 +46,23 @@ proc process*(
 
   case self.operation
   of RETRIEVE_LISTENING_ADDRESSES:
+    echo "---------- DEBUG: RETRIEVE_LISTENING_ADDRESSES"
     ## returns a comma-separated string of the listen addresses
     return ok(waku.node.getMultiaddresses().join(","))
   of RETRIEVE_MY_ENR:
+    echo "---------- DEBUG: RETRIEVE_MY_ENR"
     return ok(waku.node.enr.toURI())
   of RETRIEVE_MY_PEER_ID:
+    echo "---------- DEBUG: RETRIEVE_MY_PEER_ID"
     return ok($waku.node.peerId())
   of RETRIEVE_METRICS:
+    echo "---------- DEBUG: RETRIEVE_METRICS"
     return ok(getMetrics())
   of RETRIEVE_ONLINE_STATE:
+    echo "---------- DEBUG: RETRIEVE_ONLINE_STATE"
     return ok($waku.healthMonitor.onlineMonitor.amIOnline())
   of CHECK_WAKU_NOT_BLOCKED:
+    echo "---------- DEBUG: CHECK_WAKU_NOT_BLOCKED"
     return ok("waku thread is not blocked")
 
   error "unsupported operation in DebugNodeRequest"

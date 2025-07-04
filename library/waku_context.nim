@@ -91,7 +91,7 @@ proc sendRequestToWakuThread*(
 
   echo "------------------- sendRequestToWakuThread 2"
   let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
-  echo "------------------- sendRequestToWakuThread 3"
+  echo "------------------- sendRequestToWakuThread 3: " & $req[]
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
