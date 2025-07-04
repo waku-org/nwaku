@@ -124,7 +124,7 @@ proc sendRequestToWakuThread*(
 
   ## Notice that in case of "ok", the deallocShared(req) is performed by the Waku Thread in the
   ## process proc. See the 'waku_thread_request.nim' module for more details.
-  echo "------------------- sendRequestToWakuThread 3"
+  echo "------------------- sendRequestToWakuThread 13"
   ok()
 
 proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
@@ -134,7 +134,9 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
     const WatchdogTimeinterval = 1.seconds
     const WakuNotRespondingTimeout = 3.seconds
     while true:
+      echo "-------- sleeping before watchdog"
       await sleepAsync(WatchdogTimeinterval)
+      echo "-------- after sleep"
 
       if ctx.running.load == false:
         debug "Watchdog thread exiting because WakuContext is not running"
@@ -167,20 +169,28 @@ proc wakuThreadBody(ctx: ptr WakuContext) {.thread.} =
   let wakuRun = proc(ctx: ptr WakuContext) {.async.} =
     var waku: Waku
     while true:
+      echo "----------- wakuThreadBody 1 waiting for new signal"
       await ctx.reqSignal.wait()
+      echo "----------- wakuThreadBody 2 received signal"
 
       if ctx.running.load == false:
+        echo "----------- wakuThreadBody 3 not running"
         break
 
       ## Trying to get a request from the libwaku requestor thread
       var request: ptr WakuThreadRequest
+      echo "----------- wakuThreadBody 4 receiving request"
       let recvOk = ctx.reqChannel.tryRecv(request)
+      echo "----------- wakuThreadBody 5 received request"
       if not recvOk:
+        echo "----------- wakuThreadBody 6 failed receiving request"
         error "waku thread could not receive a request"
         continue
 
+      echo "----------- wakuThreadBody 7 sending sync"
       let fireRes = ctx.reqReceivedSignal.fireSync()
       if fireRes.isErr():
+        echo "----------- failed sending sync"
         error "could not fireSync back to requester thread", error = fireRes.error
 
       ## Handle the request
