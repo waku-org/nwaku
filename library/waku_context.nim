@@ -80,6 +80,7 @@ proc sendRequestToWakuThread*(
     userData: pointer,
     timeout = InfiniteDuration,
 ): Result[void, string] =
+  echo "------------------- sendRequestToWakuThread 1"
   ctx.lock.acquire()
   # This lock is only necessary while we use a SP Channel and while the signalling
   # between threads assumes that there aren't concurrent requests.
@@ -88,30 +89,42 @@ proc sendRequestToWakuThread*(
   defer:
     ctx.lock.release()
 
+  echo "------------------- sendRequestToWakuThread 2"
   let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
+  echo "------------------- sendRequestToWakuThread 3"
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
+    echo "------------------- sendRequestToWakuThread 4"
     deallocShared(req)
     return err("Couldn't send a request to the waku thread: " & $req[])
 
+  echo "------------------- sendRequestToWakuThread 5"
   let fireSyncRes = ctx.reqSignal.fireSync()
+  echo "------------------- sendRequestToWakuThread 6"
   if fireSyncRes.isErr():
+    echo "------------------- sendRequestToWakuThread 7"
     deallocShared(req)
     return err("failed fireSync: " & $fireSyncRes.error)
 
+  echo "------------------- sendRequestToWakuThread 8"
   if fireSyncRes.get() == false:
+    echo "------------------- sendRequestToWakuThread 9"
     deallocShared(req)
     return err("Couldn't fireSync in time")
 
+  echo "------------------- sendRequestToWakuThread 10"
   ## wait until the Waku Thread properly received the request
   let res = ctx.reqReceivedSignal.waitSync(timeout)
+  echo "------------------- sendRequestToWakuThread 11"
   if res.isErr():
+    echo "------------------- sendRequestToWakuThread 12"
     deallocShared(req)
     return err("Couldn't receive reqReceivedSignal signal")
 
   ## Notice that in case of "ok", the deallocShared(req) is performed by the Waku Thread in the
   ## process proc. See the 'waku_thread_request.nim' module for more details.
+  echo "------------------- sendRequestToWakuThread 3"
   ok()
 
 proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
