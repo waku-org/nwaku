@@ -17,10 +17,46 @@ import
   ../../waku/common/logging,
   ../../waku/common/utils/parse_size_units
 
-suite "Waku config - apply preset":
-  test "Default preset is TWN":
+suite "Waku external config - default values":
+  test "Default sharding value":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let defaultShardingMode = AutoSharding
+    let defaultNumShardsInCluster = 1.uint16
+    let defaultSubscribeShards = @[0.uint16]
+
+    ## Given
+    let preConfig = defaultWakuNodeConf().get()
+
+    ## When
+    let res = preConfig.toWakuConf()
+    assert res.isOk(), $res.error
+
+    ## Then
+    let conf = res.get()
+    check conf.shardingConf.kind == defaultShardingMode
+    check conf.shardingConf.numShardsInCluster == defaultNumShardsInCluster
+    check conf.subscribeShards == defaultSubscribeShards
+
+  test "Default shards value in static sharding":
+    ## Setup
+    let defaultSubscribeShards: seq[uint16] = @[]
+
+    ## Given
+    var preConfig = defaultWakuNodeConf().get()
+    preConfig.numShardsInNetwork = 0.uint16
+
+    ## When
+    let res = preConfig.toWakuConf()
+    assert res.isOk(), $res.error
+
+    ## Then
+    let conf = res.get()
+    check conf.subscribeShards == defaultSubscribeShards
+
+suite "Waku external config - apply preset":
+  test "Preset is TWN":
+    ## Setup
+    let expectedConf = NetworkConf.TheWakuNetworkConf()
 
     ## Given
     let preConfig = WakuNodeConf(
@@ -48,7 +84,9 @@ suite "Waku config - apply preset":
       check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
       check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
-    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+      check conf.shardingConf.kind == expectedConf.shardingConf.kind
+      check conf.shardingConf.numShardsInCluster ==
+        expectedConf.shardingConf.numShardsInCluster
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
     if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
@@ -56,7 +94,7 @@ suite "Waku config - apply preset":
 
   test "Subscribes to all valid shards in twn":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConf.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 1, 2, 3, 4, 5, 6, 7]
@@ -68,11 +106,11 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = res.get()
-    check conf.shards.len == expectedConf.numShardsInNetwork.int
+    check conf.subscribeShards.len == expectedConf.shardingConf.numShardsInCluster.int
 
   test "Subscribes to some valid shards in twn":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConf.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 4, 7]
@@ -84,9 +122,9 @@ suite "Waku config - apply preset":
 
     ## Then
     let conf = resConf.get()
-    assert conf.shards.len() == shards.len()
+    assert conf.subscribeShards.len() == shards.len()
     for index, shard in shards:
-      assert shard in conf.shards
+      assert shard in conf.subscribeShards
 
   test "Subscribes to invalid shards in twn":
     ## Setup
@@ -103,7 +141,7 @@ suite "Waku config - apply preset":
 
   test "Apply TWN preset when cluster id = 1":
     ## Setup
-    let expectedConf = ClusterConf.TheWakuNetworkConf()
+    let expectedConf = NetworkConf.TheWakuNetworkConf()
 
     ## Given
     let preConfig = WakuNodeConf(
@@ -131,13 +169,15 @@ suite "Waku config - apply preset":
       check rlnRelayConf.chainId == expectedConf.rlnRelayChainId
       check rlnRelayConf.epochSizeSec == expectedConf.rlnEpochSizeSec
       check rlnRelayConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
-    check conf.numShardsInNetwork == expectedConf.numShardsInNetwork
+      check conf.shardingConf.kind == expectedConf.shardingConf.kind
+      check conf.shardingConf.numShardsInCluster ==
+        expectedConf.shardingConf.numShardsInCluster
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
     if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
       check discv5Conf.bootstrapNodes == expectedConf.discv5BootstrapNodes
 
-suite "Waku config - node key":
+suite "Waku external config - node key":
   test "Passed node key is used":
     ## Setup
     let nodeKeyStr =
@@ -158,13 +198,13 @@ suite "Waku config - node key":
     assert utils.toHex(resKey.getRawBytes().get()) ==
       utils.toHex(nodekey.getRawBytes().get())
 
-suite "Waku config - Shards":
+suite "Waku external config - Shards":
   test "Shards are valid":
     ## Setup
 
     ## Given
     let shards: seq[uint16] = @[0, 2, 4]
-    let numShardsInNetwork = 5.uint32
+    let numShardsInNetwork = 5.uint16
     let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )
@@ -183,7 +223,7 @@ suite "Waku config - Shards":
 
     ## Given
     let shards: seq[uint16] = @[0, 2, 5]
-    let numShardsInNetwork = 5.uint32
+    let numShardsInNetwork = 5.uint16
     let wakuNodeConf = WakuNodeConf(
       cmd: noCommand, shards: shards, numShardsInNetwork: numShardsInNetwork
     )
@@ -198,7 +238,7 @@ suite "Waku config - Shards":
     ## Setup
 
     ## Given
-    let wakuNodeConf = WakuNodeConf.load(version = "", cmdLine = @["--shard=32"])
+    let wakuNodeConf = WakuNodeConf.load(version = "", cmdLine = @["--shard=0"])
 
     ## When
     let res = wakuNodeConf.toWakuConf()
@@ -207,3 +247,15 @@ suite "Waku config - Shards":
     let wakuConf = res.get()
     let vRes = wakuConf.validate()
     assert vRes.isOk(), $vRes.error
+
+  test "Imvalid shard is passed without num shards":
+    ## Setup
+
+    ## Given
+    let wakuNodeConf = WakuNodeConf.load(version = "", cmdLine = @["--shard=32"])
+
+    ## When
+    let res = wakuNodeConf.toWakuConf()
+
+    ## Then
+    assert res.isErr(), "Invalid shard was accepted"

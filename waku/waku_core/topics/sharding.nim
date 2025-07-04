@@ -8,6 +8,7 @@ import nimcrypto, std/options, std/tables, stew/endians2, results, stew/byteutil
 
 import ./content_topic, ./pubsub_topic
 
+# TODO: this is autosharding, not just "sharding"
 type Sharding* = object
   clusterId*: uint16
   # TODO: generations could be stored in a table here
@@ -50,48 +51,32 @@ proc getShard*(s: Sharding, topic: ContentTopic): Result[RelayShard, string] =
 
   ok(shard)
 
-proc parseSharding*(
-    s: Sharding,
-    pubsubTopic: Option[PubsubTopic],
-    contentTopics: ContentTopic | seq[ContentTopic],
+proc getShardsFromContentTopics*(
+    s: Sharding, contentTopics: ContentTopic | seq[ContentTopic]
 ): Result[Table[RelayShard, seq[NsContentTopic]], string] =
-  var topics: seq[ContentTopic]
-  when contentTopics is seq[ContentTopic]:
-    topics = contentTopics
-  else:
-    topics = @[contentTopics]
+  let topics =
+    when contentTopics is seq[ContentTopic]:
+      contentTopics
+    else:
+      @[contentTopics]
+
+  let parseRes = NsContentTopic.parse(topics)
+  let nsContentTopics =
+    if parseRes.isErr():
+      return err("Cannot parse content topic: " & $parseRes.error)
+    else:
+      parseRes.get()
 
   var topicMap = initTable[RelayShard, seq[NsContentTopic]]()
-  for contentTopic in topics:
-    let parseRes = NsContentTopic.parse(contentTopic)
+  for content in nsContentTopics:
+    let shard = s.getShard(content).valueOr:
+      return err("Cannot deduce shard from content topic: " & $error)
 
-    let content =
-      if parseRes.isErr():
-        return err("Cannot parse content topic: " & $parseRes.error)
-      else:
-        parseRes.get()
-
-    let pubsub =
-      if pubsubTopic.isSome():
-        let parseRes = RelayShard.parse(pubsubTopic.get())
-
-        if parseRes.isErr():
-          return err("Cannot parse pubsub topic: " & $parseRes.error)
-        else:
-          parseRes.get()
-      else:
-        let shardsRes = s.getShard(content)
-
-        if shardsRes.isErr():
-          return err("Cannot autoshard content topic: " & $shardsRes.error)
-        else:
-          shardsRes.get()
-
-    if not topicMap.hasKey(pubsub):
-      topicMap[pubsub] = @[]
+    if not topicMap.hasKey(shard):
+      topicMap[shard] = @[]
 
     try:
-      topicMap[pubsub].add(content)
+      topicMap[shard].add(content)
     except CatchableError:
       return err(getCurrentExceptionMsg())
 

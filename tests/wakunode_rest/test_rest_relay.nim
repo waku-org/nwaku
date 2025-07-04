@@ -296,7 +296,7 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    require node.mountSharding(1, 8).isOk
+    require node.mountAutoSharding(1, 8).isOk
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -346,6 +346,7 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+    require node.mountAutoSharding(1, 8).isOk
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -404,6 +405,7 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+    require node.mountAutoSharding(1, 8).isOk
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -469,6 +471,8 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+    require node.mountAutoSharding(1, 8).isOk
+
     let wakuRlnConfig = WakuRlnConfig(
       dynamic: false,
       credIndex: some(1.uint),
@@ -528,6 +532,8 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+    require node.mountAutoSharding(1, 8).isOk
+
     let wakuRlnConfig = WakuRlnConfig(
       dynamic: false,
       credIndex: some(1.uint),
@@ -641,6 +647,8 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
+    require node.mountAutoSharding(1, 8).isOk
+
     let wakuRlnConfig = WakuRlnConfig(
       dynamic: false,
       credIndex: some(1.uint),
