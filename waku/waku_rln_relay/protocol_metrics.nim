@@ -17,8 +17,9 @@ func generateBucketsForHistogram*(length: int): seq[float64] =
   return buckets
 
 declarePublicCounter(
-  waku_rln_messages_total, "number of messages published on the rln content topic"
+  waku_rln_messages_total, "number of messages seen by the rln relay"
 )
+
 declarePublicCounter(waku_rln_spam_messages_total, "number of spam messages detected")
 declarePublicCounter(
   waku_rln_invalid_messages_total, "number of invalid messages detected", ["type"]
