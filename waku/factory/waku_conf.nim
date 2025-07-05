@@ -12,6 +12,7 @@ import
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
+  ../common/rate_limit/setting,
   ../waku_enr/capabilities,
   ./networks_config
 
@@ -127,8 +128,7 @@ type WakuConf* {.requiresInit.} = ref object
 
   colocationLimit*: int
 
-  # TODO: use proper type
-  rateLimits*: seq[string]
+  rateLimit*: ProtocolRateLimitSettings
 
   # TODO: those could be in a relay conf object
   maxRelayPeers*: Option[int]

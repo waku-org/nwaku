@@ -43,8 +43,8 @@ type
     switchSendSignedPeerRecord: Option[bool]
     circuitRelay: Relay
 
-    #Rate limit configs for non-relay req-resp protocols
-    rateLimitSettings: Option[seq[string]]
+    # Rate limit configs for non-relay req-resp protocols
+    rateLimitSettings: Option[ProtocolRateLimitSettings]
 
   WakuNodeBuilderResult* = Result[void, string]
 
@@ -127,7 +127,7 @@ proc withPeerManagerConfig*(
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
 
-proc withRateLimit*(builder: var WakuNodeBuilder, limits: seq[string]) =
+proc withRateLimit*(builder: var WakuNodeBuilder, limits: ProtocolRateLimitSettings) =
   builder.rateLimitSettings = some(limits)
 
 proc withCircuitRelay*(builder: var WakuNodeBuilder, circuitRelay: Relay) =
@@ -219,11 +219,9 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       switch = switch,
       peerManager = peerManager,
       rng = rng,
+      rateLimitSettings = builder.rateLimitSettings.get(DefaultProtocolRateLimit),
     )
   except Exception:
     return err("failed to build WakuNode instance: " & getCurrentExceptionMsg())
-
-  if builder.rateLimitSettings.isSome():
-    ?node.setRateLimits(builder.rateLimitSettings.get())
 
   ok(node)

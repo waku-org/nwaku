@@ -128,6 +128,7 @@ proc new*(
     enr: enr.Record,
     switch: Switch,
     peerManager: PeerManager,
+    rateLimitSettings: ProtocolRateLimitSettings = DefaultProtocolRateLimit,
     # TODO: make this argument required after tests are updated
     rng: ref HmacDrbgContext = crypto.newRng(),
 ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
@@ -144,7 +145,7 @@ proc new*(
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
-    rateLimitSettings: DefaultProtocolRateLimit,
+    rateLimitSettings: rateLimitSettings,
   )
 
   return node
@@ -1563,10 +1564,3 @@ proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =
     return true
   return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
-
-proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
-  let rateLimitConfig = ProtocolRateLimitSettings.parse(limits)
-  if rateLimitConfig.isErr():
-    return err("invalid rate limit settings:" & rateLimitConfig.error)
-  node.rateLimitSettings = rateLimitConfig.get()
-  return ok()

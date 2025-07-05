@@ -1016,6 +1016,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.webSocketConf.withKeyPath(n.websocketSecureKeyPath)
   b.webSocketConf.withCertPath(n.websocketSecureCertPath)
 
-  b.withRateLimits(n.rateLimits)
+  b.rateLimitConf.with(n.rateLimits)
 
   return b.build()
