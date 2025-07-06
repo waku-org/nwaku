@@ -109,11 +109,19 @@ proc update(bucket: TokenBucket, currentTime: Moment) =
   else:
     updateStrict(bucket, currentTime)
 
-## Returns the available capacity ratio of the bucket: 0.0 (empty); 1.0 (full)
-proc getAvailableCapacityRatio*(bucket: TokenBucket, currentTime: Moment): float =
+## Returns the available capacity of the bucket: (budget, budgetCap)
+proc getAvailableCapacity*(bucket: TokenBucket, currentTime: Moment = Moment.now()): tuple[budget: int, budgetCap: int] =
   if periodElapsed(bucket, currentTime):
-    return 1.0
-  return bucket.budget.float / bucket.budgetCap.float
+    case bucket.replenishMode
+    of ReplenishMode.Strict:
+      return (bucket.budgetCap, bucket.budgetCap)
+    of ReplenishMode.Compensating:
+      let distance = bucket.periodDistance(currentTime)
+      let recentAvgUsage = bucket.getUsageAverageSince(distance)
+      let compensation = bucket.calcCompensation(recentAvgUsage)
+      let availableBudget = bucket.budgetCap + compensation
+      return (availableBudget, bucket.budgetCap)
+  return (bucket.budget, bucket.budgetCap)
 
 proc tryConsume*(bucket: TokenBucket, tokens: int, now = Moment.now()): bool =
   ## If `tokens` are available, consume them,
