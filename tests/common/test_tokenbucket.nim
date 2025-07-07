@@ -116,28 +116,28 @@ suite "Token Bucket":
     reqTime += 1.minutes
     let (availableBudget, maxCap) = bucket.getAvailableCapacity(reqTime)
     check maxCap == 1000
-    check availableBudget >= 1000  # Should have compensation
-    check availableBudget <= 1250  # But limited to 25% max compensation
+    check availableBudget >= 1000 # Should have compensation
+    check availableBudget <= 1250 # But limited to 25% max compensation
 
     # Test with minimal usage - less consumption means less compensation
     bucket = TokenBucket.new(1000, 1.minutes, ReplenishMode.Compensating)
     reqTime = Moment.now()
-    check bucket.tryConsume(50, reqTime) == true  # Use only 5% of capacity (950 remaining)
-    
+    check bucket.tryConsume(50, reqTime) == true
+      # Use only 5% of capacity (950 remaining)
+
     # Move to next period - compensation based on remaining budget
     # UsageAverage = 950/1000/1.0 = 0.95, so compensation = (1.0-0.95)*1000 = 50
     reqTime += 1.minutes
     let (compensatedBudget, _) = bucket.getAvailableCapacity(reqTime)
-    check compensatedBudget == 1050  # 1000 + 50 compensation
+    check compensatedBudget == 1050 # 1000 + 50 compensation
 
     # Test with full usage - maximum compensation due to zero remaining budget
     bucket = TokenBucket.new(1000, 1.minutes, ReplenishMode.Compensating)
     reqTime = Moment.now()
-    check bucket.tryConsume(1000, reqTime) == true  # Use full capacity (0 remaining)
-    
+    check bucket.tryConsume(1000, reqTime) == true # Use full capacity (0 remaining)
+
     # Move to next period - maximum compensation since usage average is 0
     # UsageAverage = 0/1000/1.0 = 0.0, so compensation = (1.0-0.0)*1000 = 1000, capped at 250
     reqTime += 1.minutes
     let (maxCompensationBudget, _) = bucket.getAvailableCapacity(reqTime)
-    check maxCompensationBudget == 1250  # 1000 + 250 max compensation
-
+    check maxCompensationBudget == 1250 # 1000 + 250 max compensation
