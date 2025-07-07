@@ -65,7 +65,7 @@ proc networkConfiguration*(
     dnsAddrsNameServers: seq[IpAddress],
     portsShift: uint16,
     clientId: string,
-): NetConfigResult =
+): Future[NetConfigResult] {.async.} =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let natRes = setupNat(
@@ -99,7 +99,7 @@ proc networkConfiguration*(
   # Resolve and use DNS domain IP
   if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
-      let dnsRes = waitFor dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
+      let dnsRes = await dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
 
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack

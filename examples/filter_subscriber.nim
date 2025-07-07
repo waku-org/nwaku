@@ -77,7 +77,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
   let node = builder.build().tryGet()
 
   node.mountMetadata(clusterId).expect("failed to mount waku metadata protocol")
-  waitFor node.mountFilterClient()
+  await node.mountFilterClient()
 
   await node.start()
 

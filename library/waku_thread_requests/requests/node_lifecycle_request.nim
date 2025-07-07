@@ -79,7 +79,7 @@ proc createWaku(
 
   wakuConf.restServerConf = none(RestServerConf) ## don't want REST in libwaku
 
-  let wakuRes = Waku.new(wakuConf, appCallbacks).valueOr:
+  let wakuRes = (await Waku.new(wakuConf, appCallbacks)).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 
@@ -91,11 +91,16 @@ proc process*(
   defer:
     destroyShared(self)
 
+  # return execution to the async loop before proceeding
+  await sleepAsync(0.milliseconds)
+
   case self.operation
   of CREATE_NODE:
+    echo "------------ calling createWaku"
     waku[] = (await createWaku(self.configJson, self.appCallbacks)).valueOr:
       error "CREATE_NODE failed", error = error
       return err($error)
+    echo "------------ after createWaku"
   of START_NODE:
     (await waku.startWaku()).isOkOr:
       error "START_NODE failed", error = error
