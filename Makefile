@@ -63,6 +63,9 @@ ifeq ($(strip $(TEST_FILE)),)
 else
 	$(MAKE) compile-test $(TEST_FILE) $(TEST_NAME)
 endif
+# this prevents make from erroring on unknown targets like "Index"
+%:
+	@true
 
 waku.nims:
 	ln -s waku.nimble $@

@@ -166,7 +166,7 @@ task buildTest, "Test custom target":
   discard buildModule(filepath)
 
 task execTest, "Run test":
-  let filepath = paramStr(paramCount()-1)
+  let filepath = paramStr(paramCount() - 1)
   exec "build/" & filepath & ".bin" & " test \"" & paramStr(paramCount()) & "\""
 
 ### C Bindings
