@@ -122,7 +122,7 @@ when isMainModule:
     error "Issue converting toWakuConf", error = $error
     quit(QuitFailure)
 
-  var waku = Waku.new(wakuConf).valueOr:
+  var waku = (waitfor Waku.new(wakuConf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 

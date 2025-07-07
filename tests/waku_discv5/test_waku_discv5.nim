@@ -429,7 +429,7 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku0 = Waku.new(conf).valueOr:
+      let waku0 = (await Waku.new(conf)).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku0)).isOkOr:
         raiseAssert error
@@ -444,7 +444,7 @@ suite "Waku Discovery v5":
       let conf1 = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku1 = Waku.new(conf1).valueOr:
+      let waku1 = (await Waku.new(conf1)).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku1)).isOkOr:
         raiseAssert error
@@ -461,7 +461,7 @@ suite "Waku Discovery v5":
       let conf2 = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku2 = Waku.new(conf2).valueOr:
+      let waku2 = (await Waku.new(conf2)).valueOr:
         raiseAssert error
       (waitFor startWaku(addr waku2)).isOkOr:
         raiseAssert error
@@ -492,7 +492,7 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = Waku.new(conf).valueOr:
+      let waku = (await Waku.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
@@ -523,7 +523,7 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = Waku.new(conf).valueOr:
+      let waku = (await Waku.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
