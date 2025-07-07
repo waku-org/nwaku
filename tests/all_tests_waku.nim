@@ -92,20 +92,9 @@ import
 import ./test_waku_keystore_keyfile, ./test_waku_keystore
 
 ## Wakunode Rest API test suite
-import
-  ./wakunode_rest/test_rest_debug,
-  ./wakunode_rest/test_rest_debug_serdes,
-  ./wakunode_rest/test_rest_relay,
-  ./wakunode_rest/test_rest_relay_serdes,
-  ./wakunode_rest/test_rest_serdes,
-  ./wakunode_rest/test_rest_filter,
-  ./wakunode_rest/test_rest_lightpush,
-  ./wakunode_rest/test_rest_lightpush_legacy,
-  ./wakunode_rest/test_rest_admin,
-  ./wakunode_rest/test_rest_cors,
-  ./wakunode_rest/test_rest_health
+import ./wakunode_rest/test_all
 
 import ./waku_rln_relay/test_all
 
 # Node Factory
-import ./factory/[test_external_config, test_node_factory, test_waku_conf]
+import ./factory/test_all
