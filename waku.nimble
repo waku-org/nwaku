@@ -161,10 +161,13 @@ task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
   discard buildModule filepath
 
-task testone, "Test custom target":
+task buildTest, "Test custom target":
   let filepath = paramStr(paramCount())
-  if buildModule(filepath):
-    exec "build/" & filepath & ".bin"
+  discard buildModule(filepath)
+
+task execTest, "Run test":
+  let filepath = paramStr(paramCount() - 1)
+  exec "build/" & filepath & ".bin" & " test \"" & paramStr(paramCount()) & "\""
 
 ### C Bindings
 let chroniclesParams =
