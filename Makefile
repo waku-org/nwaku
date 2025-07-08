@@ -53,7 +53,19 @@ endif
 # default target, because it's the first one that doesn't start with '.'
 all: | wakunode2 example2 chat2 chat2bridge libwaku
 
-test: | testcommon testwaku
+TEST_FILE := $(word 2,$(MAKECMDGOALS))
+TEST_NAME := $(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+
+test:
+ifeq ($(strip $(TEST_FILE)),)
+	$(MAKE) testcommon
+	$(MAKE) testwaku
+else
+	$(MAKE) compile-test $(TEST_FILE) $(TEST_NAME)
+endif
+# this prevents make from erroring on unknown targets like "Index"
+%:
+	@true
 
 waku.nims:
 	ln -s waku.nimble $@
@@ -244,9 +256,10 @@ build/%: | build deps librln
 	echo -e $(BUILD_MSG) "build/$*" && \
 		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
 
-test/%: | build deps librln
-	echo -e $(BUILD_MSG) "test/$*" && \
-		$(ENV_SCRIPT) nim testone $(NIM_PARAMS) waku.nims $*
+compile-test: | build deps librln
+	echo -e $(BUILD_MSG) "$(TEST_FILE)" && \
+		$(ENV_SCRIPT) nim buildTest $(NIM_PARAMS) waku.nims $(TEST_FILE) && \
+		$(ENV_SCRIPT) nim execTest $(NIM_PARAMS) waku.nims $(TEST_FILE) "$(TEST_NAME)"
 
 ################
 ## Waku tools ##
