@@ -109,10 +109,11 @@ proc update(bucket: TokenBucket, currentTime: Moment) =
   else:
     updateStrict(bucket, currentTime)
 
-## Returns the available capacity of the bucket: (budget, budgetCap)
 proc getAvailableCapacity*(
     bucket: TokenBucket, currentTime: Moment = Moment.now()
 ): tuple[budget: int, budgetCap: int] =
+  ## Returns the available capacity of the bucket: (budget, budgetCap)
+
   if periodElapsed(bucket, currentTime):
     case bucket.replenishMode
     of ReplenishMode.Strict:
