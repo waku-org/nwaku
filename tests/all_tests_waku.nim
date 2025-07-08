@@ -40,6 +40,9 @@ when os == "Linux" and
     ./factory/test_node_factory,
     ./wakunode_rest/test_rest_store
 
+  # Wakunode Rest API test suite
+  import ./wakunode_rest/test_all
+
 # Waku store test suite
 import
   ./waku_store/test_client,
@@ -90,9 +93,6 @@ import
 
 # Waku Keystore test suite
 import ./test_waku_keystore_keyfile, ./test_waku_keystore
-
-## Wakunode Rest API test suite
-import ./wakunode_rest/test_all
 
 import ./waku_rln_relay/test_all
 
