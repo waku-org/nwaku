@@ -116,6 +116,12 @@ proc initNode(
     else:
       false
 
+  let reputationEnabled =
+    if conf.reputationConf.isSome():
+      conf.reputationConf.get().enabled
+    else:
+      false
+
   if conf.maxRelayPeers.isSome():
     let
       maxRelayPeers = conf.maxRelayPeers.get()
@@ -130,6 +136,7 @@ proc initNode(
       relayServiceRatio = $relayRatio & ":" & $serviceRatio,
       shardAware = conf.relayShardedPeerManagement,
       eligibilityEnabled = eligibilityEnabled,
+      reputationEnabled = reputationEnabled,
     )
     error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
   else:
@@ -138,6 +145,7 @@ proc initNode(
       relayServiceRatio = conf.relayServiceRatio,
       shardAware = conf.relayShardedPeerManagement,
       eligibilityEnabled = eligibilityEnabled,
+      reputationEnabled = reputationEnabled,
     )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)

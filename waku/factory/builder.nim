@@ -47,8 +47,10 @@ type
     rateLimitSettings: Option[seq[string]]
 
     # Eligibility enabled
-    # FIXME: is this the right way to propagate eligibility-related config items?
     eligibilityEnabled: bool
+
+    # Reputation enabled
+    reputationEnabled: bool
 
   WakuNodeBuilderResult* = Result[void, string]
 
@@ -118,6 +120,7 @@ proc withPeerManagerConfig*(
     relayServiceRatio: string,
     shardAware = false,
     eligibilityEnabled = false,
+    reputationEnabled = false,
 ) =
   let (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
   var relayPeers = int(ceil(float(maxConnections) * relayRatio))
@@ -127,6 +130,7 @@ proc withPeerManagerConfig*(
   builder.maxRelayPeers = relayPeers
   builder.shardAware = shardAware
   builder.eligibilityEnabled = eligibilityEnabled
+  builder.reputationEnabled = reputationEnabled
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
@@ -212,9 +216,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
     dnsNameServers = netConfig.dnsNameServers,
-    # FIXME: should eligibilityEnabled be part of some eligibilityConfig within WakuNodeBuilder here?
-    eligibilityEnabled = builder.eligibilityEnabled 
-    #reputationEnabled = true, # FIXME: i13n: read config or something instead
+    eligibilityEnabled = builder.eligibilityEnabled,
+    reputationEnabled = builder.reputationEnabled
   )
 
   var node: WakuNode

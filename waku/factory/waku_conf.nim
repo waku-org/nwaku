@@ -64,6 +64,9 @@ type EligibilityConf* = object
   paymentAmountWei*: uint32
   ethClientUrls*: seq[string]
 
+type ReputationConf* = object
+    enabled*: bool
+
 ## `WakuConf` is a valid configuration for a Waku node
 ## All information needed by a waku node should be contained
 ## In this object. A convenient `validate` method enables doing
@@ -100,6 +103,7 @@ type WakuConf* {.requiresInit.} = ref object
   metricsServerConf*: Option[MetricsServerConf]
   webSocketConf*: Option[WebSocketConf]
   eligibilityConf*: Option[EligibilityConf]
+  reputationConf*: Option[ReputationConf]
 
   portsShift*: uint16
   dnsAddrs*: bool

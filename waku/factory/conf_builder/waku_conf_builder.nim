@@ -23,7 +23,8 @@ import
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
   ./rln_relay_conf_builder,
-  ./eligibility_conf_builder
+  ./eligibility_conf_builder,
+  ./reputation_conf_builder
 
 logScope:
   topics = "waku conf builder"
@@ -74,6 +75,7 @@ type WakuConfBuilder* = object
   storeServiceConf*: StoreServiceConfBuilder
   webSocketConf*: WebSocketConfBuilder
   eligibilityConf*: EligibilityConfBuilder
+  reputationConf*: ReputationConfBuilder
   # End conf builders
   relay: Option[bool]
   lightPush: Option[bool]
@@ -138,6 +140,7 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     storeServiceConf: StoreServiceConfBuilder.init(),
     webSocketConf: WebSocketConfBuilder.init(),
     eligibilityConf: EligibilityConfBuilder.init(),
+    reputationConf: ReputationConfBuilder.init(),
   )
 
 proc withClusterConf*(b: var WakuConfBuilder, clusterConf: ClusterConf) =
@@ -479,6 +482,9 @@ proc build*(
 
   let eligibilityConf = builder.eligibilityConf.build().valueOr:
     return err("Eligibility Conf building failed: " & $error)
+
+  let reputationConf = builder.reputationConf.build().valueOr:
+    return err("Reputation Conf building failed: " & $error)
   # End - Build sub-configs
 
   let logLevel =
@@ -603,6 +609,7 @@ proc build*(
     restServerConf: restServerConf,
     dnsDiscoveryConf: dnsDiscoveryConf,
     eligibilityConf: eligibilityConf,
+    reputationConf: reputationConf,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,

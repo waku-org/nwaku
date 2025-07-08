@@ -28,7 +28,8 @@ import
   ../waku_core/topics/pubsub_topic,
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../tools/rln_db_inspector/rln_db_inspector,
-  ./conf_builder/eligibility_conf_builder
+  ./conf_builder/eligibility_conf_builder,
+  ./conf_builder/reputation_conf_builder
 
 include ../waku_core/message/default_values
 
@@ -484,7 +485,7 @@ type WakuNodeConf* = object
     reputationEnabled* {.
       desc: "Enable client-side reputation for light protocols: true|false",
       defaultValue: false,
-      name: "reputation"
+      name: "reputation-enabled"
     .}: bool
 
     ## Eligibility config
@@ -1091,5 +1092,8 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     b.eligibilityConf.withPaymentAmountWei(n.eligibilityPaymentAmountWei)
   if n.eligibilityEthRpcUrl.len > 0:
     b.eligibilityConf.withEthClientUrls(n.eligibilityEthRpcUrl.mapIt(string(it)))
+
+  # Setup reputation configuration
+  b.reputationConf.withEnabled(n.reputationEnabled)
 
   return b.build()

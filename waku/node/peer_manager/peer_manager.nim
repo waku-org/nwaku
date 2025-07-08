@@ -242,6 +242,7 @@ proc selectPeer*(
 
   # For other protocols, we select the peer that is slotted for the given protocol
   pm.serviceSlots.withValue(proto, serviceSlot):
+    # FIXME: if there is just one peer, reputation doesn't affect choice?
     trace "Got peer from service slots",
       peerId = serviceSlot[].peerId, multi = serviceSlot[].addrs[0], protocol = proto
     return some(serviceSlot[])
@@ -249,8 +250,10 @@ proc selectPeer*(
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
     # if reputation is enabled, filter out bad-reputation peers
+    debug "Total peers in peerstore:", numPeers = peers.len
     var preSelectedPeers =
       if pm.reputationManager.isSome():
+        debug "Reputation enabled: consider only non-negative reputation peers"
         peers.filterIt:
           let rep =
             try:
@@ -261,6 +264,9 @@ proc selectPeer*(
       else:
         peers
     let selectedPeer = preSelectedPeers[0]
+    if pm.reputationManager.isSome():
+      debug "Non-negative reputation peers in peerstore: ", numPeers = preSelectedPeers.len
+      debug "Selected peer has reputation", reputation = pm.reputationManager.get().getReputation(selectedPeer.peerId)
     trace "Got peer from peerstore",
       peerId = selectedPeer.peerId, multi = selectedPeer.addrs[0], protocol = proto
     return some(selectedPeer)

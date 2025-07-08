@@ -85,6 +85,7 @@ proc publish*(
   if message.timestamp == 0:
     message.timestamp = getNowInNanosecondTime()
 
+  # FIXME: make more DRY
   when peer is PeerId:
     info "publish",
       peerId = shortLog(peer),
