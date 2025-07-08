@@ -93,11 +93,9 @@ proc process*(
 
   case self.operation
   of CREATE_NODE:
-    echo "------------ calling createWaku"
     waku[] = (await createWaku(self.configJson, self.appCallbacks)).valueOr:
       error "CREATE_NODE failed", error = error
       return err($error)
-    echo "------------ after createWaku"
   of START_NODE:
     (await waku.startWaku()).isOkOr:
       error "START_NODE failed", error = error
