@@ -38,10 +38,8 @@ when os == "Linux" and
     #./waku_archive_legacy/test_driver_postgres_query,
     #./waku_archive_legacy/test_driver_postgres,
     ./factory/test_node_factory,
-    ./wakunode_rest/test_rest_store
-
-  # Wakunode Rest API test suite
-  import ./wakunode_rest/test_all
+    ./wakunode_rest/test_rest_store,
+    ./wakunode_rest/test_all
 
 # Waku store test suite
 import
