@@ -58,7 +58,7 @@ asynctest "Start a node based on default configurations":
   assert not node.isNil(), "Node can't be nil"
 
   let startRes = catch:
-    (waitFor startNode(node, conf))
+    (await startNode(node, conf))
 
   assert not startRes.isErr(), "Exception starting node"
   assert startRes.get().isOk(), "Error starting node " & startRes.get().error
@@ -67,4 +67,4 @@ asynctest "Start a node based on default configurations":
     node.started == true
 
   ## Cleanup
-  waitFor node.stop()
+  await node.stop()

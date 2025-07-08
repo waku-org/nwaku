@@ -91,9 +91,6 @@ proc process*(
   defer:
     destroyShared(self)
 
-  # return execution to the async loop before proceeding
-  await sleepAsync(0.milliseconds)
-
   case self.operation
   of CREATE_NODE:
     echo "------------ calling createWaku"
