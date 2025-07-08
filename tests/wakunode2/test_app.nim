@@ -13,11 +13,11 @@ import ../testlib/wakucore, ../testlib/wakunode
 include waku/factory/waku, waku/common/enr/typed_record
 
 suite "Wakunode2 - Waku":
-  asynctest "compilation version should be reported":
+  test "compilation version should be reported":
     ## Given
     let conf = defaultTestWakuConf()
 
-    let waku = (await Waku.new(conf)).valueOr:
+    let waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     ## When
@@ -28,23 +28,23 @@ suite "Wakunode2 - Waku":
       version == git_version
 
 suite "Wakunode2 - Waku initialization":
-  asynctest "peer persistence setup should be successfully mounted":
+  test "peer persistence setup should be successfully mounted":
     ## Given
     var conf = defaultTestWakuConf()
     conf.peerPersistence = true
 
-    let waku = (await Waku.new(conf)).valueOr:
+    let waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     check:
       not waku.node.peerManager.storage.isNil()
 
-  asynctest "node setup is successful with default configuration":
+  test "node setup is successful with default configuration":
     ## Given
     var conf = defaultTestWakuConf()
 
     ## When
-    var waku = (await Waku.new(conf)).valueOr:
+    var waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
@@ -62,13 +62,13 @@ suite "Wakunode2 - Waku initialization":
     ## Cleanup
     waitFor waku.stop()
 
-  asynctest "app properly handles dynamic port configuration":
+  test "app properly handles dynamic port configuration":
     ## Given
     var conf = defaultTestWakuConf()
     conf.endpointConf.p2pTcpPort = Port(0)
 
     ## When
-    var waku = (await Waku.new(conf)).valueOr:
+    var waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
