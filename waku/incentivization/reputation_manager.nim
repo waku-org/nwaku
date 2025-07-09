@@ -2,9 +2,17 @@ import tables, std/options, chronicles
 import ../waku_lightpush/[rpc, common]
 import libp2p/peerid
 
+const BadResponseStatusCodes* = [
+  LightpushStatusCode.INTERNAL_SERVER_ERROR,
+  LightpushStatusCode.SERVICE_NOT_AVAILABLE,
+  LightpushStatusCode.OUT_OF_RLN_PROOF,
+  LightpushStatusCode.NO_PEERS_TO_RELAY
+]
+
 type
   ResponseQuality* = enum
     BadResponse
+    NeutralResponse
     GoodResponse
 
   # Encode reputation indicator as Option[bool]:
@@ -34,8 +42,10 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
 proc evaluateResponse*(response: LightPushResponse): ResponseQuality =
   if response.statusCode == LightpushStatusCode.SUCCESS.uint32:
     return GoodResponse
-  else:
+  elif LightpushStatusCode(response.statusCode) in BadResponseStatusCodes:
     return BadResponse
+  else:
+    return NeutralResponse
 
 # Update reputation of the peer based on LightPushResponse quality
 proc updateReputationFromResponse*(
@@ -49,3 +59,6 @@ proc updateReputationFromResponse*(
   of GoodResponse:
     debug "Assign good reputation for peer", peer = peer
     manager.setReputation(peer, some(true)) # true  => GoodRep
+  of NeutralResponse:
+    debug "Neutral response - reputation unchanged for peer", peer = peer
+    # Don't change reputation for neutral responses
