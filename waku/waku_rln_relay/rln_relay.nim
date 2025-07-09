@@ -382,12 +382,10 @@ proc generateRlnValidator*(
 
     let
       proof = toHex(msgProof.proof)
-      epoch = fromEpoch(msgProof.epoch)
       root = inHex(msgProof.merkleRoot)
       shareX = inHex(msgProof.shareX)
       shareY = inHex(msgProof.shareY)
       nullifier = inHex(msgProof.nullifier)
-      payload = string.fromBytes(message.payload)
     case validationRes
     of Valid:
       trace "message validity is verified, relaying:",

@@ -32,7 +32,6 @@ type WakuContext* = object
   running: Atomic[bool] # To control when the threads are running
 
 const git_version* {.strdefine.} = "n/a"
-const versionString = "version / git commit hash: " & waku.git_version
 
 template callEventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
   if isNil(ctx[].eventCallback):

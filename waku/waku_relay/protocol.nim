@@ -276,7 +276,7 @@ proc initRelayObservers(w: WakuRelay) =
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
-      let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
+      let (_, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
         continue
       # message receive log happens in onValidated observer as onRecv is called before checks
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = true)

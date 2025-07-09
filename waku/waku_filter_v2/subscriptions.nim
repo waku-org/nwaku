@@ -122,7 +122,6 @@ proc cleanUp*(fs: FilterSubscriptions) =
   let now = Moment.now()
   fs.peersSubscribed.keepItIf(now - val.lastSeen <= fs.subscriptionTimeout)
 
-  var filtersToRemove: seq[FilterCriterion] = @[]
   for filterCriterion, subscribedPeers in fs.subscriptions.mpairs:
     subscribedPeers.keepItIf(fs.isSubscribed(it) == true)
 

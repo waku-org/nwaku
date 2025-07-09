@@ -5,7 +5,7 @@
 when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
-import std/[json, atomics, strformat, options, atomics]
+import std/[json, atomics, strformat, options]
 import chronicles, chronos, chronos/threadsync
 import
   waku/common/base64,
@@ -305,7 +305,7 @@ proc waku_relay_subscribe(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pubSubTopic, WakuRelayHandler(cb)),
+    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pubSubTopic, cb),
     callback,
     userData,
   )
@@ -347,7 +347,7 @@ proc waku_relay_unsubscribe(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.UNSUBSCRIBE, pubSubTopic, WakuRelayHandler(onReceivedMessage(ctx))
+      RelayMsgType.UNSUBSCRIBE, pubSubTopic, onReceivedMessage(ctx)
     ),
     callback,
     userData,

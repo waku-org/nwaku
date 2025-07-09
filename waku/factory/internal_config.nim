@@ -69,7 +69,7 @@ proc networkConfiguration*(
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let natRes = setupNat(
-    conf.natStrategy.string,
+    conf.natStrategy,
     clientId,
     Port(uint16(conf.p2pTcpPort) + portsShift),
     Port(uint16(conf.p2pTcpPort) + portsShift),

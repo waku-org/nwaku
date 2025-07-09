@@ -21,8 +21,7 @@ import
   ../rest_serdes,
   ./types
 
-from std/times import getTime
-from std/times import toUnix
+from std/times import getTime, toUnix
 
 export types
 

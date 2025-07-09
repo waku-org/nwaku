@@ -545,7 +545,6 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
     return
 
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
-  let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
   if inRelayPeers.len > pm.inRelayPeersTarget:
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
