@@ -78,8 +78,6 @@ proc handleRequest(
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
 ): Future[LightPushResponse] {.async.} =
-  var pushResponse: LightPushResponse
-
   let pushRequest = LightPushRequest.decode(buffer).valueOr:
     let desc = decodeRpcFailure & ": " & $error
     error "failed to push message", error = desc

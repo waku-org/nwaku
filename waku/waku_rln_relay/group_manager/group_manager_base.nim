@@ -179,7 +179,6 @@ method generateProof*(
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
 ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
-  var lastProcessedEpoch {.global.}: Epoch
   ## generates a proof for the given data and epoch
   ## the proof is generated using the current merkle root
   if g.idCredentials.isNone():

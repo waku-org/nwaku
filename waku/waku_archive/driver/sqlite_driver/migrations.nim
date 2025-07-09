@@ -31,7 +31,7 @@ proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
 
   var pkColumns = newSeq[string]()
   proc queryRowCallback(s: ptr sqlite3_stmt) =
-    let colName = cstring sqlite3_column_text(s, 0)
+    let colName = sqlite3_column_text(s, 0)
     pkColumns.add($colName)
 
   let query =
