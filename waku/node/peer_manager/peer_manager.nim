@@ -271,9 +271,10 @@ proc selectPeer*(
     
     debug "Pre-selected peers from peerstore: ", numPeers = preSelectedPeers.len
     if preSelectedPeers.len == 0:
+      debug "No suitable service peers with good enough reputation!"
       return none(RemotePeerInfo)
 
-    let selectedPeer = preSelectedPeers[0]
+    let selectedPeer = sample(preSelectedPeers)
 
     if pm.reputationManager.isSome():
       debug "Selected peer has reputation", reputation = pm.reputationManager.get().getReputation(selectedPeer.peerId)
