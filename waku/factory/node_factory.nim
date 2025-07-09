@@ -122,7 +122,7 @@ proc initNode(
       relayServiceRatio = conf.relayServiceRatio,
       shardAware = conf.relayShardedPeerManagement,
     )
-  builder.withRateLimit(conf.rateLimits)
+  builder.withRateLimit(conf.rateLimit)
   builder.withCircuitRelay(relay)
 
   let node =
