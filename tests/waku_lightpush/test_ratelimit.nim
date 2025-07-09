@@ -119,7 +119,7 @@ suite "Rate limited push service":
 
       check:
         requestRes.isErr()
-        requestRes.error.code == ErrorCode.TOO_MANY_REQUESTS
+        requestRes.error.code == LightPushErrorCode.TOO_MANY_REQUESTS
         requestRes.error.desc == some(TooManyRequestsMessage)
 
     for testCnt in 0 .. 2:

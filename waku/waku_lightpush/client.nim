@@ -35,7 +35,8 @@ proc sendPushRequest(
   let connection = (await wl.peerManager.dialPeer(peer, WakuLightPushCodec)).valueOr:
     waku_lightpush_v3_errors.inc(labelValues = [dialFailure])
     return lighpushErrorResult(
-      ErrorCode.NO_PEERS_TO_RELAY, dialFailure & ": " & $peer & " is not accessible"
+      LightPushErrorCode.NO_PEERS_TO_RELAY,
+      dialFailure & ": " & $peer & " is not accessible",
     )
 
   await connection.writeLP(req.encode().buffer)
@@ -55,7 +56,7 @@ proc sendPushRequest(
     return lightpushResultInternalError(decodeRpcFailure)
 
   if response.requestId != req.requestId and
-      response.statusCode != ErrorCode.TOO_MANY_REQUESTS:
+      response.statusCode != LightPushErrorCode.TOO_MANY_REQUESTS:
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
     return lightpushResultInternalError("response failure, requestId mismatch")
@@ -105,7 +106,9 @@ proc publishToAny*(
 
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
-    return lighpushErrorResult(ErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers")
+    return lighpushErrorResult(
+      LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
+    )
 
   let pushRequest = LightpushRequest(
     requestId: generateRequestId(wl.rng),

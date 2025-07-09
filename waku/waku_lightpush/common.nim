@@ -7,9 +7,9 @@ from ../waku_core/codecs import WakuLightPushCodec
 export WakuLightPushCodec
 export LightPushStatusCode
 
-const SuccessCode* = (SUCCESS: LightPushStatusCode(200))
+const LightPushSuccessCode* = (SUCCESS: LightPushStatusCode(200))
 
-const ErrorCode* = (
+const LightPushErrorCode* = (
   BAD_REQUEST: LightPushStatusCode(400),
   PAYLOAD_TOO_LARGE: LightPushStatusCode(413),
   INVALID_MESSAGE: LightPushStatusCode(420),
@@ -31,25 +31,25 @@ type PushMessageHandler* = proc(
 const TooManyRequestsMessage* = "Request rejected due to too many requests"
 
 func isSuccess*(response: LightPushResponse): bool =
-  return response.statusCode == SuccessCode.SUCCESS
+  return response.statusCode == LightPushSuccessCode.SUCCESS
 
 func toPushResult*(response: LightPushResponse): WakuLightPushResult =
   if isSuccess(response):
     return ok(response.relayPeerCount.get(0))
   else:
-    return err((response.statusCode.LightpushStatusCode, response.statusDesc))
+    return err((response.statusCode, response.statusDesc))
 
 func lightpushSuccessResult*(relayPeerCount: uint32): WakuLightPushResult =
   return ok(relayPeerCount)
 
 func lightpushResultInternalError*(msg: string): WakuLightPushResult =
-  return err((ErrorCode.INTERNAL_SERVER_ERROR, some(msg)))
+  return err((LightPushErrorCode.INTERNAL_SERVER_ERROR, some(msg)))
 
 func lightpushResultBadRequest*(msg: string): WakuLightPushResult =
-  return err((ErrorCode.BAD_REQUEST, some(msg)))
+  return err((LightPushErrorCode.BAD_REQUEST, some(msg)))
 
 func lightpushResultServiceUnavailable*(msg: string): WakuLightPushResult =
-  return err((ErrorCode.SERVICE_NOT_AVAILABLE, some(msg)))
+  return err((LightPushErrorCode.SERVICE_NOT_AVAILABLE, some(msg)))
 
 func lighpushErrorResult*(
     statusCode: LightpushStatusCode, desc: Option[string]
@@ -66,16 +66,22 @@ func mapPubishingErrorToPushResult*(
 ): WakuLightPushResult =
   case publishOutcome
   of NoTopicSpecified:
-    return err((ErrorCode.INVALID_MESSAGE, some("Empty topic, skipping publish")))
-  of DuplicateMessage:
-    return err((ErrorCode.INVALID_MESSAGE, some("Dropping already-seen message")))
-  of NoPeersToPublish:
     return
-      err((ErrorCode.NO_PEERS_TO_RELAY, some("No peers for topic, skipping publish")))
+      err((LightPushErrorCode.INVALID_MESSAGE, some("Empty topic, skipping publish")))
+  of DuplicateMessage:
+    return
+      err((LightPushErrorCode.INVALID_MESSAGE, some("Dropping already-seen message")))
+  of NoPeersToPublish:
+    return err(
+      (
+        LightPushErrorCode.NO_PEERS_TO_RELAY,
+        some("No peers for topic, skipping publish"),
+      )
+    )
   of CannotGenerateMessageId:
     return err(
       (
-        ErrorCode.INTERNAL_SERVER_ERROR,
+        LightPushErrorCode.INTERNAL_SERVER_ERROR,
         some("Error generating message id, skipping publish"),
       )
     )
