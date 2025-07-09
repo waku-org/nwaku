@@ -36,7 +36,7 @@ proc handleRequest(
       let msg = "Pubsub topic must be specified when static sharding is enabled"
       error "lightpush request handling error", error = msg
       return WakuLightPushResult.err(
-        (code: LightpushStatusCode.INVALID_MESSAGE_ERROR, desc: some(msg))
+        (code: LightPushErrorCode.INVALID_MESSAGE, desc: some(msg))
       )
 
     let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
