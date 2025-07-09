@@ -281,3 +281,18 @@ suite "Waku Conf - extMultiaddrs":
     )
     for m in multiaddrs:
       check m in resMultiaddrs
+
+suite "Waku Conf Builder - rate limits":
+  test "Valid rate limit passed via string":
+    ## Setup
+    var builder = RateLimitConfBuilder.init()
+
+    ## Given
+    let rateLimitsStr = @["lightpush:2/2ms", "10/2m", "store: 3/3s"]
+    builder.withRateLimits(rateLimitsStr)
+
+    ## When
+    let res = builder.build()
+
+    ## Then
+    assert res.isOk(), $res.error

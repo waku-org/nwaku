@@ -11,11 +11,8 @@ type RateLimitConfBuilder* = object
 proc init*(T: type RateLimitConfBuilder): RateLimitConfBuilder =
   RateLimitConfBuilder()
 
-proc with*(b: var RateLimitConfBuilder, rateLimits: seq[string]) =
+proc withRateLimits*(b: var RateLimitConfBuilder, rateLimits: seq[string]) =
   b.strValue = some(rateLimits)
-
-proc with*(b: var RateLimitConfBuilder, rateLimits: ProtocolRateLimitSettings) =
-  b.objValue = some(rateLimits)
 
 proc build*(b: RateLimitConfBuilder): Result[ProtocolRateLimitSettings, string] =
   if b.strValue.isSome() and b.objValue.isSome():
