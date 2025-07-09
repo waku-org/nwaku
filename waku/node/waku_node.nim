@@ -1211,7 +1211,7 @@ proc lightpushPublish*(
     if node.wakuAutoSharding.isNone():
       let msg = "Pubsub topic must be specified when static sharding is enabled"
       error "lightpush publish error", error = msg
-      return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
+      return lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, msg)
 
     let parsedTopic = NsContentTopic.parse(message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
