@@ -1,4 +1,4 @@
-import tables, std/options
+import tables, std/options, chronicles
 import ../waku_lightpush/[rpc, common]
 import libp2p/peerid
 
@@ -44,6 +44,8 @@ proc updateReputationFromResponse*(
   let respQuality = evaluateResponse(response)
   case respQuality
   of BadResponse:
+    debug "Assign bad reputation for peer", peer = peer
     manager.setReputation(peer, some(false)) # false => BadRep
   of GoodResponse:
+    debug "Assign good reputation for peer", peer = peer
     manager.setReputation(peer, some(true)) # true  => GoodRep

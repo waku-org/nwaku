@@ -250,10 +250,15 @@ proc selectPeer*(
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
     # if reputation is enabled, filter out bad-reputation peers
-    debug "Total peers in peerstore:", numPeers = peers.len
+    debug "Before filtering - total peers:", numPeers = peers.len
     var preSelectedPeers =
       if pm.reputationManager.isSome():
         debug "Reputation enabled: consider only non-negative reputation peers"
+        for peer in peers:
+          let rep = try:
+            pm.reputationManager.get().getReputation(peer.peerId)
+          except KeyError:
+            none(bool)
         peers.filterIt:
           let rep =
             try:
@@ -263,10 +268,16 @@ proc selectPeer*(
           rep == none(bool) or rep == some(true)
       else:
         peers
+    
+    debug "Pre-selected peers from peerstore: ", numPeers = preSelectedPeers.len
+    if preSelectedPeers.len == 0:
+      return none(RemotePeerInfo)
+
     let selectedPeer = preSelectedPeers[0]
+
     if pm.reputationManager.isSome():
-      debug "Non-negative reputation peers in peerstore: ", numPeers = preSelectedPeers.len
       debug "Selected peer has reputation", reputation = pm.reputationManager.get().getReputation(selectedPeer.peerId)
+
     trace "Got peer from peerstore",
       peerId = selectedPeer.peerId, multi = selectedPeer.addrs[0], protocol = proto
     return some(selectedPeer)
