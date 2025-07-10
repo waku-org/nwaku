@@ -17,7 +17,7 @@ suite "Wakunode2 - Waku":
     ## Given
     let conf = defaultTestWakuConf()
 
-    let waku = Waku.new(conf).valueOr:
+    let waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     ## When
@@ -33,7 +33,7 @@ suite "Wakunode2 - Waku initialization":
     var conf = defaultTestWakuConf()
     conf.peerPersistence = true
 
-    let waku = Waku.new(conf).valueOr:
+    let waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     check:
@@ -44,7 +44,7 @@ suite "Wakunode2 - Waku initialization":
     var conf = defaultTestWakuConf()
 
     ## When
-    var waku = Waku.new(conf).valueOr:
+    var waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
@@ -68,7 +68,7 @@ suite "Wakunode2 - Waku initialization":
     conf.endpointConf.p2pTcpPort = Port(0)
 
     ## When
-    var waku = Waku.new(conf).valueOr:
+    var waku = (waitFor Waku.new(conf)).valueOr:
       raiseAssert error
 
     (waitFor startWaku(addr waku)).isOkOr:
