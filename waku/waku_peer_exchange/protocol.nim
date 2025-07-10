@@ -45,8 +45,6 @@ const
   dialFailure = "dial_failure"
   peerNotFoundFailure = "peer_not_found_failure"
   decodeRpcFailure = "decode_rpc_failure"
-  retrievePeersDiscv5Error = "retrieve_peers_discv5_failure"
-  pxFailure = "px_failure"
 
 type
   WakuPeerExchangeResult*[T] = Result[T, PeerExchangeResponseStatus]

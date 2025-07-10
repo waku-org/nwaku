@@ -321,20 +321,20 @@ proc subscribe*(
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, contentTopicOp) =
+  let pubsubTopic =
     case subscription.kind
     of ContentSub:
       if node.wakuAutoSharding.isSome():
         let shard = node.wakuAutoSharding.get().getShard((subscription.topic)).valueOr:
             error "Autosharding error", error = error
             return err("Autosharding error: " & error)
-        ($shard, some(subscription.topic))
+        $shard
       else:
         return err(
           "Static sharding is used, relay subscriptions must specify a pubsub topic"
         )
     of PubsubSub:
-      (subscription.topic, none(ContentTopic))
+      subscription.topic
     else:
       return err("Unsupported subscription type in relay subscribe")
 
@@ -1347,7 +1347,7 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
 
   try:
     node.libp2pPing = Ping.new(rng = node.rng)
-  except Exception as e:
+  except Exception as _:
     error "failed to create ping", error = getCurrentExceptionMsg()
 
   if node.started:
