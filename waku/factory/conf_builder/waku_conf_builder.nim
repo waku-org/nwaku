@@ -500,7 +500,7 @@ proc build*(
   let reputationConf = builder.reputationConf.build().valueOr:
     return err("Reputation Conf building failed: " & $error)
 
-  let rateLimitConf = builder.rateLimitConf.build().valueOr:
+  let rateLimit = builder.rateLimitConf.build().valueOr:
     return err("Rate limits Conf building failed: " & $error)
 
   # End - Build sub-configs
@@ -620,7 +620,7 @@ proc build*(
     dnsDiscoveryConf: dnsDiscoveryConf,
     eligibilityConf: eligibilityConf,
     reputationConf: reputationConf,
-    rateLimitConf: rateLimitConf,
+    rateLimit: rateLimit,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,

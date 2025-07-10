@@ -46,13 +46,9 @@ proc sendPushRequest(
   try:
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
-<<<<<<< HEAD
     error "Failed to read responose from peer", error = getCurrentExceptionMsg()
     if wl.peerManager.reputationManager.isSome:
       wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
-=======
-    error "Failed to read response from peer", error = getCurrentExceptionMsg()
->>>>>>> master
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )

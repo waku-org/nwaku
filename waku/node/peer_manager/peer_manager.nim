@@ -97,16 +97,12 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
-<<<<<<< HEAD
   # clients of light protocols (like Lightpush) may track servers' reputation
   reputationManager*: Option[ReputationManager]
   # servers of light protocols (like Lightpush) may track client requests' eligibility
   eligibilityManager*: Option[EligibilityManager]
   dnsNameServers*: seq[IpAddress]
-  online: bool
-=======
   online: bool ## state managed by online_monitor module
->>>>>>> master
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -1071,12 +1067,9 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
-<<<<<<< HEAD
     reputationEnabled = false,
     eligibilityEnabled = false,
     dnsNameServers = newSeq[IpAddress](),
-=======
->>>>>>> master
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size

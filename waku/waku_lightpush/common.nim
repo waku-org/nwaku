@@ -7,20 +7,6 @@ from ../waku_core/codecs import WakuLightPushCodec
 export WakuLightPushCodec
 export LightPushStatusCode
 
-<<<<<<< HEAD
-type LightpushStatusCode* = enum
-  SUCCESS = uint32(200)
-  BAD_REQUEST = uint32(400)
-  PAYMENT_REQUIRED = uint32(402)
-  PAYLOAD_TOO_LARGE = uint32(413)
-  INVALID_MESSAGE_ERROR = uint32(420)
-  UNSUPPORTED_PUBSUB_TOPIC = uint32(421)
-  TOO_MANY_REQUESTS = uint32(429)
-  INTERNAL_SERVER_ERROR = uint32(500)
-  SERVICE_NOT_AVAILABLE = uint32(503)
-  OUT_OF_RLN_PROOF = uint32(504)
-  NO_PEERS_TO_RELAY = uint32(505)
-=======
 const LightPushSuccessCode* = (SUCCESS: LightPushStatusCode(200))
 
 const LightPushErrorCode* = (
@@ -34,7 +20,6 @@ const LightPushErrorCode* = (
   OUT_OF_RLN_PROOF: LightPushStatusCode(504),
   NO_PEERS_TO_RELAY: LightPushStatusCode(505),
 )
->>>>>>> master
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
 type WakuLightPushResult* = Result[uint32, ErrorStatus]

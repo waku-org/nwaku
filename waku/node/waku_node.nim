@@ -1206,13 +1206,8 @@ proc lightpushPublish*(
     elif not node.wakuLightpushClient.isNil():
       node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
-<<<<<<< HEAD
-        error "failed to publish message", err = msg
-        return lighpushErrorResult(NO_PEERS_TO_RELAY, msg)
-=======
         error "failed to publish message", msg = msg
         return lighpushErrorResult(LightPushErrorCode.NO_PEERS_TO_RELAY, msg)
->>>>>>> master
     else:
       return lighpushErrorResult(
         LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"

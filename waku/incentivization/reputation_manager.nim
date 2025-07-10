@@ -2,11 +2,11 @@ import tables, std/options, chronicles
 import ../waku_lightpush/[rpc, common]
 import libp2p/peerid
 
-const BadResponseStatusCodes* = [
-  LightpushStatusCode.INTERNAL_SERVER_ERROR,
-  LightpushStatusCode.SERVICE_NOT_AVAILABLE,
-  LightpushStatusCode.OUT_OF_RLN_PROOF,
-  LightpushStatusCode.NO_PEERS_TO_RELAY
+const BadLightPushErrorCodes* = [
+  LightPushErrorCode.INTERNAL_SERVER_ERROR,
+  LightPushErrorCode.SERVICE_NOT_AVAILABLE,
+  LightPushErrorCode.OUT_OF_RLN_PROOF,
+  LightPushErrorCode.NO_PEERS_TO_RELAY
 ]
 
 type
@@ -40,9 +40,9 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
 
 # Evaluate the quality of a LightPushResponse by checking its status code
 proc evaluateResponse*(response: LightPushResponse): ResponseQuality =
-  if response.statusCode == LightpushStatusCode.SUCCESS.uint32:
+  if response.isSuccess():
     return GoodResponse
-  elif LightpushStatusCode(response.statusCode) in BadResponseStatusCodes:
+  elif response.statusCode in BadLightPushErrorCodes:
     return BadResponse
   else:
     return NeutralResponse

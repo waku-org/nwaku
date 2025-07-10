@@ -16,8 +16,7 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/rate_limit/request_limiter,
-  ../incentivization/[eligibility_manager, rpc]
+  ../common/rate_limit/request_limiter
 
 logScope:
   topics = "waku lightpush"
@@ -86,120 +85,8 @@ proc handleRequest*(
     waku_lightpush_v3_errors.inc(labelValues = [$errorCode])
     return LightPushResponse(
       requestId: "N/A", # due to decode failure we don't know requestId
-<<<<<<< HEAD
-      statusCode: LightpushStatusCode.BAD_REQUEST.uint32,
-      statusDesc: some(decodeRpcFailure & ": " & $reqDecodeRes.error),
-    )
-  else:
-    let pushRequest = reqDecodeRes.get()
-
-    let pubsubTopic = pushRequest.pubSubTopic.valueOr:
-      let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
-        let msg = "Invalid content-topic:" & $error
-        error "lightpush request handling error", error = msg
-        return LightpushResponse(
-          requestId: pushRequest.requestId,
-          statusCode: LightpushStatusCode.INVALID_MESSAGE_ERROR.uint32,
-          statusDesc: some(msg),
-        )
-
-      wl.sharding.getShard(parsedTopic).valueOr:
-        let msg = "Autosharding error: " & error
-        error "lightpush request handling error", error = msg
-        return LightpushResponse(
-          requestId: pushRequest.requestId,
-          statusCode: LightpushStatusCode.INTERNAL_SERVER_ERROR.uint32,
-          statusDesc: some(msg),
-        )
-
-    # ensure checking topic will not cause error at gossipsub level
-    if pubsubTopic.isEmptyOrWhitespace():
-      let msg = "topic must not be empty"
-      error "lightpush request handling error", error = msg
-      return LightPushResponse(
-        requestId: pushRequest.requestId,
-        statusCode: LightpushStatusCode.BAD_REQUEST.uint32,
-        statusDesc: some(msg),
-      )
-
-    waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
-
-    let msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex()
-    notice "handling lightpush request",
-      my_peer_id = wl.peerManager.switch.peerInfo.peerId,
-      peer_id = peerId,
-      requestId = pushRequest.requestId,
-      pubsubTopic = pushRequest.pubsubTopic,
-      eligibilityProof = pushRequest.eligibilityProof,
-      msg_hash = msg_hash,
-      receivedTime = getNowInNanosecondTime()
-
-    # Check eligibility if manager is available
-    if wl.peerManager.eligibilityManager.isSome():
-      debug "eligibilityManager is enabled"
-      let em = wl.peerManager.eligibilityManager.get()
-      
-      try:
-        debug "checking eligibilityProof..."
-        
-        # Check if eligibility proof is provided
-        if pushRequest.eligibilityProof.isNone():
-          let msg = "Eligibility proof is required"
-          error "lightpush request handling error", error = msg
-          return LightpushResponse(
-            requestId: pushRequest.requestId,
-            statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
-            statusDesc: some(msg),
-          )
-        
-        let isEligible = await em.isEligibleTxId(pushRequest.eligibilityProof.get())
-        if isEligible.isErr():
-          let msg = "Eligibility check failed: " & isEligible.error
-          error "lightpush request handling error", error = msg
-          return LightpushResponse(
-            requestId: pushRequest.requestId,
-            statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
-            statusDesc: some(msg),
-          )
-        
-        debug "Eligibility check passed!"
-        
-      except CatchableError:
-        let msg = "Eligibility check threw exception: " & getCurrentExceptionMsg()
-        error "lightpush request handling error", error = msg
-        return LightpushResponse(
-          requestId: pushRequest.requestId,
-          statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32,
-          statusDesc: some(msg),
-        )
-    else:
-      # the service node doesn't want to check eligibility
-      debug "eligibilityManager is disabled - skipping eligibility check"
-    
-    let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
-
-    isSuccess = handleRes.isOk()
-    pushResponse = LightpushResponse(
-      requestId: pushRequest.requestId,
-      statusCode:
-        if isSuccess:
-          LightpushStatusCode.SUCCESS.uint32
-        else:
-          handleRes.error.code.uint32,
-      statusDesc:
-        if isSuccess:
-          none[string]()
-        else:
-          handleRes.error.desc,
-      relayPeerCount:
-        if isSuccess:
-          some(handleRes.get())
-        else:
-          none[uint32](),
-=======
       statusCode: errorCode,
       statusDesc: some(desc),
->>>>>>> master
     )
 
   let relayPeerCount = (await handleRequest(wl, peerId, pushRequest)).valueOr:
