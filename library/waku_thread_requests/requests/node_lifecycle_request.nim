@@ -79,7 +79,7 @@ proc createWaku(
 
   wakuConf.restServerConf = none(RestServerConf) ## don't want REST in libwaku
 
-  let wakuRes = Waku.new(wakuConf, appCallbacks).valueOr:
+  let wakuRes = (await Waku.new(wakuConf, appCallbacks)).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 
