@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  stew/shims/net,
   testutils/unittests,
   chronicles,
   chronos,
@@ -66,7 +65,7 @@ suite "Wakunode2 - Waku initialization":
   test "app properly handles dynamic port configuration":
     ## Given
     var conf = defaultTestWakuConf()
-    conf.networkConf.p2pTcpPort = Port(0)
+    conf.endpointConf.p2pTcpPort = Port(0)
 
     ## When
     var waku = Waku.new(conf).valueOr:

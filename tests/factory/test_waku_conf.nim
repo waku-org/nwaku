@@ -9,14 +9,14 @@ import
   testutils/unittests
 import
   waku/factory/waku_conf,
-  waku/factory/waku_conf_builder,
+  waku/factory/conf_builder/conf_builder,
   waku/factory/networks_config,
   waku/common/utils/parse_size_units
 
 suite "Waku Conf - build with cluster conf":
   test "Cluster Conf is passed and relay is enabled":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
     builder.discv5Conf.withUdpPort(9000)
     builder.withRelayServiceRatio("50:50")
@@ -24,8 +24,8 @@ suite "Waku Conf - build with cluster conf":
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
-    builder.withClusterConf(clusterConf)
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
+    builder.withNetworkConf(networkConf)
     builder.withRelay(true)
     builder.rlnRelayConf.withTreePath("/tmp/test-tree-path")
 
@@ -37,27 +37,29 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check conf.clusterId == clusterConf.clusterId
-    check conf.numShardsInNetwork == clusterConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.clusterId == networkConf.clusterId
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
-      uint64(parseCorrectMsgSize(clusterConf.maxMessageSize))
-    check conf.discv5Conf.get().bootstrapNodes == clusterConf.discv5BootstrapNodes
+      uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
+    check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
 
-    if clusterConf.rlnRelay:
+    if networkConf.rlnRelay:
       assert conf.rlnRelayConf.isSome(), "RLN Relay conf is disabled"
 
       let rlnRelayConf = conf.rlnRelayConf.get()
       check rlnRelayConf.ethContractAddress.string ==
-        clusterConf.rlnRelayEthContractAddress
-      check rlnRelayConf.dynamic == clusterConf.rlnRelayDynamic
-      check rlnRelayConf.chainId == clusterConf.rlnRelayChainId
-      check rlnRelayConf.epochSizeSec == clusterConf.rlnEpochSizeSec
-      check rlnRelayConf.userMessageLimit == clusterConf.rlnRelayUserMessageLimit
+        networkConf.rlnRelayEthContractAddress
+      check rlnRelayConf.dynamic == networkConf.rlnRelayDynamic
+      check rlnRelayConf.chainId == networkConf.rlnRelayChainId
+      check rlnRelayConf.epochSizeSec == networkConf.rlnEpochSizeSec
+      check rlnRelayConf.userMessageLimit == networkConf.rlnRelayUserMessageLimit
 
   test "Cluster Conf is passed, but relay is disabled":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
     builder.withRelayServiceRatio("50:50")
     builder.discv5Conf.withUdpPort(9000)
@@ -65,8 +67,8 @@ suite "Waku Conf - build with cluster conf":
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
-    builder.withClusterConf(clusterConf)
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
+    builder.withNetworkConf(networkConf)
     builder.withRelay(false)
 
     ## When
@@ -77,26 +79,28 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check conf.clusterId == clusterConf.clusterId
-    check conf.numShardsInNetwork == clusterConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.clusterId == networkConf.clusterId
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
-      uint64(parseCorrectMsgSize(clusterConf.maxMessageSize))
-    check conf.discv5Conf.get().bootstrapNodes == clusterConf.discv5BootstrapNodes
+      uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
+    check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
 
     assert conf.rlnRelayConf.isNone
 
   test "Cluster Conf is passed, but rln relay is disabled":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
 
     let # Mount all shards in network
       expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
-    builder.withClusterConf(clusterConf)
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
+    builder.withNetworkConf(networkConf)
     builder.rlnRelayConf.withEnabled(false)
 
     ## When
@@ -107,24 +111,26 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check conf.clusterId == clusterConf.clusterId
-    check conf.numShardsInNetwork == clusterConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.clusterId == networkConf.clusterId
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
-      uint64(parseCorrectMsgSize(clusterConf.maxMessageSize))
-    check conf.discv5Conf.get().bootstrapNodes == clusterConf.discv5BootstrapNodes
+      uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
+    check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
     assert conf.rlnRelayConf.isNone
 
   test "Cluster Conf is passed and valid shards are specified":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
     let shards = @[2.uint16, 3.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
-    builder.withClusterConf(clusterConf)
-    builder.withShards(shards)
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
+    builder.withNetworkConf(networkConf)
+    builder.withSubscribeShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -134,23 +140,25 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check conf.clusterId == clusterConf.clusterId
-    check conf.numShardsInNetwork == clusterConf.numShardsInNetwork
-    check conf.shards == shards
+    check conf.clusterId == networkConf.clusterId
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.subscribeShards == shards
     check conf.maxMessageSizeBytes ==
-      uint64(parseCorrectMsgSize(clusterConf.maxMessageSize))
-    check conf.discv5Conf.get().bootstrapNodes == clusterConf.discv5BootstrapNodes
+      uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
+    check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
 
   test "Cluster Conf is passed and invalid shards are specified":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
     let shards = @[2.uint16, 10.uint16]
 
     ## Given
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
-    builder.withClusterConf(clusterConf)
-    builder.withShards(shards)
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
+    builder.withNetworkConf(networkConf)
+    builder.withSubscribeShards(shards)
 
     ## When
     let resConf = builder.build()
@@ -158,11 +166,11 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     assert resConf.isErr(), "Invalid shard was accepted"
 
-  test "Cluster Conf is passed and RLN contract is overridden":
+  test "Cluster Conf is passed and RLN contract is **not** overridden":
     ## Setup
-    let clusterConf = ClusterConf.TheWakuNetworkConf()
+    let networkConf = NetworkConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-    builder.rlnRelayConf.withEthClientAddress("https://my_eth_rpc_url/")
+    builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
 
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
@@ -170,7 +178,7 @@ suite "Waku Conf - build with cluster conf":
 
     ## Given
     builder.rlnRelayConf.withEthContractAddress(contractAddress)
-    builder.withClusterConf(clusterConf)
+    builder.withNetworkConf(networkConf)
     builder.withRelay(true)
     builder.rlnRelayConf.withTreePath("/tmp/test")
 
@@ -182,23 +190,26 @@ suite "Waku Conf - build with cluster conf":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check conf.clusterId == clusterConf.clusterId
-    check conf.numShardsInNetwork == clusterConf.numShardsInNetwork
-    check conf.shards == expectedShards
+    check conf.clusterId == networkConf.clusterId
+    check conf.shardingConf.kind == networkConf.shardingConf.kind
+    check conf.shardingConf.numShardsInCluster ==
+      networkConf.shardingConf.numShardsInCluster
+    check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
-      uint64(parseCorrectMsgSize(clusterConf.maxMessageSize))
-    check conf.discv5Conf.isSome == clusterConf.discv5Discovery
-    check conf.discv5Conf.get().bootstrapNodes == clusterConf.discv5BootstrapNodes
+      uint64(parseCorrectMsgSize(networkConf.maxMessageSize))
+    check conf.discv5Conf.isSome == networkConf.discv5Discovery
+    check conf.discv5Conf.get().bootstrapNodes == networkConf.discv5BootstrapNodes
 
-    if clusterConf.rlnRelay:
+    if networkConf.rlnRelay:
       assert conf.rlnRelayConf.isSome
 
       let rlnRelayConf = conf.rlnRelayConf.get()
-      check rlnRelayConf.ethContractAddress.string == contractAddress
-      check rlnRelayConf.dynamic == clusterConf.rlnRelayDynamic
-      check rlnRelayConf.chainId == clusterConf.rlnRelayChainId
-      check rlnRelayConf.epochSizeSec == clusterConf.rlnEpochSizeSec
-      check rlnRelayConf.userMessageLimit == clusterConf.rlnRelayUserMessageLimit
+      check rlnRelayConf.ethContractAddress.string ==
+        networkConf.rlnRelayEthContractAddress
+      check rlnRelayConf.dynamic == networkConf.rlnRelayDynamic
+      check rlnRelayConf.chainId == networkConf.rlnRelayChainId
+      check rlnRelayConf.epochSizeSec == networkConf.rlnEpochSizeSec
+      check rlnRelayConf.userMessageLimit == networkConf.rlnRelayUserMessageLimit
 
 suite "Waku Conf - node key":
   test "Node key is generated":
@@ -263,10 +274,25 @@ suite "Waku Conf - extMultiaddrs":
     ## Then
     let resValidate = conf.validate()
     assert resValidate.isOk(), $resValidate.error
-    check multiaddrs.len == conf.networkConf.extMultiAddrs.len
-    let resMultiaddrs = conf.networkConf.extMultiAddrs.map(
+    check multiaddrs.len == conf.endpointConf.extMultiAddrs.len
+    let resMultiaddrs = conf.endpointConf.extMultiAddrs.map(
       proc(m: MultiAddress): string =
         $m
     )
     for m in multiaddrs:
       check m in resMultiaddrs
+
+suite "Waku Conf Builder - rate limits":
+  test "Valid rate limit passed via string":
+    ## Setup
+    var builder = RateLimitConfBuilder.init()
+
+    ## Given
+    let rateLimitsStr = @["lightpush:2/2ms", "10/2m", "store: 3/3s"]
+    builder.withRateLimits(rateLimitsStr)
+
+    ## When
+    let res = builder.build()
+
+    ## Then
+    assert res.isOk(), $res.error

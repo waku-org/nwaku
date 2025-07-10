@@ -554,7 +554,7 @@ proc subscribeAndHandleMessages(
     else:
       msgPerContentTopic[msg.contentTopic] = 1
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler))).isOkOr:
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), WakuRelayHandler(handler)).isOkOr:
     error "failed to subscribe to pubsub topic", pubsubTopic, error
     quit(1)
 
@@ -570,17 +570,18 @@ when isMainModule:
   info "cli flags", conf = conf
 
   if conf.clusterId == 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    let twnNetworkConf = NetworkConf.TheWakuNetworkConf()
 
-    conf.bootstrapNodes = twnClusterConf.discv5BootstrapNodes
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    conf.numShardsInNetwork = twnClusterConf.numShardsInNetwork
+    conf.bootstrapNodes = twnNetworkConf.discv5BootstrapNodes
+    conf.rlnRelayDynamic = twnNetworkConf.rlnRelayDynamic
+    conf.rlnRelayEthContractAddress = twnNetworkConf.rlnRelayEthContractAddress
+    conf.rlnEpochSizeSec = twnNetworkConf.rlnEpochSizeSec
+    conf.rlnRelayUserMessageLimit = twnNetworkConf.rlnRelayUserMessageLimit
+    conf.numShardsInNetwork = twnNetworkConf.shardingConf.numShardsInCluster
 
     if conf.shards.len == 0:
-      conf.shards = toSeq(uint16(0) .. uint16(twnClusterConf.numShardsInNetwork - 1))
+      conf.shards =
+        toSeq(uint16(0) .. uint16(twnNetworkConf.shardingConf.numShardsInCluster - 1))
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)

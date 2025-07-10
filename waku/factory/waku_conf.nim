@@ -12,13 +12,22 @@ import
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
+  ../common/rate_limit/setting,
   ../waku_enr/capabilities,
-  ./network_conf
+  ./networks_config
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
 logScope:
   topics = "waku conf"
+
+type WebSocketSecureConf* {.requiresInit.} = object
+  keyPath*: string
+  certPath*: string
+
+type WebSocketConf* = object
+  port*: Port
+  secureConf*: Option[WebSocketSecureConf]
 
 # TODO: should be defined in validator_signed.nim and imported here
 type ProtectedShard* {.requiresInit.} = object
@@ -50,7 +59,7 @@ type FilterServiceConf* {.requiresInit.} = object
   subscriptionTimeout*: uint16
   maxCriteria*: uint32
 
-type NetworkConfig* = object # TODO: make enum
+type EndpointConf* = object # TODO: make enum
   natStrategy*: string
   p2pTcpPort*: Port
   dns4DomainName*: Option[string]
@@ -77,11 +86,10 @@ type WakuConf* {.requiresInit.} = ref object
   nodeKey*: crypto.PrivateKey
 
   clusterId*: uint16
-  shards*: seq[uint16]
+  subscribeShards*: seq[uint16]
   protectedShards*: seq[ProtectedShard]
 
-  # TODO: move to an autoShardingConf
-  numShardsInNetwork*: uint32
+  shardingConf*: ShardingConf
   contentTopics*: seq[string]
 
   relay*: bool
@@ -92,7 +100,6 @@ type WakuConf* {.requiresInit.} = ref object
   relayPeerExchange*: bool
   rendezvous*: bool
   circuitRelayClient*: bool
-  keepAlive*: bool
 
   discv5Conf*: Option[Discv5Conf]
   dnsDiscoveryConf*: Option[DnsDiscoveryConf]
@@ -106,9 +113,8 @@ type WakuConf* {.requiresInit.} = ref object
   reputationConf*: Option[ReputationConf]
 
   portsShift*: uint16
-  dnsAddrs*: bool
   dnsAddrsNameServers*: seq[IpAddress]
-  networkConf*: NetworkConfig
+  endpointConf*: EndpointConf
   wakuFlags*: CapabilitiesBitfield
 
   # TODO: could probably make it a `PeerRemoteInfo`
@@ -133,8 +139,7 @@ type WakuConf* {.requiresInit.} = ref object
 
   colocationLimit*: int
 
-  # TODO: use proper type
-  rateLimits*: seq[string]
+  rateLimit*: ProtocolRateLimitSettings
 
   # TODO: those could be in a relay conf object
   maxRelayPeers*: Option[int]
@@ -155,8 +160,13 @@ proc logConf*(wakuConf: WakuConf) =
 
   info "Configuration. Network", cluster = wakuConf.clusterId
 
+<<<<<<< HEAD
   for shard in wakuConf.shards:
     info "Configuration. Shards", shard = shard
+=======
+  for shard in conf.subscribeShards:
+    info "Configuration. Active Relay Shards", shard = shard
+>>>>>>> master
 
   if wakuConf.discv5Conf.isSome():
     for i in wakuConf.discv5Conf.get().bootstrapNodes:
@@ -182,26 +192,9 @@ proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
     return err("nodekey param is invalid")
   return ok()
 
-proc validateShards(wakuConf: WakuConf): Result[void, string] =
-  let numShardsInNetwork = wakuConf.numShardsInNetwork
-
-  # TODO: fix up this behaviour
-  if numShardsInNetwork == 0:
-    return ok()
-
-  for shard in wakuConf.shards:
-    if shard >= numShardsInNetwork:
-      let msg =
-        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
-        $numShardsInNetwork # fmt doesn't work
-      error "validateShards failed", error = msg
-      return err(msg)
-
-  return ok()
-
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.networkConf.dns4DomainName.isSome() and
-      isEmptyOrWhiteSpace(wakuConf.networkConf.dns4DomainName.get().string):
+  if wakuConf.endpointConf.dns4DomainName.isSome() and
+      isEmptyOrWhiteSpace(wakuConf.endpointConf.dns4DomainName.get().string):
     return err("dns4-domain-name is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):
@@ -253,7 +246,7 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
 
 proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
-  ?wakuConf.validateShards()
+  ?wakuConf.shardingConf.validateShards(wakuConf.subscribeShards)
   ?wakuConf.validateNoEmptyStrings()
 
   if wakuConf.eligibilityConf.isSome():

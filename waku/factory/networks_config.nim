@@ -1,35 +1,50 @@
 {.push raises: [].}
 
-# TODO: Rename this type to match file name
+import chronicles, results, stint
 
-type ClusterConf* = object
+logScope:
+  topics = "waku networks conf"
+
+type
+  ShardingConfKind* = enum
+    AutoSharding
+    StaticSharding
+
+  ShardingConf* = object
+    case kind*: ShardingConfKind
+    of AutoSharding:
+      numShardsInCluster*: uint16
+    of StaticSharding:
+      discard
+
+type NetworkConf* = object
   maxMessageSize*: string # TODO: static convert to a uint64
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
-  rlnRelayChainId*: uint
+  rlnRelayChainId*: UInt256
   rlnRelayDynamic*: bool
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
-  # TODO: should be uint16 like the `shards` parameter
-  numShardsInNetwork*: uint32
+  shardingConf*: ShardingConf
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
 
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
-proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
-  return ClusterConf(
+proc TheWakuNetworkConf*(T: type NetworkConf): NetworkConf =
+  const RelayChainId = 59141'u256
+  return NetworkConf(
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
+    rlnRelayEthContractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
     rlnRelayDynamic: true,
-    rlnRelayChainId: 11155111,
+    rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    numShardsInNetwork: 8,
+    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
     discv5Discovery: true,
     discv5BootstrapNodes:
       @[
@@ -38,3 +53,21 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
         "enr:-QEkuEBfEzJm_kigJ2HoSS_RBFJYhKHocGdkhhBr6jSUAWjLdFPp6Pj1l4yiTQp7TGHyu1kC6FyaU573VN8klLsEm-XuAYJpZIJ2NIJpcIQI2SVcim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOwsS69tgD7u1K50r5-qG5hweuTwa0W26aYPnvivpNlrYN0Y3CCdl-DdWRwgiMohXdha3UyDw",
       ],
   )
+
+proc validateShards*(
+    shardingConf: ShardingConf, shards: seq[uint16]
+): Result[void, string] =
+  case shardingConf.kind
+  of StaticSharding:
+    return ok()
+  of AutoSharding:
+    let numShardsInCluster = shardingConf.numShardsInCluster
+    for shard in shards:
+      if shard >= numShardsInCluster:
+        let msg =
+          "validateShards invalid shard: " & $shard & " when numShardsInCluster: " &
+          $numShardsInCluster
+        error "validateShards failed", error = msg
+        return err(msg)
+
+  return ok()

@@ -10,6 +10,7 @@ import
 
 import
   ./internal_config,
+  ./networks_config,
   ./waku_conf,
   ./builder,
   ./validator_signed,
@@ -68,17 +69,6 @@ proc initNode(
   ## file. Optionally include persistent peer storage.
   ## No protocols are mounted yet.
 
-  var dnsResolver: DnsResolver
-  if conf.dnsAddrs:
-    # Support for DNS multiaddrs
-    var nameServers: seq[TransportAddress]
-    for ip in conf.dnsAddrsNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    dnsResolver = DnsResolver.new(nameServers)
-
-  var node: WakuNode
-
   let pStorage =
     if peerStore.isNone():
       nil
@@ -92,6 +82,9 @@ proc initNode(
     else:
       (none(string), none(string))
 
+  let nameResolver =
+    DnsResolver.new(conf.dnsAddrsNameServers.mapIt(initTAddress(it, Port(53))))
+
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
@@ -103,7 +96,7 @@ proc initNode(
     maxConnections = some(conf.maxConnections.int),
     secureKey = secureKey,
     secureCert = secureCert,
-    nameResolver = dnsResolver,
+    nameResolver = nameResolver,
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled
     agentString = some(conf.agentString),
@@ -116,6 +109,7 @@ proc initNode(
     else:
       false
 
+<<<<<<< HEAD
   let reputationEnabled =
     if conf.reputationConf.isSome():
       conf.reputationConf.get().enabled
@@ -144,9 +138,24 @@ proc initNode(
     reputationEnabled = reputationEnabled,
   )
   builder.withRateLimit(conf.rateLimits)
+=======
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
+    error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
+  else:
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = conf.relayServiceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
+  builder.withRateLimit(conf.rateLimit)
+>>>>>>> master
   builder.withCircuitRelay(relay)
 
-  node =
+  let node =
     ?builder.build().mapErr(
       proc(err: string): string =
         "failed to create waku node instance: " & err
@@ -159,10 +168,12 @@ proc initNode(
 proc getAutoshards*(
     node: WakuNode, contentTopics: seq[string]
 ): Result[seq[RelayShard], string] =
+  if node.wakuAutoSharding.isNone():
+    return err("Static sharding used, cannot get shards from content topics")
   var autoShards: seq[RelayShard]
   for contentTopic in contentTopics:
-    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
-      return err("Could not parse content topic: " & error)
+    let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
+        return err("Could not parse content topic: " & error)
     autoShards.add(shard)
   return ok(autoshards)
 
@@ -172,10 +183,6 @@ proc setupProtocols(
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
-
-  if conf.discv5Conf.isSome() and conf.discv5Conf.get().discv5Only:
-    notice "Running node only with Discv5, not mounting additional protocols"
-    return ok()
 
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
@@ -284,16 +291,11 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
-  # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
-  let numShardsInNetwork = getNumShardsInNetwork(conf)
-
-  if conf.numShardsInNetwork == 0:
-    warn "Number of shards in network not configured, setting it to",
-      # TODO: If not configured, it mounts 1024 shards! Make it a mandatory configuration instead
-      numShardsInNetwork = $numShardsInNetwork
-
-  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
-    return err("failed to mount waku sharding: " & error)
+  if conf.shardingConf.kind == AutoSharding:
+    node.mountAutoSharding(conf.clusterId, conf.shardingConf.numShardsInCluster).isOkOr:
+      return err("failed to mount waku auto sharding: " & error)
+  else:
+    warn("Auto sharding is disabled")
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -316,14 +318,22 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
-    return err("Could not get autoshards: " & error)
+  # TODO: when using autosharding, the user should not be expected to pass any shards, but only content topics
+  # Hence, this joint logic should be removed in favour of an either logic:
+  # use passed shards (static) or deduce shards from content topics (auto)
+  let autoShards =
+    if node.wakuAutoSharding.isSome():
+      node.getAutoshards(conf.contentTopics).valueOr:
+        return err("Could not get autoshards: " & error)
+    else:
+      @[]
 
   debug "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
 
-  let confShards =
-    conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+  let confShards = conf.subscribeShards.mapIt(
+    RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+  )
   let shards = confShards & autoShards
 
   if conf.relay:
@@ -331,10 +341,7 @@ proc setupProtocols(
 
     (
       await mountRelay(
-        node,
-        shards,
-        peerExchangeHandler = peerExchangeHandler,
-        int(conf.maxMessageSizeBytes),
+        node, peerExchangeHandler = peerExchangeHandler, int(conf.maxMessageSizeBytes)
       )
     ).isOkOr:
       return err("failed to mount waku relay protocol: " & $error)
@@ -342,7 +349,7 @@ proc setupProtocols(
     # Add validation keys to protected topics
     var subscribedProtectedShards: seq[ProtectedShard]
     for shardKey in conf.protectedShards:
-      if shardKey.shard notin conf.shards:
+      if shardKey.shard notin conf.subscribeShards:
         warn "protected shard not in subscribed shards, skipping adding validator",
           protectedShard = shardKey.shard, subscribedShards = shards
         continue
@@ -476,7 +483,7 @@ proc startNode*(
   ## Connect to static nodes and start
   ## keep-alive, if configured.
 
-  # Start Waku v2 node
+  info "Running nwaku node", version = git_version
   try:
     await node.start()
   except CatchableError:
@@ -512,10 +519,6 @@ proc startNode*(
   if conf.peerExchange and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
-  # Start keepalive, if enabled
-  if conf.keepAlive:
-    node.startKeepalive()
-
   # Maintain relay connections
   if conf.relay:
     node.peerManager.start()
@@ -526,7 +529,7 @@ proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
   let netConfig = networkConfiguration(
-    wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
+    wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
     wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
     wakuConf.portsShift, clientId,
   ).valueOr:

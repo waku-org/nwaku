@@ -67,9 +67,7 @@ proc installRelayApiHandlers*(
     for pubsubTopic in newTopics:
       cache.pubsubSubscribe(pubsubTopic)
 
-      node.subscribe(
-        (kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache))
-      ).isOkOr:
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), messageCacheHandler(cache)).isOkOr:
         let errorMsg = "Subscribe failed:" & $error
         error "SUBSCRIBE failed", error = errorMsg
         return RestApiResponse.internalServerError(errorMsg)
@@ -202,7 +200,7 @@ proc installRelayApiHandlers*(
       cache.contentSubscribe(contentTopic)
 
       node.subscribe(
-        (kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache))
+        (kind: ContentSub, topic: contentTopic), messageCacheHandler(cache)
       ).isOkOr:
         let errorMsg = "Subscribe failed:" & $error
         error "SUBSCRIBE failed", error = errorMsg
@@ -274,10 +272,15 @@ proc installRelayApiHandlers*(
     var message: WakuMessage = req.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
 
-    let pubsubTopic = node.wakuSharding.getShard(message.contentTopic).valueOr:
-      let msg = "Autosharding error: " & error
+    if node.wakuAutoSharding.isNone():
+      let msg = "Autosharding is disabled"
       error "publish error", err = msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)
+
+    let pubsubTopic = node.wakuAutoSharding.get().getShard(message.contentTopic).valueOr:
+        let msg = "Autosharding error: " & error
+        error "publish error", err = msg
+        return RestApiResponse.badRequest("Failed to publish. " & msg)
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():

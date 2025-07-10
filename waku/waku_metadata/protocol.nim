@@ -29,7 +29,7 @@ proc respond(
     m: WakuMetadata, conn: Connection
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let response =
-    WakuMetadataResponse(clusterId: some(m.clusterId), shards: toSeq(m.shards))
+    WakuMetadataResponse(clusterId: some(m.clusterId.uint32), shards: toSeq(m.shards))
 
   let res = catch:
     await conn.writeLP(response.encode().buffer)
@@ -70,7 +70,11 @@ proc request*(
   return ok(response)
 
 proc initProtocolHandler(m: WakuMetadata) =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+    defer:
+      # close, no data is expected
+      await conn.closeWithEof()
+
     let res = catch:
       await conn.readLp(RpcResponseMaxBytes)
     let buffer = res.valueOr:
@@ -88,12 +92,13 @@ proc initProtocolHandler(m: WakuMetadata) =
       localShards = m.shards,
       peer = conn.peerId
 
-    discard await m.respond(conn)
+    try:
+      discard await m.respond(conn)
+    except CatchableError:
+      error "Failed to respond to WakuMetadata request",
+        error = getCurrentExceptionMsg()
 
-    # close, no data is expected
-    await conn.closeWithEof()
-
-  m.handler = handle
+  m.handler = handler
   m.codec = WakuMetadataCodec
 
 proc new*(

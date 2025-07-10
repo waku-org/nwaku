@@ -287,14 +287,20 @@ proc handleMessage*(
   waku_filter_handle_message_duration_seconds.observe(handleMessageDurationSec)
 
 proc initProtocolHandler(wf: WakuFilter) =
-  proc handler(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     debug "filter subscribe request handler triggered",
       peerId = shortLog(conn.peerId), conn
 
     var response: FilterSubscribeResponse
 
     wf.peerRequestRateLimiter.checkUsageLimit(WakuFilterSubscribeCodec, conn):
-      let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
+      var buf: seq[byte]
+      try:
+        buf = await conn.readLp(int(DefaultMaxSubscribeSize))
+      except LPStreamError:
+        error "failed to read stream in readLp",
+          remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
+        return
 
       waku_service_network_bytes.inc(
         amount = buf.len().int64, labelValues = [WakuFilterSubscribeCodec, "in"]
@@ -302,14 +308,19 @@ proc initProtocolHandler(wf: WakuFilter) =
 
       let decodeRes = FilterSubscribeRequest.decode(buf)
       if decodeRes.isErr():
-        error "Failed to decode filter subscribe request",
+        error "failed to decode filter subscribe request",
           peer_id = conn.peerId, err = decodeRes.error
         waku_filter_errors.inc(labelValues = [decodeRpcFailure])
         return
 
       let request = decodeRes.value #TODO: toAPI() split here
 
-      response = await wf.handleSubscribeRequest(conn.peerId, request)
+      try:
+        response = await wf.handleSubscribeRequest(conn.peerId, request)
+      except CatchableError:
+        error "handleSubscribeRequest failed",
+          remote_peer_id = conn.peerId, err = getCurrentExceptionMsg()
+        return
 
       debug "sending filter subscribe response",
         peer_id = shortLog(conn.peerId), response = response
@@ -322,7 +333,11 @@ proc initProtocolHandler(wf: WakuFilter) =
         statusDesc: some("filter request rejected due rate limit exceeded"),
       )
 
-    await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
+    try:
+      await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
+    except LPStreamError:
+      error "failed to write stream in writeLp",
+        remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
     return
 
   wf.handler = handler
@@ -355,8 +370,16 @@ proc new*(
     peerRequestRateLimiter: PerPeerRateLimiter(setting: rateLimitSetting),
   )
 
-  proc peerEventHandler(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
-    wf.onPeerEventHandler(peerId, event)
+  proc peerEventHandler(
+      peerId: PeerId, event: PeerEvent
+  ): Future[void] {.gcsafe, async: (raises: [CancelledError]).} =
+    try:
+      await wf.onPeerEventHandler(peerId, event)
+    except CatchableError:
+      error "onPeerEventHandler failed",
+        remote_peer_id = shortLog(peerId),
+        event = event,
+        error = getCurrentExceptionMsg()
 
   peerManager.addExtPeerEventHandler(peerEventHandler, PeerEventKind.Left)
 

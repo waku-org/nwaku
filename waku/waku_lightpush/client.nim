@@ -36,7 +36,8 @@ proc sendPushRequest(
   let connection = (await wl.peerManager.dialPeer(peer, WakuLightPushCodec)).valueOr:
     waku_lightpush_v3_errors.inc(labelValues = [dialFailure])
     return lighpushErrorResult(
-      NO_PEERS_TO_RELAY, dialFailure & ": " & $peer & " is not accessible"
+      LightPushErrorCode.NO_PEERS_TO_RELAY,
+      dialFailure & ": " & $peer & " is not accessible",
     )
 
   await connection.writeLP(req.encode().buffer)
@@ -45,9 +46,13 @@ proc sendPushRequest(
   try:
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
+<<<<<<< HEAD
     error "Failed to read responose from peer", error = getCurrentExceptionMsg()
     if wl.peerManager.reputationManager.isSome:
       wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
+=======
+    error "Failed to read response from peer", error = getCurrentExceptionMsg()
+>>>>>>> master
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
@@ -60,7 +65,7 @@ proc sendPushRequest(
     return lightpushResultInternalError(decodeRpcFailure)
 
   if response.requestId != req.requestId and
-      response.statusCode != TOO_MANY_REQUESTS.uint32:
+      response.statusCode != LightPushErrorCode.TOO_MANY_REQUESTS:
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
     if wl.peerManager.reputationManager.isSome:
@@ -121,6 +126,8 @@ proc publishToAny*(
   info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
-    return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
+    return lighpushErrorResult(
+      LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
+    )
 
   return await wl.publish(some(pubSubTopic), message, eligibilityproof, peer)

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strformat, net],
+  std/[sequtils, net],
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -42,14 +42,35 @@ suite "Waku v2 Rest API - Admin":
     node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60602))
     node3 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60604))
 
+    let clusterId = 1.uint16
+    node1.mountMetadata(clusterId).isOkOr:
+      assert false, "Failed to mount metadata: " & $error
+    node2.mountMetadata(clusterId).isOkOr:
+      assert false, "Failed to mount metadata: " & $error
+    node3.mountMetadata(clusterId).isOkOr:
+      assert false, "Failed to mount metadata: " & $error
+
     await allFutures(node1.start(), node2.start(), node3.start())
-    let shards = @[RelayShard(clusterId: 1, shardId: 0)]
     await allFutures(
-      node1.mountRelay(shards = shards),
-      node2.mountRelay(shards = shards),
-      node3.mountRelay(shards = shards),
+      node1.mountRelay(),
+      node2.mountRelay(),
+      node3.mountRelay(),
       node3.mountPeerExchange(),
     )
+
+    # The three nodes should be subscribed to the same shard
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    let shard = RelayShard(clusterId: clusterId, shardId: 0)
+    node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node2.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
+    node3.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to topic: " & $error
 
     peerInfo1 = node1.switch.peerInfo
     peerInfo2 = node2.switch.peerInfo

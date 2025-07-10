@@ -131,6 +131,8 @@ type
     # a map of validators to error messages to return when validation fails
     topicValidator: Table[PubsubTopic, ValidatorHandler]
       # map topic with its assigned validator within pubsub
+    topicHandlers: Table[PubsubTopic, TopicHandler]
+      # map topic with the TopicHandler proc in charge of attending topic's incoming message events
     publishObservers: seq[PublishObserver]
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
@@ -144,7 +146,7 @@ type PublishOutcome* {.pure.} = enum
   CannotGenerateMessageId
 
 proc initProtocolHandler(w: WakuRelay) =
-  proc handler(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string
     ## e.g. ``/wakusub/0.0.1``, etc...
@@ -330,6 +332,13 @@ proc getPubSubPeersInMesh*(
   ## Returns the list of PubSubPeers in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
 
+  # If pubsubTopic is empty, we return all peers in mesh for any pubsub topic
+  if pubsubTopic == "":
+    var allPeers = initHashSet[PubSubPeer]()
+    for topic, topicMesh in w.mesh.pairs:
+      allPeers = allPeers.union(topicMesh)
+    return ok(allPeers)
+
   if not w.mesh.hasKey(pubsubTopic):
     debug "getPubSubPeersInMesh - there is no mesh peer for the given pubsub topic",
       pubsubTopic = pubsubTopic
@@ -346,7 +355,7 @@ proc getPubSubPeersInMesh*(
   return ok(peers)
 
 proc getPeersInMesh*(
-    w: WakuRelay, pubsubTopic: PubsubTopic
+    w: WakuRelay, pubsubTopic: PubsubTopic = ""
 ): Result[seq[PeerId], string] =
   ## Returns the list of peerIds in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
@@ -488,13 +497,11 @@ proc validateMessage*(
 
   return ok()
 
-proc subscribe*(
-    w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler
-): TopicHandler =
+proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic = pubsubTopic
 
   # We need to wrap the handler since gossipsub doesnt understand WakuMessage
-  let wrappedHandler = proc(
+  let topicHandler = proc(
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data)
@@ -526,9 +533,9 @@ proc subscribe*(
   w.topicParams[pubsubTopic] = TopicParameters
 
   # subscribe to the topic with our wrapped handler
-  procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
+  procCall GossipSub(w).subscribe(pubsubTopic, topicHandler)
 
-  return wrappedHandler
+  w.topicHandlers[pubsubTopic] = topicHandler
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic
@@ -537,35 +544,32 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
   w.topicValidator.del(pubsubTopic)
+  w.topicHandlers.del(pubsubTopic)
 
 proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   if not w.topicValidator.hasKey(pubsubTopic):
     error "unsubscribe no validator for this topic", pubsubTopic
     return
 
-  if pubsubtopic notin Pubsub(w).topics:
+  if not w.topicHandlers.hasKey(pubsubTopic):
     error "not subscribed to the given topic", pubsubTopic
     return
 
-  var topicHandlerSeq: seq[TopicHandler]
+  var topicHandler: TopicHandler
   var topicValidator: ValidatorHandler
   try:
-    topicHandlerSeq = Pubsub(w).topics[pubsubTopic]
-    if topicHandlerSeq.len == 0:
-      error "unsubscribe no handler for this topic", pubsubTopic
-      return
+    topicHandler = w.topicHandlers[pubsubTopic]
     topicValidator = w.topicValidator[pubsubTopic]
   except KeyError:
     error "exception in unsubscribe", pubsubTopic, error = getCurrentExceptionMsg()
     return
 
-  let topicHandler = topicHandlerSeq[0]
-
   debug "unsubscribe", pubsubTopic
-  procCall GossipSub(w).unsubscribe($pubsubTopic, topicHandler)
-  ## TODO: uncomment the following line when https://github.com/vacp2p/nim-libp2p/pull/1356
-  ## is available in a nim-libp2p release.
-  # procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
+  procCall GossipSub(w).unsubscribe(pubsubTopic, topicHandler)
+  procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
+
+  w.topicValidator.del(pubsubTopic)
+  w.topicHandlers.del(pubsubTopic)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage

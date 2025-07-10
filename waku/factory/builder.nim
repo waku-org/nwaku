@@ -43,8 +43,8 @@ type
     switchSendSignedPeerRecord: Option[bool]
     circuitRelay: Relay
 
-    #Rate limit configs for non-relay req-resp protocols
-    rateLimitSettings: Option[seq[string]]
+    # Rate limit configs for non-relay req-resp protocols
+    rateLimitSettings: Option[ProtocolRateLimitSettings]
 
     # Eligibility enabled
     eligibilityEnabled: bool
@@ -85,6 +85,7 @@ proc withNetworkConfigurationDetails*(
     wssEnabled: bool = false,
     wakuFlags = none(CapabilitiesBitfield),
     dns4DomainName = none(string),
+    dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
 ): WakuNodeBuilderResult {.
     deprecated: "use 'builder.withNetworkConfiguration()' instead"
 .} =
@@ -100,6 +101,7 @@ proc withNetworkConfigurationDetails*(
       wssEnabled = wssEnabled,
       wakuFlags = wakuFlags,
       dns4DomainName = dns4DomainName,
+      dnsNameServers = dnsNameServers,
     )
   builder.withNetworkConfiguration(netConfig)
   ok()
@@ -135,7 +137,7 @@ proc withPeerManagerConfig*(
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
 
-proc withRateLimit*(builder: var WakuNodeBuilder, limits: seq[string]) =
+proc withRateLimit*(builder: var WakuNodeBuilder, limits: ProtocolRateLimitSettings) =
   builder.rateLimitSettings = some(limits)
 
 proc withCircuitRelay*(builder: var WakuNodeBuilder, circuitRelay: Relay) =
@@ -176,6 +178,10 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.netConfig.isNone():
     return err("network configuration is required")
 
+  let netConfig = builder.netConfig.get()
+  if netConfig.dnsNameServers.len == 0:
+    return err("DNS name servers are required for WakuNode")
+
   if builder.record.isNone():
     return err("node record is required")
 
@@ -206,8 +212,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())
 
-  let netConfig = builder.netConfig.get()
-
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),
@@ -215,7 +219,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     maxServicePeers = some(builder.maxServicePeers),
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
-    dnsNameServers = netConfig.dnsNameServers,
     eligibilityEnabled = builder.eligibilityEnabled,
     reputationEnabled = builder.reputationEnabled
   )
@@ -228,11 +231,9 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       switch = switch,
       peerManager = peerManager,
       rng = rng,
+      rateLimitSettings = builder.rateLimitSettings.get(DefaultProtocolRateLimit),
     )
   except Exception:
     return err("failed to build WakuNode instance: " & getCurrentExceptionMsg())
-
-  if builder.rateLimitSettings.isSome():
-    ?node.setRateLimits(builder.rateLimitSettings.get())
 
   ok(node)

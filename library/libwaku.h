@@ -45,6 +45,8 @@ int waku_version(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+// Sets a callback that will be invoked whenever an event occurs.
+// It is crucial that the passed callback is fast, non-blocking and potentially thread-safe.
 void waku_set_event_callback(void* ctx,
                              WakuCallBack callback,
                              void* userData);
@@ -150,6 +152,10 @@ int waku_disconnect_peer_by_id(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_disconnect_all_peers(void* ctx,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_dial_peer(void* ctx,
                  const char* peerMultiAddr,
                  const char* protocol,
@@ -221,6 +227,10 @@ int waku_get_my_peerid(void* ctx,
                     WakuCallBack callback,
                     void* userData);
 
+int waku_get_metrics(void* ctx,
+                    WakuCallBack callback,
+                    void* userData);
+
 int waku_peer_exchange_request(void* ctx,
                                int numPeers,
                                WakuCallBack callback,
@@ -229,6 +239,10 @@ int waku_peer_exchange_request(void* ctx,
 int waku_ping_peer(void* ctx,
                         const char* peerAddr,
                         int timeoutMs,
+                        WakuCallBack callback,
+                        void* userData);
+
+int waku_is_online(void* ctx,
                         WakuCallBack callback,
                         void* userData);
 

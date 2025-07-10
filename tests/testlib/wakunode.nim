@@ -1,7 +1,6 @@
 import
   std/options,
   results,
-  stew/shims/net,
   chronos,
   libp2p/switch,
   libp2p/builders,
@@ -38,7 +37,7 @@ proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
   builder.withRelayServiceRatio("60:40")
   builder.withMaxMessageSize("1024 KiB")
   builder.withClusterId(DefaultClusterId)
-  builder.withShards(@[DefaultShardId])
+  builder.withSubscribeShards(@[DefaultShardId])
   builder.withRelay(true)
   builder.withRendezvous(true)
   builder.storeServiceConf.withDbMigration(false)
@@ -73,7 +72,7 @@ proc newTestWakuNode*(
     agentString = none(string),
     peerStoreCapacity = none(int),
     clusterId = DefaultClusterId,
-    shards = @[DefaultShardId],
+    subscribeShards = @[DefaultShardId],
 ): WakuNode =
   var resolvedExtIp = extIp
 
@@ -87,7 +86,7 @@ proc newTestWakuNode*(
   var conf = defaultTestWakuConf()
 
   conf.clusterId = clusterId
-  conf.shards = shards
+  conf.subscribeShards = subscribeShards
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
@@ -115,7 +114,7 @@ proc newTestWakuNode*(
   var enrBuilder = EnrBuilder.init(nodeKey)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.subscribeShards)
   ).isOkOr:
     raise newException(Defect, "Invalid record: " & $error)
 

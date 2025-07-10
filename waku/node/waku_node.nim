@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net, random],
   chronos,
   chronicles,
   metrics,
@@ -70,6 +70,10 @@ declarePublicGauge waku_px_peers,
 logScope:
   topics = "waku node"
 
+# randomize initializes sdt/random's random number generator
+# if not called, the outcome of randomization procedures will be the same in every run
+randomize()
+
 # TODO: Move to application instance (e.g., `WakuNode2`)
 # Git version in git describe format (defined compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -109,7 +113,7 @@ type
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
-    wakuSharding*: Sharding
+    wakuAutoSharding*: Option[Sharding]
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -117,7 +121,6 @@ type
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
-    contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
 
 proc new*(
@@ -126,6 +129,7 @@ proc new*(
     enr: enr.Record,
     switch: Switch,
     peerManager: PeerManager,
+    rateLimitSettings: ProtocolRateLimitSettings = DefaultProtocolRateLimit,
     # TODO: make this argument required after tests are updated
     rng: ref HmacDrbgContext = crypto.newRng(),
 ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
@@ -142,7 +146,7 @@ proc new*(
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
-    rateLimitSettings: DefaultProtocolRateLimit,
+    rateLimitSettings: rateLimitSettings,
   )
 
   return node
@@ -196,12 +200,13 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
 
   return ok()
 
-## Waku Sharding
-proc mountSharding*(
+## Waku AutoSharding
+proc mountAutoSharding*(
     node: WakuNode, clusterId: uint16, shardCount: uint32
 ): Result[void, string] =
-  info "mounting sharding", clusterId = clusterId, shardCount = shardCount
-  node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+  info "mounting auto sharding", clusterId = clusterId, shardCount = shardCount
+  node.wakuAutoSharding =
+    some(Sharding(clusterId: clusterId, shardCountGenZero: shardCount))
   return ok()
 
 ## Waku Sync
@@ -257,7 +262,13 @@ proc mountStoreSync*(
 
 ## Waku relay
 
-proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
+proc registerRelayHandler(
+    node: WakuNode, topic: PubsubTopic, appHandler: WakuRelayHandler
+) =
+  ## Registers the only handler for the given topic.
+  ## Notice that this handler internally calls other handlers, such as filter,
+  ## archive, etc, plus the handler provided by the application.
+
   if node.wakuRelay.isSubscribed(topic):
     return
 
@@ -290,18 +301,19 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     node.wakuStoreReconciliation.messageIngress(topic, msg)
 
-  let defaultHandler = proc(
+  let uniqueTopicHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
     await syncHandler(topic, msg)
+    await appHandler(topic, msg)
 
-  discard node.wakuRelay.subscribe(topic, defaultHandler)
+  node.wakuRelay.subscribe(topic, uniqueTopicHandler)
 
 proc subscribe*(
-    node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)
+    node: WakuNode, subscription: SubscriptionEvent, handler: WakuRelayHandler
 ): Result[void, string] =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
@@ -313,32 +325,26 @@ proc subscribe*(
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentSub:
-      let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
-        error "Autosharding error", error = error
-        return err("Autosharding error: " & error)
-
-      ($shard, some(subscription.topic))
+      if node.wakuAutoSharding.isSome():
+        let shard = node.wakuAutoSharding.get().getShard((subscription.topic)).valueOr:
+            error "Autosharding error", error = error
+            return err("Autosharding error: " & error)
+        ($shard, some(subscription.topic))
+      else:
+        return err(
+          "Static sharding is used, relay subscriptions must specify a pubsub topic"
+        )
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
       return err("Unsupported subscription type in relay subscribe")
 
   if node.wakuRelay.isSubscribed(pubsubTopic):
-    debug "already subscribed to topic", pubsubTopic
-    return err("Already subscribed to topic: " & $pubsubTopic)
+    warn "No-effect API call to subscribe. Already subscribed to topic", pubsubTopic
+    return ok()
 
-  if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    error "Invalid API call to `subscribe`. Was already subscribed"
-    return err("Invalid API call to `subscribe`. Was already subscribed")
-
+  node.registerRelayHandler(pubsubTopic, handler)
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
-  node.registerRelayDefaultHandler(pubsubTopic)
-
-  if handler.isSome():
-    let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
-
-    if contentTopicOp.isSome():
-      node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
 
   return ok()
 
@@ -354,32 +360,27 @@ proc unsubscribe*(
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentUnsub:
-      let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
-        error "Autosharding error", error = error
-        return err("Autosharding error: " & error)
-
-      ($shard, some(subscription.topic))
+      if node.wakuAutoSharding.isSome():
+        let shard = node.wakuAutoSharding.get().getShard((subscription.topic)).valueOr:
+            error "Autosharding error", error = error
+            return err("Autosharding error: " & error)
+        ($shard, some(subscription.topic))
+      else:
+        return err(
+          "Static sharding is used, relay subscriptions must specify a pubsub topic"
+        )
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
       return err("Unsupported subscription type in relay unsubscribe")
 
   if not node.wakuRelay.isSubscribed(pubsubTopic):
-    error "Invalid API call to `unsubscribe`. Was not subscribed", pubsubTopic
-    return
-      err("Invalid API call to `unsubscribe`. Was not subscribed to: " & $pubsubTopic)
+    warn "No-effect API call to `unsubscribe`. Was not subscribed", pubsubTopic
+    return ok()
 
-  if contentTopicOp.isSome():
-    # Remove this handler only
-    var handler: TopicHandler
-    ## TODO: refactor this part. I think we can simplify it
-    if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
-      debug "unsubscribe", contentTopic = contentTopicOp.get()
-      node.wakuRelay.unsubscribe(pubsubTopic)
-  else:
-    debug "unsubscribe", pubsubTopic = pubsubTopic
-    node.wakuRelay.unsubscribe(pubsubTopic)
-    node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+  debug "unsubscribe", pubsubTopic, contentTopicOp
+  node.wakuRelay.unsubscribe(pubsubTopic)
+  node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
   return ok()
 
@@ -398,9 +399,10 @@ proc publish*(
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
-    node.wakuSharding.getShard(message.contentTopic).valueOr:
+    if node.wakuAutoSharding.isNone():
+      return err("Pubsub topic must be specified when static sharding is enabled.")
+    node.wakuAutoSharding.get().getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
-      error "publish error", err = msg
       return err(msg)
 
   #TODO instead of discard return error when 0 peers received the message
@@ -441,7 +443,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ): Future[Result[void, string]] {.async.} =
@@ -467,16 +468,7 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  ## Make sure we don't have duplicates
-  let uniqueShards = deduplicate(shards)
-
-  # Subscribe to shards
-  for shard in uniqueShards:
-    node.subscribe((kind: PubsubSub, topic: $shard)).isOkOr:
-      error "failed to subscribe to shard", error = error
-      return err("failed to subscribe to shard in mountRelay: " & error)
-
-  info "relay mounted successfully", shards = uniqueShards
+  info "relay mounted successfully"
   return ok()
 
 ## Waku filter
@@ -584,8 +576,14 @@ proc filterSubscribe*(
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
     return subRes
+  elif node.wakuAutoSharding.isNone():
+    error "Failed filter subscription, pubsub topic must be specified with static sharding"
+    waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
   else:
-    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
+    # No pubsub topic, autosharding is used to deduce it
+    # but content topics must be well-formed for this
+    let topicMapRes =
+      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -595,11 +593,11 @@ proc filterSubscribe*(
         topicMapRes.get()
 
     var futures = collect(newSeq):
-      for pubsub, topics in topicMap.pairs:
+      for shard, topics in topicMap.pairs:
         info "registering filter subscription to content",
-          pubsubTopic = pubsub, contentTopics = topics, peer = remotePeer.peerId
+          shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.subscribe(remotePeer, $pubsub, content)
+        node.wakuFilterClient.subscribe(remotePeer, $shard, content)
 
     var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -663,8 +661,12 @@ proc filterUnsubscribe*(
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
 
     return unsubRes
+  elif node.wakuAutoSharding.isNone():
+    error "Failed filter un-subscription, pubsub topic must be specified with static sharding"
+    waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
   else: # pubsubTopic.isNone
-    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes =
+      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -674,11 +676,11 @@ proc filterUnsubscribe*(
         topicMapRes.get()
 
     var futures = collect(newSeq):
-      for pubsub, topics in topicMap.pairs:
+      for shard, topics in topicMap.pairs:
         info "deregistering filter subscription to content",
-          pubsubTopic = pubsub, contentTopics = topics, peer = remotePeer.peerId
+          shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.unsubscribe(remotePeer, $pubsub, content)
+        node.wakuFilterClient.unsubscribe(remotePeer, $shard, content)
 
     var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -1084,7 +1086,10 @@ proc legacyLightpushPublish*(
     if pubsubTopic.isSome():
       return await internalPublish(node, pubsubTopic.get(), message, peer)
 
-    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
+    if node.wakuAutoSharding.isNone():
+      return err("Pubsub topic must be specified when static sharding is enabled")
+    let topicMapRes =
+      node.wakuAutoSharding.get().getShardsFromContentTopics(message.contentTopic)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -1140,7 +1145,7 @@ proc mountLightPush*(
       lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush = WakuLightPush.new(
-    node.peerManager, node.rng, pushHandler, node.wakuSharding, some(rateLimit)
+    node.peerManager, node.rng, pushHandler, node.wakuAutoSharding, some(rateLimit)
   )
 
   if node.started:
@@ -1191,7 +1196,9 @@ proc lightpushPublish*(
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
     error "failed to publish message as lightpush not available"
-    return lighpushErrorResult(SERVICE_NOT_AVAILABLE, "Waku lightpush not available")
+    return lighpushErrorResult(
+      LightPushErrorCode.SERVICE_NOT_AVAILABLE, "Waku lightpush not available"
+    )
 
   let toPeer: RemotePeerInfo = peerOpt.valueOr:
     if not node.wakuLightPush.isNil():
@@ -1199,21 +1206,33 @@ proc lightpushPublish*(
     elif not node.wakuLightpushClient.isNil():
       node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
+<<<<<<< HEAD
         error "failed to publish message", err = msg
         return lighpushErrorResult(NO_PEERS_TO_RELAY, msg)
+=======
+        error "failed to publish message", msg = msg
+        return lighpushErrorResult(LightPushErrorCode.NO_PEERS_TO_RELAY, msg)
+>>>>>>> master
     else:
-      return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
+      return lighpushErrorResult(
+        LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
+      )
 
   let pubsubForPublish = pubSubTopic.valueOr:
+    if node.wakuAutoSharding.isNone():
+      let msg = "Pubsub topic must be specified when static sharding is enabled"
+      error "lightpush publish error", error = msg
+      return lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, msg)
+
     let parsedTopic = NsContentTopic.parse(message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
       error "lightpush request handling error", error = msg
-      return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
+      return lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, msg)
 
-    node.wakuSharding.getShard(parsedTopic).valueOr:
+    node.wakuAutoSharding.get().getShard(parsedTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "lightpush publish error", error = msg
-      return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
+      return lighpushErrorResult(LightPushErrorCode.INTERNAL_SERVER_ERROR, msg)
 
   debug "in lightpushPublish"
   debug "eligibilityProof: ", eligibilityProof
@@ -1356,35 +1375,60 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
-# TODO: Move this logic to PeerManager
-proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
-  while true:
-    await sleepAsync(keepalive)
-    if not node.started:
+proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.async.} =
+  ## Ping a single peer and return the result
+
+  try:
+    # Establish a stream
+    let stream = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
+      error "pingPeer: failed dialing peer", peerId = peerId
+      return err("pingPeer failed dialing peer peerId: " & $peerId)
+    defer:
+      # Always close the stream
+      try:
+        await stream.close()
+      except CatchableError as e:
+        debug "Error closing ping connection", peerId = peerId, error = e.msg
+
+    # Perform ping
+    let pingDuration = await node.libp2pPing.ping(stream)
+
+    trace "Ping successful", peerId = peerId, duration = pingDuration
+    return ok()
+  except CatchableError as e:
+    error "pingPeer: exception raised pinging peer", peerId = peerId, error = e.msg
+    return err("pingPeer: exception raised pinging peer: " & e.msg)
+
+proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
+  var randomPeers = peers
+  shuffle(randomPeers)
+  return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
+
+# Returns the number of succesful pings performed
+proc parallelPings*(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.} =
+  if len(peerIds) == 0:
+    return 0
+
+  var pingFuts: seq[Future[Result[void, string]]]
+
+  # Create ping futures for each peer
+  for i, peerId in peerIds:
+    let fut = pingPeer(node, peerId)
+    pingFuts.add(fut)
+
+  # Wait for all pings to complete
+  discard await allFutures(pingFuts).withTimeout(5.seconds)
+
+  var successCount = 0
+  for fut in pingFuts:
+    if not fut.completed() or fut.failed():
       continue
 
-    # Keep connected peers alive while running
-    # Each node is responsible of keeping its outgoing connections alive
-    trace "Running keepalive"
+    let res = fut.read()
+    if res.isOk():
+      successCount.inc()
 
-    # First get a list of connected peer infos
-    let outPeers = node.peerManager.connectedPeers()[1]
-
-    for peerId in outPeers:
-      try:
-        let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
-          warn "Failed dialing peer for keep alive", peerId = peerId
-          continue
-        let pingDelay = await node.libp2pPing.ping(conn)
-        await conn.close()
-      except CatchableError as exc:
-        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
-
-# 2 minutes default - 20% of the default chronosstream timeout duration
-proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
-  info "starting keepalive", keepalive = keepalive
-
-  asyncSpawn node.keepaliveLoop(keepalive)
+  return successCount
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
@@ -1483,7 +1527,7 @@ proc start*(node: WakuNode) {.async.} =
   ## with announced addrs after start
   let addressMapper = proc(
       listenAddrs: seq[MultiAddress]
-  ): Future[seq[MultiAddress]] {.async.} =
+  ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
     return node.announcedAddresses
   node.switch.peerInfo.addressMappers.add(addressMapper)
 
@@ -1537,10 +1581,3 @@ proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =
     return true
   return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
-
-proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
-  let rateLimitConfig = ProtocolRateLimitSettings.parse(limits)
-  if rateLimitConfig.isErr():
-    return err("invalid rate limit settings:" & rateLimitConfig.error)
-  node.rateLimitSettings = rateLimitConfig.get()
-  return ok()

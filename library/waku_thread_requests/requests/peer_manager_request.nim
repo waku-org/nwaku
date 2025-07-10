@@ -1,10 +1,10 @@
 import std/[sequtils, strutils]
 import chronicles, chronos, results, options, json
 import
-  ../../../../waku/factory/waku,
-  ../../../../waku/node/waku_node,
-  ../../../alloc,
-  ../../../../waku/node/peer_manager
+  ../../../waku/factory/waku,
+  ../../../waku/node/waku_node,
+  ../../alloc,
+  ../../../waku/node/peer_manager
 
 type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
@@ -12,6 +12,7 @@ type PeerManagementMsgType* {.pure.} = enum
   GET_CONNECTED_PEERS_INFO
   GET_PEER_IDS_BY_PROTOCOL
   DISCONNECT_PEER_BY_ID
+  DISCONNECT_ALL_PEERS
   DIAL_PEER
   DIAL_PEER_BY_ID
   GET_CONNECTED_PEERS
@@ -119,6 +120,9 @@ proc process*(
       error "DISCONNECT_PEER_BY_ID failed", error = $error
       return err($error)
     await waku.node.peerManager.disconnectNode(peerId)
+    return ok("")
+  of DISCONNECT_ALL_PEERS:
+    await waku.node.peerManager.disconnectAllPeers()
     return ok("")
   of DIAL_PEER:
     let remotePeerInfo = parsePeerInfo($self[].peerMultiAddr).valueOr:

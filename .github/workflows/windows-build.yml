@@ -68,28 +68,6 @@ jobs:
         ./build_all.bat
         cd ../../../..
 
-    - name: Building libunwind
-      run: |
-        cd vendor/nim-libbacktrace
-        mkdir -p vendor/libunwind/build
-        pushd vendor/libunwind
-        
-        cmake -S runtimes \
-          -DLLVM_ENABLE_RUNTIMES="libunwind" \
-          -DLIBUNWIND_ENABLE_SHARED=OFF -DLIBUNWIND_ENABLE_STATIC=ON \
-          -DLIBUNWIND_INCLUDE_DOCS=OFF -DLIBUNWIND_INSTALL_HEADERS=ON \
-          -DCMAKE_INSTALL_PREFIX="$(pwd)/../install/usr" \
-          -G "MinGW Makefiles" -B build
-          
-        cd build
-        mingw32-make VERBOSE=1 clean
-        mingw32-make VERBOSE=1 unwind_static
-        mingw32-make VERBOSE=1 install-unwind
-        
-        popd
-        mkdir -p install/usr/lib
-        cp -r vendor/libunwind/build/lib/libunwind.a install/usr/lib/
-
     - name: Building miniupnpc
       run: |
         cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
@@ -103,12 +81,13 @@ jobs:
         make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
         cd ../../../../
 
-    - name: Building wakunode2
+    - name: Building wakunode2.exe
       run: |
-        cd vendor/nim-libbacktrace
-        cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
-        cd ../..
         make wakunode2 LOG_LEVEL=DEBUG V=3 -j8
+
+    - name: Building libwaku.dll
+      run: |
+        make libwaku STATIC=0 LOG_LEVEL=DEBUG V=1 -j
     
     - name: Check Executable
       run: |
@@ -116,5 +95,11 @@ jobs:
           echo "wakunode2.exe build successful"
         else
           echo "Build failed: wakunode2.exe not found"
+          exit 1
+        fi
+        if [ -f "./build/libwaku.dll" ]; then
+          echo "libwaku.dll build successful"
+        else
+          echo "Build failed: libwaku.dll not found"
           exit 1
         fi

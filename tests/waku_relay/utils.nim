@@ -3,7 +3,6 @@
 import
   std/[strutils, sequtils, tempfiles],
   stew/byteutils,
-  stew/shims/net as stewNet,
   chronos,
   chronicles,
   libp2p/switch,
@@ -61,7 +60,7 @@ proc subscribeToContentTopicWithHandler*(
     if topic == topic:
       completionFut.complete(true)
 
-  (node.subscribe((kind: ContentSub, topic: contentTopic), some(relayHandler))).isOkOr:
+  (node.subscribe((kind: ContentSub, topic: contentTopic), relayHandler)).isOkOr:
     error "Failed to subscribe to content topic", error
     completionFut.complete(true)
   return completionFut
@@ -74,7 +73,7 @@ proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bo
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  (node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))).isOkOr:
+  (node.subscribe((kind: PubsubSub, topic: pubsubTopic), relayHandler)).isOkOr:
     error "Failed to subscribe to pubsub topic", error
     completionFut.complete(false)
   return completionFut

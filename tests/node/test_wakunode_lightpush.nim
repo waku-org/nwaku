@@ -2,7 +2,6 @@
 
 import
   std/[options, tempfiles],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   std/strformat,
@@ -40,8 +39,8 @@ suite "Waku Lightpush - End To End":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
     await server.start()
@@ -63,7 +62,7 @@ suite "Waku Lightpush - End To End":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLightpushClient()
 
       # When the client publishes a message
@@ -77,7 +76,7 @@ suite "Waku Lightpush - End To End":
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
 
-      assert (publishResponse.error.code == NO_PEERS_TO_RELAY),
+      assert (publishResponse.error.code == LightPushErrorCode.NO_PEERS_TO_RELAY),
         "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
@@ -94,7 +93,7 @@ suite "Waku Lightpush - End To End":
 
       check:
         publishResponse.isErr()
-        publishResponse.error.code == INVALID_MESSAGE_ERROR
+        publishResponse.error.code == LightPushErrorCode.INVALID_MESSAGE
         publishResponse.error.desc ==
           some(fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes")
 
@@ -123,8 +122,8 @@ suite "RLN Proofs as a Lightpush Service":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     # mount rln-relay
     let wakuRlnConfig = WakuRlnConfig(
@@ -156,7 +155,7 @@ suite "RLN Proofs as a Lightpush Service":
     asyncTest "Message is published when RLN enabled":
       # Given a light lightpush client
       let lightpushClient =
-        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       lightpushClient.mountLightPushClient()
 
       # When the client publishes a message
@@ -169,7 +168,7 @@ suite "RLN Proofs as a Lightpush Service":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      check publishResponse.error.code == NO_PEERS_TO_RELAY
+      check publishResponse.error.code == LightPushErrorCode.NO_PEERS_TO_RELAY
 
 suite "Waku Lightpush message delivery":
   asyncTest "lightpush message flow succeed":
@@ -184,9 +183,9 @@ suite "Waku Lightpush message delivery":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    (await destNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    (await bridgeNode.mountRelay(@[DefaultRelayShard])).isOkOr:
+    (await bridgeNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
@@ -210,7 +209,7 @@ suite "Waku Lightpush message delivery":
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), some(relayHandler)).isOkOr:
+    destNode.subscribe((kind: PubsubSub, topic: CustomPubsubTopic), relayHandler).isOkOr:
       assert false, "Failed to subscribe to relay"
 
     # Wait for subscription to take effect

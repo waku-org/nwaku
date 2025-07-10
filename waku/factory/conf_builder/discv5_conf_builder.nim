@@ -13,7 +13,6 @@ type Discv5ConfBuilder* = object
   bootstrapNodes*: seq[string]
   bitsPerHop*: Option[int]
   bucketIpLimit*: Option[uint]
-  discv5Only*: Option[bool]
   enrAutoUpdate*: Option[bool]
   tableIpLimit*: Option[uint]
   udpPort*: Option[Port]
@@ -30,9 +29,6 @@ proc withBitsPerHop*(b: var Discv5ConfBuilder, bitsPerHop: int) =
 proc withBucketIpLimit*(b: var Discv5ConfBuilder, bucketIpLimit: uint) =
   b.bucketIpLimit = some(bucketIpLimit)
 
-proc withDiscv5Only*(b: var Discv5ConfBuilder, discv5Only: bool) =
-  b.discv5Only = some(discv5Only)
-
 proc withEnrAutoUpdate*(b: var Discv5ConfBuilder, enrAutoUpdate: bool) =
   b.enrAutoUpdate = some(enrAutoUpdate)
 
@@ -41,6 +37,9 @@ proc withTableIpLimit*(b: var Discv5ConfBuilder, tableIpLimit: uint) =
 
 proc withUdpPort*(b: var Discv5ConfBuilder, udpPort: Port) =
   b.udpPort = some(udpPort)
+
+proc withUdpPort*(b: var Discv5ConfBuilder, udpPort: uint) =
+  b.udpPort = some(Port(udpPort.uint16))
 
 proc withBootstrapNodes*(b: var Discv5ConfBuilder, bootstrapNodes: seq[string]) =
   # TODO: validate ENRs?
@@ -56,7 +55,6 @@ proc build*(b: Discv5ConfBuilder): Result[Option[Discv5Conf], string] =
         bootstrapNodes: b.bootstrapNodes,
         bitsPerHop: b.bitsPerHop.get(1),
         bucketIpLimit: b.bucketIpLimit.get(2),
-        discv5Only: b.discv5Only.get(false),
         enrAutoUpdate: b.enrAutoUpdate.get(true),
         tableIpLimit: b.tableIpLimit.get(10),
         udpPort: b.udpPort.get(9000.Port),

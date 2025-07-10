@@ -53,7 +53,19 @@ endif
 # default target, because it's the first one that doesn't start with '.'
 all: | wakunode2 example2 chat2 chat2bridge libwaku
 
-test: | testcommon testwaku
+TEST_FILE := $(word 2,$(MAKECMDGOALS))
+TEST_NAME := $(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+
+test:
+ifeq ($(strip $(TEST_FILE)),)
+	$(MAKE) testcommon
+	$(MAKE) testwaku
+else
+	$(MAKE) compile-test $(TEST_FILE) $(TEST_NAME)
+endif
+# this prevents make from erroring on unknown targets like "Index"
+%:
+	@true
 
 waku.nims:
 	ln -s waku.nimble $@
@@ -82,15 +94,18 @@ HEAPTRACKER ?= 0
 HEAPTRACKER_INJECT ?= 0
 ifeq ($(HEAPTRACKER), 1)
 # Needed to make nimbus-build-system use the Nim's 'heaptrack_support' branch
-DOCKER_NIM_COMMIT := NIM_COMMIT=heaptrack_support
-TARGET := heaptrack-build
+DOCKER_NIM_COMMIT := NIM_COMMIT=heaptrack_support_v2.0.12
+TARGET := debug-with-heaptrack
+NIM_COMMIT := heaptrack_support_v2.0.12
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
 # the Nim compiler will load 'libheaptrack_inject.so'
 HEAPTRACK_PARAMS := -d:heaptracker -d:heaptracker_inject
+NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker -d:heaptracker_inject
 else
 # the Nim compiler will load 'libheaptrack_preload.so'
 HEAPTRACK_PARAMS := -d:heaptracker
+NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker
 endif
 
 endif
@@ -109,11 +124,8 @@ ifeq (, $(shell which cargo))
 	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
 endif
 
-anvil: rustup
-ifeq (, $(shell which anvil 2> /dev/null))
-# Install Anvil if it's not installed
-	./scripts/install_anvil.sh
-endif
+rln-deps: rustup
+	./scripts/install_rln_tests_dependencies.sh
 
 deps: | deps-common nat-libs waku.nims
 
@@ -202,13 +214,14 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
-# install anvil only for the testwaku target
-testwaku: | build deps anvil librln
+# install rln-deps only for the testwaku target
+testwaku: | build deps rln-deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
+	\
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
 benchmarks: | build deps librln
@@ -243,9 +256,10 @@ build/%: | build deps librln
 	echo -e $(BUILD_MSG) "build/$*" && \
 		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
 
-test/%: | build deps librln
-	echo -e $(BUILD_MSG) "test/$*" && \
-		$(ENV_SCRIPT) nim testone $(NIM_PARAMS) waku.nims $*
+compile-test: | build deps librln
+	echo -e $(BUILD_MSG) "$(TEST_FILE)" && \
+		$(ENV_SCRIPT) nim buildTest $(NIM_PARAMS) waku.nims $(TEST_FILE) && \
+		$(ENV_SCRIPT) nim execTest $(NIM_PARAMS) waku.nims $(TEST_FILE) "$(TEST_NAME)"
 
 ################
 ## Waku tools ##
@@ -343,12 +357,12 @@ docker-image:
 docker-quick-image: MAKE_TARGET ?= wakunode2
 docker-quick-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-quick-image: DOCKER_IMAGE_NAME ?= wakuorg/nwaku:$(DOCKER_IMAGE_TAG)
-docker-quick-image: NIM_PARAMS := $(NIM_PARAMS) -d:chronicles_colors:none -d:insecure -d:postgres --passL:$(LIBRLN_FILE) --passL:-lm
 docker-quick-image: | build deps librln wakunode2
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--tag $(DOCKER_IMAGE_NAME) \
-		--file docker/binaries/Dockerfile.bn.amd64 \
+		--target $(TARGET) \
+		--file docker/binaries/Dockerfile.bn.local \
 		.
 
 docker-push:
@@ -397,14 +411,16 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
+
 libwaku: | build deps librln
-		rm -f build/libwaku*
+	rm -f build/libwaku*
+
 ifeq ($(STATIC), 1)
-		echo -e $(BUILD_MSG) "build/$@.a" && \
-		$(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+else ifeq ($(detected_OS),Windows)
+	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 else
-		echo -e $(BUILD_MSG) "build/$@.so" && \
-		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
 #####################

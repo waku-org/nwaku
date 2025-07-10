@@ -53,8 +53,9 @@ suite "Waku Lightpush Client":
     ): Future[WakuLightPushResult] {.async.} =
       let msgLen = message.encode().buffer.len
       if msgLen > int(DefaultMaxWakuMessageSize) + 64 * 1024:
-        return
-          lighpushErrorResult(PAYLOAD_TOO_LARGE, "length greater than maxMessageSize")
+        return lighpushErrorResult(
+          LightPushErrorCode.PAYLOAD_TOO_LARGE, "length greater than maxMessageSize"
+        )
       handlerFuture.complete((pubsubTopic, message))
       # return that we published the message to 1 peer.
       return ok(1)
@@ -294,7 +295,7 @@ suite "Waku Lightpush Client":
       # Then the message is not received by the server
       check:
         publishResponse5.isErr()
-        publishResponse5.error.code == PAYLOAD_TOO_LARGE
+        publishResponse5.error.code == LightPushErrorCode.PAYLOAD_TOO_LARGE
         (await handlerFuture.waitForResult()).isErr()
 
     asyncTest "Invalid Encoding Payload":
@@ -307,7 +308,7 @@ suite "Waku Lightpush Client":
       # And the error is returned
       check:
         publishResponse.requestId == "N/A"
-        publishResponse.statusCode == LightpushStatusCode.BAD_REQUEST.uint32
+        publishResponse.statusCode == LightPushErrorCode.BAD_REQUEST
         publishResponse.statusDesc.isSome()
         scanf(publishResponse.statusDesc.get(), decodeRpcFailure)
 
@@ -320,7 +321,7 @@ suite "Waku Lightpush Client":
             peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
         ): Future[WakuLightPushResult] {.async.} =
           handlerFuture2.complete()
-          return lighpushErrorResult(PAYLOAD_TOO_LARGE, handlerError)
+          return lighpushErrorResult(LightPushErrorCode.PAYLOAD_TOO_LARGE, handlerError)
 
       let
         serverSwitch2 = newTestSwitch()
@@ -336,7 +337,7 @@ suite "Waku Lightpush Client":
 
       # Then the response is negative
       check:
-        publishResponse.error.code == PAYLOAD_TOO_LARGE
+        publishResponse.error.code == LightPushErrorCode.PAYLOAD_TOO_LARGE
         publishResponse.error.desc == some(handlerError)
         (await handlerFuture2.waitForResult()).isOk()
 

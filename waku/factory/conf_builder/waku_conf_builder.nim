@@ -2,6 +2,7 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   std/[net, options, sequtils, strutils],
+  stint,
   chronicles,
   chronos,
   results
@@ -23,6 +24,7 @@ import
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
   ./rln_relay_conf_builder,
+  ./rate_limit_conf_builder,
   ./eligibility_conf_builder,
   ./reputation_conf_builder
 
@@ -60,8 +62,9 @@ type WakuConfBuilder* = object
   nodeKey: Option[crypto.PrivateKey]
 
   clusterId: Option[uint16]
-  numShardsInNetwork: Option[uint32]
-  shards: Option[seq[uint16]]
+  shardingConf: Option[ShardingConfKind]
+  numShardsInCluster: Option[uint16]
+  subscribeShards: Option[seq[uint16]]
   protectedShards: Option[seq[ProtectedShard]]
   contentTopics: Option[seq[string]]
 
@@ -76,6 +79,7 @@ type WakuConfBuilder* = object
   webSocketConf*: WebSocketConfBuilder
   eligibilityConf*: EligibilityConfBuilder
   reputationConf*: ReputationConfBuilder
+  rateLimitConf*: RateLimitConfBuilder
   # End conf builders
   relay: Option[bool]
   lightPush: Option[bool]
@@ -85,9 +89,8 @@ type WakuConfBuilder* = object
 
   # TODO: move within a relayConf
   rendezvous: Option[bool]
-  discv5Only: Option[bool]
 
-  clusterConf: Option[ClusterConf]
+  networkConf: Option[NetworkConf]
 
   staticNodes: seq[string]
 
@@ -110,7 +113,6 @@ type WakuConfBuilder* = object
   extMultiAddrs: seq[string]
   extMultiAddrsOnly: Option[bool]
 
-  dnsAddrs: Option[bool]
   dnsAddrsNameServers: seq[IpAddress]
 
   peerPersistence: Option[bool]
@@ -120,13 +122,10 @@ type WakuConfBuilder* = object
 
   agentString: Option[string]
 
-  rateLimits: Option[seq[string]]
-
   maxRelayPeers: Option[int]
   relayShardedPeerManagement: Option[bool]
   relayServiceRatio: Option[string]
   circuitRelayClient: Option[bool]
-  keepAlive: Option[bool]
   p2pReliability: Option[bool]
 
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
@@ -141,10 +140,11 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     webSocketConf: WebSocketConfBuilder.init(),
     eligibilityConf: EligibilityConfBuilder.init(),
     reputationConf: ReputationConfBuilder.init(),
+    rateLimitConf: RateLimitConfBuilder.init(),
   )
 
-proc withClusterConf*(b: var WakuConfBuilder, clusterConf: ClusterConf) =
-  b.clusterConf = some(clusterConf)
+proc withNetworkConf*(b: var WakuConfBuilder, networkConf: NetworkConf) =
+  b.networkConf = some(networkConf)
 
 proc withNodeKey*(b: var WakuConfBuilder, nodeKey: crypto.PrivateKey) =
   b.nodeKey = some(nodeKey)
@@ -152,11 +152,14 @@ proc withNodeKey*(b: var WakuConfBuilder, nodeKey: crypto.PrivateKey) =
 proc withClusterId*(b: var WakuConfBuilder, clusterId: uint16) =
   b.clusterId = some(clusterId)
 
-proc withNumShardsInNetwork*(b: var WakuConfBuilder, numShardsInNetwork: uint32) =
-  b.numShardsInNetwork = some(numShardsInNetwork)
+proc withShardingConf*(b: var WakuConfBuilder, shardingConf: ShardingConfKind) =
+  b.shardingConf = some(shardingConf)
 
-proc withShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
-  b.shards = some(shards)
+proc withNumShardsInCluster*(b: var WakuConfBuilder, numShardsInCluster: uint16) =
+  b.numShardsInCluster = some(numShardsInCluster)
+
+proc withSubscribeShards*(b: var WakuConfBuilder, shards: seq[uint16]) =
+  b.subscribeShards = some(shards)
 
 proc withProtectedShards*(
     b: var WakuConfBuilder, protectedShards: seq[ProtectedShard]
@@ -198,9 +201,6 @@ proc withRemotePeerExchangeNode*(
 ) =
   b.remotePeerExchangeNode = some(remotePeerExchangeNode)
 
-proc withDnsAddrs*(b: var WakuConfBuilder, dnsAddrs: bool) =
-  b.dnsAddrs = some(dnsAddrs)
-
 proc withPeerPersistence*(b: var WakuConfBuilder, peerPersistence: bool) =
   b.peerPersistence = some(peerPersistence)
 
@@ -213,7 +213,7 @@ proc withMaxConnections*(b: var WakuConfBuilder, maxConnections: int) =
 proc withDnsAddrsNameServers*(
     b: var WakuConfBuilder, dnsAddrsNameServers: seq[IpAddress]
 ) =
-  b.dnsAddrsNameServers = concat(b.dnsAddrsNameServers, dnsAddrsNameServers)
+  b.dnsAddrsNameServers.insert(dnsAddrsNameServers)
 
 proc withLogLevel*(b: var WakuConfBuilder, logLevel: logging.LogLevel) =
   b.logLevel = some(logLevel)
@@ -248,9 +248,6 @@ proc withAgentString*(b: var WakuConfBuilder, agentString: string) =
 proc withColocationLimit*(b: var WakuConfBuilder, colocationLimit: int) =
   b.colocationLimit = some(colocationLimit)
 
-proc withRateLimits*(b: var WakuConfBuilder, rateLimits: seq[string]) =
-  b.rateLimits = some(rateLimits)
-
 proc withMaxRelayPeers*(b: var WakuConfBuilder, maxRelayPeers: int) =
   b.maxRelayPeers = some(maxRelayPeers)
 
@@ -264,9 +261,6 @@ proc withRelayShardedPeerManagement*(
     b: var WakuConfBuilder, relayShardedPeerManagement: bool
 ) =
   b.relayShardedPeerManagement = some(relayShardedPeerManagement)
-
-proc withKeepAlive*(b: var WakuConfBuilder, keepAlive: bool) =
-  b.keepAlive = some(keepAlive)
 
 proc withP2pReliability*(b: var WakuConfBuilder, p2pReliability: bool) =
   b.p2pReliability = some(p2pReliability)
@@ -283,6 +277,8 @@ proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSize: string) =
 proc withStaticNodes*(builder: var WakuConfBuilder, staticNodes: seq[string]) =
   builder.staticNodes = concat(builder.staticNodes, staticNodes)
 
+## Building
+
 proc nodeKey(
     builder: WakuConfBuilder, rng: ref HmacDrbgContext
 ): Result[crypto.PrivateKey, string] =
@@ -295,77 +291,105 @@ proc nodeKey(
       return err("Failed to generate key: " & $error)
     return ok(nodeKey)
 
-proc applyClusterConf(builder: var WakuConfBuilder) =
-  # Apply cluster conf, overrides most values passed individually
-  # If you want to tweak values, don't use clusterConf
-  if builder.clusterConf.isNone:
+proc buildShardingConf(
+    bShardingConfKind: Option[ShardingConfKind],
+    bNumShardsInCluster: Option[uint16],
+    bSubscribeShards: Option[seq[uint16]],
+): (ShardingConf, seq[uint16]) =
+  echo "bSubscribeShards: ", bSubscribeShards
+  case bShardingConfKind.get(AutoSharding)
+  of StaticSharding:
+    (ShardingConf(kind: StaticSharding), bSubscribeShards.get(@[]))
+  of AutoSharding:
+    let numShardsInCluster = bNumShardsInCluster.get(1)
+    let shardingConf =
+      ShardingConf(kind: AutoSharding, numShardsInCluster: numShardsInCluster)
+    let upperShard = uint16(numShardsInCluster - 1)
+    (shardingConf, bSubscribeShards.get(toSeq(0.uint16 .. upperShard)))
+
+proc applyNetworkConf(builder: var WakuConfBuilder) =
+  # Apply network conf, overrides most values passed individually
+  # If you want to tweak values, don't use networkConf
+  # TODO: networkconf should be one field of the conf builder so that this function becomes unnecessary
+  if builder.networkConf.isNone():
     return
-  let clusterConf = builder.clusterConf.get()
+  let networkConf = builder.networkConf.get()
 
   if builder.clusterId.isSome():
-    warn "Cluster id was provided alongside a cluster conf",
-      used = clusterConf.clusterId, discarded = builder.clusterId.get()
-  builder.clusterId = some(clusterConf.clusterId)
+    warn "Cluster id was provided alongside a network conf",
+      used = networkConf.clusterId, discarded = builder.clusterId.get()
+  builder.clusterId = some(networkConf.clusterId)
 
   # Apply relay parameters
-  if builder.relay.get(false) and clusterConf.rlnRelay:
+  if builder.relay.get(false) and networkConf.rlnRelay:
     if builder.rlnRelayConf.enabled.isSome():
-      warn "RLN Relay was provided alongside a cluster conf",
-        used = clusterConf.rlnRelay, discarded = builder.rlnRelayConf.enabled
+      warn "RLN Relay was provided alongside a network conf",
+        used = networkConf.rlnRelay, discarded = builder.rlnRelayConf.enabled
     builder.rlnRelayConf.withEnabled(true)
 
     if builder.rlnRelayConf.ethContractAddress.get("") != "":
-      warn "RLN Relay ETH Contract Address was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayEthContractAddress.string,
+      warn "RLN Relay ETH Contract Address was provided alongside a network conf",
+        used = networkConf.rlnRelayEthContractAddress.string,
         discarded = builder.rlnRelayConf.ethContractAddress.get().string
-    builder.rlnRelayConf.withEthContractAddress(clusterConf.rlnRelayEthContractAddress)
+    builder.rlnRelayConf.withEthContractAddress(networkConf.rlnRelayEthContractAddress)
 
     if builder.rlnRelayConf.chainId.isSome():
-      warn "RLN Relay Chain Id was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayChainId, discarded = builder.rlnRelayConf.chainId
-    builder.rlnRelayConf.withChainId(clusterConf.rlnRelayChainId)
+      warn "RLN Relay Chain Id was provided alongside a network conf",
+        used = networkConf.rlnRelayChainId, discarded = builder.rlnRelayConf.chainId
+    builder.rlnRelayConf.withChainId(networkConf.rlnRelayChainId)
 
     if builder.rlnRelayConf.dynamic.isSome():
-      warn "RLN Relay Dynamic was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayDynamic, discarded = builder.rlnRelayConf.dynamic
-    builder.rlnRelayConf.withDynamic(clusterConf.rlnRelayDynamic)
+      warn "RLN Relay Dynamic was provided alongside a network conf",
+        used = networkConf.rlnRelayDynamic, discarded = builder.rlnRelayConf.dynamic
+    builder.rlnRelayConf.withDynamic(networkConf.rlnRelayDynamic)
 
     if builder.rlnRelayConf.epochSizeSec.isSome():
-      warn "RLN Epoch Size in Seconds was provided alongside a cluster conf",
-        used = clusterConf.rlnEpochSizeSec,
+      warn "RLN Epoch Size in Seconds was provided alongside a network conf",
+        used = networkConf.rlnEpochSizeSec,
         discarded = builder.rlnRelayConf.epochSizeSec
-    builder.rlnRelayConf.withEpochSizeSec(clusterConf.rlnEpochSizeSec)
+    builder.rlnRelayConf.withEpochSizeSec(networkConf.rlnEpochSizeSec)
 
     if builder.rlnRelayConf.userMessageLimit.isSome():
-      warn "RLN Relay Dynamic was provided alongside a cluster conf",
-        used = clusterConf.rlnRelayUserMessageLimit,
+      warn "RLN Relay Dynamic was provided alongside a network conf",
+        used = networkConf.rlnRelayUserMessageLimit,
         discarded = builder.rlnRelayConf.userMessageLimit
-    builder.rlnRelayConf.withUserMessageLimit(clusterConf.rlnRelayUserMessageLimit)
+    builder.rlnRelayConf.withUserMessageLimit(networkConf.rlnRelayUserMessageLimit)
   # End Apply relay parameters
 
   case builder.maxMessageSize.kind
   of mmskNone:
     discard
   of mmskStr, mmskInt:
-    warn "Max Message Size was provided alongside a cluster conf",
-      used = clusterConf.maxMessageSize, discarded = $builder.maxMessageSize
-  builder.withMaxMessageSize(parseCorrectMsgSize(clusterConf.maxMessageSize))
+    warn "Max Message Size was provided alongside a network conf",
+      used = networkConf.maxMessageSize, discarded = $builder.maxMessageSize
+  builder.withMaxMessageSize(parseCorrectMsgSize(networkConf.maxMessageSize))
 
-  if builder.numShardsInNetwork.isSome():
-    warn "Num Shards In Network was provided alongside a cluster conf",
-      used = clusterConf.numShardsInNetwork, discarded = builder.numShardsInNetwork
-  builder.numShardsInNetwork = some(clusterConf.numShardsInNetwork)
+  if builder.shardingConf.isSome():
+    warn "Sharding Conf was provided alongside a network conf",
+      used = networkConf.shardingConf.kind, discarded = builder.shardingConf
 
-  if clusterConf.discv5Discovery:
+  if builder.numShardsInCluster.isSome():
+    warn "Num Shards In Cluster was provided alongside a network conf",
+      used = networkConf.shardingConf.numShardsInCluster,
+      discarded = builder.numShardsInCluster
+
+  case networkConf.shardingConf.kind
+  of StaticSharding:
+    builder.shardingConf = some(StaticSharding)
+  of AutoSharding:
+    builder.shardingConf = some(AutoSharding)
+    builder.numShardsInCluster = some(networkConf.shardingConf.numShardsInCluster)
+
+  if networkConf.discv5Discovery:
     if builder.discv5Conf.enabled.isNone:
-      builder.discv5Conf.withEnabled(clusterConf.discv5Discovery)
+      builder.discv5Conf.withEnabled(networkConf.discv5Discovery)
 
     if builder.discv5Conf.bootstrapNodes.len == 0 and
-        clusterConf.discv5BootstrapNodes.len > 0:
-      warn "Discv5 Boostrap nodes were provided alongside a cluster conf",
-        used = clusterConf.discv5BootstrapNodes,
+        networkConf.discv5BootstrapNodes.len > 0:
+      warn "Discv5 Bootstrap nodes were provided alongside a network conf",
+        used = networkConf.discv5BootstrapNodes,
         discarded = builder.discv5Conf.bootstrapNodes
-    builder.discv5Conf.withBootstrapNodes(clusterConf.discv5BootstrapNodes)
+    builder.discv5Conf.withBootstrapNodes(networkConf.discv5BootstrapNodes)
 
 proc build*(
     builder: var WakuConfBuilder, rng: ref HmacDrbgContext = crypto.newRng()
@@ -375,7 +399,7 @@ proc build*(
   ## of libwaku. It aims to be agnostic so it does not apply a
   ## default when it is opinionated.
 
-  applyClusterConf(builder)
+  applyNetworkConf(builder)
 
   let relay =
     if builder.relay.isSome():
@@ -423,25 +447,15 @@ proc build*(
       warn("Cluster Id was not specified, defaulting to 0")
       0.uint16
     else:
-      builder.clusterId.get()
+      builder.clusterId.get().uint16
 
-  let numShardsInNetwork =
-    if builder.numShardsInNetwork.isSome():
-      builder.numShardsInNetwork.get()
-    else:
-      warn "Number of shards in network not specified, defaulting to zero (improve is wip)"
-      0
-
-  let shards =
-    if builder.shards.isSome():
-      builder.shards.get()
-    else:
-      warn "shards not specified, defaulting to all shards in network"
-      # TODO: conversion should not be needed
-      let upperShard: uint16 = uint16(numShardsInNetwork - 1)
-      toSeq(0.uint16 .. upperShard)
-
+  let (shardingConf, subscribeShards) = buildShardingConf(
+    builder.shardingConf, builder.numShardsInCluster, builder.subscribeShards
+  )
   let protectedShards = builder.protectedShards.get(@[])
+
+  info "Sharding configuration: ",
+    shardingConf = $shardingConf, subscribeShards = $subscribeShards
 
   let maxMessageSizeBytes =
     case builder.maxMessageSize.kind
@@ -485,6 +499,10 @@ proc build*(
 
   let reputationConf = builder.reputationConf.build().valueOr:
     return err("Reputation Conf building failed: " & $error)
+
+  let rateLimitConf = builder.rateLimitConf.build().valueOr:
+    return err("Rate limits Conf building failed: " & $error)
+
   # End - Build sub-configs
 
   let logLevel =
@@ -552,13 +570,6 @@ proc build*(
       warn "Whether to only announce external multiaddresses is not specified, defaulting to false"
       false
 
-  let dnsAddrs =
-    if builder.dnsAddrs.isSome():
-      builder.dnsAddrs.get()
-    else:
-      warn "Whether to resolve DNS multiaddresses was not specified, defaulting to false."
-      false
-
   let dnsAddrsNameServers =
     if builder.dnsAddrsNameServers.len != 0:
       builder.dnsAddrsNameServers
@@ -586,7 +597,6 @@ proc build*(
   # TODO: use `DefaultColocationLimit`. the user of this value should
   # probably be defining a config object
   let colocationLimit = builder.colocationLimit.get(5)
-  let rateLimits = builder.rateLimits.get(newSeq[string](0))
 
   # TODO: is there a strategy for experimental features? delete vs promote
   let relayShardedPeerManagement = builder.relayShardedPeerManagement.get(false)
@@ -610,12 +620,13 @@ proc build*(
     dnsDiscoveryConf: dnsDiscoveryConf,
     eligibilityConf: eligibilityConf,
     reputationConf: reputationConf,
+    rateLimitConf: rateLimitConf,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,
-    numShardsInNetwork: numShardsInNetwork,
+    shardingConf: shardingConf,
     contentTopics: contentTopics,
-    shards: shards,
+    subscribeShards: subscribeShards,
     protectedShards: protectedShards,
     relay: relay,
     lightPush: lightPush,
@@ -630,7 +641,7 @@ proc build*(
     logLevel: logLevel,
     logFormat: logFormat,
     # TODO: Separate builders
-    networkConf: NetworkConfig(
+    endpointConf: EndpointConf(
       natStrategy: natStrategy,
       p2pTcpPort: p2pTcpPort,
       dns4DomainName: dns4DomainName,
@@ -640,7 +651,6 @@ proc build*(
     ),
     portsShift: portsShift,
     webSocketConf: webSocketConf,
-    dnsAddrs: dnsAddrs,
     dnsAddrsNameServers: dnsAddrsNameServers,
     peerPersistence: peerPersistence,
     peerStoreCapacity: builder.peerStoreCapacity,
@@ -649,9 +659,7 @@ proc build*(
     colocationLimit: colocationLimit,
     maxRelayPeers: builder.maxRelayPeers,
     relayServiceRatio: builder.relayServiceRatio.get("60:40"),
-    rateLimits: rateLimits,
     circuitRelayClient: builder.circuitRelayClient.get(false),
-    keepAlive: builder.keepAlive.get(true),
     staticNodes: builder.staticNodes,
     relayShardedPeerManagement: relayShardedPeerManagement,
     p2pReliability: builder.p2pReliability.get(false),

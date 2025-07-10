@@ -45,7 +45,8 @@ proc handleRequest*(
     let msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
 
-    notice "handling lightpush request",
+    notice "handling legacy lightpush request",
+      my_peer_id = wl.peerManager.switch.peerInfo.peerId,
       peer_id = peerId,
       requestId = requestId,
       pubsubTopic = pubsubTopic,
@@ -64,16 +65,24 @@ proc handleRequest*(
   return rpc
 
 proc initProtocolHandler(wl: WakuLegacyLightPush) =
-  proc handle(conn: Connection, proto: string) {.async.} =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var rpc: PushRPC
     wl.requestRateLimiter.checkUsageLimit(WakuLegacyLightPushCodec, conn):
-      let buffer = await conn.readLp(DefaultMaxRpcSize)
+      var buffer: seq[byte]
+      try:
+        buffer = await conn.readLp(DefaultMaxRpcSize)
+      except LPStreamError:
+        error "lightpush legacy read stream failed", error = getCurrentExceptionMsg()
+        return
 
       waku_service_network_bytes.inc(
         amount = buffer.len().int64, labelValues = [WakuLegacyLightPushCodec, "in"]
       )
 
-      rpc = await handleRequest(wl, conn.peerId, buffer)
+      try:
+        rpc = await handleRequest(wl, conn.peerId, buffer)
+      except CatchableError:
+        error "lightpush legacy handleRequest failed", error = getCurrentExceptionMsg()
     do:
       debug "lightpush request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
@@ -89,12 +98,15 @@ proc initProtocolHandler(wl: WakuLegacyLightPush) =
         )
       )
 
-    await conn.writeLp(rpc.encode().buffer)
+    try:
+      await conn.writeLp(rpc.encode().buffer)
+    except LPStreamError:
+      error "lightpush legacy write stream failed", error = getCurrentExceptionMsg()
 
     ## For lightpush might not worth to measure outgoing trafic as it is only
     ## small respones about success/failure
 
-  wl.handler = handle
+  wl.handler = handler
   wl.codec = WakuLegacyLightPushCodec
 
 proc new*(

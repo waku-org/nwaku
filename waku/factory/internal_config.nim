@@ -6,13 +6,7 @@ import
   libp2p/nameresolving/dnsresolver,
   std/[options, sequtils, net],
   results
-import
-  ../common/utils/nat,
-  ../node/net_config,
-  ../waku_enr,
-  ../waku_core,
-  ./waku_conf,
-  ./network_conf
+import ../common/utils/nat, ../node/net_config, ../waku_enr, ../waku_core, ./waku_conf
 
 proc enrConfiguration*(
     conf: WakuConf, netConfig: NetConfig
@@ -29,7 +23,7 @@ proc enrConfiguration*(
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.subscribeShards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
@@ -64,7 +58,7 @@ proc dnsResolve*(
 # TODO: Reduce number of parameters, can be done once the same is done on Netconfig.init
 proc networkConfiguration*(
     clusterId: uint16,
-    conf: NetworkConfig,
+    conf: EndpointConf,
     discv5Conf: Option[Discv5Conf],
     webSocketConf: Option[WebSocketConf],
     wakuFlags: CapabilitiesBitfield,
@@ -139,14 +133,7 @@ proc networkConfiguration*(
     dns4DomainName = conf.dns4DomainName,
     discv5UdpPort = discv5UdpPort,
     wakuFlags = some(wakuFlags),
+    dnsNameServers = dnsAddrsNameServers,
   )
 
   return netConfigRes
-
-# TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
-proc getNumShardsInNetwork*(conf: WakuConf): uint32 =
-  if conf.numShardsInNetwork != 0:
-    return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
-  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
-  return uint32(MaxShardIndex + 1)

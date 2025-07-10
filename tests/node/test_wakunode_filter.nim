@@ -2,7 +2,6 @@
 
 import
   std/[options, tables, sequtils, strutils, sets],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,
