@@ -122,31 +122,27 @@ proc initNode(
     else:
       false
 
-  if conf.maxRelayPeers.isSome():
-    let
-      maxRelayPeers = conf.maxRelayPeers.get()
-      maxConnections = conf.maxConnections
-      # Calculate the ratio as percentages
-      relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
-      serviceRatio = 100 - relayRatio
+  let relayServiceRatio = 
+    if conf.maxRelayPeers.isSome():
+      let
+        maxRelayPeers = conf.maxRelayPeers.get()
+        maxConnections = conf.maxConnections
+        # Calculate the ratio as percentages
+        relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
+        serviceRatio = 100 - relayRatio
+      
+      error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
+      $relayRatio & ":" & $serviceRatio
+    else:
+      conf.relayServiceRatio
 
-    # FIXME: DRY
-    builder.withPeerManagerConfig(
-      maxConnections = conf.maxConnections,
-      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
-      shardAware = conf.relayShardedPeerManagement,
-      eligibilityEnabled = eligibilityEnabled,
-      reputationEnabled = reputationEnabled,
-    )
-    error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
-  else:
-    builder.withPeerManagerConfig(
-      maxConnections = conf.maxConnections,
-      relayServiceRatio = conf.relayServiceRatio,
-      shardAware = conf.relayShardedPeerManagement,
-      eligibilityEnabled = eligibilityEnabled,
-      reputationEnabled = reputationEnabled,
-    )
+  builder.withPeerManagerConfig(
+    maxConnections = conf.maxConnections,
+    relayServiceRatio = relayServiceRatio,
+    shardAware = conf.relayShardedPeerManagement,
+    eligibilityEnabled = eligibilityEnabled,
+    reputationEnabled = reputationEnabled,
+  )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)
 
