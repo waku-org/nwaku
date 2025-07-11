@@ -118,8 +118,12 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
   ## Watchdog thread that monitors the Waku thread and notifies the library user if it hangs.
 
   let watchdogRun = proc(ctx: ptr WakuContext) {.async.} =
+    const WatchdogStartDelay = 10.seconds
     const WatchdogTimeinterval = 1.seconds
     const WakuNotRespondingTimeout = 3.seconds
+
+    # Give time for the node to be created and up before sending watchdog requests
+    await sleepAsync(WatchdogStartDelay)
     while true:
       await sleepAsync(WatchdogTimeinterval)
 
