@@ -76,7 +76,7 @@ suite "Waku Lightpush - End To End":
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
 
-      assert (publishResponse.error.code == NO_PEERS_TO_RELAY),
+      assert (publishResponse.error.code == LightPushErrorCode.NO_PEERS_TO_RELAY),
         "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
@@ -93,7 +93,7 @@ suite "Waku Lightpush - End To End":
 
       check:
         publishResponse.isErr()
-        publishResponse.error.code == INVALID_MESSAGE_ERROR
+        publishResponse.error.code == LightPushErrorCode.INVALID_MESSAGE
         publishResponse.error.desc ==
           some(fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes")
 
@@ -168,7 +168,7 @@ suite "RLN Proofs as a Lightpush Service":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      check publishResponse.error.code == NO_PEERS_TO_RELAY
+      check publishResponse.error.code == LightPushErrorCode.NO_PEERS_TO_RELAY
 
 suite "Waku Lightpush message delivery":
   asyncTest "lightpush message flow succeed":

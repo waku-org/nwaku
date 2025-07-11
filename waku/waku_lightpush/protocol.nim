@@ -36,21 +36,21 @@ proc handleRequest(
       let msg = "Pubsub topic must be specified when static sharding is enabled"
       error "lightpush request handling error", error = msg
       return WakuLightPushResult.err(
-        (code: LightpushStatusCode.INVALID_MESSAGE_ERROR, desc: some(msg))
+        (code: LightPushErrorCode.INVALID_MESSAGE, desc: some(msg))
       )
 
     let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
       let msg = "Invalid content-topic:" & $error
       error "lightpush request handling error", error = msg
       return WakuLightPushResult.err(
-        (code: LightPushStatusCode.INVALID_MESSAGE_ERROR, desc: some(msg))
+        (code: LightPushErrorCode.INVALID_MESSAGE, desc: some(msg))
       )
 
     wl.autoSharding.get().getShard(parsedTopic).valueOr:
       let msg = "Auto-sharding error: " & error
       error "lightpush request handling error", error = msg
       return WakuLightPushResult.err(
-        (code: LightPushStatusCode.INTERNAL_SERVER_ERROR, desc: some(msg))
+        (code: LightPushErrorCode.INTERNAL_SERVER_ERROR, desc: some(msg))
       )
 
   # ensure checking topic will not cause error at gossipsub level
@@ -58,7 +58,7 @@ proc handleRequest(
     let msg = "topic must not be empty"
     error "lightpush request handling error", error = msg
     return
-      WakuLightPushResult.err((code: LightPushStatusCode.BAD_REQUEST, desc: some(msg)))
+      WakuLightPushResult.err((code: LightPushErrorCode.BAD_REQUEST, desc: some(msg)))
 
   waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
@@ -78,16 +78,14 @@ proc handleRequest(
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
 ): Future[LightPushResponse] {.async.} =
-  var pushResponse: LightPushResponse
-
   let pushRequest = LightPushRequest.decode(buffer).valueOr:
     let desc = decodeRpcFailure & ": " & $error
     error "failed to push message", error = desc
-    let errorCode = LightPushStatusCode.BAD_REQUEST.uint32
+    let errorCode = LightPushErrorCode.BAD_REQUEST
     waku_lightpush_v3_errors.inc(labelValues = [$errorCode])
     return LightPushResponse(
       requestId: "N/A", # due to decode failure we don't know requestId
-      statusCode: errorCode.uint32,
+      statusCode: errorCode,
       statusDesc: some(desc),
     )
 
@@ -96,12 +94,12 @@ proc handleRequest*(
     waku_lightpush_v3_errors.inc(labelValues = [$error.code])
     error "failed to push message", error = desc
     return LightPushResponse(
-      requestId: pushRequest.requestId, statusCode: error.code.uint32, statusDesc: desc
+      requestId: pushRequest.requestId, statusCode: error.code, statusDesc: desc
     )
 
   return LightPushResponse(
     requestId: pushRequest.requestId,
-    statusCode: LightPushStatusCode.SUCCESS.uint32,
+    statusCode: LightPushSuccessCode.SUCCESS,
     statusDesc: none[string](),
     relayPeerCount: some(relayPeerCount),
   )
@@ -135,7 +133,7 @@ proc initProtocolHandler(wl: WakuLightPush) =
           ## in reject case as it is comparably too expensive and opens possible
           ## attack surface
           requestId: "N/A",
-          statusCode: LightpushStatusCode.TOO_MANY_REQUESTS.uint32,
+          statusCode: LightPushErrorCode.TOO_MANY_REQUESTS,
           statusDesc: some(TooManyRequestsMessage),
         )
       )
