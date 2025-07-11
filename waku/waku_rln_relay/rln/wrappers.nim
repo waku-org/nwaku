@@ -22,13 +22,14 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   var
     keysBuffer: Buffer
     keysBufferPtr = addr(keysBuffer)
-    done = key_gen(ctxPtr, keysBufferPtr)
+    done = key_gen_be(ctxPtr, keysBufferPtr)
 
   # check whether the keys are generated successfully
   if (done == false):
     return err("error in key generation")
 
   if (keysBuffer.len != 4 * 32):
+    debug "keysBuffer is of invalid length", keysBufferLen = keysBuffer.len
     return err("keysBuffer is of invalid length")
 
   var generatedKeys = cast[ptr array[4 * 32, byte]](keysBufferPtr.`ptr`)[]

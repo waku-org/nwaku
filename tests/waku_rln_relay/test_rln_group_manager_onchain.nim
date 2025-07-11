@@ -205,20 +205,20 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBefore = manager.fetchMerkleRoot()
+    let idCredentials = generateCredentials(manager.rlnInstance)
+    let merkleRootBefore = (waitFor manager.fetchMerkleRoot()).valueOr:
+      raiseAssert "Failed to fetch merkle root: " & $error
 
     try:
-      waitFor manager.register(
-        RateCommitment(
-          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(20)
-        )
-      )
+      debug "Registering commitment", idCommitment = idCredentials.idCommitment
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
-
-    let merkleRootAfter = manager.fetchMerkleRoot()
+    
+    debug "Fetching Merkle root after registration"
+    let merkleRootAfter = (waitFor manager.fetchMerkleRoot()).valueOr:
+      raiseAssert "Failed to fetch merkle root: " & $error
 
     check:
       merkleRootAfter != merkleRootBefore

@@ -101,6 +101,10 @@ proc key_gen*(
   ctx: ptr RLN, output_buffer: ptr Buffer
 ): bool {.importc: "extended_key_gen".}
 
+proc key_gen_be*(
+  ctx: ptr RLN, output_buffer: ptr Buffer
+): bool {.importc: "extended_key_gen_be".}
+
 ## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> |
 ## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
 ## id commitment is the poseidon hash of the identity secret hash
@@ -158,8 +162,7 @@ proc verify*(
 
 proc verify_with_roots*(
   ctx: ptr RLN,
-  proof_buffer: ptr Buffer,
-  roots_buffer: ptr Buffer,
+  proof_buffer: ptr Buffer,  roots_buffer: ptr Buffer,
   proof_is_valid_ptr: ptr bool,
 ): bool {.importc: "verify_with_roots".}
 

@@ -304,7 +304,9 @@ method register*(
   var gasPrice: int
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
+  let idCommitmentBytes = identityCredential.idCommitment
   let idCommitmentHex = identityCredential.idCommitment.inHex()
+  debug "identityCredential idCommitmentBytes", idCommitmentBytes = idCommitmentBytes
   debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
   let idCommitmentsToErase: seq[UInt256] = @[]
@@ -577,11 +579,11 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   # check if the Ethereum client is reachable
   let ethRpc: Web3 = (await establishConnection(g)).valueOr:
     return err("failed to connect to Ethereum clients: " & $error)
-
+  debug "initializing OnchainGroupManager"
   var fetchedChainId: UInt256
   g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
     await ethRpc.provider.eth_chainId()
-
+  debug "fetched chain id", fetchedChainId = fetchedChainId
   # Set the chain id
   if g.chainId == 0:
     warn "Chain ID not set in config, using RPC Provider's Chain ID",
@@ -610,6 +612,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   g.wakuRlnContract = some(wakuRlnContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
+    debug "Using existing keystore credentials",
+      keystorePath = g.keystorePath.get()
     if not fileExists(g.keystorePath.get()):
       error "File provided as keystore path does not exist", path = g.keystorePath.get()
       return err("File provided as keystore path does not exist")
@@ -642,6 +646,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     try:
       let commitmentBytes = keystoreCred.identityCredential.idCommitment
       let params = commitmentBytes.reversed()
+      debug "Reversing idCommitment bytes when sending as param to verify if membership exists",
+        commitment = idCommitmentHex, params = params
       let resultBytes = await sendEthCallWithParams(
         ethRpc = g.ethRpc.get(),
         functionSignature = "isInMembershipSet(uint256)",
