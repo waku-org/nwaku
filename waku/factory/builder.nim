@@ -46,6 +46,12 @@ type
     # Rate limit configs for non-relay req-resp protocols
     rateLimitSettings: Option[ProtocolRateLimitSettings]
 
+    # Eligibility enabled
+    eligibilityEnabled: bool
+
+    # Reputation enabled
+    reputationEnabled: bool
+
   WakuNodeBuilderResult* = Result[void, string]
 
 ## Init
@@ -115,6 +121,8 @@ proc withPeerManagerConfig*(
     maxConnections: int,
     relayServiceRatio: string,
     shardAware = false,
+    eligibilityEnabled = false,
+    reputationEnabled = false,
 ) =
   let (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
   var relayPeers = int(ceil(float(maxConnections) * relayRatio))
@@ -123,6 +131,8 @@ proc withPeerManagerConfig*(
   builder.maxServicePeers = servicePeers
   builder.maxRelayPeers = relayPeers
   builder.shardAware = shardAware
+  builder.eligibilityEnabled = eligibilityEnabled
+  builder.reputationEnabled = reputationEnabled
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
@@ -209,6 +219,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     maxServicePeers = some(builder.maxServicePeers),
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
+    eligibilityEnabled = builder.eligibilityEnabled,
+    reputationEnabled = builder.reputationEnabled
   )
 
   var node: WakuNode
