@@ -110,11 +110,15 @@ source env.sh
 ```
 If everything went well, you should see your prompt suffixed with `[Nimbus env]$`. Now you can run `nim` commands as usual.
 
-### Waku Protocol Test Suite
+### Test Suite
 
 ```bash
 # Run all the Waku tests
 make test
+# Run a specific test file
+make test <test_file>
+# Run a specific test name from a specific test file
+make test <test_file> <test_name>
 ```
 
 ### Building single test files
