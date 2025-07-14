@@ -239,7 +239,7 @@ proc setupProtocols(
         )
       ).isOkOr:
         return err("failed to mount waku store sync protocol: " & $error)
-      
+
       if conf.remoteStoreNode.isSome():
         let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
         if storeNode.isOk():
