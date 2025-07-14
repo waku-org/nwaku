@@ -1,7 +1,7 @@
 # Spam-protected chat2 application with on-chain group management
 
 This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
-In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Sepolia network which is one of the Ethereum test-nets.
+In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Linea Sepolia network which is one of the test-nets.
 Members can be dynamically added to the group and the group size can grow up to 2^20 members.
 This differs from the prior test scenarios in which the RLN group was static and the set of members' keys was hardcoded and fixed.
 
@@ -45,7 +45,7 @@ Run the following command to set up your chat2 client.
 --content-topic:/toy-chat/3/mingde/proto \
 --rln-relay:true \
 --rln-relay-dynamic:true \
---rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 \
+--rln-relay-eth-contract-address:0xB9cd878C90E49F797B4431fBF4fb333108CB90e6 \
 --rln-relay-cred-path:xxx/xx/rlnKeystore.json \
 --rln-relay-cred-password:xxxx \
 --rln-relay-eth-client-address:xxxx \
@@ -58,11 +58,11 @@ In this command
 - the `rln-relay` flag is set to `true` to enable the Waku-RLN-Relay protocol for spam protection.
 - the `--rln-relay-dynamic` flag is set to `true` to enable the on-chain mode of Waku-RLN-Relay protocol with dynamic group management.
 - the `--rln-relay-eth-contract-address` option gets the address of the membership contract.
- The current address of the contract is `0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4`.
- You may check the state of the contract on the [Sepolia testnet](https://sepolia.etherscan.io/address/0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4).
+ The current address of the contract is `0xB9cd878C90E49F797B4431fBF4fb333108CB90e6`.
+ You may check the state of the contract on the [Linea Sepolia testnet](https://sepolia.lineascan.build/address/0xB9cd878C90E49F797B4431fBF4fb333108CB90e6).
 - the `--rln-relay-cred-path` option denotes the path to the keystore file described above
 - the `--rln-relay-cred-password` option denotes the password to the keystore
-- the `rln-relay-eth-client-address` is the WebSocket address of the hosted node on the Sepolia testnet.
+- the `rln-relay-eth-client-address` is the WebSocket address of the hosted node on the Linea Sepolia testnet.
  You need to replace the `xxxx` with the actual node's address.
 
 For `rln-relay-eth-client-address`, if you do not know how to obtain it, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
@@ -166,7 +166,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=1
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xB9cd878C90E49F797B4431fBF4fb333108CB90e6 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=1
 ```
 
 ```
@@ -209,7 +209,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-index:1 --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=2
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xB9cd878C90E49F797B4431fBF4fb333108CB90e6 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-index:1 --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=2
 ```
 
 ```
