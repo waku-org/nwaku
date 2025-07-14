@@ -55,7 +55,7 @@ If you are running the nwaku node within docker, follow [Step 2](../docker-quick
 export WAKU_FLEET=<entree of the fleet>
 export SEPOLIA_HTTP_NODE_ADDRESS=<HTTP RPC URL to a Sepolia Node>
 export RLN_RELAY_CONTRACT_ADDRESS="0xB9cd878C90E49F797B4431fBF4fb333108CB90e6" # Replace this with any compatible implementation
-docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.35.1 \
+docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.36.0 \
   --dns-discovery:true \
   --dns-discovery-url:"$WAKU_FLEET" \
   --discv5-discovery \
