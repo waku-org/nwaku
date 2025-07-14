@@ -23,7 +23,7 @@ It is meant to be used to generate and persist a set of valid RLN credentials to
     ```bash
     export RPC_URL="https://sepolia.infura.io/v3/..."
     export PRIVATE_KEY="0x..."
-    export RLN_CONTRACT_ADDRESS="0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4"
+    export RLN_CONTRACT_ADDRESS="0xB9cd878C90E49F797B4431fBF4fb333108CB90e6"
     export RLN_CREDENTIAL_PATH="rlnKeystore.json"
     export RLN_CREDENTIAL_PASSWORD="xxx"
     ```

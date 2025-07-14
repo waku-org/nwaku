@@ -34,7 +34,7 @@ Follow [Step 10](../droplet-quickstart.md#10-run-nwaku) of the [droplet quicksta
 
 ```bash
 export SEPOLIA_HTTP_NODE_ADDRESS=<HTTP RPC URL to a Sepolia Node>
-export RLN_RELAY_CONTRACT_ADDRESS="0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4" # Replace this with any compatible implementation
+export RLN_RELAY_CONTRACT_ADDRESS="0xB9cd878C90E49F797B4431fBF4fb333108CB90e6" # Replace this with any compatible implementation
 $WAKUNODE_DIR/wakunode2 \
 --store:true \
 --persist-messages \
@@ -54,8 +54,8 @@ If you are running the nwaku node within docker, follow [Step 2](../docker-quick
 ```bash
 export WAKU_FLEET=<entree of the fleet>
 export SEPOLIA_HTTP_NODE_ADDRESS=<HTTP RPC URL to a Sepolia Node>
-export RLN_RELAY_CONTRACT_ADDRESS="0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4" # Replace this with any compatible implementation
-docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.20.0 \
+export RLN_RELAY_CONTRACT_ADDRESS="0xB9cd878C90E49F797B4431fBF4fb333108CB90e6" # Replace this with any compatible implementation
+docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.35.1 \
   --dns-discovery:true \
   --dns-discovery-url:"$WAKU_FLEET" \
   --discv5-discovery \
