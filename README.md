@@ -115,10 +115,14 @@ If everything went well, you should see your prompt suffixed with `[Nimbus env]$
 ```bash
 # Run all the Waku tests
 make test
+
 # Run a specific test file
-make test <test_file>
+make test <test_file_path>
+# e.g. : make test tests/wakunode2/test_all.nim
+
 # Run a specific test name from a specific test file
-make test <test_file> <test_name>
+make test <test_file_path> <test_name>
+# e.g. : make test tests/wakunode2/test_all.nim "node setup is successful with default configuration"
 ```
 
 ### Building single test files
