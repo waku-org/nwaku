@@ -56,22 +56,6 @@ proc destroyShared(self: ptr PeerManagementRequest) =
 
   deallocShared(self)
 
-proc connectTo(
-    node: WakuNode, peerMultiAddr: string, dialTimeout: Duration
-): Result[void, string] =
-  let peers = (peerMultiAddr).split(",").mapIt(strip(it))
-
-  # TODO: the dialTimeout is not being used at all!
-  let connectFut = node.connectToNodes(peers, source = "static")
-  while not connectFut.finished():
-    poll()
-
-  if not connectFut.completed():
-    let msg = "Timeout expired."
-    return err(msg)
-
-  return ok()
-
 proc process*(
     self: ptr PeerManagementRequest, waku: Waku
 ): Future[Result[string, string]] {.async.} =
