@@ -249,11 +249,13 @@ proc selectPeer*(
     var preSelectedPeers =
       if pm.reputationManager.isSome():
         debug "Reputation enabled: consider only non-negative reputation peers"
+        # FIXME: remove double loop
         for peer in peers:
           let rep = try:
             pm.reputationManager.get().getReputation(peer.peerId)
           except KeyError:
             none(bool)
+          debug "Peer with reputation:", peer=peer, reputation=rep
         peers.filterIt:
           let rep =
             try:
