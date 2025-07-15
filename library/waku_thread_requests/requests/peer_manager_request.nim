@@ -80,10 +80,9 @@ proc process*(
 
   case self.operation
   of CONNECT_TO:
-    let ret = waku.node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
-    if ret.isErr():
-      error "CONNECT_TO failed", error = ret.error
-      return err(ret.error)
+    let peers = ($self[].peerMultiAddr).split(",").mapIt(strip(it))
+    await waku.node.connectToNodes(peers, source = "static")
+    return ok("")
   of GET_ALL_PEER_IDS:
     ## returns a comma-separated string of peerIDs
     let peerIDs =
