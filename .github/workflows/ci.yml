@@ -80,6 +80,7 @@ jobs:
         run: make V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
   
   build-windows:
+    needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
     uses: ./.github/workflows/windows-build.yml
     with:
