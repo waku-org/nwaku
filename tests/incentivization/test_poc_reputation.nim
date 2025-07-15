@@ -31,37 +31,37 @@ suite "Waku Incentivization PoC Reputation":
 
   test "incentivization PoC: reputation: evaluate LightPushResponse valid":
     let validLightLightPushResponse =
-      LightPushResponse(requestId: "", statusCode: LightpushStatusCode.SUCCESS.uint32)
+      LightPushResponse(requestId: "", statusCode: LightPushSuccessCode.SUCCESS)
     # We expect evaluateResponse to return GoodResponse if isSuccess is true
     check evaluateResponse(validLightLightPushResponse) == GoodResponse
 
   test "incentivization PoC: reputation: evaluate LightPushResponse invalid":
     let invalidLightLightPushResponse = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.SERVICE_NOT_AVAILABLE.uint32
+      requestId: "", statusCode: LightPushErrorCode.SERVICE_NOT_AVAILABLE
     )
     check evaluateResponse(invalidLightLightPushResponse) == BadResponse
 
   test "incentivization PoC: reputation: evaluate LightPushResponse neutral - payment required":
     let neutralLightPushResponse = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32
+      requestId: "", statusCode: LightPushErrorCode.PAYMENT_REQUIRED
     )
     check evaluateResponse(neutralLightPushResponse) == NeutralResponse
 
   test "incentivization PoC: reputation: evaluate LightPushResponse bad - no peers":
     let badLightPushResponse = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.NO_PEERS_TO_RELAY.uint32
+      requestId: "", statusCode: LightPushErrorCode.NO_PEERS_TO_RELAY
     )
     check evaluateResponse(badLightPushResponse) == BadResponse
 
   test "incentivization PoC: reputation: updateReputationFromResponse valid":
     let validResp =
-      LightPushResponse(requestId: "", statusCode: LightpushStatusCode.SUCCESS.uint32)
+      LightPushResponse(requestId: "", statusCode: LightPushSuccessCode.SUCCESS)
     manager.updateReputationFromResponse(peerId1, validResp)
     check manager.getReputation(peerId1) == some(true)
 
   test "incentivization PoC: reputation: updateReputationFromResponse invalid":
     let invalidResp = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.SERVICE_NOT_AVAILABLE.uint32
+      requestId: "", statusCode: LightPushErrorCode.SERVICE_NOT_AVAILABLE
     )
     manager.updateReputationFromResponse(peerId1, invalidResp)
     check manager.getReputation(peerId1) == some(false)
@@ -73,7 +73,7 @@ suite "Waku Incentivization PoC Reputation":
     
     # Send a neutral response (payment required)
     let neutralResp = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32
+      requestId: "", statusCode: LightPushErrorCode.PAYMENT_REQUIRED
     )
     manager.updateReputationFromResponse(peerId1, neutralResp)
     
@@ -87,7 +87,7 @@ suite "Waku Incentivization PoC Reputation":
     
     # Send a neutral response (payment required)
     let neutralResp = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32
+      requestId: "", statusCode: LightPushErrorCode.PAYMENT_REQUIRED
     )
     manager.updateReputationFromResponse(peerId1, neutralResp)
     
@@ -100,7 +100,7 @@ suite "Waku Incentivization PoC Reputation":
     
     # Send a neutral response (payment required)
     let neutralResp = LightPushResponse(
-      requestId: "", statusCode: LightpushStatusCode.PAYMENT_REQUIRED.uint32
+      requestId: "", statusCode: LightPushErrorCode.PAYMENT_REQUIRED
     )
     manager.updateReputationFromResponse(peerId1, neutralResp)
     
