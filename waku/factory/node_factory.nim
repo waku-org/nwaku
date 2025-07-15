@@ -180,7 +180,7 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
     if storeServiceConf.supportV2:
-      let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
+      let archiveDriverRes = await legacy_driver.ArchiveDriver.new(
         storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
         storeServiceConf.maxNumDbConnections, onFatalErrorAction,
       )
@@ -214,7 +214,7 @@ proc setupProtocols(
       else:
         storeServiceConf.dbMigration
 
-    let archiveDriverRes = waitFor driver.ArchiveDriver.new(
+    let archiveDriverRes = await driver.ArchiveDriver.new(
       storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
       storeServiceConf.maxNumDbConnections, onFatalErrorAction,
     )
@@ -368,7 +368,7 @@ proc setupProtocols(
     )
 
     try:
-      waitFor node.mountRlnRelay(rlnConf)
+      await node.mountRlnRelay(rlnConf)
     except CatchableError:
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
@@ -511,11 +511,13 @@ proc startNode*(
 
 proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
-): Result[WakuNode, string] =
-  let netConfig = networkConfiguration(
-    wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
-    wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
-    wakuConf.portsShift, clientId,
+): Future[Result[WakuNode, string]] {.async.} =
+  let netConfig = (
+    await networkConfiguration(
+      wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
+      wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
+      wakuConf.portsShift, clientId,
+    )
   ).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
@@ -546,7 +548,7 @@ proc setupNode*(
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(wakuConf)).isOkOr:
+    (await node.setupProtocols(wakuConf)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

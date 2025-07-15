@@ -59,14 +59,14 @@ proc startMetricsLog*() =
 
 proc startMetricsServer(
     serverIp: IpAddress, serverPort: Port
-): Result[MetricsHttpServerRef, string] =
+): Future[Result[MetricsHttpServerRef, string]] {.async.} =
   info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
 
   let server = MetricsHttpServerRef.new($serverIp, serverPort).valueOr:
     return err("metrics HTTP server start failed: " & $error)
 
   try:
-    waitFor server.start()
+    await server.start()
   except CatchableError:
     return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
 
@@ -75,10 +75,12 @@ proc startMetricsServer(
 
 proc startMetricsServerAndLogging*(
     conf: MetricsServerConf, portsShift: uint16
-): Result[MetricsHttpServerRef, string] =
+): Future[Result[MetricsHttpServerRef, string]] {.async.} =
   var metricsServer: MetricsHttpServerRef
-  metricsServer = startMetricsServer(
-    conf.httpAddress, Port(conf.httpPort.uint16 + portsShift)
+  metricsServer = (
+    await (
+      startMetricsServer(conf.httpAddress, Port(conf.httpPort.uint16 + portsShift))
+    )
   ).valueOr:
     return err("Starting metrics server failed. Continuing in current state:" & $error)
 
