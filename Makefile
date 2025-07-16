@@ -53,15 +53,17 @@ endif
 # default target, because it's the first one that doesn't start with '.'
 all: | wakunode2 example2 chat2 chat2bridge libwaku
 
-TEST_FILE := $(word 2,$(MAKECMDGOALS))
-TEST_NAME := $(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+test_file := $(word 2,$(MAKECMDGOALS))
+define test_name
+$(shell echo '$(MAKECMDGOALS)' | cut -d' ' -f3-)
+endef
 
 test:
-ifeq ($(strip $(TEST_FILE)),)
+ifeq ($(strip $(test_file)),)
 	$(MAKE) testcommon
 	$(MAKE) testwaku
 else
-	$(MAKE) compile-test $(TEST_FILE) $(TEST_NAME)
+	$(MAKE) compile-test TEST_FILE="$(test_file)" TEST_NAME="$(call test_name)"
 endif
 # this prevents make from erroring on unknown targets like "Index"
 %:
