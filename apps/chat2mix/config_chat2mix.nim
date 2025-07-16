@@ -184,7 +184,7 @@ type
 
     contentTopic* {.
       desc: "Content topic for chat messages.",
-      defaultValue: "/toy-chat/2/huilong/proto",
+      defaultValue: "/toy-chat-mix/2/huilong/proto",
       name: "content-topic"
     .}: string
 

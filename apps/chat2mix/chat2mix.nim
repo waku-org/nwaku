@@ -51,6 +51,9 @@ import
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
 import ../../waku/waku_rln_relay
 
+logScope:
+  topics = "chat2 mix"
+
 const Help =
   """
   Commands: /[?|help|connect|nick|exit]
@@ -215,13 +218,12 @@ proc publish(c: Chat, line: string) =
   try:
     if not c.node.wakuLightpushClient.isNil():
       # Attempt lightpush with mix
-      echo "Attempting to publish message as lightpush"
       #(
       discard c.node.lightpushPublish(
         some(c.conf.getPubsubTopic(c.node, c.contentTopic)),
         message,
         none(RemotePeerInfo),
-        false,
+        true,
       ) #TODO: Not waiting for response, have to change once SURB is implmented
       #).isOkOr:
       #  error "failed to publish lightpush message", error = error
@@ -606,7 +608,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         error = peerInfo.error
 
   # Subscribe to a topic, if relay is mounted
-  if conf.relay:
+  #[  if conf.relay:
     proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       trace "Hit subscribe handler", topic
 
@@ -614,7 +616,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     node.subscribe((kind: PubsubSub, topic: pubsubTopic), WakuRelayHandler(handler)).isOkOr:
-      error "failed to subscribe to pubsub topic", topic = pubsubTopic, error = error
+      error "failed to subscribe to pubsub topic", topic = pubsubTopic, error = error ]#
 
   #[    if conf.rlnRelay:
       info "WakuRLNRelay is enabled"
