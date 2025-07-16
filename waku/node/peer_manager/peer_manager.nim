@@ -372,14 +372,6 @@ proc connectToNodes*(
   info "Finished dialing multiple peers",
     successfulConns = connectedPeers.len, attempted = nodes.len
 
-  # The issue seems to be around peers not being fully connected when
-  # trying to subscribe. So what we do is sleep to guarantee nodes are
-  # fully connected.
-  #
-  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
-  # later.
-  await sleepAsync(chronos.seconds(5))
-
 proc disconnectNode*(pm: PeerManager, peerId: PeerId) {.async.} =
   await pm.switch.disconnect(peerId)
 

@@ -567,6 +567,9 @@ procSuite "Peer Manager":
     # Connect to relay peers
     await nodes[0].peerManager.connectToRelayPeers()
 
+    # wait for the connections to settle
+    await sleepAsync(chronos.milliseconds(500))
+
     check:
       # Peerstore track all three peers
       nodes[0].peerManager.switch.peerStore.peers().len == 3
@@ -636,6 +639,9 @@ procSuite "Peer Manager":
 
     # Connect to relay peers
     await nodes[0].peerManager.manageRelayPeers()
+
+    # wait for the connections to settle
+    await sleepAsync(chronos.milliseconds(500))
 
     check:
       # Peerstore track all three peers

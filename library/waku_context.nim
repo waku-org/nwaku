@@ -170,12 +170,12 @@ proc wakuThreadBody(ctx: ptr WakuContext) {.thread.} =
         error "waku thread could not receive a request"
         continue
 
+      ## Handle the request
+      asyncSpawn WakuThreadRequest.process(request, addr waku)
+
       let fireRes = ctx.reqReceivedSignal.fireSync()
       if fireRes.isErr():
         error "could not fireSync back to requester thread", error = fireRes.error
-
-      ## Handle the request
-      asyncSpawn WakuThreadRequest.process(request, addr waku)
 
   waitFor wakuRun(ctx)
 

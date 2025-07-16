@@ -30,13 +30,13 @@ It works by running a `nwaku` node, publishing a message from it every fixed int
 2. If you want to query nodes in `cluster-id` 1, then you have to follow the steps of registering an RLN membership. Otherwise, you can skip this step.
 
     For it, you need:
-    * Ethereum Sepolia WebSocket endpoint. Get one free from [Infura](https://www.infura.io/).
-    * Ethereum Sepolia account with some balance <0.01 Eth. Get some [here](https://www.infura.io/faucet/sepolia).
+    * Ethereum Linea Sepolia WebSocket endpoint. Get one free from [Infura](https://linea-sepolia.infura.io/).
+    * Ethereum Linea Sepolia account with minimum 0.01ETH. Get some [here](https://docs.metamask.io/developer-tools/faucet/).
     * A password to protect your rln membership.
 
     Fill the `RLN_RELAY_ETH_CLIENT_ADDRESS`, `ETH_TESTNET_KEY` and `RLN_RELAY_CRED_PASSWORD` env variables and run
 
-    ```
+    ``` 
     ./register_rln.sh
     ```
 
