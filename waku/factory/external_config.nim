@@ -314,6 +314,12 @@ hence would have reachability issues.""",
       name: "staticnode"
     .}: seq[string]
 
+    keepAlive* {.
+      desc: "Deprecated since >=v0.37. This param is ignored and keep alive is always active",
+      defaultValue: true,
+      name: "keep-alive"
+    .}: bool
+
     numShardsInNetwork* {.
       desc:
         "Enables autosharding and set number of shards in the cluster, set to `0` to use static sharding",
