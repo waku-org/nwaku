@@ -152,3 +152,100 @@ suite "Token Bucket":
     reqTime += 1.minutes
     let (maxCompensationBudget, _, _) = bucket.getAvailableCapacity(reqTime)
     check maxCompensationBudget == 1250 # 1000 + 250 max compensation
+
+  test "TokenBucket custom budget parameter":
+    let now = Moment.now()
+
+    # Test with default budget (-1, should use budgetCap)
+    var bucket1 = TokenBucket.new(1000, 1.seconds, budget = -1)
+    let (budget1, budgetCap1, _) = bucket1.getAvailableCapacity(now)
+    check budget1 == 1000
+    check budgetCap1 == 1000
+
+    # Test with custom budget less than capacity
+    var bucket2 = TokenBucket.new(1000, 1.seconds, budget = 500)
+    let (budget2, budgetCap2, _) = bucket2.getAvailableCapacity(now)
+    check budget2 == 500
+    check budgetCap2 == 1000
+
+    # Test with budget equal to capacity
+    var bucket3 = TokenBucket.new(1000, 1.seconds, budget = 1000)
+    let (budget3, budgetCap3, _) = bucket3.getAvailableCapacity(now)
+    check budget3 == 1000
+    check budgetCap3 == 1000
+
+    # Test with zero budget
+    var bucket4 = TokenBucket.new(1000, 1.seconds, budget = 0)
+    let (budget4, budgetCap4, _) = bucket4.getAvailableCapacity(now)
+    check budget4 == 0
+    check budgetCap4 == 1000
+
+    # Test consumption with custom budget
+    check bucket2.tryConsume(300, now) == true
+    let (budget2After, budgetCap2After, _) = bucket2.getAvailableCapacity(now)
+    check budget2After == 200
+    check budgetCap2After == 1000
+    check bucket2.tryConsume(300, now) == false # Should fail, only 200 remaining
+
+  test "TokenBucket custom lastTimeFull parameter":
+    let now = Moment.now()
+    let pastTime = now - 5.seconds
+
+    # Test with past lastTimeFull (bucket should be ready for refill)
+    var bucket1 = TokenBucket.new(1000, 1.seconds, budget = 0, lastTimeFull = pastTime)
+    # Since 5 seconds have passed and period is 1 second, bucket should refill
+    check bucket1.tryConsume(1000, now) == true
+
+    # Test with current time as lastTimeFull
+    var bucket2 = TokenBucket.new(1000, 1.seconds, budget = 500, lastTimeFull = now)
+    check bucket2.getAvailableCapacity(now) == (500, 1000, now)
+
+    # Test strict mode with past lastTimeFull
+    var bucket3 = TokenBucket.new(
+      1000, 1.seconds, ReplenishMode.Strict, budget = 0, lastTimeFull = pastTime
+    )
+    check bucket3.tryConsume(1000, now) == true # Should refill to full capacity
+
+    # Test compensating mode with past lastTimeFull and partial usage
+    var bucket4 = TokenBucket.new(
+      1000, 2.seconds, ReplenishMode.Compensating, budget = 300, lastTimeFull = pastTime
+    )
+    # 5 seconds passed, period is 2 seconds, so 2.5 periods elapsed
+    # Usage average = 300/1000/2.5 = 0.12 (12% usage)
+    # Compensation = (1.0 - 0.12) * 1000 = 880, capped at 250
+    let (availableBudget, _, _) = bucket4.getAvailableCapacity(now)
+    check availableBudget == 1250 # 1000 + 250 max compensation
+
+  test "TokenBucket parameter combinations":
+    let now = Moment.now()
+    let pastTime = now - 3.seconds
+
+    # Test strict mode with custom budget and past time
+    var strictBucket = TokenBucket.new(
+      budgetCap = 500,
+      fillDuration = 1.seconds,
+      mode = ReplenishMode.Strict,
+      budget = 100,
+      lastTimeFull = pastTime,
+    )
+    check strictBucket.getAvailableCapacity(now) == (500, 500, pastTime)
+      # Should show full capacity since period elapsed
+
+    # Test compensating mode with custom budget and past time
+    var compBucket = TokenBucket.new(
+      budgetCap = 1000,
+      fillDuration = 2.seconds,
+      mode = ReplenishMode.Compensating,
+      budget = 200,
+      lastTimeFull = pastTime,
+    )
+    # 3 seconds passed, period is 2 seconds, so 1.5 periods elapsed
+    # Usage average = 200/1000/1.5 = 0.133 (13.3% usage)
+    # Compensation = (1.0 - 0.133) * 1000 = 867, capped at 250
+    let (compensatedBudget, _, _) = compBucket.getAvailableCapacity(now)
+    check compensatedBudget == 1250 # 1000 + 250 max compensation
+
+    # Test edge case: zero budget with immediate consumption
+    var zeroBucket = TokenBucket.new(100, 1.seconds, budget = 0, lastTimeFull = now)
+    check zeroBucket.tryConsume(1, now) == false # Should fail immediately
+    check zeroBucket.tryConsume(1, now + 1.seconds) == true # Should succeed after period
