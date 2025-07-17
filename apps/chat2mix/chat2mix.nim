@@ -425,6 +425,12 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
+  enrBuilder.withWakuRelaySharding(
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+  ).isOkOr:
+    error "failed to add sharded topics to ENR", error = error
+    quit(QuitFailure)
+
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
@@ -451,11 +457,15 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     .tryGet()
     builder.build().tryGet()
 
-  await node.start()
-  #TODO: fix hard-coding.
-  node.mountSharding(conf.clusterId, 1).isOkOr:
+  node.mountSharding(conf.clusterId, conf.numShardsInNetwork).isOkOr:
     error "failed to mount waku sharding: ", error = error
     quit(QuitFailure)
+  node.mountMetadata(conf.clusterId).isOkOr:
+    error "failed to mount waku metadata protocol: ", err = error
+    quit 1
+
+  await node.start()
+
   #[   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
 

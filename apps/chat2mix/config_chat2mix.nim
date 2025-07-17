@@ -91,9 +91,15 @@ type
     clusterId* {.
       desc:
         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
-      defaultValue: 42,
+      defaultValue: 2,
       name: "cluster-id"
     .}: uint16
+
+    numShardsInNetwork* {.
+      desc: "Number of shards in the network",
+      defaultValue: 1,
+      name: "num-shards-in-network"
+    .}: uint32
 
     shards* {.
       desc:
