@@ -1,0 +1,47 @@
+# Incentivization PoC: Bob
+
+# Bob is a service node with Lightpush and Relay enabled
+# that successfully fulfils Alice's eligible requests.
+# Bob also checks for double-spend attempts - 
+# when Alice submits duplicate txid as proof of payment.
+
+
+# Enable Lightpush
+lightpush = true
+
+# Use a pre-generated static node key for reproducibility
+nodekey = "2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed"
+
+# Connect to Dave
+staticnode = [ "/ip4/127.0.0.1/tcp/60002/p2p/16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8" ]
+
+# Enable Relay (required for eligibility module)
+relay = true
+
+# Connect to The Waku Network (TWN)
+preset = "twn"
+
+# Disable discovery methods to ensure node isolation
+# TODO: is it needed? (Bob only connecting to Dave is OK)
+discv5-discovery = false
+dns-discovery = false
+
+# Eligibility-related parameters
+eligibility-enabled = true
+eligibility-receiver-address = "0x6298cc1831B6E5eDEDA5cC73bc75a040108358Bb"
+eligibility-payment-amount-wei = 1000000000
+
+# RLN-related parameters
+rln-relay-tree-path = "~/.waku/rln-tree-db"
+
+# NAT (required for local setup: TODO: explain why)
+nat = "upnp"
+
+# Enable REST API including admin functions
+rest = true
+rest-admin = true
+rest-address = "127.0.0.1"
+rest-allow-origin = [ "*" ]
+
+# Log level
+log-level = "DEBUG"

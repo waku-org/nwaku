@@ -102,18 +102,10 @@ graph LR
   Dave <-- Relay --> W((The Waku Network))
 ```
 
-For reproducibility, it is recommended to launch nodes with the same (static) keys (by default, new keys are generated at each launch). 
-Example commands use the pre-generated constant keys from which node IDs are derived. 
+For reproducibility, nodes are launched with the same (static) keys defined in config files.
+Example commands use the pre-generated constant keys from which node IDs are derived.
 Instructions for key config can be found [here](https://github.com/waku-org/nwaku/blob/master/docs/operators/how-to/configure-key.md).
 
-Nodes are as follows:
-
-|Name|Protocols enabled|Node key|Node ID|Ports shift|TCP port|REST API port|
-|---|---|---|---|---|---|---|
-|Alice|Lightpush (client)|`17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925`|`16Uiu2HAkwxC5Mcsh2DyZBq8CiKqnDkLUHWTuXCJas3TMPmRkynWz`|1|60001|8646|
-|Bob|Relay, Lightpush (server)|`2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed`|`16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95`|0|60000|8645|
-|Charlie|Relay|`fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f`|`16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd`|3|60003|8648|
-|Dave|Relay|`166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980`|`16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8`|2|60002|8647|
 
 > [!note] 
 > Nodes do not save eligibility and reputation data between restarts.
@@ -123,40 +115,52 @@ Nodes are as follows:
 
 The following suggested testing scenario demonstrates eligibility- and reputation-related functionality.
 
-First, set the following environmental variables (replace `API_KEY` with your Infura API key, or use an alternative RPC provider):
+Nodes are defined by a set of parameters defined as CLI arguments or in a TOML config file.
+CLI arguments override config parameters.
+Config files contain default values for most parameters.
+Some parameters must be defined manually, by either editing config files, or providing your own values as CLI arguments.
+
+> [!note]
+> Config files for the four nodes are in the directory `./i13n-poc-configs`'.
+
+You _may_ override the following parameters (but you don't have to - config defaults should work out of the box):
+- `rln-relay-tree-path` - by default, each node uses its own directory for syncing the RLN tree, located at `~/.waku/rln-tree-db-X`, where `-X` contains the ports shift parameter `X` (empty for default value of `ports-shift=0`).
+- `eligibility-receiver-address` - `0x6298cc1831B6E5eDEDA5cC73bc75a040108358Bb` by default (Linea Sepolia).
+- `eligibility-payment-amount-wei` - `1000000000` by default.
+
+You **must** provide your own values for the following parameters (config files contain no default values for them):
+- `rln-relay-eth-client-address` - an RPC URL (Linea Sepolia) used for RLN-related tasks.
+- `rln-relay-cred-path` - a local path to your RLN credentials.
+- `rln-relay-cred-password` - your RLN password.
+- `eligibility-eth-client-address`- an RPC URL (Linea Sepolia) used for eligibility-related tasks.
+
+> [!note]
+> You may use the same RPC endpoint for both RLN- and eligibility-related tasks.
+
+> [!note]
+> All nodes in the setup may use the same RLN membership, i.e., be launched with the same RLN-related parameters.
+
+Set the necessary environment variables (replace `API_KEY` with your API key for Infura or another RPC provider that you're using):
 ```
-export ALICE_NODEKEY="17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925"
-export BOB_NODEKEY="2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed"
-export CHARLIE_NODEKEY="fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f"
-export DAVE_NODEKEY="166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980"
-
-export CHARLIE_MULTIADDR="/ip4/127.0.0.1/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd"
-export DAVE_MULTIADDR="/ip4/127.0.0.1/tcp/60002/p2p/16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8"
-
+export ELIGIBILITY_ETH_CLIENT_ADDRESS="https://linea-sepolia.infura.io/v3/API_KEY"
 export RLN_RELAY_ETH_CLIENT_ADDRESS="https://linea-sepolia.infura.io/v3/API_KEY"
 export RLN_RELAY_CRED_PATH=".keystore/rlnKeystore-linea-sepolia.json"
 export RLN_RELAY_CRED_PASSWORD="12345678"
-
-export ELIGIBILITY_ETH_CLIENT_ADDRESS="https://linea-sepolia.infura.io/v3/API_KEY"
-
-export ELIGIBILITY_RECEIVER_ADDRESS="0x6298cc1831B6E5eDEDA5cC73bc75a040108358Bb"
-export ELIGIBILITY_PAYMENT_AMOUNT_WEI="1000000000"
-
 ```
 
 1. Launch Charlie (an isolated service node).
+
 ```
-./build/wakunode2 --lightpush --rln-relay-tree-path=~/.waku/rln-tree-db-3 --nodekey=$CHARLIE_NODEKEY --discv5-discovery=false --dns-discovery=false --rest=true --rest-admin=true --rest-address=127.0.0.1 --ports-shift=3 --rest-allow-origin="*" --preset=twn --relay=true --nat=upnp --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --rln-relay-cred-password=$RLN_RELAY_CRED_PASSWORD --rln-relay-cred-path=$RLN_RELAY_CRED_PATH --log-level=DEBUG --eligibility-enabled=true --eligibility-eth-client-address=$ELIGIBILITY_ETH_CLIENT_ADDRESS --eligibility-receiver-address=$ELIGIBILITY_RECEIVER_ADDRESS --eligibility-payment-amount-wei=$ELIGIBILITY_PAYMENT_AMOUNT_WEI
+./build/wakunode2 --config-file=./i13n-poc-configs/charlie.toml --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --rln-relay-cred-path=$RLN_RELAY_CRED_PATH --rln-relay-cred-password=$RLN_RELAY_CRED_PASSWORD --eligibility-eth-client-address=$ELIGIBILITY_ETH_CLIENT_ADDRESS
 ```
 
 > [!note]
 > When launching Charlie, we **must** enable Relay, otherwise eligibility module will not activate. To enforce node isolation, we turn off all discovery methods and provide no explicit nodes to connect to. This ensures that while Charlie's enable protocols theoretically allow him to fulfill Alice's Lightpush request, in practice the request would fail, which is what we need for negative test cases.
 
-
 2. Launch Alice (an edge node) connected to Charlie.
 
 ```
-./build/wakunode2 --nodekey=$ALICE_NODEKEY --staticnode=$CHARLIE_MULTIADDR --rest=true --rest-admin=true --rest-address=127.0.0.1 --ports-shift=1 --rest-allow-origin="*" --rln-relay=false --relay=false --cluster-id=1 --discv5-discovery=false --dns-discovery=false --reputation-enabled --log-level=DEBUG
+./build/wakunode2 --config-file=./i13n-poc-configs/alice.toml
 ```
 
 3. Alice sends a series of ineligible requests (without proof of payment and with invalid proof of payment).
@@ -237,7 +241,7 @@ DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer       tid=25598
 5. Launch Dave (a Relay node connected to the Waku network).
 
 ```
-./build/wakunode2 --rln-relay-tree-path=~/.waku/rln-tree-db-2 --nodekey=166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980 --rest=true --rest-admin=true --rest-address=127.0.0.1 --rest-allow-origin="*" --preset=twn --relay=true --nat=upnp --ports-shift=2 --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --log-level=DEBUG
+./build/wakunode2 --config-file=./i13n-poc-configs/dave.toml --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS 
 ```
 
 > [!note]
@@ -246,7 +250,7 @@ DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer       tid=25598
 6. Launch Bob (a Relay node connected to Dave).
 
 ```
-./build/wakunode2 --lightpush --rln-relay-tree-path=~/.waku/rln-tree-db --nodekey=$BOB_NODEKEY --staticnode=$DAVE_MULTIADDR --discv5-discovery=false --dns-discovery=false --rest=true --rest-admin=true --rest-address=127.0.0.1 --rest-port=8645 --rest-allow-origin="*" --preset=twn --relay=true --nat=upnp --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --rln-relay-cred-password=$RLN_RELAY_CRED_PASSWORD --rln-relay-cred-path=$RLN_RELAY_CRED_PATH --log-level=DEBUG --eligibility-enabled=true --eligibility-eth-client-address=$ELIGIBILITY_ETH_CLIENT_ADDRESS --eligibility-receiver-address=$ELIGIBILITY_RECEIVER_ADDRESS --eligibility-payment-amount-wei=$ELIGIBILITY_PAYMENT_AMOUNT_WEI
+./build/wakunode2 --config-file=./i13n-poc-configs/bob.toml --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --rln-relay-cred-password=$RLN_RELAY_CRED_PASSWORD --rln-relay-cred-path=$RLN_RELAY_CRED_PATH --eligibility-eth-client-address=$ELIGIBILITY_ETH_CLIENT_ADDRESS
 ```
 
 7. Connect Alice to Bob (via REST API, without re-launching).
@@ -254,9 +258,6 @@ DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer       tid=25598
 ```
 curl -X POST "http://127.0.0.1:8646/admin/v1/peers" -H "accept: text/plain" -H "content-type: application/json" -d '["/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95"]'
 ```
-
-> [!todo]
-> Figure out how to use an environment variable inside `-d '[""]'` here.
 
 Verify that Alice is connected to Bob:
 
@@ -324,7 +325,14 @@ Expected response (truncated; `i13n-poc` is short for "incentivization proof-of-
 [{"payload":"SGVsbG8gV29ybGQ=","contentTopic":"/i13n-poc/1/chat/proto","version":0,"timestamp":1752158544577207808,"ephemeral":false, ....
 ```
 
-# Eligibility parameters and txids on Linea Sepolia
+End of testing scenario.
+
+---
+---
+
+# Appendix
+
+## Eligibility parameters and txids on Linea Sepolia
 
 Transactions have been confirmed on Linea Sepolia for testing purposes.
 
@@ -355,4 +363,16 @@ Transaction ID that doesn't correspond to a confirmed transaction (must fail):
 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
+
+## Node keys and node IDs
+
+> [!note]
+> The following table is valid as of 2025-07-18. For up-to-date values, see config files.
+
+|Name|Protocols enabled|Node key|Node ID|Ports shift|TCP port|REST API port|
+|---|---|---|---|---|---|---|
+|Alice|Lightpush (client)|`17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925`|`16Uiu2HAkwxC5Mcsh2DyZBq8CiKqnDkLUHWTuXCJas3TMPmRkynWz`|1|60001|8646|
+|Bob|Relay, Lightpush (server)|`2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed`|`16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95`|0|60000|8645|
+|Charlie|Relay|`fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f`|`16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd`|3|60003|8648|
+|Dave|Relay|`166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980`|`16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8`|2|60002|8647|
 
