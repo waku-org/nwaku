@@ -135,7 +135,7 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.fetchMerkleRoot()
+    let merkleRootBefore = waitFor manager.fetchMerkleRoot()
 
     try:
       waitFor manager.register(credentials, UserMessageLimit(20))
@@ -144,7 +144,7 @@ suite "Onchain group manager":
 
     discard waitFor withTimeout(trackRootChanges(manager), 15.seconds)
 
-    let merkleRootAfter = manager.fetchMerkleRoot()
+    let merkleRootAfter = waitFor manager.fetchMerkleRoot()
 
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
@@ -170,7 +170,7 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let merkleRootBefore = manager.fetchMerkleRoot()
+    let merkleRootBefore = waitFor manager.fetchMerkleRoot()
 
     try:
       for i in 0 ..< credentials.len():
@@ -180,7 +180,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    let merkleRootAfter = manager.fetchMerkleRoot()
+    let merkleRootAfter = waitFor manager.fetchMerkleRoot()
 
     check:
       merkleRootBefore != merkleRootAfter
@@ -205,20 +205,16 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBefore = manager.fetchMerkleRoot()
+    let idCredentials = generateCredentials(manager.rlnInstance)
+    let merkleRootBefore = waitFor manager.fetchMerkleRoot()
 
     try:
-      waitFor manager.register(
-        RateCommitment(
-          idCommitment: idCommitment, userMessageLimit: UserMessageLimit(20)
-        )
-      )
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
-    let merkleRootAfter = manager.fetchMerkleRoot()
+    let merkleRootAfter = waitFor manager.fetchMerkleRoot()
 
     check:
       merkleRootAfter != merkleRootBefore
