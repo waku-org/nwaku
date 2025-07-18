@@ -1,0 +1,42 @@
+# Incentivization PoC: Alice
+
+# Alice is a client node that wants to publish messages
+# without being connected to Relay.
+
+# Disable Lightpush
+lightpush = false
+
+# Use a pre-generated static node key for reproducibility
+nodekey = "17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925"
+
+# Connect to Charlie only on launch
+# (Alice will connect to Bob via REST API later)
+staticnode = [ "/ip4/127.0.0.1/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" ]
+
+# Disable Relay and RLN-Relay
+# (TODO: is disabling RLN-Relay needed here?)
+relay = false
+rln-relay = false
+
+# Use cluster 1 (TWN)
+# (TODO: shall we use preset=twn instead?)
+cluster-id = 1
+
+# Disable discovery methods to ensure node isolation
+discv5-discovery = false
+dns-discovery = false
+
+# Reputation-related parameters
+reputation-enabled = true
+
+# Shift ports to avoid conflicts in local setups
+ports-shift = 1
+
+# Enable REST API including admin functions
+rest = true
+rest-admin = true
+rest-address = "127.0.0.1"
+rest-allow-origin = [ "*" ]
+
+# Log level
+log-level = "DEBUG"
