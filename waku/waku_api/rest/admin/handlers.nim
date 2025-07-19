@@ -174,7 +174,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       @[
         WakuRelayCodec, WakuFilterSubscribeCodec, WakuStoreCodec, WakuLegacyStoreCodec,
         WakuLegacyLightPushCodec, WakuLightPushCodec, WakuPeerExchangeCodec,
-        WakuReconciliationCodec,
+        WakuReconciliationCodec, WakuTransferCodec,
       ],
     )
 
