@@ -65,7 +65,7 @@ proc validateShards*(
     for shard in shards:
       if shard >= numShardsInCluster:
         let msg =
-          "validateShards invalid shard: " & $shard & " when numShardsInCluster: " &
+          "validateShards invalid shard: " & $shard & " when num-shards-in-network: " &
           $numShardsInCluster
         error "validateShards failed", error = msg
         return err(msg)
