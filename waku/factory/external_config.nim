@@ -749,10 +749,12 @@ proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
   ## http://url/with/path
   ## http://url:port/path?query
   ## https://url:port/path?query
+  ## https://user:pass@url:port/path
+  ## http://username:password@url:port/path
   ## disallowed patterns:
   ## any valid/invalid ws or wss url
   var httpPattern =
-    re2"^(https?):\/\/([\w-]+(\.[\w-]+)*)(:[0-9]{1,5})?(\/[\w.,@?^=%&:\/~+#-]*)?$"
+    re2"^(https?):\/\/([\w.-]+:[\w.-]+@)?([\w-]+(\.[\w-]+)*)(:[0-9]{1,5})?(\/[\w.,@?^=%&:\/~+#-]*)?$"
   var wsPattern =
     re2"^(wss?):\/\/([\w-]+(\.[\w-]+)+)(:[0-9]{1,5})?(\/[\w.,@?^=%&:\/~+#-]*)?$"
   if regex.match(s, wsPattern):
