@@ -6,6 +6,7 @@ pipeline {
 
   options {
     timestamps()
+    disableRestartFromStage()
     timeout(time: 20, unit: 'MINUTES')
     buildDiscarder(logRotator(
       numToKeepStr: '10',

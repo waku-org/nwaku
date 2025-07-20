@@ -1,3 +1,5 @@
+{.used.}
+
 import
   ./test_wakunode_filter,
   ./test_wakunode_legacy_lightpush,
