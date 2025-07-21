@@ -10,6 +10,7 @@ import
 
 import
   ./internal_config,
+  ./networks_config,
   ./waku_conf,
   ./builder,
   ./validator_signed,
@@ -121,7 +122,7 @@ proc initNode(
       relayServiceRatio = conf.relayServiceRatio,
       shardAware = conf.relayShardedPeerManagement,
     )
-  builder.withRateLimit(conf.rateLimits)
+  builder.withRateLimit(conf.rateLimit)
   builder.withCircuitRelay(relay)
 
   let node =
@@ -137,10 +138,12 @@ proc initNode(
 proc getAutoshards*(
     node: WakuNode, contentTopics: seq[string]
 ): Result[seq[RelayShard], string] =
+  if node.wakuAutoSharding.isNone():
+    return err("Static sharding used, cannot get shards from content topics")
   var autoShards: seq[RelayShard]
   for contentTopic in contentTopics:
-    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
-      return err("Could not parse content topic: " & error)
+    let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
+        return err("Could not parse content topic: " & error)
     autoShards.add(shard)
   return ok(autoshards)
 
@@ -163,7 +166,7 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
     if storeServiceConf.supportV2:
-      let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
+      let archiveDriverRes = await legacy_driver.ArchiveDriver.new(
         storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
         storeServiceConf.maxNumDbConnections, onFatalErrorAction,
       )
@@ -197,7 +200,7 @@ proc setupProtocols(
       else:
         storeServiceConf.dbMigration
 
-    let archiveDriverRes = waitFor driver.ArchiveDriver.new(
+    let archiveDriverRes = await driver.ArchiveDriver.new(
       storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
       storeServiceConf.maxNumDbConnections, onFatalErrorAction,
     )
@@ -258,16 +261,11 @@ proc setupProtocols(
   if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
 
-  # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
-  let numShardsInNetwork = getNumShardsInNetwork(conf)
-
-  if conf.numShardsInNetwork == 0:
-    warn "Number of shards in network not configured, setting it to",
-      # TODO: If not configured, it mounts 1024 shards! Make it a mandatory configuration instead
-      numShardsInNetwork = $numShardsInNetwork
-
-  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
-    return err("failed to mount waku sharding: " & error)
+  if conf.shardingConf.kind == AutoSharding:
+    node.mountAutoSharding(conf.clusterId, conf.shardingConf.numShardsInCluster).isOkOr:
+      return err("failed to mount waku auto sharding: " & error)
+  else:
+    warn("Auto sharding is disabled")
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -290,14 +288,22 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
-    return err("Could not get autoshards: " & error)
+  # TODO: when using autosharding, the user should not be expected to pass any shards, but only content topics
+  # Hence, this joint logic should be removed in favour of an either logic:
+  # use passed shards (static) or deduce shards from content topics (auto)
+  let autoShards =
+    if node.wakuAutoSharding.isSome():
+      node.getAutoshards(conf.contentTopics).valueOr:
+        return err("Could not get autoshards: " & error)
+    else:
+      @[]
 
   debug "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
 
-  let confShards =
-    conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+  let confShards = conf.subscribeShards.mapIt(
+    RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+  )
   let shards = confShards & autoShards
 
   if conf.relay:
@@ -313,7 +319,7 @@ proc setupProtocols(
     # Add validation keys to protected topics
     var subscribedProtectedShards: seq[ProtectedShard]
     for shardKey in conf.protectedShards:
-      if shardKey.shard notin conf.shards:
+      if shardKey.shard notin conf.subscribeShards:
         warn "protected shard not in subscribed shards, skipping adding validator",
           protectedShard = shardKey.shard, subscribedShards = shards
         continue
@@ -348,7 +354,7 @@ proc setupProtocols(
     )
 
     try:
-      waitFor node.mountRlnRelay(rlnConf)
+      await node.mountRlnRelay(rlnConf)
     except CatchableError:
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
@@ -462,10 +468,6 @@ proc startNode*(
   if conf.peerExchange and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
-  # Start keepalive, if enabled
-  if conf.keepAlive:
-    node.startKeepalive()
-
   # Maintain relay connections
   if conf.relay:
     node.peerManager.start()
@@ -474,11 +476,13 @@ proc startNode*(
 
 proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
-): Result[WakuNode, string] =
-  let netConfig = networkConfiguration(
-    wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
-    wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
-    wakuConf.portsShift, clientId,
+): Future[Result[WakuNode, string]] {.async.} =
+  let netConfig = (
+    await networkConfiguration(
+      wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
+      wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
+      wakuConf.portsShift, clientId,
+    )
   ).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
@@ -509,7 +513,7 @@ proc setupNode*(
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(wakuConf)).isOkOr:
+    (await node.setupProtocols(wakuConf)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

@@ -24,29 +24,29 @@ proc setup*(): Waku =
 
   var conf = confRes.get()
 
-  let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+  let twnNetworkConf = NetworkConf.TheWakuNetworkConf()
   if len(conf.shards) != 0:
-    conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+    conf.pubsubTopics = conf.shards.mapIt(twnNetworkConf.pubsubTopics[it.uint16])
   else:
-    conf.pubsubTopics = twnClusterConf.pubsubTopics
+    conf.pubsubTopics = twnNetworkConf.pubsubTopics
 
   # Override configuration
-  conf.maxMessageSize = twnClusterConf.maxMessageSize
-  conf.clusterId = twnClusterConf.clusterId
-  conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-  conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-  conf.discv5Discovery = twnClusterConf.discv5Discovery
+  conf.maxMessageSize = twnNetworkConf.maxMessageSize
+  conf.clusterId = twnNetworkConf.clusterId
+  conf.rlnRelayEthContractAddress = twnNetworkConf.rlnRelayEthContractAddress
+  conf.rlnRelayDynamic = twnNetworkConf.rlnRelayDynamic
+  conf.discv5Discovery = twnNetworkConf.discv5Discovery
   conf.discv5BootstrapNodes =
-    conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-  conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-  conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    conf.discv5BootstrapNodes & twnNetworkConf.discv5BootstrapNodes
+  conf.rlnEpochSizeSec = twnNetworkConf.rlnEpochSizeSec
+  conf.rlnRelayUserMessageLimit = twnNetworkConf.rlnRelayUserMessageLimit
 
   # Only set rlnRelay to true if relay is configured
   if conf.relay:
-    conf.rlnRelay = twnClusterConf.rlnRelay
+    conf.rlnRelay = twnNetworkConf.rlnRelay
 
   debug "Starting node"
-  var waku = Waku.new(conf).valueOr:
+  var waku = (waitFor Waku.new(conf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 

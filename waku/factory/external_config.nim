@@ -315,33 +315,22 @@ hence would have reachability issues.""",
     .}: seq[string]
 
     keepAlive* {.
-      desc: "Enable keep-alive for idle connections: true|false",
-      defaultValue: false,
+      desc:
+        "Deprecated since >=v0.37. This param is ignored and keep alive is always active",
+      defaultValue: true,
       name: "keep-alive"
     .}: bool
 
-    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
-    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
-      desc: "Number of shards in the network",
-      defaultValue: 0,
+      desc:
+        "Enables autosharding and set number of shards in the cluster, set to `0` to use static sharding",
+      defaultValue: 1,
       name: "num-shards-in-network"
-    .}: uint32
+    .}: uint16
 
     shards* {.
       desc:
-        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
-      defaultValue:
-        @[
-          uint16(0),
-          uint16(1),
-          uint16(2),
-          uint16(3),
-          uint16(4),
-          uint16(5),
-          uint16(6),
-          uint16(7),
-        ],
+        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated. Subscribes to all shards by default in auto-sharding, no shard for static sharding",
       name: "shard"
     .}: seq[uint16]
 
@@ -357,7 +346,7 @@ hence would have reachability issues.""",
 
     legacyStore* {.
       desc: "Enable/disable support of Waku Store v2 as a service",
-      defaultValue: true,
+      defaultValue: false,
       name: "legacy-store"
     .}: bool
 
@@ -556,7 +545,8 @@ with the drawback of consuming some more bandwidth.""",
     .}: bool
 
     dnsDiscoveryUrl* {.
-      desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+      desc:
+        "URL for DNS node list in format 'enrtree://<key>@<fqdn>', enables DNS Discovery",
       defaultValue: "",
       name: "dns-discovery-url"
     .}: string
@@ -863,9 +853,9 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
 proc toInspectRlnDbConf*(n: WakuNodeConf): InspectRlnDbConf =
   return InspectRlnDbConf(treePath: n.treePath)
 
-proc toClusterConf(
+proc toNetworkConf(
     preset: string, clusterId: Option[uint16]
-): ConfResult[Option[ClusterConf]] =
+): ConfResult[Option[NetworkConf]] =
   var lcPreset = toLowerAscii(preset)
   if clusterId.isSome() and clusterId.get() == 1:
     warn(
@@ -875,9 +865,9 @@ proc toClusterConf(
 
   case lcPreset
   of "":
-    ok(none(ClusterConf))
+    ok(none(NetworkConf))
   of "twn":
-    ok(some(ClusterConf.TheWakuNetworkConf()))
+    ok(some(NetworkConf.TheWakuNetworkConf()))
   else:
     err("Invalid --preset value passed: " & lcPreset)
 
@@ -914,11 +904,11 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withProtectedShards(n.protectedShards)
   b.withClusterId(n.clusterId)
 
-  let clusterConf = toClusterConf(n.preset, some(n.clusterId)).valueOr:
+  let networkConf = toNetworkConf(n.preset, some(n.clusterId)).valueOr:
     return err("Error determining cluster from preset: " & $error)
 
-  if clusterConf.isSome():
-    b.withClusterConf(clusterConf.get())
+  if networkConf.isSome():
+    b.withNetworkConf(networkConf.get())
 
   b.withAgentString(n.agentString)
 
@@ -951,12 +941,18 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withRelayPeerExchange(n.relayPeerExchange)
   b.withRelayShardedPeerManagement(n.relayShardedPeerManagement)
   b.withStaticNodes(n.staticNodes)
-  b.withKeepAlive(n.keepAlive)
 
   if n.numShardsInNetwork != 0:
-    b.withNumShardsInNetwork(n.numShardsInNetwork)
+    b.withNumShardsInCluster(n.numShardsInNetwork)
+    b.withShardingConf(AutoSharding)
+  else:
+    b.withShardingConf(StaticSharding)
 
-  b.withShards(n.shards)
+  # It is not possible to pass an empty sequence on the CLI
+  # If this is empty, it means the user did not specify any shards
+  if n.shards.len != 0:
+    b.withSubscribeShards(n.shards)
+
   b.withContentTopics(n.contentTopics)
 
   b.storeServiceConf.withEnabled(n.store)
@@ -1003,8 +999,8 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.metricsServerConf.withHttpPort(n.metricsServerPort)
   b.metricsServerConf.withLogging(n.metricsLogging)
 
-  b.dnsDiscoveryConf.withEnabled(n.dnsDiscovery)
-  b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
+  if n.dnsDiscoveryUrl != "":
+    b.dnsDiscoveryConf.withEnrTreeUrl(n.dnsDiscoveryUrl)
   b.dnsDiscoveryConf.withNameServers(n.dnsAddrsNameServers)
 
   if n.discv5Discovery.isSome():
@@ -1027,6 +1023,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.webSocketConf.withKeyPath(n.websocketSecureKeyPath)
   b.webSocketConf.withCertPath(n.websocketSecureCertPath)
 
-  b.withRateLimits(n.rateLimits)
+  b.rateLimitConf.withRateLimits(n.rateLimits)
 
   return b.build()

@@ -420,7 +420,7 @@ procSuite "Peer Manager":
         parseIpAddress("0.0.0.0"),
         port,
         clusterId = 3,
-        shards = @[uint16(0)],
+        subscribeShards = @[uint16(0)],
       )
 
       # same network
@@ -429,14 +429,14 @@ procSuite "Peer Manager":
         parseIpAddress("0.0.0.0"),
         port,
         clusterId = 4,
-        shards = @[uint16(0)],
+        subscribeShards = @[uint16(0)],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         parseIpAddress("0.0.0.0"),
         port,
         clusterId = 4,
-        shards = @[uint16(0)],
+        subscribeShards = @[uint16(0)],
       )
 
     node1.mountMetadata(3).expect("Mounted Waku Metadata")
@@ -567,6 +567,9 @@ procSuite "Peer Manager":
     # Connect to relay peers
     await nodes[0].peerManager.connectToRelayPeers()
 
+    # wait for the connections to settle
+    await sleepAsync(chronos.milliseconds(500))
+
     check:
       # Peerstore track all three peers
       nodes[0].peerManager.switch.peerStore.peers().len == 3
@@ -636,6 +639,9 @@ procSuite "Peer Manager":
 
     # Connect to relay peers
     await nodes[0].peerManager.manageRelayPeers()
+
+    # wait for the connections to settle
+    await sleepAsync(chronos.milliseconds(500))
 
     check:
       # Peerstore track all three peers

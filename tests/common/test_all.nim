@@ -1,3 +1,5 @@
+{.used.}
+
 import
   ./test_base64_codec,
   ./test_confutils_envvar,

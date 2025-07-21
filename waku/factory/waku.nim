@@ -127,11 +127,16 @@ proc setupAppCallbacks(
     if node.wakuRelay.isNil():
       return err("Cannot configure relayHandler callback without Relay mounted")
 
-    let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
-      return err("Could not get autoshards: " & error)
+    let autoShards =
+      if node.wakuAutoSharding.isSome():
+        node.getAutoshards(conf.contentTopics).valueOr:
+          return err("Could not get autoshards: " & error)
+      else:
+        @[]
 
-    let confShards =
-      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+    let confShards = conf.subscribeShards.mapIt(
+      RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+    )
     let shards = confShards & autoShards
 
     let uniqueShards = deduplicate(shards)
@@ -157,7 +162,7 @@ proc setupAppCallbacks(
 
 proc new*(
     T: type Waku, wakuConf: WakuConf, appCallbacks: AppCallbacks = nil
-): Result[Waku, string] =
+): Future[Result[Waku, string]] {.async.} =
   let rng = crypto.newRng()
 
   logging.setupLog(wakuConf.logLevel, wakuConf.logFormat)
@@ -181,7 +186,7 @@ proc new*(
 
   var relay = newCircuitRelay(wakuConf.circuitRelayClient)
 
-  let node = setupNode(wakuConf, rng, relay).valueOr:
+  let node = (await setupNode(wakuConf, rng, relay)).valueOr:
     error "Failed setting up node", error = $error
     return err("Failed setting up node: " & $error)
 
@@ -243,28 +248,30 @@ proc getPorts(
 
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
-proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
+proc getRunningNetConfig(waku: ptr Waku): Future[Result[NetConfig, string]] {.async.} =
   var conf = waku[].conf
   let (tcpPort, websocketPort) = getPorts(waku[].node.switch.peerInfo.listenAddrs).valueOr:
     return err("Could not retrieve ports: " & error)
 
   if tcpPort.isSome():
-    conf.networkConf.p2pTcpPort = tcpPort.get()
+    conf.endpointConf.p2pTcpPort = tcpPort.get()
 
   if websocketPort.isSome() and conf.webSocketConf.isSome():
     conf.webSocketConf.get().port = websocketPort.get()
 
   # Rebuild NetConfig with bound port values
-  let netConf = networkConfiguration(
-    conf.clusterId, conf.networkConf, conf.discv5Conf, conf.webSocketConf,
-    conf.wakuFlags, conf.dnsAddrsNameServers, conf.portsShift, clientId,
+  let netConf = (
+    await networkConfiguration(
+      conf.clusterId, conf.endpointConf, conf.discv5Conf, conf.webSocketConf,
+      conf.wakuFlags, conf.dnsAddrsNameServers, conf.portsShift, clientId,
+    )
   ).valueOr:
     return err("Could not update NetConfig: " & error)
 
   return ok(netConf)
 
-proc updateEnr(waku: ptr Waku): Result[void, string] =
-  let netConf: NetConfig = getRunningNetConfig(waku).valueOr:
+proc updateEnr(waku: ptr Waku): Future[Result[void, string]] {.async.} =
+  let netConf: NetConfig = (await getRunningNetConfig(waku)).valueOr:
     return err("error calling updateNetConfig: " & $error)
   let record = enrConfiguration(waku[].conf, netConf).valueOr:
     return err("ENR setup failed: " & error)
@@ -304,11 +311,11 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
 
   return ok()
 
-proc updateWaku(waku: ptr Waku): Result[void, string] =
+proc updateWaku(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   let conf = waku[].conf
-  if conf.networkConf.p2pTcpPort == Port(0) or
+  if conf.endpointConf.p2pTcpPort == Port(0) or
       (conf.websocketConf.isSome() and conf.websocketConf.get.port == Port(0)):
-    updateEnr(waku).isOkOr:
+    (await updateEnr(waku)).isOkOr:
       return err("error calling updateEnr: " & $error)
 
   ?updateAnnouncedAddrWithPrimaryIpAddr(waku[].node)
@@ -376,7 +383,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     return err("error while calling startNode: " & $error)
 
   ## Update waku data that is set dynamically on node start
-  updateWaku(waku).isOkOr:
+  (await updateWaku(waku)).isOkOr:
     return err("Error in updateApp: " & $error)
 
   ## Discv5
@@ -389,7 +396,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       waku.dynamicBootstrapNodes,
       waku.rng,
       conf.nodeKey,
-      conf.networkConf.p2pListenAddress,
+      conf.endpointConf.p2pListenAddress,
       conf.portsShift,
     )
 
@@ -401,7 +408,8 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     waku[].deliveryMonitor.startDeliveryMonitor()
 
   ## Health Monitor
-  waku[].healthMonitor.startHealthMonitor()
+  waku[].healthMonitor.startHealthMonitor().isOkOr:
+    return err("failed to start health monitor: " & $error)
 
   if conf.restServerConf.isSome():
     rest_server_builder.startRestServerProtocolSupport(
@@ -412,14 +420,18 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
       conf.relay,
       conf.lightPush,
       conf.clusterId,
-      conf.shards,
+      conf.subscribeShards,
       conf.contentTopics,
     ).isOkOr:
       return err ("Starting protocols support REST server failed: " & $error)
 
   if conf.metricsServerConf.isSome():
-    waku[].metricsServer = waku_metrics.startMetricsServerAndLogging(
-      conf.metricsServerConf.get(), conf.portsShift
+    waku[].metricsServer = (
+      await (
+        waku_metrics.startMetricsServerAndLogging(
+          conf.metricsServerConf.get(), conf.portsShift
+        )
+      )
     ).valueOr:
       return err("Starting monitoring and external interfaces failed: " & error)
 

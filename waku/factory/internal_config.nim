@@ -6,13 +6,7 @@ import
   libp2p/nameresolving/dnsresolver,
   std/[options, sequtils, net],
   results
-import
-  ../common/utils/nat,
-  ../node/net_config,
-  ../waku_enr,
-  ../waku_core,
-  ./waku_conf,
-  ./networks_config
+import ../common/utils/nat, ../node/net_config, ../waku_enr, ../waku_core, ./waku_conf
 
 proc enrConfiguration*(
     conf: WakuConf, netConfig: NetConfig
@@ -29,7 +23,7 @@ proc enrConfiguration*(
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.subscribeShards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
@@ -64,14 +58,14 @@ proc dnsResolve*(
 # TODO: Reduce number of parameters, can be done once the same is done on Netconfig.init
 proc networkConfiguration*(
     clusterId: uint16,
-    conf: NetworkConfig,
+    conf: EndpointConf,
     discv5Conf: Option[Discv5Conf],
     webSocketConf: Option[WebSocketConf],
     wakuFlags: CapabilitiesBitfield,
     dnsAddrsNameServers: seq[IpAddress],
     portsShift: uint16,
     clientId: string,
-): NetConfigResult =
+): Future[NetConfigResult] {.async.} =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let natRes = setupNat(
@@ -105,7 +99,7 @@ proc networkConfiguration*(
   # Resolve and use DNS domain IP
   if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
-      let dnsRes = waitFor dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
+      let dnsRes = await dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
 
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack
@@ -143,11 +137,3 @@ proc networkConfiguration*(
   )
 
   return netConfigRes
-
-# TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
-proc getNumShardsInNetwork*(conf: WakuConf): uint32 =
-  if conf.numShardsInNetwork != 0:
-    return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
-  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
-  return uint32(MaxShardIndex + 1)
