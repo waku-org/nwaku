@@ -315,7 +315,8 @@ hence would have reachability issues.""",
     .}: seq[string]
 
     keepAlive* {.
-      desc: "Deprecated since >=v0.37. This param is ignored and keep alive is always active",
+      desc:
+        "Deprecated since >=v0.37. This param is ignored and keep alive is always active",
       defaultValue: true,
       name: "keep-alive"
     .}: bool
