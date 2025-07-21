@@ -70,7 +70,7 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
   else:
-    var lib_name = toDll("libwaku")
+    let lib_name = (when defined(windows): toDll(name) else: name & ".so")
     when defined(windows):
       exec "nim c" & " --out:build/" & lib_name &
         " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
@@ -161,10 +161,13 @@ task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
   discard buildModule filepath
 
-task testone, "Test custom target":
+task buildTest, "Test custom target":
   let filepath = paramStr(paramCount())
-  if buildModule(filepath):
-    exec "build/" & filepath & ".bin"
+  discard buildModule(filepath)
+
+task execTest, "Run test":
+  let filepath = paramStr(paramCount() - 1)
+  exec "build/" & filepath & ".bin" & " test \"" & paramStr(paramCount()) & "\""
 
 ### C Bindings
 let chroniclesParams =

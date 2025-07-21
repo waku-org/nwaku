@@ -9,9 +9,9 @@ import
   waku/node/peer_manager,
   waku/waku_relay/[protocol, topic_health],
   waku/waku_core/[topics/pubsub_topic, message],
-  ./inter_thread_communication/[waku_thread_request, requests/debug_node_request],
-  ../ffi_types,
-  ../events/[
+  ./waku_thread_requests/[waku_thread_request, requests/debug_node_request],
+  ./ffi_types,
+  ./events/[
     json_message_event, json_topic_health_change_event, json_connection_change_event,
     json_waku_not_responding_event,
   ]
@@ -118,8 +118,12 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
   ## Watchdog thread that monitors the Waku thread and notifies the library user if it hangs.
 
   let watchdogRun = proc(ctx: ptr WakuContext) {.async.} =
+    const WatchdogStartDelay = 10.seconds
     const WatchdogTimeinterval = 1.seconds
     const WakuNotRespondingTimeout = 3.seconds
+
+    # Give time for the node to be created and up before sending watchdog requests
+    await sleepAsync(WatchdogStartDelay)
     while true:
       await sleepAsync(WatchdogTimeinterval)
 
@@ -166,12 +170,12 @@ proc wakuThreadBody(ctx: ptr WakuContext) {.thread.} =
         error "waku thread could not receive a request"
         continue
 
+      ## Handle the request
+      asyncSpawn WakuThreadRequest.process(request, addr waku)
+
       let fireRes = ctx.reqReceivedSignal.fireSync()
       if fireRes.isErr():
         error "could not fireSync back to requester thread", error = fireRes.error
-
-      ## Handle the request
-      asyncSpawn WakuThreadRequest.process(request, addr waku)
 
   waitFor wakuRun(ctx)
 

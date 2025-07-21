@@ -23,6 +23,7 @@ import
     waku_store,
     factory/builder,
     common/utils/matterbridge_client,
+    common/rate_limit/setting,
   ],
   # Chat 2 imports
   ../chat2/chat2,

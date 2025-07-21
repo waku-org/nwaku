@@ -151,17 +151,19 @@ proc startRestServerProtocolSupport*(
         error "Could not subscribe", pubsubTopic, error
         continue
 
-    for contentTopic in contentTopics:
-      cache.contentSubscribe(contentTopic)
+    if node.wakuAutoSharding.isSome():
+      # Only deduce pubsub topics to subscribe to from content topics if autosharding is enabled
+      for contentTopic in contentTopics:
+        cache.contentSubscribe(contentTopic)
 
-      let shard = node.wakuSharding.getShard(contentTopic).valueOr:
-        error "Autosharding error in REST", error = error
-        continue
-      let pubsubTopic = $shard
+        let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
+            error "Autosharding error in REST", error = error
+            continue
+        let pubsubTopic = $shard
 
-      node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
-        error "Could not subscribe", pubsubTopic, error
-        continue
+        node.subscribe((kind: PubsubSub, topic: pubsubTopic), handler).isOkOr:
+          error "Could not subscribe", pubsubTopic, error
+          continue
 
     installRelayApiHandlers(router, node, cache)
   else:

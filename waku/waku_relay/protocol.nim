@@ -372,6 +372,13 @@ proc getPubSubPeersInMesh*(
   ## Returns the list of PubSubPeers in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
 
+  # If pubsubTopic is empty, we return all peers in mesh for any pubsub topic
+  if pubsubTopic == "":
+    var allPeers = initHashSet[PubSubPeer]()
+    for topic, topicMesh in w.mesh.pairs:
+      allPeers = allPeers.union(topicMesh)
+    return ok(allPeers)
+
   if not w.mesh.hasKey(pubsubTopic):
     debug "getPubSubPeersInMesh - there is no mesh peer for the given pubsub topic",
       pubsubTopic = pubsubTopic
@@ -388,7 +395,7 @@ proc getPubSubPeersInMesh*(
   return ok(peers)
 
 proc getPeersInMesh*(
-    w: WakuRelay, pubsubTopic: PubsubTopic
+    w: WakuRelay, pubsubTopic: PubsubTopic = ""
 ): Result[seq[PeerId], string] =
   ## Returns the list of peerIds in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.

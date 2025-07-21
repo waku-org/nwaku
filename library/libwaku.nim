@@ -16,17 +16,17 @@ import
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
   ./events/json_message_event,
-  ./waku_thread/waku_thread,
-  ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
-  ./waku_thread/inter_thread_communication/requests/peer_manager_request,
-  ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
-  ./waku_thread/inter_thread_communication/requests/protocols/store_request,
-  ./waku_thread/inter_thread_communication/requests/protocols/lightpush_request,
-  ./waku_thread/inter_thread_communication/requests/protocols/filter_request,
-  ./waku_thread/inter_thread_communication/requests/debug_node_request,
-  ./waku_thread/inter_thread_communication/requests/discovery_request,
-  ./waku_thread/inter_thread_communication/requests/ping_request,
-  ./waku_thread/inter_thread_communication/waku_thread_request,
+  ./waku_context,
+  ./waku_thread_requests/requests/node_lifecycle_request,
+  ./waku_thread_requests/requests/peer_manager_request,
+  ./waku_thread_requests/requests/protocols/relay_request,
+  ./waku_thread_requests/requests/protocols/store_request,
+  ./waku_thread_requests/requests/protocols/lightpush_request,
+  ./waku_thread_requests/requests/protocols/filter_request,
+  ./waku_thread_requests/requests/debug_node_request,
+  ./waku_thread_requests/requests/discovery_request,
+  ./waku_thread_requests/requests/ping_request,
+  ./waku_thread_requests/waku_thread_request,
   ./alloc,
   ./ffi_types,
   ../waku/factory/app_callbacks
@@ -54,7 +54,7 @@ proc handleRequest(
     callback: WakuCallBack,
     userData: pointer,
 ): cint =
-  waku_thread.sendRequestToWakuThread(ctx, requestType, content, callback, userData).isOkOr:
+  waku_context.sendRequestToWakuThread(ctx, requestType, content, callback, userData).isOkOr:
     let msg = "libwaku error: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
@@ -111,7 +111,7 @@ proc waku_new(
     return nil
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
-  var ctx = waku_thread.createWakuContext().valueOr:
+  var ctx = waku_context.createWakuContext().valueOr:
     let msg = "Error in createWakuContext: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
@@ -145,7 +145,7 @@ proc waku_destroy(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread.destroyWakuContext(ctx).isOkOr:
+  waku_context.destroyWakuContext(ctx).isOkOr:
     let msg = "libwaku error: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
