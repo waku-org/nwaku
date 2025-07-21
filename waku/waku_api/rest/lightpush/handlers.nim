@@ -66,7 +66,8 @@ proc installLightPushRequestHandler*(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     ## Send a request to push a waku message
-    debug "post", ROUTE_LIGHTPUSH, contentBody
+    debug "post received", ROUTE_LIGHTPUSH
+    trace "content body", ROUTE_LIGHTPUSH, contentBody
 
     let req: PushRequest = decodeRequestBody[PushRequest](contentBody).valueOr:
       return
