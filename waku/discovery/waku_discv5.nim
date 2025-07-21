@@ -14,7 +14,8 @@ import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
 
 export protocol, waku_enr
 
-declarePublicGauge waku_discv5_discovered, "number of nodes discovered"
+declarePublicGauge waku_discv5_discovered_per_shard,
+  "number of nodes discovered by each shard", labels = ["shard"]
 declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 
 logScope:
@@ -231,7 +232,18 @@ proc findRandomPeers*(
   elif wd.predicate.isSome():
     discoveredRecords = discoveredRecords.filter(wd.predicate.get())
 
-  waku_discv5_discovered.inc(discoveredRecords.len)
+  # Increment metric for each discovered record's shards
+  for record in discoveredRecords:
+    let typedRecord = record.toTyped().valueOr:
+      # If we can't parse the record, skip it
+      continue
+
+    let relayShards = typedRecord.relaySharding().valueOr:
+      # If no relay sharding info, skip it
+      continue
+
+    for shardId in relayShards.shardIds:
+      waku_discv5_discovered_per_shard.inc(labelValues = [$shardId])
 
   return discoveredRecords
 
