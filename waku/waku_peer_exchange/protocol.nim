@@ -58,6 +58,7 @@ type
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
     requestRateLimiter*: RequestRateLimiter
     pxLoopHandle*: Future[void]
+    strictPeerFilter*: bool
 
 proc request*(
     wpx: WakuPeerExchange, numPeers = DefaultPXNumPeersReq, conn: Connection
@@ -201,8 +202,8 @@ proc getEnrsFromCache(
   # return numPeers or less if cache is smaller
   return shuffledCache[0 ..< min(shuffledCache.len.int, numPeers.int)]
 
-proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
-  if peer.origin != Discv5:
+proc poolFilter*(cluster: Option[uint16], strictPeerFilter : bool ,peer: RemotePeerInfo): bool =
+  if peer.origin != Discv5 and strictPeerFilter:
     debug "peer not from discv5", peer = $peer, origin = $peer.origin
     return false
 
@@ -219,7 +220,7 @@ proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
 proc populateEnrCache(wpx: WakuPeerExchange) =
   # share only peers that i) are reachable ii) come from discv5 iii) share cluster
   let withEnr = wpx.peerManager.switch.peerStore.getReachablePeers().filterIt(
-      poolFilter(wpx.cluster, it)
+      poolFilter(wpx.cluster, wpx.strictPeerFilter, it)
     )
 
   # either what we have or max cache size
@@ -314,11 +315,13 @@ proc new*(
     peerManager: PeerManager,
     cluster: Option[uint16] = none(uint16),
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
+    strictPeerFilter: bool = false,
 ): T =
   let wpx = WakuPeerExchange(
     peerManager: peerManager,
     cluster: cluster,
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
+    strictPeerFilter: strictPeerFilter
   )
   wpx.initProtocolHandler()
   setServiceLimitMetric(WakuPeerExchangeCodec, rateLimitSetting)
