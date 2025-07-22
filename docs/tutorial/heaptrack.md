@@ -88,7 +88,7 @@ That will create a Docker image with both nwaku and heaptrack. The container's e
 
 #### Notice for using heaptrack supporting image with `docker compose`
 
-Take case of the wakunode2 should started as
+Take care that wakunode2 should be started as
 ```
 exec /heaptrack/build/bin/heaptrack /usr/bin/wakunode\
 ... all the arguments you want to pass to wakunode ...
@@ -112,4 +112,3 @@ You should be able to see memory allocations. It is important
 to see a legend like shown below:
 
 ![Example of a good heaptrack report](imgs/good_heaptrack_report_example.png)
-sudo make docker-image DOCKER_IMAGE_NAME=docker_repo:docker_tag HEAPTRACKER=1
