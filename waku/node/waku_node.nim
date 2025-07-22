@@ -187,7 +187,16 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
 
-  let metadata = WakuMetadata.new(clusterId, node.enr, node.topicSubscriptionQueue)
+  var shards = HashSet[uint32]()
+  #TODO: Ideally ENR would be nil for edge nodes, need to check that.
+  let enrRes = node.enr.toTyped()
+  if enrRes.isOk():
+    let shardingRes = enrRes.get().relaySharding()
+    if shardingRes.isSome():
+      let relayShard = shardingRes.get()
+      shards = toHashSet(relayShard.shardIds.mapIt(uint32(it)))
+
+  let metadata = WakuMetadata.new(clusterId, shards, some(node.topicSubscriptionQueue))
 
   node.wakuMetadata = metadata
   node.peerManager.wakuMetadata = metadata
