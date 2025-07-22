@@ -3,6 +3,8 @@
 import metrics
 
 declarePublicGauge waku_archive_messages, "number of historical messages", ["type"]
+declarePublicGauge waku_archive_messages_per_shard,
+  "number of historical messages per shard ", ["shard"]
 declarePublicGauge waku_archive_errors, "number of store protocol errors", ["type"]
 declarePublicGauge waku_archive_queries, "number of store queries received"
 declarePublicHistogram waku_archive_insert_duration_seconds,
