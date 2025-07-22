@@ -221,8 +221,8 @@ proc logMessageInfo*(
   debug "------ message metrics -------",
     topic = topic,
     msg_id = msg_id_short,
-    payloadSizeBytes = payloadSize
-    msgCountPerShard = msgCountPerShard[topic]
+    payloadSizeBytes = payloadSize,
+    msgCountPerShard = msgCountPerShard[topic],
     msgSizeSumPerShard = msgSizeSumPerShard[topic]
 
   try:
