@@ -20,11 +20,30 @@ import
 import
   ../waku_core, ./message_id, ./topic_health, ../node/delivery_monitor/publish_observer
 
+var msgCountPerShard {.global, threadvar.}: Table[string, int64]
+var msgSizeSumPerShard {.global, threadvar.}: Table[string, int64]
+
 from ../waku_core/codecs import WakuRelayCodec
 export WakuRelayCodec
 
 logScope:
   topics = "waku relay"
+
+declareCounter waku_relay_network_bytes,
+  "total traffic per topic, distinct gross/net and direction",
+  labels = ["topic", "type", "direction"]
+
+declarePublicGauge(
+  waku_relay_max_msg_bytes_per_shard,
+  "Maximum length of messages seen per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
+  waku_relay_avg_msg_bytes_per_shard,
+  "Average length of messages seen per shard",
+  labels = ["shard"],
+)
 
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const TopicParameters = TopicParams(
@@ -57,10 +76,6 @@ const TopicParameters = TopicParams(
   invalidMessageDeliveriesWeight: -100.0,
   invalidMessageDeliveriesDecay: 0.5,
 )
-
-declareCounter waku_relay_network_bytes,
-  "total traffic per topic, distinct gross/net and direction",
-  labels = ["topic", "type", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -176,6 +191,7 @@ proc logMessageInfo*(
     onRecv: bool,
 ) =
   let msg_hash = computeMessageHash(topic, msg).to0xHex()
+  let payloadSize = msg.payload.len
 
   if onRecv:
     notice "received relay message",
@@ -185,7 +201,7 @@ proc logMessageInfo*(
       from_peer_id = remotePeerId,
       topic = topic,
       receivedTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
+      payloadSizeBytes = payloadSize
   else:
     notice "sent relay message",
       my_peer_id = w.switch.peerInfo.peerId,
@@ -194,7 +210,38 @@ proc logMessageInfo*(
       to_peer_id = remotePeerId,
       topic = topic,
       sentTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
+      payloadSizeBytes = payloadSize
+
+  try:
+    msgCountPerShard[topic] += 1
+    msgSizeSumPerShard[topic] += payloadSize
+  except KeyError:
+    warn "Error updating message metrics", error = getCurrentExceptionMsg()
+
+  debug "------ message metrics -------",
+    topic = topic,
+    msg_id = msg_id_short,
+    payloadSizeBytes = payloadSize
+    msgCountPerShard = msgCountPerShard[topic]
+    msgSizeSumPerShard = msgSizeSumPerShard[topic]
+
+  try:
+    let count = msgCountPerShard[topic]
+    let sum = msgSizeSumPerShard[topic]
+    let avg = sum / count
+    waku_relay_avg_msg_bytes_per_shard.set(avg, labelValues = [topic])
+  except CatchableError:
+    warn "Error calculating average message size", error = getCurrentExceptionMsg()
+
+  try:
+    let currentMax =
+      waku_relay_max_msg_bytes_per_shard.value(labelValuesParam = [topic])
+    if float64(payloadSize) > currentMax:
+      waku_relay_max_msg_bytes_per_shard.set(
+        float64(payloadSize), labelValues = [topic]
+      )
+  except CatchableError:
+    warn "Error updating max message size", error = getCurrentExceptionMsg()
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
