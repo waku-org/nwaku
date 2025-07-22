@@ -20,11 +20,16 @@ import
 import
   ../waku_core, ./message_id, ./topic_health, ../node/delivery_monitor/publish_observer
 
-var msgCountPerShard {.global, threadvar.}: Table[string, int64]
-var msgSizeSumPerShard {.global, threadvar.}: Table[string, int64]
-
 from ../waku_core/codecs import WakuRelayCodec
 export WakuRelayCodec
+
+type ShardMetrics = object
+  count: float64
+  sizeSum: float64
+  avgSize: float64
+  maxSize: float64
+
+var msgMetricsPerShard {.global, threadvar.}: Table[string, ShardMetrics]
 
 logScope:
   topics = "waku relay"
@@ -191,7 +196,7 @@ proc logMessageInfo*(
     onRecv: bool,
 ) =
   let msg_hash = computeMessageHash(topic, msg).to0xHex()
-  let payloadSize = msg.payload.len
+  let payloadSize = float64(msg.payload.len)
 
   if onRecv:
     notice "received relay message",
@@ -212,42 +217,30 @@ proc logMessageInfo*(
       sentTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
 
-  try:
-    if not msgCountPerShard.hasKey(topic):
-      msgCountPerShard[topic] = 0
-    if not msgSizeSumPerShard.hasKey(topic):
-      msgSizeSumPerShard[topic] = 0
+  var shardMetrics = msgMetricsPerShard.getOrDefault(topic, ShardMetrics())
+  shardMetrics.count += 1
+  shardMetrics.sizeSum += payloadSize
+  if payloadSize > shardMetrics.maxSize:
+    shardMetrics.maxSize = payloadSize
+  shardMetrics.avgSize = shardMetrics.sizeSum / shardMetrics.count
+  msgMetricsPerShard[topic] = shardMetrics
 
-    msgCountPerShard[topic] += 1
-    msgSizeSumPerShard[topic] += payloadSize
+  waku_relay_max_msg_bytes_per_shard.set(
+    shardMetrics.maxSize, labelValues = [topic]
+  )
 
-  except KeyError:
-    warn "Error updating message metrics", error = getCurrentExceptionMsg()
+  waku_relay_avg_msg_bytes_per_shard.set(
+    shardMetrics.avgSize, labelValues = [topic]
+  )
 
   debug "------ message metrics -------",
     topic = topic,
     msg_id = msg_id_short,
     payloadSizeBytes = payloadSize,
-    msgCountPerShard = msgCountPerShard[topic],
-    msgSizeSumPerShard = msgSizeSumPerShard[topic]
-
-  try:
-    let count = msgCountPerShard[topic]
-    let sum = msgSizeSumPerShard[topic]
-    let avg = sum / count
-    waku_relay_avg_msg_bytes_per_shard.set(avg, labelValues = [topic])
-  except CatchableError:
-    warn "Error calculating average message size", error = getCurrentExceptionMsg()
-
-  try:
-    let currentMax =
-      waku_relay_max_msg_bytes_per_shard.value(labelValuesParam = [topic])
-    if float64(payloadSize) > currentMax:
-      waku_relay_max_msg_bytes_per_shard.set(
-        float64(payloadSize), labelValues = [topic]
-      )
-  except CatchableError:
-    warn "Error updating max message size", error = getCurrentExceptionMsg()
+    msgCountPerShard = shardMetrics.count,
+    msgSizeSumPerShard = shardMetrics.sizeSum,
+    msgAvgSizePerShard = shardMetrics.avgSize,
+    msgMaxSizePerShard = shardMetrics.maxSize
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
