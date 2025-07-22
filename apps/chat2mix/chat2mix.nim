@@ -29,6 +29,7 @@ import
     protobuf/minprotobuf, # message serialisation/deserialisation from and to protobufs
     nameresolving/dnsresolver,
   ] # define DNS resolution
+import mix/curve25519
 import
   waku/[
     waku_core,
@@ -464,7 +465,25 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     error "failed to mount waku metadata protocol: ", err = error
     quit 1
 
+  let (mixPrivKey, mixPubKey) = generateKeyPair().valueOr:
+    error "failed to generate mix key pair", error = error
+    return
+
+  (await node.mountMix(conf.clusterId, mixPrivKey)).isOkOr:
+    error "failed to mount waku mix protocol: ", error = $error
+    quit(QuitFailure)
+
   await node.start()
+
+  node.peerManager.start()
+  node.startPeerExchangeLoop()
+
+  while node.getMixNodePoolSize() < 3:
+    info "waiting for mix nodes to be discovered",
+      currentpoolSize = node.getMixNodePoolSize()
+    await sleepAsync(1000)
+  notice "ready tp publish with mix node pool size ",
+    currentpoolSize = node.getMixNodePoolSize()
 
   #[   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
@@ -609,6 +628,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     if peerInfo.isOk():
       #await mountLegacyLightPush(node)
       node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
+      node.peerManager.addServicePeer(peerInfo.value, WakuPeerExchangeCodec)
       # Start maintaining subscription
       asyncSpawn maintainSubscription(
         node, pubsubTopic, conf.contentTopic, peerInfo.value, false
