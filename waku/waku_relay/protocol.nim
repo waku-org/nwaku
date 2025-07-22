@@ -213,8 +213,14 @@ proc logMessageInfo*(
       payloadSizeBytes = payloadSize
 
   try:
+    if not msgCountPerShard.hasKey(topic):
+      msgCountPerShard[topic] = 0
+    if not msgSizeSumPerShard.hasKey(topic):
+      msgSizeSumPerShard[topic] = 0
+
     msgCountPerShard[topic] += 1
     msgSizeSumPerShard[topic] += payloadSize
+
   except KeyError:
     warn "Error updating message metrics", error = getCurrentExceptionMsg()
 
