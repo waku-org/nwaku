@@ -1,5 +1,5 @@
 {.push raises: [].}
 
-import ./waku_peer_exchange/[protocol, rpc]
+import ./waku_peer_exchange/[protocol, rpc, common, client]
 
-export protocol, rpc
+export protocol, rpc, common, client
