@@ -233,15 +233,6 @@ proc logMessageInfo*(
     shardMetrics.avgSize, labelValues = [topic]
   )
 
-  debug "------ message metrics -------",
-    topic = topic,
-    msg_id = msg_id_short,
-    payloadSizeBytes = payloadSize,
-    msgCountPerShard = shardMetrics.count,
-    msgSizeSumPerShard = shardMetrics.sizeSum,
-    msgAvgSizePerShard = shardMetrics.avgSize,
-    msgMaxSizePerShard = shardMetrics.maxSize
-
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
       peer: PubSubPeer, msg: Message
