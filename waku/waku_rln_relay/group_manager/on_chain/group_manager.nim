@@ -20,39 +20,10 @@ import
   ../../rln/rln_interface,
   ../../conversion_utils,
   ../group_manager_base,
-  ./retry_wrapper
+  ./retry_wrapper,
+  ./rpc_wrapper
 
 export group_manager_base
-
-logScope:
-  topics = "waku rln_relay onchain_group_manager"
-
-# using the when predicate does not work within the contract macro, hence need to dupe
-contract(WakuRlnContract):
-  # this serves as an entrypoint into the rln membership set
-  proc register(
-    idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256]
-  )
-
-  # Initializes the implementation contract (only used in unit tests)
-  proc initialize(maxMessageLimit: UInt256)
-  # this event is emitted when a new member is registered
-  proc MembershipRegistered(
-    idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32
-  ) {.event.}
-
-  # this function denotes existence of a given user
-  proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
-  # this constant describes the next index of a new member
-  proc nextFreeIndex(): UInt256 {.view.}
-  # this constant describes the block number this contract was deployed on
-  proc deployedBlockNumber(): UInt256 {.view.}
-  # this constant describes max message limit of rln contract
-  proc maxMembershipRateLimit(): UInt256 {.view.}
-  # this function returns the merkleProof for a given index
-  # proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
-  # this function returns the Merkle root
-  proc root(): Uint256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -89,89 +60,30 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc sendEthCallWithChainId(
-    ethRpc: Web3,
-    functionSignature: string,
-    fromAddress: Address,
-    toAddress: Address,
-    chainId: UInt256,
-): Future[Result[UInt256, string]] {.async.} =
-  ## Workaround for web3 chainId=null issue on some networks (e.g., linea-sepolia)
-  ## Makes contract calls with explicit chainId for view functions with no parameters
-  let functionHash =
-    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
-  let functionSelector = functionHash.data[0 .. 3]
-  let dataSignature = "0x" & functionSelector.mapIt(it.toHex(2)).join("")
-
-  var tx: TransactionArgs
-  tx.`from` = Opt.some(fromAddress)
-  tx.to = Opt.some(toAddress)
-  tx.value = Opt.some(0.u256)
-  tx.data = Opt.some(byteutils.hexToSeqByte(dataSignature))
-  tx.chainId = Opt.some(chainId)
-
-  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
-  if resultBytes.len == 0:
-    return err("No result returned for function call: " & functionSignature)
-  return ok(UInt256.fromBytesBE(resultBytes))
-
-proc sendEthCallWithParams(
-    ethRpc: Web3,
-    functionSignature: string,
-    params: seq[byte],
-    fromAddress: Address,
-    toAddress: Address,
-    chainId: UInt256,
-): Future[Result[seq[byte], string]] {.async.} =
-  ## Workaround for web3 chainId=null issue with parameterized contract calls
-  let functionHash =
-    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
-  let functionSelector = functionHash.data[0 .. 3]
-  let callData = functionSelector & params
-
-  var tx: TransactionArgs
-  tx.`from` = Opt.some(fromAddress)
-  tx.to = Opt.some(toAddress)
-  tx.value = Opt.some(0.u256)
-  tx.data = Opt.some(callData)
-  tx.chainId = Opt.some(chainId)
-
-  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
-  return ok(resultBytes)
-
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
   try:
-    # let merkleRootInvocation = g.wakuRlnContract.get().root()
-    # let merkleRoot = await merkleRootInvocation.call()
-    # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-    # TODO: find better solution than this custom sendEthCallWithChainId call
     let membershipIndex = g.membershipIndex.get()
     let index40 = stuint(membershipIndex, 40)
 
     let methodSig = "getMerkleProof(uint40)"
-    let methodIdDigest = keccak.keccak256.digest(methodSig)
-    let methodId = methodIdDigest.data[0 .. 3]
-
+    
     var paddedParam = newSeq[byte](32)
     let indexBytes = index40.toBytesBE()
     for i in 0 ..< min(indexBytes.len, paddedParam.len):
       paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
 
-    var callData = newSeq[byte]()
-    for b in methodId:
-      callData.add(b)
-    callData.add(paddedParam)
+    let response = await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = methodSig,
+      params = paddedParam,
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
 
-    var tx: TransactionArgs
-    tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
-    tx.data = Opt.some(callData)
-    tx.chainId = Opt.some(g.chainId) # Explicitly set the chain ID
-
-    let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-
-    return ok(responseBytes)
+    return response
   except CatchableError:
     error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
     return err("Failed to fetch merkle proof elements: " & getCurrentExceptionMsg())
