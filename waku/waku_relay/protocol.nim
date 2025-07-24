@@ -225,13 +225,9 @@ proc logMessageInfo*(
   shardMetrics.avgSize = shardMetrics.sizeSum / shardMetrics.count
   msgMetricsPerShard[topic] = shardMetrics
 
-  waku_relay_max_msg_bytes_per_shard.set(
-    shardMetrics.maxSize, labelValues = [topic]
-  )
+  waku_relay_max_msg_bytes_per_shard.set(shardMetrics.maxSize, labelValues = [topic])
 
-  waku_relay_avg_msg_bytes_per_shard.set(
-    shardMetrics.avgSize, labelValues = [topic]
-  )
+  waku_relay_avg_msg_bytes_per_shard.set(shardMetrics.avgSize, labelValues = [topic])
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
