@@ -432,10 +432,6 @@ proc startNode*(
   ## Connect to static nodes and start
   ## keep-alive, if configured.
 
-  if node.started:
-    warn "startNode: attempting to start node that is already running"
-    return ok()
-
   info "Running nwaku node", version = git_version
   try:
     await node.start()

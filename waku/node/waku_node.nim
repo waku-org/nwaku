@@ -1483,10 +1483,6 @@ proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
 
-  if node.started:
-    warn "waku_node start: attempting to start node that is already running"
-    return
-
   waku_version.set(1, labelValues = [git_version])
   info "Starting Waku node", version = git_version
 
@@ -1536,10 +1532,6 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
-  if not node.started:
-    warn "waku_node stop: attempting to stop node that isn't running"
-    return
-
   ## By stopping the switch we are stopping all the underlying mounted protocols
   await node.switch.stop()
 
