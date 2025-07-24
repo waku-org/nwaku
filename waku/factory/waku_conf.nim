@@ -86,6 +86,7 @@ type WakuConf* {.requiresInit.} = ref object
   relay*: bool
   lightPush*: bool
   peerExchange*: bool
+  peerExchangeClient*: bool
 
   # TODO: remove relay peer exchange
   relayPeerExchange*: bool
