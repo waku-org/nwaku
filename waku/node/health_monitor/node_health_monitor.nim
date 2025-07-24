@@ -408,8 +408,11 @@ proc startHealthMonitor*(hm: NodeHealthMonitor): Result[void, string] =
   return ok()
 
 proc stopHealthMonitor*(hm: NodeHealthMonitor) {.async.} =
-  await hm.onlineMonitor.stopOnlineMonitor()
-  await hm.keepAliveFut.cancelAndWait()
+  if not hm.onlineMonitor.isNil():
+    await hm.onlineMonitor.stopOnlineMonitor()
+
+  if not hm.keepAliveFut.isNil():
+    await hm.keepAliveFut.cancelAndWait()
 
 proc new*(
     T: type NodeHealthMonitor,
