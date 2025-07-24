@@ -652,17 +652,6 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
         $clusterId
       break guardClauses
 
-    if (
-      pm.switch.peerStore.hasPeer(peerId, WakuRelayCodec) and
-      not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
-    ):
-      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & " ]"
-      let otherShardsString = "[ " & metadata.shards.join(", ") & " ]"
-      reason =
-        "no shards in common: my_shards = " & myShardsString & " others_shards = " &
-        otherShardsString
-      break guardClauses
-
     return
 
   info "disconnecting from peer", peerId = peerId, reason = reason
@@ -787,6 +776,7 @@ proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
+  #TODO: this check should not be based on whether shards are present, but rather if relay is mounted
   if pm.wakuMetadata.shards.len == 0:
     return
 
