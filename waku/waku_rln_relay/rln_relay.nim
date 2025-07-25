@@ -53,41 +53,6 @@ type RlnRelayConf* = object of RootObj
 type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
 
-proc createMembershipList*(
-    rln: ptr RLN, n: int
-): RlnRelayResult[(seq[RawMembershipCredentials], string)] =
-  ## createMembershipList produces a sequence of identity credentials in the form of (identity trapdoor, identity nullifier, identity secret hash, id commitment) in the hexadecimal format
-  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
-  ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
-  ## Returns an error if it cannot create the membership list
-
-  var output = newSeq[RawMembershipCredentials]()
-  var idCommitments = newSeq[IDCommitment]()
-
-  for i in 0 .. n - 1:
-    # generate an identity credential
-    let idCredentialRes = rln.membershipKeyGen()
-    if idCredentialRes.isErr():
-      return
-        err("could not generate an identity credential: " & idCredentialRes.error())
-    let idCredential = idCredentialRes.get()
-    let idTuple = (
-      idCredential.idTrapdoor.inHex(),
-      idCredential.idNullifier.inHex(),
-      idCredential.idSecretHash.inHex(),
-      idCredential.idCommitment.inHex(),
-    )
-    output.add(idTuple)
-    idCommitments.add(idCredential.idCommitment)
-
-  # Insert members into tree
-  let membersAdded = rln.insertMembers(0, idCommitments)
-  if not membersAdded:
-    return err("could not insert members into the tree")
-
-  let root = rln.getMerkleRoot().value().inHex()
-  return ok((output, root))
-
 type WakuRLNRelay* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
   nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
@@ -447,11 +412,11 @@ proc mount(
 
   if not conf.dynamic:
     # static setup
-    let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
+    let parsedGroupKeys = OffchainGroupKeys.toIdentityCredentials().valueOr:
       return err("could not parse static group keys: " & $error)
 
-    groupManager = StaticGroupManager(
-      groupSize: StaticGroupSize,
+    groupManager = OffchainGroupManager(
+      groupSize: OffchainGroupSize,
       groupKeys: parsedGroupKeys,
       membershipIndex: conf.credIndex,
       rlnInstance: rlnInstance,
