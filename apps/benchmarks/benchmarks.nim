@@ -17,7 +17,7 @@ proc main(): Future[string] {.async, gcsafe.} =
   let rlnIns = createRLNInstance(20).get()
   let credentials = toSeq(0 .. 1000).mapIt(membershipKeyGen(rlnIns).get())
 
-  let manager = StaticGroupManager(
+  let manager = OffchainGroupManager(
     rlnInstance: rlnIns,
     groupSize: 1000,
     membershipIndex: some(MembershipIndex(900)),

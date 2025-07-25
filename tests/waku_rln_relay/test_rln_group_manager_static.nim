@@ -36,7 +36,7 @@ suite "Static group manager":
 
     let credentials = generateCredentials(rlnInstance, 10)
 
-    let manager {.used.} = StaticGroupManager(
+    let manager {.used.} = OffchainGroupManager(
       rlnInstance: rlnInstance,
       groupSize: 10,
       membershipIndex: some(MembershipIndex(5)),
@@ -72,7 +72,7 @@ suite "Static group manager":
       raiseAssert $error
 
   asyncTest "startGroupSync: should guard against uninitialized state":
-    let manager = StaticGroupManager(
+    let manager = OffchainGroupManager(
       groupSize: 0,
       membershipIndex: some(MembershipIndex(0)),
       groupKeys: @[],
@@ -83,7 +83,7 @@ suite "Static group manager":
       raiseAssert "StartGroupSync: expected error"
 
   asyncTest "register: should guard against uninitialized state":
-    let manager = StaticGroupManager(
+    let manager = OffchainGroupManager(
       groupSize: 0,
       membershipIndex: some(MembershipIndex(0)),
       groupKeys: @[],
