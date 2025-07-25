@@ -17,7 +17,8 @@ import
   ../serdes,
   ../responses,
   ../rest_serdes,
-  ./types
+  ./types,
+  waku/incentivization/rpc
 
 export types
 
@@ -94,7 +95,11 @@ proc installLightPushRequestHandler*(
             makeRestResponse(lightpushResultServiceUnavailable(NoPeerNoneFoundError))
       toPeer = some(aPeer)
 
-    let subFut = node.lightpushPublish(req.pubsubTopic, msg, toPeer)
+    debug "in installLightPushRequestHandler"
+    debug "request:", req
+    debug "request.eligibilityProof:", eligibilityProof = req.eligibilityProof
+
+    let subFut = node.lightpushPublish(req.pubsubTopic, msg, req.eligibilityProof, toPeer)
 
     if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"

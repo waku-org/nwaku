@@ -37,7 +37,8 @@ import
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush_legacy/common,
   ../common/rate_limit/setting,
-  ../common/databases/dburl
+  ../common/databases/dburl,
+  ../incentivization/eligibility_manager
 
 ## Peer persistence
 
@@ -102,26 +103,39 @@ proc initNode(
   )
   builder.withColocationLimit(conf.colocationLimit)
 
-  if conf.maxRelayPeers.isSome():
-    let
-      maxRelayPeers = conf.maxRelayPeers.get()
-      maxConnections = conf.maxConnections
-      # Calculate the ratio as percentages
-      relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
-      serviceRatio = 100 - relayRatio
+  let eligibilityEnabled =
+    if conf.eligibilityConf.isSome():
+      conf.eligibilityConf.get().enabled
+    else:
+      false
 
-    builder.withPeerManagerConfig(
-      maxConnections = conf.maxConnections,
-      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
-      shardAware = conf.relayShardedPeerManagement,
-    )
-    error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
-  else:
-    builder.withPeerManagerConfig(
-      maxConnections = conf.maxConnections,
-      relayServiceRatio = conf.relayServiceRatio,
-      shardAware = conf.relayShardedPeerManagement,
-    )
+  let reputationEnabled =
+    if conf.reputationConf.isSome():
+      conf.reputationConf.get().enabled
+    else:
+      false
+
+  let relayServiceRatio = 
+    if conf.maxRelayPeers.isSome():
+      let
+        maxRelayPeers = conf.maxRelayPeers.get()
+        maxConnections = conf.maxConnections
+        # Calculate the ratio as percentages
+        relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
+        serviceRatio = 100 - relayRatio
+      
+      error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
+      $relayRatio & ":" & $serviceRatio
+    else:
+      conf.relayServiceRatio
+
+  builder.withPeerManagerConfig(
+    maxConnections = conf.maxConnections,
+    relayServiceRatio = relayServiceRatio,
+    shardAware = conf.relayShardedPeerManagement,
+    eligibilityEnabled = eligibilityEnabled,
+    reputationEnabled = reputationEnabled,
+  )
   builder.withRateLimit(conf.rateLimit)
   builder.withCircuitRelay(relay)
 
@@ -420,6 +434,27 @@ proc setupProtocols(
     else:
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+
+  # initialize eligibility manager if eligibility is enabled
+  if conf.eligibilityConf.isSome() and conf.eligibilityConf.get().enabled:
+    # Check that RLN Relay and Lightpush are mounted
+    if node.wakuRlnRelay.isNil or node.wakuLightPush.isNil:
+      return err("Eligibility manager requires both RLN Relay and Lightpush protocols to be mounted")
+    let eligibilityConf = conf.eligibilityConf.get()
+    let ethUrl = eligibilityConf.ethClientUrls[0]
+    let expectedToAddress = Address.fromHex(eligibilityConf.receiverAddress)
+    let expectedValueWei = eligibilityConf.paymentAmountWei.u256
+    try:
+      debug "initializing eligibilityManager..."
+      let manager = await EligibilityManager.init(
+        ethUrl,
+        expectedToAddress,
+        expectedValueWei
+      )
+      node.peerManager.eligibilityManager = some(manager)
+      debug "i13n: eligibilityManager initialized with values:", ethUrl=ethUrl, expectedToAddress=expectedToAddress, expectedValueWei=expectedValueWei
+    except CatchableError:
+      return err("failed to initialize eligibility manager: " & getCurrentExceptionMsg())
 
   return ok()
 

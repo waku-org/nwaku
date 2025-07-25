@@ -16,7 +16,8 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/rate_limit/request_limiter
+  ../common/rate_limit/request_limiter,
+  ../incentivization/[eligibility_manager, rpc]
 
 logScope:
   topics = "waku lightpush"
@@ -88,6 +89,48 @@ proc handleRequest*(
       statusCode: errorCode,
       statusDesc: some(desc),
     )
+
+  # Check eligibility if manager is available
+  if wl.peerManager.eligibilityManager.isSome():
+    debug "eligibilityManager is enabled"
+    let em = wl.peerManager.eligibilityManager.get()
+
+    try:
+      debug "checking eligibilityProof..."
+
+      # Check if eligibility proof is provided
+      if pushRequest.eligibilityProof.isNone():
+        let msg = "Eligibility proof is required"
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightPushErrorCode.PAYMENT_REQUIRED,
+          statusDesc: some(msg),
+        )
+
+      let isEligible = await em.isEligibleTxId(pushRequest.eligibilityProof.get())
+      if isEligible.isErr():
+        let msg = "Eligibility check failed: " & isEligible.error
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightPushErrorCode.PAYMENT_REQUIRED,
+          statusDesc: some(msg),
+        )
+
+      debug "Eligibility check passed!"
+
+    except CatchableError:
+      let msg = "Eligibility check threw exception: " & getCurrentExceptionMsg()
+      error "lightpush request handling error", error = msg
+      return LightpushResponse(
+        requestId: pushRequest.requestId,
+        statusCode: LightPushErrorCode.PAYMENT_REQUIRED,
+        statusDesc: some(msg),
+      )
+  else:
+    # the service node doesn't want to check eligibility
+    debug "eligibilityManager is disabled - skipping eligibility check"
 
   let relayPeerCount = (await handleRequest(wl, peerId, pushRequest)).valueOr:
     let desc = error.desc

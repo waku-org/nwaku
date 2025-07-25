@@ -1,0 +1,34 @@
+# Incentivization PoC: Dave
+
+# Dave is a Relay node that Bob uses to publishing Alice's message.
+# Dave is unaware of any elibibiligy- or reputation-related features.
+
+# Enable Lightpush
+lightpush = true
+
+# Use a pre-generated static node key for reproducibility
+nodekey = "166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980"
+
+# Enable Relay (required for eligibility module)
+relay = true
+
+# Connect to The Waku Network (TWN)
+preset = "twn"
+
+# Shift ports to avoid conflicts in local setups
+ports-shift = 2
+
+# RLN-related parameters
+rln-relay-tree-path = "~/.waku/rln-tree-db-2"
+
+# NAT (required for local setup: TODO: explain why)
+nat = "upnp"
+
+# Enable REST API including admin functions
+rest = true
+rest-admin = true
+rest-address = "127.0.0.1"
+rest-allow-origin = [ "*" ]
+
+# Log level
+log-level = "DEBUG"
