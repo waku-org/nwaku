@@ -37,8 +37,8 @@ const
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
-  StaticGroupSize* = 10000
-  #  StaticGroupKeys is a static list of 10000 membership keys in the form of (identity trapdoor, identity nullifier, identity secret hash, identity commitment)
+  OffchainGroupSize* = 10000
+  #  OffchainGroupKeys is a static list of 10000 membership keys in the form of (identity trapdoor, identity nullifier, identity secret hash, identity commitment)
   #  keys are created locally, using createMembershipList proc from waku_rln_relay_utils module, and the results are hardcoded in here
   #  this list is temporary and is created to test the performance of waku-rln-relay for the static groups
   #  in the later versions, this static hardcoded group will be replaced with a dynamic one
@@ -46,9 +46,9 @@ const
 when defined(release):
   ## the constants are used for testing purposes
   ## and they enlarge the resulting binary significantly
-  const StaticGroupKeys* = @[]
+  const OffchainGroupKeys* = @[]
 else:
-  const StaticGroupKeys* =
+  const OffchainGroupKeys* =
     @[
       (
         "23904f74b07209db3258de20e981b4564b587b238a5d259ba08329b4f84bc68c",
@@ -60052,10 +60052,10 @@ else:
       ),
     ]
 
-# StaticGroupMerkleRoot is the root of the Merkle tree constructed from the StaticGroupKeys above
+# OffchainGroupMerkleRoot is the root of the Merkle tree constructed from the OffchainGroupKeys above
 # rln-v2: rate commitments are used for the Merkle tree construction, defaulting the UserMessageLimit to 20
 # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
-const StaticGroupMerkleRoot* =
+const OffchainGroupMerkleRoot* =
   "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
 
 const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in seconds
