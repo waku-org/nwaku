@@ -122,6 +122,28 @@ proc fetchNextFreeIndex*(
     error "Failed to fetch next free index", error = getCurrentExceptionMsg()
     return err("Failed to fetch next free index: " & getCurrentExceptionMsg())
 
+proc fetchMembershipSetMembership*(
+    g: OnchainGroupManager, idCommitment: IDCommitment
+): Future[Result[bool, string]] {.async.} =
+  try:
+    let params = idCommitment.reversed()
+    let resultBytes = await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "isInMembershipSet(uint256)",
+      params = params,
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    if resultBytes.isErr():
+      return err("Failed to check membership: " & resultBytes.error)
+    let responseBytes = resultBytes.get()
+
+    return ok(responseBytes.len == 32 and responseBytes[^1] == 1'u8)
+  except CatchableError:
+    error "Failed to fetch membership set membership", error = getCurrentExceptionMsg()
+    return err("Failed to fetch membership set membership: " & getCurrentExceptionMsg())
+
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
@@ -552,28 +574,11 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
     debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
     debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
-    let idCommitment = idCommitmentUInt256
-    try:
-      let commitmentBytes = keystoreCred.identityCredential.idCommitment
-      let params = commitmentBytes.reversed()
-      let resultBytes = await sendEthCallWithParams(
-        ethRpc = g.ethRpc.get(),
-        functionSignature = "isInMembershipSet(uint256)",
-        params = params,
-        fromAddress = ethRpc.defaultAccount,
-        toAddress = contractAddress,
-        chainId = g.chainId,
-      )
-      if resultBytes.isErr():
-        return err("Failed to check membership: " & resultBytes.error)
-      let responseBytes = resultBytes.get()
-      let membershipExists = responseBytes.len == 32 and responseBytes[^1] == 1'u8
-
-      debug "membershipExists", membershipExists = membershipExists
-      if membershipExists == false:
-        return err("the commitment does not have a membership")
-    except CatchableError:
-      return err("failed to check if the commitment has a membership")
+    let idCommitment = keystoreCred.identityCredential.idCommitment 
+    let membershipExists = await g.fetchMembershipSetMembership(idCommitment)
+    debug "membershipExists", membershipExists = membershipExists
+    if membershipExists.isErr():
+      return err("the commitment does not have a membership")
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
