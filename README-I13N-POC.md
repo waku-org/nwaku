@@ -1,70 +1,69 @@
-
 This document describes the testing for the service incentivization PoC for Waku Lightpush.
 
 # Background
 
-Waku provides a suite of light protocols that allow edge nodes to use network services without being full Relay nodes. In particular, the Lightpush protocol allows an edge node (client) to ask a service node to publish a message to the Waku network on its behalf. In order to publish a message to the Waku network, the service node must have an RLN membership. In other words, the Lightpush client asks the service node to spend some of its limited resources. The goal of this PoC is to demonstrate an incentivized setup between a Lightpush edge node and a service node. 
+Waku provides a suite of light protocols that allow edge nodes to access network services without operating as full Relay nodes. Specifically, the Lightpush protocol enables an edge node (client) to request a service node to publish a message to the Waku network on its behalf. To do this, the service node must possess an RLN membership. In essence, the Lightpush client is asking the service node to expend a portion of its limited resources. The objective of this PoC is to demonstrate an incentivized setup between a Lightpush edge node and a service node.
 
-# Functionality overview
+# Functionality Overview
 
-This proof-of-concept contains two additional modules: eligibility and reputation.
+This proof-of-concept introduces two additional modules: eligibility and reputation.
 
-## Eligibility module
+## Eligibility Module
 
-Eligibility allows a service node to determine whether an incoming Lightpush request is _eligible_ to be fulfilled. A request is considered eligible if it contains a _proof of payment_. In this PoC, a proof of payment is a transaction hash (txid) corresponding to a transaction on Linea Sepolia.
+The eligibility module allows a service node to determine whether an incoming Lightpush request is _eligible_ for fulfillment. A request is considered eligible if it includes a _proof of payment_. In this PoC, the proof of payment is a transaction hash (txid) that corresponds to a transaction on Linea Sepolia.
 
-The PoC makes the following assumptions:
-- the edge node learns off-band what the service node's on-chain address is (i.e., where payment must be made) and what amount is expected;
-- the payment is made in native tokens (ETH), not in ERC-20 or other contract-based tokens;
-- each request is paid for separately with its own transaction.
+The PoC operates under the following assumptions:
+- The edge node obtains, off-band, the on-chain address of the service node (i.e., the payment destination) and the expected payment amount;
+- Payments are made in native tokens (ETH), not ERC-20 or other contract-based tokens;
+- Each request is individually paid for with a unique transaction.
 
-A Lightpush request is considered _eligible_ if and only if:
-- there is a proof of payment (txid) attached to the request;
-- the txid corresponds to a confirmed transaction on Linea Sepolia;
-- the transaction transfers exactly the expected amount to the expected address;
-- the transaction has not been used in previous requests.
+A Lightpush request is deemed _eligible_ if and only if:
+- A proof of payment (txid) is attached to the request;
+- The txid corresponds to a confirmed transaction on Linea Sepolia;
+- The transaction transfers exactly the expected amount to the correct address;
+- The transaction has not been used in any previous successful requests.
 
-## Reputation module
+## Reputation Module
 
-The reputation module allows edge nodes to avoid service nodes that provide poor service.
+The reputation module enables edge nodes to avoid service nodes that deliver poor service.
 
-Reputation has three possible values: good, bad, and neutral. The goal of reputation is for the edge node to avoid service nodes that provide bad service. Initially, from the edge node's perspective, all peers have neutral reputation. If an edge node sends an eligible request that is not fulfilled, it marks the respective service node as having "bad reputation". Bad-reputation peers are not selected for future requests. After a successfully fulfilled request, the edge node changes the service node's reputation to "good".
+Reputation can take on one of three values: good, bad, or neutral. Initially, all peers are considered to have neutral reputation from the edge node's perspective. If an edge node sends an eligible request that is not fulfilled, the respective service node is marked with a "bad" reputation. Peers with bad reputation are excluded from future requests. If a request is successfully fulfilled, the edge node updates the service node's reputation to "good".
 
-Not all error responses lead to a decrease in the service node's reputation. If the request is rejected due to a missing or invalid proof of payment, the service node's reputation remains unchanged. The service node's reputation is decreased only if an _eligible_ request is not served.
+Not all error responses affect the service node's reputation. If a request is rejected due to a missing or invalid proof of payment, the service node's reputation remains unchanged. Reputation is downgraded only in the event of a server-side error (corresponding to `5xx` error codes).
 
- Reputation functionality only applies to peers selected from the peer store (i.e., connected to via `--staticnode`). There are two ways an edge node can choose a peer to send a Lightpush request to: select from the peer store, or use the peer from the service slot for Lightpush. If an edge node establishes a dedicated connection to a peer via `--lightpushnode`, that peer is put in the service slot for Lightpush. There can only be one peer in the service slot at any given time. If there is a peer in the service slot, all Lightpush requests go to that peer. In the testing scenarios described below, we deliberately avoid using `--lightpushnode` — otherwise, we wouldn't be able to test the reputation-based peer selection logic.
+Reputation functionality only applies to peers selected from the peer store (i.e., those connected via `--staticnode`). An edge node can choose a peer for Lightpush requests in one of two ways: select from the peer store, or use the peer assigned to the Lightpush service slot. If an edge node explicitly connects to a peer via `--lightpushnode`, that peer occupies the Lightpush service slot. Only one peer can occupy this slot at any given time. When a peer is in the service slot, all Lightpush requests are directed to it. In the testing scenarios below, we intentionally avoid using `--lightpushnode` to ensure we can evaluate the reputation-based peer selection logic.
 
 # Prerequisites
 
-The testing setup (described below) consists of Edge Nodes and Service Nodes.
-An Edge Node wants to send messages via Lightpush using a Service Node.
-The Service Node uses its RLN membership to publish the Edge Node's message, if the request is eligible.
+The testing setup (described below) involves Edge Nodes and Service Nodes. An Edge Node sends messages via Lightpush using a Service Node. If the request is eligible, the Service Node uses its RLN membership to publish the Edge Node's message.
+
+> [!warning] 
+> As of 2025-07-28, registering new RLN memberships on Linea Sepolia is temporarily unavailable. You can only reproduce the testing scenario if you already have an RLN membership. This guide will be updated when the issue is resolved.
 
 There are two tokens involved (both on Linea Sepolia):
-- TTT: custom ERC-20 tokens on Linea Sepolia required to register an RLN membership;
-- Linea Sepolia ETH: native tokens that the edge node uses to pay the service node.
+- **TST (Testing Stable Token)**: a custom ERC-20 token on Linea Sepolia, required to register an RLN membership;
+- **Linea Sepolia ETH**: native tokens used by the edge node to pay the service node.
 
-Payment and service relationships are shown on this diagram:
+The payment and service relationships are illustrated in the following diagram:
 
 ```mermaid
 graph LR
-    A["Edge Node"] -- "3\. Pay in ETH" --> B["Service Node"]
-    B -- "1\. Deposit TTT" --> C[RLN contract]
-    C -- "2\. RLN membership" --> B
-    B -- "4\. RLN-as-a-service" --> A
+  A["Edge Node"] -- "3\. Pay in ETH" --> B["Service Node"]
+  B -- "1\. Deposit TST" --> C[RLN contract]
+  C -- "2\. RLN membership" --> B
+  B -- "4\. RLN-as-a-service" --> A
 ```
 
-You have the following options:
-1. reproduce the testing scenario as is, using existing confirmed proof-of-payment transactions;
-2. send your own transactions.
+You have two options:
+1. Reproduce the testing scenario as-is using existing confirmed proof-of-payment transactions;
+2. Send your own transactions.
 
-Use the following flowchart and table to determine prerequisites for your testing scenario.
+Use the flowchart and table below to determine the prerequisites based on your testing scenario.
 
 | Goal                                                                   | Required Components                                    | Optional / Conditional Steps                                                                                       |
 | ---------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| **Reproduce the scenario with existing transactions**                  | • Linea Sepolia RPC endpoint<br>• RLN membership       | If you **don’t** have RLN membership:<br>• Get Linea Sepolia ETH<br>• Mint TTT tokens<br>• Register RLN membership |
+| **Reproduce the scenario with existing transactions**                  | • Linea Sepolia RPC endpoint<br>• RLN membership       | If you **don’t** have RLN membership:<br>• Get Linea Sepolia ETH<br>• Mint TST tokens<br>• Register RLN membership |
 | **Reproduce the scenario with your own proof-of-payment transactions** | All of the above + Linea Sepolia ETH (for sending txs) | Get Linea Sepolia ETH:<br>• From faucet **or**<br>• By bridging from Ethereum Sepolia                              |
-
 
 ```mermaid
 graph TD
@@ -80,112 +79,108 @@ F --> D
 D --> H{Want to send own transactions?}
 H -- No --> I[Done]
 H -- Yes --> J[Ensure you have Linea Sepolia ETH]
-
 ```
 
+The next sub-sections provide more detailed instructions for each prerequisite.
 
-The next sub-sections describe each prerequisite in more detail.
+## Get a Linea Sepolia RPC Endpoint
 
-## Get a Linea Sepolia RPC endpoint
+Refer to the [official list of node providers](https://docs.linea.build/get-started/tooling/node-providers) on the Linea website.
 
-See this [list of node providers](https://docs.linea.build/get-started/tooling/node-providers) on the official Linea website.
+A Linea Sepolia RPC endpoint is needed for two main purposes:
+- to create an RLN membership and generate proofs (as before);
+- to check eligibility proofs (functionality introduced in this PoC).
 
-An Linea Sepolia RPC endpoint serves two purposes:
-- create an RLN membership and generate proofs (as before);
-- check eligibility proofs (functionality added in this PoC).
-
-For extensibility, these two purposes are represented by different configuration parameters in the PoC.
-You may use the same or different RPC endpoints as values for these parameters.
+For extensibility, the PoC uses separate configuration parameters for each of these purposes. You may use the same or different RPC endpoints for each.
 
 ## Get Linea Sepolia ETH
 
-There are multiple ways to get Linea Sepolia ETH:
-1. Get Linea Sepolia ETH directly from a faucet (see [list of faucets](https://docs.linea.build/get-started/how-to/get-testnet-eth)); or
-2. Swap Ethereum Sepolia ETH to Linea Sepolia ETH (see [native bridge](https://linea.build/hub/bridge/native-bridge) - be sure to select "Show Test Networks" in settings); or
-3. Ask friends or colleagues if they can give you some Linea Sepolia ETH (or Ethereum Sepolia ETH - then bridge them to Linea Sepolia as described above).
+You can obtain Linea Sepolia ETH in several ways:
+1. Request ETH directly from a faucet (see [list of faucets](https://docs.linea.build/get-started/how-to/get-testnet-eth));  
+2. Bridge Ethereum Sepolia ETH to Linea Sepolia ETH (see [native bridge](https://linea.build/hub/bridge/native-bridge) — ensure "Show Test Networks" is enabled in the settings);  
+3. Ask a friend or colleague for Linea Sepolia ETH (or Ethereum Sepolia ETH, which you can then bridge as described above).
 
-## Register RLN membership (and mint TTT tokens)
+## Register RLN Membership
 
-In order to publish a message, a valid RLN membership is needed.
-The easiest way to proceed it to use `register_rln.sh` script from [`nwaku-compose`](https://github.com/waku-org/nwaku-compose).
-The `register_rln.sh` script from `nwaku-compose` mints TTT tokens (necessary for RLN deposit) _and_ registers an RLN membership in one go.
-If you use `register_rln.sh`, you do not need to take separate action to mint TTT.
+To publish a message, a valid RLN membership is required. The recommended approach is to use the `register_rln.sh` script from [`nwaku-compose`](https://github.com/waku-org/nwaku-compose). This script both mints TST tokens (required for RLN deposit) and registers an RLN membership in a single step. If using `register_rln.sh`, there is no need to separately mint TST tokens.
 
-> [!note]
-> You will clone `nwaku-compose` repository in addition to `nwaku` repository. This setup **only** uses `nwaku-compose` for its RLN registration script. We do **not** proceed with running `nwaku` via `docker compose`, which in `nwaku-compose`'s main purpose. Instead, after registering the RLN membership, we run `nwaku` directly from a binary built from source.
+We recommend the following directory structure (you will need both `nwaku` and `nwaku-compose` repositories):
 
-Follow these steps to register an RLN membership.
-
-We suggest the following directory structure (we will need both `nwaku` and `nwaku-compose` repositories):
 ```
 - nwaku-poc-testing
 	- nwaku-compose
 	- nwaku
 ```
 
-Clone `nwaku-compose`:
+> [!note] 
+> You will clone the `nwaku-compose` repository in addition to the `nwaku` repository. This setup uses `nwaku-compose` only for its RLN registration script. We **do not** run `nwaku` via `docker compose`, which is `nwaku-compose`’s primary function. Instead, after registering the RLN membership, `nwaku` is run directly from a source-built binary.
+
+Clone the `nwaku-compose` repository:
+
 ```
 git clone git@github.com:waku-org/nwaku-compose.git
 cd nwaku-compose
 ```
 
-Copy an example template of the environment file and open it for editing:
+Copy the environment file template and open it for editing:
+
 ```
 cp .env.example .env
 nano .env
 ```
 
-> [!note]
-> You can use another text editor instead of `nano` if you prefer.
+> [!note] 
+> You may use any text editor in place of `nano`.
 
-Set the necessary parameters in the `.env` file:
+Edit the `.env` file with the following required parameters:
 
-| Parameter                      | Comment                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| `RLN_RELAY_ETH_CLIENT_ADDRESS` | Linea Sepolia RPC URL endpoint (without quotes).                                    |
-| `ETH_TESTNET_ACCOUNT`          | Linea Sepolia account for which RLN membership will be registered (without quotes). |
-| `ETH_TESTNET_KEY`              | The private key for `ETH_TESTNET_ACCOUNT` **without** `0x` prefix (without quotes). |
-| `RLN_RELAY_CRED_PASSWORD`      | A password to protect your RLN membership (in double-quotes).                       |
+| Parameter                      | Comment                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------- |
+| `RLN_RELAY_ETH_CLIENT_ADDRESS` | The Linea Sepolia RPC URL endpoint (no quotes).                                        |
+| `ETH_TESTNET_ACCOUNT`          | The Linea Sepolia account for which the RLN membership will be registered (no quotes). |
+| `ETH_TESTNET_KEY`              | The private key for `ETH_TESTNET_ACCOUNT`, without the `0x` prefix (no quotes).        |
+| `RLN_RELAY_CRED_PASSWORD`      | A password to protect your RLN membership (in double quotes).                          |
 
-> [!note]
-> `ETH_TESTNET_KEY` must be the private key of `ETH_TESTNET_ACCOUNT`.
+> [!note] 
+> `ETH_TESTNET_KEY` must be the private key corresponding to `ETH_TESTNET_ACCOUNT`.
 
-> [!hint]
-> Here is how to [export your private key](https://support.metamask.io/configure/accounts/how-to-export-an-accounts-private-key/) from Metamask.
+> [!warning] 
+> Be careful not to expose private keys that secure real value (including on other networks). See [how to export your private key](https://support.metamask.io/configure/accounts/how-to-export-an-accounts-private-key/) from Metamask.
 
-> [!warning]
-> Do not change any other values in `.env` unless you really know what you are doing.
+Run the script that registers an RLN membership and stores the keys in the keystore:
 
-Run the RLN registration script. This script will register an RLN membership and store its keys in the keystore:
 ```
 ./register_rln.sh
 ```
 
-If registration is successful, you will see a message like this:
+If successful, you will see output similar to the following:
+
 ```
-INF 2025-07-25 10:11:32.243+00:00 credentials persisted                      topics="rln_keystore_generator" tid=1 file=rln_keystore_generator.nim:119 path=/keystore/keystore.json
+INF 2025-07-25 10:11:32.243+00:00 credentials persisted           topics="rln_keystore_generator" tid=1 file=rln_keystore_generator.nim:119 path=/keystore/keystore.json
 ```
 
-Change the ownership of the keystore so that it is later available from `nwaku` directory:
+Change the ownership of the keystore so it can be accessed later from the `nwaku` directory:
+
 ```
 sudo chown -R $USER:$USER keystore
 ```
 
-You will then use that keystore to proceed with the testing scenario.
+This keystore will be used in the upcoming testing steps.
 
-> [!note]
-> After this point, we will now use `nwaku-compose` anymore. All future steps assume using the `wakunode2` binary built from source.
+> [!note] 
+> From this point forward, `nwaku-compose` is no longer needed. All subsequent steps assume you are using the `wakunode2` binary built from source.
 
 Return to the outer directory:
+
 ```
 cd ../
 ```
 
-# Build `nwaku` from source
+## Build `nwaku` from Source
 
-To use the PoC, you need to build `wakunode2` from source on the corresponding feature branch.
+To use the PoC, you must build `wakunode2` from source using the corresponding feature branch.
 
-Clone the repo and check out the [`feat/service-incentivization-poc`](https://github.com/waku-org/nwaku/tree/feat/service-incentivization-poc) feature branch: 
+Clone the repository and check out the [`feat/service-incentivization-poc`](https://github.com/waku-org/nwaku/tree/feat/service-incentivization-poc) feature branch:
 
 ```
 git clone git@github.com:waku-org/nwaku.git
@@ -193,7 +188,7 @@ cd nwaku
 git checkout feat/service-incentivization-poc
 ```
 
-Build `wakunode2` from source (see also: [instructions on building from source](https://docs.waku.org/guides/nwaku/build-source)):
+Build `wakunode2` from source (refer also to the [official build instructions](https://docs.waku.org/guides/nwaku/build-source)):
 
 ```
 make update
@@ -201,56 +196,52 @@ make wakunode2
 ```
 
 > [!note]
-> To speed up building, you may specify `-j` parameter to use multiple cores in parallel (depends on your CPU). For example, `make -j20 wakunode` will use 20 cores.
+> To speed up the build process, you can pass the `-j` parameter to use multiple CPU cores in parallel. For example, `make -j20 wakunode2` will use 20 cores.
 
-Verify that the binary is built:
+Verify that the binary was built successfully:
+
 ```
 ./build/wakunode2 --version
 ```
 
-Expected output (exact values may be different; we just check that the binary is there):
+Expected output (values may vary — we only check that the binary exists and runs):
+
 ```
 version / git commit hash: v0.35.1-167-g248757
 [Summary] 0 tests run (0.00s): 0 OK, 0 FAILED, 0 SKIPPED
 ```
 
-# Experimental setup overview
+# Experimental Setup Overview
 
-This section describes a local setup containing multiple `nwaku` nodes used to test the PoC.
+This section describes a local setup involving multiple `nwaku` nodes used to test the PoC.
 
-The setup contains four nodes.
-Nodes are launched on the same machine on different ports.
-Note that REST API commands must use the appropriate port corresponding to the node queried.
-Nodes are defined by a set of parameters defined as CLI arguments or in a TOML config file.
-Config files for the four nodes are in the directory `./i13n-poc-configs/toml`'.
-CLI arguments override config parameters.
+The setup consists of four nodes, each running on the same machine but using different ports.  When issuing REST API commands, ensure you use the correct port corresponding to the targeted node.
 
-Our setup includes the following nodes:
-- Alice — the edge node that wants to publish messages without being connected to Relay.
-- Bob — the service node that fulfills Alice's request.
-- Charlie — the alternative service node that fails to fulfill Alice's request.
-- Dave — the node that Bob connects to via Relay to publish Alice's message.
+Each node is defined by a set of parameters, either as CLI arguments or via a TOML configuration file.  The config files for all four nodes are located in the `./i13n-poc-configs/toml` directory.  CLI arguments always override configuration parameters from the TOML files.
+
+The experimental setup includes the following nodes:
+- **Alice** — an edge node that wants to publish messages without being connected to Relay.
+- **Bob** — a service node that fulfills Alice's Lightpush request.
+- **Charlie** — an alternative service node that fails to fulfill Alice's request.
+- **Dave** — a Relay-connected node that Bob uses to relay Alice's message to the network.
 
 ```mermaid
 graph LR
-  Alice -- Lightpush --> Bob
-  Bob <-- Relay --> Dave
-  Alice -- Lightpush --> Charlie
-  Dave <-- Relay --> W((The Waku Network))
+ Alice -- Lightpush --> Bob
+ Bob <-- Relay --> Dave
+ Alice -- Lightpush --> Charlie
+ Dave <-- Relay --> W((The Waku Network))
 ```
 
-For reproducibility, nodes are launched with the same (static) keys defined in config files.
-Example commands use the pre-generated constant keys from which node IDs are derived.
-Instructions for key config can be found [here](https://github.com/waku-org/nwaku/blob/master/docs/operators/how-to/configure-key.md).
+For reproducibility, all nodes are launched with static (pre-generated) keys defined in their config files.  These static keys are used in example commands and determine the node IDs.  For details on configuring node keys, refer to the [key configuration guide](https://github.com/waku-org/nwaku/blob/master/docs/operators/how-to/configure-key.md).
 
+> [!note]  
+> In this testing setup, Bob and Charlie share on-chain credentials and the same RLN membership (i.e., the same keystore).
 
-> [!note]
-> In the testing scenario, Bob and Charlie share on-chain credentials and therefore can be considered one entity from the payment perspective.
+> [!note]  
+> Nodes do not persist eligibility or reputation data between restarts.
 
-> [!note] 
-> Nodes do not save eligibility and reputation data between restarts.
-
-# Reproduce the testing scenario
+# Testing Scenario
 
 ## Set environment variables
 
@@ -260,22 +251,16 @@ Make a file called `wakunode2.env` in your project root (or home directory):
 nano ./i13n-poc-configs/envvars.env
 ```
 
-In the environment file, set the necessary environment variables (replace `API_KEY` with your Infura API key, or replace the whole URL if you use another RPC provider):
+In the environment file, set the necessary environment variables (`RLN_RELAY_CRED_PASSWORD` is your RLN password). If you use another RPC provider, replace `ELIGIBILITY_ETH_CLIENT_ADDRESS` or `RLN_RELAY_ETH_CLIENT_ADDRESS` accordingly (provide your API key if necessary):
 ```
-export ELIGIBILITY_ETH_CLIENT_ADDRESS="https://linea-sepolia.infura.io/v3/API_KEY"
-export RLN_RELAY_ETH_CLIENT_ADDRESS="https://linea-sepolia.infura.io/v3/API_KEY"
+export ELIGIBILITY_ETH_CLIENT_ADDRESS="https://rpc.sepolia.linea.build/"
+export RLN_RELAY_ETH_CLIENT_ADDRESS="https://rpc.sepolia.linea.build/"
 export RLN_RELAY_CRED_PATH="../nwaku-compose/keystore/keystore.json"
-export RLN_RELAY_CRED_PASSWORD="12345678"
+export RLN_RELAY_CRED_PASSWORD=RLN_RELAY_CRED_PASSWORD
 ```
 
 > [!warning]
 > If you have moved the keystore from `nwaku-compose`, change `RLN_RELAY_CRED_PATH` accordingly.
-
-> [!note]
-> You may use the same RPC endpoint as `ELIGIBILITY_ETH_CLIENT_ADDRESS` and `RLN_RELAY_ETH_CLIENT_ADDRESS`.
-
-> [!note]
-> All RLN-enabled nodes in the setup (namely, Bob and Charlie) use the same RLN membership (i.e., the same keystore).
 
 ## Launch nodes
 
@@ -285,7 +270,7 @@ Make node-launching scripts executable:
 chmod +x ./i13n-poc-configs/*.sh
 ```
 
-Launch nodes in different terminal windows (**in this order** - important for proper connection establishment):
+Launch nodes in different terminal windows (**in this order** — important for proper connection establishment):
 
 ```
 ./i13n-poc-configs/run_charlie.sh
@@ -303,16 +288,15 @@ Launch nodes in different terminal windows (**in this order** - important for pr
 ./i13n-poc-configs/run_bob.sh
 ```
 
-
 ## Run the testing scenario
 
 To communicate with Waku nodes, use REST API interface (see [REST API reference](https://waku-org.github.io/waku-rest-api/)).
 
-## Alice is only connected to Charlie
+### Alice is only connected to Charlie
 
 Initially, Alice is only connected to Charlie. We test negative scenarios when Alice's requests cannot be fulfilled. We will connect Alice to Bob later in the scenario.
 
-### Alice sends ineligible requests, Charlie denies
+#### Alice sends ineligible requests, Charlie denies
 
 Alice sends a series of ineligible requests (without proof of payment and with invalid proof of payment).
 1. Charlie is selected as service node (it is the only peer with neutral reputation Alice is aware of).
@@ -368,7 +352,7 @@ Expected response:
 > [!note]
 > All failed responses mentioned above must not affect Charlie's reputation from Alice's point of view, which is reflected in Alice's log with lines like: `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
 
-### Alice sends an eligible request, Charlie fails to fulfill it
+#### Alice sends an eligible request, Charlie fails to fulfill it
 
 Alice sends an eligible request.
 1. Charlie is again selected as service node.
@@ -387,10 +371,10 @@ Expected response:
 
 Alice assigns bad reputation to Charlie because a valid request was not served (check Alice's logs for lines like this):
 ```
-DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer       tid=25598 file=reputation_manager.nim:57 peer=16U*EuyzSd
+DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer    tid=25598 file=reputation_manager.nim:57 peer=16U*EuyzSd
 ```
 
-## Alice is connected to Bob and Charlie
+### Alice is connected to Bob and Charlie
 
 Now, let us additionally connect Alice to Bob.
 
@@ -408,11 +392,11 @@ curl -X GET "http://127.0.0.1:8646/admin/v1/peers/connected" | jq . | grep multi
 
 Expected response (both Bob's and Charlie's node IDs must appear here; a real IP address replaced with `EXTERNAL_IP`):
 ```
-  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95",
-  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd",
+ "multiaddr": "/ip4/EXTERNAL_IP/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95",
+ "multiaddr": "/ip4/EXTERNAL_IP/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd",
 ```
 
-### Alice sends an eligible request, Bob fulfills it
+#### Alice sends an eligible request, Bob fulfills it
 
 Alice sends an eligible request. Expected behavior:
 1. Bob is selected (even though Alice is also aware of Charlie, Charlie is excluded due to its bad reputation).
@@ -436,15 +420,15 @@ Expected response (indicates successful publishing of the message):
 
 Alice's log must also contain lines like the following. This shows that even though Alice is aware of two potential peers to select for her request, due to reputation system, only one peer (Bob) is considered. Moreover, Bob initially has a neutral (`none(bool)`) reputation because Alice hasn't had any interaction with Bob yet:
 ```
-DBG 2025-07-10 16:42:24.575+02:00 Before filtering - total peers:      topics="waku node peer_manager" tid=25598 file=peer_manager.nim:253 numPeers=2
+DBG 2025-07-10 16:42:24.575+02:00 Before filtering - total peers:   topics="waku node peer_manager" tid=25598 file=peer_manager.nim:253 numPeers=2
 DBG 2025-07-10 16:42:24.576+02:00 Reputation enabled: consider only non-negative reputation peers topics="waku node peer_manager" tid=25598 file=peer_manager.nim:256
-DBG 2025-07-10 16:42:24.576+02:00 Pre-selected peers from peerstore:     topics="waku node peer_manager" tid=25598 file=peer_manager.nim:272 numPeers=1
-DBG 2025-07-10 16:42:24.576+02:00 Selected peer has reputation        topics="waku node peer_manager" tid=25598 file=peer_manager.nim:280 reputation=none(bool)
+DBG 2025-07-10 16:42:24.576+02:00 Pre-selected peers from peerstore:   topics="waku node peer_manager" tid=25598 file=peer_manager.nim:272 numPeers=1
+DBG 2025-07-10 16:42:24.576+02:00 Selected peer has reputation    topics="waku node peer_manager" tid=25598 file=peer_manager.nim:280 reputation=none(bool)
 ```
 
 Upon successful request handling, a line like this must appear in Alice's log, which shows that Alice has assigned a good reputation to Bob following his successful handling of her request:
 ```
-DBG 2025-07-10 16:42:25.457+02:00 Assign good reputation for peer      tid=25598 file=reputation_manager.nim:60 peer=16U*LjxE95
+DBG 2025-07-10 16:42:25.457+02:00 Assign good reputation for peer   tid=25598 file=reputation_manager.nim:60 peer=16U*LjxE95
 ```
 
 Verify, on Dave's node, that Alice's message has indeed reached Dave.
@@ -459,7 +443,7 @@ Expected response (truncated; `i13n-poc` is short for "incentivization proof-of-
 [{"payload":"SGVsbG8gV29ybGQ=","contentTopic":"/i13n-poc/1/chat/proto","version":0,"timestamp":1752158544577207808,"ephemeral":false, ....
 ```
 
-### Alice attempts to double-spend, Bob denies
+#### Alice attempts to double-spend, Bob denies
 
 Alice sends an ineligible request with a double-spend attempt (trying to reuse a txid twice).
 1. Bob is again selected as service peer.
@@ -516,11 +500,12 @@ Transaction ID that doesn't correspond to a confirmed transaction (must fail):
 The following table contains, for the reference, node (private) keys and node IDs of all nodes of the testing setup.
 
 > [!warning]
-> The following table is valid as of 2025-07-18. Setup may have changed. See config files for up-to-date values.
+> This table may be outdated. Config files take precedence.
 
-|Name|Protocols enabled|Node key|Node ID|Ports shift|TCP port|REST API port|
-|---|---|---|---|---|---|---|
-|Alice|Lightpush (client)|`17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925`|`16Uiu2HAkwxC5Mcsh2DyZBq8CiKqnDkLUHWTuXCJas3TMPmRkynWz`|1|60001|8646|
-|Bob|Relay, Lightpush (server)|`2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed`|`16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95`|0|60000|8645|
-|Charlie|Relay|`fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f`|`16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd`|3|60003|8648|
-|Dave|Relay|`166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980`|`16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8`|2|60002|8647|
+| Name  | Protocols enabled     | Node key                              | Node ID                         | Ports shift | TCP port | REST API port |
+| ------- | ------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- | ----------- | -------- | ------------- |
+| Alice  | Lightpush (client)    | `17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925` | `16Uiu2HAkwxC5Mcsh2DyZBq8CiKqnDkLUHWTuXCJas3TMPmRkynWz` | 1      | 60001  | 8646     |
+| Bob   | Relay, Lightpush (server) | `2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed` | `16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95` | 0      | 60000  | 8645     |
+| Charlie | Relay           | `fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f` | `16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd` | 3      | 60003  | 8648     |
+| Dave  | Relay           | `166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980` | `16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8` | 2      | 60002  | 8647     |
+
