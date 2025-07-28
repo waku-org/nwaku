@@ -16,6 +16,7 @@ import
     waku_peer_exchange/rpc,
     waku_peer_exchange/rpc_codec,
     waku_peer_exchange/protocol,
+    waku_peer_exchange/client,
     node/peer_manager,
     waku_core,
     common/enr/builder,
@@ -145,7 +146,7 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Create connection
       let connOpt = await node2.peerManager.dialPeer(
@@ -225,8 +226,7 @@ suite "Waku Peer Exchange":
       let
         switch = newTestSwitch()
         peerManager = PeerManager.new(switch)
-        peerExchange = WakuPeerExchange.new(peerManager)
-        peerExchangeClient = WakuPeerExchangeClient.new()
+        peerExchangeClient = WakuPeerExchangeClient.new(peerManager)
 
       # When requesting 0 peers
       let response = await peerExchangeClient.request(0)
@@ -279,7 +279,7 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Connect the nodes
       let dialResponse = await node2.peerManager.dialPeer(
@@ -295,7 +295,7 @@ suite "Waku Peer Exchange":
       node1.wakuPeerExchange.enrCache.add(record)
 
       # When requesting 0 peers
-      let response = await node1.wakuPeerExchangeClient.request(0)
+      let response = await node2.wakuPeerExchangeClient.request(0)
 
       # Then the response should be empty
       assertResultOk(response)
@@ -311,14 +311,14 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchangeClient(), node2.mountPeerExchange()])
 
       # Mock that we have discovered one enr
       var record = enr.Record()
       check record.fromUri(
         "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
       )
-      node1.wakuPeerExchange.enrCache.add(record)
+      node2.wakuPeerExchange.enrCache.add(record)
 
       # When making any request with an invalid peer info
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
@@ -338,6 +338,7 @@ suite "Waku Peer Exchange":
 
       await allFutures(nodes.mapIt(it.start()))
       await allFutures(nodes.mapIt(it.mountPeerExchange()))
+      await allFutures(nodes.mapIt(it.mountPeerExchangeClient()))
 
       # Multiple nodes request to node 0
       for i in 1 ..< 3:
@@ -410,7 +411,7 @@ suite "Waku Peer Exchange":
       await allFutures(
         [
           node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),
-          node2.mountPeerExchange(),
+          node2.mountPeerExchangeClient(),
         ]
       )
 

@@ -17,6 +17,7 @@ import
     waku_peer_exchange,
     waku_peer_exchange/rpc,
     waku_peer_exchange/protocol,
+    waku_peer_exchange/client,
     node/peer_manager,
     waku_core,
   ],

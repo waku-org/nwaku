@@ -1,5 +1,5 @@
-import std/[options, sequtils, random], results, metrics, chronos
-import ./rpc, ./rpc_codec, ../waku_core
+import results, metrics, chronos
+import ./rpc, ../waku_core
 
 const
   # We add a 64kB safety buffer for protocol overhead.
