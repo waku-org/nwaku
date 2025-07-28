@@ -140,6 +140,12 @@ proc handleRequest*(
       requestId: pushRequest.requestId, statusCode: error.code, statusDesc: desc
     )
 
+  # Add txid to seen txids in eligibility manager after all checks pass
+  if wl.peerManager.eligibilityManager.isSome() and pushRequest.eligibilityProof.isSome():
+    let em = wl.peerManager.eligibilityManager.get()
+    let txIdBytes = pushRequest.eligibilityProof.get().proofOfPayment.get()
+    em.markTxIdSeen(txIdBytes)
+
   return LightPushResponse(
     requestId: pushRequest.requestId,
     statusCode: LightPushSuccessCode.SUCCESS,

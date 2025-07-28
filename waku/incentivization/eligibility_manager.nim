@@ -68,7 +68,6 @@ proc isEligibleTxId*(
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
   # check that it is not a double-spend
   let txHashWasSeen = (txHash in eligibilityManager.seenTxIds)
-  eligibilityManager.seenTxIds.incl(txHash)
   if txHashWasSeen:
     return err("TxHash " & $txHash & " was already checked (double-spend attempt)")
   try:
@@ -100,3 +99,8 @@ proc isEligibleTxId*(
   if txValueWei != eligibilityManager.expectedValueWei:
     return err("Wrong tx value: got " & $txValueWei & ", expected " & $eligibilityManager.expectedValueWei)
   return ok()
+
+proc markTxIdSeen*(eligibilityManager: EligibilityManager, txIdBytes: seq[uint8]) =
+  ## Converts bytes to hex, then to TxHash, and adds to seenTxIds set
+  let txHash = TxHash.fromHex(byteutils.toHex(txIdBytes))
+  eligibilityManager.seenTxIds.incl(txHash)
