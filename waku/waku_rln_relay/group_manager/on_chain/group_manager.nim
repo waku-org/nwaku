@@ -590,7 +590,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
     debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
     debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
-    let idCommitment = keystoreCred.identityCredential.idCommitment 
+    let idCommitment = keystoreCred.identityCredential.idCommitment
     let membershipExists = await g.fetchMembershipSetMembership(idCommitment)
     debug "membershipExists", membershipExists = membershipExists
     if membershipExists.isErr():
