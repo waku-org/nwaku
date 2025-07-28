@@ -41,25 +41,6 @@ type
     latestProcessedBlock*: BlockNumber
     merkleProofCache*: seq[byte]
 
-proc setMetadata*(
-    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
-): GroupManagerResult[void] =
-  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
-  try:
-    let metadataSetRes = g.rlnInstance.setMetadata(
-      RlnMetadata(
-        lastProcessedBlock: normalizedBlock.uint64,
-        chainId: g.chainId,
-        contractAddress: g.ethContractAddress,
-        validRoots: g.validRoots.toSeq(),
-      )
-    )
-    if metadataSetRes.isErr():
-      return err("failed to persist rln metadata: " & metadataSetRes.error)
-  except CatchableError:
-    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
-  return ok()
-
 # The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
 # TODO: find better solution than this custom sendEthCallWithChainId call
 
@@ -143,6 +124,41 @@ proc fetchMembershipSetMembership*(
   except CatchableError:
     error "Failed to fetch membership set membership", error = getCurrentExceptionMsg()
     return err("Failed to fetch membership set membership: " & getCurrentExceptionMsg())
+
+proc fetchMaxMembershipRateLimit*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let maxMembershipRateLimit = await sendEthCallWithChainId(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "maxMembershipRateLimit()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return maxMembershipRateLimit
+  except CatchableError:
+    error "Failed to fetch max membership rate limit", error = getCurrentExceptionMsg()
+    return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
+
+proc setMetadata*(
+    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
+): GroupManagerResult[void] =
+  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
+  try:
+    let metadataSetRes = g.rlnInstance.setMetadata(
+      RlnMetadata(
+        lastProcessedBlock: normalizedBlock.uint64,
+        chainId: g.chainId,
+        contractAddress: g.ethContractAddress,
+        validRoots: g.validRoots.toSeq(),
+      )
+    )
+    if metadataSetRes.isErr():
+      return err("failed to persist rln metadata: " & metadataSetRes.error)
+  except CatchableError:
+    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
+  return ok()
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -592,16 +608,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
-  let maxMembershipRateLimit = (
-    await sendEthCallWithChainId(
-      ethRpc = ethRpc,
-      functionSignature = "maxMembershipRateLimit()",
-      fromAddress = ethRpc.defaultAccount,
-      toAddress = contractAddress,
-      chainId = g.chainId,
-    )
-  ).valueOr:
-    return err("Failed to fetch max membership rate limit: " & $error)
+  let maxMembershipRateLimit = await g.fetchMaxMembershipRateLimit()
 
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
 
