@@ -29,12 +29,14 @@ contract(WakuRlnContract):
   proc register(
     idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256]
   )
+
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is emitted when a new member is registered
   proc MembershipRegistered(
     idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32
   ) {.event.}
+
   # this function denotes existence of a given user
   proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
   # this constant describes the next index of a new member
@@ -97,6 +99,3 @@ proc sendEthCallWithParams*(
 
   let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
   return ok(resultBytes)
-
-
-

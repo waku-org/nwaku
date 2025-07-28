@@ -60,6 +60,9 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
+# The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
+# TODO: find better solution than this custom sendEthCallWithChainId call
+
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[byte], string]] {.async.} =
@@ -68,7 +71,6 @@ proc fetchMerkleProofElements*(
     let index40 = stuint(membershipIndex, 40)
 
     let methodSig = "getMerkleProof(uint40)"
-    
     var paddedParam = newSeq[byte](32)
     let indexBytes = index40.toBytesBE()
     for i in 0 ..< min(indexBytes.len, paddedParam.len):
@@ -92,21 +94,33 @@ proc fetchMerkleRoot*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    let merkleRoot = (
-      await sendEthCallWithChainId(
-        ethRpc = g.ethRpc.get(),
-        functionSignature = "root()",
-        fromAddress = g.ethRpc.get().defaultAccount,
-        toAddress = fromHex(Address, g.ethContractAddress),
-        chainId = g.chainId,
-      )
-    ).valueOr:
-      error "Failed to fetch Merkle root", error = $error
-      return err("Failed to fetch merkle root: " & $error)
-    return ok(merkleRoot)
+    let merkleRoot = await sendEthCallWithChainId(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "root()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return merkleRoot
   except CatchableError:
     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
     return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
+
+proc fetchNextFreeIndex*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let nextFreeIndex = await sendEthCallWithChainId(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "nextFreeIndex()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return nextFreeIndex
+  except CatchableError:
+    error "Failed to fetch next free index", error = getCurrentExceptionMsg()
+    return err("Failed to fetch next free index: " & getCurrentExceptionMsg())
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -162,19 +176,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
             error "Failed to fetch Merkle proof", error = proofResult.error
           g.merkleProofCache = proofResult.get()
 
-        # also need to update registered membership
-        # g.rlnRelayMaxMessageLimit =
-        #   cast[uint64](await wakuRlnContract.nextFreeIndex().call())
-        # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-        # TODO: find better solution than this custom sendEthCallWithChainId call
-        let nextFreeIndex = await sendEthCallWithChainId(
-          ethRpc = ethRpc,
-          functionSignature = "nextFreeIndex()",
-          fromAddress = ethRpc.defaultAccount,
-          toAddress = fromHex(Address, g.ethContractAddress),
-          chainId = g.chainId,
-        )
-
+        let nextFreeIndex = await g.fetchNextFreeIndex()
         if nextFreeIndex.isErr():
           error "Failed to fetch next free index", error = nextFreeIndex.error
           raise newException(
