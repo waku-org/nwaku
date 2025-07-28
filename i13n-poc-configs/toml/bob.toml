@@ -5,7 +5,6 @@
 # Bob also checks for double-spend attempts - 
 # when Alice submits duplicate txid as proof of payment.
 
-
 # Enable Lightpush
 lightpush = true
 
@@ -21,10 +20,10 @@ relay = true
 # Connect to The Waku Network (TWN)
 preset = "twn"
 
-# Disable discovery methods to ensure node isolation
-# TODO: is it needed? (Bob only connecting to Dave is OK)
+# Optional: Bob only connecting to Dave is OK for testing scenario
 discv5-discovery = false
 dns-discovery = false
+nat = "upnp"
 
 # Eligibility-related parameters
 eligibility-enabled = true
@@ -34,14 +33,11 @@ eligibility-payment-amount-wei = 1000000000
 # RLN-related parameters
 rln-relay-tree-path = "~/.waku/rln-tree-db"
 
-# NAT (required for local setup: TODO: explain why)
-nat = "upnp"
-
 # Enable REST API including admin functions
 rest = true
 rest-admin = true
 rest-address = "127.0.0.1"
-rest-allow-origin = [ "*" ]
+rest-allow-origin = [ "127.0.0.1:*" ]
 
 # Log level
 log-level = "DEBUG"

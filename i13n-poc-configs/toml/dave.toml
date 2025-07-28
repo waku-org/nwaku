@@ -14,6 +14,7 @@ relay = true
 
 # Connect to The Waku Network (TWN)
 preset = "twn"
+nat = "upnp"
 
 # Shift ports to avoid conflicts in local setups
 ports-shift = 2
@@ -21,14 +22,11 @@ ports-shift = 2
 # RLN-related parameters
 rln-relay-tree-path = "~/.waku/rln-tree-db-2"
 
-# NAT (required for local setup: TODO: explain why)
-nat = "upnp"
-
 # Enable REST API including admin functions
 rest = true
 rest-admin = true
 rest-address = "127.0.0.1"
-rest-allow-origin = [ "*" ]
+rest-allow-origin = [ "127.0.0.1:*" ]
 
 # Log level
 log-level = "DEBUG"

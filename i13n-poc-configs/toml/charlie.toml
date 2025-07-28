@@ -20,6 +20,7 @@ preset = "twn"
 # Disable discovery methods to ensure node isolation
 discv5-discovery = false
 dns-discovery = false
+nat = "upnp"
 
 # Eligibility-related parameters
 eligibility-enabled = true
@@ -32,17 +33,11 @@ ports-shift = 3
 # RLN-related parameters
 rln-relay-tree-path = "~/.waku/rln-tree-db-3"
 
-# NAT (required for local setup: TODO: explain why)
-nat = "upnp"
-
 # Enable REST API including admin functions
 rest = true
 rest-admin = true
 rest-address = "127.0.0.1"
-rest-allow-origin = [ "*" ]
+rest-allow-origin = [ "127.0.0.1:*" ]
 
 # Log level
 log-level = "DEBUG"
-
-# CLI-only equivalent command (for reference)
-# ./build/wakunode2 --lightpush --rln-relay-tree-path=~/.waku/rln-tree-db-3 --nodekey=$CHARLIE_NODEKEY --discv5-discovery=false --dns-discovery=false --rest=true --rest-admin=true --rest-address=127.0.0.1 --ports-shift=3 --rest-allow-origin="*" --preset=twn --relay=true --nat=upnp --rln-relay-eth-client-address=$RLN_RELAY_ETH_CLIENT_ADDRESS --rln-relay-cred-password=$RLN_RELAY_CRED_PASSWORD --rln-relay-cred-path=$RLN_RELAY_CRED_PATH --log-level=DEBUG --eligibility-enabled=true --eligibility-eth-client-address=$ELIGIBILITY_ETH_CLIENT_ADDRESS --eligibility-receiver-address=$ELIGIBILITY_RECEIVER_ADDRESS --eligibility-payment-amount-wei=$ELIGIBILITY_PAYMENT_AMOUNT_WEI

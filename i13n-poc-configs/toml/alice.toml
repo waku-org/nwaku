@@ -13,14 +13,13 @@ nodekey = "17950ef7510db19197ec0e3d34b41c0ed60bb7a0a619aa504eb6689c85ca9925"
 # (Alice will connect to Bob via REST API later)
 staticnode = [ "/ip4/127.0.0.1/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" ]
 
+# Connect to The Waku Network (TWN)
+# (must come before we override relay and discovery to false)
+preset = "twn"
+
 # Disable Relay and RLN-Relay
-# (TODO: is disabling RLN-Relay needed here?)
 relay = false
 rln-relay = false
-
-# Use cluster 1 (TWN)
-# (TODO: shall we use preset=twn instead?)
-cluster-id = 1
 
 # Disable discovery methods to ensure node isolation
 discv5-discovery = false
@@ -36,7 +35,7 @@ ports-shift = 1
 rest = true
 rest-admin = true
 rest-address = "127.0.0.1"
-rest-allow-origin = [ "*" ]
+rest-allow-origin = [ "127.0.0.1:*" ]
 
 # Log level
 log-level = "DEBUG"
