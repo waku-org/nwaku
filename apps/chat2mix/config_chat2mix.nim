@@ -110,7 +110,7 @@ type
 
     ## Store config
     store* {.
-      desc: "Enable store protocol: true|false", defaultValue: true, name: "store"
+      desc: "Enable store protocol: true|false", defaultValue: false, name: "store"
     .}: bool
 
     storenode* {.

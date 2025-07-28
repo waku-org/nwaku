@@ -463,7 +463,14 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     quit(QuitFailure)
   node.mountMetadata(conf.clusterId).isOkOr:
     error "failed to mount waku metadata protocol: ", err = error
-    quit 1
+    quit(QuitFailure)
+
+  try:
+    await node.mountPeerExchange()
+  except CatchableError:
+    error "failed to mount waku peer-exchange protocol",
+      error = getCurrentExceptionMsg()
+    quit(QuitFailure)
 
   let (mixPrivKey, mixPubKey) = generateKeyPair().valueOr:
     error "failed to generate mix key pair", error = error
@@ -476,14 +483,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   await node.start()
 
   node.peerManager.start()
-  node.startPeerExchangeLoop()
-
-  while node.getMixNodePoolSize() < 3:
-    info "waiting for mix nodes to be discovered",
-      currentpoolSize = node.getMixNodePoolSize()
-    await sleepAsync(1000)
-  notice "ready tp publish with mix node pool size ",
-    currentpoolSize = node.getMixNodePoolSize()
 
   #[   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
@@ -636,7 +635,16 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     else:
       error "LightPushClient not mounted. Couldn't parse conf.serviceNode",
         error = peerInfo.error
+  # TODO: Loop faster and also switch to rendezvous
+  node.startPeerExchangeLoop()
 
+  while node.getMixNodePoolSize() < 3:
+    info "waiting for mix nodes to be discovered",
+      currentpoolSize = node.getMixNodePoolSize()
+    await sleepAsync(1000)
+  notice "ready tp publish with mix node pool size ",
+    currentpoolSize = node.getMixNodePoolSize()
+  echo "ready to publish messages now"
   # Subscribe to a topic, if relay is mounted
   #[  if conf.relay:
     proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
