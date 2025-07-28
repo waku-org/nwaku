@@ -245,7 +245,7 @@ For reproducibility, all nodes are launched with static (pre-generated) keys def
 
 ## Set environment variables
 
-Make a file called `wakunode2.env` in your project root (or home directory):
+Make a file called `envvars.env` in your project root (or home directory):
 
 ```
 nano ./i13n-poc-configs/envvars.env
@@ -260,7 +260,7 @@ export RLN_RELAY_CRED_PASSWORD=RLN_RELAY_CRED_PASSWORD
 ```
 
 > [!warning]
-> If you have moved the keystore from `nwaku-compose`, change `RLN_RELAY_CRED_PATH` accordingly.
+> If you have moved the keystore from `nwaku-compose` directory, change `RLN_RELAY_CRED_PATH` accordingly.
 
 ## Launch nodes
 
@@ -290,107 +290,121 @@ Launch nodes in different terminal windows (**in this order** — important for 
 
 ## Run the testing scenario
 
-To communicate with Waku nodes, use REST API interface (see [REST API reference](https://waku-org.github.io/waku-rest-api/)).
+To communicate with Waku nodes, use the REST API interface (see [REST API reference](https://waku-org.github.io/waku-rest-api/)).
 
 ### Alice is only connected to Charlie
 
-Initially, Alice is only connected to Charlie. We test negative scenarios when Alice's requests cannot be fulfilled. We will connect Alice to Bob later in the scenario.
+Initially, Alice is connected only to Charlie. At this stage, we test negative scenarios where Alice's requests cannot be fulfilled. Alice will be connected to Bob later in the scenario.
 
 #### Alice sends ineligible requests, Charlie denies
 
-Alice sends a series of ineligible requests (without proof of payment and with invalid proof of payment).
-1. Charlie is selected as service node (it is the only peer with neutral reputation Alice is aware of).
-2. All ineligible requests are rejected, Alice receives error messages, Charlie's reputation remains unchanged.
+Alice sends a series of ineligible requests—either without proof of payment or with invalid proof of payment.
 
-> [!note]
-> In all experiments, we explicitly use pubsub topic `waku/2/rs/1/0` i.e. shard `0` on The Waku Network. `%2Fwaku%2F2%2Frs%2F1%2F0` is an encoding of `/waku/2/rs/1/0` - the pubsub topic (i.e. identifier) of shard `0`.
+1. Charlie is selected as the service node, as it is the only peer with neutral reputation that Alice is aware of.
+2. All ineligible requests are rejected. Alice receives error messages, and Charlie's reputation remains unchanged.
+
+> [!note]  
+> In all experiments, we explicitly use the pubsub topic `waku/2/rs/1/0`, corresponding to shard `0` on The Waku Network. The encoded form `%2Fwaku%2F2%2Frs%2F1%2F0` represents that topic.
 
 REST API request from Alice without proof of payment:
+
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" } }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"Eligibility proof is required"}
 ```
 
 REST API request from Alice with a non-existent transaction as proof of payment:
+
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0x0000000000000000000000000000000000000000000000000000000000000000" }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"Eligibility check failed: Failed to fetch tx or tx receipt"}
 ```
 
-REST API request form Alice with a transaction with incorrect amount (higher than expected):
+REST API request from Alice with a transaction using an incorrect amount (higher than expected):
+
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0x0a502f0a367f99b50e520afeb3843ee9e0f73fd0f01d671829c0c476d86859df" }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"Eligibility check failed: Wrong tx value: got 2000000000, expected 1000000000"}
 ```
 
->[!note]
->The amount must be exactly as expected, counted in wei. In the PoC currently, exceeding amounts are also rejected.
+> [!note]  
+> The amount must match the expected value exactly and is counted in wei. Overpayment is also rejected in the current PoC implementation.
 
-REST API request from Alice with a transaction with incorrect amount (lower than expected):
+REST API request from Alice with a transaction using an incorrect amount (lower than expected):
 
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0xa3c5da96b234518ae544c3449344cf4216587f400a529a836ce6131a82228363" }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"Eligibility check failed: Wrong tx value: got 900000000, expected 1000000000"}
 ```
 
-> [!note]
-> All failed responses mentioned above must not affect Charlie's reputation from Alice's point of view, which is reflected in Alice's log with lines like: `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
+> [!note]  
+> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This is confirmed by log entries like:  
+> `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
 
 #### Alice sends an eligible request, Charlie fails to fulfill it
 
-Alice sends an eligible request.
-1. Charlie is again selected as service node.
-2. Charlie fails to fulfill the request due to being isolated.
-3. Alice receives an error message and sets Charlie's reputation to "bad".
+Alice now sends an eligible request.
+
+1. Charlie is again selected as the service node.
+2. Charlie fails to fulfill the request because it is isolated.
+3. Alice receives an error message and assigns Charlie a "bad" reputation.
 
 REST API request from Alice with a valid proof of payment:
+
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0x67932980dd5e66be76d4d096f3e176b2f1590cef3aa9981decb8f59a5c7e60e3" }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"No peers for topic, skipping publish"}
 ```
 
-Alice assigns bad reputation to Charlie because a valid request was not served (check Alice's logs for lines like this):
+Alice logs a line indicating that Charlie has been assigned bad reputation due to a valid request not being served:
+
 ```
 DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer    tid=25598 file=reputation_manager.nim:57 peer=16U*EuyzSd
 ```
 
 ### Alice is connected to Bob and Charlie
 
-Now, let us additionally connect Alice to Bob.
+Next, Alice is additionally connected to Bob.
 
-Connect Alice to Bob (via REST API, without re-launching)
+Connect Alice to Bob using the REST API, without restarting:
 
 ```
 curl -X POST "http://127.0.0.1:8646/admin/v1/peers" -H "accept: text/plain" -H "content-type: application/json" -d '["/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95"]'
 ```
 
-Verify that Alice is connected to Bob:
+Verify that Alice is now connected to Bob:
 
 ```
 curl -X GET "http://127.0.0.1:8646/admin/v1/peers/connected" | jq . | grep multiaddr
 ```
 
-Expected response (both Bob's and Charlie's node IDs must appear here; a real IP address replaced with `EXTERNAL_IP`):
+Expected response (showing both Bob’s and Charlie’s multiaddrs; `EXTERNAL_IP` is used in place of actual IP):
+
 ```
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95",
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd",
@@ -398,27 +412,30 @@ Expected response (both Bob's and Charlie's node IDs must appear here; a real IP
 
 #### Alice sends an eligible request, Bob fulfills it
 
-Alice sends an eligible request. Expected behavior:
-1. Bob is selected (even though Alice is also aware of Charlie, Charlie is excluded due to its bad reputation).
-2. Bob serves the request and returns a success message to Alice.
-3. Alice sets Bob's reputation to "good".
+Alice sends an eligible request.
+
+1. Bob is selected as the service peer. Although Alice is aware of both Bob and Charlie, Charlie is excluded due to his bad reputation.
+2. Bob successfully serves the request and returns a success message.
+3. Alice assigns Bob a "good" reputation.
 
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0x67932980dd5e66be76d4d096f3e176b2f1590cef3aa9981decb8f59a5c7e60e3" }'
 ```
 
-Expected response (indicates successful publishing of the message):
+Expected response (indicates successful message relay):
+
 ```
 {"relayPeerCount":1}
 ```
 
-> [!note]
-> If you get `no suitable peers and no discovery method` here instead, it's likely that Bob already has a bad reputation with Alice due to an earlier failed request.
+> [!note]  
+> If the response is `no suitable peers and no discovery method`, it is likely that Bob already has a bad reputation with Alice due to earlier failure.
 
-> [!note]
-> It is sufficient for Alice's message to be propagated to just one node (in this scenario, from Bob to Dave) for the request to be considered successfully fulfilled. The testing scenario does not require Bob or Dave to be additionally connected to The Waku Network.
+> [!note]  
+> Successful fulfillment only requires that Bob relays the message to one peer (Dave, in this scenario). Additional connections to The Waku Network are not required.
 
-Alice's log must also contain lines like the following. This shows that even though Alice is aware of two potential peers to select for her request, due to reputation system, only one peer (Bob) is considered. Moreover, Bob initially has a neutral (`none(bool)`) reputation because Alice hasn't had any interaction with Bob yet:
+In Alice's logs, the following lines confirm that Bob was selected due to neutral reputation, while Charlie was excluded:
+
 ```
 DBG 2025-07-10 16:42:24.575+02:00 Before filtering - total peers:   topics="waku node peer_manager" tid=25598 file=peer_manager.nim:253 numPeers=2
 DBG 2025-07-10 16:42:24.576+02:00 Reputation enabled: consider only non-negative reputation peers topics="waku node peer_manager" tid=25598 file=peer_manager.nim:256
@@ -426,36 +443,38 @@ DBG 2025-07-10 16:42:24.576+02:00 Pre-selected peers from peerstore:   topics="w
 DBG 2025-07-10 16:42:24.576+02:00 Selected peer has reputation    topics="waku node peer_manager" tid=25598 file=peer_manager.nim:280 reputation=none(bool)
 ```
 
-Upon successful request handling, a line like this must appear in Alice's log, which shows that Alice has assigned a good reputation to Bob following his successful handling of her request:
+Upon successful message delivery, Alice assigns good reputation to Bob:
+
 ```
 DBG 2025-07-10 16:42:25.457+02:00 Assign good reputation for peer   tid=25598 file=reputation_manager.nim:60 peer=16U*LjxE95
 ```
 
-Verify, on Dave's node, that Alice's message has indeed reached Dave.
+To verify that Alice's message reached Dave, query for the latest messages on shard `0`:
 
-Get latest messages on shard `0`:
 ```
 curl -X GET "http://127.0.0.1:8647/relay/v1/messages/%2Fwaku%2F2%2Frs%2F1%2F0"
 ```
 
-Expected response (truncated; `i13n-poc` is short for "incentivization proof-of-concept"):
+Expected response (truncated example):
+
 ```
 [{"payload":"SGVsbG8gV29ybGQ=","contentTopic":"/i13n-poc/1/chat/proto","version":0,"timestamp":1752158544577207808,"ephemeral":false, ....
 ```
 
 #### Alice attempts to double-spend, Bob denies
 
-Alice sends an ineligible request with a double-spend attempt (trying to reuse a txid twice).
-1. Bob is again selected as service peer.
-2. Bob rejects the request and returns a corresponding error message.
-3. Alice doesn't change Bob's reputation.
+Alice attempts a double-spend by sending an ineligible request using a reused transaction hash (same as earlier).
 
-REST API request (same as the first eligible request, with the same txid):
+1. Bob is again selected as service peer.
+2. Bob rejects the request and returns an appropriate error message.
+3. Alice does not change Bob’s reputation.
+
 ```
 curl -X POST "http://127.0.0.1:8646/lightpush/v3/message" -H "accept: application/json" -H "Content-Type: application/json" -d '{ "pubsubTopic": "/waku/2/rs/1/0", "message": { "payload": "SGVsbG8gV29ybGQ=", "contentTopic": "/i13n-poc/1/chat/proto" }, "eligibilityProof": "0x67932980dd5e66be76d4d096f3e176b2f1590cef3aa9981decb8f59a5c7e60e3" }'
 ```
 
 Expected response:
+
 ```
 {"statusDesc":"Eligibility check failed: TxHash 0x67932980dd5e66be76d4d096f3e176b2f1590cef3aa9981decb8f59a5c7e60e3 was already checked (double-spend attempt)"}
 ```
