@@ -154,7 +154,12 @@ proc setupProtocols(
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
-  node.mountMetadata(conf.clusterId).isOkOr:
+  var allShards = conf.subscribeShards
+  for shardKey in conf.protectedShards:
+    if shardKey.shard in allShards:
+      continue
+    allShards.add(shardKey.shard)
+  node.mountMetadata(conf.clusterId, allShards).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =

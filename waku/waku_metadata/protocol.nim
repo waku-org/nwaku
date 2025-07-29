@@ -10,7 +10,7 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
-import ../common/nimchronos, ../common/enr, ../waku_core, ../waku_enr, ./rpc
+import ../common/nimchronos, ../waku_core, ./rpc
 
 from ../waku_core/codecs import WakuMetadataCodec
 export WakuMetadataCodec
@@ -23,7 +23,7 @@ const RpcResponseMaxBytes* = 1024
 type WakuMetadata* = ref object of LPProtocol
   clusterId*: uint32
   shards*: HashSet[uint32]
-  topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
+  topicSubscriptionQueue: Option[AsyncEventQueue[SubscriptionEvent]]
 
 proc respond(
     m: WakuMetadata, conn: Connection
@@ -49,7 +49,7 @@ proc request*(
   let readRes = catch:
     await conn.readLp(RpcResponseMaxBytes)
 
-  # close no watter what
+  # close no matter what
   let closeRes = catch:
     await conn.closeWithEof()
   if closeRes.isErr():
@@ -104,21 +104,11 @@ proc initProtocolHandler(m: WakuMetadata) =
 proc new*(
     T: type WakuMetadata,
     clusterId: uint32,
-    enr: Record,
-    queue: AsyncEventQueue[SubscriptionEvent],
+    shards: HashSet[uint32],
+    queue: Option[AsyncEventQueue[SubscriptionEvent]],
 ): T =
-  var (cluster, shards) = (clusterId, initHashSet[uint32]())
-
-  let enrRes = enr.toTyped()
-  if enrRes.isOk():
-    let shardingRes = enrRes.get().relaySharding()
-    if shardingRes.isSome():
-      let relayShard = shardingRes.get()
-      cluster = uint32(relayShard.clusterId)
-      shards = toHashSet(relayShard.shardIds.mapIt(uint32(it)))
-
   let wm =
-    WakuMetadata(clusterId: cluster, shards: shards, topicSubscriptionQueue: queue)
+    WakuMetadata(clusterId: clusterId, shards: shards, topicSubscriptionQueue: queue)
 
   wm.initProtocolHandler()
 
@@ -129,10 +119,10 @@ proc new*(
 proc subscriptionsListener(wm: WakuMetadata) {.async.} =
   ## Listen for pubsub topics subscriptions changes
 
-  let key = wm.topicSubscriptionQueue.register()
+  let key = wm.topicSubscriptionQueue.get().register()
 
   while wm.started:
-    let events = await wm.topicSubscriptionQueue.waitEvents(key)
+    let events = await wm.topicSubscriptionQueue.get().waitEvents(key)
 
     for event in events:
       let parsedShard = RelayShard.parse(event.topic).valueOr:
@@ -149,12 +139,13 @@ proc subscriptionsListener(wm: WakuMetadata) {.async.} =
       else:
         continue
 
-  wm.topicSubscriptionQueue.unregister(key)
+  wm.topicSubscriptionQueue.get().unregister(key)
 
 proc start*(wm: WakuMetadata) =
   wm.started = true
-
-  asyncSpawn wm.subscriptionsListener()
+  #TODO: ideally in edge nodes, same queue should be linked for filter subscriptions??
+  if wm.topicSubscriptionQueue.isSome():
+    asyncSpawn wm.subscriptionsListener()
 
 proc stop*(wm: WakuMetadata) =
   wm.started = false

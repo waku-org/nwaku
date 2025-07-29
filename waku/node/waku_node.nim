@@ -183,11 +183,14 @@ proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
 
 ## Waku Metadata
 
-proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
+proc mountMetadata*(
+    node: WakuNode, clusterId: uint32, shards: seq[uint16]
+): Result[void, string] =
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
-
-  let metadata = WakuMetadata.new(clusterId, node.enr, node.topicSubscriptionQueue)
+  let shards32 = shards.mapIt(it.uint32)
+  let metadata =
+    WakuMetadata.new(clusterId, shards32.toHashSet(), some(node.topicSubscriptionQueue))
 
   node.wakuMetadata = metadata
   node.peerManager.wakuMetadata = metadata
