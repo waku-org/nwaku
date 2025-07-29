@@ -538,7 +538,7 @@ proc build*(
   let dns4DomainName =
     if builder.dns4DomainName.isSome():
       let d = builder.dns4DomainName.get()
-      if d.string != "":
+      if d != "":
         some(d)
       else:
         none(string)
