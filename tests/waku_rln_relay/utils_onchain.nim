@@ -113,7 +113,7 @@ proc sendMintCall(
 
   # Create mint transaction
   # Method ID for mint(address,uint256) is 0x40c10f19 which is part of the openzeppelin ERC20 standard
-  # The method ID for a deployed test token can be viewed here https://sepolia.lineascan.build/address/0x185A0015aC462a0aECb81beCc0497b649a64B9ea#writeContract
+  # The method ID for a deployed test token can be viewed here https://sepolia.lineascan.build/address/0xd17e184e3c1941585a3edcb3a10367da6326d844#writeContract
   let mintSelector = "0x40c10f19"
   let addressHex = recipientAddress.toHex()
   # Pad the address and amount to 32 bytes each
