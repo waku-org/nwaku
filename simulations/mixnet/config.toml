@@ -1,4 +1,4 @@
-log-level = "DEBUG"
+log-level = "INFO"
 relay = true
 #mix = true
 filter = true

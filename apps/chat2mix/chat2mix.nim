@@ -400,7 +400,7 @@ proc processMixNodes(localnode: WakuNode, nodes: seq[string]) {.async.} =
   if nodes.len == 0:
     return
 
-  echo "Processing mix nodes: ", $nodes
+  info "Processing mix nodes: ", nodes = $nodes
   for node in nodes:
     var enrRec: enr.Record
     if enrRec.fromURI(node):
