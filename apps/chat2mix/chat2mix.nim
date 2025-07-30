@@ -396,6 +396,22 @@ proc maintainSubscription(
 
     await sleepAsync(30000) # Subscription maintenance interval
 
+proc processMixNodes(localnode: WakuNode, nodes: seq[string]) {.async.} =
+  if nodes.len == 0:
+    return
+
+  echo "Processing mix nodes: ", $nodes
+  for node in nodes:
+    var enrRec: enr.Record
+    if enrRec.fromURI(node):
+      let peerInfo = enrRec.toRemotePeerInfo().valueOr:
+        error "Failed to parse mix node", error = error
+        continue
+      localnode.peermanager.addPeer(peerInfo, Discv5)
+      info "Added mix node", peer = peerInfo
+    else:
+      error "Failed to parse mix node ENR", node = node
+
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
@@ -479,7 +495,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   (await node.mountMix(conf.clusterId, mixPrivKey)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     quit(QuitFailure)
-
+  if conf.mixnodes.len > 0:
+    await processMixNodes(node, conf.mixnodes)
   await node.start()
 
   node.peerManager.start()
@@ -511,10 +528,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     contentTopic: conf.contentTopic,
     conf: conf,
   )
-
-  if conf.staticnodes.len > 0:
-    echo "Connecting to static peers..."
-    await connectToNodes(chat, conf.staticnodes)
 
   var dnsDiscoveryUrl = none(string)
 
@@ -635,14 +648,14 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     else:
       error "LightPushClient not mounted. Couldn't parse conf.serviceNode",
         error = peerInfo.error
-  # TODO: Loop faster and also switch to rendezvous
+  # TODO: Loop faster
   node.startPeerExchangeLoop()
 
   while node.getMixNodePoolSize() < 3:
     info "waiting for mix nodes to be discovered",
       currentpoolSize = node.getMixNodePoolSize()
     await sleepAsync(1000)
-  notice "ready tp publish with mix node pool size ",
+  notice "ready to publish with mix node pool size ",
     currentpoolSize = node.getMixNodePoolSize()
   echo "ready to publish messages now"
   # Subscribe to a topic, if relay is mounted

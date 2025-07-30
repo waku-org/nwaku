@@ -82,6 +82,10 @@ type
       name: "staticnode"
     .}: seq[string]
 
+    mixnodes* {.
+      desc: "Peer ENR to add as a mixnode. Argument may be repeated.", name: "mixnode"
+    .}: seq[string]
+
     keepAlive* {.
       desc: "Enable keep-alive for idle connections: true|false",
       defaultValue: false,
