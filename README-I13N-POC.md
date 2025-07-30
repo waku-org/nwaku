@@ -296,8 +296,8 @@ To communicate with Waku nodes, use the REST API interface (see [REST API refere
 
 Initially, Alice is connected only to Charlie. At this stage, we test negative scenarios where Alice's requests cannot be fulfilled. Alice will be connected to Bob later in the scenario.
 
-#### Alice sends ineligible requests, Charlie denies
-
+<details>
+<summary>Alice sends ineligible requests, Charlie denies</summary>
 Alice sends a series of ineligible requests—either without proof of payment or with invalid proof of payment.
 
 1. Charlie is selected as the service node, as it is the only peer with neutral reputation that Alice is aware of.
@@ -360,9 +360,10 @@ Expected response:
 > [!note]  
 > All failed responses described above must not impact Charlie's reputation from Alice's perspective. This is confirmed by log entries like:  
 > `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
+</details>
 
-#### Alice sends an eligible request, Charlie fails to fulfill it
-
+<details>
+<summary>Alice sends an eligible request, Charlie fails to fulfill it</summary>
 Alice now sends an eligible request.
 
 1. Charlie is again selected as the service node.
@@ -386,10 +387,14 @@ Alice logs a line indicating that Charlie has been assigned bad reputation due t
 ```
 DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer    tid=25598 file=reputation_manager.nim:57 peer=16U*EuyzSd
 ```
+</details>
 
 ### Alice is connected to Bob and Charlie
 
 Next, Alice is additionally connected to Bob.
+
+<details>
+<summary>Connect Alice to Bob</summary>
 
 Connect Alice to Bob using the REST API, without restarting:
 
@@ -409,9 +414,10 @@ Expected response (showing both Bob’s and Charlie’s multiaddrs; `EXTERNAL_IP
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95",
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd",
 ```
+</details>
 
-#### Alice sends an eligible request, Bob fulfills it
-
+<details>
+<summary>Alice sends an eligible request, Bob fulfills it</summary>
 Alice sends an eligible request.
 
 1. Bob is selected as the service peer. Although Alice is aware of both Bob and Charlie, Charlie is excluded due to his bad reputation.
@@ -460,9 +466,10 @@ Expected response (truncated example):
 ```
 [{"payload":"SGVsbG8gV29ybGQ=","contentTopic":"/i13n-poc/1/chat/proto","version":0,"timestamp":1752158544577207808,"ephemeral":false, ....
 ```
+</details>
 
-#### Alice attempts to double-spend, Bob denies
-
+<details>
+<summary>Alice attempts to double-spend, Bob denies</summary>
 Alice attempts a double-spend by sending an ineligible request using a reused transaction hash (same as earlier).
 
 1. Bob is again selected as service peer.
@@ -478,12 +485,14 @@ Expected response:
 ```
 {"statusDesc":"Eligibility check failed: TxHash 0x67932980dd5e66be76d4d096f3e176b2f1590cef3aa9981decb8f59a5c7e60e3 was already checked (double-spend attempt)"}
 ```
+</details>
 
 End of testing scenario.
 
 # Appendix
 
-## Eligibility parameters and txids
+<details>
+<summary>Eligibility parameters and txids</summary>
 
 Transactions have been confirmed on Linea Sepolia for testing purposes.
 
@@ -513,8 +522,10 @@ Transaction ID that doesn't correspond to a confirmed transaction (must fail):
 ```
 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
+</details>
 
-## Node keys and node IDs
+<details>
+<summary>Node keys and node IDs</summary>
 
 The following table contains, for the reference, node (private) keys and node IDs of all nodes of the testing setup.
 
@@ -527,4 +538,6 @@ The following table contains, for the reference, node (private) keys and node ID
 | Bob   | Relay, Lightpush (server) | `2bd3bbef1afa198fc614a254367de5ae285d799d7b1ba6d9d8543ba41038bbed` | `16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95` | 0      | 60000  | 8645     |
 | Charlie | Relay           | `fbfa8c3e38e7594500e9718b8c800e2d1a3ef5bc65ce041adf788d276035230f` | `16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd` | 3      | 60003  | 8648     |
 | Dave  | Relay           | `166aee32c415fe796378ca0336671f4ec1fa26648857a86a237e509aaaeb1980` | `16Uiu2HAmSCUwvwDnXm7PyVbtKiQ5xzXb36wNw8YbGQxcBuxWTuU8` | 2      | 60002  | 8647     |
+
+</details>
 
