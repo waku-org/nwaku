@@ -362,6 +362,10 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
     return
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
+  if waku[].node.started:
+    warn "startWaku: waku node already started"
+    return ok()
+
   debug "Retrieve dynamic bootstrap nodes"
   let conf = waku[].conf
 
@@ -441,6 +445,9 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
 
 proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
   ## Waku shutdown
+
+  if not waku.node.started:
+    warn "stop: attempting to stop node that isn't running"
 
   waku.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
 
