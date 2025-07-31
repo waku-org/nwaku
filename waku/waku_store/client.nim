@@ -51,7 +51,7 @@ proc sendStoreRequest(
   if req.pubsubTopic.isSome():
     let topic = req.pubsubTopic.get()
     if not storeMsgMetricsPerShard.hasKey(topic):
-      storeMsgMetricsPerShard[    topic] = 0
+      storeMsgMetricsPerShard[topic] = 0
     storeMsgMetricsPerShard[topic] += float64(req.encode().buffer.len)
 
     waku_relay_fleet_store_msg_size_bytes.inc(
