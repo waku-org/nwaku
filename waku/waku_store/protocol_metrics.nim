@@ -10,6 +10,18 @@ declarePublicGauge waku_store_queries, "number of store queries received"
 declarePublicGauge waku_store_time_seconds,
   "Time in seconds spent by each store phase", labels = ["phase"]
 
+declarePublicGauge(
+  waku_relay_fleet_store_msg_size_bytes,
+  "Total size of messages stored by fleet store nodes per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
+  waku_relay_fleet_store_msg_count,
+  "Number of messages stored by fleet store nodes per shard",
+  labels = ["shard"],
+)
+
 # Error types (metric label values)
 const
   DialFailure* = "dial_failure"
