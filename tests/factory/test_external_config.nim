@@ -288,6 +288,7 @@ suite "Waku external config - http url parsing":
   test "Complex passwords with special characters":
     check string(parseCmdArg(EthRpcUrl, "https://admin:P%40ssw0rd%21%23%24%25%5E%26*()@example.com/")) == "https://admin:P%40ssw0rd%21%23%24%25%5E%26*()@example.com/"
     check string(parseCmdArg(EthRpcUrl, "https://user:abc123%21%40%23DEF456@example.com/")) == "https://user:abc123%21%40%23DEF456@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user:P%40%24%24w0rd%21%23%24%25%5E%26%2A%28%29_%2B-%3D%5B%5D%7B%7D%7C%3B%27%3A%22%2C.%2F%3C%3E%3F%60~%5C@example.com")) == "https://user:P%40%24%24w0rd%21%23%24%25%5E%26%2A%28%29_%2B-%3D%5B%5D%7B%7D%7C%3B%27%3A%22%2C.%2F%3C%3E%3F%60~%5C@example.com"
 
   test "Different hostname types":
     check string(parseCmdArg(EthRpcUrl, "https://user:pass@subdomain.example.com/path")) == "https://user:pass@subdomain.example.com/path"
