@@ -259,3 +259,87 @@ suite "Waku external config - Shards":
 
     ## Then
     assert res.isErr(), "Invalid shard was accepted"
+
+suite "Waku external config - http url parsing":
+  test "Basic HTTP URLs without authentication":
+    check string(parseCmdArg(EthRpcUrl, "https://example.com/path")) == "https://example.com/path"
+    check string(parseCmdArg(EthRpcUrl, "https://example.com/")) == "https://example.com/"
+    check string(parseCmdArg(EthRpcUrl, "http://localhost:8545")) == "http://localhost:8545"
+    check string(parseCmdArg(EthRpcUrl, "https://mainnet.infura.io")) == "https://mainnet.infura.io"
+
+  test "Basic authentication with simple credentials":
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.com/path")) == "https://user:pass@example.com/path"
+    check string(parseCmdArg(EthRpcUrl, "https://john.doe:secret123@example.com/api/v1")) == "https://john.doe:secret123@example.com/api/v1"
+    check string(parseCmdArg(EthRpcUrl, "https://user_name:pass_word@example.com/")) == "https://user_name:pass_word@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user-name:pass-word@example.com/")) == "https://user-name:pass-word@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user123:pass456@example.com/")) == "https://user123:pass456@example.com/"
+
+  test "Special characters (percent-encoded) in credentials":
+    check string(parseCmdArg(EthRpcUrl, "https://user%40email:pass%21%23%24@example.com/")) == "https://user%40email:pass%21%23%24@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%2Bplus:pass%26and@example.com/")) == "https://user%2Bplus:pass%26and@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%3Acolon:pass%3Bsemi@example.com/")) == "https://user%3Acolon:pass%3Bsemi@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%2Fslash:pass%3Fquest@example.com/")) == "https://user%2Fslash:pass%3Fquest@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%5Bbracket:pass%5Dbracket@example.com/")) == "https://user%5Bbracket:pass%5Dbracket@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%20space:pass%20space@example.com/")) == "https://user%20space:pass%20space@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%3Cless:pass%3Egreater@example.com/")) == "https://user%3Cless:pass%3Egreater@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%7Bbrace:pass%7Dbrace@example.com/")) == "https://user%7Bbrace:pass%7Dbrace@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user%5Cback:pass%7Cpipe@example.com/")) == "https://user%5Cback:pass%7Cpipe@example.com/"
+
+  test "Complex passwords with special characters":
+    check string(parseCmdArg(EthRpcUrl, "https://admin:P%40ssw0rd%21%23%24%25%5E%26*()@example.com/")) == "https://admin:P%40ssw0rd%21%23%24%25%5E%26*()@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user:abc123%21%40%23DEF456@example.com/")) == "https://user:abc123%21%40%23DEF456@example.com/"
+
+  test "Different hostname types":
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@subdomain.example.com/path")) == "https://user:pass@subdomain.example.com/path"
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@192.168.1.1/admin")) == "https://user:pass@192.168.1.1/admin"
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@[2001:db8::1]/path")) == "https://user:pass@[2001:db8::1]/path"
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.co.uk/path")) == "https://user:pass@example.co.uk/path"
+
+  test "URLs with port numbers":
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.com:8080/path")) == "https://user:pass@example.com:8080/path"
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.com:443/")) == "https://user:pass@example.com:443/"
+    check string(parseCmdArg(EthRpcUrl, "http://user:pass@example.com:80/path")) == "http://user:pass@example.com:80/path"
+
+  test "URLs with query parameters and fragments":
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.com/path?query=1#section")) == "https://user:pass@example.com/path?query=1#section"
+    check string(parseCmdArg(EthRpcUrl, "https://user:pass@example.com/?foo=bar&baz=qux")) == "https://user:pass@example.com/?foo=bar&baz=qux"
+    check string(parseCmdArg(EthRpcUrl, "https://api.example.com/rpc?key=value")) == "https://api.example.com/rpc?key=value"
+    check string(parseCmdArg(EthRpcUrl, "https://api.example.com/rpc#section")) == "https://api.example.com/rpc#section"
+
+  test "Edge cases with credentials":
+    check string(parseCmdArg(EthRpcUrl, "https://a:b@example.com/")) == "https://a:b@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://user:@example.com/")) == "https://user:@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "https://:pass@example.com/")) == "https://:pass@example.com/"
+    check string(parseCmdArg(EthRpcUrl, "http://user:pass@example.com/")) == "http://user:pass@example.com/"
+
+  test "Websocket URLs are rejected":
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "ws://localhost:8545")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "wss://mainnet.infura.io")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "ws://user:pass@localhost:8545")
+
+  test "Invalid URLs are rejected":
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user@pass@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user:pass:extra@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "ftp://user:pass@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user pass@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user:pass word@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "user:pass@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user:pass@")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://user:pass@@example.com/")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "not-a-url")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "http://")
+    expect(ValueError):
+      discard parseCmdArg(EthRpcUrl, "https://")

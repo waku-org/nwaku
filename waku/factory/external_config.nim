@@ -749,10 +749,13 @@ proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
   ## http://url/with/path
   ## http://url:port/path?query
   ## https://url:port/path?query
+  ## https://username:password@url:port/path
+  ## https://username:password@url:port/path?query
+  ## supports IPv4, IPv6, URL-encoded credentials
   ## disallowed patterns:
   ## any valid/invalid ws or wss url
   var httpPattern =
-    re2"^(https?):\/\/([\w-]+(\.[\w-]+)*)(:[0-9]{1,5})?(\/[\w.,@?^=%&:\/~+#-]*)?$"
+    re2"^(https?):\/\/(([^\s:@]*(?:%[0-9A-Fa-f]{2})*):([^\s:@]*(?:%[0-9A-Fa-f]{2})*)@)?((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|\[[0-9a-fA-F:]+\])(?::([0-9]{1,5}))?(\/[^\s?#]*)?(\?[^\s#]*)?(#[^\s]*)?$"
   var wsPattern =
     re2"^(wss?):\/\/([\w-]+(\.[\w-]+)+)(:[0-9]{1,5})?(\/[\w.,@?^=%&:\/~+#-]*)?$"
   if regex.match(s, wsPattern):
