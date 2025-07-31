@@ -48,15 +48,16 @@ proc sendStoreRequest(
     waku_store_errors.inc(labelValues = [NoSuccessStatusCode])
     return err(StoreError.new(res.statusCode, res.statusDesc))
 
-  let topic = req.pubsubTopic.get()
-  if not storeMsgMetricsPerShard.hasKey(topic):
-    storeMsgMetricsPerShard[topic] = 0
-  storeMsgMetricsPerShard[topic] += float64(req.encode().buffer.len)
+  if req.pubsubTopic.isSome():
+    let topic = req.pubsubTopic.get()
+    if not storeMsgMetricsPerShard.hasKey(topic):
+      storeMsgMetricsPerShard[    topic] = 0
+    storeMsgMetricsPerShard[topic] += float64(req.encode().buffer.len)
 
-  waku_relay_fleet_store_msg_size_bytes.inc(
-    storeMsgMetricsPerShard[topic], labelValues = [topic]
-  )
-  waku_relay_fleet_store_msg_count.inc(1.0, labelValues = [topic])
+    waku_relay_fleet_store_msg_size_bytes.inc(
+      storeMsgMetricsPerShard[topic], labelValues = [topic]
+    )
+    waku_relay_fleet_store_msg_count.inc(1.0, labelValues = [topic])
 
   return ok(res)
 
