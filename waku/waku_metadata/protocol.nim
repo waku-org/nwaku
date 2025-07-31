@@ -118,34 +118,32 @@ proc new*(
 
 proc subscriptionsListener(wm: WakuMetadata) {.async.} =
   ## Listen for pubsub topics subscriptions changes
+  if wm.topicSubscriptionQueue.isSome():
+    let key = wm.topicSubscriptionQueue.get().register()
 
-  let key = wm.topicSubscriptionQueue.get().register()
+    while wm.started:
+      let events = await wm.topicSubscriptionQueue.get().waitEvents(key)
 
-  while wm.started:
-    let events = await wm.topicSubscriptionQueue.get().waitEvents(key)
+      for event in events:
+        let parsedShard = RelayShard.parse(event.topic).valueOr:
+          continue
 
-    for event in events:
-      let parsedShard = RelayShard.parse(event.topic).valueOr:
-        continue
+        if parsedShard.clusterId != wm.clusterId:
+          continue
 
-      if parsedShard.clusterId != wm.clusterId:
-        continue
+        case event.kind
+        of PubsubSub:
+          wm.shards.incl(parsedShard.shardId)
+        of PubsubUnsub:
+          wm.shards.excl(parsedShard.shardId)
+        else:
+          continue
 
-      case event.kind
-      of PubsubSub:
-        wm.shards.incl(parsedShard.shardId)
-      of PubsubUnsub:
-        wm.shards.excl(parsedShard.shardId)
-      else:
-        continue
-
-  wm.topicSubscriptionQueue.get().unregister(key)
+    wm.topicSubscriptionQueue.get().unregister(key)
 
 proc start*(wm: WakuMetadata) =
   wm.started = true
-  #TODO: ideally in edge nodes, same queue should be linked for filter subscriptions??
-  if wm.topicSubscriptionQueue.isSome():
-    asyncSpawn wm.subscriptionsListener()
+  asyncSpawn wm.subscriptionsListener()
 
 proc stop*(wm: WakuMetadata) =
   wm.started = false
