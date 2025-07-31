@@ -29,8 +29,6 @@ type ShardMetrics = object
   avgSize: float64
   maxSize: float64
 
-var msgMetricsPerShard {.global, threadvar.}: Table[string, ShardMetrics]
-
 logScope:
   topics = "waku relay"
 
@@ -157,6 +155,7 @@ type
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
     topicHealthLoopHandle*: Future[void]
+    msgMetricsPerShard*: Table[string, ShardMetrics]
 
 # predefinition for more detailed results from publishing new message
 type PublishOutcome* {.pure.} = enum
@@ -217,13 +216,13 @@ proc logMessageInfo*(
       sentTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
 
-  var shardMetrics = msgMetricsPerShard.getOrDefault(topic, ShardMetrics())
+  var shardMetrics = w.msgMetricsPerShard.getOrDefault(topic, ShardMetrics())
   shardMetrics.count += 1
   shardMetrics.sizeSum += payloadSize
   if payloadSize > shardMetrics.maxSize:
     shardMetrics.maxSize = payloadSize
   shardMetrics.avgSize = shardMetrics.sizeSum / shardMetrics.count
-  msgMetricsPerShard[topic] = shardMetrics
+  w.msgMetricsPerShard[topic] = shardMetrics
 
   waku_relay_max_msg_bytes_per_shard.set(shardMetrics.maxSize, labelValues = [topic])
 
