@@ -236,10 +236,12 @@ proc findRandomPeers*(
   for record in discoveredRecords:
     let typedRecord = record.toTyped().valueOr:
       # If we can't parse the record, skip it
+      waku_discv5_errors.inc(labelValues = ["ParseFailure"])
       continue
 
     let relayShards = typedRecord.relaySharding().valueOr:
       # If no relay sharding info, skip it
+      waku_discv5_errors.inc(labelValues = ["NoShardInfo"])
       continue
 
     for shardId in relayShards.shardIds:
