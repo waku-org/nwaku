@@ -30,9 +30,8 @@ proc request*(
     await conn.writeLP(rpc.encode().buffer)
     buffer = await conn.readLp(DefaultMaxRpcSize.int)
   except CatchableError as exc:
-    error "exception when handling peer exchange request",
-      error = getCurrentExceptionMsg()
-    waku_px_client_errors.inc(labelValues = [exc.msg])
+    error "exception when handling peer exchange request", error = exc.msg
+    waku_px_client_errors.inc(labelValues = ["error_sending_or_receiving_px_req"])
     callResult = (
       status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
       status_desc: some($exc.msg),
@@ -45,26 +44,24 @@ proc request*(
     error "peer exchange request failed", status_code = callResult.status_code
     return err(callResult)
 
-  let decodedBuff = PeerExchangeRpc.decode(buffer)
-  if decodedBuff.isErr():
-    error "peer exchange request error decoding buffer", error = $decodedBuff.error
+  let decoded = PeerExchangeRpc.decode(buffer).valueOr:
+    error "peer exchange request error decoding buffer", error = $error
     return err(
       (
         status_code: PeerExchangeResponseStatusCode.BAD_RESPONSE,
-        status_desc: some($decodedBuff.error),
+        status_desc: some($error),
       )
     )
-  if decodedBuff.get().response.status_code != PeerExchangeResponseStatusCode.SUCCESS:
-    error "peer exchange request error",
-      status_code = decodedBuff.get().response.status_code
+  if decoded.response.status_code != PeerExchangeResponseStatusCode.SUCCESS:
+    error "peer exchange request error", status_code = decoded.response.status_code
     return err(
       (
-        status_code: decodedBuff.get().response.status_code,
-        status_desc: decodedBuff.get().response.status_desc,
+        status_code: decoded.response.status_code,
+        status_desc: decoded.response.status_desc,
       )
     )
 
-  return ok(decodedBuff.get().response)
+  return ok(decoded.response)
 
 proc request*(
     wpx: WakuPeerExchangeClient, numPeers = DefaultPXNumPeersReq, peer: RemotePeerInfo

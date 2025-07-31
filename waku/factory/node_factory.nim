@@ -422,12 +422,7 @@ proc setupProtocols(
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
   if conf.peerExchangeClient:
-    try:
-      await node.mountPeerExchangeClient()
-    except CatchableError:
-      # Not failing here as this only speeds up bootstrapping and doesnt affect any other functionality
-      error "failed to mount waku peer-exchange client protocol: ",
-        error = getCurrentExceptionMsg()
+    await node.mountPeerExchangeClient()
   return ok()
 
 ## Start node
