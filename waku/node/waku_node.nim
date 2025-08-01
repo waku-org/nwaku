@@ -59,7 +59,7 @@ declarePublicHistogram waku_histogram_message_size,
 
 declarePublicGauge waku_version,
   "Waku version info (in git describe format)", ["version"]
-declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
+declarePublicCounter waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_filter_peers, "number of filter peers"
 declarePublicGauge waku_store_peers, "number of store peers"

@@ -16,7 +16,7 @@ export protocol, waku_enr
 
 declarePublicGauge waku_discv5_discovered_per_shard,
   "number of nodes discovered by each shard", labels = ["shard"]
-declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
+declarePublicCounter waku_discv5_errors, "number of waku discv5 errors", ["type"]
 
 logScope:
   topics = "waku discv5"
