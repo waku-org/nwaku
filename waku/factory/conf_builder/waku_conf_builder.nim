@@ -24,7 +24,8 @@ import
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
   ./rln_relay_conf_builder,
-  ./mix_conf_builder
+  ./mix_conf_builder,
+  ./peer_exchange_conf_builder
 
 logScope:
   topics = "waku conf builder"
@@ -75,6 +76,7 @@ type WakuConfBuilder* = object
   storeServiceConf*: StoreServiceConfBuilder
   mixConf*: MixConfBuilder
   webSocketConf*: WebSocketConfBuilder
+  peerExchangeConf*: PeerExchangeConfBuilder
   # End conf builders
   relay: Option[bool]
   lightPush: Option[bool]
@@ -479,6 +481,9 @@ proc build*(
   let mixConf = builder.mixConf.build().valueOr:
     return err("Mix Conf building failed: " & $error)
 
+  let peerExchangeConf = builder.peerExchangeConf.build().valueOr:
+    return err("Peer Exchange Conf building failed: " & $error)
+
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
   # End - Build sub-configs
@@ -599,6 +604,7 @@ proc build*(
     restServerConf: restServerConf,
     dnsDiscoveryConf: dnsDiscoveryConf,
     mixConf: mixConf,
+    peerExchangeConf: peerExchangeConf,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,

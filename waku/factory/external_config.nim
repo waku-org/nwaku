@@ -611,6 +611,12 @@ with the drawback of consuming some more bandwidth.""",
       name: "peer-exchange"
     .}: bool
 
+    strictPeerExchangeFilter* {.
+      desc: "Enable/disable strict filtering of peers to be served via peer-exchange",
+      defaultValue: true,
+      name: "peer-exchange-strict-filter"
+    .}: bool
+
     peerExchangeNode* {.
       desc:
         "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
@@ -1023,6 +1029,8 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.discv5Conf.withBitsPerHop(n.discv5BitsPerHop)
 
   b.withPeerExchange(n.peerExchange)
+  if n.peerExchange:
+    b.peerExchangeConf.withStrictPeerFiltering(n.strictPeerExchangeFilter)
 
   b.withRendezvous(n.rendezvous)
 
