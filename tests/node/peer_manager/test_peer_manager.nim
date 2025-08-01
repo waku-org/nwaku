@@ -34,8 +34,10 @@ suite "Peer Manager":
         )
 
       # And both mount metadata and filter
-      discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
+      discard
+        client.mountMetadata(0, @[1'u16]) # clusterId irrelevant, overridden by topic
+      discard
+        server.mountMetadata(0, @[0'u16]) # clusterId irrelevant, overridden by topic
       await client.mountFilterClient()
       await server.mountFilter()
 
@@ -69,8 +71,10 @@ suite "Peer Manager":
         )
 
       # And both mount metadata and relay
-      discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
+      discard
+        client.mountMetadata(0, @[1'u16]) # clusterId irrelevant, overridden by topic
+      discard
+        server.mountMetadata(0, @[0'u16]) # clusterId irrelevant, overridden by topic
       (await client.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       (await server.mountRelay()).isOkOr:
@@ -105,8 +109,10 @@ suite "Peer Manager":
         )
 
       # And both mount metadata and relay
-      discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
-      discard server.mountMetadata(0) # clusterId irrelevant, overridden by topic
+      discard
+        client.mountMetadata(0, @[1'u16]) # clusterId irrelevant, overridden by topic
+      discard
+        server.mountMetadata(0, @[0'u16]) # clusterId irrelevant, overridden by topic
       (await client.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       (await server.mountRelay()).isOkOr:

@@ -652,7 +652,7 @@ when isMainModule:
       error "failed to setup RLN", err = getCurrentExceptionMsg()
       quit 1
 
-  node.mountMetadata(conf.clusterId).isOkOr:
+  node.mountMetadata(conf.clusterId, conf.shards).isOkOr:
     error "failed to mount waku metadata protocol: ", err = error
     quit 1
 

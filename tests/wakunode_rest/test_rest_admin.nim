@@ -43,11 +43,12 @@ suite "Waku v2 Rest API - Admin":
     node3 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60604))
 
     let clusterId = 1.uint16
-    node1.mountMetadata(clusterId).isOkOr:
+    let shards: seq[uint16] = @[0]
+    node1.mountMetadata(clusterId, shards).isOkOr:
       assert false, "Failed to mount metadata: " & $error
-    node2.mountMetadata(clusterId).isOkOr:
+    node2.mountMetadata(clusterId, shards).isOkOr:
       assert false, "Failed to mount metadata: " & $error
-    node3.mountMetadata(clusterId).isOkOr:
+    node3.mountMetadata(clusterId, shards).isOkOr:
       assert false, "Failed to mount metadata: " & $error
 
     await allFutures(node1.start(), node2.start(), node3.start())
