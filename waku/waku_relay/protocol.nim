@@ -23,8 +23,30 @@ import
 from ../waku_core/codecs import WakuRelayCodec
 export WakuRelayCodec
 
+type ShardMetrics = object
+  count: float64
+  sizeSum: float64
+  avgSize: float64
+  maxSize: float64
+
 logScope:
   topics = "waku relay"
+
+declareCounter waku_relay_network_bytes,
+  "total traffic per topic, distinct gross/net and direction",
+  labels = ["topic", "type", "direction"]
+
+declarePublicGauge(
+  waku_relay_max_msg_bytes_per_shard,
+  "Maximum length of messages seen per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
+  waku_relay_avg_msg_bytes_per_shard,
+  "Average length of messages seen per shard",
+  labels = ["shard"],
+)
 
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const TopicParameters = TopicParams(
@@ -57,10 +79,6 @@ const TopicParameters = TopicParams(
   invalidMessageDeliveriesWeight: -100.0,
   invalidMessageDeliveriesDecay: 0.5,
 )
-
-declareCounter waku_relay_network_bytes,
-  "total traffic per topic, distinct gross/net and direction",
-  labels = ["topic", "type", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -137,6 +155,7 @@ type
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
     topicHealthLoopHandle*: Future[void]
+    msgMetricsPerShard*: Table[string, ShardMetrics]
 
 # predefinition for more detailed results from publishing new message
 type PublishOutcome* {.pure.} = enum
@@ -176,6 +195,7 @@ proc logMessageInfo*(
     onRecv: bool,
 ) =
   let msg_hash = computeMessageHash(topic, msg).to0xHex()
+  let payloadSize = float64(msg.payload.len)
 
   if onRecv:
     notice "received relay message",
@@ -185,7 +205,7 @@ proc logMessageInfo*(
       from_peer_id = remotePeerId,
       topic = topic,
       receivedTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
+      payloadSizeBytes = payloadSize
   else:
     notice "sent relay message",
       my_peer_id = w.switch.peerInfo.peerId,
@@ -194,7 +214,19 @@ proc logMessageInfo*(
       to_peer_id = remotePeerId,
       topic = topic,
       sentTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
+      payloadSizeBytes = payloadSize
+
+  var shardMetrics = w.msgMetricsPerShard.getOrDefault(topic, ShardMetrics())
+  shardMetrics.count += 1
+  shardMetrics.sizeSum += payloadSize
+  if payloadSize > shardMetrics.maxSize:
+    shardMetrics.maxSize = payloadSize
+  shardMetrics.avgSize = shardMetrics.sizeSum / shardMetrics.count
+  w.msgMetricsPerShard[topic] = shardMetrics
+
+  waku_relay_max_msg_bytes_per_shard.set(shardMetrics.maxSize, labelValues = [topic])
+
+  waku_relay_avg_msg_bytes_per_shard.set(shardMetrics.avgSize, labelValues = [topic])
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(

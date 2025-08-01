@@ -13,6 +13,7 @@ const DefaultPageSize*: uint = 20
 type WakuStoreClient* = ref object
   peerManager: PeerManager
   rng: ref rand.HmacDrbgContext
+  storeMsgMetricsPerShard*: Table[string, float64]
 
 proc new*(
     T: type WakuStoreClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
@@ -45,6 +46,17 @@ proc sendStoreRequest(
   if res.statusCode != uint32(StatusCode.SUCCESS):
     waku_store_errors.inc(labelValues = [NoSuccessStatusCode])
     return err(StoreError.new(res.statusCode, res.statusDesc))
+
+  if req.pubsubTopic.isSome():
+    let topic = req.pubsubTopic.get()
+    if not self.storeMsgMetricsPerShard.hasKey(topic):
+      self.storeMsgMetricsPerShard[topic] = 0
+    self.storeMsgMetricsPerShard[topic] += float64(req.encode().buffer.len)
+
+    waku_relay_fleet_store_msg_size_bytes.inc(
+      self.storeMsgMetricsPerShard[topic], labelValues = [topic]
+    )
+    waku_relay_fleet_store_msg_count.inc(1.0, labelValues = [topic])
 
   return ok(res)
 
