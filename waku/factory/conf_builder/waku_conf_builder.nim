@@ -615,9 +615,9 @@ proc build*(
     protectedShards: protectedShards,
     relay: relay,
     lightPush: lightPush,
-    peerExchange: peerExchange,
+    peerExchangeService: peerExchange,
     rendezvous: rendezvous,
-    peerExchangeClient: true,
+    peerExchangeDiscovery: true,
       # enabling peer exchange client by default for quicker bootstrapping
     remoteStoreNode: builder.remoteStoreNode,
     remoteLightPushNode: builder.remoteLightPushNode,
