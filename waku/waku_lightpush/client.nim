@@ -11,7 +11,8 @@ import
   ./common,
   ./protocol_metrics,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ../incentivization/[reputation_manager, eligibility_manager, rpc]
 
 logScope:
   topics = "waku lightpush client"
@@ -45,7 +46,9 @@ proc sendPushRequest(
   try:
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
-    error "Failed to read response from peer", error = getCurrentExceptionMsg()
+    error "Failed to read responose from peer", error = getCurrentExceptionMsg()
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
@@ -53,13 +56,22 @@ proc sendPushRequest(
   let response = LightpushResponse.decode(buffer).valueOr:
     error "failed to decode response"
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(decodeRpcFailure)
 
   if response.requestId != req.requestId and
       response.statusCode != LightPushErrorCode.TOO_MANY_REQUESTS:
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError("response failure, requestId mismatch")
+
+  if wl.peerManager.reputationManager.isSome:
+    wl.peerManager.reputationManager.get().updateReputationFromResponse(
+      peer.peerId, response
+    )
 
   return toPushResult(response)
 
@@ -67,24 +79,25 @@ proc publish*(
     wl: WakuLightPushClient,
     pubSubTopic: Option[PubsubTopic] = none(PubsubTopic),
     wakuMessage: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   var message = wakuMessage
   if message.timestamp == 0:
     message.timestamp = getNowInNanosecondTime()
 
-  when peer is PeerId:
-    info "publish",
-      peerId = shortLog(peer),
-      msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
-  else:
-    info "publish",
-      peerId = shortLog(peer.peerId),
-      msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
+  info "publish",
+    peerId = shortLog(
+      when peer is PeerId: peer
+      else: peer.peerId
+    ),
+    msg_hash = computeMessageHash(pubSubTopic.get(""), message).to0xHex
 
+  # i13n POC: add eligibilityProof to the request
   let pushRequest = LightpushRequest(
-    requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message
+    requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message, eligibilityProof: eligibilityProof
   )
+  debug "Created Lightpush request: ", pushRequest
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
   for obs in wl.publishObservers:
@@ -93,7 +106,8 @@ proc publish*(
   return lightpushSuccessResult(publishedCount)
 
 proc publishToAny*(
-    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, wakuMessage: WakuMessage
+    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, wakuMessage: WakuMessage,
+    eligibilityproof: Option[EligibilityProof] = none(EligibilityProof)
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we don't specify a particular peer and instead we get it from peer manager
@@ -103,21 +117,10 @@ proc publishToAny*(
     message.timestamp = getNowInNanosecondTime()
 
   info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
-
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(
       LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
     )
 
-  let pushRequest = LightpushRequest(
-    requestId: generateRequestId(wl.rng),
-    pubSubTopic: some(pubSubTopic),
-    message: message,
-  )
-  let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
-
-  for obs in wl.publishObservers:
-    obs.onMessagePublished(pubSubTopic, message)
-
-  return lightpushSuccessResult(publishedCount)
+  return await wl.publish(some(pubSubTopic), message, eligibilityproof, peer)

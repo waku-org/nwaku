@@ -48,7 +48,8 @@ import
   ../waku_rln_relay,
   ./net_config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../incentivization/[eligibility_manager, rpc]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -1101,7 +1102,7 @@ proc legacyLightpushPublish*(
   except CatchableError:
     return err(getCurrentExceptionMsg())
 
-# TODO: Move to application module (e.g., wakunode2.nim)
+# TODO: Move to application module (e.g, wakunode2.nim)
 proc legacyLightpushPublish*(
     node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage
 ): Future[legacy_lightpush_protocol.WakuLightPushResult[string]] {.
@@ -1163,16 +1164,19 @@ proc lightpushPublishHandler(
     node: WakuNode,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peer: RemotePeerInfo | PeerInfo,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
+  
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
     notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
-      msg_hash = msgHash
-    return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
+      msg_hash = msgHash,
+      eligibilityProof = eligibilityProof
+    return await node.wakuLightpushClient.publish(some(pubsubTopic), message, eligibilityProof, peer)
 
   if not node.wakuLightPush.isNil():
     notice "publishing message with self hosted lightpush",
@@ -1187,6 +1191,7 @@ proc lightpushPublish*(
     node: WakuNode,
     pubsubTopic: Option[PubsubTopic],
     message: WakuMessage,
+    eligibilityProof: Option[EligibilityProof] = none(EligibilityProof),
     peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo),
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
@@ -1224,7 +1229,7 @@ proc lightpushPublish*(
       error "lightpush publish error", error = msg
       return lighpushErrorResult(LightPushErrorCode.INTERNAL_SERVER_ERROR, msg)
 
-  return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
+  return await lightpushPublishHandler(node, pubsubForPublish, message, eligibilityProof, toPeer)
 
 ## Waku RLN Relay
 proc mountRlnRelay*(
@@ -1322,7 +1327,7 @@ proc startPeerExchangeLoop*(node: WakuNode) =
     return
   node.wakuPeerExchange.pxLoopHandle = node.peerExchangeLoop()
 
-# TODO: Move to application module (e.g., wakunode2.nim)
+# TODO: Move to application module (e.g, wakunode2.nim)
 proc setPeerExchangePeer*(
     node: WakuNode, peer: RemotePeerInfo | MultiAddress | string
 ) =

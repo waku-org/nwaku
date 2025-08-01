@@ -22,7 +22,8 @@ import
   ../../waku_metadata,
   ../health_monitor/online_monitor,
   ./peer_store/peer_storage,
-  ./waku_peer_store
+  ./waku_peer_store,
+  ../../incentivization/[reputation_manager, eligibility_manager]
 
 export waku_peer_store, peer_storage, peers
 
@@ -98,6 +99,11 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
+  # clients of light protocols (like Lightpush) may track servers' reputation
+  reputationManager*: Option[ReputationManager]
+  # servers of light protocols (like Lightpush) may track client requests' eligibility
+  eligibilityManager*: Option[EligibilityManager]
+  dnsNameServers*: seq[IpAddress]
   online: bool ## state managed by online_monitor module
 
 #~~~~~~~~~~~~~~~~~~~#
@@ -233,15 +239,42 @@ proc selectPeer*(
 
   # For other protocols, we select the peer that is slotted for the given protocol
   pm.serviceSlots.withValue(proto, serviceSlot):
+    # FIXME: if there is just one peer, reputation doesn't affect choice?
     trace "Got peer from service slots",
       peerId = serviceSlot[].peerId, multi = serviceSlot[].addrs[0], protocol = proto
     return some(serviceSlot[])
 
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
+    # if reputation is enabled, filter out bad-reputation peers
+    debug "Before filtering - total peers:", numPeers = peers.len
+    var preSelectedPeers =
+      if pm.reputationManager.isSome():
+        debug "Reputation enabled: consider only non-negative reputation peers"
+        peers.filterIt:
+          let rep =
+            try:
+              pm.reputationManager.get().getReputation(it.peerId)
+            except KeyError:
+              none(bool)
+          rep == none(bool) or rep == some(true)
+      else:
+        peers
+    
+    debug "Pre-selected peers from peerstore: ", numPeers = preSelectedPeers.len
+    if preSelectedPeers.len == 0:
+      debug "No suitable service peers with good enough reputation!"
+      return none(RemotePeerInfo)
+
+    let selectedPeer = sample(preSelectedPeers)
+
+    if pm.reputationManager.isSome():
+      debug "Selected peer has reputation", reputation = pm.reputationManager.get().getReputation(selectedPeer.peerId)
+
     trace "Got peer from peerstore",
-      peerId = peers[0].peerId, multi = peers[0].addrs[0], protocol = proto
-    return some(peers[0])
+      peerId = selectedPeer.peerId, multi = selectedPeer.addrs[0], protocol = proto
+    return some(selectedPeer)
+
   trace "No peer found for protocol", protocol = proto
   return none(RemotePeerInfo)
 
@@ -1033,6 +1066,9 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    reputationEnabled = false,
+    eligibilityEnabled = false,
+    dnsNameServers = newSeq[IpAddress](),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1113,5 +1149,17 @@ proc new*(
     pm.loadFromStorage() # Load previously managed peers.
   else:
     trace "no peer storage found"
+
+  pm.reputationManager =
+    if reputationEnabled:
+      some(ReputationManager.new())
+    else:
+      none(ReputationManager)
+
+  pm.eligibilityManager =
+    if eligibilityEnabled:
+      some(EligibilityManager.new())
+    else:
+      none(EligibilityManager)
 
   return pm
