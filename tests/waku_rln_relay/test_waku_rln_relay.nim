@@ -511,7 +511,7 @@ suite "Waku rln relay":
       root.len == HashHexSize # check the size of the calculated tree root
 
   test "check correctness of toIdentityCredentials":
-    let groupKeys = StaticGroupKeys
+    let groupKeys = OffchainGroupKeys
 
     # create a set of IdentityCredentials objects from groupKeys
     let groupIdCredentialsRes = groupKeys.toIdentityCredentials()
@@ -547,9 +547,9 @@ suite "Waku rln relay":
 
     check:
       # check that the correct number of identity credentials is created
-      groupIdCredentials.len == StaticGroupSize
+      groupIdCredentials.len == OffchainGroupSize
       # compare the calculated root against the correct root
-      root == StaticGroupMerkleRoot
+      root == OffchainGroupMerkleRoot
 
   test "RateLimitProof Protobuf encode/init test":
     var
