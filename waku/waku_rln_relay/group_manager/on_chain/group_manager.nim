@@ -610,7 +610,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
-  let maxMembershipRateLimit = await g.fetchMaxMembershipRateLimit()
+  let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
+  let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:
+    return err("failed to fetch max membership rate limit: " & error)
 
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
 
