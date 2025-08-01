@@ -1229,9 +1229,6 @@ proc lightpushPublish*(
       error "lightpush publish error", error = msg
       return lighpushErrorResult(LightPushErrorCode.INTERNAL_SERVER_ERROR, msg)
 
-  debug "in lightpushPublish"
-  debug "eligibilityProof: ", eligibilityProof
-
   return await lightpushPublishHandler(node, pubsubForPublish, message, eligibilityProof, toPeer)
 
 ## Waku RLN Relay

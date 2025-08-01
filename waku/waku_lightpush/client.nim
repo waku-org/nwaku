@@ -86,21 +86,18 @@ proc publish*(
   if message.timestamp == 0:
     message.timestamp = getNowInNanosecondTime()
 
-  # FIXME: make more DRY
-  when peer is PeerId:
-    info "publish",
-      peerId = shortLog(peer),
-      msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
-  else:
-    info "publish",
-      peerId = shortLog(peer.peerId),
-      msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
+  info "publish",
+    peerId = shortLog(
+      when peer is PeerId: peer
+      else: peer.peerId
+    ),
+    msg_hash = computeMessageHash(pubSubTopic.get(""), message).to0xHex
 
-  # i13n POC: adding eligibilityProof to the request
+  # i13n POC: add eligibilityProof to the request
   let pushRequest = LightpushRequest(
     requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message, eligibilityProof: eligibilityProof
   )
-  debug "in Lightpush client publish: created pushRequest: ", pushRequest
+  debug "Created Lightpush request: ", pushRequest
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
   for obs in wl.publishObservers:
