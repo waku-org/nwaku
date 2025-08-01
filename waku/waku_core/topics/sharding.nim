@@ -25,8 +25,7 @@ proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): RelayShar
   # We only use the last 64 bits of the hash as having more shards is unlikely.
   let hashValue = uint64.fromBytesBE(hash.data[24 .. 31])
 
-  # This is equilavent to modulo shard count but faster
-  let shard = hashValue and uint64((count - 1))
+  let shard = hashValue mod uint64(count)
 
   RelayShard(clusterId: s.clusterId, shardId: uint16(shard))
 
