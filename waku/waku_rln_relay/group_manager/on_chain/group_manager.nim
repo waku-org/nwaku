@@ -25,6 +25,9 @@ import
 
 export group_manager_base
 
+logScope:
+  topics = "waku rln_relay onchain_group_manager"
+
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
   OnchainGroupManager* = ref object of GroupManager
@@ -103,7 +106,7 @@ proc fetchNextFreeIndex*(
     error "Failed to fetch next free index", error = getCurrentExceptionMsg()
     return err("Failed to fetch next free index: " & getCurrentExceptionMsg())
 
-proc fetchMembershipSetMembership*(
+proc fetchMembershipStatus*(
     g: OnchainGroupManager, idCommitment: IDCommitment
 ): Future[Result[bool, string]] {.async.} =
   try:
@@ -591,10 +594,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
     debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
     let idCommitment = keystoreCred.identityCredential.idCommitment
-    let membershipExists = await g.fetchMembershipSetMembership(idCommitment)
+    let membershipExists = (await g.fetchMembershipStatus(idCommitment)).valueOr:
+      return err("the commitment does not have a membership: " & error)
     debug "membershipExists", membershipExists = membershipExists
-    if membershipExists.isErr():
-      return err("the commitment does not have a membership")
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
