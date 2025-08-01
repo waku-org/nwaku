@@ -10,11 +10,11 @@ This proof-of-concept introduces two additional modules: eligibility and reputat
 
 ## Eligibility Module
 
-The eligibility module allows a service node to determine whether an incoming Lightpush request is _eligible_ for fulfillment. A request is considered eligible if it includes a _proof of payment_. In this PoC, the proof of payment is a transaction hash (txid) that corresponds to a transaction on Linea Sepolia.
+The eligibility module allows a service node to determine whether an incoming Lightpush request is _eligible_ for fulfillment. A request is considered eligible if it includes a _proof of payment_ -- a transaction hash (txid) that corresponds to a transaction on Linea Sepolia.
 
 The PoC operates under the following assumptions:
 - The edge node obtains, off-band, the on-chain address of the service node (i.e., the payment destination) and the expected payment amount;
-- Payments are made in native tokens (ETH), not ERC-20 or other contract-based tokens;
+- Payments are made in native ETH tokens (not contract-based tokens like ERC-20);
 - Each request is individually paid for with a unique transaction.
 
 A Lightpush request is deemed _eligible_ if and only if:
@@ -29,7 +29,7 @@ The reputation module enables edge nodes to avoid service nodes that deliver poo
 
 Reputation can take on one of three values: good, bad, or neutral. Initially, all peers are considered to have neutral reputation from the edge node's perspective. If an edge node sends an eligible request that is not fulfilled, the respective service node is marked with a "bad" reputation. Peers with bad reputation are excluded from future requests. If a request is successfully fulfilled, the edge node updates the service node's reputation to "good".
 
-Not all error responses affect the service node's reputation. If a request is rejected due to a missing or invalid proof of payment, the service node's reputation remains unchanged. Reputation is downgraded only in the event of a server-side error (corresponding to `5xx` error codes).
+Not all error responses affect the service node's reputation. If a request is rejected due to a missing or invalid proof of payment, the service node's reputation remains unchanged. Reputation is downgraded only in the event of a server-side error.
 
 Reputation functionality only applies to peers selected from the peer store (i.e., those connected via `--staticnode`). An edge node can choose a peer for Lightpush requests in one of two ways: select from the peer store, or use the peer assigned to the Lightpush service slot. If an edge node explicitly connects to a peer via `--lightpushnode`, that peer occupies the Lightpush service slot. Only one peer can occupy this slot at any given time. When a peer is in the service slot, all Lightpush requests are directed to it. In the testing scenarios below, we intentionally avoid using `--lightpushnode` to ensure we can evaluate the reputation-based peer selection logic.
 
@@ -38,7 +38,7 @@ Reputation functionality only applies to peers selected from the peer store (i.e
 The testing setup (described below) involves Edge Nodes and Service Nodes. An Edge Node sends messages via Lightpush using a Service Node. If the request is eligible, the Service Node uses its RLN membership to publish the Edge Node's message.
 
 > [!warning] 
-> As of 2025-07-28, registering new RLN memberships on Linea Sepolia is temporarily unavailable. You can only reproduce the testing scenario if you already have an RLN membership. This guide will be updated when the issue is resolved.
+> As of 2025-07-28, registering new RLN memberships is temporarily unavailable. You can only reproduce the testing scenario if you already have an RLN membership registered with the contract `0xB9cd878C90E49F797B4431fBF4fb333108CB90e6` on Linea Sepolia. This guide will be updated when the issue is resolved.
 
 There are two tokens involved (both on Linea Sepolia):
 - **TST (Testing Stable Token)**: a custom ERC-20 token on Linea Sepolia, required to register an RLN membership;
@@ -102,7 +102,7 @@ You can obtain Linea Sepolia ETH in several ways:
 
 ## Register RLN Membership
 
-To publish a message, a valid RLN membership is required. The recommended approach is to use the `register_rln.sh` script from [`nwaku-compose`](https://github.com/waku-org/nwaku-compose). This script both mints TST tokens (required for RLN deposit) and registers an RLN membership in a single step. If using `register_rln.sh`, there is no need to separately mint TST tokens.
+To publish a message, a valid RLN membership is required. The recommended approach is to use the `register_rln.sh` script from [`nwaku-compose`](https://github.com/waku-org/nwaku-compose). This script mints TST tokens (required for RLN deposit) and registers an RLN membership in a single step. If using `register_rln.sh`, there is no need to separately mint TST tokens.
 
 We recommend the following directory structure (you will need both `nwaku` and `nwaku-compose` repositories):
 
@@ -112,7 +112,7 @@ We recommend the following directory structure (you will need both `nwaku` and `
 	- nwaku
 ```
 
-> [!note] 
+> [!note]
 > You will clone the `nwaku-compose` repository in addition to the `nwaku` repository. This setup uses `nwaku-compose` only for its RLN registration script. We **do not** run `nwaku` via `docker compose`, which is `nwaku-compose`’s primary function. Instead, after registering the RLN membership, `nwaku` is run directly from a source-built binary.
 
 Clone the `nwaku-compose` repository:
@@ -129,7 +129,7 @@ cp .env.example .env
 nano .env
 ```
 
-> [!note] 
+> [!note]
 > You may use any text editor in place of `nano`.
 
 Edit the `.env` file with the following required parameters:
@@ -141,7 +141,7 @@ Edit the `.env` file with the following required parameters:
 | `ETH_TESTNET_KEY`              | The private key for `ETH_TESTNET_ACCOUNT`, without the `0x` prefix (no quotes).        |
 | `RLN_RELAY_CRED_PASSWORD`      | A password to protect your RLN membership (in double quotes).                          |
 
-> [!note] 
+> [!note]
 > `ETH_TESTNET_KEY` must be the private key corresponding to `ETH_TESTNET_ACCOUNT`.
 
 > [!warning] 
@@ -167,7 +167,7 @@ sudo chown -R $USER:$USER keystore
 
 This keystore will be used in the upcoming testing steps.
 
-> [!note] 
+> [!note]
 > From this point forward, `nwaku-compose` is no longer needed. All subsequent steps assume you are using the `wakunode2` binary built from source.
 
 Return to the outer directory:
@@ -213,11 +213,9 @@ version / git commit hash: v0.35.1-167-g248757
 
 # Experimental Setup Overview
 
-This section describes a local setup involving multiple `nwaku` nodes used to test the PoC.
+This section describes a local setup involving four `nwaku` nodes used to test the PoC. Each node runs on the same machine but using different ports.  When issuing REST API commands, ensure you use the correct port corresponding to the targeted node.
 
-The setup consists of four nodes, each running on the same machine but using different ports.  When issuing REST API commands, ensure you use the correct port corresponding to the targeted node.
-
-Each node is defined by a set of parameters, either as CLI arguments or via a TOML configuration file.  The config files for all four nodes are located in the `./i13n-poc-configs/toml` directory.  CLI arguments always override configuration parameters from the TOML files.
+Each node is defined by a set of parameters, either as CLI arguments or via a TOML configuration file. The config files for all four nodes are located in the `./i13n-poc-configs/toml` directory. CLI arguments always override configuration parameters from the TOML files.
 
 The experimental setup includes the following nodes:
 - **Alice** — an edge node that wants to publish messages without being connected to Relay.
@@ -233,12 +231,12 @@ graph LR
  Dave <-- Relay --> W((The Waku Network))
 ```
 
-For reproducibility, all nodes are launched with static (pre-generated) keys defined in their config files.  These static keys are used in example commands and determine the node IDs.  For details on configuring node keys, refer to the [key configuration guide](https://github.com/waku-org/nwaku/blob/master/docs/operators/how-to/configure-key.md).
+For reproducibility, all nodes are launched with static (pre-generated) keys defined in their config files. These static keys are used in example commands and determine the node IDs. For details on configuring node keys, refer to the [key configuration guide](https://github.com/waku-org/nwaku/blob/master/docs/operators/how-to/configure-key.md).
 
-> [!note]  
+> [!note]
 > In this testing setup, Bob and Charlie share on-chain credentials and the same RLN membership (i.e., the same keystore).
 
-> [!note]  
+> [!note]
 > Nodes do not persist eligibility or reputation data between restarts.
 
 # Testing Scenario
@@ -303,7 +301,7 @@ Alice sends a series of ineligible requests—either without proof of payment or
 1. Charlie is selected as the service node, as it is the only peer with neutral reputation that Alice is aware of.
 2. All ineligible requests are rejected. Alice receives error messages, and Charlie's reputation remains unchanged.
 
-> [!note]  
+> [!note]
 > In all experiments, we explicitly use the pubsub topic `waku/2/rs/1/0`, corresponding to shard `0` on The Waku Network. The encoded form `%2Fwaku%2F2%2Frs%2F1%2F0` represents that topic.
 
 REST API request from Alice without proof of payment:
@@ -342,7 +340,7 @@ Expected response:
 {"statusDesc":"Eligibility check failed: Wrong tx value: got 2000000000, expected 1000000000"}
 ```
 
-> [!note]  
+> [!note]
 > The amount must match the expected value exactly and is counted in wei. Overpayment is also rejected in the current PoC implementation.
 
 REST API request from Alice with a transaction using an incorrect amount (lower than expected):
@@ -357,8 +355,8 @@ Expected response:
 {"statusDesc":"Eligibility check failed: Wrong tx value: got 900000000, expected 1000000000"}
 ```
 
-> [!note]  
-> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This is confirmed by log entries like:  
+> [!note]
+> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This is confirmed by log entries like: 
 > `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
 </details>
 
@@ -434,10 +432,10 @@ Expected response (indicates successful message relay):
 {"relayPeerCount":1}
 ```
 
-> [!note]  
+> [!note]
 > If the response is `no suitable peers and no discovery method`, it is likely that Bob already has a bad reputation with Alice due to earlier failure.
 
-> [!note]  
+> [!note]
 > Successful fulfillment only requires that Bob relays the message to one peer (Dave, in this scenario). Additional connections to The Waku Network are not required.
 
 In Alice's logs, the following lines confirm that Bob was selected due to neutral reputation, while Charlie was excluded:
