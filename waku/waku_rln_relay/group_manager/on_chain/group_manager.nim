@@ -42,7 +42,7 @@ type
     merkleProofCache*: seq[byte]
 
 # The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-# TODO: find better solution than this custom sendEthCallWithChainId call
+# TODO: find better solution than this custom sendEthCallWithoutParams call
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
@@ -75,7 +75,7 @@ proc fetchMerkleRoot*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    let merkleRoot = await sendEthCallWithChainId(
+    let merkleRoot = await sendEthCallWithoutParams(
       ethRpc = g.ethRpc.get(),
       functionSignature = "root()",
       fromAddress = g.ethRpc.get().defaultAccount,
@@ -91,7 +91,7 @@ proc fetchNextFreeIndex*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    let nextFreeIndex = await sendEthCallWithChainId(
+    let nextFreeIndex = await sendEthCallWithoutParams(
       ethRpc = g.ethRpc.get(),
       functionSignature = "nextFreeIndex()",
       fromAddress = g.ethRpc.get().defaultAccount,
@@ -129,7 +129,7 @@ proc fetchMaxMembershipRateLimit*(
     g: OnchainGroupManager
 ): Future[Result[UInt256, string]] {.async.} =
   try:
-    let maxMembershipRateLimit = await sendEthCallWithChainId(
+    let maxMembershipRateLimit = await sendEthCallWithoutParams(
       ethRpc = g.ethRpc.get(),
       functionSignature = "maxMembershipRateLimit()",
       fromAddress = g.ethRpc.get().defaultAccount,

@@ -50,7 +50,7 @@ contract(WakuRlnContract):
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
-proc sendEthCallWithChainId*(
+proc sendEthCallWithoutParams*(
     ethRpc: Web3,
     functionSignature: string,
     fromAddress: Address,
