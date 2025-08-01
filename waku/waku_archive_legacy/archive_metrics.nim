@@ -9,7 +9,6 @@ declarePublicGauge waku_legacy_archive_messages,
   "number of historical messages", ["type"]
 declarePublicCounter waku_legacy_archive_errors,
   "number of store protocol errors", ["type"]
-declarePublicCounter waku_legacy_archive_queries, "number of store queries received"
 declarePublicHistogram waku_legacy_archive_insert_duration_seconds,
   "message insertion duration"
 declarePublicHistogram waku_legacy_archive_query_duration_seconds,
