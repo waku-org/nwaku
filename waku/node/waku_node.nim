@@ -111,6 +111,7 @@ type
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
+    wakuPeerExchangeClient*: WakuPeerExchangeClient
     wakuMetadata*: WakuMetadata
     wakuAutoSharding*: Option[Sharding]
     enr*: enr.Record
@@ -1278,21 +1279,26 @@ proc mountPeerExchange*(
   except LPError:
     error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
 
+proc mountPeerExchangeClient*(node: WakuNode) {.async: (raises: []).} =
+  info "mounting waku peer exchange client"
+  if node.wakuPeerExchangeClient.isNil():
+    node.wakuPeerExchangeClient = WakuPeerExchangeClient.new(node.peerManager)
+
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount = DefaultPXNumPeersReq
 ): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
-  if node.wakuPeerExchange.isNil():
-    error "could not get peers from px, waku peer-exchange is nil"
+  if node.wakuPeerExchangeClient.isNil():
+    error "could not get peers from px, waku peer-exchange-client is nil"
     return err(
       (
         status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
-        status_desc: some("PeerExchange is not mounted"),
+        status_desc: some("PeerExchangeClient is not mounted"),
       )
     )
 
   info "Retrieving peer info via peer exchange protocol", amount
-  let pxPeersRes = await node.wakuPeerExchange.request(amount)
-  if pxPeersRes.isOk:
+  let pxPeersRes = await node.wakuPeerExchangeClient.request(amount)
+  if pxPeersRes.isOk():
     var validPeers = 0
     let peers = pxPeersRes.get().peerInfos
     for pi in peers:
@@ -1310,17 +1316,19 @@ proc fetchPeerExchangePeers*(
 
 proc peerExchangeLoop(node: WakuNode) {.async.} =
   while true:
-    await sleepAsync(1.minutes)
     if not node.started:
+      await sleepAsync(5.seconds)
       continue
     (await node.fetchPeerExchangePeers()).isOkOr:
       warn "Cannot fetch peers from peer exchange", cause = error
+    await sleepAsync(1.minutes)
 
 proc startPeerExchangeLoop*(node: WakuNode) =
-  if node.wakuPeerExchange.isNil():
+  if node.wakuPeerExchangeClient.isNil():
     error "startPeerExchangeLoop: Peer Exchange is not mounted"
     return
-  node.wakuPeerExchange.pxLoopHandle = node.peerExchangeLoop()
+  info "Starting peer exchange loop"
+  node.wakuPeerExchangeClient.pxLoopHandle = node.peerExchangeLoop()
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(
@@ -1557,6 +1565,10 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
+
+  if not node.wakuPeerExchangeClient.isNil() and
+      not node.wakuPeerExchangeClient.pxLoopHandle.isNil():
+    await node.wakuPeerExchangeClient.pxLoopHandle.cancelAndWait()
 
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.stopWait()

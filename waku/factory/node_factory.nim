@@ -404,7 +404,7 @@ proc setupProtocols(
       return err("failed to set node waku filter peer: " & filterNode.error)
 
   # waku peer exchange setup
-  if conf.peerExchange:
+  if conf.peerExchangeService:
     try:
       await mountPeerExchange(
         node, some(conf.clusterId), node.rateLimitSettings.getSetting(PEEREXCHG)
@@ -421,6 +421,8 @@ proc setupProtocols(
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
+  if conf.peerExchangeDiscovery:
+    await node.mountPeerExchangeClient()
   return ok()
 
 ## Start node
@@ -465,7 +467,7 @@ proc startNode*(
   # 
   # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
   # periodic loop to find peers and px returned peers actually come from discv5
-  if conf.peerExchange and not conf.discv5Conf.isSome():
+  if conf.peerExchangeDiscovery and not conf.discv5Conf.isSome():
     node.startPeerExchangeLoop()
 
   # Maintain relay connections
