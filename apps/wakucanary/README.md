@@ -32,21 +32,31 @@ $ make wakucanary
 And used as follows. A reachable node that supports both `store` and `filter` protocols.
 
 ```console
-$ ./build/wakucanary --address=/dns4/node-01.ac-cn-hongkong-c.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmSJvSJphxRdbnigUV5bjRRZFBhTtWFTSyiKaQByCjwmpV --protocol=store --protocol=filter
+$ ./build/wakucanary \
+  --address=/dns4/store-01.do-ams3.status.staging.status.im/tcp/30303/p2p/16Uiu2HAm3xVDaz6SRJ6kErwC21zBJEZjavVXg7VSkoWzaV1aMA3F \
+  --protocol=store \
+  --protocol=filter \
+  --cluster-id=16 \
+  --shard=64
 $ echo $?
 0
 ```
 
 A node that can't be reached.
 ```console
-$ ./build/wakucanary --address=/dns4/node-01.ac-cn-hongkong-c.waku.sandbox.status.im/tcp/1000/p2p/16Uiu2HAmSJvSJphxRdbnigUV5bjRRZFBhTtWFTSyiKaQByCjwmpV --protocol=store --protocol=filter
+$ ./build/wakucanary \
+  --address=/dns4/store-01.do-ams3.status.staging.status.im/tcp/1000/p2p/16Uiu2HAm3xVDaz6SRJ6kErwC21zBJEZjavVXg7VSkoWzaV1aMA3F \
+  --protocol=store \
+  --protocol=filter \
+  --cluster-id=16 \
+  --shard=64
 $ echo $?
 1
 ```
 
 Note that a domain name can also be used.
 ```console
-$ ./build/wakucanary --address=/dns4/node-01.do-ams3.status.test.status.im/tcp/30303/p2p/16Uiu2HAkukebeXjTQ9QDBeNDWuGfbaSg79wkkhK4vPocLgR6QFDf --protocol=store --protocol=filter
+--- not defined yet 
 $ echo $?
 0
 ```
