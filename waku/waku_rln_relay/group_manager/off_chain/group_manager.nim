@@ -16,19 +16,29 @@ proc resultifiedInitGuard(g: OffchainGroupManager): GroupManagerResult[void] =
 method init*(g: OffchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   discard
 
-method startGroupSync*(g: OffchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
+method startGroupSync*(
+    g: OffchainGroupManager
+): Future[GroupManagerResult[void]] {.async.} =
   discard
 
-method register*(g: OffchainGroupManager, rateCommitment: RateCommitment): Future[void] {.async.} =
+method register*(
+    g: OffchainGroupManager, rateCommitment: RateCommitment
+): Future[void] {.async.} =
   discard
 
-method registerBatch*(g: OffchainGroupManager, rateCommitments: seq[RawRateCommitment]): Future[void] {.async.} =
+method registerBatch*(
+    g: OffchainGroupManager, rateCommitments: seq[RawRateCommitment]
+): Future[void] {.async.} =
   discard
 
-method withdraw*(g: OffchainGroupManager, idSecretHash: IdentitySecretHash): Future[void] {.async.} =
+method withdraw*(
+    g: OffchainGroupManager, idSecretHash: IdentitySecretHash
+): Future[void] {.async.} =
   discard
 
-method withdrawBatch*(g: OffchainGroupManager, idSecretHashes: seq[IdentitySecretHash]): Future[void] {.async.} =
+method withdrawBatch*(
+    g: OffchainGroupManager, idSecretHashes: seq[IdentitySecretHash]
+): Future[void] {.async.} =
   discard
 
 method onRegister*(g: OffchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
