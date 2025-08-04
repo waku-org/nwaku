@@ -2,9 +2,10 @@
 
 import metrics
 
-declarePublicGauge waku_legacy_store_errors,
+declarePublicCounter waku_legacy_store_errors,
   "number of legacy store protocol errors", ["type"]
-declarePublicGauge waku_legacy_store_queries, "number of legacy store queries received"
+declarePublicCounter waku_legacy_store_queries,
+  "number of legacy store queries received"
 
 ## "query-db-time" phase considers the time when node performs the query to the database.
 ## "send-store-resp-time" phase is the time when node writes the store response to the store-client.

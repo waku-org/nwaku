@@ -20,39 +20,13 @@ import
   ../../rln/rln_interface,
   ../../conversion_utils,
   ../group_manager_base,
-  ./retry_wrapper
+  ./retry_wrapper,
+  ./rpc_wrapper
 
 export group_manager_base
 
 logScope:
   topics = "waku rln_relay onchain_group_manager"
-
-# using the when predicate does not work within the contract macro, hence need to dupe
-contract(WakuRlnContract):
-  # this serves as an entrypoint into the rln membership set
-  proc register(
-    idCommitment: UInt256, userMessageLimit: UInt32, idCommitmentsToErase: seq[UInt256]
-  )
-
-  # Initializes the implementation contract (only used in unit tests)
-  proc initialize(maxMessageLimit: UInt256)
-  # this event is emitted when a new member is registered
-  proc MembershipRegistered(
-    idCommitment: UInt256, membershipRateLimit: UInt256, index: UInt32
-  ) {.event.}
-
-  # this function denotes existence of a given user
-  proc isInMembershipSet(idCommitment: Uint256): bool {.view.}
-  # this constant describes the next index of a new member
-  proc nextFreeIndex(): UInt256 {.view.}
-  # this constant describes the block number this contract was deployed on
-  proc deployedBlockNumber(): UInt256 {.view.}
-  # this constant describes max message limit of rln contract
-  proc maxMembershipRateLimit(): UInt256 {.view.}
-  # this function returns the merkleProof for a given index
-  # proc getMerkleProof(index: EthereumUInt40): seq[array[32, byte]] {.view.}
-  # this function returns the Merkle root
-  proc root(): Uint256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -69,6 +43,106 @@ type
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
     merkleProofCache*: seq[byte]
+
+# The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
+# TODO: find better solution than this custom sendEthCallWithoutParams call
+
+proc fetchMerkleProofElements*(
+    g: OnchainGroupManager
+): Future[Result[seq[byte], string]] {.async.} =
+  try:
+    let membershipIndex = g.membershipIndex.get()
+    let index40 = stuint(membershipIndex, 40)
+
+    let methodSig = "getMerkleProof(uint40)"
+    var paddedParam = newSeq[byte](32)
+    let indexBytes = index40.toBytesBE()
+    for i in 0 ..< min(indexBytes.len, paddedParam.len):
+      paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
+
+    let response = await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = methodSig,
+      params = paddedParam,
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+
+    return response
+  except CatchableError:
+    error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle proof elements: " & getCurrentExceptionMsg())
+
+proc fetchMerkleRoot*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let merkleRoot = await sendEthCallWithoutParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "root()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return merkleRoot
+  except CatchableError:
+    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
+
+proc fetchNextFreeIndex*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let nextFreeIndex = await sendEthCallWithoutParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "nextFreeIndex()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return nextFreeIndex
+  except CatchableError:
+    error "Failed to fetch next free index", error = getCurrentExceptionMsg()
+    return err("Failed to fetch next free index: " & getCurrentExceptionMsg())
+
+proc fetchMembershipStatus*(
+    g: OnchainGroupManager, idCommitment: IDCommitment
+): Future[Result[bool, string]] {.async.} =
+  try:
+    let params = idCommitment.reversed()
+    let resultBytes = await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "isInMembershipSet(uint256)",
+      params = params,
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    if resultBytes.isErr():
+      return err("Failed to check membership: " & resultBytes.error)
+    let responseBytes = resultBytes.get()
+
+    return ok(responseBytes.len == 32 and responseBytes[^1] == 1'u8)
+  except CatchableError:
+    error "Failed to fetch membership set membership", error = getCurrentExceptionMsg()
+    return err("Failed to fetch membership set membership: " & getCurrentExceptionMsg())
+
+proc fetchMaxMembershipRateLimit*(
+    g: OnchainGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let maxMembershipRateLimit = await sendEthCallWithoutParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "maxMembershipRateLimit()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return maxMembershipRateLimit
+  except CatchableError:
+    error "Failed to fetch max membership rate limit", error = getCurrentExceptionMsg()
+    return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -88,113 +162,6 @@ proc setMetadata*(
   except CatchableError:
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
-
-proc sendEthCallWithChainId(
-    ethRpc: Web3,
-    functionSignature: string,
-    fromAddress: Address,
-    toAddress: Address,
-    chainId: UInt256,
-): Future[Result[UInt256, string]] {.async.} =
-  ## Workaround for web3 chainId=null issue on some networks (e.g., linea-sepolia)
-  ## Makes contract calls with explicit chainId for view functions with no parameters
-  let functionHash =
-    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
-  let functionSelector = functionHash.data[0 .. 3]
-  let dataSignature = "0x" & functionSelector.mapIt(it.toHex(2)).join("")
-
-  var tx: TransactionArgs
-  tx.`from` = Opt.some(fromAddress)
-  tx.to = Opt.some(toAddress)
-  tx.value = Opt.some(0.u256)
-  tx.data = Opt.some(byteutils.hexToSeqByte(dataSignature))
-  tx.chainId = Opt.some(chainId)
-
-  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
-  if resultBytes.len == 0:
-    return err("No result returned for function call: " & functionSignature)
-  return ok(UInt256.fromBytesBE(resultBytes))
-
-proc sendEthCallWithParams(
-    ethRpc: Web3,
-    functionSignature: string,
-    params: seq[byte],
-    fromAddress: Address,
-    toAddress: Address,
-    chainId: UInt256,
-): Future[Result[seq[byte], string]] {.async.} =
-  ## Workaround for web3 chainId=null issue with parameterized contract calls
-  let functionHash =
-    keccak256.digest(functionSignature.toOpenArrayByte(0, functionSignature.len - 1))
-  let functionSelector = functionHash.data[0 .. 3]
-  let callData = functionSelector & params
-
-  var tx: TransactionArgs
-  tx.`from` = Opt.some(fromAddress)
-  tx.to = Opt.some(toAddress)
-  tx.value = Opt.some(0.u256)
-  tx.data = Opt.some(callData)
-  tx.chainId = Opt.some(chainId)
-
-  let resultBytes = await ethRpc.provider.eth_call(tx, "latest")
-  return ok(resultBytes)
-
-proc fetchMerkleProofElements*(
-    g: OnchainGroupManager
-): Future[Result[seq[byte], string]] {.async.} =
-  try:
-    # let merkleRootInvocation = g.wakuRlnContract.get().root()
-    # let merkleRoot = await merkleRootInvocation.call()
-    # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-    # TODO: find better solution than this custom sendEthCallWithChainId call
-    let membershipIndex = g.membershipIndex.get()
-    let index40 = stuint(membershipIndex, 40)
-
-    let methodSig = "getMerkleProof(uint40)"
-    let methodIdDigest = keccak.keccak256.digest(methodSig)
-    let methodId = methodIdDigest.data[0 .. 3]
-
-    var paddedParam = newSeq[byte](32)
-    let indexBytes = index40.toBytesBE()
-    for i in 0 ..< min(indexBytes.len, paddedParam.len):
-      paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
-
-    var callData = newSeq[byte]()
-    for b in methodId:
-      callData.add(b)
-    callData.add(paddedParam)
-
-    var tx: TransactionArgs
-    tx.to = Opt.some(fromHex(Address, g.ethContractAddress))
-    tx.data = Opt.some(callData)
-    tx.chainId = Opt.some(g.chainId) # Explicitly set the chain ID
-
-    let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
-
-    return ok(responseBytes)
-  except CatchableError:
-    error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
-    return err("Failed to fetch merkle proof elements: " & getCurrentExceptionMsg())
-
-proc fetchMerkleRoot*(
-    g: OnchainGroupManager
-): Future[Result[UInt256, string]] {.async.} =
-  try:
-    let merkleRoot = (
-      await sendEthCallWithChainId(
-        ethRpc = g.ethRpc.get(),
-        functionSignature = "root()",
-        fromAddress = g.ethRpc.get().defaultAccount,
-        toAddress = fromHex(Address, g.ethContractAddress),
-        chainId = g.chainId,
-      )
-    ).valueOr:
-      error "Failed to fetch Merkle root", error = $error
-      return err("Failed to fetch merkle root: " & $error)
-    return ok(merkleRoot)
-  except CatchableError:
-    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
-    return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -250,19 +217,7 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
             error "Failed to fetch Merkle proof", error = proofResult.error
           g.merkleProofCache = proofResult.get()
 
-        # also need to update registered membership
-        # g.rlnRelayMaxMessageLimit =
-        #   cast[uint64](await wakuRlnContract.nextFreeIndex().call())
-        # The above code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
-        # TODO: find better solution than this custom sendEthCallWithChainId call
-        let nextFreeIndex = await sendEthCallWithChainId(
-          ethRpc = ethRpc,
-          functionSignature = "nextFreeIndex()",
-          fromAddress = ethRpc.defaultAccount,
-          toAddress = fromHex(Address, g.ethContractAddress),
-          chainId = g.chainId,
-        )
-
+        let nextFreeIndex = await g.fetchNextFreeIndex()
         if nextFreeIndex.isErr():
           error "Failed to fetch next free index", error = nextFreeIndex.error
           raise newException(
@@ -638,28 +593,10 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
     debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
     debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
-    let idCommitment = idCommitmentUInt256
-    try:
-      let commitmentBytes = keystoreCred.identityCredential.idCommitment
-      let params = commitmentBytes.reversed()
-      let resultBytes = await sendEthCallWithParams(
-        ethRpc = g.ethRpc.get(),
-        functionSignature = "isInMembershipSet(uint256)",
-        params = params,
-        fromAddress = ethRpc.defaultAccount,
-        toAddress = contractAddress,
-        chainId = g.chainId,
-      )
-      if resultBytes.isErr():
-        return err("Failed to check membership: " & resultBytes.error)
-      let responseBytes = resultBytes.get()
-      let membershipExists = responseBytes.len == 32 and responseBytes[^1] == 1'u8
-
-      debug "membershipExists", membershipExists = membershipExists
-      if membershipExists == false:
-        return err("the commitment does not have a membership")
-    except CatchableError:
-      return err("failed to check if the commitment has a membership")
+    let idCommitment = keystoreCred.identityCredential.idCommitment
+    let membershipExists = (await g.fetchMembershipStatus(idCommitment)).valueOr:
+      return err("the commitment does not have a membership: " & error)
+    debug "membershipExists", membershipExists = membershipExists
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
@@ -673,16 +610,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
 
-  let maxMembershipRateLimit = (
-    await sendEthCallWithChainId(
-      ethRpc = ethRpc,
-      functionSignature = "maxMembershipRateLimit()",
-      fromAddress = ethRpc.defaultAccount,
-      toAddress = contractAddress,
-      chainId = g.chainId,
-    )
-  ).valueOr:
-    return err("Failed to fetch max membership rate limit: " & $error)
+  let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
+  let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:
+    return err("failed to fetch max membership rate limit: " & error)
 
   g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
 
