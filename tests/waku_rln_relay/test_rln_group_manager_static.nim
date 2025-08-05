@@ -10,7 +10,7 @@ import
     waku_rln_relay/protocol_types,
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
-    waku_rln_relay/group_manager/static/group_manager,
+    waku_rln_relay/group_manager/off_chain/group_manager,
   ]
 
 import chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
