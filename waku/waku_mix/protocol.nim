@@ -7,7 +7,6 @@ import
   mix/mix_protocol,
   mix/mix_node,
   mix/mix_metrics,
-  mix/tag_manager,
   libp2p/[multiaddress, multicodec, peerid]
 
 import
@@ -142,13 +141,14 @@ proc new*(
     peermgr.switch.peerInfo.privateKey.skkey,
   )
 
+  let mixProto =
+    MixProtocol.new(localMixNodeInfo, initTable[PeerId, MixPubInfo](), peermgr.switch)
+  let wakuMix = WakuMix(mixProto)
+  wakuMix.peerManager = peermgr
+  wakuMix.clusterId = clusterId
   # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
-  var m = WakuMix(peerManager: peermgr, clusterId: clusterId)
-  procCall MixProtocol(m).initialize(
-    localMixNodeInfo, peermgr.switch, initTable[PeerId, MixPubInfo]()
-  )
 
-  return ok(m)
+  return ok(wakuMix)
 
 proc start*(mix: Wakumix) =
   discard mix.startMixNodePoolMgr()
