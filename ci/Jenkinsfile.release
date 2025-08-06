@@ -2,7 +2,7 @@
 library 'status-jenkins-lib@v1.8.17'
 
 pipeline {
-  agent { label 'linux' }
+  agent { label 'container' }
 
   options {
     timestamps()
