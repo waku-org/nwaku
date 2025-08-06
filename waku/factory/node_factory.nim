@@ -241,12 +241,11 @@ proc setupProtocols(
         return err("failed to mount waku store sync protocol: " & $error)
 
       if conf.remoteStoreNode.isSome():
-        let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
-        if storeNode.isOk():
-          node.peerManager.addServicePeer(storeNode.value, WakuReconciliationCodec)
-          node.peerManager.addServicePeer(storeNode.value, WakuTransferCodec)
-        else:
-          return err("failed to set node waku store-sync peer: " & storeNode.error)
+        let storeNode = parsePeerInfo(conf.remoteStoreNode.get()).valueOr:
+          return err("failed to set node waku store-sync peer: " & error)
+
+        node.peerManager.addServicePeer(storeNode, WakuReconciliationCodec)
+        node.peerManager.addServicePeer(storeNode, WakuTransferCodec)
 
   mountStoreClient(node)
   if conf.remoteStoreNode.isSome():
