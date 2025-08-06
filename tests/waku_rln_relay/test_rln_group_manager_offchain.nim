@@ -27,10 +27,10 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
     credentials.add(generateCredentials(rlnInstance))
   return credentials
 
-suite "Static group manager":
+suite "Offchain group manager":
   setup:
     let rlnInstance = createRlnInstance(
-      tree_path = genTempPath("rln_tree", "group_manager_static")
+      tree_path = genTempPath("rln_tree", "group_manager_offchain")
     ).valueOr:
       raiseAssert $error
 
