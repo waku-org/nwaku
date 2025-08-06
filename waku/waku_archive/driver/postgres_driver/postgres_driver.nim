@@ -1348,8 +1348,7 @@ proc removePartition(
     "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
   debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    debug "detected error when trying to detach partition",
-      query = detachPartitionFinalizeQuery
+    debug "detected error when trying to detach partition", error
 
     if ($error).contains("FINALIZE") or
         ($error).contains("already pending detach in part"):
