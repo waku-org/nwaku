@@ -356,8 +356,14 @@ Expected response:
 ```
 
 > [!note]
-> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This is confirmed by log entries like: 
-> `DBG 2025-07-10 16:30:46.623+02:00 Neutral response - reputation unchanged for peer tid=25598 file=reputation_manager.nim:63 peer=16U*EuyzSd`.
+> [!note]
+> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This can be verified by checking Charlie's reputation:
+> 
+> ```bash
+> curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
+> ```
+> 
+> Expected response should show `"reputation": "Neutral"` indicating that Charlie's reputation remains unchanged.
 </details>
 
 <details>
@@ -380,10 +386,13 @@ Expected response:
 {"statusDesc":"No peers for topic, skipping publish"}
 ```
 
-Alice logs a line indicating that Charlie has been assigned bad reputation due to a valid request not being served:
+Alice assigns Charlie a "bad" reputation due to a valid request not being served. This can be verified by checking Charlie's reputation:
 
+```bash
+curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
 ```
-DBG 2025-07-10 16:33:00.897+02:00 Assign bad reputation for peer    tid=25598 file=reputation_manager.nim:57 peer=16U*EuyzSd
+
+Expected response should show `"reputation": "Bad"` indicating that Charlie has been assigned bad reputation.
 ```
 </details>
 
@@ -438,19 +447,13 @@ Expected response (indicates successful message relay):
 > [!note]
 > Successful fulfillment only requires that Bob relays the message to one peer (Dave, in this scenario). Additional connections to The Waku Network are not required.
 
-In Alice's logs, the following lines confirm that Bob was selected due to neutral reputation, while Charlie was excluded:
+Bob is selected as the service peer because Charlie has bad reputation and is excluded from consideration. Upon successful message delivery, Alice assigns Bob a "good" reputation. This can be verified by checking Bob's reputation:
 
-```
-DBG 2025-07-10 16:42:24.575+02:00 Before filtering - total peers:   topics="waku node peer_manager" tid=25598 file=peer_manager.nim:253 numPeers=2
-DBG 2025-07-10 16:42:24.576+02:00 Reputation enabled: consider only non-negative reputation peers topics="waku node peer_manager" tid=25598 file=peer_manager.nim:256
-DBG 2025-07-10 16:42:24.576+02:00 Pre-selected peers from peerstore:   topics="waku node peer_manager" tid=25598 file=peer_manager.nim:272 numPeers=1
-DBG 2025-07-10 16:42:24.576+02:00 Selected peer has reputation    topics="waku node peer_manager" tid=25598 file=peer_manager.nim:280 reputation=none(bool)
+```bash
+curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95" -H "accept: application/json" | jq | grep reputation
 ```
 
-Upon successful message delivery, Alice assigns good reputation to Bob:
-
-```
-DBG 2025-07-10 16:42:25.457+02:00 Assign good reputation for peer   tid=25598 file=reputation_manager.nim:60 peer=16U*LjxE95
+Expected response should show `"reputation": "Good"` indicating that Bob has been assigned good reputation for successfully fulfilling the request.
 ```
 
 To verify that Alice's message reached Dave, query for the latest messages on shard `0`:
