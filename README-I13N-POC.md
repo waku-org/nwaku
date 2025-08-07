@@ -355,15 +355,14 @@ Expected response:
 {"statusDesc":"Eligibility check failed: Wrong tx value: got 900000000, expected 1000000000"}
 ```
 
-> [!note]
-> [!note]
-> All failed responses described above must not impact Charlie's reputation from Alice's perspective. This can be verified by checking Charlie's reputation:
-> 
-> ```bash
-> curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
-> ```
-> 
-> Expected response should show `"reputation": "Neutral"` indicating that Charlie's reputation remains unchanged.
+All failed responses described above must not impact Charlie's reputation from Alice's perspective. This can be verified by checking Charlie's reputation:
+
+```bash
+curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
+```
+
+Expected response should show `"reputation": "Neutral"` indicating that Charlie's reputation remains unchanged.
+
 </details>
 
 <details>
@@ -421,6 +420,7 @@ Expected response (showing both Bob’s and Charlie’s multiaddrs; `EXTERNAL_IP
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60000/p2p/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95",
  "multiaddr": "/ip4/EXTERNAL_IP/tcp/60003/p2p/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd",
 ```
+
 </details>
 
 <details>
@@ -454,7 +454,6 @@ curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT
 ```
 
 Expected response should show `"reputation": "Good"` indicating that Bob has been assigned good reputation for successfully fulfilling the request.
-```
 
 To verify that Alice's message reached Dave, query for the latest messages on shard `0`:
 
