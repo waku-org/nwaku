@@ -35,9 +35,12 @@ proc setReputation*(
   manager.reputationOf[peer] = repValue
 
 proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
-  if peer in manager.reputationOf:
-    result = manager.reputationOf[peer]
-  else:
+  try:
+    if peer in manager.reputationOf:
+      result = manager.reputationOf[peer]
+    else:
+      result = none(bool)
+  except KeyError:
     result = none(bool)
 
 ### Lightpush-specific functionality ###
@@ -66,3 +69,17 @@ proc updateReputationFromResponse*(
   of NeutralResponse:
     debug "Neutral response - reputation unchanged for peer", peer = peer
     # Don't change reputation for neutral responses
+
+### Reputation conversion utilities ###
+
+proc convertReputationToString*(reputation: Option[bool]): Option[string] =
+  ## Converts reputation from Option[bool] to Option[string]
+  ## some(true) -> some("Good")
+  ## some(false) -> some("Bad") 
+  ## none(bool) -> some("Neutral")
+  if reputation.isNone():
+    return some("Neutral")
+  elif reputation.get():
+    return some("Good")
+  else:
+    return some("Bad")
