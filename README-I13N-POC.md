@@ -358,7 +358,7 @@ Expected response:
 All failed responses described above must not impact Charlie's reputation from Alice's perspective. This can be verified by checking Charlie's reputation:
 
 ```bash
-curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
+curl -s -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
 ```
 
 Expected response should show `"reputation": "Neutral"` indicating that Charlie's reputation remains unchanged.
@@ -388,7 +388,7 @@ Expected response:
 Alice assigns Charlie a "bad" reputation due to a valid request not being served. This can be verified by checking Charlie's reputation:
 
 ```bash
-curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
+curl -s -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8GcVapDgkJjMFTUVCCfEuyzSd" -H "accept: application/json" | jq | grep reputation
 ```
 
 Expected response should show `"reputation": "Bad"` indicating that Charlie has been assigned bad reputation.
@@ -411,7 +411,7 @@ curl -X POST "http://127.0.0.1:8646/admin/v1/peers" -H "accept: text/plain" -H "
 Verify that Alice is now connected to Bob:
 
 ```
-curl -X GET "http://127.0.0.1:8646/admin/v1/peers/connected" | jq . | grep multiaddr
+curl -s -X GET "http://127.0.0.1:8646/admin/v1/peers/connected" | jq . | grep multiaddr
 ```
 
 Expected response (showing both Bob’s and Charlie’s multiaddrs; `EXTERNAL_IP` is used in place of actual IP):
@@ -450,7 +450,7 @@ Expected response (indicates successful message relay):
 Bob is selected as the service peer because Charlie has bad reputation and is excluded from consideration. Upon successful message delivery, Alice assigns Bob a "good" reputation. This can be verified by checking Bob's reputation:
 
 ```bash
-curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95" -H "accept: application/json" | jq | grep reputation
+curl -s -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAmVHRbXuE4MUZbZ4xXF5CnVT5ntNGS3z7ER1fX1aLjxE95" -H "accept: application/json" | jq | grep reputation
 ```
 
 Expected response should show `"reputation": "Good"` indicating that Bob has been assigned good reputation for successfully fulfilling the request.
@@ -458,7 +458,7 @@ Expected response should show `"reputation": "Good"` indicating that Bob has bee
 To verify that Alice's message reached Dave, query for the latest messages on shard `0`:
 
 ```
-curl -X GET "http://127.0.0.1:8647/relay/v1/messages/%2Fwaku%2F2%2Frs%2F1%2F0"
+curl -s -X GET "http://127.0.0.1:8647/relay/v1/messages/%2Fwaku%2F2%2Frs%2F1%2F0"
 ```
 
 Expected response (truncated example):
