@@ -9,7 +9,9 @@ The nwaku repository implements Waku, and provides tools related to it.
 - Examples of Waku usage.
 - Various tests of above.
 
-For more details see the [source code](waku/README.md)
+For more details see the [source code](waku/README.md).
+
+For information on Service Incentivization (i13n) PoC, see [README-I13N-POC.md](README-I13N-POC.md).
 
 ## How to Build & Run ( Linux, MacOS & WSL )
 

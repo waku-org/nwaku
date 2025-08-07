@@ -23,8 +23,10 @@ import
   ./discv5_conf_builder,
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
+  ./rln_relay_conf_builder,
   ./rate_limit_conf_builder,
-  ./rln_relay_conf_builder
+  ./eligibility_conf_builder,
+  ./reputation_conf_builder
 
 logScope:
   topics = "waku conf builder"
@@ -75,6 +77,8 @@ type WakuConfBuilder* = object
   rlnRelayConf*: RlnRelayConfBuilder
   storeServiceConf*: StoreServiceConfBuilder
   webSocketConf*: WebSocketConfBuilder
+  eligibilityConf*: EligibilityConfBuilder
+  reputationConf*: ReputationConfBuilder
   rateLimitConf*: RateLimitConfBuilder
   # End conf builders
   relay: Option[bool]
@@ -134,6 +138,8 @@ proc init*(T: type WakuConfBuilder): WakuConfBuilder =
     rlnRelayConf: RlnRelayConfBuilder.init(),
     storeServiceConf: StoreServiceConfBuilder.init(),
     webSocketConf: WebSocketConfBuilder.init(),
+    eligibilityConf: EligibilityConfBuilder.init(),
+    reputationConf: ReputationConfBuilder.init(),
     rateLimitConf: RateLimitConfBuilder.init(),
   )
 
@@ -488,6 +494,12 @@ proc build*(
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
 
+  let eligibilityConf = builder.eligibilityConf.build().valueOr:
+    return err("Eligibility Conf building failed: " & $error)
+
+  let reputationConf = builder.reputationConf.build().valueOr:
+    return err("Reputation Conf building failed: " & $error)
+
   let rateLimit = builder.rateLimitConf.build().valueOr:
     return err("Rate limits Conf building failed: " & $error)
 
@@ -606,6 +618,9 @@ proc build*(
     metricsServerConf: metricsServerConf,
     restServerConf: restServerConf,
     dnsDiscoveryConf: dnsDiscoveryConf,
+    eligibilityConf: eligibilityConf,
+    reputationConf: reputationConf,
+    rateLimit: rateLimit,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,
@@ -644,7 +659,6 @@ proc build*(
     colocationLimit: colocationLimit,
     maxRelayPeers: builder.maxRelayPeers,
     relayServiceRatio: builder.relayServiceRatio.get("60:40"),
-    rateLimit: rateLimit,
     circuitRelayClient: builder.circuitRelayClient.get(false),
     staticNodes: builder.staticNodes,
     relayShardedPeerManagement: relayShardedPeerManagement,

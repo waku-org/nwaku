@@ -7,7 +7,7 @@ import
   json_serialization/lexer,
   results,
   libp2p/protocols/pubsub/pubsubpeer
-import waku/[waku_core, node/peer_manager], ../serdes
+import waku/[waku_core, node/peer_manager, incentivization/reputation_manager], ../serdes
 
 #### Types
 type WakuPeer* = object
@@ -18,6 +18,7 @@ type WakuPeer* = object
   agent*: string
   origin*: PeerOrigin
   score*: Option[float64]
+  reputation*: Option[string]  # "Good", "Bad", or "Neutral"
 
 type WakuPeers* = seq[WakuPeer]
 
@@ -50,6 +51,7 @@ proc writeValue*(
   writer.writeField("agent", value.agent)
   writer.writeField("origin", value.origin)
   writer.writeField("score", value.score)
+  writer.writeField("reputation", value.reputation)
   writer.endRecord()
 
 proc writeValue*(
@@ -104,6 +106,7 @@ proc readValue*(
     agent: Option[string]
     origin: Option[PeerOrigin]
     score: Option[float64]
+    reputation: Option[string]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -135,6 +138,10 @@ proc readValue*(
       if score.isSome():
         reader.raiseUnexpectedField("Multiple `score` fields found", "WakuPeer")
       score = some(reader.readValue(float64))
+    of "reputation":
+      if reputation.isSome():
+        reader.raiseUnexpectedField("Multiple `reputation` fields found", "WakuPeer")
+      reputation = some(reader.readValue(string))
     else:
       unrecognizedFieldWarning(value)
 
@@ -164,6 +171,7 @@ proc readValue*(
     agent: agent.get(),
     origin: origin.get(),
     score: score,
+    reputation: reputation,
   )
 
 proc readValue*(
@@ -276,7 +284,9 @@ proc readValue*(
 func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr
 
-proc init*(T: type WakuPeer, peerInfo: RemotePeerInfo): WakuPeer =
+
+
+proc init*(T: type WakuPeer, peerInfo: RemotePeerInfo, reputation: Option[bool] = none(bool)): WakuPeer =
   result = WakuPeer(
     multiaddr: constructMultiaddrStr(peerInfo),
     protocols: peerInfo.protocols,
@@ -285,9 +295,10 @@ proc init*(T: type WakuPeer, peerInfo: RemotePeerInfo): WakuPeer =
     agent: peerInfo.agent,
     origin: peerInfo.origin,
     score: none(float64),
+    reputation: convertReputationToString(reputation),
   )
 
-proc init*(T: type WakuPeer, pubsubPeer: PubSubPeer, pm: PeerManager): WakuPeer =
+proc init*(T: type WakuPeer, pubsubPeer: PubSubPeer, pm: PeerManager, reputation: Option[bool] = none(bool)): WakuPeer =
   let peerInfo = pm.getPeer(pubsubPeer.peerId)
   result = WakuPeer(
     multiaddr: constructMultiaddrStr(peerInfo),
@@ -297,6 +308,7 @@ proc init*(T: type WakuPeer, pubsubPeer: PubSubPeer, pm: PeerManager): WakuPeer 
     agent: peerInfo.agent,
     origin: peerInfo.origin,
     score: some(pubsubPeer.score),
+    reputation: convertReputationToString(reputation),
   )
 
 proc add*(
@@ -307,6 +319,7 @@ proc add*(
     connected: Connectedness,
     agent: string,
     origin: PeerOrigin,
+    reputation: Option[string] = none(string),
 ) =
   var peer: WakuPeer = WakuPeer(
     multiaddr: multiaddr,
@@ -315,6 +328,8 @@ proc add*(
     connected: connected,
     agent: agent,
     origin: origin,
+    score: none(float64),
+    reputation: reputation,
   )
   let idx = peers.find(peer)
 

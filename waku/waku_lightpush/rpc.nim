@@ -2,6 +2,7 @@
 
 import std/options
 import ../waku_core
+import ../incentivization/rpc
 
 type LightPushStatusCode* = distinct uint32
 proc `==`*(a, b: LightPushStatusCode): bool {.borrow.}
@@ -12,6 +13,7 @@ type
     requestId*: string
     pubSubTopic*: Option[PubsubTopic]
     message*: WakuMessage
+    eligibilityProof*: Option[EligibilityProof]
 
   LightPushResponse* = object
     requestId*: string

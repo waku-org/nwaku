@@ -21,6 +21,7 @@ import
     waku_node,
     node/peer_manager,
     waku_enr/sharding,
+    incentivization/reputation_manager,
   ],
   ../responses,
   ../serdes,
@@ -60,20 +61,26 @@ type PeerProtocolTuple =
     connected: Connectedness,
     agent: string,
     origin: PeerOrigin,
+    reputation: Option[bool],
   ]
+
+
 
 proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
   for peer in peersTup:
     peers.add(
       peer.multiaddr, peer.protocol, peer.shards, peer.connected, peer.agent,
-      peer.origin,
+      peer.origin, convertReputationToString(peer.reputation),
     )
 
 proc populateAdminPeerInfo(
     peers: var WakuPeers, node: WakuNode, codec: Option[string] = none[string]()
 ) =
+  let pm = node.peerManager
   if codec.isNone():
-    peers = node.peerManager.switch.peerStore.peers().mapIt(WakuPeer.init(it))
+    peers = node.peerManager.switch.peerStore.peers().mapIt(
+      WakuPeer.init(it, if pm.reputationManager.isSome(): pm.reputationManager.get().getReputation(it.peerId) else: none(bool))
+    )
   else:
     let peersTuples = node.peerManager.switch.peerStore.peers(codec.get()).mapIt(
         (
@@ -83,6 +90,7 @@ proc populateAdminPeerInfo(
           connected: it.connectedness,
           agent: it.agent,
           origin: it.origin,
+          reputation: if pm.reputationManager.isSome(): pm.reputationManager.get().getReputation(it.peerId) else: none(bool),
         )
       )
     tuplesToWakuPeers(peers, peersTuples)
@@ -112,7 +120,9 @@ proc getRelayPeers(node: WakuNode): PeersOfShards =
       relayPeers.add(
         PeersOfShard(
           shard: relayShard.shardId,
-          peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager)),
+          peers: toSeq(pubsubPeers).mapIt(
+            WakuPeer.init(it, node.peerManager, if node.peerManager.reputationManager.isSome(): node.peerManager.reputationManager.get().getReputation(it.peerId) else: none(bool))
+          ),
         )
       )
   return relayPeers
@@ -129,7 +139,9 @@ proc getMeshPeers(node: WakuNode): PeersOfShards =
       meshPeers.add(
         PeersOfShard(
           shard: relayShard.shardId,
-          peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager)),
+          peers: toSeq(peers).mapIt(
+            WakuPeer.init(it, node.peerManager, if node.peerManager.reputationManager.isSome(): node.peerManager.reputationManager.get().getReputation(it.peerId) else: none(bool))
+          ),
         )
       )
   return meshPeers
@@ -157,7 +169,8 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
 
     if node.peerManager.switch.peerStore.peerExists(peerIdVal):
       let peerInfo = node.peerManager.switch.peerStore.getPeer(peerIdVal)
-      let peer = WakuPeer.init(peerInfo)
+      let reputation = if node.peerManager.reputationManager.isSome(): node.peerManager.reputationManager.get().getReputation(peerIdVal) else: none(bool)
+      let peer = WakuPeer.init(peerInfo, reputation)
       let resp = RestApiResponse.jsonResponse(peer, status = Http200).valueOr:
         error "An error occurred while building the json response: ", error = error
         return RestApiResponse.internalServerError(
@@ -258,7 +271,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let pubsubPeers =
       node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(
-      shard: shard, peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager))
+      shard: shard, peers: toSeq(pubsubPeers).mapIt(
+        WakuPeer.init(it, node.peerManager, if node.peerManager.reputationManager.isSome(): node.peerManager.reputationManager.get().getReputation(it.peerId) else: none(bool))
+      )
     )
 
     let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200).valueOr:
@@ -307,7 +322,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let peers =
       node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(
-      shard: shard, peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager))
+      shard: shard, peers: toSeq(peers).mapIt(
+        WakuPeer.init(it, node.peerManager, if node.peerManager.reputationManager.isSome(): node.peerManager.reputationManager.get().getReputation(it.peerId) else: none(bool))
+      )
     )
 
     let resp = RestApiResponse.jsonResponse(relayPeer, status = Http200).valueOr:

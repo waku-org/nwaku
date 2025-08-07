@@ -11,6 +11,7 @@ const LightPushSuccessCode* = (SUCCESS: LightPushStatusCode(200))
 
 const LightPushErrorCode* = (
   BAD_REQUEST: LightPushStatusCode(400),
+  PAYMENT_REQUIRED: LightPushStatusCode(402),
   PAYLOAD_TOO_LARGE: LightPushStatusCode(413),
   INVALID_MESSAGE: LightPushStatusCode(420),
   UNSUPPORTED_PUBSUB_TOPIC: LightPushStatusCode(421),
