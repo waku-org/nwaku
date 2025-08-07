@@ -393,7 +393,7 @@ curl -X GET "http://127.0.0.1:8646/admin/v1/peer/16Uiu2HAkyxHKziUQghTarGhBSFn8Gc
 ```
 
 Expected response should show `"reputation": "Bad"` indicating that Charlie has been assigned bad reputation.
-```
+
 </details>
 
 ### Alice is connected to Bob and Charlie
