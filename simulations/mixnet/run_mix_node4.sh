@@ -1,1 +1,1 @@
-../../build/wakunode2 --config-file="config3.toml"
+../../build/wakunode2 --config-file="config4.toml"
