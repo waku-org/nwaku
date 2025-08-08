@@ -40,6 +40,9 @@ type MixConf* = ref object
   mixKey*: Curve25519Key
   mixPubKey*: Curve25519Key
 
+type PeerExchangeConf* = object
+  strictPeerExchangeFilter*: bool
+
 type StoreServiceConf* {.requiresInit.} = object
   dbMigration*: bool
   dbURl*: string
@@ -98,6 +101,7 @@ type WakuConf* {.requiresInit.} = ref object
   metricsServerConf*: Option[MetricsServerConf]
   webSocketConf*: Option[WebSocketConf]
   mixConf*: Option[MixConf]
+  peerExchangeConf*: Option[PeerExchangeConf]
 
   portsShift*: uint16
   dnsAddrsNameServers*: seq[IpAddress]
