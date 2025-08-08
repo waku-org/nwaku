@@ -4,7 +4,7 @@
 
 Simulate a local mixnet along with a chat app to publish using mix.
 This is helpful to test any changes while development.
-It includes scripts that run a `4 node` mixnet that can be used to test quickly.
+It includes scripts that run a `4 node` mixnet along with a lightpush service node(without mix) that can be used to test quickly.
 
 ## Simulation Details
 
@@ -22,6 +22,10 @@ Simulation includes scripts for:
 2. scripts to run chat app that publishes using lightpush protocol over the mixnet
 
 ## Usage
+
+Start the service node with below command, which acts as bootstrap node for all other mix nodes.
+
+`./run_lp_service_node.sh`
 
 To run the nodes for mixnet run the 4 node scripts in different terminals as below.
 
