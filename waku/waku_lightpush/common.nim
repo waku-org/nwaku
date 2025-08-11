@@ -22,7 +22,8 @@ const LightPushErrorCode* = (
 )
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
-type WakuLightPushResult* = Result[uint32, ErrorStatus]
+type WakuLightPushResult* = Result[uint32, ErrorStatus] # Ok result is relayPeerCount
+type WakuLightPushTopicResult* = Result[PubsubTopic, ErrorStatus]
 
 type PushMessageHandler* = proc(
   peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
