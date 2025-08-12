@@ -174,7 +174,7 @@ proc validateNodeKey(wakuConf: WakuConf): Result[void, string] =
 
 proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
   if wakuConf.endpointConf.dns4DomainName.isSome() and
-      isEmptyOrWhiteSpace(wakuConf.endpointConf.dns4DomainName.get().string):
+      isEmptyOrWhiteSpace(wakuConf.endpointConf.dns4DomainName.get()):
     return err("dns4-domain-name is an empty string, set it to none(string) instead")
 
   if isEmptyOrWhiteSpace(wakuConf.relayServiceRatio):

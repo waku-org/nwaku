@@ -249,9 +249,7 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
 when isMainModule:
   import waku/common/utils/nat, waku/waku_api/message_cache
 
-  let
-    rng = newRng()
-    conf = Chat2MatterbridgeConf.load()
+  let conf = Chat2MatterbridgeConf.load()
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)

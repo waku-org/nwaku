@@ -555,8 +555,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     let parsedPk = keys.PrivateKey.fromHex(pk).valueOr:
       return err("failed to parse the private key" & ": " & $error)
     ethRpc.privateKey = Opt.some(parsedPk)
-    ethRpc.defaultAccount =
-      ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
+    ethRpc.defaultAccount = ethRpc.privateKey.get().toPublicKey().toCanonicalAddress()
 
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)

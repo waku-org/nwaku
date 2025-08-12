@@ -43,7 +43,6 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
     ip = parseIpAddress("0.0.0.0")
-    flags = CapabilitiesBitfield.init(relay = true)
 
   let relayShards = RelayShards.init(clusterId, shardId).valueOr:
     error "Relay shards initialization failed", error = error
