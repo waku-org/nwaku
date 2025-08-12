@@ -567,7 +567,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         ),
         userMessageLimit: conf.rlnRelayUserMessageLimit,
         epochSizeSec: conf.rlnEpochSizeSec,
-        treePath: conf.rlnRelayTreePath,
       )
 
       waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))
