@@ -23,7 +23,6 @@ const LightPushErrorCode* = (
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
 type WakuLightPushResult* = Result[uint32, ErrorStatus] # Ok result is relayPeerCount
-type WakuLightPushTopicResult* = Result[PubsubTopic, ErrorStatus]
 
 type PushMessageHandler* = proc(
   peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
@@ -36,6 +35,7 @@ func isSuccess*(response: LightPushResponse): bool =
 
 func toPushResult*(response: LightPushResponse): WakuLightPushResult =
   if isSuccess(response):
+    # TODO: check relayPeerCount > 0? Publish to 0 peers considered a success?
     return ok(response.relayPeerCount.get(0))
   else:
     return err((response.statusCode, response.statusDesc))
@@ -52,6 +52,7 @@ func lightpushResultBadRequest*(msg: string): WakuLightPushResult =
 func lightpushResultServiceUnavailable*(msg: string): WakuLightPushResult =
   return err((LightPushErrorCode.SERVICE_NOT_AVAILABLE, some(msg)))
 
+# TODO: use a union type for desc?
 func lighpushErrorResult*(
     statusCode: LightpushStatusCode, desc: Option[string]
 ): WakuLightPushResult =
