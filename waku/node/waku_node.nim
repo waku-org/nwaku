@@ -1011,7 +1011,7 @@ proc setupStoreResume*(node: WakuNode) =
     error "Failed to setup Store Resume", error = $error
     return
 
-## Waku lightpush
+## Waku legacy lightpush
 proc mountLegacyLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
@@ -1129,23 +1129,24 @@ proc legacyLightpushPublish*(
 
 proc mountLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async.} =
+): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   info "mounting light push"
 
-  let pushHandler =
-    if node.wakuRelay.isNil():
-      debug "mounting lightpush v2 without relay (nil)"
-      lightpush_protocol.getNilPushHandler()
+  if node.wakuRelay.isNil():
+    return lightpush_protocol.lightpushResultServiceUnavailable(
+      "cannot mount lightpush because relay is not mounted"
+    )
+
+  debug "mounting lightpush with relay"
+
+  let rlnPeer =
+    if node.wakuRlnRelay.isNil():
+      debug "mounting lightpush without rln-relay"
+      none(WakuRLNRelay)
     else:
-      debug "mounting lightpush with relay"
-      let rlnPeer =
-        if isNil(node.wakuRlnRelay):
-          debug "mounting lightpush without rln-relay"
-          none(WakuRLNRelay)
-        else:
-          debug "mounting lightpush with rln-relay"
-          some(node.wakuRlnRelay)
-      lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
+      debug "mounting lightpush with rln-relay"
+      some(node.wakuRlnRelay)
+  let pushHandler = lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush = WakuLightPush.new(
     node.peerManager, node.rng, pushHandler, node.wakuAutoSharding, some(rateLimit)
@@ -1155,7 +1156,15 @@ proc mountLightPush*(
     # Node has started already. Let's start lightpush too.
     await node.wakuLightPush.start()
 
-  node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
+  try:
+    node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
+  except LPError:
+    error "failed to mount waku lightpush", error = getCurrentExceptionMsg()
+    return lightpush_protocol.lightpushResultServiceUnavailable(
+      "cannot mount lightpush: " & getCurrentExceptionMsg()
+    )
+
+  return lightpush_protocol.lightpushSuccessResult(0'u32)
 
 proc mountLightPushClient*(node: WakuNode) =
   info "mounting light push client"
