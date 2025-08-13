@@ -85,7 +85,8 @@ type WakuConf* {.requiresInit.} = ref object
 
   relay*: bool
   lightPush*: bool
-  peerExchange*: bool
+  peerExchangeService*: bool
+  peerExchangeDiscovery*: bool
 
   # TODO: remove relay peer exchange
   relayPeerExchange*: bool
@@ -145,7 +146,7 @@ proc logConf*(conf: WakuConf) =
     store = conf.storeServiceConf.isSome(),
     filter = conf.filterServiceConf.isSome(),
     lightPush = conf.lightPush,
-    peerExchange = conf.peerExchange
+    peerExchange = conf.peerExchangeService
 
   info "Configuration. Network", cluster = conf.clusterId
 

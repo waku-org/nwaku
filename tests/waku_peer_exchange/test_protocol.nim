@@ -16,6 +16,7 @@ import
     waku_peer_exchange/rpc,
     waku_peer_exchange/rpc_codec,
     waku_peer_exchange/protocol,
+    waku_peer_exchange/client,
     node/peer_manager,
     waku_core,
     common/enr/builder,
@@ -145,7 +146,7 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Create connection
       let connOpt = await node2.peerManager.dialPeer(
@@ -168,10 +169,10 @@ suite "Waku Peer Exchange":
       node1.wakuPeerExchange.enrCache.add(enr2)
 
       # Request 2 peer from px. Test all request variants
-      let response1 = await node2.wakuPeerExchange.request(2)
+      let response1 = await node2.wakuPeerExchangeClient.request(2)
       let response2 =
-        await node2.wakuPeerExchange.request(2, node1.peerInfo.toRemotePeerInfo())
-      let response3 = await node2.wakuPeerExchange.request(2, connOpt.get())
+        await node2.wakuPeerExchangeClient.request(2, node1.peerInfo.toRemotePeerInfo())
+      let response3 = await node2.wakuPeerExchangeClient.request(2, connOpt.get())
 
       # Check the response or dont even continue
       require:
@@ -213,7 +214,7 @@ suite "Waku Peer Exchange":
       await connOpt.get().close()
 
       # Request 2 peer from px
-      let response = await node1.wakuPeerExchange.request(2, connOpt.get())
+      let response = await node1.wakuPeerExchangeClient.request(2, connOpt.get())
 
       # Check that it failed gracefully
       check:
@@ -225,10 +226,10 @@ suite "Waku Peer Exchange":
       let
         switch = newTestSwitch()
         peerManager = PeerManager.new(switch)
-        peerExchange = WakuPeerExchange.new(peerManager)
+        peerExchangeClient = WakuPeerExchangeClient.new(peerManager)
 
       # When requesting 0 peers
-      let response = await peerExchange.request(0)
+      let response = await peerExchangeClient.request(0)
 
       # Then the response should be an error
       check:
@@ -278,7 +279,7 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Connect the nodes
       let dialResponse = await node2.peerManager.dialPeer(
@@ -294,7 +295,7 @@ suite "Waku Peer Exchange":
       node1.wakuPeerExchange.enrCache.add(record)
 
       # When requesting 0 peers
-      let response = await node1.wakuPeerExchange.request(0)
+      let response = await node2.wakuPeerExchangeClient.request(0)
 
       # Then the response should be empty
       assertResultOk(response)
@@ -310,19 +311,19 @@ suite "Waku Peer Exchange":
 
       # Start and mount peer exchange
       await allFutures([node1.start(), node2.start()])
-      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node1.mountPeerExchangeClient(), node2.mountPeerExchange()])
 
       # Mock that we have discovered one enr
       var record = enr.Record()
       check record.fromUri(
         "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
       )
-      node1.wakuPeerExchange.enrCache.add(record)
+      node2.wakuPeerExchange.enrCache.add(record)
 
       # When making any request with an invalid peer info
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
-      let response = await node1.wakuPeerExchange.request(1, remotePeerInfo2)
+      let response = await node1.wakuPeerExchangeClient.request(1, remotePeerInfo2)
 
       # Then the response should be an error
       check:
@@ -337,10 +338,11 @@ suite "Waku Peer Exchange":
 
       await allFutures(nodes.mapIt(it.start()))
       await allFutures(nodes.mapIt(it.mountPeerExchange()))
+      await allFutures(nodes.mapIt(it.mountPeerExchangeClient()))
 
       # Multiple nodes request to node 0
       for i in 1 ..< 3:
-        let resp = await nodes[i].wakuPeerExchange.request(
+        let resp = await nodes[i].wakuPeerExchangeClient.request(
           2, nodes[0].switch.peerInfo.toRemotePeerInfo()
         )
         require resp.isOk
@@ -409,7 +411,7 @@ suite "Waku Peer Exchange":
       await allFutures(
         [
           node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),
-          node2.mountPeerExchange(),
+          node2.mountPeerExchangeClient(),
         ]
       )
 
@@ -436,19 +438,19 @@ suite "Waku Peer Exchange":
       await sleepAsync(150.milliseconds)
 
       # Request 2 peer from px. Test all request variants
-      let response1 = await node2.wakuPeerExchange.request(1)
+      let response1 = await node2.wakuPeerExchangeClient.request(1)
       check:
         response1.isOk
         response1.get().peerInfos.len == 1
 
       let response2 =
-        await node2.wakuPeerExchange.request(1, node1.peerInfo.toRemotePeerInfo())
+        await node2.wakuPeerExchangeClient.request(1, node1.peerInfo.toRemotePeerInfo())
       check:
         response2.isErr
         response2.error().status_code == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
 
       await sleepAsync(150.milliseconds)
-      let response3 = await node2.wakuPeerExchange.request(1, connOpt.get())
+      let response3 = await node2.wakuPeerExchangeClient.request(1, connOpt.get())
       check:
         response3.isOk
         response3.get().peerInfos.len == 1
