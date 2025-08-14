@@ -52,18 +52,30 @@ proc decodeFromJsonString*[T](
     # TODO: Do better error reporting here
     err("Unable to deserialize data")
 
+# Internal static implementation
 proc decodeFromJsonBytes*[T](
     t: typedesc[T], data: openArray[byte], requireAllFields = true
 ): SerdesResult[T] =
   try:
-    ok(
-      RestJson.decode(
-        string.fromBytes(data),
-        T,
-        requireAllFields = requireAllFields,
-        allowUnknownFields = true,
-      )
-    )
+    when true:
+      if requireAllFields:
+        ok(
+          RestJson.decode(
+            string.fromBytes(data),
+            T,
+            requireAllFields = true,
+            allowUnknownFields = true,
+          )
+        )
+      else:
+        ok(
+          RestJson.decode(
+            string.fromBytes(data),
+            T,
+            requireAllFields = false,
+            allowUnknownFields = true,
+          )
+        )
   except SerializationError:
     err("Unable to deserialize data: " & getCurrentExceptionMsg())
 
