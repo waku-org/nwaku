@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/sets,
+  std/[sets, tables],
   results,
   chronicles,
   chronos,
