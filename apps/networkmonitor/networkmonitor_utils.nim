@@ -31,7 +31,7 @@ proc decodeBytes*(
     try:
       let jsonContent = parseJson(res)
       if $jsonContent["status"].getStr() != "success":
-        error "query failed", result = jsonContent
+        error "query failed", result = $jsonContent
         return err("query failed")
       return ok(
         NodeLocation(

@@ -7,7 +7,11 @@ import
   results,
   regex
 
+const git_version* {.strdefine.} = "n/a"
+
 type EthRpcUrl* = distinct string
+
+proc `$`*(u: EthRpcUrl): string = string(u)
 
 type NetworkMonitorConf* = object
   logLevel* {.
