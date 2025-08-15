@@ -53,8 +53,8 @@ proc withWssTransport*(
         upgr,
         tlsPrivateKey = key,
         tlsCertificate = cert,
-        autotls       = nil,                      # required 5th param
-        tlsFlags      = {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName},
+        autotls = nil, # required 5th param
+        tlsFlags = {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName},
       )
   )
 

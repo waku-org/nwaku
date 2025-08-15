@@ -100,8 +100,7 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
             reader(value, r)
           except ValueError, IOError:
             raise newException(
-              SerializationError,
-              "Couldn't read field: " & getCurrentExceptionMsg(),
+              SerializationError, "Couldn't read field: " & getCurrentExceptionMsg()
             )
       discard r.key.pop()
   else:

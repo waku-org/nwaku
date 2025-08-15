@@ -67,19 +67,13 @@ proc decodeFromJsonBytes*[T](
     if requireAllFields:
       ok(
         RestJson.decode(
-          string.fromBytes(data),
-          T,
-          requireAllFields = true,
-          allowUnknownFields = true,
+          string.fromBytes(data), T, requireAllFields = true, allowUnknownFields = true
         )
       )
     else:
       ok(
         RestJson.decode(
-          string.fromBytes(data),
-          T,
-          requireAllFields = false,
-          allowUnknownFields = true,
+          string.fromBytes(data), T, requireAllFields = false, allowUnknownFields = true
         )
       )
   except SerializationError:
