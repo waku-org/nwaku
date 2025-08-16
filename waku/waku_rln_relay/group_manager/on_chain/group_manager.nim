@@ -173,11 +173,6 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
-method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
-  if g.validRoots.find(root) >= 0:
-    return true
-  return false
-
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
