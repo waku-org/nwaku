@@ -1,5 +1,5 @@
 import
-  std/[times, strutils, os, sets, strformat],
+  std/[times, strutils, os, sets, strformat, tables],
   results,
   chronos,
   chronos/threadsync,
