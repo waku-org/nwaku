@@ -82,7 +82,9 @@ proc `%`(c: RlnConfig): JsonNode =
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
-proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
+proc createRLNInstanceLocal(
+    d = MerkleTreeDepth, tree_path = DefaultRlnTreePath
+): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree
@@ -96,6 +98,7 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
       mode: "high_throughput",
       compression: false,
       flush_every_ms: 500,
+      path: tree_path,
     ),
   )
 
@@ -122,7 +125,7 @@ proc createRLNInstance*(
   ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d)
+    res = createRLNInstanceLocal(d, tree_path)
   return res
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
