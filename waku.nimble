@@ -27,7 +27,8 @@ requires "nim >= 2.2.4",
   "results",
   "db_connector",
   "minilru",
-  "quic"
+  "quic",
+  "ffi"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =

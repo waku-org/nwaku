@@ -1,5 +1,5 @@
 import options, std/[strutils, sequtils]
-import chronicles, chronos, results
+import chronicles, chronos, results, ffi
 import
   ../../../../waku/waku_filter_v2/client,
   ../../../../waku/waku_core/message/message,
@@ -9,8 +9,7 @@ import
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/node/waku_node,
   ../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../waku/waku_core/topics/content_topic,
-  ../../../alloc
+  ../../../../waku/waku_core/topics/content_topic
 
 type FilterMsgType* = enum
   SUBSCRIBE
