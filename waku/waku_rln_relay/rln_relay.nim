@@ -49,6 +49,7 @@ type RlnRelayConf* = object of RootObj
   treePath*: string
   epochSizeSec*: uint64
   userMessageLimit*: uint64
+  ethPrivateKey*: Option[string]
 
 type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
@@ -439,6 +440,7 @@ proc mount(
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,
       keystorePassword: rlnRelayCredPassword,
+      ethPrivateKey: conf.ethPrivateKey,
       membershipIndex: conf.credIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
     )

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, os, sequtils, tempfiles],
+  std/[options, os, sequtils, tempfiles, strutils, osproc],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -17,11 +17,49 @@ import
     waku_keystore,
   ],
   ./rln/waku_rln_relay_utils,
+  ./utils_onchain,
   ../testlib/[wakucore, futures, wakunode, testutils]
 
 from std/times import epochTime
 
+proc getWakuRlnConfig(
+    manager: OnchainGroupManager,
+    userMessageLimit: uint64 = 20,
+    epochSizeSec: uint64 = 1,
+    treePath: string = genTempPath("rln_tree", "waku_rln_relay"),
+    index: MembershipIndex = MembershipIndex(0),
+): WakuRlnConfig =
+  let wakuRlnConfig = WakuRlnConfig(
+    dynamic: true,
+    ethClientUrls: @[EthClient],
+    ethContractAddress: manager.ethContractAddress,
+    chainId: manager.chainId,
+    credIndex: some(index),
+    userMessageLimit: userMessageLimit,
+    epochSizeSec: epochSizeSec,
+    treePath: treePath,
+    ethPrivateKey: some(manager.ethPrivateKey.get()),
+    onFatalErrorAction: proc(errStr: string) =
+      warn "non-fatal onchain test error", errStr
+    ,
+  )
+  return wakuRlnConfig
+
 suite "Waku rln relay":
+  var anvilProc: Process
+  var tempManager: ptr OnchainGroupManager
+
+  setup:
+    anvilProc = runAnvil()
+    tempManager =
+      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
+    tempManager[] = waitFor setupOnchainGroupManager()
+
+  teardown:
+    waitFor tempManager[].stop()
+    stopAnvil(anvilProc)
+    freeShared(tempManager)
+
   test "key_gen Nim Wrappers":
     let merkleDepth: csize_t = 20
 
@@ -329,19 +367,21 @@ suite "Waku rln relay":
     # it is a duplicate
     assert isDuplicate3, "duplicate should be found"
 
-  asyncTest "validateMessageAndUpdateLog: against epoch gap":
+  asyncTest "against epoch gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-    )
-
+    let wakuRlnConfig = getWakuRlnConfig(manager = tempManager[], index = index)
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
+
+    let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let time_1 = epochTime()
 
