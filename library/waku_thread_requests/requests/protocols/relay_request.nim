@@ -1,5 +1,5 @@
 import std/[net, sequtils, strutils]
-import chronicles, chronos, stew/byteutils, results
+import chronicles, chronos, stew/byteutils, results, ffi
 import
   ../../../../waku/waku_core/message/message,
   ../../../../waku/factory/[validator_signed, waku],
@@ -10,8 +10,7 @@ import
   ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/waku_core/topics,
   ../../../../waku/waku_relay/protocol,
-  ../../../../waku/node/peer_manager,
-  ../../../alloc
+  ../../../../waku/node/peer_manager
 
 type RelayMsgType* = enum
   SUBSCRIBE

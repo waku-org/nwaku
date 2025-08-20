@@ -188,3 +188,8 @@
 	path = vendor/mix
 	url = https://github.com/vacp2p/mix/
 	branch = main
+[submodule "vendor/nim-ffi"]
+	path = vendor/nim-ffi
+	url = https://github.com/waku-org/nim-ffi/
+	ignore = untracked
+	branch = main
