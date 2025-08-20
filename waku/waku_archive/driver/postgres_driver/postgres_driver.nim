@@ -5,6 +5,7 @@ import
   stew/[byteutils, arrayops],
   results,
   chronos,
+  metrics,
   db_connector/[postgres, db_common],
   chronicles
 import
@@ -15,6 +16,9 @@ import
   ../../../common/databases/db_postgres as waku_postgres,
   ./postgres_healthcheck,
   ./partitions_manager
+
+declarePublicGauge postgres_payload_size_bytes,
+  "Payload size in bytes of correctly stored messages"
 
 type PostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
@@ -334,13 +338,17 @@ method put*(
     return err("could not put msg in messages table: " & $error)
 
   ## Now add the row to messages_lookup
-  return await s.writeConnPool.runStmt(
+  let ret = await s.writeConnPool.runStmt(
     InsertRowInMessagesLookupStmtName,
     InsertRowInMessagesLookupStmtDefinition,
     @[messageHash, timestamp],
     @[int32(messageHash.len), int32(timestamp.len)],
     @[int32(0), int32(0)],
   )
+
+  if ret.isOk():
+    postgres_payload_size_bytes.set(message.payload.len)
+  return ret
 
 method getAllMessages*(
     s: PostgresDriver
