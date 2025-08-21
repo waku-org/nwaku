@@ -20,6 +20,7 @@ import
   ../../waku_enr/sharding,
   ../../waku_enr/capabilities,
   ../../waku_metadata,
+  ../../common/shard_subscription_monitor,
   ../health_monitor/online_monitor,
   ./peer_store/peer_storage,
   ./waku_peer_store
@@ -99,6 +100,7 @@ type PeerManager* = ref object of RootObj
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
   online: bool ## state managed by online_monitor module
+  shardSubscriptionMonitor*: ShardsSubscriptionMonitor
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -769,10 +771,10 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    for shard in pm.wakuMetadata.shards.items:
+    for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
       waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
 
-    for shard in pm.wakuMetadata.shards.items:
+    for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
       let connectedPeers =
         peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
       waku_connected_peers_per_shard.set(
@@ -788,8 +790,10 @@ proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
+  let shardCount = pm.shardSubscriptionMonitor.getSubscribedShards().len
+
   #TODO: this check should not be based on whether shards are present, but rather if relay is mounted
-  if pm.wakuMetadata.shards.len == 0:
+  if shardCount == 0:
     return
 
   if not pm.online:
@@ -803,19 +807,18 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   var (inPeers, outPeers) = pm.connectedPeers(WakuRelayCodec)
 
   # Calculate in/out target number of peers for each shards
-  let inTarget = pm.inRelayPeersTarget div pm.wakuMetadata.shards.len
-  let outTarget = pm.outRelayPeersTarget div pm.wakuMetadata.shards.len
+  let inTarget = pm.inRelayPeersTarget div shardCount
+  let outTarget = pm.outRelayPeersTarget div shardCount
 
   var peerStore = pm.switch.peerStore
 
-  for shard in pm.wakuMetadata.shards.items:
+  for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
     # Filter out peer not on this shard
-    let connectedInPeers = inPeers.filterIt(
-      peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
-    )
+    let connectedInPeers =
+      inPeers.filterIt(peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), shard))
 
     let connectedOutPeers = outPeers.filterIt(
-      peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), shard)
     )
 
     # Calculate the difference between current values and targets
@@ -1023,6 +1026,8 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    shardSubscriptionMonitor: Option[ShardsSubscriptionMonitor] =
+      none(ShardsSubscriptionMonitor),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1075,6 +1080,8 @@ proc new*(
     shardedPeerManagement: shardedPeerManagement,
     online: true,
   )
+  if shardSubscriptionMonitor.isSome():
+    pm.shardSubscriptionMonitor = shardSubscriptionMonitor.get()
 
   proc peerHook(
       peerId: PeerId, event: PeerEvent

@@ -48,6 +48,7 @@ import
   ../waku_rln_relay,
   ./net_config,
   ./peer_manager,
+  ../common/shard_subscription_monitor,
   ../common/rate_limit/setting
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -122,6 +123,7 @@ type
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     rateLimitSettings*: ProtocolRateLimitSettings
+    shardSubscriptionMonitor*: ShardsSubscriptionMonitor
 
 proc new*(
     T: type WakuNode,
@@ -138,7 +140,8 @@ proc new*(
   info "Initializing networking", addrs = $netConfig.announcedAddresses
 
   let queue = newAsyncEventQueue[SubscriptionEvent](0)
-
+  let shardSubscriptionMonitor = ShardsSubscriptionMonitor.new()
+  peerManager.shardSubscriptionMonitor = shardSubscriptionMonitor
   let node = WakuNode(
     peerManager: peerManager,
     switch: switch,
@@ -147,6 +150,7 @@ proc new*(
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
     rateLimitSettings: rateLimitSettings,
+    shardSubscriptionMonitor: shardSubscriptionMonitor,
   )
 
   return node
@@ -190,8 +194,7 @@ proc mountMetadata*(
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
   let shards32 = shards.mapIt(it.uint32)
-  let metadata =
-    WakuMetadata.new(clusterId, shards32.toHashSet(), some(node.topicSubscriptionQueue))
+  let metadata = WakuMetadata.new(clusterId, node.shardSubscriptionMonitor)
 
   node.wakuMetadata = metadata
   node.peerManager.wakuMetadata = metadata
@@ -324,7 +327,6 @@ proc subscribe*(
   if node.wakuRelay.isNil():
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
-
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentSub:
@@ -348,6 +350,7 @@ proc subscribe*(
 
   node.registerRelayHandler(pubsubTopic, handler)
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
+  node.shardSubscriptionMonitor.onTopicSubscribed(pubsubTopic)
 
   return ok()
 
@@ -359,7 +362,6 @@ proc unsubscribe*(
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
-
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind
     of ContentUnsub:
@@ -384,7 +386,7 @@ proc unsubscribe*(
   debug "unsubscribe", pubsubTopic, contentTopicOp
   node.wakuRelay.unsubscribe(pubsubTopic)
   node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
-
+  node.shardSubscriptionMonitor.onTopicUnSubscribed(pubsubTopic)
   return ok()
 
 proc publish*(
@@ -574,6 +576,7 @@ proc filterSubscribe*(
 
       # Purpose is to update Waku Metadata
       node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic.get()))
+      node.shardSubscriptionMonitor.onTopicSubscribed(pubsubTopic.get())
     else:
       error "failed filter v2 subscription", error = subRes.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
@@ -619,6 +622,7 @@ proc filterSubscribe*(
 
         # Purpose is to update Waku Metadata
         node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
+        node.shardSubscriptionMonitor.onShardSubscribed(pubsub.shardId.uint16)
     except CatchableError:
       let errMsg = "exception in filterSubscribe: " & getCurrentExceptionMsg()
       error "exception in filterSubscribe", error = getCurrentExceptionMsg()
@@ -659,6 +663,7 @@ proc filterUnsubscribe*(
 
       # Purpose is to update Waku Metadata
       node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic.get()))
+      node.shardSubscriptionMonitor.onTopicUnSubscribed(pubsubTopic.get())
     else:
       error "failed filter unsubscription", error = unsubRes.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
@@ -702,6 +707,7 @@ proc filterUnsubscribe*(
 
         # Purpose is to update Waku Metadata
         node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
+        node.shardSubscriptionMonitor.onShardUnSubscribed(pubsub.shardId.uint16)
     except CatchableError:
       let errMsg = "exception in filterUnsubscribe: " & getCurrentExceptionMsg()
       error "exception in filterUnsubscribe", error = getCurrentExceptionMsg()
