@@ -24,7 +24,7 @@ from std/times import epochTime
 
 proc getWakuRlnConfig(
     manager: OnchainGroupManager,
-    userMessageLimit: uint64 = 20,
+    userMessageLimit: uint64 = 1,
     epochSizeSec: uint64 = 1,
     treePath: string = genTempPath("rln_tree", "waku_rln_relay"),
     index: MembershipIndex = MembershipIndex(0),
@@ -367,7 +367,7 @@ suite "Waku rln relay":
     # it is a duplicate
     assert isDuplicate3, "duplicate should be found"
 
-  asyncTest "against epoch gap":
+  asyncTest "validateMessageAndUpdateLog: against epoch gap":
     let index = MembershipIndex(5)
 
     let wakuRlnConfig = getWakuRlnConfig(manager = tempManager[], index = index)
@@ -383,38 +383,38 @@ suite "Waku rln relay":
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
-    let time_1 = epochTime()
+    let epoch1 = wakuRlnRelay.getCurrentEpoch()
 
+    # Create messages from the same peer and append RLN proof to them (except wm4)
     var
-      # create some messages from the same peer and append rln proof to them, except wm4
       wm1 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
-      # another message in the same epoch as wm1, it will break the messaging rate limit
+      # Another message in the same epoch as wm1, expected to break the rate limit
       wm2 = WakuMessage(payload: "Spam message".toBytes(), timestamp: now())
 
     await sleepAsync(1.seconds)
-    let time_2 = epochTime()
+    let epoch2 = wakuRlnRelay.getCurrentEpoch()
 
     var
-      #  wm3 points to the next epoch bcz of the sleep 
+      # wm3 points to the next epoch due to the sleep
       wm3 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
       wm4 = WakuMessage(payload: "Invalid message".toBytes(), timestamp: now())
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm1, time_1).isOkOr:
+    # Append RLN proofs
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch1, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, time_1).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch1, MessageId(2)).isOkOr:
+      raiseAssert $error
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, epoch2, MessageId(3)).isOkOr:
       raiseAssert $error
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm3, time_2).isOkOr:
-      raiseAssert $error
-
-    # validate messages
+    # Validate messages
     let
       msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
-      # wm2 is published within the same Epoch as wm1 and should be found as spam
+      # wm2 is within the same epoch as wm1 → should be spam
       msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
-      # a valid message should be validated successfully
+      # wm3 is in the next epoch → should be valid
       msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3)
-      # wm4 has no rln proof and should not be validated
+      # wm4 has no RLN proof → should be invalid
       msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4)
 
     check:
@@ -426,30 +426,33 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog: against timestamp gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index),
-      userMessageLimit: 10,
-      epochSizeSec: 10,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = tempManager[], index = index)
 
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
-    # usually it's 20 seconds but we set it to 2 for testing purposes which make the test faster
+    let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    # usually it's 20 seconds but we set it to 1 for testing purposes which make the test faster
     wakuRlnRelay.rlnMaxTimestampGap = 1
 
-    var time = epochTime()
+    var epoch = wakuRlnRelay.getCurrentEpoch()
 
     var
       wm1 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
       wm2 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
     # validate the first message because it's timestamp is the same as the generated timestamp
@@ -465,33 +468,37 @@ suite "Waku rln relay":
       msgValidate1 == MessageValidationResult.Valid
       msgValidate2 == MessageValidationResult.Invalid
 
-  asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
+  asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
-    let index2 = MembershipIndex(6)
-
-    let rlnConf1 = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index1),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_3"),
-    )
-
+    let rlnConf1 = getWakuRlnConfig(manager = tempManager[], index = index1)
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
-    let rlnConf2 = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index2),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
-    )
+    let manager1 = cast[OnchainGroupManager](wakuRlnRelay1.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
 
-    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let index2 = MembershipIndex(6)
+    let rlnConf2 = getWakuRlnConfig(manager = tempManager[], index = index2)
+    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
+
+    let manager2 = cast[OnchainGroupManager](wakuRlnRelay2.groupManager)
+    let idCredentials2 = generateCredentials(manager2.rlnInstance)
+
+    try:
+      waitFor manager2.register(idCredentials2, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
     # get the current epoch time
-    let time = epochTime()
+    let epoch = wakuRlnRelay1.getCurrentEpoch()
 
     #  create messages from different peers and append rln proofs to them
     var
@@ -501,9 +508,9 @@ suite "Waku rln relay":
       wm2 =
         WakuMessage(payload: "Valid message from sender 2".toBytes(), timestamp: now())
 
-    wakuRlnRelay1.appendRLNProof(wm1, time).isOkOr:
+    wakuRlnRelay1.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay2.appendRLNProof(wm2, time).isOkOr:
+    wakuRlnRelay2.unsafeAppendRLNProof(wm2, epoch, MessageId(2)).isOkOr:
       raiseAssert $error
 
     # validate messages
