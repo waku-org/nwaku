@@ -1,22 +1,29 @@
 import std/tempfiles
 
-import waku/waku_rln_relay, waku/waku_rln_relay/[rln, protocol_types]
+import waku/waku_rln_relay, waku/waku_rln_relay/[rln, protocol_types, nonce_manager]
 
 proc createRLNInstanceWrapper*(): RLNResult =
   return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
 
 proc unsafeAppendRLNProof*(
-    rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64
+    rlnPeer: WakuRLNRelay, msg: var WakuMessage, epoch: Epoch, messageId: MessageId
 ): RlnRelayResult[void] =
-  ## this proc derived from appendRLNProof, does not perform nonce check to
-  ## facilitate bad message id generation for testing
+  ## Test helper derived from `appendRLNProof`.
+  ## - Skips nonce validation to intentionally allow generating "bad" message IDs for tests.
+  ## - Forces a real-time on-chain Merkle root refresh via `updateRoots()` and fetches Merkle
+  ##   proof elements, updating `merkleProofCache` (bypasses `trackRootsChanges`).
+  ## WARNING: For testing only
 
-  let input = msg.toRLNSignal()
-  let epoch = rlnPeer.calcEpoch(senderEpochTime)
+  let manager = cast[OnchainGroupManager](rlnPeer.groupManager)
+  let rootUpdated = waitFor manager.updateRoots()
 
-  # we do not fetch a nonce from the nonce manager,
-  # instead we use 0 as the nonce
-  let proof = rlnPeer.groupManager.generateProof(input, epoch, 0).valueOr:
+  if rootUpdated:
+    let proofResult = waitFor manager.fetchMerkleProofElements()
+    if proofResult.isErr():
+      error "Failed to fetch Merkle proof", error = proofResult.error
+    manager.merkleProofCache = proofResult.get()
+
+  let proof = manager.generateProof(msg.payload, epoch, messageId).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
 
   msg.proof = proof.encode().buffer
