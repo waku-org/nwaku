@@ -485,7 +485,7 @@ suite "Waku rln relay":
 
     let index2 = MembershipIndex(6)
     let rlnConf2 = getWakuRlnConfig(manager = tempManager[], index = index2)
-    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
+    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
     let manager2 = cast[OnchainGroupManager](wakuRlnRelay2.groupManager)
@@ -510,7 +510,7 @@ suite "Waku rln relay":
 
     wakuRlnRelay1.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay2.unsafeAppendRLNProof(wm2, epoch, MessageId(2)).isOkOr:
+    wakuRlnRelay2.unsafeAppendRLNProof(wm2, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
     # validate messages
