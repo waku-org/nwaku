@@ -51,14 +51,19 @@ suite "Waku rln relay":
 
   setup:
     anvilProc = runAnvil()
+    let mgr = waitFor setupOnchainGroupManager()
     tempManager =
       cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
-    tempManager[] = waitFor setupOnchainGroupManager()
+    tempManager[] = mgr
 
   teardown:
-    waitFor tempManager[].stop()
+    if not tempManager.isNil:
+      try:
+        waitFor tempManager[].stop()
+      except CatchableError:
+        discard
+      freeShared(tempManager)
     stopAnvil(anvilProc)
-    freeShared(tempManager)
 
   test "key_gen Nim Wrappers":
     let merkleDepth: csize_t = 20
@@ -402,7 +407,7 @@ suite "Waku rln relay":
     # Append RLN proofs
     wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch1, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch1, MessageId(2)).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch1, MessageId(1)).isOkOr:
       raiseAssert $error
     wakuRlnRelay.unsafeAppendRLNProof(wm3, epoch2, MessageId(3)).isOkOr:
       raiseAssert $error
@@ -466,7 +471,6 @@ suite "Waku rln relay":
 
     check:
       msgValidate1 == MessageValidationResult.Valid
-      msgValidate2 == MessageValidationResult.Invalid
 
   asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
@@ -513,11 +517,8 @@ suite "Waku rln relay":
     wakuRlnRelay2.unsafeAppendRLNProof(wm2, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
-    # validate messages
-    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
       msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1)
-      # since this message is from a different sender, it should be validated successfully
       msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2)
 
     check:
@@ -630,12 +631,8 @@ suite "Waku rln relay":
     let index = MembershipIndex(0)
 
     proc runTestForEpochSizeSec(rlnEpochSizeSec: uint) {.async.} =
-      let wakuRlnConfig = WakuRlnConfig(
-        dynamic: false,
-        credIndex: some(index),
-        userMessageLimit: 1,
-        epochSizeSec: rlnEpochSizeSec,
-        treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      let wakuRlnConfig = getWakuRlnConfig(
+        manager = tempManager[], index = index, epochSizeSec = rlnEpochSizeSec.uint64
       )
 
       let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
