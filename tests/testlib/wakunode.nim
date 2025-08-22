@@ -1,5 +1,6 @@
 import
   std/options,
+  std/sequtils,
   results,
   chronos,
   libp2p/switch,
@@ -11,6 +12,7 @@ import
   waku/[
     waku_node,
     waku_core/topics,
+    waku_core/message,
     node/peer_manager,
     waku_enr,
     discovery/waku_discv5,
@@ -18,6 +20,7 @@ import
     factory/waku_conf,
     factory/conf_builder/conf_builder,
     factory/builder,
+    common/shard_subscription_monitor,
   ],
   ./common
 
@@ -153,4 +156,15 @@ proc newTestWakuNode*(
     agentString = agentString,
   )
 
-  return builder.build().get()
+  let node = builder.build().get()
+
+  let confShards = conf.subscribeShards.mapIt(
+    RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+  )
+
+  let shards = node.shardSubscriptionMonitor.getSubscribedShards()
+  for shard in confShards:
+    let topic = $shard
+    node.shardSubscriptionMonitor.onTopicSubscribed(topic)
+
+  return node
