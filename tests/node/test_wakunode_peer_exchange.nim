@@ -78,11 +78,11 @@ suite "Waku Peer Exchange":
       check:
         node.peerManager.switch.peerStore.peers.len == 0
         res.error.status_code == SERVICE_UNAVAILABLE
-        res.error.status_desc == some("PeerExchange is not mounted")
+        res.error.status_desc == some("PeerExchangeClient is not mounted")
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
-      await node.mountPeerExchange()
+      await node.mountPeerExchangeClient()
 
       # When a node fetches peers
       let res = await node.fetchPeerExchangePeers(1)
@@ -95,7 +95,7 @@ suite "Waku Peer Exchange":
 
     asyncTest "Node succesfully exchanges px peers with faked discv5":
       # Given both nodes mount peer exchange
-      await allFutures([node.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures([node.mountPeerExchangeClient(), node2.mountPeerExchange()])
       check node.peerManager.switch.peerStore.peers.len == 0
 
       # Mock that we discovered a node (to avoid running discv5)
@@ -271,6 +271,7 @@ suite "Waku Peer Exchange with discv5":
     # Mount peer exchange
     await node1.mountPeerExchange()
     await node3.mountPeerExchange()
+    await node3.mountPeerExchangeClient()
 
     let dialResponse =
       await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())

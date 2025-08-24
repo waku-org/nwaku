@@ -274,8 +274,8 @@ procSuite "Peer Manager":
       )
       node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(34023))
 
-    node1.mountMetadata(0).expect("Mounted Waku Metadata")
-    node2.mountMetadata(0).expect("Mounted Waku Metadata")
+    node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
+    node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
     await node1.start()
     await node2.start()
@@ -313,7 +313,7 @@ procSuite "Peer Manager":
       peerStorage = storage,
     )
 
-    node3.mountMetadata(0).expect("Mounted Waku Metadata")
+    node3.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
     await node3.start()
 
@@ -347,8 +347,8 @@ procSuite "Peer Manager":
       )
       node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(34023))
 
-    node1.mountMetadata(0).expect("Mounted Waku Metadata")
-    node2.mountMetadata(0).expect("Mounted Waku Metadata")
+    node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
+    node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
     await node1.start()
     await node2.start()
@@ -386,7 +386,7 @@ procSuite "Peer Manager":
       peerStorage = storage,
     )
 
-    node3.mountMetadata(0).expect("Mounted Waku Metadata")
+    node3.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
     await node3.start()
 
@@ -439,9 +439,9 @@ procSuite "Peer Manager":
         subscribeShards = @[uint16(0)],
       )
 
-    node1.mountMetadata(3).expect("Mounted Waku Metadata")
-    node2.mountMetadata(4).expect("Mounted Waku Metadata")
-    node3.mountMetadata(4).expect("Mounted Waku Metadata")
+    node1.mountMetadata(3, @[0'u16]).expect("Mounted Waku Metadata")
+    node2.mountMetadata(4, @[0'u16]).expect("Mounted Waku Metadata")
+    node3.mountMetadata(4, @[0'u16]).expect("Mounted Waku Metadata")
 
     # Start nodes
     await allFutures([node1.start(), node2.start(), node3.start()])
@@ -548,7 +548,7 @@ procSuite "Peer Manager":
       )
 
     # Start them
-    discard nodes.mapIt(it.mountMetadata(0))
+    discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.start()))
 
@@ -621,7 +621,7 @@ procSuite "Peer Manager":
       )
 
     # Start them
-    discard nodes.mapIt(it.mountMetadata(0))
+    discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.start()))
 

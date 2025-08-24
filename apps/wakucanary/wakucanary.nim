@@ -256,7 +256,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
       error "failed to mount libp2p ping protocol: " & getCurrentExceptionMsg()
       quit(QuitFailure)
 
-  node.mountMetadata(conf.clusterId).isOkOr:
+  node.mountMetadata(conf.clusterId, conf.shards).isOkOr:
     error "failed to mount metadata protocol", error
     quit(QuitFailure)
 
