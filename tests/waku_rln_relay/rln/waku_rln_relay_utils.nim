@@ -29,3 +29,26 @@ proc unsafeAppendRLNProof*(
 
   msg.proof = proof.encode().buffer
   return ok()
+
+proc getWakuRlnConfig*(
+    manager: OnchainGroupManager,
+    userMessageLimit: uint64 = 1,
+    epochSizeSec: uint64 = 1,
+    treePath: string = genTempPath("rln_tree", "waku_rln_relay"),
+    index: MembershipIndex = MembershipIndex(0),
+): WakuRlnConfig =
+  let wakuRlnConfig = WakuRlnConfig(
+    dynamic: true,
+    ethClientUrls: @[EthClient],
+    ethContractAddress: manager.ethContractAddress,
+    chainId: manager.chainId,
+    credIndex: some(index),
+    userMessageLimit: userMessageLimit,
+    epochSizeSec: epochSizeSec,
+    treePath: treePath,
+    ethPrivateKey: some(manager.ethPrivateKey.get()),
+    onFatalErrorAction: proc(errStr: string) =
+      warn "non-fatal onchain test error", errStr
+    ,
+  )
+  return wakuRlnConfig
