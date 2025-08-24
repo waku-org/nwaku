@@ -178,6 +178,8 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   if rootRes.isErr():
     return false
 
+  debug "------Merkle root updated----", root = rootRes.get()
+
   let merkleRoot = UInt256ToField(rootRes.get())
 
   if g.validRoots.len == 0:
@@ -210,7 +212,8 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
           let proofResult = await g.fetchMerkleProofElements()
           if proofResult.isErr():
             error "Failed to fetch Merkle proof", error = proofResult.error
-          g.merkleProofCache = proofResult.get()
+          else:
+            g.merkleProofCache = proofResult.get()
 
         let nextFreeIndex = await g.fetchNextFreeIndex()
         if nextFreeIndex.isErr():
