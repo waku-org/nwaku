@@ -16,29 +16,6 @@ import
 
 from std/times import epochTime
 
-proc getWakuRlnConfig(
-    manager: OnchainGroupManager,
-    userMessageLimit: uint64 = 1,
-    epochSizeSec: uint64 = 1,
-    treePath: string = genTempPath("rln_tree", "wakunode_rln_relay"),
-    index: MembershipIndex = MembershipIndex(0),
-): WakuRlnConfig =
-  let wakuRlnConfig = WakuRlnConfig(
-    dynamic: true,
-    ethClientUrls: @[EthClient],
-    ethContractAddress: manager.ethContractAddress,
-    chainId: manager.chainId,
-    credIndex: some(index),
-    userMessageLimit: userMessageLimit,
-    epochSizeSec: epochSizeSec,
-    treePath: treePath,
-    ethPrivateKey: some(manager.ethPrivateKey.get()),
-    onFatalErrorAction: proc(errStr: string) =
-      warn "non-fatal onchain test error", errStr = errStr
-    ,
-  )
-  return wakuRlnConfig
-
 proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
   ## Helper function
   for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)
