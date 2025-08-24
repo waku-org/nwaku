@@ -17,7 +17,8 @@ proc unsafeAppendRLNProof*(
   let manager = cast[OnchainGroupManager](rlnPeer.groupManager)
   let rootUpdated = waitFor manager.updateRoots()
 
-  if rootUpdated:
+  # Fetch Merkle proof either when a new root was detected *or* when the cache is empty.
+  if rootUpdated or manager.merkleProofCache.len == 0:
     let proofResult = waitFor manager.fetchMerkleProofElements()
     if proofResult.isErr():
       error "Failed to fetch Merkle proof", error = proofResult.error
