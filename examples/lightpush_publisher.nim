@@ -68,7 +68,9 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
   let node = builder.build().tryGet()
 
-  node.mountMetadata(clusterId).expect("failed to mount waku metadata protocol")
+  node.mountMetadata(clusterId, shardId).expect(
+    "failed to mount waku metadata protocol"
+  )
   node.mountLegacyLightPushClient()
 
   await node.start()

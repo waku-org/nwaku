@@ -17,6 +17,7 @@ import
     waku_peer_exchange,
     waku_peer_exchange/rpc,
     waku_peer_exchange/protocol,
+    waku_peer_exchange/client,
     node/peer_manager,
     waku_core,
   ],
@@ -40,7 +41,8 @@ proc dialForPeerExchange*(
     require connOpt.isSome()
     await sleepAsync(FUTURE_TIMEOUT_SHORT)
 
-    let response = await client.wakuPeerExchange.request(requestedPeers, connOpt.get())
+    let response =
+      await client.wakuPeerExchangeClient.request(requestedPeers, connOpt.get())
     assertResultOk(response)
 
     if uint64(response.get().peerInfos.len) > minimumPeers:
