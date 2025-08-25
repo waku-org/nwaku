@@ -178,8 +178,6 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   if rootRes.isErr():
     return false
 
-  debug "------Merkle root updated----", root = rootRes.get()
-
   let merkleRoot = UInt256ToField(rootRes.get())
 
   if g.validRoots.len == 0:
