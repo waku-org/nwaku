@@ -258,6 +258,7 @@ procSuite "WakuNode - RLN relay":
         timestamp: now(),
         contentTopic: contentTopics[0],
       )
+
       nodes[0].wakuRlnRelay.unsafeAppendRLNProof(
         message, nodes[0].wakuRlnRelay.getCurrentEpoch(), MessageId(i.uint8)
       ).isOkOr:
@@ -270,6 +271,7 @@ procSuite "WakuNode - RLN relay":
         timestamp: now(),
         contentTopic: contentTopics[1],
       )
+
       nodes[1].wakuRlnRelay.unsafeAppendRLNProof(
         message, nodes[1].wakuRlnRelay.getCurrentEpoch(), MessageId(i.uint8)
       ).isOkOr:
@@ -294,151 +296,133 @@ procSuite "WakuNode - RLN relay":
 
     await allFutures(nodes.mapIt(it.stop()))
 
-  # asyncTest "testing rln-relay with invalid proof":
-  #   let
-  #     # publisher node
-  #     nodeKey1 = generateSecp256k1Key()
-  #     node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
-  #     # Relay node
-  #     nodeKey2 = generateSecp256k1Key()
-  #     node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
-  #     # Subscriber
-  #     nodeKey3 = generateSecp256k1Key()
-  #     node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
+  asyncTest "testing rln-relay with invalid proof":
+    let
+      # publisher node
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
+      # Relay node
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
+      # Subscriber
+      nodeKey3 = generateSecp256k1Key()
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
-  #     contentTopic = ContentTopic("/waku/2/default-content/proto")
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
 
-  #   # set up three nodes
-  #   # node1
-  #   (await node1.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
+    # set up three nodes
+    # node1
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
-  #   # mount rlnrelay in off-chain mode
-  #   let wakuRlnConfig1 = getWakuRlnConfig(
-  #     manager = tempManager[],
-  #     treePath = genTempPath("rln_tree", "wakunode_1"),
-  #     index = MembershipIndex(1),
-  #   )
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig1 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_1"),
+      index = MembershipIndex(1),
+    )
 
-  #   await node1.mountRlnRelay(wakuRlnConfig1)
-  #   await node1.start()
+    await node1.mountRlnRelay(wakuRlnConfig1)
+    await node1.start()
 
-  #   let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
-  #   let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
 
-  #   try:
-  #     waitFor manager1.register(idCredentials1, UserMessageLimit(20))
-  #   except Exception, CatchableError:
-  #     assert false,
-  #       "exception raised when calling register: " & getCurrentExceptionMsg()
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
-  #   let rootUpdated1 = waitFor manager1.updateRoots()
-  #   debug "Updated root for node1", rootUpdated1
+    let rootUpdated1 = waitFor manager1.updateRoots()
+    debug "Updated root for node1", rootUpdated1
 
-  #   # node 2
-  #   (await node2.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
-  #   # mount rlnrelay in off-chain mode
-  #   let wakuRlnConfig2 = getWakuRlnConfig(
-  #     manager = tempManager[],
-  #     treePath = genTempPath("rln_tree", "wakunode_2"),
-  #     index = MembershipIndex(2),
-  #   )
+    # node 2
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig2 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_2"),
+      index = MembershipIndex(2),
+    )
 
-  #   await node2.mountRlnRelay(wakuRlnConfig2)
-  #   await node2.start()
+    await node2.mountRlnRelay(wakuRlnConfig2)
+    await node2.start()
 
-  #   let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
-  #   let rootUpdated2 = waitFor manager2.updateRoots()
-  #   debug "Updated root for node2", rootUpdated2
+    let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
+    let rootUpdated2 = waitFor manager2.updateRoots()
+    debug "Updated root for node2", rootUpdated2
 
-  #   # node 3
-  #   (await node3.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
+    # node 3
+    (await node3.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
-  #   let wakuRlnConfig3 = getWakuRlnConfig(
-  #     manager = tempManager[],
-  #     treePath =  genTempPath("rln_tree", "wakunode_3"),
-  #     index = MembershipIndex(3),
-  #   )
+    let wakuRlnConfig3 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_3"),
+      index = MembershipIndex(3),
+    )
 
-  #   await node3.mountRlnRelay(wakuRlnConfig3)
-  #   await node3.start()
+    await node3.mountRlnRelay(wakuRlnConfig3)
+    await node3.start()
 
-  #   let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
-  #   let rootUpdated3 = waitFor manager3.updateRoots()
-  #   debug "Updated root for node3", rootUpdated3
+    let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
+    let rootUpdated3 = waitFor manager3.updateRoots()
+    debug "Updated root for node3", rootUpdated3
 
-  #   # connect them together
-  #   await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-  #   await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    # connect them together
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-  #   # define a custom relay handler
-  #   var completionFut = newFuture[bool]()
-  #   proc relayHandler(
-  #       topic: PubsubTopic, msg: WakuMessage
-  #   ): Future[void] {.async, gcsafe.} =
-  #     debug "The received topic:", topic
-  #     if topic == DefaultPubsubTopic:
-  #       completionFut.complete(true)
+    # define a custom relay handler
+    var completionFut = newFuture[bool]()
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == DefaultPubsubTopic:
+        completionFut.complete(true)
 
-  #   proc simpleHandler(
-  #       topic: PubsubTopic, msg: WakuMessage
-  #   ): Future[void] {.async, gcsafe.} =
-  #     await sleepAsync(0.milliseconds)
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
-  #   node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic in node1: " & $error
-  #   node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic in node2: " & $error
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
 
-  #   # mount the relay handler
-  #   node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic: " & $error
-  #   await sleepAsync(2000.millis)
+    # mount the relay handler
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
+    await sleepAsync(2000.millis)
 
-  #   # prepare the message payload
-  #   let payload = "Hello".toBytes()
+    # prepare the message payload
+    let payload = "valid".toBytes()
+    # prepare the epoch
+    let epoch = node1.wakuRlnRelay.getCurrentEpoch()
 
-  #   # prepare the epoch
-  #   let epoch = node1.wakuRlnRelay.getCurrentEpoch()
+    var message =
+      WakuMessage(payload: @payload, contentTopic: DefaultPubsubTopic, timestamp: now())
 
-  #   # prepare the proof
-  #   let
-  #     contentTopicBytes = contentTopic.toBytes
-  #     input = concat(payload, contentTopicBytes)
-  #     extraBytes: seq[byte] = @[byte(1), 2, 3]
+    node1.wakuRlnRelay.unsafeAppendRLNProof(message, epoch, MessageId(0)).isOkOr:
+      assert false, "Failed to append rln proof: " & $error
 
-  #   let nonceManager = node1.wakuRlnRelay.nonceManager
-  #   let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(
-  #     concat(input, extraBytes), epoch, MessageId(0)
-  #   )
+    # message.payload = "Invalid".toBytes()
+    message.proof[0] = message.proof[0] xor 0x01
 
-  #   assert rateLimitProofRes.isOk(), $rateLimitProofRes.error
-  #     # check the proof is generated correctly outside when block to avoid duplication
-  #   let rateLimitProof = rateLimitProofRes.get().encode().buffer
+    discard await node1.publish(some(DefaultPubsubTopic), message)
+    await sleepAsync(2000.millis)
 
-  #   let message = WakuMessage(
-  #     payload: @payload,
-  #     contentTopic: contentTopic,
-  #     proof: rateLimitProof,
-  #     timestamp: now(),
-  #   )
+    check:
+      # the relayHandler of node3 never gets called
+      (await completionFut.withTimeout(10.seconds)) == false
 
-  #   ## node1 publishes a message with an invalid rln proof, the message is then relayed to node2 which in turn
-  #   ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
-  #   ## never gets called
-  #   ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-  #   discard await node1.publish(some(DefaultPubsubTopic), message)
-  #   await sleepAsync(2000.millis)
-
-  #   check:
-  #     # the relayHandler of node3 never gets called
-  #     (await completionFut.withTimeout(10.seconds)) == false
-
-  #   await node1.stop()
-  #   await node2.stop()
-  #   await node3.stop()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   # asyncTest "testing rln-relay double-signaling detection":
   #   let
