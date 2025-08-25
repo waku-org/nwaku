@@ -100,7 +100,7 @@ type PeerManager* = ref object of RootObj
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
   online: bool ## state managed by online_monitor module
-  shardSubscriptionMonitor*: ShardsSubscriptionMonitor
+  getSubscribedShards*: ShardsGetter
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -771,10 +771,10 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
+    for shard in pm.getSubscribedShards():
       waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
 
-    for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
+    for shard in pm.getSubscribedShards():
       let connectedPeers =
         peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
       waku_connected_peers_per_shard.set(
@@ -790,7 +790,7 @@ proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
-  let shardCount = pm.shardSubscriptionMonitor.getSubscribedShards().len
+  let shardCount = pm.getSubscribedShards().len
 
   #TODO: this check should not be based on whether shards are present, but rather if relay is mounted
   if shardCount == 0:
@@ -812,7 +812,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   var peerStore = pm.switch.peerStore
 
-  for shard in pm.shardSubscriptionMonitor.getSubscribedShards():
+  for shard in pm.getSubscribedShards():
     # Filter out peer not on this shard
     let connectedInPeers =
       inPeers.filterIt(peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), shard))
@@ -1004,6 +1004,9 @@ proc addExtPeerEventHandler*(
 # Initialization and Constructor #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+proc setShardGetter*(pm: PeerManager, f: ShardsGetter) =
+  pm.getSubscribedShards = f
+
 proc start*(pm: PeerManager) =
   pm.started = true
   asyncSpawn pm.relayConnectivityLoop()
@@ -1026,8 +1029,6 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
-    shardSubscriptionMonitor: Option[ShardsSubscriptionMonitor] =
-      none(ShardsSubscriptionMonitor),
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1080,8 +1081,6 @@ proc new*(
     shardedPeerManagement: shardedPeerManagement,
     online: true,
   )
-  if shardSubscriptionMonitor.isSome():
-    pm.shardSubscriptionMonitor = shardSubscriptionMonitor.get()
 
   proc peerHook(
       peerId: PeerId, event: PeerEvent

@@ -140,8 +140,10 @@ proc new*(
   info "Initializing networking", addrs = $netConfig.announcedAddresses
 
   let queue = newAsyncEventQueue[SubscriptionEvent](0)
+
   let shardSubscriptionMonitor = ShardsSubscriptionMonitor.new()
-  peerManager.shardSubscriptionMonitor = shardSubscriptionMonitor
+  peerManager.setShardGetter(shardSubscriptionMonitor.getShardsGetter())
+
   let node = WakuNode(
     peerManager: peerManager,
     switch: switch,
