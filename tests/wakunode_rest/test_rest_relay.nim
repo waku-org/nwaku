@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strformat, tempfiles],
+  std/[sequtils, strformat, tempfiles, osproc],
   stew/byteutils,
   testutils/unittests,
   presto,
@@ -24,7 +24,8 @@ import
   ],
   ../testlib/wakucore,
   ../testlib/wakunode,
-  ../resources/payloads
+  ../resources/payloads,
+  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
 proc testWakuNode(): WakuNode =
   let
@@ -36,6 +37,24 @@ proc testWakuNode(): WakuNode =
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
 suite "Waku v2 Rest API - Relay":
+  var anvilProc: Process
+  var tempManager: ptr OnchainGroupManager
+
+  setup:
+    anvilProc = runAnvil()
+    tempManager =
+      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
+    tempManager[] = waitFor setupOnchainGroupManager()
+
+  teardown:
+    if not tempManager.isNil:
+      try:
+        waitFor tempManager[].stop()
+      except CatchableError:
+        discard
+      freeShared(tempManager)
+    stopAnvil(anvilProc)
+
   asyncTest "Subscribe a node to an array of pubsub topics - POST /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
@@ -230,18 +249,32 @@ suite "Waku v2 Rest API - Relay":
     ## "Relay API: publish and subscribe/unsubscribe":
     # Given
     let node = testWakuNode()
-    await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 20,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode_1"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
+      index = MembershipIndex(1),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
+    await node.start()
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated = waitFor manager.updateRoots()
+    debug "Updated root for node", rootUpdated
+
+    let proofRes = waitFor manager.fetchMerkleProofElements()
+    if proofRes.isErr():
+      assert false, "failed to fetch merkle proof: " & proofRes.error
+    manager.merkleProofCache = proofRes.get()
 
     # RPC server setup
     var restPort = Port(0)
@@ -468,21 +501,35 @@ suite "Waku v2 Rest API - Relay":
     ## "Relay API: publish and subscribe/unsubscribe":
     # Given
     let node = testWakuNode()
-    await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 20,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode_1"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
+      index = MembershipIndex(1),
     )
 
     await node.mountRlnRelay(wakuRlnConfig)
+    await node.start()
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
 
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated = waitFor manager.updateRoots()
+    debug "Updated root for node", rootUpdated
+
+    let proofRes = waitFor manager.fetchMerkleProofElements()
+    if proofRes.isErr():
+      assert false, "failed to fetch merkle proof: " & proofRes.error
+    manager.merkleProofCache = proofRes.get()
+    
     # RPC server setup
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -529,20 +576,34 @@ suite "Waku v2 Rest API - Relay":
     ## "Relay API: publish and subscribe/unsubscribe":
     # Given
     let node = testWakuNode()
-    await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 20,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode_1"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
+      index = MembershipIndex(1),
     )
-
     await node.mountRlnRelay(wakuRlnConfig)
+    await node.start()
+    
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated = waitFor manager.updateRoots()
+    debug "Updated root for node", rootUpdated
+
+    let proofRes = waitFor manager.fetchMerkleProofElements()
+    if proofRes.isErr():
+      assert false, "failed to fetch merkle proof: " & proofRes.error
+    manager.merkleProofCache = proofRes.get()
 
     # RPC server setup
     var restPort = Port(0)
@@ -582,18 +643,32 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Post a message larger than maximum size - POST /relay/v1/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 20,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode_1"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
+      index = MembershipIndex(1),
     )
-
     await node.mountRlnRelay(wakuRlnConfig)
+    await node.start()
+    
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated = waitFor manager.updateRoots()
+    debug "Updated root for node", rootUpdated
+
+    let proofRes = waitFor manager.fetchMerkleProofElements()
+    if proofRes.isErr():
+      assert false, "failed to fetch merkle proof: " & proofRes.error
+    manager.merkleProofCache = proofRes.get()
 
     # RPC server setup
     var restPort = Port(0)
@@ -644,20 +719,34 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Post a message larger than maximum size - POST /relay/v1/auto/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.start()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 20,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode_1"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
+      index = MembershipIndex(1),
     )
-
     await node.mountRlnRelay(wakuRlnConfig)
+    await node.start()
+    
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated = waitFor manager.updateRoots()
+    debug "Updated root for node", rootUpdated
+
+    let proofRes = waitFor manager.fetchMerkleProofElements()
+    if proofRes.isErr():
+      assert false, "failed to fetch merkle proof: " & proofRes.error
+    manager.merkleProofCache = proofRes.get()
 
     # RPC server setup
     var restPort = Port(0)
