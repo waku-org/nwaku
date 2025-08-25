@@ -1,5 +1,10 @@
 ## v0.36.0 (2025-06-20)
+### Notes
 
+- Extended REST API for better debugging
+    - Extended `/health` report
+    - Very detailed access to peers and actual status through [`/admin/v1/peers/...` endpoints](https://waku-org.github.io/waku-rest-api/#get-/admin/v1/peers/stats)
+    - Dynamic log level change with[ `/admin/v1/log-level`](https://waku-org.github.io/waku-rest-api/#post-/admin/v1/log-level/-logLevel-)
 ### Notes
 
 - The `rln-relay-eth-client-address` parameter, from now on, should be passed as an array of RPC addresses.
