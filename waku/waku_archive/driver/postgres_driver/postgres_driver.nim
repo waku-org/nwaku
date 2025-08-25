@@ -1348,7 +1348,10 @@ proc removePartition(
     "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
   debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    if ($error).contains("FINALIZE"):
+    debug "detected error when trying to detach partition", error
+
+    if ($error).contains("FINALIZE") or
+        ($error).contains("already pending detach in part"):
       ## We assume the database is suggesting to use FINALIZE when detaching a partition
       let detachPartitionFinalizeQuery =
         "ALTER TABLE messages DETACH PARTITION " & partitionName & " FINALIZE;"
