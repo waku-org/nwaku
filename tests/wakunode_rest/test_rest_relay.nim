@@ -266,7 +266,8 @@ suite "Waku v2 Rest API - Relay":
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
-      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
     debug "Updated root for node", rootUpdated
@@ -520,7 +521,8 @@ suite "Waku v2 Rest API - Relay":
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
-      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
     debug "Updated root for node", rootUpdated
@@ -529,7 +531,7 @@ suite "Waku v2 Rest API - Relay":
     if proofRes.isErr():
       assert false, "failed to fetch merkle proof: " & proofRes.error
     manager.merkleProofCache = proofRes.get()
-    
+
     # RPC server setup
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -587,7 +589,7 @@ suite "Waku v2 Rest API - Relay":
     )
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    
+
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
@@ -595,7 +597,8 @@ suite "Waku v2 Rest API - Relay":
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
-      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
     debug "Updated root for node", rootUpdated
@@ -652,7 +655,7 @@ suite "Waku v2 Rest API - Relay":
     )
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    
+
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
@@ -660,7 +663,8 @@ suite "Waku v2 Rest API - Relay":
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
-      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
     debug "Updated root for node", rootUpdated
@@ -730,7 +734,7 @@ suite "Waku v2 Rest API - Relay":
     )
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    
+
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
@@ -738,7 +742,8 @@ suite "Waku v2 Rest API - Relay":
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
     except Exception, CatchableError:
-      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
     debug "Updated root for node", rootUpdated
