@@ -44,9 +44,6 @@ procSuite "Waku Metadata Protocol":
     # Start nodes
     await allFutures([node1.start(), node2.start()])
 
-    node1.topicSubscriptionQueue.emit((kind: PubsubSub, topic: "/waku/2/rs/10/7"))
-    node1.topicSubscriptionQueue.emit((kind: PubsubSub, topic: "/waku/2/rs/10/6"))
-
     # Create connection
     let connOpt = await node2.peerManager.dialPeer(
       node1.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
