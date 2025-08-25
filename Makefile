@@ -95,10 +95,8 @@ NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 HEAPTRACKER ?= 0
 HEAPTRACKER_INJECT ?= 0
 ifeq ($(HEAPTRACKER), 1)
-# Needed to make nimbus-build-system use the Nim's 'heaptrack_support' branch
-DOCKER_NIM_COMMIT := NIM_COMMIT=heaptrack_support_v2.0.12
+# Assumes Nim's lib/system/alloc.nim is patched!
 TARGET := debug-with-heaptrack
-NIM_COMMIT := heaptrack_support_v2.0.12
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
 # the Nim compiler will load 'libheaptrack_inject.so'
@@ -351,6 +349,7 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
+		--build-arg="HEAPTRACK_BUILD=$(HEAPTRACKER)" \
 		--label="commit=$(shell git rev-parse HEAD)" \
 		--label="version=$(GIT_VERSION)" \
 		--target $(TARGET) \
@@ -359,6 +358,7 @@ docker-image:
 docker-quick-image: MAKE_TARGET ?= wakunode2
 docker-quick-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-quick-image: DOCKER_IMAGE_NAME ?= wakuorg/nwaku:$(DOCKER_IMAGE_TAG)
+docker-quick-image: NIM_PARAMS := $(NIM_PARAMS) -d:chronicles_colors:none -d:insecure -d:postgres --passL:$(LIBRLN_FILE) --passL:-lm
 docker-quick-image: | build deps librln wakunode2
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
