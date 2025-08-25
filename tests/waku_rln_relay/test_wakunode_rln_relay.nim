@@ -424,309 +424,377 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  # asyncTest "testing rln-relay double-signaling detection":
-  #   let
-  #     # publisher node
-  #     nodeKey1 = generateSecp256k1Key()
-  #     node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
-  #     # Relay node
-  #     nodeKey2 = generateSecp256k1Key()
-  #     node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
-  #     # Subscriber
-  #     nodeKey3 = generateSecp256k1Key()
-  #     node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
+  asyncTest "testing rln-relay double-signaling detection":
+    let
+      # publisher node
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
+      # Relay node
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
+      # Subscriber
+      nodeKey3 = generateSecp256k1Key()
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
-  #     contentTopic = ContentTopic("/waku/2/default-content/proto")
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
 
-  #   # set up three nodes
-  #   # node1
-  #   (await node1.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
+    # set up three nodes
+    # node1
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
-  #   # mount rlnrelay in off-chain mode
-  #   let wakuRlnConfig1 = WakuRlnConfig(
-  #     dynamic: false,
-  #     credIndex: some(1.uint),
-  #     userMessageLimit: 1,
-  #     epochSizeSec: 1,
-  #     treePath: genTempPath("rln_tree", "wakunode_7"),
-  #   )
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig1 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_1"),
+      index = MembershipIndex(1),
+    )
 
-  #   await node1.mountRlnRelay(wakuRlnConfig1)
+    await node1.mountRlnRelay(wakuRlnConfig1)
+    await node1.start()
 
-  #   await node1.start()
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
 
-  #   # node 2
-  #   (await node2.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
-  #   # mount rlnrelay in off-chain mode
-  #   let wakuRlnConfig2 = WakuRlnConfig(
-  #     dynamic: false,
-  #     credIndex: some(2.uint),
-  #     userMessageLimit: 1,
-  #     epochSizeSec: 1,
-  #     treePath: genTempPath("rln_tree", "wakunode_8"),
-  #   )
+    let rootUpdated1 = waitFor manager1.updateRoots()
+    debug "Updated root for node1", rootUpdated1
 
-  #   await node2.mountRlnRelay(wakuRlnConfig2)
-  #   await node2.start()
+    # node 2
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
-  #   # node 3
-  #   (await node3.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig2 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_2"),
+      index = MembershipIndex(2),
+    )
 
-  #   # mount rlnrelay in off-chain mode
-  #   let wakuRlnConfig3 = WakuRlnConfig(
-  #     dynamic: false,
-  #     credIndex: some(3.uint),
-  #     userMessageLimit: 1,
-  #     epochSizeSec: 1,
-  #     treePath: genTempPath("rln_tree", "wakunode_9"),
-  #   )
+    await node2.mountRlnRelay(wakuRlnConfig2)
+    await node2.start()
 
-  #   await node3.mountRlnRelay(wakuRlnConfig3)
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
+    let rootUpdated2 = waitFor manager2.updateRoots()
+    debug "Updated root for node2", rootUpdated2
 
-  #   await node3.start()
+    # node 3
+    (await node3.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
 
-  #   # connect the nodes together node1 <-> node2 <-> node3
-  #   await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-  #   await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig3 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_3"),
+      index = MembershipIndex(3),
+    )
 
-  #   # get the current epoch time
-  #   let time_1 = epochTime()
+    await node3.mountRlnRelay(wakuRlnConfig3)
+    await node3.start()
 
-  #   #  create some messages with rate limit proofs
-  #   var
-  #     wm1 = WakuMessage(
-  #       payload: "message 1".toBytes(), timestamp: now(), contentTopic: contentTopic
-  #     )
-  #     # another message in the same epoch as wm1, it will break the messaging rate limit
-  #     wm2 = WakuMessage(
-  #       payload: "message 2".toBytes(), timestamp: now(), contentTopic: contentTopic
-  #     )
-  #     #  wm3 points to the next epoch
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
+    let rootUpdated3 = waitFor manager3.updateRoots()
+    debug "Updated root for node3", rootUpdated3
 
-  #   await sleepAsync(1000.millis)
-  #   let time_2 = epochTime()
+    # connect the nodes together node1 <-> node2 <-> node3
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-  #   var
-  #     wm3 = WakuMessage(
-  #       payload: "message 3".toBytes(), timestamp: now(), contentTopic: contentTopic
-  #     )
-  #     wm4 = WakuMessage(
-  #       payload: "message 4".toBytes(), timestamp: now(), contentTopic: contentTopic
-  #     )
+    # get the current epoch time
+    let epoch_1 = node1.wakuRlnRelay.getCurrentEpoch()
 
-  #   node3.wakuRlnRelay.unsafeAppendRLNProof(wm1, time_1).isOkOr:
-  #     raiseAssert $error
-  #   node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time_1).isOkOr:
-  #     raiseAssert $error
+    #  create some messages with rate limit proofs
+    var
+      wm1 = WakuMessage(
+        payload: "message 1".toBytes(),
+        timestamp: now(),
+        contentTopic: DefaultPubsubTopic,
+      )
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(
+        payload: "message 2".toBytes(),
+        timestamp: now(),
+        contentTopic: DefaultPubsubTopic,
+      )
+      #  wm3 points to the next epoch
 
-  #   node3.wakuRlnRelay.unsafeAppendRLNProof(wm3, time_2).isOkOr:
-  #     raiseAssert $error
+    await sleepAsync(1000.millis)
+    let epoch_2 = node1.wakuRlnRelay.getCurrentEpoch()
 
-  #   #  relay handler for node3
-  #   var completionFut1 = newFuture[bool]()
-  #   var completionFut2 = newFuture[bool]()
-  #   var completionFut3 = newFuture[bool]()
-  #   var completionFut4 = newFuture[bool]()
-  #   proc relayHandler(
-  #       topic: PubsubTopic, msg: WakuMessage
-  #   ): Future[void] {.async, gcsafe.} =
-  #     debug "The received topic:", topic
-  #     if topic == DefaultPubsubTopic:
-  #       if msg == wm1:
-  #         completionFut1.complete(true)
-  #       if msg == wm2:
-  #         completionFut2.complete(true)
-  #       if msg.payload == wm3.payload:
-  #         completionFut3.complete(true)
-  #       if msg.payload == wm4.payload:
-  #         completionFut4.complete(true)
+    var
+      wm3 = WakuMessage(
+        payload: "message 3".toBytes(),
+        timestamp: now(),
+        contentTopic: DefaultPubsubTopic,
+      )
+      wm4 = WakuMessage(
+        payload: "message 4".toBytes(),
+        timestamp: now(),
+        contentTopic: DefaultPubsubTopic,
+      )
 
-  #   proc simpleHandler(
-  #       topic: PubsubTopic, msg: WakuMessage
-  #   ): Future[void] {.async, gcsafe.} =
-  #     await sleepAsync(0.milliseconds)
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch_1, MessageId(0)).isOkOr:
+      raiseAssert $error
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch_1, MessageId(0)).isOkOr:
+      raiseAssert $error
 
-  #   node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic in node1: " & $error
-  #   node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic in node2: " & $error
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, epoch_2, MessageId(2)).isOkOr:
+      raiseAssert $error
 
-  #   # mount the relay handler for node3
-  #   node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic: " & $error
-  #   await sleepAsync(2000.millis)
+    #  relay handler for node3
+    var completionFut1 = newFuture[bool]()
+    var completionFut2 = newFuture[bool]()
+    var completionFut3 = newFuture[bool]()
+    var completionFut4 = newFuture[bool]()
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == DefaultPubsubTopic:
+        if msg == wm1:
+          completionFut1.complete(true)
+        if msg == wm2:
+          completionFut2.complete(true)
+        if msg.payload == wm3.payload:
+          completionFut3.complete(true)
+        if msg.payload == wm4.payload:
+          completionFut4.complete(true)
 
-  #   ## node1 publishes and relays 4 messages to node2
-  #   ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-  #   ## node2 relays either of wm1 or wm2 to node3, depending on which message arrives at node2 first
-  #   ## node2 should detect either of wm1 or wm2 as spam and not relay it
-  #   ## node2 should relay wm3 to node3
-  #   ## node2 should not relay wm4 because it has no valid rln proof
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm1)
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm2)
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm3)
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm4)
-  #   await sleepAsync(2000.millis)
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
 
-  #   let
-  #     res1 = await completionFut1.withTimeout(10.seconds)
-  #     res2 = await completionFut2.withTimeout(10.seconds)
+    node1.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node1: " & $error
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic in node2: " & $error
 
-  #   check:
-  #     (res1 and res2) == false
-  #       # either of the wm1 and wm2 is found as spam hence not relayed
-  #     (await completionFut3.withTimeout(10.seconds)) == true
-  #     (await completionFut4.withTimeout(10.seconds)) == false
+    # mount the relay handler for node3
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
+    await sleepAsync(2000.millis)
 
-  #   await node1.stop()
-  #   await node2.stop()
-  #   await node3.stop()
+    ## node1 publishes and relays 4 messages to node2
+    ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
+    ## node2 relays either of wm1 or wm2 to node3, depending on which message arrives at node2 first
+    ## node2 should detect either of wm1 or wm2 as spam and not relay it
+    ## node2 should relay wm3 to node3
+    ## node2 should not relay wm4 because it has no valid rln proof
+    discard await node1.publish(some(DefaultPubsubTopic), wm1)
+    discard await node1.publish(some(DefaultPubsubTopic), wm2)
+    discard await node1.publish(some(DefaultPubsubTopic), wm3)
+    discard await node1.publish(some(DefaultPubsubTopic), wm4)
+    await sleepAsync(2000.millis)
 
-  # xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
-  #   ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
-  #   # Given two nodes
-  #   let
-  #     contentTopic = ContentTopic("/waku/2/default-content/proto")
-  #     shardSeq = @[DefaultRelayShard]
-  #     nodeKey1 = generateSecp256k1Key()
-  #     node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
-  #     nodeKey2 = generateSecp256k1Key()
-  #     node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
-  #     epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
+    let
+      res1 = await completionFut1.withTimeout(10.seconds)
+      res2 = await completionFut2.withTimeout(10.seconds)
 
-  #   # Given both nodes mount relay and rlnrelay
-  #   (await node1.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
-  #   let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
-  #   (await node1.mountRlnRelay(wakuRlnConfig1)).isOkOr:
-  #     assert false, "Failed to mount rlnrelay"
+    check:
+      (res1 and res2) == false
+        # either of the wm1 and wm2 is found as spam hence not relayed
+      (await completionFut3.withTimeout(10.seconds)) == true
+      (await completionFut4.withTimeout(10.seconds)) == false
 
-  #   # Mount rlnrelay in node2 in off-chain mode
-  #   (await node2.mountRelay()).isOkOr:
-  #     assert false, "Failed to mount relay"
-  #   let wakuRlnConfig2 = buildWakuRlnConfig(2, epochSizeSec, "wakunode_11")
-  #   await node2.mountRlnRelay(wakuRlnConfig2)
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
-  #   # Given the two nodes are started and connected
-  #   waitFor allFutures(node1.start(), node2.start())
-  #   await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+  asyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
+    ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
+    # Given two nodes
+    let
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      shardSeq = @[DefaultRelayShard]
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
+      epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
 
-  #   # Given some messages
-  #   var
-  #     wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-  #     wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-  #     wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-  #     wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
-  #     wm5 = WakuMessage(payload: "message 5".toBytes(), contentTopic: contentTopic)
-  #     wm6 = WakuMessage(payload: "message 6".toBytes(), contentTopic: contentTopic)
+    # Given both nodes mount relay and rlnrelay
+    (await node1.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    let wakuRlnConfig1 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_1"),
+      index = MembershipIndex(1),
+    )
+    await node1.mountRlnRelay(wakuRlnConfig1)
+    await node1.start()
 
-  #   # And node2 mounts a relay handler that completes the respective future when a message is received
-  #   var
-  #     completionFut1 = newFuture[bool]()
-  #     completionFut2 = newFuture[bool]()
-  #     completionFut3 = newFuture[bool]()
-  #     completionFut4 = newFuture[bool]()
-  #     completionFut5 = newFuture[bool]()
-  #     completionFut6 = newFuture[bool]()
-  #   proc relayHandler(
-  #       topic: PubsubTopic, msg: WakuMessage
-  #   ): Future[void] {.async, gcsafe.} =
-  #     debug "The received topic:", topic
-  #     if topic == DefaultPubsubTopic:
-  #       if msg == wm1:
-  #         completionFut1.complete(true)
-  #       if msg == wm2:
-  #         completionFut2.complete(true)
-  #       if msg == wm3:
-  #         completionFut3.complete(true)
-  #       if msg == wm4:
-  #         completionFut4.complete(true)
-  #       if msg == wm5:
-  #         completionFut5.complete(true)
-  #       if msg == wm6:
-  #         completionFut6.complete(true)
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
 
-  #   node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
-  #     assert false, "Failed to subscribe to pubsub topic: " & $error
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
 
-  #   # Given all messages have an rln proof and are published by the node 1
-  #   let publishSleepDuration: Duration = 5000.millis
-  #   let startTime = epochTime()
+    let rootUpdated1 = waitFor manager1.updateRoots()
+    debug "Updated root for node1", rootUpdated1
 
-  #   # Epoch 1
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, startTime).isOkOr:
-  #     raiseAssert $error
+    # Mount rlnrelay in node2 in off-chain mode
+    (await node2.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    let wakuRlnConfig2 = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_2"),
+      index = MembershipIndex(2),
+    )
+    await node2.mountRlnRelay(wakuRlnConfig2)
+    await node2.start()
 
-  #   # Message wm2 is published in the same epoch as wm1, so it'll be considered spam
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, startTime).isOkOr:
-  #     raiseAssert $error
+    # Registration is mandatory before sending messages with rln-relay 
+    let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
+    let rootUpdated2 = waitFor manager2.updateRoots()
+    debug "Updated root for node2", rootUpdated2
 
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm1)
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm2)
-  #   await sleepAsync(publishSleepDuration)
-  #   check:
-  #     await node1.waitForNullifierLog(0)
-  #     await node2.waitForNullifierLog(1)
+    # Given the two nodes are started and connected
+    waitFor allFutures(node1.start(), node2.start())
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-  #   # Epoch 2
+    # Given some messages
+    var
+      wm1 =
+        WakuMessage(payload: "message 1".toBytes(), contentTopic: DefaultPubsubTopic)
+      wm2 =
+        WakuMessage(payload: "message 2".toBytes(), contentTopic: DefaultPubsubTopic)
+      wm3 =
+        WakuMessage(payload: "message 3".toBytes(), contentTopic: DefaultPubsubTopic)
+      wm4 =
+        WakuMessage(payload: "message 4".toBytes(), contentTopic: DefaultPubsubTopic)
+      wm5 =
+        WakuMessage(payload: "message 5".toBytes(), contentTopic: DefaultPubsubTopic)
+      wm6 =
+        WakuMessage(payload: "message 6".toBytes(), contentTopic: DefaultPubsubTopic)
 
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, startTime + float(1 * epochSizeSec)).isOkOr:
-  #     raiseAssert $error
+    # And node2 mounts a relay handler that completes the respective future when a message is received
+    var
+      completionFut1 = newFuture[bool]()
+      completionFut2 = newFuture[bool]()
+      completionFut3 = newFuture[bool]()
+      completionFut4 = newFuture[bool]()
+      completionFut5 = newFuture[bool]()
+      completionFut6 = newFuture[bool]()
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == DefaultPubsubTopic:
+        if msg == wm1:
+          completionFut1.complete(true)
+        if msg == wm2:
+          completionFut2.complete(true)
+        if msg == wm3:
+          completionFut3.complete(true)
+        if msg == wm4:
+          completionFut4.complete(true)
+        if msg == wm5:
+          completionFut5.complete(true)
+        if msg == wm6:
+          completionFut6.complete(true)
 
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm3)
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), relayHandler).isOkOr:
+      assert false, "Failed to subscribe to pubsub topic: " & $error
 
-  #   await sleepAsync(publishSleepDuration)
+    # Given all messages have an rln proof and are published by the node 1
+    let publishSleepDuration: Duration = 5000.millis
+    let epoch_1 = node1.wakuRlnRelay.calcEpoch(epochTime().float64)
+    let epoch_2 = node1.wakuRlnRelay.calcEpoch(
+      epochTime().float64 + node1.wakuRlnRelay.rlnEpochSizeSec.float64 * 1
+    )
+    let epoch_3 = node1.wakuRlnRelay.calcEpoch(
+      epochTime().float64 + node1.wakuRlnRelay.rlnEpochSizeSec.float64 * 2
+    )
+    let epoch_4 = node1.wakuRlnRelay.calcEpoch(
+      epochTime().float64 + node1.wakuRlnRelay.rlnEpochSizeSec.float64 * 3
+    )
+    let epoch_5 = node1.wakuRlnRelay.calcEpoch(
+      epochTime().float64 + node1.wakuRlnRelay.rlnEpochSizeSec.float64 * 4
+    )
 
-  #   check:
-  #     await node1.waitForNullifierLog(0)
-  #     await node2.waitForNullifierLog(2)
+    # Epoch 1
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch_1, MessageId(0)).isOkOr:
+      raiseAssert $error
 
-  #   # Epoch 3
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, startTime + float(2 * epochSizeSec)).isOkOr:
-  #     raiseAssert $error
+    # Message wm2 is published in the same epoch as wm1, so it'll be considered spam
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch_1, MessageId(0)).isOkOr:
+      raiseAssert $error
 
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm4)
-  #   await sleepAsync(publishSleepDuration)
-  #   check:
-  #     await node1.waitForNullifierLog(0)
-  #     await node2.waitForNullifierLog(3)
+    discard await node1.publish(some(DefaultPubsubTopic), wm1)
+    discard await node1.publish(some(DefaultPubsubTopic), wm2)
+    await sleepAsync(publishSleepDuration)
+    check:
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(1)
 
-  #   # Epoch 4
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, startTime + float(3 * epochSizeSec)).isOkOr:
-  #     raiseAssert $error
+    # Epoch 2
 
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm5)
-  #   await sleepAsync(publishSleepDuration)
-  #   check:
-  #     await node1.waitForNullifierLog(0)
-  #     await node2.waitForNullifierLog(4)
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, epoch_2, MessageId(0)).isOkOr:
+      raiseAssert $error
 
-  #   # Epoch 5
-  #   node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, startTime + float(4 * epochSizeSec)).isOkOr:
-  #     raiseAssert $error
+    discard await node1.publish(some(DefaultPubsubTopic), wm3)
 
-  #   discard await node1.publish(some(DefaultPubsubTopic), wm6)
-  #   await sleepAsync(publishSleepDuration)
-  #   check:
-  #     await node1.waitForNullifierLog(0)
-  #     await node2.waitForNullifierLog(4)
+    await sleepAsync(publishSleepDuration)
 
-  #   # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
-  #   # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
-  #   check:
-  #     (await completionFut1.waitForResult()).value() == true
-  #     (await completionFut2.waitForResult()).isErr()
-  #     (await completionFut3.waitForResult()).value() == true
-  #     (await completionFut4.waitForResult()).value() == true
-  #     (await completionFut5.waitForResult()).value() == true
-  #     (await completionFut6.waitForResult()).value() == true
+    check:
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(2)
 
-  #   # Cleanup
-  #   waitFor allFutures(node1.stop(), node2.stop())
+    # Epoch 3
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, epoch_3, MessageId(0)).isOkOr:
+      raiseAssert $error
+
+    discard await node1.publish(some(DefaultPubsubTopic), wm4)
+    await sleepAsync(publishSleepDuration)
+    check:
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(3)
+
+    # Epoch 4
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, epoch_4, MessageId(0)).isOkOr:
+      raiseAssert $error
+
+    discard await node1.publish(some(DefaultPubsubTopic), wm5)
+    await sleepAsync(publishSleepDuration)
+    check:
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(4)
+
+    # Epoch 5
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, epoch_5, MessageId(0)).isOkOr:
+      raiseAssert $error
+
+    discard await node1.publish(some(DefaultPubsubTopic), wm6)
+    await sleepAsync(publishSleepDuration)
+    check:
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(4)
+
+    # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
+    # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
+    check:
+      (await completionFut1.waitForResult()).value() == true
+      (await completionFut2.waitForResult()).isErr()
+      (await completionFut3.waitForResult()).value() == true
+      (await completionFut4.waitForResult()).value() == true
+      (await completionFut5.waitForResult()).value() == true
+      (await completionFut6.waitForResult()).value() == true
+
+    # Cleanup
+    waitFor allFutures(node1.stop(), node2.stop())
 
   # asyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
   #   # Given two nodes
