@@ -33,29 +33,29 @@ It operates in two modes:
    - `sudo apt install libkf5kio-dev`
    - `sudo apt install libkf5iconthemes-dev`
 - `make`
-- On completion, the `bin/heaptrack_gui` and `bin/heaptrack` binaries will get generated.
+- On completion, the `bin/heaptrack_gui` and `bin/heaptrack` binaries will be generated.
     - heaptrack: needed to generate the report.
     - heaptrack_gui: needed to analyse the report.
 
 ## Heaptrack & Nwaku
-nwaku supports heaptrack but it needs a special compilation setting.
+nwaku supports heaptrack, but it needs a special compilation setting.
 
 ### Patch Nim compiler to register allocations on Heaptrack
 
-Currently we are rely on official Nim repository. So we need to patch the Nim compiler to register allocations and deallocations on Heaptrack.
-For Nim 2.2.4 version we created a patch that can be applied as:
+Currently, we rely on the official Nim repository. So we need to patch the Nim compiler to register allocations and deallocations on Heaptrack.
+For Nim 2.2.4 version, we created a patch that can be applied as:
 ```bash
 git apply --directory=vendor/nimbus-build-system/vendor/Nim docs/tutorial/nim.2.2.4_heaptracker_addon.patch
 git add .
 git commit -m "Add heaptrack support to Nim compiler - temporary patch"
 ```
 
-> We are never going to merge this patch into the official Nim repository, so it is important to keep it in the `nimbus-build-system` repository.
+> Until heaptrack support is not available in official Nim, so it is important to keep it in the `nimbus-build-system` repository.
 > Commit ensures that `make update` will not override the patch unintentionally.
 
-> We are planning to make it avail through an official PR for Nim.
+> We are planning to make it available through an official PR for Nim.
 
-When the patch is applied we can build wakunode2 with heaptrack support.
+When the patch is applied, we can build wakunode2 with heaptrack support.
 
 ### Build nwaku with heaptrack support
 
