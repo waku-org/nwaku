@@ -3,6 +3,8 @@
 import std/sets, sequtils, results, chronicles
 import ../waku_core/topics/pubsub_topic
 
+type ShardsGetter* = proc(): seq[uint16] {.gcsafe, raises: [].}
+
 type ShardsSubscriptionMonitor* = ref object of RootObj
   subscribedShards: HashSet[uint16]
 
@@ -34,3 +36,9 @@ proc onTopicUnSubscribed*(self: ShardsSubscriptionMonitor, topic: PubsubTopic) =
     error "Invalid pubsub topic", error = error
     return
   self.onShardUnSubscribed(shard.shardId)
+
+proc getShardsGetter*(self: ShardsSubscriptionMonitor): ShardsGetter =
+  return proc(): seq[uint16] =
+    return self.getSubscribedShards()
+
+{.pop.}
