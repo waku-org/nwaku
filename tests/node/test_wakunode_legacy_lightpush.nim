@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tempfiles, net],
+  std/[options, tempfiles, net, osproc],
   testutils/unittests,
   chronos,
   std/strformat,
@@ -18,7 +18,8 @@ import
     waku_rln_relay,
   ],
   ../testlib/[wakucore, wakunode, testasync, futures, testutils],
-  ../resources/payloads
+  ../resources/payloads,
+  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
 suite "Waku Legacy Lightpush - End To End":
   var
@@ -110,6 +111,8 @@ suite "RLN Proofs as a Lightpush Service":
 
     server {.threadvar.}: WakuNode
     client {.threadvar.}: WakuNode
+    anvilProc {.threadvar.}: Process
+    tempManager {.threadvar.}: ptr OnchainGroupManager
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     pubsubTopic {.threadvar.}: PubsubTopic
@@ -131,13 +134,16 @@ suite "RLN Proofs as a Lightpush Service":
     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
+    anvilProc = runAnvil()
+    tempManager =
+      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
+    tempManager[] = waitFor setupOnchainGroupManager()
+
     # mount rln-relay
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = tempManager[],
+      treePath = genTempPath("rln_tree", "wakunode_1"),
+      index = MembershipIndex(1),
     )
 
     await allFutures(server.start(), client.start())
@@ -156,6 +162,7 @@ suite "RLN Proofs as a Lightpush Service":
 
   asyncTeardown:
     await server.stop()
+    stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
     xasyncTest "Message is published when RLN enabled":
