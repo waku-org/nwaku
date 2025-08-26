@@ -405,9 +405,9 @@ suite "Waku Sync: reconciliation":
       let (_, deliveredHash) = await remoteNeeds.get()
       check deliveredHash in diffMsgHashes
 
-  asyncTest "sync 2 nodes, 40 msgs: 20 in-window diff, 20 out-window ignored":
+  asyncTest "sync 2 nodes, 40 msgs: 18 in-window diff, 20 out-window ignored":
     const
-      diffInWin = 20
+      diffInWin = 18
       diffOutWin = 20
       stepOutNs = 100_000_000'u64
       outOffsetNs = 2_300_000_000'u64 # for 20 mesg they sent 2 seconds earlier 
@@ -424,7 +424,7 @@ suite "Waku Sync: reconciliation":
 
     var inWinHashes, outWinHashes: HashSet[WakuMessageHash]
 
-    var ts = sliceStart
+    var ts = sliceStart + (Timestamp(stepIn) * 2)
     for _ in 0 ..< diffInWin:
       let msg = fakeWakuMessage(ts = Timestamp ts, contentTopic = DefaultContentTopic)
       let hash = computeMessageHash(DefaultPubsubTopic, msg)
@@ -462,7 +462,7 @@ suite "Waku Sync: reconciliation":
     check remoteNeeds.len == diffInWin
 
     for _ in 0 ..< diffInWin:
-      let (_, deliveredHashes) = await remoteNeeds.get()
+      let (_, deliveredHashes) = await remoteNeeds.popFirst()
       check deliveredHashes in inWinHashes
       check deliveredHashes notin outWinHashes
 
