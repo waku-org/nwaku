@@ -165,9 +165,17 @@ task buildTest, "Test custom target":
   let filepath = paramStr(paramCount())
   discard buildModule(filepath)
 
+import std/strutils
+
 task execTest, "Run test":
+  # Expects to be parameterized with test case name in quotes
+  # preceded with the nim source file name and path
+  # If no test case name is given still it requires empty quotes `""`
   let filepath = paramStr(paramCount() - 1)
-  exec "build/" & filepath & ".bin" & " test \"" & paramStr(paramCount()) & "\""
+  var testSuite = paramStr(paramCount()).strip(chars = {'\"'})
+  if testSuite != "":
+    testSuite = " \"" & testSuite & "\""
+  exec "build/" & filepath & ".bin " & testSuite
 
 ### C Bindings
 let chroniclesParams =
