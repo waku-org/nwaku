@@ -6,11 +6,10 @@
 
 {.push raises: [].}
 
-import std/[options, tables], libp2p/stream/connection
-
+import std/[options, tables], libp2p/stream/connection, chronos/ratelimit
 import ./[single_token_limiter, service_metrics], ../../utils/tableutils
 
-export token_bucket, setting, service_metrics
+export setting, service_metrics
 
 type PerPeerRateLimiter* = ref object of RootObj
   setting*: Option[RateLimitSetting]
@@ -20,7 +19,7 @@ proc mgetOrPut(
     perPeerRateLimiter: var PerPeerRateLimiter, peerId: PeerId
 ): var Option[TokenBucket] =
   return perPeerRateLimiter.peerBucket.mgetOrPut(
-    peerId, newTokenBucket(perPeerRateLimiter.setting, ReplenishMode.Compensating)
+    peerId, newTokenBucket(perPeerRateLimiter.setting, ReplenishMode.Balanced)
   )
 
 template checkUsageLimit*(
