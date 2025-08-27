@@ -654,6 +654,15 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
         $clusterId
       break guardClauses
 
+    # Store the shard information from metadata in the peer store
+    if pm.switch.peerStore.peerExists(peerId):
+      var peerInfo = pm.switch.peerStore.getPeer(peerId)
+      peerInfo.shards = metadata.shards.mapIt(it.uint16)
+      # Note: We don't need to call updatePeerInfo since we modified the reference directly
+      debug "Updated peer shards from metadata", 
+        peerId = peerId, 
+        shards = peerInfo.shards
+
     return
 
   info "disconnecting from peer", peerId = peerId, reason = reason
