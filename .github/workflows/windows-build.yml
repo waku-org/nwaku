@@ -71,7 +71,6 @@ jobs:
     - name: Building miniupnpc
       run: |
         cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
-        git checkout little_chore_windows_support
         make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1
         cd ../../../../..
 

@@ -43,7 +43,6 @@ cd ../../
 
 echo "7. -.-.-.- Building miniupnpc -.-.-.- "
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
-execute_command "git checkout little_chore_windows_support"
 execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1 -j8"
 cd ../../../../..
 
