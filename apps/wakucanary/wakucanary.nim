@@ -142,16 +142,18 @@ proc areProtocolsSupported(
 
 proc pingNode(
     node: WakuNode, peerInfo: RemotePeerInfo
-): Future[void] {.async, gcsafe.} =
+): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
     let pingDelay = await node.libp2pPing.ping(conn)
     info "Peer response time (ms)", peerId = peerInfo.peerId, ping = pingDelay.millis
+    return true
   except CatchableError:
     var msg = getCurrentExceptionMsg()
     if msg == "Future operation cancelled!":
       msg = "timedout"
     error "Failed to ping the peer", peer = peerInfo, err = msg
+    return false
 
 proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
@@ -274,8 +276,13 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let lp2pPeerStore = node.switch.peerStore
   let conStatus = node.peerManager.switch.peerStore[ConnectionBook][peer.peerId]
 
+  var pingSuccess = true
   if conf.ping:
-    discard await pingFut
+    try:
+      pingSuccess = await pingFut
+    except CatchableError:
+      pingSuccess = false
+      error "Ping operation failed or timed out"
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
@@ -284,6 +291,12 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
       error "Not all protocols are supported",
         expected = conf.protocols, supported = nodeProtocols
       quit(QuitFailure)
+    
+    # Check ping result if ping was enabled
+    if conf.ping and not pingSuccess:
+      error "Node is reachable and supports protocols but ping failed - connection may be unstable"
+      quit(QuitFailure)
+      
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId
     quit(QuitFailure)
