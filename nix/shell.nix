@@ -1,4 +1,4 @@
-{ 
+{
   pkgs ? import <nixpkgs> { },
 }:
 let
@@ -20,7 +20,4 @@ pkgs.mkShell {
     nim-unwrapped-2_0
   ];
 
-  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-    pkgs.pcre
-  ];
 }
