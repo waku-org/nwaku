@@ -141,15 +141,8 @@ proc updateLog*(
     return
       err("the epoch was not found: " & getCurrentExceptionMsg()) # should never happen
 
-proc getCurrentEpoch*(rlnPeer: WakuRLNRelay, t: float64 = -1.0): Epoch =
-  ## Returns the RLN epoch corresponding to `t` (Unix seconds).
-  ## If `t` is not supplied (or set to a negative value), the current time is used.
-  let timeToUse =
-    if t < 0.0:
-      epochTime()
-    else:
-      t
-  return rlnPeer.calcEpoch(timeToUse)
+proc getCurrentEpoch*(rlnPeer: WakuRLNRelay): Epoch =
+  return rlnPeer.calcEpoch(epochTime())
 
 proc absDiff*(e1, e2: Epoch): uint64 =
   ## returns the absolute difference between the two rln `Epoch`s `e1` and `e2`

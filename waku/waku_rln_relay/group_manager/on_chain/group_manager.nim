@@ -204,14 +204,11 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
       let rootUpdated = await g.updateRoots()
 
       if rootUpdated:
-        if g.membershipIndex.isNone():
-          debug "membershipIndex is not set; skipping proof update"
+        let proofResult = await g.fetchMerkleProofElements()
+        if proofResult.isErr():
+          error "Failed to fetch Merkle proof", error = proofResult.error
         else:
-          let proofResult = await g.fetchMerkleProofElements()
-          if proofResult.isErr():
-            error "Failed to fetch Merkle proof", error = proofResult.error
-          else:
-            g.merkleProofCache = proofResult.get()
+          g.merkleProofCache = proofResult.get()
 
         let nextFreeIndex = await g.fetchNextFreeIndex()
         if nextFreeIndex.isErr():
