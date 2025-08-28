@@ -155,6 +155,24 @@ suite "RLN Proofs as a Lightpush Service":
     await server.mountLegacyLightPush()
     client.mountLegacyLightPushClient()
 
+    let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated1 = waitFor manager1.updateRoots()
+    debug "Updated root for node1", rootUpdated1
+
+    if rootUpdated1:
+      let proofResult = waitFor manager1.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      manager1.merkleProofCache = proofResult.get()
+
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
@@ -165,7 +183,7 @@ suite "RLN Proofs as a Lightpush Service":
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
-    xasyncTest "Message is published when RLN enabled":
+    asyncTest "Message is published when RLN enabled":
       # Given a light lightpush client
       let lightpushClient =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
