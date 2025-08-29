@@ -625,6 +625,15 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.start()))
 
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.millis)
+
+    let topic = "/waku/2/rs/0/0"
+    for node in nodes:
+      node.wakuRelay.subscribe(topic, simpleHandler)
+
     # Get all peer infos
     let peerInfos = collect:
       for i in 0 .. nodes.high:
