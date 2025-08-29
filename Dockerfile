@@ -5,9 +5,10 @@ ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
 ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
+ARG HEAPTRACK_BUILD=0
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git build-base openssl-dev pcre-dev linux-headers curl jq
+RUN apk add --no-cache bash git build-base openssl-dev linux-headers curl jq
 
 WORKDIR /app
 COPY . .
@@ -17,6 +18,10 @@ RUN apk update && apk upgrade
 
 # Ran separately from 'make' to avoid re-doing
 RUN git submodule update --init --recursive
+
+RUN if [ "$HEAPTRACK_BUILD" = "1" ]; then \
+      git apply --directory=vendor/nimbus-build-system/vendor/Nim docs/tutorial/nim.2.2.4_heaptracker_addon.patch; \
+    fi
 
 # Slowest build step for the sake of caching layers
 RUN make -j$(nproc) deps QUICK_AND_DIRTY_COMPILER=1 ${NIM_COMMIT}
@@ -41,10 +46,7 @@ LABEL version="unknown"
 EXPOSE 30303 60000 8545
 
 # Referenced in the binary
-RUN apk add --no-cache libgcc pcre-dev libpq-dev bind-tools
-
-# Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
-RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
+RUN apk add --no-cache libgcc libpq-dev bind-tools
 
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/

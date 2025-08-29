@@ -33,20 +33,33 @@ It operates in two modes:
    - `sudo apt install libkf5kio-dev`
    - `sudo apt install libkf5iconthemes-dev`
 - `make`
-- On completion, the `bin/heaptrack_gui` and `bin/heaptrack` binaries will get generated.
+- On completion, the `bin/heaptrack_gui` and `bin/heaptrack` binaries will be generated.
     - heaptrack: needed to generate the report.
     - heaptrack_gui: needed to analyse the report.
 
 ## Heaptrack & Nwaku
-nwaku supports heaptrack but it needs a special compilation setting.
+nwaku supports heaptrack, but it needs a special compilation setting.
+
+### Patch Nim compiler to register allocations on Heaptrack
+
+Currently, we rely on the official Nim repository. So we need to patch the Nim compiler to register allocations and deallocations on Heaptrack.
+For Nim 2.2.4 version, we created a patch that can be applied as:
+```bash
+git apply --directory=vendor/nimbus-build-system/vendor/Nim docs/tutorial/nim.2.2.4_heaptracker_addon.patch
+git add .
+git commit -m "Add heaptrack support to Nim compiler - temporary patch"
+```
+
+> Until heaptrack support is not available in official Nim, so it is important to keep it in the `nimbus-build-system` repository.
+> Commit ensures that `make update` will not override the patch unintentionally.
+
+> We are planning to make it available through an official PR for Nim.
+
+When the patch is applied, we can build wakunode2 with heaptrack support.
 
 ### Build nwaku with heaptrack support
 
-The make command should have the 'NIM_COMMIT' setting as:
-
-`make -j<nproc> NIM_COMMIT=heaptrack_support ...`
-
-This is to force the `nimbus-build-system` to use the Nim compiler that points at the [heaptrack_support](https://github.com/status-im/nim/tree/heaptrack_support) branch.
+`make -j<nproc> HEAPTRACKER=1 wakunode2`
 
 ### Create nwaku memory report with heaptrack
 
@@ -69,8 +82,17 @@ Having Docker properly installed in your machine, do the next:
 
 - cd to the `nwaku` root folder.
 - ```sudo make docker-image DOCKER_IMAGE_NAME=docker_repo:docker_tag HEAPTRACKER=1```
+- alternatively you can use the `docker-quick-image` target, this is faster but creates an ubuntu based image, so your local build environment must match.
 
 That will create a Docker image with both nwaku and heaptrack. The container's entry point is `ENTRYPOINT ["/heaptrack/build/bin/heaptrack", "/usr/bin/wakunode"]`, so the memory report starts being generated from the beginning.
+
+#### Notice for using heaptrack supporting image with `docker compose`
+
+Take care that wakunode2 should be started as
+```
+exec /heaptrack/build/bin/heaptrack /usr/bin/wakunode\
+... all the arguments you want to pass to wakunode ...
+```
 
 ### Extract report file from a running Docker container
 Bear in mind that if you restart the container, the previous report will get lost. Therefore, before restarting, it is important to extract it from the container once you consider it has enough information.
