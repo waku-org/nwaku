@@ -10,7 +10,7 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
-import ../common/nimchronos, ../waku_core, ./rpc
+import ../common/nimchronos, ../waku_core, ./rpc, ../common/callbacks
 
 from ../waku_core/codecs import WakuMetadataCodec
 export WakuMetadataCodec
@@ -22,14 +22,14 @@ const RpcResponseMaxBytes* = 1024
 
 type WakuMetadata* = ref object of LPProtocol
   clusterId*: uint32
-  shards*: HashSet[uint32]
-  topicSubscriptionQueue: Option[AsyncEventQueue[SubscriptionEvent]]
+  getShards: GetShards
 
 proc respond(
     m: WakuMetadata, conn: Connection
 ): Future[Result[void, string]] {.async, gcsafe.} =
-  let response =
-    WakuMetadataResponse(clusterId: some(m.clusterId.uint32), shards: toSeq(m.shards))
+  let response = WakuMetadataResponse(
+    clusterId: some(m.clusterId.uint32), shards: m.getShards().mapIt(it.uint32)
+  )
 
   let res = catch:
     await conn.writeLP(response.encode().buffer)
@@ -41,8 +41,9 @@ proc respond(
 proc request*(
     m: WakuMetadata, conn: Connection
 ): Future[Result[WakuMetadataResponse, string]] {.async, gcsafe.} =
-  let request =
-    WakuMetadataRequest(clusterId: some(m.clusterId), shards: toSeq(m.shards))
+  let request = WakuMetadataRequest(
+    clusterId: some(m.clusterId), shards: m.getShards().mapIt(it.uint32)
+  )
 
   let writeRes = catch:
     await conn.writeLP(request.encode().buffer)
@@ -89,7 +90,7 @@ proc initProtocolHandler(m: WakuMetadata) =
       remoteClusterId = response.clusterId,
       remoteShards = response.shards,
       localClusterId = m.clusterId,
-      localShards = m.shards,
+      localShards = m.getShards(),
       peer = conn.peerId
 
     try:
@@ -101,49 +102,18 @@ proc initProtocolHandler(m: WakuMetadata) =
   m.handler = handler
   m.codec = WakuMetadataCodec
 
-proc new*(
-    T: type WakuMetadata,
-    clusterId: uint32,
-    shards: HashSet[uint32],
-    queue: Option[AsyncEventQueue[SubscriptionEvent]],
-): T =
-  let wm =
-    WakuMetadata(clusterId: clusterId, shards: shards, topicSubscriptionQueue: queue)
+proc new*(T: type WakuMetadata, clusterId: uint32, getShards: GetShards): T =
+  let wm = WakuMetadata(clusterId: clusterId, getShards: getShards)
 
   wm.initProtocolHandler()
 
-  info "Created WakuMetadata protocol", clusterId = wm.clusterId, shards = wm.shards
+  info "Created WakuMetadata protocol",
+    clusterId = wm.clusterId, shards = wm.getShards()
 
   return wm
 
-proc subscriptionsListener(wm: WakuMetadata) {.async.} =
-  ## Listen for pubsub topics subscriptions changes
-  if wm.topicSubscriptionQueue.isSome():
-    let key = wm.topicSubscriptionQueue.get().register()
-
-    while wm.started:
-      let events = await wm.topicSubscriptionQueue.get().waitEvents(key)
-
-      for event in events:
-        let parsedShard = RelayShard.parse(event.topic).valueOr:
-          continue
-
-        if parsedShard.clusterId != wm.clusterId:
-          continue
-
-        case event.kind
-        of PubsubSub:
-          wm.shards.incl(parsedShard.shardId)
-        of PubsubUnsub:
-          wm.shards.excl(parsedShard.shardId)
-        else:
-          continue
-
-    wm.topicSubscriptionQueue.get().unregister(key)
-
 proc start*(wm: WakuMetadata) =
   wm.started = true
-  asyncSpawn wm.subscriptionsListener()
 
 proc stop*(wm: WakuMetadata) =
   wm.started = false

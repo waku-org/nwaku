@@ -48,7 +48,8 @@ import
   ../waku_rln_relay,
   ./net_config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../common/callbacks
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -123,6 +124,20 @@ type
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     rateLimitSettings*: ProtocolRateLimitSettings
 
+proc getShardsGetter(node: WakuNode): GetShards =
+  return proc(): seq[uint16] {.closure, gcsafe, raises: [].} =
+    # fetch pubsubTopics subscribed to relay and convert them to shards
+    if node.wakuRelay.isNil():
+      return @[]
+    let subTopics = node.wakuRelay.subscribedTopics()
+    let relayShards = topicsToRelayShards(subTopics).valueOr:
+      error "could not convert relay topics to shards", error = $error
+      return @[]
+    if relayShards.isSome():
+      let shards = relayShards.get().shardIds
+      return shards
+    return @[]
+
 proc new*(
     T: type WakuNode,
     netConfig: NetConfig,
@@ -138,7 +153,6 @@ proc new*(
   info "Initializing networking", addrs = $netConfig.announcedAddresses
 
   let queue = newAsyncEventQueue[SubscriptionEvent](0)
-
   let node = WakuNode(
     peerManager: peerManager,
     switch: switch,
@@ -148,6 +162,8 @@ proc new*(
     topicSubscriptionQueue: queue,
     rateLimitSettings: rateLimitSettings,
   )
+
+  peerManager.setShardGetter(node.getShardsGetter())
 
   return node
 
@@ -182,16 +198,13 @@ proc connectToNodes*(
 proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
   await peer_manager.disconnectNode(node.peerManager, remotePeer)
 
-## Waku Metadata
-
 proc mountMetadata*(
     node: WakuNode, clusterId: uint32, shards: seq[uint16]
 ): Result[void, string] =
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
-  let shards32 = shards.mapIt(it.uint32)
-  let metadata =
-    WakuMetadata.new(clusterId, shards32.toHashSet(), some(node.topicSubscriptionQueue))
+
+  let metadata = WakuMetadata.new(clusterId, node.getShardsGetter())
 
   node.wakuMetadata = metadata
   node.peerManager.wakuMetadata = metadata
