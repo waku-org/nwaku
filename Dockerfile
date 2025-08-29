@@ -7,7 +7,7 @@ ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git build-base openssl-dev pcre-dev linux-headers curl jq
+RUN apk add --no-cache bash git build-base openssl-dev linux-headers curl jq
 
 WORKDIR /app
 COPY . .
@@ -41,10 +41,7 @@ LABEL version="unknown"
 EXPOSE 30303 60000 8545
 
 # Referenced in the binary
-RUN apk add --no-cache libgcc pcre-dev libpq-dev bind-tools
-
-# Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
-RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
+RUN apk add --no-cache libgcc libpq-dev bind-tools
 
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
