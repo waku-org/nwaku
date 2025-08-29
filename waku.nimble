@@ -54,8 +54,8 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
   var extra_params = params
-  for i in 2 ..< paramCount():
-    extra_params &= " " & paramStr(i)
+  # for i in 2 ..< paramCount():
+  #   extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " &
     srcDir & name & ".nim"
 
@@ -148,7 +148,7 @@ task chat2, "Build example Waku chat usage":
   #buildBinary name, "examples/", "-d:chronicles_log_level=WARN"
 
   let name = "chat2"
-  buildBinary name, "apps/chat2/", "-d:chronicles_sinks=textlines[file] -d:ssl"
+  buildBinary name, "apps/chat2/", "-d:chronicles_sinks=textlines[file] -d:ssl --passL:librln_v0.7.0.a --passL:-L$(getCurrentDir()) --cpu:arm64 --cc:clang"
 
 task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
