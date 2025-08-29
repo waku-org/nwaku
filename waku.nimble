@@ -11,26 +11,36 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils",
+  "confutils#e214b39",
   "chronos",
   "dnsdisc",
   "eth",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
+  "serialization >= 0.4.9",
   "stew",
   "stint",
   "metrics",
   "libp2p == 1.10.1", # Only for Waku v2
-  "web3",
+  "web3#48fb2d4", # fix 0.7.0 undeclared field: 'stream' error
   "presto",
   "regex",
   "results",
   "db_connector",
-  "minilru",
-  "quic"
+  "minilru"
 
 ### Helper functions
+
+proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
+  if not fileExists(libFile):
+    echo "Building RLN library..."
+    let buildDir = getCurrentDir()
+    let outFile = libFile
+    exec "bash ./scripts/build_rln.sh " & buildDir & " " & version & " " & outFile
+  else:
+    echo "RLN library already exists: " & libFile
+
 proc buildModule(filePath, params = "", lang = "c"): bool =
   if not dirExists "build":
     mkDir "build"
@@ -52,11 +62,9 @@ proc buildModule(filePath, params = "", lang = "c"): bool =
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
-  # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
-  var extra_params = params
-  for i in 2 ..< paramCount():
-    extra_params &= " " & paramStr(i)
-  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " &
+
+  ensureRln()
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & " --passL:build/librln.a --passL:-lm --passL:-L" & getCurrentDir() & " " & params & " " &
     srcDir & name & ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
