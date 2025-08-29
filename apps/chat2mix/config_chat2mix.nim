@@ -1,15 +1,14 @@
+import chronicles, chronos, std/strutils, regex
+
 import
-  chronicles,
-  chronos,
-  confutils,
-  confutils/defs,
-  confutils/std/net,
   eth/keys,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  std/strutils,
-  regex
+  confutils,
+  confutils/defs,
+  confutils/std/net
+
 import waku/waku_core
 
 type
@@ -214,86 +213,6 @@ type
       defaultValue: false,
       name: "websocket-secure-support"
     .}: bool ## rln-relay configuration
-
-#[     rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
-      defaultValue: false,
-      name: "rln-relay"
-    .}: bool
-
-    rlnRelayChainId* {.
-      desc:
-        "Chain ID of the provided contract (optional, will fetch from RPC provider if not used)",
-      defaultValue: 0,
-      name: "rln-relay-chain-id"
-    .}: uint
-
-    rlnRelayCredPath* {.
-      desc: "The path for peristing rln-relay credential",
-      defaultValue: "",
-      name: "rln-relay-cred-path"
-    .}: string
-
-    rlnRelayCredIndex* {.
-      desc: "the index of the onchain commitment to use", name: "rln-relay-cred-index"
-    .}: Option[uint]
-
-    rlnRelayDynamic* {.
-      desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
-      defaultValue: false,
-      name: "rln-relay-dynamic"
-    .}: bool
-
-    rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key as a Hex string",
-      defaultValue: "",
-      name: "rln-relay-id-key"
-    .}: string
-
-    rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key as a Hex string",
-      defaultValue: "",
-      name: "rln-relay-id-commitment-key"
-    .}: string
-
-    ethClientUrls* {.
-      desc:
-        "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
-      defaultValue: newSeq[EthRpcUrl](0),
-      name: "rln-relay-eth-client-address"
-    .}: seq[EthRpcUrl]
-
-    rlnRelayEthContractAddress* {.
-      desc: "Address of membership contract on an Ethereum testnet",
-      defaultValue: "",
-      name: "rln-relay-eth-contract-address"
-    .}: string
-
-    rlnRelayCredPassword* {.
-      desc: "Password for encrypting RLN credentials",
-      defaultValue: "",
-      name: "rln-relay-cred-password"
-    .}: string
-
-    rlnRelayUserMessageLimit* {.
-      desc:
-        "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
-      defaultValue: 1,
-      name: "rln-relay-user-message-limit"
-    .}: uint64
-
-    rlnEpochSizeSec* {.
-      desc:
-        "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
-      defaultValue: 1,
-      name: "rln-relay-epoch-sec"
-    .}: uint64
-
-    rlnRelayTreePath* {.
-      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-      defaultValue: "",
-      name: "rln-relay-tree-path"
-    .}: string ]#
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =

@@ -658,57 +658,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   notice "ready to publish with mix node pool size ",
     currentpoolSize = node.getMixNodePoolSize()
   echo "ready to publish messages now"
-  # Subscribe to a topic, if relay is mounted
-  #[  if conf.relay:
-    proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
-      trace "Hit subscribe handler", topic
 
-      if msg.contentTopic == chat.contentTopic:
-        chat.printReceivedMessage(msg)
-
-    node.subscribe((kind: PubsubSub, topic: pubsubTopic), WakuRelayHandler(handler)).isOkOr:
-      error "failed to subscribe to pubsub topic", topic = pubsubTopic, error = error ]#
-
-  #[    if conf.rlnRelay:
-      info "WakuRLNRelay is enabled"
-
-      proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
-        debug "spam handler is called"
-        let chatLineResult = chat.getChatLine(wakuMessage)
-        if chatLineResult.isOk():
-          echo "A spam message is found and discarded : ", chatLineResult.value
-        else:
-          echo "A spam message is found and discarded"
-        chat.prompt = false
-        showChatPrompt(chat)
-
-      echo "rln-relay preparation is in progress..."
-
-      let rlnConf = WakuRlnConfig(
-        dynamic: conf.rlnRelayDynamic,
-        credIndex: conf.rlnRelayCredIndex,
-        chainId: UInt256.fromBytesBE(conf.rlnRelayChainId.toBytesBE()),
-        ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
-        creds: some(
-          RlnRelayCreds(
-            path: conf.rlnRelayCredPath, password: conf.rlnRelayCredPassword
-          )
-        ),
-        userMessageLimit: conf.rlnRelayUserMessageLimit,
-        epochSizeSec: conf.rlnEpochSizeSec,
-        treePath: conf.rlnRelayTreePath,
-      )
-
-      waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))
-
-      let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
-      let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
-      echo "your membership index is: ", membershipIndex
-      echo "your rln identity commitment key is: ",
-        identityCredential.idCommitment.inHex()
-    else:
-      info "WakuRLNRelay is disabled"
-      echo "WakuRLNRelay is disabled, please enable it by passing in the --rln-relay flag" ]#
   if conf.metricsLogging:
     startMetricsLog()
 
