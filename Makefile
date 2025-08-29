@@ -257,9 +257,9 @@ build/%: | build deps librln
 		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
 
 compile-test: | build deps librln
-	echo -e $(BUILD_MSG) "$(TEST_FILE)" && \
+	echo -e $(BUILD_MSG) "$(TEST_FILE)" "\"$(TEST_NAME)\"" && \
 		$(ENV_SCRIPT) nim buildTest $(NIM_PARAMS) waku.nims $(TEST_FILE) && \
-		$(ENV_SCRIPT) nim execTest $(NIM_PARAMS) waku.nims $(TEST_FILE) "$(TEST_NAME)"
+		$(ENV_SCRIPT) nim execTest $(NIM_PARAMS) waku.nims $(TEST_FILE) "\"$(TEST_NAME)\""; \
 
 ################
 ## Waku tools ##
