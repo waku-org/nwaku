@@ -173,11 +173,6 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
-method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
-  if g.validRoots.find(root) >= 0:
-    return true
-  return false
-
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
@@ -202,19 +197,17 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
     initializedGuard(g)
     let ethRpc = g.ethRpc.get()
     let wakuRlnContract = g.wakuRlnContract.get()
-
     const rpcDelay = 5.seconds
 
     while true:
+      await sleepAsync(rpcDelay)
       let rootUpdated = await g.updateRoots()
 
       if rootUpdated:
-        if g.membershipIndex.isNone():
-          error "membershipIndex is not set; skipping proof update"
+        let proofResult = await g.fetchMerkleProofElements()
+        if proofResult.isErr():
+          error "Failed to fetch Merkle proof", error = proofResult.error
         else:
-          let proofResult = await g.fetchMerkleProofElements()
-          if proofResult.isErr():
-            error "Failed to fetch Merkle proof", error = proofResult.error
           g.merkleProofCache = proofResult.get()
 
         let nextFreeIndex = await g.fetchNextFreeIndex()
@@ -226,8 +219,6 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
 
         let memberCount = cast[int64](nextFreeIndex.get())
         waku_rln_number_registered_memberships.set(float64(memberCount))
-
-      await sleepAsync(rpcDelay)
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
 
