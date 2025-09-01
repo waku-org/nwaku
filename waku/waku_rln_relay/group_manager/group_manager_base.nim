@@ -135,7 +135,7 @@ method verifyProof*(
     g: GroupManager, input: openArray[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.base, gcsafe, raises: [].} =
   ## Dummy implementation for verifyProof
-  return ok(true)
+  return err("verifyProof is not implemented")
 
 method generateProof*(
     g: GroupManager,

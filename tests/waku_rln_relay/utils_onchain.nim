@@ -570,8 +570,8 @@ proc setupOnchainGroupManager*(
   )
 
   let testTokenAddress = (await deployTestToken(privateKey, acc, web3)).valueOr:
-    raise
-      newException(CatchableError, "Failed to deploy test token contract: " & $error)
+    assert false, "Failed to deploy test token contract: " & $error
+    return
 
   # mint the token from the generated account
   discard await sendMintCall(
@@ -579,7 +579,8 @@ proc setupOnchainGroupManager*(
   )
 
   let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
-    raise newException(CatchableError, "Failed to deploy RLN contract: " & $error)
+    assert false, "Failed to deploy RLN contract: " & $error
+    return
 
   # If the generated account wishes to register a membership, it needs to approve the contract to spend its tokens
   let tokenApprovalResult = await approveTokenAllowanceAndVerify(

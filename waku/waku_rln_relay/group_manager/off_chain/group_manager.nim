@@ -11,44 +11,44 @@ template initializedGuard*(g: OffchainGroupManager): untyped =
   discard
 
 proc resultifiedInitGuard(g: OffchainGroupManager): GroupManagerResult[void] =
-  return err("OffchainGroupManager is not implemented")
+  raise newException(CatchableError, "OffchainGroupManager's init is not implemented")
 
 method init*(g: OffchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's init is not implemented")
 
 method startGroupSync*(
     g: OffchainGroupManager
 ): Future[GroupManagerResult[void]] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's startGroupSync is not implemented")
 
 method register*(
     g: OffchainGroupManager, rateCommitment: RateCommitment
 ): Future[void] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's register is not implemented")
 
 method registerBatch*(
     g: OffchainGroupManager, rateCommitments: seq[RawRateCommitment]
 ): Future[void] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's registerBatch is not implemented")
 
 method withdraw*(
     g: OffchainGroupManager, idSecretHash: IdentitySecretHash
 ): Future[void] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's withdraw is not implemented")
 
 method withdrawBatch*(
     g: OffchainGroupManager, idSecretHashes: seq[IdentitySecretHash]
 ): Future[void] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's withdrawBatch is not implemented")
 
 method onRegister*(g: OffchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's onRegister is not implemented")
 
 method onWithdraw*(g: OffchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's onWithdraw is not implemented")
 
 method stop*(g: OffchainGroupManager): Future[void] {.async.} =
-  discard
+  raise newException(CatchableError, "OffchainGroupManager's stop is not implemented")
 
 method isReady*(g: OffchainGroupManager): Future[bool] {.async.} =
   return false
