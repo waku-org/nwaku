@@ -138,6 +138,12 @@ proc getShardsGetter(node: WakuNode): GetShards =
       return shards
     return @[]
 
+proc getCapabilitiesGetter(node: WakuNode): GetCapabilities =
+  return proc(): seq[Capabilities] {.closure, gcsafe, raises: [].} =
+    if node.wakuRelay.isNil():
+      return @[]
+    return node.enr.getCapabilities()
+
 proc new*(
     T: type WakuNode,
     netConfig: NetConfig,
@@ -1441,10 +1447,16 @@ proc parallelPings*(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
 
   return successCount
 
-proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
+proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr).valueOr:
+  node.wakuRendezvous = WakuRendezVous.new(
+    node.switch,
+    node.peerManager,
+    clusterId,
+    node.getShardsGetter(),
+    node.getCapabilitiesGetter(),
+  ).valueOr:
     error "initializing waku rendezvous failed", error = error
     return
 
