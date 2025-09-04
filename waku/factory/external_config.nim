@@ -603,7 +603,7 @@ with the drawback of consuming some more bandwidth.""",
     ## waku peer exchange config
     peerExchange* {.
       desc: "Enable waku peer exchange protocol (responder side): true|false",
-      defaultValue: false,
+      defaultValue: true,
       name: "peer-exchange"
     .}: bool
 
