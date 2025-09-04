@@ -132,7 +132,7 @@ method validateRoot*(
   return g.indexOfRoot(root) >= 0
 
 method verifyProof*(
-    g: GroupManager, input: openArray[byte], proof: RateLimitProof
+    g: GroupManager, input: seq[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.base, gcsafe, raises: [].} =
   ## Dummy implementation for verifyProof
   return err("verifyProof is not implemented")
