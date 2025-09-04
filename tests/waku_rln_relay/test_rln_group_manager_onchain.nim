@@ -35,9 +35,7 @@ suite "Onchain group manager":
   setup:
     # Acquire lock to ensure tests run sequentially
     acquire(testLock)
-
     let runAnvil {.used.} = runAnvil()
-
     var manager {.threadvar.}: OnchainGroupManager
     manager = waitFor setupOnchainGroupManager()
 
