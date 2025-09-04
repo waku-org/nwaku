@@ -159,6 +159,16 @@ proc absDiff*(e1, e2: Epoch): uint64 =
   else:
     return epoch2 - epoch1
 
+proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
+  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
+  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+
+  let
+    contentTopicBytes = toBytes(wakumessage.contentTopic)
+    timestampBytes = toBytes(wakumessage.timestamp.uint64)
+    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
+  return output
+
 proc validateMessage*(
     rlnPeer: WakuRLNRelay, msg: WakuMessage
 ): MessageValidationResult =
@@ -216,7 +226,8 @@ proc validateMessage*(
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
-    let proofVerificationRes = rlnPeer.groupManager.verifyProof(input, proof)
+    let proofVerificationRes =
+      rlnPeer.groupManager.verifyProof(msg.toRLNSignal(), proof)
 
   if proofVerificationRes.isErr():
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
@@ -273,16 +284,6 @@ proc validateMessageAndUpdateLog*(
     discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return isValidMessage
-
-proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
-  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
-  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
-
-  let
-    contentTopicBytes = toBytes(wakumessage.contentTopic)
-    timestampBytes = toBytes(wakumessage.timestamp.uint64)
-    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
-  return output
 
 proc appendRLNProof*(
     rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64

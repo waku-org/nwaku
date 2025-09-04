@@ -446,7 +446,7 @@ method generateProof*(
     nullifier: nullifier,
   )
 
-  debug "Proof generated successfully"
+  debug "Proof generated successfully", proof = output
 
   waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()

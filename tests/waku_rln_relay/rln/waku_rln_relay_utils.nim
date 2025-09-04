@@ -1,6 +1,11 @@
 import std/tempfiles
 
-import waku/waku_rln_relay, waku/waku_rln_relay/[rln, protocol_types, nonce_manager]
+import
+  waku/waku_rln_relay,
+  waku/waku_rln_relay/[
+    group_manager, rln, conversion_utils, constants, protocol_types, protocol_metrics,
+    nonce_manager,
+  ]
 
 proc createRLNInstanceWrapper*(): RLNResult =
   return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
@@ -24,7 +29,7 @@ proc unsafeAppendRLNProof*(
       error "Failed to fetch Merkle proof", error = proofResult.error
     manager.merkleProofCache = proofResult.get()
 
-  let proof = manager.generateProof(msg.payload, epoch, messageId).valueOr:
+  let proof = manager.generateProof(msg.toRLNSignal(), epoch, messageId).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
 
   msg.proof = proof.encode().buffer

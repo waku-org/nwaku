@@ -428,13 +428,21 @@ suite "Waku rln relay":
     var epoch = wakuRlnRelay.getCurrentEpoch()
 
     var
-      wm1 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
-      wm2 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
+      wm1 = WakuMessage(
+        payload: "timestamp message".toBytes(),
+        contentTopic: DefaultPubsubTopic,
+        timestamp: now(),
+      )
+      wm2 = WakuMessage(
+        payload: "timestamp message".toBytes(),
+        contentTopic: DefaultPubsubTopic,
+        timestamp: now(),
+      )
 
     wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch, MessageId(1)).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch, MessageId(2)).isOkOr:
       raiseAssert $error
 
     # validate the first message because it's timestamp is the same as the generated timestamp
@@ -443,11 +451,11 @@ suite "Waku rln relay":
     # wait for 2 seconds to make the timestamp different from generated timestamp
     await sleepAsync(2.seconds)
 
-    # invalidate the second message because it's timestamp is different from the generated timestamp
     let msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Invalid
 
   asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
