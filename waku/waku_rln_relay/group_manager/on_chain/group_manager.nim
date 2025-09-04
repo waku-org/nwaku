@@ -195,8 +195,6 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
 proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError]).} =
   try:
     initializedGuard(g)
-    let ethRpc = g.ethRpc.get()
-    let wakuRlnContract = g.wakuRlnContract.get()
     const rpcDelay = 5.seconds
 
     while true:
@@ -484,7 +482,7 @@ method verifyProof*(
   if not ffiOk:
     return err("could not verify the proof")
   else:
-    trace "Proof verified successfully !"
+    debug "Proof verified successfully"
 
   return ok(validProof)
 
