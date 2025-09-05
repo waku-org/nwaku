@@ -11,94 +11,85 @@ import
   ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/waku_core/topics/content_topic
 
-type FilterMsgType* = enum
-  SUBSCRIBE
-  UNSUBSCRIBE
-  UNSUBSCRIBE_ALL
+const FilterOpTimeout = 5.seconds
 
-type FilterRequest* = object
-  operation: FilterMsgType
-  pubsubTopic: cstring
-  contentTopics: cstring ## comma-separated list of content-topics
-  filterPushEventCallback: FilterPushHandler ## handles incoming filter pushed msgs
-
-proc createShared*(
-    T: type FilterRequest,
-    op: FilterMsgType,
-    pubsubTopic: cstring = "",
-    contentTopics: cstring = "",
-    filterPushEventCallback: FilterPushHandler = nil,
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = op
-  ret[].pubsubTopic = pubsubTopic.alloc()
-  ret[].contentTopics = contentTopics.alloc()
-  ret[].filterPushEventCallback = filterPushEventCallback
-
-  return ret
-
-proc destroyShared(self: ptr FilterRequest) =
-  deallocShared(self[].pubsubTopic)
-  deallocShared(self[].contentTopics)
-  deallocShared(self)
-
-proc process*(
-    self: ptr FilterRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  defer:
-    destroyShared(self)
-
-  const FilterOpTimeout = 5.seconds
+proc checkFilterClientMounted(waku: ptr Waku): Result[string, string] =
   if waku.node.wakuFilterClient.isNil():
-    let errorMsg = "FilterRequest waku.node.wakuFilterClient is nil"
-    error "fail filter process", error = errorMsg, op = $(self.operation)
+    let errorMsg = "wakuFilterClient is not mounted"
+    error "fail filter process", error = errorMsg
     return err(errorMsg)
+  return ok("")
 
-  case self.operation
-  of SUBSCRIBE:
-    waku.node.wakuFilterClient.registerPushHandler(self.filterPushEventCallback)
+registerReqFFI(FilterSubscribeReq, waku: ptr Waku):
+  proc(
+      pubSubTopic: cstring,
+      contentTopics: cstring,
+      filterPushEventCallback: FilterPushHandler,
+  ): Future[Result[string, string]] {.async.} =
+    checkFilterClientMounted(waku).isOkOr:
+      return err($error)
+
+    waku.node.wakuFilterClient.registerPushHandler(filterPushEventCallback)
 
     let peer = waku.node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let errorMsg =
         "could not find peer with WakuFilterSubscribeCodec when subscribing"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
+      error "fail filter subscribe", error = errorMsg
       return err(errorMsg)
 
-    let pubsubTopic = some(PubsubTopic($self[].pubsubTopic))
-    let contentTopics = ($(self[].contentTopics)).split(",").mapIt(ContentTopic(it))
-
-    let subFut = waku.node.filterSubscribe(pubsubTopic, contentTopics, peer)
+    let subFut = waku.node.filterSubscribe(
+      some(PubsubTopic($pubsubTopic)),
+      ($contentTopics).split(",").mapIt(ContentTopic(it)),
+      peer,
+    )
     if not await subFut.withTimeout(FilterOpTimeout):
       let errorMsg = "filter subscription timed out"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
+      error "fail filter unsubscribe", error = errorMsg
+
       return err(errorMsg)
-  of UNSUBSCRIBE:
+
+    return ok("")
+
+registerReqFFI(FilterUnsubscribeReq, waku: ptr Waku):
+  proc(
+      pubSubTopic: cstring, contentTopics: cstring
+  ): Future[Result[string, string]] {.async.} =
+    checkFilterClientMounted(waku).isOkOr:
+      return err($error)
+
     let peer = waku.node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let errorMsg =
         "could not find peer with WakuFilterSubscribeCodec when unsubscribing"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
+      error "fail filter process", error = errorMsg
       return err(errorMsg)
 
-    let pubsubTopic = some(PubsubTopic($self[].pubsubTopic))
-    let contentTopics = ($(self[].contentTopics)).split(",").mapIt(ContentTopic(it))
-
-    let subFut = waku.node.filterUnsubscribe(pubsubTopic, contentTopics, peer)
+    let subFut = waku.node.filterUnsubscribe(
+      some(PubsubTopic($pubsubTopic)),
+      ($contentTopics).split(",").mapIt(ContentTopic(it)),
+      peer,
+    )
     if not await subFut.withTimeout(FilterOpTimeout):
       let errorMsg = "filter un-subscription timed out"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
+      error "fail filter unsubscribe", error = errorMsg
       return err(errorMsg)
-  of UNSUBSCRIBE_ALL:
+    return ok("")
+
+registerReqFFI(FilterUnsubscribeAllReq, waku: ptr Waku):
+  proc(): Future[Result[string, string]] {.async.} =
+    checkFilterClientMounted(waku).isOkOr:
+      return err($error)
+
     let peer = waku.node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let errorMsg =
         "could not find peer with WakuFilterSubscribeCodec when unsubscribing all"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
+      error "fail filter unsubscribe all", error = errorMsg
       return err(errorMsg)
 
     let unsubFut = waku.node.filterUnsubscribeAll(peer)
 
     if not await unsubFut.withTimeout(FilterOpTimeout):
       let errorMsg = "filter un-subscription all timed out"
-      error "fail filter process", error = errorMsg, op = $(self.operation)
-      return err(errorMsg)
+      error "fail filter unsubscribe all", error = errorMsg
 
-  return ok("")
+      return err(errorMsg)
+    return ok("")

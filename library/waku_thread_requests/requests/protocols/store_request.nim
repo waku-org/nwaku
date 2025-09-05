@@ -77,54 +77,24 @@ func fromJsonNode(
     )
   )
 
-proc createShared*(
-    T: type StoreRequest,
-    op: StoreReqType,
-    jsonQuery: cstring,
-    peerAddr: cstring,
-    timeoutMs: cint,
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = op
-  ret[].timeoutMs = timeoutMs
-  ret[].jsonQuery = jsonQuery.alloc()
-  ret[].peerAddr = peerAddr.alloc()
-  return ret
+registerReqFFI(StoreQueryReq, waku: ptr Waku):
+  proc(
+      jsonQuery: cstring, peerAddr: cstring, timeoutMs: cint
+  ): Future[Result[string, string]] {.async.} =
+    let jsonContentRes = catch:
+      parseJson($jsonQuery)
 
-proc destroyShared(self: ptr StoreRequest) =
-  deallocShared(self[].jsonQuery)
-  deallocShared(self[].peerAddr)
-  deallocShared(self)
+    if jsonContentRes.isErr():
+      return
+        err("StoreRequest failed parsing store request: " & jsonContentRes.error.msg)
 
-proc process_remote_query(
-    self: ptr StoreRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  let jsonContentRes = catch:
-    parseJson($self[].jsonQuery)
+    let storeQueryRequest = ?StoreRequest.fromJsonNode(jsonContentRes.get())
 
-  if jsonContentRes.isErr():
-    return err("StoreRequest failed parsing store request: " & jsonContentRes.error.msg)
+    let peer = peers.parsePeerInfo(($peerAddr).split(",")).valueOr:
+      return err("StoreRequest failed to parse peer addr: " & $error)
 
-  let storeQueryRequest = ?StoreRequest.fromJsonNode(jsonContentRes.get())
+    let queryResponse = (await waku.node.wakuStoreClient.query(storeQueryRequest, peer)).valueOr:
+      return err("StoreRequest failed store query: " & $error)
 
-  let peer = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
-    return err("StoreRequest failed to parse peer addr: " & $error)
-
-  let queryResponse = (await waku.node.wakuStoreClient.query(storeQueryRequest, peer)).valueOr:
-    return err("StoreRequest failed store query: " & $error)
-
-  let res = $(%*(queryResponse.toHex()))
-  return ok(res) ## returning the response in json format
-
-proc process*(
-    self: ptr StoreRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  defer:
-    deallocShared(self)
-
-  case self.operation
-  of REMOTE_QUERY:
-    return await self.process_remote_query(waku)
-
-  error "store request not handled at all"
-  return err("store request not handled at all")
+    let res = $(%*(queryResponse.toHex()))
+    return ok(res) ## returning the response in json format

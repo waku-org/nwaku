@@ -1,4 +1,4 @@
-import std/[net, sequtils, strutils]
+import std/[net, sequtils, strutils, json], strformat
 import chronicles, chronos, stew/byteutils, results, ffi
 import
   ../../../../waku/waku_core/message/message,
@@ -9,156 +9,107 @@ import
   ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/waku_core/topics,
   ../../../../waku/waku_relay/protocol,
-  ../../../../waku/node/peer_manager
+  ../../../../waku/node/peer_manager,
+  ../../../events/json_message_event
 
-type RelayMsgType* = enum
-  SUBSCRIBE
-  UNSUBSCRIBE
-  PUBLISH
-  NUM_CONNECTED_PEERS
-  LIST_CONNECTED_PEERS
-    ## to return the list of all connected peers to an specific pubsub topic
-  NUM_MESH_PEERS
-  LIST_MESH_PEERS
-    ## to return the list of only the peers that conform the mesh for a particular pubsub topic
-  ADD_PROTECTED_SHARD ## Protects a shard with a public key
-
-type ThreadSafeWakuMessage* = object
-  payload: SharedSeq[byte]
-  contentTopic: cstring
-  meta: SharedSeq[byte]
-  version: uint32
-  timestamp: Timestamp
-  ephemeral: bool
-  when defined(rln):
-    proof: SharedSeq[byte]
-
-type RelayRequest* = object
-  operation: RelayMsgType
-  pubsubTopic: cstring
-  relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
-  message: ThreadSafeWakuMessage # only used in 'PUBLISH' requests
-  clusterId: cint # only used in 'ADD_PROTECTED_SHARD' requests
-  shardId: cint # only used in 'ADD_PROTECTED_SHARD' requests
-  publicKey: cstring # only used in 'ADD_PROTECTED_SHARD' requests
-
-proc createShared*(
-    T: type RelayRequest,
-    op: RelayMsgType,
-    pubsubTopic: cstring = nil,
-    relayEventCallback: WakuRelayHandler = nil,
-    m = WakuMessage(),
-    clusterId: cint = 0,
-    shardId: cint = 0,
-    publicKey: cstring = nil,
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = op
-  ret[].pubsubTopic = pubsubTopic.alloc()
-  ret[].clusterId = clusterId
-  ret[].shardId = shardId
-  ret[].publicKey = publicKey.alloc()
-  ret[].relayEventCallback = relayEventCallback
-  ret[].message = ThreadSafeWakuMessage(
-    payload: allocSharedSeq(m.payload),
-    contentTopic: m.contentTopic.alloc(),
-    meta: allocSharedSeq(m.meta),
-    version: m.version,
-    timestamp: m.timestamp,
-    ephemeral: m.ephemeral,
-  )
-  when defined(rln):
-    ret[].message.proof = allocSharedSeq(m.proof)
-
-  return ret
-
-proc destroyShared(self: ptr RelayRequest) =
-  deallocSharedSeq(self[].message.payload)
-  deallocShared(self[].message.contentTopic)
-  deallocSharedSeq(self[].message.meta)
-  when defined(rln):
-    deallocSharedSeq(self[].message.proof)
-  deallocShared(self[].pubsubTopic)
-  deallocShared(self[].publicKey)
-  deallocShared(self)
-
-proc toWakuMessage(m: ThreadSafeWakuMessage): WakuMessage =
-  var wakuMessage = WakuMessage()
-
-  wakuMessage.payload = m.payload.toSeq()
-  wakuMessage.contentTopic = $m.contentTopic
-  wakuMessage.meta = m.meta.toSeq()
-  wakuMessage.version = m.version
-  wakuMessage.timestamp = m.timestamp
-  wakuMessage.ephemeral = m.ephemeral
-
-  when defined(rln):
-    wakuMessage.proof = m.proof
-
-  return wakuMessage
-
-proc process*(
-    self: ptr RelayRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  defer:
-    destroyShared(self)
-
-  if waku.node.wakuRelay.isNil():
-    return err("Operation not supported without Waku Relay enabled.")
-
-  case self.operation
-  of SUBSCRIBE:
-    waku.node.subscribe(
-      (kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic),
-      handler = self.relayEventCallback,
-    ).isOkOr:
-      error "SUBSCRIBE failed", error
-      return err($error)
-  of UNSUBSCRIBE:
-    waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $self.pubsubTopic)).isOkOr:
-      error "UNSUBSCRIBE failed", error
-      return err($error)
-  of PUBLISH:
-    let msg = self.message.toWakuMessage()
-    let pubsubTopic = $self.pubsubTopic
-
-    (await waku.node.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
-      error "PUBLISH failed", error
-      return err($error)
-
-    let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
-    return ok(msgHash)
-  of NUM_CONNECTED_PEERS:
-    let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
-      error "NUM_CONNECTED_PEERS failed", error
-      return err($error)
-    return ok($numConnPeers)
-  of LIST_CONNECTED_PEERS:
-    let connPeers = waku.node.wakuRelay.getConnectedPeers($self.pubsubTopic).valueOr:
-      error "LIST_CONNECTED_PEERS failed", error = error
-      return err($error)
-    ## returns a comma-separated string of peerIDs
-    return ok(connPeers.mapIt($it).join(","))
-  of NUM_MESH_PEERS:
-    let numPeersInMesh = waku.node.wakuRelay.getNumPeersInMesh($self.pubsubTopic).valueOr:
-      error "NUM_MESH_PEERS failed", error = error
-      return err($error)
-    return ok($numPeersInMesh)
-  of LIST_MESH_PEERS:
-    let meshPeers = waku.node.wakuRelay.getPeersInMesh($self.pubsubTopic).valueOr:
+registerReqFFI(GetPeersInMeshReq, waku: ptr Waku):
+  proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
+    let meshPeers = waku.node.wakuRelay.getPeersInMesh($pubsubTopic).valueOr:
       error "LIST_MESH_PEERS failed", error = error
       return err($error)
     ## returns a comma-separated string of peerIDs
     return ok(meshPeers.mapIt($it).join(","))
-  of ADD_PROTECTED_SHARD:
+
+registerReqFFI(GetNumPeersInMeshReq, waku: ptr Waku):
+  proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
+    let numPeersInMesh = waku.node.wakuRelay.getNumPeersInMesh($pubsubTopic).valueOr:
+      error "NUM_MESH_PEERS failed", error = error
+      return err($error)
+    return ok($numPeersInMesh)
+
+registerReqFFI(GetConnectedPeersReq, waku: ptr Waku):
+  proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
+    ## Returns the list of all connected peers to an specific pubsub topic
+    let connPeers = waku.node.wakuRelay.getConnectedPeers($pubsubTopic).valueOr:
+      error "LIST_CONNECTED_PEERS failed", error = error
+      return err($error)
+    ## returns a comma-separated string of peerIDs
+    return ok(connPeers.mapIt($it).join(","))
+
+registerReqFFI(GetNumConnectedPeersReq, waku: ptr Waku):
+  proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
+    let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($pubsubTopic).valueOr:
+      error "NUM_CONNECTED_PEERS failed", error = error
+      return err($error)
+    return ok($numConnPeers)
+
+registerReqFFI(AddProtectedShardReq, waku: ptr Waku):
+  proc(
+      clusterId: cint, shardId: cint, publicKey: cstring
+  ): Future[Result[string, string]] {.async.} =
+    ## Protects a shard with a public key
     try:
       let relayShard =
-        RelayShard(clusterId: uint16(self.clusterId), shardId: uint16(self.shardId))
-      let protectedShard =
-        ProtectedShard.parseCmdArg($relayShard & ":" & $self.publicKey)
-      waku.node.wakuRelay.addSignedShardsValidator(
-        @[protectedShard], uint16(self.clusterId)
-      )
-    except ValueError:
-      return err(getCurrentExceptionMsg())
-  return ok("")
+        RelayShard(clusterId: uint16(clusterId), shardId: uint16(shardId))
+      let protectedShard = ProtectedShard.parseCmdArg($relayShard & ":" & $publicKey)
+      waku.node.wakuRelay.addSignedShardsValidator(@[protectedShard], uint16(clusterId))
+    except ValueError as exc:
+      return err("ERROR in AddProtectedShardReq: " & exc.msg)
+
+    return ok("")
+
+registerReqFFI(SubscribeReq, waku: ptr Waku):
+  proc(
+      pubSubTopic: cstring, relayEventCallback: WakuRelayHandler
+  ): Future[Result[string, string]] {.async.} =
+    waku.node.subscribe(
+      (kind: SubscriptionKind.PubsubSub, topic: $pubsubTopic),
+      handler = relayEventCallback,
+    ).isOkOr:
+      error "SUBSCRIBE failed", error = error
+      return err($error)
+    return ok("")
+
+registerReqFFI(UnsubscribeReq, waku: ptr Waku):
+  proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
+    waku.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: $pubsubTopic)).isOkOr:
+      error "UNSUBSCRIBE failed", error = error
+      return err($error)
+
+    return ok("")
+
+registerReqFFI(PublishRelayMsgReq, waku: ptr Waku):
+  proc(
+      pubSubTopic: cstring, jsonWakuMessage: cstring, timeoutMs: cuint
+  ): Future[Result[string, string]] {.async.} =
+    var jsonMessage: JsonMessage
+    try:
+      let jsonContent = parseJson($jsonWakuMessage)
+      jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+        raise newException(JsonParsingError, $error)
+    except JsonParsingError as exc:
+      return err(fmt"Error parsing json message: {exc.msg}")
+
+    let msg = json_message_event.toWakuMessage(jsonMessage).valueOr:
+      return err("Problem building the WakuMessage: " & $error)
+
+    (await waku.node.wakuRelay.publish($pubsubTopic, msg)).isOkOr:
+      error "PUBLISH failed", error = error
+      return err($error)
+
+    let msgHash = computeMessageHash($pubSubTopic, msg).to0xHex
+    return ok(msgHash)
+
+registerReqFFI(FetchPubsubTopicRequest, waku: ptr Waku):
+  proc(): Future[Result[string, string]] {.async.} =
+    return ok(DefaultPubsubTopic)
+
+registerReqFFI(BuildContentTopicReq, waku: ptr Waku):
+  proc(
+      appName: cstring, appVersion: cuint, contentTopicName: cstring, encoding: cstring
+  ): Future[Result[string, string]] {.async.} =
+    return ok(fmt"/{$appName}/{$appVersion}/{$contentTopicName}/{$encoding}")
+
+registerReqFFI(BuildPubsubTopicReq, waku: ptr Waku):
+  proc(topicName: cstring): Future[Result[string, string]] {.async.} =
+    return ok(fmt"/waku/2/{$topicName}")

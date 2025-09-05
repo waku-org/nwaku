@@ -3,54 +3,37 @@ import chronos, results, ffi
 import libp2p/[protocols/ping, switch, multiaddress, multicodec]
 import ../../../waku/[factory/waku, waku_core/peers, node/waku_node]
 
-type PingRequest* = object
-  peerAddr: cstring
-  timeout: Duration
+registerReqFFI(PingReq, waku: ptr Waku):
+  proc(peerAddr: cstring, timeoutMs: cuint): Future[Result[string, string]] {.async.} =
+    let peerInfo = peers.parsePeerInfo(($peerAddr).split(",")).valueOr:
+      return err("PingRequest failed to parse peer addr: " & $error)
 
-proc createShared*(
-    T: type PingRequest, peerAddr: cstring, timeout: Duration
-): ptr type T =
-  var ret = createShared(T)
-  ret[].peerAddr = peerAddr.alloc()
-  ret[].timeout = timeout
-  return ret
+    let timeout = chronos.milliseconds(timeoutMs)
+    proc ping(): Future[Result[Duration, string]] {.async, gcsafe.} =
+      try:
+        let conn =
+          await waku.node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
+        defer:
+          await conn.close()
 
-proc destroyShared(self: ptr PingRequest) =
-  deallocShared(self[].peerAddr)
-  deallocShared(self)
+        let pingRTT = await waku.node.libp2pPing.ping(conn)
+        if pingRTT == 0.nanos:
+          return err("could not ping peer: rtt-0")
+        return ok(pingRTT)
+      except CatchableError as exc:
+        return err("could not ping peer: " & exc.msg)
 
-proc process*(
-    self: ptr PingRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  defer:
-    destroyShared(self)
+    let pingFuture = ping()
+    let pingRTT: Duration =
+      if timeout == chronos.milliseconds(0): # No timeout expected
+        (await pingFuture).valueOr:
+          return err("ping failed, no timeout expected: " & error)
+      else:
+        let timedOut =
+          not (await pingFuture.withTimeout(timeout))
+        if timedOut:
+          return err("ping timed out")
+        pingFuture.read().valueOr:
+          return err("failed to read ping future: " & error)
 
-  let peerInfo = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
-    return err("PingRequest failed to parse peer addr: " & $error)
-
-  proc ping(): Future[Result[Duration, string]] {.async, gcsafe.} =
-    try:
-      let conn = await waku.node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-      defer:
-        await conn.close()
-
-      let pingRTT = await waku.node.libp2pPing.ping(conn)
-      if pingRTT == 0.nanos:
-        return err("could not ping peer: rtt-0")
-      return ok(pingRTT)
-    except CatchableError:
-      return err("could not ping peer: " & getCurrentExceptionMsg())
-
-  let pingFuture = ping()
-  let pingRTT: Duration =
-    if self[].timeout == chronos.milliseconds(0): # No timeout expected
-      (await pingFuture).valueOr:
-        return err(error)
-    else:
-      let timedOut = not (await pingFuture.withTimeout(self[].timeout))
-      if timedOut:
-        return err("ping timed out")
-      pingFuture.read().valueOr:
-        return err(error)
-
-  ok($(pingRTT.nanos))
+    return ok($(pingRTT.nanos))
