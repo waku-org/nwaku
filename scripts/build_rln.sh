@@ -56,6 +56,7 @@ then
     tar -xzf "${tarball}" -C "$tmpdir"
     mv "$tmpdir/release/librln.a" "${output_filename}"
     rm -rf "${tarball}" "$tmpdir"
+    echo "finished building ${output_filename}"
 else
     echo "Failed to download ${tarball}"
     # Build rln instead
