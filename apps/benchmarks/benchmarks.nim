@@ -8,7 +8,7 @@ import
     waku_rln_relay/rln,
     waku_rln_relay,
     waku_rln_relay/conversion_utils,
-    waku_rln_relay/group_manager/static/group_manager,
+    waku_rln_relay/group_manager/off_chain/group_manager,
   ]
 
 import std/[times, os]
@@ -17,7 +17,7 @@ proc main(): Future[string] {.async, gcsafe.} =
   let rlnIns = createRLNInstance(20).get()
   let credentials = toSeq(0 .. 1000).mapIt(membershipKeyGen(rlnIns).get())
 
-  let manager = StaticGroupManager(
+  let manager = OffchainGroupManager(
     rlnInstance: rlnIns,
     groupSize: 1000,
     membershipIndex: some(MembershipIndex(900)),

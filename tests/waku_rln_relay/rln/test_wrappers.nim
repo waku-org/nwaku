@@ -15,7 +15,8 @@ import
   waku/waku_rln_relay/rln/wrappers,
   ./waku_rln_relay_utils,
   ../../testlib/[simple_mock, assertions],
-  ../../waku_keystore/utils
+  ../../waku_keystore/utils,
+  ../../testlib/testutils
 
 from std/times import epochTime
 
@@ -98,7 +99,7 @@ suite "RlnConfig":
   suite "createRLNInstance":
     test "ok":
       # When we create the RLN instance
-      let rlnRes: RLNResult = createRLNInstance(15, "my.db")
+      let rlnRes: RLNResult = createRLNInstance(15)
 
       # Then it succeeds
       check:
@@ -124,7 +125,7 @@ suite "RlnConfig":
         newCircuitMock
 
       # When we create the RLN instance
-      let rlnRes: RLNResult = createRLNInstance(15, "my.db")
+      let rlnRes: RLNResult = createRLNInstance(15)
 
       # Then it fails
       check:
@@ -133,42 +134,3 @@ suite "RlnConfig":
       # Cleanup
       mock(new_circuit):
         backup
-
-  suite "proofGen":
-    test "Valid zk proof":
-      # this test vector is from zerokit
-      let rlnInstanceRes = createRLNInstanceWrapper()
-      assertResultOk(rlnInstanceRes)
-      let rlnInstance = rlnInstanceRes.value
-
-      let identityCredential = defaultIdentityCredential()
-      assert rlnInstance.insertMember(identityCredential.idCommitment)
-
-      let merkleRootRes = rlnInstance.getMerkleRoot()
-      assertResultOk(merkleRootRes)
-      let merkleRoot = merkleRootRes.value
-
-      let proofGenRes = rlnInstance.proofGen(
-        data = @[],
-        memKeys = identityCredential,
-        memIndex = MembershipIndex(0),
-        epoch = uint64(epochTime() / 1.float64).toEpoch(),
-      )
-      assertResultOk(proofGenRes)
-
-      let
-        rateLimitProof = proofGenRes.value
-        proofVerifyRes = rlnInstance.proofVerify(
-          data = @[], proof = rateLimitProof, validRoots = @[merkleRoot]
-        )
-
-      assertResultOk(proofVerifyRes)
-      assert proofVerifyRes.value, "proof verification failed"
-
-      # Assert the proof fields adhere to the specified types and lengths
-      check:
-        typeEq(rateLimitProof.proof, array[256, byte])
-        typeEq(rateLimitProof.merkleRoot, array[32, byte])
-        typeEq(rateLimitProof.shareX, array[32, byte])
-        typeEq(rateLimitProof.shareY, array[32, byte])
-        typeEq(rateLimitProof.nullifier, array[32, byte])

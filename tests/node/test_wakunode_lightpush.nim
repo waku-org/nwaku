@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tempfiles],
+  std/[options, tempfiles, osproc],
   testutils/unittests,
   chronos,
   std/strformat,
@@ -10,7 +10,8 @@ import
 import
   waku/[waku_core, node/peer_manager, node/waku_node, waku_lightpush, waku_rln_relay],
   ../testlib/[wakucore, wakunode, testasync, futures],
-  ../resources/payloads
+  ../resources/payloads,
+  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
 const PublishedToOnePeer = 1
 
@@ -104,6 +105,8 @@ suite "RLN Proofs as a Lightpush Service":
 
     server {.threadvar.}: WakuNode
     client {.threadvar.}: WakuNode
+    anvilProc {.threadvar.}: Process
+    manager {.threadvar.}: OnchainGroupManager
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     pubsubTopic {.threadvar.}: PubsubTopic
@@ -125,13 +128,14 @@ suite "RLN Proofs as a Lightpush Service":
     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
+    anvilProc = runAnvil()
+    manager = waitFor setupOnchainGroupManager()
+
     # mount rln-relay
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(1.uint),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "wakunode"),
+    let wakuRlnConfig = getWakuRlnConfig(
+      manager = manager,
+      treePath = genTempPath("rln_tree", "wakunode_1"),
+      index = MembershipIndex(1),
     )
 
     await allFutures(server.start(), client.start())
@@ -143,6 +147,24 @@ suite "RLN Proofs as a Lightpush Service":
     await server.mountLightPush()
     client.mountLightPushClient()
 
+    let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let rootUpdated1 = waitFor manager1.updateRoots()
+    debug "Updated root for node1", rootUpdated1
+
+    if rootUpdated1:
+      let proofResult = waitFor manager1.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      manager1.merkleProofCache = proofResult.get()
+
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
@@ -150,6 +172,7 @@ suite "RLN Proofs as a Lightpush Service":
 
   asyncTeardown:
     await server.stop()
+    stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
     asyncTest "Message is published when RLN enabled":

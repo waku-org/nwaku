@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, os, sequtils, tempfiles],
+  std/[options, os, sequtils, tempfiles, strutils, osproc],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -17,11 +17,22 @@ import
     waku_keystore,
   ],
   ./rln/waku_rln_relay_utils,
+  ./utils_onchain,
   ../testlib/[wakucore, futures, wakunode, testutils]
 
 from std/times import epochTime
 
 suite "Waku rln relay":
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
+
+  setup:
+    anvilProc = runAnvil()
+    manager = waitFor setupOnchainGroupManager()
+
+  teardown:
+    stopAnvil(anvilProc)
+
   test "key_gen Nim Wrappers":
     let merkleDepth: csize_t = 20
 
@@ -67,173 +78,6 @@ suite "Waku rln relay":
       idCredential.idCommitment != empty
 
     debug "the generated identity credential: ", idCredential
-
-  test "getRoot Nim binding":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    # read the Merkle Tree root
-    let
-      root1 {.noinit.}: Buffer = Buffer()
-      rootPtr1 = unsafeAddr(root1)
-      getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
-    require:
-      getRootSuccessful1
-      root1.len == 32
-
-    # read the Merkle Tree root
-    let
-      root2 {.noinit.}: Buffer = Buffer()
-      rootPtr2 = unsafeAddr(root2)
-      getRootSuccessful2 = getRoot(rlnInstance.get(), rootPtr2)
-    require:
-      getRootSuccessful2
-      root2.len == 32
-
-    let rootValue1 = cast[ptr array[32, byte]](root1.`ptr`)
-    let rootHex1 = rootValue1[].inHex
-
-    let rootValue2 = cast[ptr array[32, byte]](root2.`ptr`)
-    let rootHex2 = rootValue2[].inHex
-
-    # the two roots must be identical
-    check:
-      rootHex1 == rootHex2
-  test "getMerkleRoot utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    # read the Merkle Tree root
-    let root1 = getMerkleRoot(rln)
-    require:
-      root1.isOk()
-    let rootHex1 = root1.value().inHex
-
-    # read the Merkle Tree root
-    let root2 = getMerkleRoot(rln)
-    require:
-      root2.isOk()
-    let rootHex2 = root2.value().inHex
-
-    # the two roots must be identical
-    check:
-      rootHex1 == rootHex2
-
-  test "update_next_member Nim Wrapper":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-    # generate an identity credential
-    let idCredentialRes = membershipKeyGen(rln)
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-    let pkBuffer = toBuffer(idCredential.idCommitment)
-    let pkBufferPtr = unsafeAddr(pkBuffer)
-
-    # add the member to the tree
-    let memberAdded = updateNextMember(rln, pkBufferPtr)
-    check:
-      memberAdded
-
-  test "getMember Nim wrapper":
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-    # generate an identity credential
-    let idCredentialRes = membershipKeyGen(rln)
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-    let pkBuffer = toBuffer(idCredential.idCommitment)
-    let pkBufferPtr = unsafeAddr(pkBuffer)
-
-    let
-      root1 {.noinit.}: Buffer = Buffer()
-      rootPtr1 = unsafeAddr(root1)
-      getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
-
-    # add the member to the tree
-    let memberAdded = updateNextMember(rln, pkBufferPtr)
-    require:
-      memberAdded
-
-    let leafRes = getMember(rln, 0)
-    require:
-      leafRes.isOk()
-    let leaf = leafRes.get()
-    let leafHex = leaf.inHex()
-    check:
-      leafHex == idCredential.idCommitment.inHex()
-
-  test "delete_member Nim wrapper":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    # generate an identity credential
-    let rln = rlnInstance.get()
-    let idCredentialRes = rln.membershipKeyGen()
-    require:
-      idCredentialRes.isOk()
-      rln.insertMember(idCredentialRes.get().idCommitment)
-
-    # delete the first member
-    let deletedMemberIndex = MembershipIndex(0)
-    let deletionSuccess = rln.deleteMember(deletedMemberIndex)
-    check:
-      deletionSuccess
-
-  test "insertMembers rln utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-    # generate an identity credential
-    let idCredentialRes = rln.membershipKeyGen()
-    require:
-      idCredentialRes.isOk()
-    check:
-      rln.insertMembers(0, @[idCredentialRes.get().idCommitment])
-      rln.leavesSet() == 1
-
-  test "insertMember rln utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-    # generate an identity credential
-    let idCredentialRes = rln.membershipKeyGen()
-    require:
-      idCredentialRes.isOk()
-    check:
-      rln.insertMember(idCredentialRes.get().idCommitment)
-
-  test "removeMember rln utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let idCredentialRes = rln.membershipKeyGen()
-    require:
-      idCredentialRes.isOk()
-      rln.insertMember(idCredentialRes.get().idCommitment)
-    check:
-      rln.removeMember(MembershipIndex(0))
 
   test "setMetadata rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -289,135 +133,6 @@ suite "Waku rln relay":
 
     check:
       metadata.isNone()
-
-  test "Merkle tree consistency check between deletion and insertion":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let rln = rlnInstance.get()
-
-    # read the Merkle Tree root
-    let
-      root1 {.noinit.}: Buffer = Buffer()
-      rootPtr1 = unsafeAddr(root1)
-      getRootSuccessful1 = getRoot(rln, rootPtr1)
-    require:
-      getRootSuccessful1
-      root1.len == 32
-
-    # generate an identity credential
-    let idCredentialRes = membershipKeyGen(rln)
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-    let pkBuffer = toBuffer(idCredential.idCommitment)
-    let pkBufferPtr = unsafeAddr(pkBuffer)
-
-    # add the member to the tree
-    let memberAdded = updateNextMember(rln, pkBufferPtr)
-    require:
-      memberAdded
-
-    # read the Merkle Tree root after insertion
-    let
-      root2 {.noinit.}: Buffer = Buffer()
-      rootPtr2 = unsafeAddr(root2)
-      getRootSuccessful = getRoot(rln, rootPtr2)
-    require:
-      getRootSuccessful
-      root2.len == 32
-
-    # delete the first member
-    let deletedMemberIndex = MembershipIndex(0)
-    let deletionSuccess = deleteMember(rln, deletedMemberIndex)
-    require:
-      deletionSuccess
-
-    # read the Merkle Tree root after the deletion
-    let
-      root3 {.noinit.}: Buffer = Buffer()
-      rootPtr3 = unsafeAddr(root3)
-      getRootSuccessful3 = getRoot(rln, rootPtr3)
-    require:
-      getRootSuccessful3
-      root3.len == 32
-
-    let rootValue1 = cast[ptr array[32, byte]](root1.`ptr`)
-    let rootHex1 = rootValue1[].inHex
-    debug "The initial root", rootHex1
-
-    let rootValue2 = cast[ptr array[32, byte]](root2.`ptr`)
-    let rootHex2 = rootValue2[].inHex
-    debug "The root after insertion", rootHex2
-
-    let rootValue3 = cast[ptr array[32, byte]](root3.`ptr`)
-    let rootHex3 = rootValue3[].inHex
-    debug "The root after deletion", rootHex3
-
-    # the root must change after the insertion
-    check:
-      not (rootHex1 == rootHex2)
-
-    ## The initial root of the tree (empty tree) must be identical to
-    ## the root of the tree after one insertion followed by a deletion
-    check:
-      rootHex1 == rootHex3
-
-  test "Merkle tree consistency check between deletion and insertion using rln utils":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let rln = rlnInstance.get()
-
-    # read the Merkle Tree root
-    let root1 = rln.getMerkleRoot()
-    require:
-      root1.isOk()
-    let rootHex1 = root1.value().inHex()
-
-    # generate an identity credential
-    let idCredentialRes = rln.membershipKeyGen()
-    require:
-      idCredentialRes.isOk()
-    let memberInserted = rln.insertMembers(0, @[idCredentialRes.get().idCommitment])
-    require:
-      memberInserted
-
-    # read the Merkle Tree root after insertion
-    let root2 = rln.getMerkleRoot()
-    require:
-      root2.isOk()
-    let rootHex2 = root2.value().inHex()
-
-    # delete the first member
-    let deletedMemberIndex = MembershipIndex(0)
-    let deletionSuccess = rln.removeMember(deletedMemberIndex)
-    require:
-      deletionSuccess
-
-    # read the Merkle Tree root after the deletion
-    let root3 = rln.getMerkleRoot()
-    require:
-      root3.isOk()
-    let rootHex3 = root3.value().inHex()
-
-    debug "The initial root", rootHex1
-    debug "The root after insertion", rootHex2
-    debug "The root after deletion", rootHex3
-
-    # the root must change after the insertion
-    check:
-      not (rootHex1 == rootHex2)
-
-    ## The initial root of the tree (empty tree) must be identical to
-    ## the root of the tree after one insertion followed by a deletion
-    check:
-      rootHex1 == rootHex3
 
   test "hash Nim Wrappers":
     # create an RLN instance
@@ -487,69 +202,6 @@ suite "Waku rln relay":
       hashRes.isOk()
       "28a15a991fe3d2a014485c7fa905074bfb55c0909112f865ded2be0a26a932c3" ==
         hashRes.get().inHex()
-
-  test "create a list of membership keys and construct a Merkle tree based on the list":
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let
-      groupSize = 100
-      memListRes = rln.createMembershipList(groupSize)
-
-    require:
-      memListRes.isOk()
-
-    let (list, root) = memListRes.get()
-
-    debug "created membership key list", number_of_keys = list.len
-    debug "Merkle tree root", size_calculated_tree_root = root.len
-
-    check:
-      list.len == groupSize # check the number of keys
-      root.len == HashHexSize # check the size of the calculated tree root
-
-  test "check correctness of toIdentityCredentials":
-    let groupKeys = StaticGroupKeys
-
-    # create a set of IdentityCredentials objects from groupKeys
-    let groupIdCredentialsRes = groupKeys.toIdentityCredentials()
-    require:
-      groupIdCredentialsRes.isOk()
-
-    let groupIdCredentials = groupIdCredentialsRes.get()
-    # extract the id commitments
-    let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
-    # calculate the Merkle tree root out of the extracted id commitments
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    # create a Merkle tree
-    let rateCommitments =
-      groupIDCommitments.mapIt(RateCommitment(idCommitment: it, userMessageLimit: 20))
-    let leaves = rateCommitments.toLeaves().valueOr:
-      raiseAssert $error
-    let membersAdded = rln.insertMembers(0, leaves)
-
-    assert membersAdded, "members should be added"
-    let rawRoot = rln.getMerkleRoot().valueOr:
-      raiseAssert $error
-
-    let root = rawRoot.inHex()
-
-    debug "groupIdCredentials", num_group_id_credentials = groupIdCredentials.len
-    # debug "groupIDCommitments", leaving commented in case needed to debug in the future
-    #   groupIDCommitments = groupIDCommitments.mapIt(it.inHex())
-    debug "root", root
-
-    check:
-      # check that the correct number of identity credentials is created
-      groupIdCredentials.len == StaticGroupSize
-      # compare the calculated root against the correct root
-      root == StaticGroupMerkleRoot
 
   test "RateLimitProof Protobuf encode/init test":
     var
@@ -691,49 +343,51 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog: against epoch gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-    )
-
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
-    let time_1 = epochTime()
+    let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
 
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let epoch1 = wakuRlnRelay.getCurrentEpoch()
+
+    # Create messages from the same peer and append RLN proof to them (except wm4)
     var
-      # create some messages from the same peer and append rln proof to them, except wm4
       wm1 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
-      # another message in the same epoch as wm1, it will break the messaging rate limit
+      # Another message in the same epoch as wm1, expected to break the rate limit
       wm2 = WakuMessage(payload: "Spam message".toBytes(), timestamp: now())
 
     await sleepAsync(1.seconds)
-    let time_2 = epochTime()
+    let epoch2 = wakuRlnRelay.getCurrentEpoch()
 
     var
-      #  wm3 points to the next epoch bcz of the sleep 
+      # wm3 points to the next epoch due to the sleep
       wm3 = WakuMessage(payload: "Valid message".toBytes(), timestamp: now())
       wm4 = WakuMessage(payload: "Invalid message".toBytes(), timestamp: now())
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm1, time_1).isOkOr:
+    # Append RLN proofs
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch1, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, time_1).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch1, MessageId(1)).isOkOr:
+      raiseAssert $error
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, epoch2, MessageId(3)).isOkOr:
       raiseAssert $error
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm3, time_2).isOkOr:
-      raiseAssert $error
-
-    # validate messages
+    # Validate messages
     let
       msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1)
-      # wm2 is published within the same Epoch as wm1 and should be found as spam
+      # wm2 is within the same epoch as wm1 → should be spam
       msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
-      # a valid message should be validated successfully
+      # wm3 is in the next epoch → should be valid
       msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3)
-      # wm4 has no rln proof and should not be validated
+      # wm4 has no RLN proof → should be invalid
       msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4)
 
     check:
@@ -745,30 +399,41 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog: against timestamp gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index),
-      userMessageLimit: 10,
-      epochSizeSec: 10,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
 
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
-    # usually it's 20 seconds but we set it to 2 for testing purposes which make the test faster
+    let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
+    let idCredentials = generateCredentials(manager.rlnInstance)
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    # usually it's 20 seconds but we set it to 1 for testing purposes which make the test faster
     wakuRlnRelay.rlnMaxTimestampGap = 1
 
-    var time = epochTime()
+    var epoch = wakuRlnRelay.getCurrentEpoch()
 
     var
-      wm1 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
-      wm2 = WakuMessage(payload: "timestamp message".toBytes(), timestamp: now())
+      wm1 = WakuMessage(
+        payload: "timestamp message".toBytes(),
+        contentTopic: DefaultPubsubTopic,
+        timestamp: now(),
+      )
+      wm2 = WakuMessage(
+        payload: "timestamp message".toBytes(),
+        contentTopic: DefaultPubsubTopic,
+        timestamp: now(),
+      )
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
-    wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, epoch, MessageId(2)).isOkOr:
       raiseAssert $error
 
     # validate the first message because it's timestamp is the same as the generated timestamp
@@ -777,40 +442,43 @@ suite "Waku rln relay":
     # wait for 2 seconds to make the timestamp different from generated timestamp
     await sleepAsync(2.seconds)
 
-    # invalidate the second message because it's timestamp is different from the generated timestamp
     let msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2)
 
     check:
       msgValidate1 == MessageValidationResult.Valid
       msgValidate2 == MessageValidationResult.Invalid
 
-  asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
+  asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
-    let index2 = MembershipIndex(6)
-
-    let rlnConf1 = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index1),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_3"),
-    )
-
+    let rlnConf1 = getWakuRlnConfig(manager = manager, index = index1)
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
-    let rlnConf2 = WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(index2),
-      userMessageLimit: 1,
-      epochSizeSec: 1,
-      treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
-    )
+    let manager1 = cast[OnchainGroupManager](wakuRlnRelay1.groupManager)
+    let idCredentials1 = generateCredentials(manager1.rlnInstance)
 
+    try:
+      waitFor manager1.register(idCredentials1, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
+    let index2 = MembershipIndex(6)
+    let rlnConf2 = getWakuRlnConfig(manager = manager, index = index2)
     let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
+
+    let manager2 = cast[OnchainGroupManager](wakuRlnRelay2.groupManager)
+    let idCredentials2 = generateCredentials(manager2.rlnInstance)
+
+    try:
+      waitFor manager2.register(idCredentials2, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register: " & getCurrentExceptionMsg()
+
     # get the current epoch time
-    let time = epochTime()
+    let epoch = wakuRlnRelay1.getCurrentEpoch()
 
     #  create messages from different peers and append rln proofs to them
     var
@@ -820,16 +488,13 @@ suite "Waku rln relay":
       wm2 =
         WakuMessage(payload: "Valid message from sender 2".toBytes(), timestamp: now())
 
-    wakuRlnRelay1.appendRLNProof(wm1, time).isOkOr:
+    wakuRlnRelay1.unsafeAppendRLNProof(wm1, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
-    wakuRlnRelay2.appendRLNProof(wm2, time).isOkOr:
+    wakuRlnRelay2.unsafeAppendRLNProof(wm2, epoch, MessageId(1)).isOkOr:
       raiseAssert $error
 
-    # validate messages
-    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
       msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1)
-      # since this message is from a different sender, it should be validated successfully
       msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2)
 
     check:
@@ -942,12 +607,8 @@ suite "Waku rln relay":
     let index = MembershipIndex(0)
 
     proc runTestForEpochSizeSec(rlnEpochSizeSec: uint) {.async.} =
-      let wakuRlnConfig = WakuRlnConfig(
-        dynamic: false,
-        credIndex: some(index),
-        userMessageLimit: 1,
-        epochSizeSec: rlnEpochSizeSec,
-        treePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      let wakuRlnConfig = getWakuRlnConfig(
+        manager = manager, index = index, epochSizeSec = rlnEpochSizeSec.uint64
       )
 
       let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
