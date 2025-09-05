@@ -1,16 +1,16 @@
 import std/[net, sequtils, strutils, json], strformat
 import chronicles, chronos, stew/byteutils, results, ffi
 import
-  ../../../../waku/waku_core/message/message,
-  ../../../../waku/factory/[external_config, validator_signed, waku],
-  ../../../../waku/waku_node,
-  ../../../../waku/waku_core/message,
-  ../../../../waku/waku_core/time, # Timestamp
-  ../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../waku/waku_core/topics,
-  ../../../../waku/waku_relay/protocol,
-  ../../../../waku/node/peer_manager,
-  ../../../events/json_message_event
+  ../../../waku/waku_core/message/message,
+  ../../../waku/factory/[external_config, validator_signed, waku],
+  ../../../waku/waku_node,
+  ../../../waku/waku_core/message,
+  ../../../waku/waku_core/time, # Timestamp
+  ../../../waku/waku_core/topics/pubsub_topic,
+  ../../../waku/waku_core/topics,
+  ../../../waku/waku_relay/protocol,
+  ../../../waku/node/peer_manager,
+  ../../events/json_message_event
 
 registerReqFFI(GetPeersInMeshReq, waku: ptr Waku):
   proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =

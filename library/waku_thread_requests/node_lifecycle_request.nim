@@ -2,13 +2,13 @@ import std/[options, json, strutils, net]
 import chronos, chronicles, results, confutils, confutils/std/net, ffi
 
 import
-  ../../../waku/node/peer_manager/peer_manager,
-  ../../../waku/factory/external_config,
-  ../../../waku/factory/waku,
-  ../../../waku/factory/node_factory,
-  ../../../waku/factory/networks_config,
-  ../../../waku/factory/app_callbacks,
-  ../../../waku/waku_api/rest/builder
+  ../../waku/node/peer_manager/peer_manager,
+  ../../waku/factory/external_config,
+  ../../waku/factory/waku,
+  ../../waku/factory/node_factory,
+  ../../waku/factory/networks_config,
+  ../../waku/factory/app_callbacks,
+  ../../waku/waku_api/rest/builder
 
 proc createWaku(
     configJson: cstring, appCallbacks: AppCallbacks = nil

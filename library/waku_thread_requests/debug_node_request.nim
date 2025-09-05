@@ -9,9 +9,7 @@ import
   metrics,
   ffi
 import
-  ../../../waku/factory/waku,
-  ../../../waku/node/waku_node,
-  ../../../waku/node/health_monitor
+  ../../waku/factory/waku, ../../waku/node/waku_node, ../../waku/node/health_monitor
 
 proc getMultiaddresses(node: WakuNode): seq[string] =
   return node.info().listenAddresses

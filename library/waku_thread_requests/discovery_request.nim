@@ -1,11 +1,11 @@
 import std/json
 import chronos, chronicles, results, strutils, libp2p/multiaddress, ffi
 import
-  ../../../waku/factory/waku,
-  ../../../waku/discovery/waku_dnsdisc,
-  ../../../waku/discovery/waku_discv5,
-  ../../../waku/waku_core/peers,
-  ../../../waku/node/waku_node
+  ../../waku/factory/waku,
+  ../../waku/discovery/waku_dnsdisc,
+  ../../waku/discovery/waku_discv5,
+  ../../waku/waku_core/peers,
+  ../../waku/node/waku_node
 
 proc retrieveBootstrapNodes(
     enrTreeUrl: string, ipDnsServer: string

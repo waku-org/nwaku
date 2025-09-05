@@ -1,15 +1,15 @@
 import options, std/[strutils, sequtils]
 import chronicles, chronos, results, ffi
 import
-  ../../../../waku/waku_filter_v2/client,
-  ../../../../waku/waku_core/message/message,
-  ../../../../waku/factory/waku,
-  ../../../../waku/waku_filter_v2/common,
-  ../../../../waku/waku_core/subscription/push_handler,
-  ../../../../waku/node/peer_manager/peer_manager,
-  ../../../../waku/node/waku_node,
-  ../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../waku/waku_core/topics/content_topic
+  ../../../waku/waku_filter_v2/client,
+  ../../../waku/waku_core/message/message,
+  ../../../waku/factory/waku,
+  ../../../waku/waku_filter_v2/common,
+  ../../../waku/waku_core/subscription/push_handler,
+  ../../../waku/node/peer_manager/peer_manager,
+  ../../../waku/node/waku_node,
+  ../../../waku/waku_core/topics/pubsub_topic,
+  ../../../waku/waku_core/topics/content_topic
 
 const FilterOpTimeout = 5.seconds
 
