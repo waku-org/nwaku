@@ -37,22 +37,14 @@ proc testWakuNode(): WakuNode =
 
 suite "Waku v2 REST API - health":
   # TODO: better test for health
-  var anvilProc: Process
-  var tempManager: ptr OnchainGroupManager
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
 
   setup:
     anvilProc = runAnvil()
-    tempManager =
-      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
-    tempManager[] = waitFor setupOnchainGroupManager()
+    manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    if not tempManager.isNil:
-      try:
-        waitFor tempManager[].stop()
-      except CatchableError:
-        discard
-      freeShared(tempManager)
     stopAnvil(anvilProc)
 
   asyncTest "Get node health info - GET /health":
@@ -87,7 +79,7 @@ suite "Waku v2 REST API - health":
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(
       getWakuRlnConfig(
-        manager = tempManager[],
+        manager = manager,
         treePath = genTempPath("rln_tree", "wakunode"),
         index = MembershipIndex(1),
       )

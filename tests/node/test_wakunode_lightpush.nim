@@ -106,7 +106,7 @@ suite "RLN Proofs as a Lightpush Service":
     server {.threadvar.}: WakuNode
     client {.threadvar.}: WakuNode
     anvilProc {.threadvar.}: Process
-    tempManager {.threadvar.}: ptr OnchainGroupManager
+    manager {.threadvar.}: OnchainGroupManager
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     pubsubTopic {.threadvar.}: PubsubTopic
@@ -129,13 +129,11 @@ suite "RLN Proofs as a Lightpush Service":
     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     anvilProc = runAnvil()
-    tempManager =
-      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
-    tempManager[] = waitFor setupOnchainGroupManager()
+    manager = waitFor setupOnchainGroupManager()
 
     # mount rln-relay
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_1"),
       index = MembershipIndex(1),
     )

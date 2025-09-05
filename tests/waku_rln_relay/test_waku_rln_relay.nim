@@ -23,19 +23,14 @@ import
 from std/times import epochTime
 
 suite "Waku rln relay":
-  var anvilProc: Process
-  var tempManager: OnchainGroupManager
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
 
   setup:
     anvilProc = runAnvil()
-    tempManager = waitFor setupOnchainGroupManager()
+    manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    if not tempManager.isNil:
-      try:
-        waitFor tempManager.stop()
-      except CatchableError:
-        discard
     stopAnvil(anvilProc)
 
   test "key_gen Nim Wrappers":
@@ -348,7 +343,7 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog: against epoch gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = getWakuRlnConfig(manager = tempManager, index = index)
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
@@ -404,7 +399,7 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog: against timestamp gap":
     let index = MembershipIndex(5)
 
-    let wakuRlnConfig = getWakuRlnConfig(manager = tempManager, index = index)
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = index)
 
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
@@ -455,7 +450,7 @@ suite "Waku rln relay":
 
   asyncTest "multiple senders with same external nullifier":
     let index1 = MembershipIndex(5)
-    let rlnConf1 = getWakuRlnConfig(manager = tempManager, index = index1)
+    let rlnConf1 = getWakuRlnConfig(manager = manager, index = index1)
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
@@ -469,7 +464,7 @@ suite "Waku rln relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let index2 = MembershipIndex(6)
-    let rlnConf2 = getWakuRlnConfig(manager = tempManager, index = index2)
+    let rlnConf2 = getWakuRlnConfig(manager = manager, index = index2)
     let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
@@ -613,7 +608,7 @@ suite "Waku rln relay":
 
     proc runTestForEpochSizeSec(rlnEpochSizeSec: uint) {.async.} =
       let wakuRlnConfig = getWakuRlnConfig(
-        manager = tempManager[], index = index, epochSizeSec = rlnEpochSizeSec.uint64
+        manager = manager, index = index, epochSizeSec = rlnEpochSizeSec.uint64
       )
 
       let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:

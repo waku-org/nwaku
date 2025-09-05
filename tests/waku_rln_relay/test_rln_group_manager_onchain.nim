@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, deques, random, locks],
+  std/[options, sequtils, deques, random, locks, osproc],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -28,22 +28,16 @@ import
   ../testlib/wakucore,
   ./utils_onchain
 
-var testLock: Lock
-initLock(testLock)
-
 suite "Onchain group manager":
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
+
   setup:
-    # Acquire lock to ensure tests run sequentially
-    acquire(testLock)
-    let runAnvil {.used.} = runAnvil()
-    var manager {.threadvar.}: OnchainGroupManager
+    anvilProc = runAnvil()
     manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    waitFor manager.stop()
-    stopAnvil(runAnvil)
-    # Release lock after test completes
-    release(testLock)
+    stopAnvil(anvilProc)
 
   test "should initialize successfully":
     (waitFor manager.init()).isOkOr:

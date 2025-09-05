@@ -26,19 +26,14 @@ proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async
 
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
-  var anvilProc: Process
-  var tempManager: OnchainGroupManager
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
 
   setup:
     anvilProc = runAnvil()
-    tempManager = waitFor setupOnchainGroupManager()
+    manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    if not tempManager.isNil:
-      try:
-        waitFor tempManager.stop()
-      except CatchableError:
-        discard
     stopAnvil(anvilProc)
 
   asyncTest "testing rln-relay with valid proof":
@@ -62,7 +57,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_1"),
       index = MembershipIndex(1),
     )
@@ -88,7 +83,7 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_2"),
       index = MembershipIndex(2),
     )
@@ -105,7 +100,7 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_3"),
       index = MembershipIndex(3),
     )
@@ -192,7 +187,7 @@ procSuite "WakuNode - RLN relay":
     # mount rlnrelay in off-chain mode
     for index, node in nodes:
       let wakuRlnConfig = getWakuRlnConfig(
-        manager = tempManager,
+        manager = manager,
         treePath = genTempPath("rln_tree", "wakunode_" & $(index + 1)),
         index = MembershipIndex(index + 1),
       )
@@ -314,7 +309,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_1"),
       index = MembershipIndex(1),
     )
@@ -339,7 +334,7 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_2"),
       index = MembershipIndex(2),
     )
@@ -356,7 +351,7 @@ procSuite "WakuNode - RLN relay":
       assert false, "Failed to mount relay"
 
     let wakuRlnConfig3 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_3"),
       index = MembershipIndex(3),
     )
@@ -442,7 +437,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig1 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_1"),
       index = MembershipIndex(1),
     )
@@ -469,7 +464,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig2 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_2"),
       index = MembershipIndex(2),
     )
@@ -488,7 +483,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     let wakuRlnConfig3 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_3"),
       index = MembershipIndex(3),
     )
@@ -622,7 +617,7 @@ procSuite "WakuNode - RLN relay":
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig1 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_1"),
       index = MembershipIndex(1),
     )
@@ -646,7 +641,7 @@ procSuite "WakuNode - RLN relay":
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig2 = getWakuRlnConfig(
-      manager = tempManager,
+      manager = manager,
       treePath = genTempPath("rln_tree", "wakunode_2"),
       index = MembershipIndex(2),
     )

@@ -37,22 +37,14 @@ proc testWakuNode(): WakuNode =
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
 suite "Waku v2 Rest API - Relay":
-  var anvilProc: Process
-  var tempManager: ptr OnchainGroupManager
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
 
   setup:
     anvilProc = runAnvil()
-    tempManager =
-      cast[ptr OnchainGroupManager](allocShared0(sizeof(OnchainGroupManager)))
-    tempManager[] = waitFor setupOnchainGroupManager()
+    manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    if not tempManager.isNil:
-      try:
-        waitFor tempManager[].stop()
-      except CatchableError:
-        discard
-      freeShared(tempManager)
     stopAnvil(anvilProc)
 
   asyncTest "Subscribe a node to an array of pubsub topics - POST /relay/v1/subscriptions":
@@ -252,7 +244,7 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
       index = MembershipIndex(1),
     )
@@ -507,7 +499,7 @@ suite "Waku v2 Rest API - Relay":
     require node.mountAutoSharding(1, 8).isOk
 
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
       index = MembershipIndex(1),
     )
@@ -583,7 +575,7 @@ suite "Waku v2 Rest API - Relay":
     require node.mountAutoSharding(1, 8).isOk
 
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
       index = MembershipIndex(1),
     )
@@ -649,7 +641,7 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
       index = MembershipIndex(1),
     )
@@ -728,7 +720,7 @@ suite "Waku v2 Rest API - Relay":
     require node.mountAutoSharding(1, 8).isOk
 
     let wakuRlnConfig = getWakuRlnConfig(
-      manager = tempManager[],
+      manager = manager,
       treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
       index = MembershipIndex(1),
     )
