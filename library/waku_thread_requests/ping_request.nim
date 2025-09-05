@@ -1,7 +1,7 @@
 import std/[json, strutils]
 import chronos, results, ffi
 import libp2p/[protocols/ping, switch, multiaddress, multicodec]
-import ../../../waku/[factory/waku, waku_core/peers, node/waku_node]
+import ../../waku/[factory/waku, waku_core/peers, node/waku_node]
 
 registerReqFFI(PingReq, waku: ptr Waku):
   proc(peerAddr: cstring, timeoutMs: cuint): Future[Result[string, string]] {.async.} =
@@ -29,8 +29,7 @@ registerReqFFI(PingReq, waku: ptr Waku):
         (await pingFuture).valueOr:
           return err("ping failed, no timeout expected: " & error)
       else:
-        let timedOut =
-          not (await pingFuture.withTimeout(timeout))
+        let timedOut = not (await pingFuture.withTimeout(timeout))
         if timedOut:
           return err("ping timed out")
         pingFuture.read().valueOr:
