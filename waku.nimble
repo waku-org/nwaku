@@ -22,7 +22,7 @@ requires "nim >= 2.2.4",
   "stint",
   "metrics",
   "libp2p == 1.10.1", # Only for Waku v2
-  "web3#48fb2d4",
+  "web3#48fb2d4", # fix 0.7.0 undeclared field: 'stream' error
   "presto",
   "regex",
   "results",
