@@ -14,14 +14,6 @@ output_filename=$3
 [[ -z "${rln_version}" ]]     && { echo "No rln version specified";     exit 1; }
 [[ -z "${output_filename}" ]] && { echo "No output filename specified"; exit 1; }
 
-# Create lock (wait if another process is building)
-lockfile="${output_filename}.lock"
-exec 9>"$lockfile"
-if ! flock -n 9; then
-  echo "Another build process is running, waiting..."
-  flock 9
-fi
-
 # Get the host triplet
 host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
 
@@ -41,9 +33,10 @@ if curl --silent --fail-with-body -L \
   -o "${tarball}";
 then
     echo "Downloaded ${tarball}"
-    tar -xzf "${tarball}"
-    mv "release/librln.a" "${output_filename}"
-    rm -rf "${tarball}" release
+    tmpdir=$(mktemp -d)
+    tar -xzf "${tarball}" -C "$tmpdir"
+    mv "$tmpdir/release/librln.a" "${output_filename}"
+    rm -rf "${tarball}" "$tmpdir"
 else
     echo "Failed to download ${tarball}"
     # Build rln instead
