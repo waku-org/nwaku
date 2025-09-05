@@ -1,4 +1,4 @@
-import options
+import options, std/[json, strformat]
 import chronicles, chronos, results, ffi
 import
   ../../../../waku/waku_core/message/message,
@@ -9,87 +9,28 @@ import
   ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/waku_lightpush_legacy/client,
   ../../../../waku/waku_lightpush_legacy/common,
-  ../../../../waku/node/peer_manager/peer_manager
+  ../../../../waku/node/peer_manager/peer_manager,
+  ../../../events/json_message_event
 
-type LightpushMsgType* = enum
-  PUBLISH
-
-type ThreadSafeWakuMessage* = object
-  payload: SharedSeq[byte]
-  contentTopic: cstring
-  meta: SharedSeq[byte]
-  version: uint32
-  timestamp: Timestamp
-  ephemeral: bool
-  when defined(rln):
-    proof: SharedSeq[byte]
-
-type LightpushRequest* = object
-  operation: LightpushMsgType
-  pubsubTopic: cstring
-  message: ThreadSafeWakuMessage # only used in 'PUBLISH' requests
-
-proc createShared*(
-    T: type LightpushRequest,
-    op: LightpushMsgType,
-    pubsubTopic: cstring,
-    m = WakuMessage(),
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = op
-  ret[].pubsubTopic = pubsubTopic.alloc()
-  ret[].message = ThreadSafeWakuMessage(
-    payload: allocSharedSeq(m.payload),
-    contentTopic: m.contentTopic.alloc(),
-    meta: allocSharedSeq(m.meta),
-    version: m.version,
-    timestamp: m.timestamp,
-    ephemeral: m.ephemeral,
-  )
-  when defined(rln):
-    ret[].message.proof = allocSharedSeq(m.proof)
-
-  return ret
-
-proc destroyShared(self: ptr LightpushRequest) =
-  deallocSharedSeq(self[].message.payload)
-  deallocShared(self[].message.contentTopic)
-  deallocSharedSeq(self[].message.meta)
-  when defined(rln):
-    deallocSharedSeq(self[].message.proof)
-
-  deallocShared(self)
-
-proc toWakuMessage(m: ThreadSafeWakuMessage): WakuMessage =
-  var wakuMessage = WakuMessage()
-
-  wakuMessage.payload = m.payload.toSeq()
-  wakuMessage.contentTopic = $m.contentTopic
-  wakuMessage.meta = m.meta.toSeq()
-  wakuMessage.version = m.version
-  wakuMessage.timestamp = m.timestamp
-  wakuMessage.ephemeral = m.ephemeral
-
-  when defined(rln):
-    wakuMessage.proof = m.proof
-
-  return wakuMessage
-
-proc process*(
-    self: ptr LightpushRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  defer:
-    destroyShared(self)
-
-  case self.operation
-  of PUBLISH:
-    let msg = self.message.toWakuMessage()
-    let pubsubTopic = $self.pubsubTopic
-
+registerReqFFI(PublishLightpushMsgReq, waku: ptr Waku):
+  proc(
+      pubSubTopic: cstring, jsonWakuMessage: cstring
+  ): Future[Result[string, string]] {.async.} =
     if waku.node.wakuLightpushClient.isNil():
       let errorMsg = "LightpushRequest waku.node.wakuLightpushClient is nil"
       error "PUBLISH failed", error = errorMsg
       return err(errorMsg)
+
+    var jsonMessage: JsonMessage
+    try:
+      let jsonContent = parseJson($jsonWakuMessage)
+      jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+        raise newException(JsonParsingError, $error)
+    except JsonParsingError as exc:
+      return err(fmt"Error parsing json message: {exc.msg}")
+
+    let msg = json_message_event.toWakuMessage(jsonMessage).valueOr:
+      return err("Problem building the WakuMessage: " & $error)
 
     let peerOpt = waku.node.peerManager.selectPeer(WakuLightPushCodec)
     if peerOpt.isNone():
@@ -99,7 +40,7 @@ proc process*(
 
     let msgHashHex = (
       await waku.node.wakuLegacyLightpushClient.publish(
-        pubsubTopic, msg, peer = peerOpt.get()
+        $pubsubTopic, msg, peer = peerOpt.get()
       )
     ).valueOr:
       error "PUBLISH failed", error = error
