@@ -64,7 +64,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     mkDir "build"
 
   ensureRln()
-  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & " --passL:build/librln.a " & params & " " &
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & " --passL:build/librln.a --passL:-L" & getCurrentDir() & " " & params & " " &
     srcDir & name & ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
