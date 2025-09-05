@@ -17,6 +17,8 @@ import
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
   ./events/json_message_event,
+  ./events/json_topic_health_change_event,
+  ./events/json_connection_change_event,
   ./waku_thread_requests/node_lifecycle_request,
   ./waku_thread_requests/peer_manager_request,
   ./waku_thread_requests/protocols/relay_request,
@@ -61,10 +63,25 @@ proc waku_new(
 
   ctx.userData = userData
 
+  proc onReceivedMessage(ctx: ptr FFIContext): WakuRelayHandler =
+    return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+      callEventCallback(ctx, "onReceivedMessage"):
+        $JsonMessageEvent.new(pubsubTopic, msg)
+
+  proc onTopicHealthChange(ctx: ptr FFIContext): TopicHealthChangeHandler =
+    return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
+      callEventCallback(ctx, "onTopicHealthChange"):
+        $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
+
+  proc onConnectionChange(ctx: ptr FFIContext): ConnectionChangeHandler =
+    return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
+      callEventCallback(ctx, "onConnectionChange"):
+        $JsonConnectionChangeEvent.new($peerId, peerEvent)
+
   let appCallbacks = AppCallbacks(
-    # relayHandler: onReceivedMessage(ctx),
-    # topicHealthChangeHandler: onTopicHealthChange(ctx),
-    # connectionChangeHandler: onConnectionChange(ctx),
+    relayHandler: onReceivedMessage(ctx),
+    topicHealthChangeHandler: onTopicHealthChange(ctx),
+    connectionChangeHandler: onConnectionChange(ctx),
   )
 
   ffi_context.sendRequestToFFIThread(
