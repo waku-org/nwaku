@@ -23,12 +23,9 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
+  mix,
   mix/mix_node,
-  mix/mix_protocol,
-  mix/curve25519,
-  mix/protocol,
-  mix/mix_metrics,
-  mix/entry_connection
+  mix/mix_protocol
 
 import
   ../waku_core,
@@ -1195,12 +1192,15 @@ proc lightpushPublishHandler(
       msg_hash = msgHash,
       mixify = mixify
     if mixify:
-      let conn = MixEntryConnection.newConn(
-        $peer.addrs[0], #TODO: How to handle multiple addresses?
-        peer.peerId,
-        ProtocolType.fromString(WakuLightPushCodec),
-        node.mix,
-      )
+      #TODO: How to handle multiple addresses?
+      let conn = node.mix.toConnection(
+        MixDestination.init(peer.peerId, peer.addrs[0]), WakuLightPushCodec
+      ).valueOr:
+        error "could not create mix connection"
+        return lighpushErrorResult(
+          SERVICE_NOT_AVAILABLE, "Waku lightpush with mix not available"
+        )
+
       return await node.wakuLightpushClient.publishWithConn(
         pubsubTopic, message, conn, peer.peerId
       )

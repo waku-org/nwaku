@@ -142,13 +142,16 @@ proc new*(
     peermgr.switch.peerInfo.privateKey.skkey,
   )
 
-  # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
-  var m = WakuMix(peerManager: peermgr, clusterId: clusterId)
-  procCall MixProtocol(m).initialize(
-    localMixNodeInfo, peermgr.switch, initTable[PeerId, MixPubInfo]()
-  )
+  let mixProto =
+    MixProtocol.new(localMixNodeInfo, initTable[PeerId, MixPubInfo](), peermgr.switch)
 
-  return ok(m)
+  let wakuMix = WakuMix(mixProto)
+  wakuMix.peerManager = peermgr
+  wakuMix.clusterId = clusterId
+
+  # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
+
+  return ok(wakuMix)
 
 proc start*(mix: Wakumix) =
   discard mix.startMixNodePoolMgr()
