@@ -13,7 +13,7 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils",
+  "confutils#e214b39",
   "chronos",
   "dnsdisc",
   "eth",
