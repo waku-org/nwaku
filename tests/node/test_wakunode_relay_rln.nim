@@ -14,6 +14,7 @@ from std/times import epochTime
 import
   ../../../waku/[
     node/waku_node,
+    node/api,
     node/peer_manager,
     waku_core,
     waku_node,
