@@ -44,6 +44,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
+
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
@@ -74,7 +75,8 @@ suite "Waku v2 Rest API - Relay":
     check:
       errorResponse.status == 400
       $errorResponse.contentType == $MIMETYPE_TEXT
-      errorResponse.data == "Invalid pubsub topic(s): @[\"/test/2/this/is/a/content/topic/1\"]"
+      errorResponse.data ==
+        "Invalid pubsub topic(s): @[\"/test/2/this/is/a/content/topic/1\"]"
 
     # when all pubsub topics are correct, subscribe shall succeed
     let response = await client.relayPostSubscriptionsV1(shards)

@@ -45,9 +45,9 @@ proc validatePubSubTopics(topics: seq[PubsubTopic]): Result[void, RestApiRespons
   let badPubSubTopics = topics.filterIt(RelayShard.parseStaticSharding(it).isErr())
   if badPubSubTopics.len > 0:
     error "Invalid pubsub topic(s)", PubSubTopics = $badPubSubTopics
-    return err(RestApiResponse.badRequest(
-      "Invalid pubsub topic(s): " & $badPubSubTopics
-    ))
+    return
+      err(RestApiResponse.badRequest("Invalid pubsub topic(s): " & $badPubSubTopics))
+
   return ok()
 
 proc installRelayApiHandlers*(
