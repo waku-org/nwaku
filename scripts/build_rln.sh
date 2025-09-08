@@ -52,11 +52,9 @@ if curl --silent --fail-with-body -L \
   -o "${tarball}";
 then
     echo "Downloaded ${tarball}"
-    tmpdir=$(mktemp -d)
-    tar -xzf "${tarball}" -C "$tmpdir"
-    mv "$tmpdir/release/librln.a" "${output_filename}"
-    rm -rf "${tarball}" "$tmpdir"
-    echo "finished building ${output_filename}"
+    tar -xzf "${tarball}"
+    mv "release/librln.a" "${output_filename}"
+    rm -rf "${tarball}" release
 else
     echo "Failed to download ${tarball}"
     # Build rln instead
