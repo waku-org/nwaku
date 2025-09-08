@@ -98,8 +98,11 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
         if reader != nil:
           try:
             reader(value, r)
-          except IOError as e:
-            raise newException(SerializationError, "Envvar reader IO error: " & e.msg)
+          except IOError:
+            raise newException(
+              SerializationError,
+              "Envvar reader IO error: " & getCurrentExceptionMsg()
+            )
       discard r.key.pop()
   else:
     const typeName = typetraits.name(T)

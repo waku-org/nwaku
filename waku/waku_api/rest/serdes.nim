@@ -60,8 +60,6 @@ proc decodeFromJsonBytes*[T](
       RestJson.decode(
         string.fromBytes(data),
         T,
-        requireAllFields = requireAllFields,
-        allowUnknownFields = true,
       )
     )
   except SerializationError:
