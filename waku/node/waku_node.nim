@@ -1193,8 +1193,13 @@ proc lightpushPublishHandler(
       mixify = mixify
     if mixify:
       #TODO: How to handle multiple addresses?
-      let conn =
-        node.mix.toConnection(peer.peerId, Opt.some(peer.addrs[0]), WakuLightPushCodec)
+      let conn = node.mix.toConnection(
+        MixDestination.init(peer.peerId, peer.addrs[0]), WakuLightPushCodec
+      ).valueOr:
+        error "could not create mix connection"
+        return lighpushErrorResult(
+          SERVICE_NOT_AVAILABLE, "Waku lightpush with mix not available"
+        )
       return await node.wakuLightpushClient.publishWithConn(
         pubsubTopic, message, conn, peer.peerId
       )
