@@ -411,39 +411,25 @@ proc mount(
   let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
     return err("could not create RLN instance: " & $error)
 
-  if not conf.dynamic:
-    # static setup
-    let parsedGroupKeys = OffchainGroupKeys.toIdentityCredentials().valueOr:
-      return err("could not parse static group keys: " & $error)
+  let (rlnRelayCredPath, rlnRelayCredPassword) =
+    if conf.creds.isSome:
+      (some(conf.creds.get().path), some(conf.creds.get().password))
+    else:
+      (none(string), none(string))
 
-    groupManager = OffchainGroupManager(
-      groupSize: OffchainGroupSize,
-      groupKeys: parsedGroupKeys,
-      membershipIndex: conf.credIndex,
-      rlnInstance: rlnInstance,
-      onFatalErrorAction: conf.onFatalErrorAction,
-    )
-    # we don't persist credentials in static mode since they exist in ./constants.nim
-  else:
-    let (rlnRelayCredPath, rlnRelayCredPassword) =
-      if conf.creds.isSome:
-        (some(conf.creds.get().path), some(conf.creds.get().password))
-      else:
-        (none(string), none(string))
-
-    groupManager = OnchainGroupManager(
-      userMessageLimit: some(conf.userMessageLimit),
-      ethClientUrls: conf.ethClientUrls,
-      ethContractAddress: $conf.ethContractAddress,
-      chainId: conf.chainId,
-      rlnInstance: rlnInstance,
-      registrationHandler: registrationHandler,
-      keystorePath: rlnRelayCredPath,
-      keystorePassword: rlnRelayCredPassword,
-      ethPrivateKey: conf.ethPrivateKey,
-      membershipIndex: conf.credIndex,
-      onFatalErrorAction: conf.onFatalErrorAction,
-    )
+  groupManager = OnchainGroupManager(
+    userMessageLimit: some(conf.userMessageLimit),
+    ethClientUrls: conf.ethClientUrls,
+    ethContractAddress: $conf.ethContractAddress,
+    chainId: conf.chainId,
+    rlnInstance: rlnInstance,
+    registrationHandler: registrationHandler,
+    keystorePath: rlnRelayCredPath,
+    keystorePassword: rlnRelayCredPassword,
+    ethPrivateKey: conf.ethPrivateKey,
+    membershipIndex: conf.credIndex,
+    onFatalErrorAction: conf.onFatalErrorAction,
+  )
 
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
