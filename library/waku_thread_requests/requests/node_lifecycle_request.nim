@@ -3,7 +3,7 @@ import chronos, chronicles, results, confutils, confutils/std/net
 
 import
   ../../../waku/node/peer_manager/peer_manager,
-  ../../../waku/factory/external_config,
+  ../../../apps/wakunode2/cli_args,
   ../../../waku/factory/waku,
   ../../../waku/factory/node_factory,
   ../../../waku/factory/networks_config,
