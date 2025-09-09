@@ -100,7 +100,17 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
       b.rlnRelayConf.withDynamic(true)
       b.rlnRelayConf.withEthClientUrls(rlnConfig.rpcApiUrls)
 
+      # TODO: we should get rid of those two
+      b.rlnRelayconf.withUserMessageLimit(100)
+      b.rlnRelayConf.withTreePath("./rln_tree")
+
   ## Various configurations
   b.withNatStrategy("any")
 
-  return b.build()
+  let wakuConf = b.build().valueOr:
+    return err("Failed to build configuration: " & error)
+
+  wakuConf.validate().isOkOr:
+    return err("Failed to validate configuration: " & error)
+
+  return ok(wakuConf)

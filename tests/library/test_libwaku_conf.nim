@@ -25,6 +25,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Then
     require wakuConfRes.isOk()
     let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
     check:
       wakuConf.relay == true
       wakuConf.lightPush == true
@@ -53,6 +54,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Then
     require wakuConfRes.isOk()
     let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
     check:
       wakuConf.clusterId == 42
       wakuConf.shardingConf.kind == ShardingConfKind.AutoSharding
@@ -84,6 +86,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Then
     require wakuConfRes.isOk()
     let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
     require wakuConf.discv5Conf.isSome()
     check:
       wakuConf.discv5Conf.get().bootstrapNodes == bootstrapNodes
@@ -114,6 +117,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Then
     require wakuConfRes.isOk()
     let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
     check:
       wakuConf.staticNodes == staticStoreNodes
 
@@ -143,6 +147,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Then
     require wakuConfRes.isOk()
     let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
     check:
       wakuConf.maxMessageSizeBytes == 100'u64 * 1024'u64
 
@@ -164,6 +169,7 @@ suite "LibWaku Conf - toWakuConf":
                 contractAddress: "0x1234567890123456789012345678901234567890",
                 chainId: 1'u,
                 epochSizeSec: 600'u64,
+                rpcApiUrls: @["http://127.0.0.1:1111"],
               )
             ),
           )
@@ -173,11 +179,12 @@ suite "LibWaku Conf - toWakuConf":
     )
 
     ## When
-    let wakuConfRes = toWakuConf(libConf)
+    let wakuConf = toWakuConf(libConf).valueOr:
+      raiseAssert error
 
-    ## Then
-    require wakuConfRes.isOk()
-    let wakuConf = wakuConfRes.get()
+    wakuConf.validate().isOkOr:
+      raiseAssert error
+
     check:
       wakuConf.maxMessageSizeBytes == 150'u64 * 1024'u64
 
@@ -213,6 +220,7 @@ suite "LibWaku Conf - toWakuConf":
                 contractAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 chainId: 5'u, # Goerli
                 epochSizeSec: 300'u64,
+                rpcApiUrls: @["https://127.0.0.1:8333"],
               )
             ),
           )
@@ -225,8 +233,10 @@ suite "LibWaku Conf - toWakuConf":
     let wakuConfRes = toWakuConf(libConf)
 
     ## Then
-    require wakuConfRes.isOk()
-    let wakuConf = wakuConfRes.get()
+    let wakuConf = wakuConfRes.valueOr:
+      raiseAssert error
+    wakuConf.validate().isOkOr:
+      raiseAssert error
 
     # Check basic settings
     check:
@@ -283,8 +293,10 @@ suite "LibWaku Conf - toWakuConf":
     let wakuConfRes = toWakuConf(libConf)
 
     ## Then
-    require wakuConfRes.isOk()
-    let wakuConf = wakuConfRes.get()
+    let wakuConf = wakuConfRes.valueOr:
+      raiseAssert error
+    wakuConf.validate().isOkOr:
+      raiseAssert error
     check:
       wakuConf.clusterId == 0
       wakuConf.shardingConf.kind == ShardingConfKind.StaticSharding
