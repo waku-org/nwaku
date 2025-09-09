@@ -1,7 +1,7 @@
 {.used.}
 
-import std/options, results, chronos, results, testutils/unittests
-import library/libwaku, library/libwaku_conf, waku/factory/waku
+import std/options, results, chronos, testutils/unittests
+import library/libwaku_api, library/libwaku_conf, waku/factory/waku
 
 suite "LibWaku - createNode":
   asyncTest "Create node with minimal Relay configuration":
@@ -72,6 +72,7 @@ suite "LibWaku - createNode":
                 contractAddress: "0x1234567890123456789012345678901234567890",
                 chainId: 1'u,
                 epochSizeSec: 600'u64,
+                rpcApiUrls: @["https://example.com/1234"],
               )
             ),
           )
