@@ -181,7 +181,7 @@ task execTest, "Run test":
 ### C Bindings
 let chroniclesParams =
   "-d:chronicles_line_numbers " & "-d:chronicles_runtime_filtering=on " &
-  """-d:chronicles_sinks="textlines" """ &
+  """-d:chronicles_sinks="textlines,json" """ &
   "-d:chronicles_default_output_device=Dynamic " &
   """-d:chronicles_disabled_topics="eth,dnsdisc.client" """ & "--warning:Deprecated:off " &
   "--warning:UnusedImport:on " & "-d:chronicles_log_level=TRACE"
