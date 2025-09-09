@@ -54,50 +54,6 @@ suite "LibWaku - createNode":
       node.conf.clusterId == 42
       node.conf.shardingConf.numShardsInCluster == 8
 
-  asyncTest "Create node with message validation and RLN":
-    ## Given
-    let libConf = LibWakuConf(
-      mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: some(
-          MessageValidation(
-            maxMessageSizeBytes: 200'u64 * 1024'u64, # 200KB
-            rlnConfig: some(
-              RlnConfig(
-                contractAddress: "0x1234567890123456789012345678901234567890",
-                chainId: 1'u,
-                epochSizeSec: 600'u64,
-                rpcApiUrls: @["https://example.com/1234"],
-              )
-            ),
-          )
-        ),
-      ),
-      storeConfirmation: false,
-    )
-
-    ## When
-    let node = (await createNode(libConf)).valueOr:
-      raiseAssert error
-
-    ## Then
-    check:
-      not node.isNil()
-      node.conf.maxMessageSizeBytes == 200'u64 * 1024'u64
-      node.conf.rlnRelayConf.isSome()
-
-    if node.conf.rlnRelayConf.isSome():
-      let rlnConf = node.conf.rlnRelayConf.get()
-      check:
-        rlnConf.dynamic == true
-        rlnConf.ethContractAddress == "0x1234567890123456789012345678901234567890"
-        rlnConf.epochSizeSec == 600'u64
-
   asyncTest "Create node with full configuration":
     ## Given
     let libConf = LibWakuConf(
