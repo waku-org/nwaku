@@ -6,7 +6,7 @@ when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
 import std/[json, atomics, strformat, options, atomics]
-import chronicles, chronos, chronos/threadsync
+import chronicles, chronos, chronos/threadsync, results
 import
   waku/common/base64,
   waku/waku_core/message/message,
@@ -15,6 +15,8 @@ import
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
+  waku/factory/waku,
+  ./libwaku_conf,
   ./events/json_message_event,
   ./waku_context,
   ./waku_thread_requests/requests/node_lifecycle_request,
@@ -98,7 +100,24 @@ proc initializeLibrary() {.exported.} =
 ################################################################################
 
 ################################################################################
-### Exported procs
+### Nim native exported procs (Waku API)
+
+proc createNode*(config: LibWakuConf): Future[Result[Waku, string]] {.async.} =
+  let wakuConf = toWakuConf(config).valueOr:
+    return err("Failed to handle the configuration: " & error)
+
+  ## We are not defining app callbacks at node creation
+  let wakuRes = (await Waku.new(wakuConf)).valueOr:
+    error "waku initialization failed", error = error
+    return err("Failed setting up Waku: " & $error)
+
+  return ok(wakuRes)
+
+### End of Nim native exported procs (Waku API)
+################################################################################
+
+################################################################################
+### FFI Exported procs
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
@@ -849,5 +868,5 @@ proc waku_is_online(
     userData,
   )
 
-### End of exported procs
+### End of FFI exported procs
 ################################################################################
