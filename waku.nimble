@@ -25,12 +25,13 @@ requires "nim >= 2.2.4",
   "stint",
   "metrics",
   "libp2p >= 1.13.0",
-  "web3#48fb2d4", # fix 0.7.0 undeclared field: 'stream' error
+  "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
+  "toml_serialization", # Necessary for confutils/toml support
   "https://github.com/vacp2p/mix#0.1.0"
 
 ### Helper functions

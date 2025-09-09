@@ -2,7 +2,8 @@ import std/[net, sequtils, strutils]
 import chronicles, chronos, stew/byteutils, results
 import
   ../../../../waku/waku_core/message/message,
-  ../../../../waku/factory/[external_config, validator_signed, waku],
+  ../../../../waku/factory/[validator_signed, waku],
+  ../../../../apps/wakunode2/cli_args,
   ../../../../waku/waku_node,
   ../../../../waku/waku_core/message,
   ../../../../waku/waku_core/time, # Timestamp
