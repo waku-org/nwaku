@@ -79,3 +79,6 @@ waku_handler.moc.cpp
 
 # Nix build result
 result
+
+# Nimble
+ nimble.paths

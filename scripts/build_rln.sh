@@ -5,6 +5,20 @@
 
 set -e
 
+# --- lock setup ---
+lockdir="build/rln.lock"
+mkdir -p build
+
+# try to acquire lock (atomic)
+while ! mkdir "${lockdir}" 2>/dev/null; do
+  echo "Another process is building RLN, waiting..."
+  sleep 1
+done
+
+# cleanup on exit
+cleanup() { rm -rf "${lockdir}"; }
+trap cleanup EXIT
+
 # first argument is the build directory
 build_dir=$1
 rln_version=$2
@@ -13,6 +27,11 @@ output_filename=$3
 [[ -z "${build_dir}" ]]       && { echo "No build directory specified"; exit 1; }
 [[ -z "${rln_version}" ]]     && { echo "No rln version specified";     exit 1; }
 [[ -z "${output_filename}" ]] && { echo "No output filename specified"; exit 1; }
+
+if [[ -f "${output_filename}" ]]; then
+    echo "RLN library already exists: ${output_filename}, skipping build."
+    exit 0
+fi
 
 # Get the host triplet
 host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')

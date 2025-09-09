@@ -96,7 +96,13 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
           var reader = findFieldReader(fields[], fieldName, expectedFieldPos)
 
         if reader != nil:
-          reader(value, r)
+          try:
+            reader(value, r)
+          except IOError:
+            raise newException(
+              SerializationError,
+              "Envvar reader IO error: " & getCurrentExceptionMsg()
+            )
       discard r.key.pop()
   else:
     const typeName = typetraits.name(T)
