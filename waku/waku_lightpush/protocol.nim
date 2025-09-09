@@ -31,6 +31,10 @@ type WakuLightPush* = ref object of LPProtocol
 proc extractPubsubTopic(
     wl: WakuLightPush, req: LightpushRequest
 ): Result[PubsubTopic, ErrorStatus] =
+  ## A pubsubTopic uniquely identifies a shard. Two sharding modes:
+  ##   Static sharding: pubsubTopic must be specified in the request
+  ##   Auto-sharding: generate pubsubTopic from message contentTopic
+
   proc mkErr(code: LightPushStatusCode, err: string): Result[PubsubTopic, ErrorStatus] =
     error "Lightpush request handling error: ", error = err
     err((code, some(err)))
@@ -56,7 +60,7 @@ proc extractPubsubTopic(
       LightPushErrorCode.BAD_REQUEST, "Pubsub topic must not be empty or whitespace"
     )
 
-  ok(pubsubTopic)
+  return ok(pubsubTopic)
 
 proc handleRequest(
     wl: WakuLightPush, peerId: PeerId, pushRequest: LightpushRequest
@@ -108,29 +112,20 @@ proc handleRequest*(
     relayPeerCount: some(relayPeerCount),
   )
 
-## Read request buffer and account network bytes. Returns none on read error.
-proc readRequestBuffer(
-    conn: Connection
-): Future[Option[seq[byte]]] {.async: (raises: [CancelledError]).} =
-  var buffer: seq[byte]
-  try:
-    buffer = await conn.readLp(DefaultMaxRpcSize)
-  except LPStreamError:
-    error "lightpush read stream failed", error = getCurrentExceptionMsg()
-    return none(seq[byte])
-
-  waku_service_network_bytes.inc(
-    amount = buffer.len().int64, labelValues = [WakuLightPushCodec, "in"]
-  )
-
-  return some(buffer)
-
 proc initProtocolHandler(wl: WakuLightPush) =
   proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var rpc: LightPushResponse
     wl.requestRateLimiter.checkUsageLimit(WakuLightPushCodec, conn):
-      let buffer = (await readRequestBuffer(conn)).valueOr:
+      var buffer: seq[byte]
+      try:
+        buffer = await conn.readLp(DefaultMaxRpcSize)
+      except LPStreamError:
+        error "lightpush read stream failed", error = getCurrentExceptionMsg()
         return
+
+      waku_service_network_bytes.inc(
+        amount = buffer.len().int64, labelValues = [WakuLightPushCodec, "in"]
+      )
 
       try:
         rpc = await wl.handleRequest(conn.peerId, buffer)
