@@ -66,7 +66,7 @@ suite "Rate limited push service":
       var endTime = Moment.now()
       var elapsed: Duration = (endTime - startTime)
       await sleepAsync(tokenPeriod - elapsed + firstWaitExtend)
-      firstWaitEXtend = 100.millis
+      firstWaitExtend = 100.millis
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
