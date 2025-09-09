@@ -41,6 +41,15 @@ const ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1* = "/relay/v1/auto/subscriptions"
 const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{contentTopic}"
 const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
 
+proc validatePubSubTopics(topics: seq[PubsubTopic]): Result[void, RestApiResponse] =
+  let badPubSubTopics = topics.filterIt(RelayShard.parseStaticSharding(it).isErr())
+  if badPubSubTopics.len > 0:
+    error "Invalid pubsub topic(s)", PubSubTopics = $badPubSubTopics
+    return
+      err(RestApiResponse.badRequest("Invalid pubsub topic(s): " & $badPubSubTopics))
+
+  return ok()
+
 proc installRelayApiHandlers*(
     router: var RestRouter, node: WakuNode, cache: MessageCache
 ) =
@@ -59,6 +68,9 @@ proc installRelayApiHandlers*(
       return RestApiResponse.badRequest()
 
     let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
+      return error
+
+    validatePubSubTopics(req).isOkOr:
       return error
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
@@ -85,6 +97,9 @@ proc installRelayApiHandlers*(
       return RestApiResponse.badRequest()
 
     let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
+      return error
+
+    validatePubSubTopics(req).isOkOr:
       return error
 
     # Unsubscribe all handlers from requested topics
