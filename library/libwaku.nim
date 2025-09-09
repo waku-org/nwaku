@@ -16,7 +16,6 @@ import
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
   waku/factory/waku,
-  ./libwaku_conf,
   ./events/json_message_event,
   ./waku_context,
   ./waku_thread_requests/requests/node_lifecycle_request,
@@ -97,23 +96,6 @@ proc initializeLibrary() {.exported.} =
     nimGC_setStackBottom(locals)
 
 ### End of library setup
-################################################################################
-
-################################################################################
-### Nim native exported procs (Waku API)
-
-proc createNode*(config: LibWakuConf): Future[Result[Waku, string]] {.async.} =
-  let wakuConf = toWakuConf(config).valueOr:
-    return err("Failed to handle the configuration: " & error)
-
-  ## We are not defining app callbacks at node creation
-  let wakuRes = (await Waku.new(wakuConf)).valueOr:
-    error "waku initialization failed", error = error
-    return err("Failed setting up Waku: " & $error)
-
-  return ok(wakuRes)
-
-### End of Nim native exported procs (Waku API)
 ################################################################################
 
 ################################################################################

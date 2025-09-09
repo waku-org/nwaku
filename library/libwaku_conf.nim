@@ -16,6 +16,7 @@ type RlnConfig* = object
   contractAddress*: string
   chainId*: uint
   epochSizeSec*: uint64
+  rpcApiUrls*: seq[string]
 
 type MessageValidation* = object
   maxMessageSizeBytes*: uint64
@@ -96,5 +97,10 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
       b.rlnRelayConf.withEthContractAddress(rlnConfig.contractAddress)
       b.rlnRelayConf.withChainId(rlnConfig.chainId)
       b.rlnRelayConf.withEpochSizeSec(rlnConfig.epochSizeSec)
+      b.rlnRelayConf.withDynamic(true)
+      b.rlnRelayConf.withEthClientUrls(rlnConfig.rpcApiUrls)
+
+  ## Various configurations
+  b.withNatStrategy("any")
 
   return b.build()
