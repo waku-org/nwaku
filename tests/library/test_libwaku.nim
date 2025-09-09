@@ -20,11 +20,10 @@ suite "LibWaku - createNode":
     )
 
     ## When
-    let nodeRes = await createNode(libConf)
+    let node = (await createNode(libConf)).valueOr:
+      raiseAssert error
 
     ## Then
-    check nodeRes.isOk()
-    let node = nodeRes.get()
     check:
       not node.isNil()
       node.conf.clusterId == 1
@@ -46,12 +45,10 @@ suite "LibWaku - createNode":
     )
 
     ## When
-    let node = await createNode(libConf).valueOr:
+    let node = (await createNode(libConf)).valueOr:
       raiseAssert error
 
     ## Then
-    check nodeRes.isOk()
-    let node = nodeRes.get()
     check:
       not node.isNil()
       node.conf.clusterId == 42
@@ -84,11 +81,10 @@ suite "LibWaku - createNode":
     )
 
     ## When
-    let nodeRes = await createNode(libConf)
+    let node = (await createNode(libConf)).valueOr:
+      raiseAssert error
 
     ## Then
-    check nodeRes.isOk()
-    let node = nodeRes.get()
     check:
       not node.isNil()
       node.conf.maxMessageSizeBytes == 200'u64 * 1024'u64
@@ -128,11 +124,10 @@ suite "LibWaku - createNode":
     )
 
     ## When
-    let nodeRes = await createNode(libConf)
+    let node = (await createNode(libConf)).valueOr:
+      raiseAssert error
 
     ## Then
-    check nodeRes.isOk()
-    let node = nodeRes.get()
     check:
       not node.isNil()
       node.conf.clusterId == 99
