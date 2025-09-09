@@ -37,8 +37,6 @@ cd ../../../..
 echo "6. -.-.-.- Building libunwind -.-.-.-"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1 -j8"
-execute_command "make install/usr/lib/libunwind.a V=1 -j8"
-cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
 echo "7. -.-.-.- Building miniupnpc -.-.-.- "
