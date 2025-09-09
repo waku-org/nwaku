@@ -129,9 +129,10 @@ proc getShardsGetter(node: WakuNode): GetShards =
     # fetch pubsubTopics subscribed to relay and convert them to shards
     if node.wakuRelay.isNil():
       return @[]
-    let subTopics = node.wakuRelay.subscribedTopics()
-    let relayShards = topicsToRelayShards(subTopics).valueOr:
-      error "could not convert relay topics to shards", error = $error
+    let subscribedTopics = node.wakuRelay.subscribedTopics()
+    let relayShards = topicsToRelayShards(subscribedTopics).valueOr:
+      error "could not convert relay topics to shards",
+        error = $error, topics = subscribedTopics
       return @[]
     if relayShards.isSome():
       let shards = relayShards.get().shardIds
