@@ -201,7 +201,7 @@ proc new*(
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     idsTx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
-    localWantsRx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsRx: AsyncQueue[(PeerId)],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): T =
   var transfer = SyncTransfer(

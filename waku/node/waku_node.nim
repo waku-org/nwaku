@@ -233,12 +233,12 @@ proc mountStoreSync*(
     cluster: uint16,
     shards: seq[uint16],
     contentTopics: seq[string],
-    storeSyncRange = 3600,
-    storeSyncInterval = 300,
-    storeSyncRelayJitter = 20,
+    storeSyncRange: uint32,
+    storeSyncInterval: uint32,
+    storeSyncRelayJitter: uint32,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](0)
-  let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
+  let wantsChannel = newAsyncQueue[(PeerId)](0)
   let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
 
   let pubsubTopics = shards.mapIt($RelayShard(clusterId: cluster, shardId: it))

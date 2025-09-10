@@ -51,7 +51,7 @@ type SyncReconciliation* = ref object of LPProtocol
   idsRx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)]
 
   # Send Hashes to transfer protocol for reception
-  localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)]
+  localWantsTx: AsyncQueue[(PeerId)]
 
   # Send Hashes to transfer protocol for transmission
   remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
@@ -216,7 +216,6 @@ proc processRequest(
       trace "sync payload processed",
         hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
-      sendPayload.cluster = self.cluster
       sendPayload.pubsubTopics = self.pubsubTopics.toSeq()
       sendPayload.contentTopics = self.contentTopics.toSeq()
 
@@ -394,7 +393,7 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
     idsRx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
-    localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)],
+    localWantsTx: AsyncQueue[(PeerId)],
     remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
