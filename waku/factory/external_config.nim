@@ -621,6 +621,16 @@ with the drawback of consuming some more bandwidth.""",
       name: "rendezvous"
     .}: bool
 
+    #Mix config
+    mix* {.desc: "Enable mix protocol: true|false", defaultValue: false, name: "mix".}:
+      bool
+
+    mixkey* {.
+      desc:
+        "ED25519 private key as 64 char hex string , without 0x. If not provided, a random key will be generated.",
+      name: "mixkey"
+    .}: Option[string]
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",
@@ -981,6 +991,11 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.storeServiceConf.storeSyncConf.withIntervalSec(n.storeSyncInterval)
   b.storeServiceConf.storeSyncConf.withRangeSec(n.storeSyncRange)
   b.storeServiceConf.storeSyncConf.withRelayJitterSec(n.storeSyncRelayJitter)
+
+  b.mixConf.withEnabled(n.mix)
+  b.withMix(n.mix)
+  if n.mixkey.isSome():
+    b.mixConf.withMixKey(n.mixkey.get())
 
   b.filterServiceConf.withEnabled(n.filter)
   b.filterServiceConf.withSubscriptionTimeout(n.filterSubscriptionTimeout)
