@@ -29,7 +29,6 @@ requires "nim >= 2.2.4",
   "results",
   "db_connector",
   "minilru",
-  "quic"
 
 ### Helper functions
 
