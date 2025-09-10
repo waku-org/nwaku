@@ -6,6 +6,7 @@ import
   ../../../waku/discovery/waku_discv5,
   ../../../waku/waku_core/peers,
   ../../../waku/node/waku_node,
+  ../../../waku/node/api,
   ../../alloc
 
 type DiscoveryMsgType* = enum
