@@ -114,8 +114,10 @@ proc publishToAny*(
   # Like publish, but selects a peer automatically from the peer manager
 
   var message = wakuMessage
-  if message.timestamp == 0:
-    message.timestamp = getNowInNanosecondTime()
+  ensureTimestampSet(message)
+
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
+  info "publishToAny", msg_hash = msgHash
 
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
