@@ -8,13 +8,15 @@ suite "LibWaku - createNode":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 1,
+          shardingMode: some(StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -33,13 +35,15 @@ suite "LibWaku - createNode":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 42,
-        shardingMode: AutoSharding,
-        autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 42,
+          shardingMode: some(AutoSharding),
+          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -58,24 +62,26 @@ suite "LibWaku - createNode":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes:
-          @[
-            "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
-          ],
-        staticStoreNodes:
-          @[
-            "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-          ],
-        clusterId: 99,
-        shardingMode: AutoSharding,
-        autoShardingConf: some(AutoShardingConf(numShardsInCluster: 16)),
-        messageValidation: some(
-          MessageValidation(
-            maxMessageSizeBytes: 1024'u64 * 1024'u64, # 1MB
-            rlnConfig: none(RlnConfig),
-          )
-        ),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes:
+            @[
+              "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
+            ],
+          staticStoreNodes:
+            @[
+              "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+            ],
+          clusterId: 99,
+          shardingMode: some(AutoSharding),
+          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 16)),
+          messageValidation: some(
+            MessageValidation(
+              maxMessageSizeBytes: 1024'u64 * 1024'u64, # 1MB
+              rlnConfig: none(RlnConfig),
+            )
+          ),
+        )
       ),
       storeConfirmation: true,
     )

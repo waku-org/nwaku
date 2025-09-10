@@ -16,7 +16,6 @@ type RlnConfig* = object
   contractAddress*: string
   chainId*: uint
   epochSizeSec*: uint64
-  rpcApiUrls*: seq[string]
 
 type MessageValidation* = object
   maxMessageSizeBytes*: uint64
@@ -26,7 +25,7 @@ type NetworkConf* = object
   bootstrapNodes*: seq[string]
   staticStoreNodes*: seq[string]
   clusterId*: uint16
-  shardingMode*: ShardingMode
+  shardingMode*: Option[ShardingMode]
   autoShardingConf*: Option[AutoShardingConf]
   messageValidation*: Option[MessageValidation]
 
@@ -36,8 +35,42 @@ type WakuMode* = enum
 
 type LibWakuConf* = object
   mode*: WakuMode
-  networkConf*: NetworkConf
+  networkConf*: Option[NetworkConf]
   storeConfirmation*: bool
+  ethRpcEndpoints*: seq[string]
+
+proc DefaultShardingMode(): ShardingMode =
+  return ShardingMode.Autosharding
+
+proc DefaultAutoShardingConf(): AutoShardingConf =
+  return AutoShardingConf(numShardsInCluster: 1)
+
+proc DefaultNetworkConf(): NetworkConf =
+  return NetworkConf(
+    bootstrapNodes:
+      @[
+        "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
+      ],
+    staticStoreNodes: @[], # TODO
+    clusterId: 1,
+    shardingMode: some(ShardingMode.AutoSharding),
+    autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
+    messageValidation: some(
+      MessageValidation(
+        maxMessageSizeBytes: 153600,
+        rlnConfig: some (
+          RlnConfig(
+            contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
+            chain_id: 59141,
+            epoch_size_sec: 600, # 10 minutes
+          )
+        ),
+      )
+    ),
+  )
+
+proc DefaultMessageValidation(): MessageValidation =
+  return MessageValidation(maxMessageSizeBytes: 153600, rlnConfig: none(RlnConfig))
 
 proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
   var b = WakuConfBuilder.init()
@@ -61,18 +94,17 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
   #TODO: store confirmation
 
   ## Network Conf
-  let networkConf = libConf.networkConf
+  let networkConf = libConf.networkConf.get(DefaultNetworkConf())
 
   # Set cluster ID
   b.withClusterId(networkConf.clusterId)
 
   # Set sharding configuration
-  case networkConf.shardingMode
+  case networkConf.shardingMode.get(DefaultShardingMode())
   of AutoSharding:
     b.withShardingConf(ShardingConfKind.AutoSharding)
-    if networkConf.autoShardingConf.isSome():
-      let autoConf = networkConf.autoShardingConf.get()
-      b.withNumShardsInCluster(autoConf.numShardsInCluster)
+    let autoShardingConf = networkConf.autoShardingConf.get(DefaultAutoShardingConf())
+    b.withNumShardsInCluster(autoShardingConf.numShardsInCluster)
   of StaticSharding:
     b.withShardingConf(ShardingConfKind.StaticSharding)
 
@@ -86,23 +118,23 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
     b.withStaticNodes(networkConf.staticStoreNodes)
 
   # Set message validation
-  if networkConf.messageValidation.isSome():
-    let msgValidation = networkConf.messageValidation.get()
-    b.withMaxMessageSize(msgValidation.maxMessageSizeBytes)
 
-    # Set RLN config if provided
-    if msgValidation.rlnConfig.isSome():
-      let rlnConfig = msgValidation.rlnConfig.get()
-      b.rlnRelayConf.withEnabled(true)
-      b.rlnRelayConf.withEthContractAddress(rlnConfig.contractAddress)
-      b.rlnRelayConf.withChainId(rlnConfig.chainId)
-      b.rlnRelayConf.withEpochSizeSec(rlnConfig.epochSizeSec)
-      b.rlnRelayConf.withDynamic(true)
-      b.rlnRelayConf.withEthClientUrls(rlnConfig.rpcApiUrls)
+  let msgValidation = networkConf.messageValidation.get(DefaultMessageValidation())
+  b.withMaxMessageSize(msgValidation.maxMessageSizeBytes)
 
-      # TODO: we should get rid of those two
-      b.rlnRelayconf.withUserMessageLimit(100)
-      b.rlnRelayConf.withTreePath("./rln_tree")
+  # Set RLN config if provided
+  if msgValidation.rlnConfig.isSome():
+    let rlnConfig = msgValidation.rlnConfig.get()
+    b.rlnRelayConf.withEnabled(true)
+    b.rlnRelayConf.withEthContractAddress(rlnConfig.contractAddress)
+    b.rlnRelayConf.withChainId(rlnConfig.chainId)
+    b.rlnRelayConf.withEpochSizeSec(rlnConfig.epochSizeSec)
+    b.rlnRelayConf.withDynamic(true)
+    b.rlnRelayConf.withEthClientUrls(libConf.ethRpcEndpoints)
+
+    # TODO: we should get rid of those two
+    b.rlnRelayconf.withUserMessageLimit(100)
+    b.rlnRelayConf.withTreePath("./rln_tree")
 
   ## Various configurations
   b.withNatStrategy("any")
