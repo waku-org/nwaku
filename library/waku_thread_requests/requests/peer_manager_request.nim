@@ -1,4 +1,4 @@
-import std/[sequtils, strutils]
+import std/[sequtils, strutils, tables]
 import chronicles, chronos, results, options, json
 import
   ../../../waku/factory/waku,
