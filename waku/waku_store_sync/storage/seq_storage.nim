@@ -392,11 +392,7 @@ proc processItemSetRange*(
 
 method processPayload*(
     self: SeqStorage,
-    pubsubTopics: seq[PubsubTopic],
-    contentTopics: seq[ContentTopic],
-    ranges: seq[(Slice[SyncID], RangeType)],
-    fingerprints: seq[Fingerprint],
-    itemSets: seq[ItemSet],
+    input: RangesData,
     hashToSend: var seq[Fingerprint],
     hashToRecv: var seq[Fingerprint],
 ): RangesData {.raises: [].} =
@@ -407,25 +403,25 @@ method processPayload*(
     j = 0
 
   var pubsubTopicSet = initPackedSet[int]()
-  for inputTopic in pubsubTopics:
+  for inputTopic in input.pubsubTopics:
     for i, localTopic in self.pubsubTopics:
       if inputTopic == localTopic:
         pubsubTopicSet.incl(i)
 
   var contentTopicSet = initPackedSet[int]()
-  for inputTopic in contentTopics:
+  for inputTopic in input.contentTopics:
     for i, localTopic in self.contentTopics:
       if inputTopic == localTopic:
         contentTopicSet.incl(i)
 
-  for (bounds, rangeType) in ranges:
+  for (bounds, rangeType) in input.ranges:
     case rangeType
     of RangeType.Skip:
       output.ranges.add((bounds, RangeType.Skip))
 
       continue
     of RangeType.Fingerprint:
-      let fingerprint = fingerprints[i]
+      let fingerprint = input.fingerprints[i]
       i.inc()
 
       self.processFingerprintRange(
@@ -434,7 +430,7 @@ method processPayload*(
 
       continue
     of RangeType.ItemSet:
-      let itemSet = itemsets[j]
+      let itemSet = input.itemsets[j]
       j.inc()
 
       self.processItemSetRange(
@@ -494,7 +490,7 @@ proc new*(
   var uniquePubsubTopics = initOrderedTable[PubsubTopic, int]()
   for pubsub in pubsubTopics:
     if pubsub notin uniquePubsubTopics:
-      uniquePubsubTopics.add(pubsub, idx)
+      uniquePubsubTopics[pubsub] = idx
       idx.inc()
 
   let pubsubTopicIndexes = collect(newSeq):
@@ -505,7 +501,7 @@ proc new*(
   var uniqueContentTopics = initOrderedTable[ContentTopic, int]()
   for content in contentTopics:
     if content notin uniqueContentTopics:
-      uniqueContentTopics.add(content, idx)
+      uniqueContentTopics[content] = idx
       idx.inc()
 
   let contentTopicIndexes = collect(newSeq):
