@@ -49,44 +49,10 @@ type RlnRelayConf* = object of RootObj
   treePath*: string
   epochSizeSec*: uint64
   userMessageLimit*: uint64
+  ethPrivateKey*: Option[string]
 
 type WakuRlnConfig* = object of RlnRelayConf
   onFatalErrorAction*: OnFatalErrorHandler
-
-proc createMembershipList*(
-    rln: ptr RLN, n: int
-): RlnRelayResult[(seq[RawMembershipCredentials], string)] =
-  ## createMembershipList produces a sequence of identity credentials in the form of (identity trapdoor, identity nullifier, identity secret hash, id commitment) in the hexadecimal format
-  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
-  ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
-  ## Returns an error if it cannot create the membership list
-
-  var output = newSeq[RawMembershipCredentials]()
-  var idCommitments = newSeq[IDCommitment]()
-
-  for i in 0 .. n - 1:
-    # generate an identity credential
-    let idCredentialRes = rln.membershipKeyGen()
-    if idCredentialRes.isErr():
-      return
-        err("could not generate an identity credential: " & idCredentialRes.error())
-    let idCredential = idCredentialRes.get()
-    let idTuple = (
-      idCredential.idTrapdoor.inHex(),
-      idCredential.idNullifier.inHex(),
-      idCredential.idSecretHash.inHex(),
-      idCredential.idCommitment.inHex(),
-    )
-    output.add(idTuple)
-    idCommitments.add(idCredential.idCommitment)
-
-  # Insert members into tree
-  let membersAdded = rln.insertMembers(0, idCommitments)
-  if not membersAdded:
-    return err("could not insert members into the tree")
-
-  let root = rln.getMerkleRoot().value().inHex()
-  return ok((output, root))
 
 type WakuRLNRelay* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
@@ -176,7 +142,6 @@ proc updateLog*(
       err("the epoch was not found: " & getCurrentExceptionMsg()) # should never happen
 
 proc getCurrentEpoch*(rlnPeer: WakuRLNRelay): Epoch =
-  ## gets the current rln Epoch time
   return rlnPeer.calcEpoch(epochTime())
 
 proc absDiff*(e1, e2: Epoch): uint64 =
@@ -193,6 +158,16 @@ proc absDiff*(e1, e2: Epoch): uint64 =
     return epoch1 - epoch2
   else:
     return epoch2 - epoch1
+
+proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
+  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
+  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+
+  let
+    contentTopicBytes = toBytes(wakumessage.contentTopic)
+    timestampBytes = toBytes(wakumessage.timestamp.uint64)
+    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
+  return output
 
 proc validateMessage*(
     rlnPeer: WakuRLNRelay, msg: WakuMessage
@@ -251,7 +226,8 @@ proc validateMessage*(
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
-    let proofVerificationRes = rlnPeer.groupManager.verifyProof(input, proof)
+    let proofVerificationRes =
+      rlnPeer.groupManager.verifyProof(msg.toRLNSignal(), proof)
 
   if proofVerificationRes.isErr():
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
@@ -308,16 +284,6 @@ proc validateMessageAndUpdateLog*(
     discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return isValidMessage
-
-proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
-  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
-  ## it extracts the `contentTopic`, `timestamp` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
-
-  let
-    contentTopicBytes = toBytes(wakumessage.contentTopic)
-    timestampBytes = toBytes(wakumessage.timestamp.uint64)
-    output = concat(wakumessage.payload, contentTopicBytes, @(timestampBytes))
-  return output
 
 proc appendRLNProof*(
     rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64
@@ -445,38 +411,25 @@ proc mount(
   let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
     return err("could not create RLN instance: " & $error)
 
-  if not conf.dynamic:
-    # static setup
-    let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
-      return err("could not parse static group keys: " & $error)
+  let (rlnRelayCredPath, rlnRelayCredPassword) =
+    if conf.creds.isSome:
+      (some(conf.creds.get().path), some(conf.creds.get().password))
+    else:
+      (none(string), none(string))
 
-    groupManager = StaticGroupManager(
-      groupSize: StaticGroupSize,
-      groupKeys: parsedGroupKeys,
-      membershipIndex: conf.credIndex,
-      rlnInstance: rlnInstance,
-      onFatalErrorAction: conf.onFatalErrorAction,
-    )
-    # we don't persist credentials in static mode since they exist in ./constants.nim
-  else:
-    let (rlnRelayCredPath, rlnRelayCredPassword) =
-      if conf.creds.isSome:
-        (some(conf.creds.get().path), some(conf.creds.get().password))
-      else:
-        (none(string), none(string))
-
-    groupManager = OnchainGroupManager(
-      userMessageLimit: some(conf.userMessageLimit),
-      ethClientUrls: conf.ethClientUrls,
-      ethContractAddress: $conf.ethContractAddress,
-      chainId: conf.chainId,
-      rlnInstance: rlnInstance,
-      registrationHandler: registrationHandler,
-      keystorePath: rlnRelayCredPath,
-      keystorePassword: rlnRelayCredPassword,
-      membershipIndex: conf.credIndex,
-      onFatalErrorAction: conf.onFatalErrorAction,
-    )
+  groupManager = OnchainGroupManager(
+    userMessageLimit: some(conf.userMessageLimit),
+    ethClientUrls: conf.ethClientUrls,
+    ethContractAddress: $conf.ethContractAddress,
+    chainId: conf.chainId,
+    rlnInstance: rlnInstance,
+    registrationHandler: registrationHandler,
+    keystorePath: rlnRelayCredPath,
+    keystorePassword: rlnRelayCredPassword,
+    ethPrivateKey: conf.ethPrivateKey,
+    membershipIndex: conf.credIndex,
+    onFatalErrorAction: conf.onFatalErrorAction,
+  )
 
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:

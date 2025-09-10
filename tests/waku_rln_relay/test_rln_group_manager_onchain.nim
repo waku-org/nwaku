@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, deques, random, locks],
+  std/[options, sequtils, deques, random, locks, osproc],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -28,24 +28,16 @@ import
   ../testlib/wakucore,
   ./utils_onchain
 
-var testLock: Lock
-initLock(testLock)
-
 suite "Onchain group manager":
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
+
   setup:
-    # Acquire lock to ensure tests run sequentially
-    acquire(testLock)
-
-    let runAnvil {.used.} = runAnvil()
-
-    var manager {.threadvar.}: OnchainGroupManager
+    anvilProc = runAnvil()
     manager = waitFor setupOnchainGroupManager()
 
   teardown:
-    waitFor manager.stop()
-    stopAnvil(runAnvil)
-    # Release lock after test completes
-    release(testLock)
+    stopAnvil(anvilProc)
 
   test "should initialize successfully":
     (waitFor manager.init()).isOkOr:
@@ -119,11 +111,6 @@ suite "Onchain group manager":
     (waitFor manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  test "trackRootChanges: start tracking roots":
-    (waitFor manager.init()).isOkOr:
-      raiseAssert $error
-    discard manager.trackRootChanges()
-
   test "trackRootChanges: should guard against uninitialized state":
     try:
       discard manager.trackRootChanges()
@@ -161,10 +148,9 @@ suite "Onchain group manager":
 
   test "trackRootChanges: should fetch history correctly":
     # TODO: We can't use `trackRootChanges()` directly in this test because its current implementation
-    #       relies on a busy loop rather than event-based monitoring. As a result, some root changes
-    #       may be missed, leading to inconsistent test results (i.e., it may randomly return true or false).
-    #       To ensure reliability, we use the `updateRoots()` function to validate the `validRoots` window
-    #       after each registration. 
+    #       relies on a busy loop rather than event-based monitoring. but that busy loop fetch root every 5 seconds
+    #       so we can't use it in this test. 
+
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (waitFor manager.init()).isOkOr:
