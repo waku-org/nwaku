@@ -6,7 +6,7 @@ when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
 import std/[json, atomics, strformat, options, atomics]
-import chronicles, chronos, chronos/threadsync, results
+import chronicles, chronos, chronos/threadsync
 import
   waku/common/base64,
   waku/waku_core/message/message,
@@ -15,7 +15,6 @@ import
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
-  waku/factory/waku,
   ./events/json_message_event,
   ./waku_context,
   ./waku_thread_requests/requests/node_lifecycle_request,
