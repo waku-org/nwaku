@@ -8,13 +8,15 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 1,
+          shardingMode: some(ShardingMode.StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -37,13 +39,15 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 42,
-        shardingMode: AutoSharding,
-        autoShardingConf: some(AutoShardingConf(numShardsInCluster: 16)),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 42,
+          shardingMode: some(ShardingMode.AutoSharding),
+          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 16)),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -69,13 +73,15 @@ suite "LibWaku Conf - toWakuConf":
       ]
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: bootstrapNodes,
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: bootstrapNodes,
+          staticStoreNodes: @[],
+          clusterId: 1,
+          shardingMode: some(ShardingMode.StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -100,13 +106,15 @@ suite "LibWaku Conf - toWakuConf":
       ]
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: staticStoreNodes,
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: none(MessageValidation),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: staticStoreNodes,
+          clusterId: 1,
+          shardingMode: some(ShardingMode.StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: none(MessageValidation),
+        )
       ),
       storeConfirmation: false,
     )
@@ -125,18 +133,20 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: some(
-          MessageValidation(
-            maxMessageSizeBytes: 100'u64 * 1024'u64, # 100kB
-            rlnConfig: none(RlnConfig),
-          )
-        ),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 1,
+          shardingMode: some(ShardingMode.StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: some(
+            MessageValidation(
+              maxMessageSizeBytes: 100'u64 * 1024'u64, # 100kB
+              rlnConfig: none(RlnConfig),
+            )
+          ),
+        )
       ),
       storeConfirmation: false,
     )
@@ -155,27 +165,29 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 1,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: some(
-          MessageValidation(
-            maxMessageSizeBytes: 150'u64 * 1024'u64, # 150KB
-            rlnConfig: some(
-              RlnConfig(
-                contractAddress: "0x1234567890123456789012345678901234567890",
-                chainId: 1'u,
-                epochSizeSec: 600'u64,
-                rpcApiUrls: @["http://127.0.0.1:1111"],
-              )
-            ),
-          )
-        ),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes: @[],
+          staticStoreNodes: @[],
+          clusterId: 1,
+          shardingMode: some(ShardingMode.StaticSharding),
+          autoShardingConf: none(AutoShardingConf),
+          messageValidation: some(
+            MessageValidation(
+              maxMessageSizeBytes: 150'u64 * 1024'u64, # 150KB
+              rlnConfig: some(
+                RlnConfig(
+                  contractAddress: "0x1234567890123456789012345678901234567890",
+                  chainId: 1'u,
+                  epochSizeSec: 600'u64,
+                )
+              ),
+            )
+          ),
+        )
       ),
       storeConfirmation: false,
+      ethRpcEndpoints: @["http://127.0.0.1:1111"],
     )
 
     ## When
@@ -200,33 +212,35 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let libConf = LibWakuConf(
       mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes:
-          @[
-            "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
-          ],
-        staticStoreNodes:
-          @[
-            "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-          ],
-        clusterId: 99,
-        shardingMode: AutoSharding,
-        autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
-        messageValidation: some(
-          MessageValidation(
-            maxMessageSizeBytes: 512'u64 * 1024'u64, # 512KB
-            rlnConfig: some(
-              RlnConfig(
-                contractAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                chainId: 5'u, # Goerli
-                epochSizeSec: 300'u64,
-                rpcApiUrls: @["https://127.0.0.1:8333"],
-              )
-            ),
-          )
-        ),
+      networkConf: some(
+        libwaku_conf.NetworkConf(
+          bootstrapNodes:
+            @[
+              "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
+            ],
+          staticStoreNodes:
+            @[
+              "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+            ],
+          clusterId: 99,
+          shardingMode: some(ShardingMode.AutoSharding),
+          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
+          messageValidation: some(
+            MessageValidation(
+              maxMessageSizeBytes: 512'u64 * 1024'u64, # 512KB
+              rlnConfig: some(
+                RlnConfig(
+                  contractAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  chainId: 5'u, # Goerli
+                  epochSizeSec: 300'u64,
+                )
+              ),
+            )
+          ),
+        )
       ),
       storeConfirmation: true,
+      ethRpcEndpoints: @["https://127.0.0.1:8333"],
     )
 
     ## When
@@ -276,18 +290,7 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Minimal configuration":
     ## Given
-    let libConf = LibWakuConf(
-      mode: Relay,
-      networkConf: libwaku_conf.NetworkConf(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 0,
-        shardingMode: StaticSharding,
-        autoShardingConf: none(AutoShardingConf),
-        messageValidation: none(MessageValidation),
-      ),
-      storeConfirmation: false,
-    )
+    let libConf = LibWakuConf(mode: Relay, ethRpcEndpoints: @["http://someaddress"])
 
     ## When
     let wakuConfRes = toWakuConf(libConf)
@@ -298,6 +301,7 @@ suite "LibWaku Conf - toWakuConf":
     wakuConf.validate().isOkOr:
       raiseAssert error
     check:
-      wakuConf.clusterId == 0
-      wakuConf.shardingConf.kind == ShardingConfKind.StaticSharding
+      wakuConf.clusterId == 1
+      wakuConf.shardingConf.kind == ShardingConfKind.AutoSharding
+      wakuConf.shardingConf.numShardsInCluster == 8
       wakuConf.staticNodes.len == 0
