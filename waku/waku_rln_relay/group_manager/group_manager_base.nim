@@ -119,58 +119,23 @@ method stop*(g: GroupManager): Future[void] {.base, async.} =
 method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base, gcsafe.} =
   g.withdrawCb = some(cb)
 
-proc slideRootQueue*(
-    rootQueue: var Deque[MerkleNode], root: MerkleNode
-): seq[MerkleNode] =
-  ## updates the root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
-  let overflowCount = rootQueue.len - AcceptableRootWindowSize + 1
-  var overflowedRoots = newSeq[MerkleNode]()
-  if overflowCount > 0:
-    # Delete the oldest `overflowCount` roots in the deque (index 0..`overflowCount`)
-    # insert into overflowedRoots seq and return
-    for i in 0 ..< overflowCount:
-      overFlowedRoots.add(rootQueue.popFirst())
-  # Push the next root into the queue
-  rootQueue.addLast(root)
-  return overFlowedRoots
-
 method indexOfRoot*(
     g: GroupManager, root: MerkleNode
 ): int {.base, gcsafe, raises: [].} =
-  ## returns the index of the root in the merkle tree.
-  ## returns -1 if the root is not found
+  ## returns the index of the root in the merkle tree and returns -1 if the root is not found
   return g.validRoots.find(root)
 
 method validateRoot*(
     g: GroupManager, root: MerkleNode
 ): bool {.base, gcsafe, raises: [].} =
   ## validates the root against the valid roots queue
-  if g.indexOfRoot(root) >= 0:
-    return true
-  return false
-
-template slideRootQueue*(g: GroupManager): untyped =
-  let rootRes = g.rlnInstance.getMerkleRoot()
-  if rootRes.isErr():
-    raise newException(ValueError, "failed to get merkle root")
-  let rootAfterUpdate = rootRes.get()
-
-  var rootBuffer: Deque[MerkleNode]
-  let overflowedRoots = slideRootQueue(g.validRoots, rootAfterUpdate)
-  if overflowedRoots.len > 0:
-    for root in overflowedRoots:
-      discard rootBuffer.slideRootQueue(root)
-  rootBuffer
+  return g.indexOfRoot(root) >= 0
 
 method verifyProof*(
-    g: GroupManager, input: openArray[byte], proof: RateLimitProof
+    g: GroupManager, input: seq[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.base, gcsafe, raises: [].} =
-  ## verifies the proof against the input and the current merkle root
-  let proofVerifyRes =
-    g.rlnInstance.proofVerify(input, proof, g.validRoots.items().toSeq())
-  if proofVerifyRes.isErr():
-    return err("proof verification failed: " & $proofVerifyRes.error())
-  return ok(proofVerifyRes.value())
+  ## Dummy implementation for verifyProof
+  return err("verifyProof is not implemented")
 
 method generateProof*(
     g: GroupManager,
@@ -179,29 +144,8 @@ method generateProof*(
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
 ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
-  var lastProcessedEpoch {.global.}: Epoch
-  ## generates a proof for the given data and epoch
-  ## the proof is generated using the current merkle root
-  if g.idCredentials.isNone():
-    return err("identity credentials are not set")
-  if g.membershipIndex.isNone():
-    return err("membership index is not set")
-  if g.userMessageLimit.isNone():
-    return err("user message limit is not set")
-
-  waku_rln_proof_generation_duration_seconds.nanosecondTime:
-    let proof = proofGen(
-      rlnInstance = g.rlnInstance,
-      data = data,
-      membership = g.idCredentials.get(),
-      index = g.membershipIndex.get(),
-      epoch = epoch,
-      userMessageLimit = g.userMessageLimit.get(),
-      messageId = messageId,
-    ).valueOr:
-      return err("proof generation failed: " & $error)
-
-  return ok(proof)
+  ## Dummy implementation for generateProof
+  return err("generateProof is not implemented")
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
   raise newException(

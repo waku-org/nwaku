@@ -1,42 +1,59 @@
 import
-  math,
-  std/sequtils,
-  results,
-  options,
+  std/[strutils, times, sequtils, osproc], math, results, options, testutils/unittests
+
+import
   waku/[
     waku_rln_relay/protocol_types,
     waku_rln_relay/rln,
     waku_rln_relay,
     waku_rln_relay/conversion_utils,
-    waku_rln_relay/group_manager/static/group_manager,
-  ]
-
-import std/[times, os]
+    waku_rln_relay/group_manager/on_chain/group_manager,
+  ],
+  tests/waku_rln_relay/utils_onchain
 
 proc main(): Future[string] {.async, gcsafe.} =
-  let rlnIns = createRLNInstance(20).get()
-  let credentials = toSeq(0 .. 1000).mapIt(membershipKeyGen(rlnIns).get())
+  # Spin up a local Ethereum JSON-RPC (Anvil) and deploy the RLN contract
+  let anvilProc = runAnvil()
+  defer:
+    stopAnvil(anvilProc)
 
-  let manager = StaticGroupManager(
-    rlnInstance: rlnIns,
-    groupSize: 1000,
-    membershipIndex: some(MembershipIndex(900)),
-    groupKeys: credentials,
-  )
+  # Set up an On-chain group manager (includes contract deployment)
+  let manager = await setupOnchainGroupManager()
+  (await manager.init()).isOkOr:
+    raiseAssert $error
 
-  await manager.init()
+  # Register a new member so that we can later generate proofs
+  let idCredentials = generateCredentials(manager.rlnInstance)
 
+  try:
+    await manager.register(idCredentials, UserMessageLimit(100))
+  except Exception, CatchableError:
+    assert false, "exception raised: " & getCurrentExceptionMsg()
+
+  let rootUpdated = await manager.updateRoots()
+
+  if rootUpdated:
+    let proofResult = await manager.fetchMerkleProofElements()
+    if proofResult.isErr():
+      error "Failed to fetch Merkle proof", error = proofResult.error
+    manager.merkleProofCache = proofResult.get()
+
+  let epoch = default(Epoch)
+  debug "epoch in bytes", epochHex = epoch.inHex()
   let data: seq[byte] = newSeq[byte](1024)
 
   var proofGenTimes: seq[times.Duration] = @[]
   var proofVerTimes: seq[times.Duration] = @[]
-  for i in 0 .. 50:
+
+  for i in 1 .. 100:
     var time = getTime()
-    let proof = manager.generateProof(data, default(Epoch)).get()
+    let proof = manager.generateProof(data, epoch, MessageId(i.uint8)).valueOr:
+      raiseAssert $error
     proofGenTimes.add(getTime() - time)
 
     time = getTime()
-    let res = manager.verifyProof(data, proof).get()
+    let ok = manager.verifyProof(data, proof).valueOr:
+      raiseAssert $error
     proofVerTimes.add(getTime() - time)
 
   echo "Proof generation times: ", sum(proofGenTimes) div len(proofGenTimes)
@@ -44,6 +61,6 @@ proc main(): Future[string] {.async, gcsafe.} =
 
 when isMainModule:
   try:
-    waitFor(main())
+    discard waitFor main()
   except CatchableError as e:
     raise e

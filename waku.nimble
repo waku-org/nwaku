@@ -116,7 +116,7 @@ task wakunode2, "Build Waku v2 cli node":
 
 task benchmarks, "Some benchmarks":
   let name = "benchmarks"
-  buildBinary name, "apps/benchmarks/"
+  buildBinary name, "apps/benchmarks/", "-p:../.."
 
 task wakucanary, "Build waku-canary tool":
   let name = "wakucanary"

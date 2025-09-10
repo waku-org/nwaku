@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/tempfiles,
+  std/[tempfiles, osproc],
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -23,7 +23,8 @@ import
   ],
   ../testlib/common,
   ../testlib/wakucore,
-  ../testlib/wakunode
+  ../testlib/wakunode,
+  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
 proc testWakuNode(): WakuNode =
   let
@@ -36,6 +37,16 @@ proc testWakuNode(): WakuNode =
 
 suite "Waku v2 REST API - health":
   # TODO: better test for health
+  var anvilProc {.threadVar.}: Process
+  var manager {.threadVar.}: OnchainGroupManager
+
+  setup:
+    anvilProc = runAnvil()
+    manager = waitFor setupOnchainGroupManager()
+
+  teardown:
+    stopAnvil(anvilProc)
+
   asyncTest "Get node health info - GET /health":
     # Given
     let node = testWakuNode()
@@ -67,11 +78,10 @@ suite "Waku v2 REST API - health":
 
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(
-      WakuRlnConfig(
-        dynamic: false,
-        credIndex: some(1.uint),
-        epochSizeSec: 1,
-        treePath: genTempPath("rln_tree", "wakunode"),
+      getWakuRlnConfig(
+        manager = manager,
+        treePath = genTempPath("rln_tree", "wakunode"),
+        index = MembershipIndex(1),
       )
     )
 
