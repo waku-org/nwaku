@@ -52,12 +52,6 @@ func lightpushResultBadRequest*(msg: string): WakuLightPushResult =
 func lightpushResultServiceUnavailable*(msg: string): WakuLightPushResult =
   return err((LightPushErrorCode.SERVICE_NOT_AVAILABLE, some(msg)))
 
-# TODO: use a union type for desc?
-func lighpushErrorResult*(
-    statusCode: LightpushStatusCode, desc: Option[string]
-): WakuLightPushResult =
-  return err((statusCode, desc))
-
 func lighpushErrorResult*(
     statusCode: LightpushStatusCode, desc: string
 ): WakuLightPushResult =
