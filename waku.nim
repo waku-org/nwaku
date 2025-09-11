@@ -7,4 +7,4 @@ import waku/api/[api, api_conf]
 export api, api_conf
 
 import waku/factory/waku
-export Waku
+export waku
