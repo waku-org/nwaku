@@ -338,7 +338,7 @@ proc setupProtocols(
 
     # Only relay nodes should be rendezvous points.
     if conf.rendezvous:
-      await node.mountRendezvous()
+      await node.mountRendezvous(conf.clusterId)
 
   # Keepalive mounted on all nodes
   try:
@@ -431,6 +431,11 @@ proc setupProtocols(
 
   if conf.peerExchangeDiscovery:
     await node.mountPeerExchangeClient()
+
+  #mount mix
+  if conf.mixConf.isSome():
+    (await node.mountMix(conf.clusterId, conf.mixConf.get().mixKey)).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
 ## Start node

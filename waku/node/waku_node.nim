@@ -12,6 +12,8 @@ import
   bearssl/rand,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
+  libp2p/[multiaddress, multicodec],
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
@@ -19,7 +21,11 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
-  libp2p/utility
+  libp2p/utility,
+  mix,
+  mix/mix_node,
+  mix/mix_protocol
+
 import
   ../waku_core,
   ../waku_core/topics/sharding,
@@ -49,7 +55,10 @@ import
   ./net_config,
   ./peer_manager,
   ../common/rate_limit/setting,
-  ../common/callbacks
+  ../common/callbacks,
+  ../common/nimchronos,
+  ../waku_enr/mix,
+  ../waku_mix
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -123,6 +132,7 @@ type
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     rateLimitSettings*: ProtocolRateLimitSettings
+    wakuMix*: WakuMix
 
 proc getShardsGetter(node: WakuNode): GetShards =
   return proc(): seq[uint16] {.closure, gcsafe, raises: [].} =
@@ -138,6 +148,12 @@ proc getShardsGetter(node: WakuNode): GetShards =
       let shards = relayShards.get().shardIds
       return shards
     return @[]
+
+proc getCapabilitiesGetter(node: WakuNode): GetCapabilities =
+  return proc(): seq[Capabilities] {.closure, gcsafe, raises: [].} =
+    if node.wakuRelay.isNil():
+      return @[]
+    return node.enr.getCapabilities()
 
 proc new*(
     T: type WakuNode,
@@ -224,6 +240,33 @@ proc mountAutoSharding*(
   info "mounting auto sharding", clusterId = clusterId, shardCount = shardCount
   node.wakuAutoSharding =
     some(Sharding(clusterId: clusterId, shardCountGenZero: shardCount))
+  return ok()
+
+proc getMixNodePoolSize*(node: WakuNode): int =
+  return node.wakuMix.getNodePoolSize()
+
+proc mountMix*(
+    node: WakuNode, clusterId: uint16, mixPrivKey: Curve25519Key
+): Future[Result[void, string]] {.async.} =
+  info "mounting mix protocol", nodeId = node.info #TODO log the config used
+
+  if node.announcedAddresses.len == 0:
+    return err("Trying to mount mix without having announced addresses")
+
+  let localaddrStr = node.announcedAddresses[0].toString().valueOr:
+    return err("Failed to convert multiaddress to string.")
+  info "local addr", localaddr = localaddrStr
+
+  let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
+  # TODO: Pass bootnodes from config,
+  node.wakuMix = WakuMix.new(nodeAddr, node.peerManager, clusterId, mixPrivKey).valueOr:
+    error "Waku Mix protocol initialization failed", err = error
+    return
+  node.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))
+  let catchRes = catch:
+    node.switch.mount(node.wakuMix)
+  if catchRes.isErr():
+    return err(catchRes.error.msg)
   return ok()
 
 ## Waku Sync
@@ -1182,17 +1225,46 @@ proc lightpushPublishHandler(
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
     peer: RemotePeerInfo | PeerInfo,
+    mixify: bool = false,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
+
   if not node.wakuLightpushClient.isNil():
     notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
-      msg_hash = msgHash
-    return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
+      msg_hash = msgHash,
+      mixify = mixify
+    if mixify: #indicates we want to use mix to send the message
+      #TODO: How to handle multiple addresses?
+      let conn = node.wakuMix.toConnection(
+        MixDestination.init(peer.peerId, peer.addrs[0]),
+        WakuLightPushCodec,
+        Opt.some(
+          MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1)))
+            # indicating we expect a single reply hence numSurbs = 1
+        ),
+      ).valueOr:
+        error "could not create mix connection"
+        return lighpushErrorResult(
+          LightPushErrorCode.SERVICE_NOT_AVAILABLE,
+          "Waku lightpush with mix not available",
+        )
+
+      return await node.wakuLightpushClient.publishWithConn(
+        pubsubTopic, message, conn, peer.peerId
+      )
+    else:
+      return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
 
   if not node.wakuLightPush.isNil():
+    if mixify:
+      error "mixify is not supported with self hosted lightpush"
+      return lighpushErrorResult(
+        LightPushErrorCode.SERVICE_NOT_AVAILABLE,
+        "Waku lightpush with mix not available",
+      )
     notice "publishing message with self hosted lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
@@ -1206,13 +1278,18 @@ proc lightpushPublish*(
     pubsubTopic: Option[PubsubTopic],
     message: WakuMessage,
     peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo),
+    mixify: bool = false,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
     error "failed to publish message as lightpush not available"
     return lighpushErrorResult(
       LightPushErrorCode.SERVICE_NOT_AVAILABLE, "Waku lightpush not available"
     )
-
+  if mixify and node.wakuMix.isNil():
+    error "failed to publish message using mix as mix protocol is not mounted"
+    return lighpushErrorResult(
+      LightPushErrorCode.SERVICE_NOT_AVAILABLE, "Waku lightpush with mix not available"
+    )
   let toPeer: RemotePeerInfo = peerOpt.valueOr:
     if not node.wakuLightPush.isNil():
       RemotePeerInfo.init(node.peerId())
@@ -1242,7 +1319,7 @@ proc lightpushPublish*(
       error "lightpush publish error", error = msg
       return lighpushErrorResult(LightPushErrorCode.INTERNAL_SERVER_ERROR, msg)
 
-  return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
+  return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer, mixify)
 
 ## Waku RLN Relay
 proc mountRlnRelay*(
@@ -1442,10 +1519,16 @@ proc parallelPings*(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.}
 
   return successCount
 
-proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
+proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr).valueOr:
+  node.wakuRendezvous = WakuRendezVous.new(
+    node.switch,
+    node.peerManager,
+    clusterId,
+    node.getShardsGetter(),
+    node.getCapabilitiesGetter(),
+  ).valueOr:
     error "initializing waku rendezvous failed", error = error
     return
 
@@ -1519,6 +1602,9 @@ proc start*(node: WakuNode) {.async.} =
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
     await node.startRelay()
+
+  if not node.wakuMix.isNil():
+    node.wakuMix.start()
 
   if not node.wakuMetadata.isNil():
     node.wakuMetadata.start()
