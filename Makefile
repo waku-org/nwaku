@@ -240,6 +240,10 @@ chat2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
+chat2mix: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim chat2mix $(NIM_PARAMS) waku.nims
+
 rln-db-inspector: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) waku.nims
@@ -251,6 +255,10 @@ chat2bridge: | build deps librln
 liteprotocoltester: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
+
+lightpushwithmix: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim lightpushwithmix $(NIM_PARAMS) waku.nims
 
 build/%: | build deps librln
 	echo -e $(BUILD_MSG) "build/$*" && \

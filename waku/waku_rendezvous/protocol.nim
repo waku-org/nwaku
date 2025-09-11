@@ -12,11 +12,11 @@ import
 
 import
   ../node/peer_manager,
-  ../common/enr,
+  ../common/callbacks,
   ../waku_enr/capabilities,
-  ../waku_enr/sharding,
   ../waku_core/peers,
   ../waku_core/topics,
+  ../waku_core/topics/pubsub_topic,
   ./common
 
 logScope:
@@ -28,9 +28,9 @@ declarePublicCounter rendezvousPeerFoundTotal,
 type WakuRendezVous* = ref object
   rendezvous: Rendezvous
   peerManager: PeerManager
-
-  relayShard: RelayShards
-  capabilities: seq[Capabilities]
+  clusterId: uint16
+  getShards: GetShards
+  getCapabilities: GetCapabilities
 
   registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
@@ -138,15 +138,18 @@ proc advertiseAll(
 ): Future[Result[void, string]] {.async: (raises: []).} =
   debug "waku rendezvous advertisements started"
 
-  let pubsubTopics = self.relayShard.topics()
+  let shards = self.getShards()
 
   let futs = collect(newSeq):
-    for pubsubTopic in pubsubTopics:
+    for shardId in shards:
       # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+      let rpi = self.peerManager.selectPeer(
+        RendezVousCodec,
+        some(toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))),
+      ).valueOr:
         continue
 
-      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
+      let namespace = computeNamespace(self.clusterId, shardId)
 
       # Advertise yourself on that peer
       self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
@@ -173,14 +176,16 @@ proc initialRequestAll*(
 ): Future[Result[void, string]] {.async: (raises: []).} =
   debug "waku rendezvous initial requests started"
 
-  let pubsubTopics = self.relayShard.topics()
+  let shards = self.getShards()
 
   let futs = collect(newSeq):
-    for pubsubTopic in pubsubTopics:
-      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
-
+    for shardId in shards:
+      let namespace = computeNamespace(self.clusterId, shardId)
       # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+      let rpi = self.peerManager.selectPeer(
+        RendezVousCodec,
+        some(toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))),
+      ).valueOr:
         continue
 
       # Ask for peer records for that shard
@@ -233,14 +238,13 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
     self.registrationInterval = DefaultRegistrationInterval
 
 proc new*(
-    T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
+    T: type WakuRendezVous,
+    switch: Switch,
+    peerManager: PeerManager,
+    clusterId: uint16,
+    getShards: GetShards,
+    getCapabilities: GetCapabilities,
 ): Result[T, string] {.raises: [].} =
-  let relayshard = getRelayShards(enr).valueOr:
-    warn "Using default cluster id 0"
-    RelayShards(clusterID: 0, shardIds: @[])
-
-  let capabilities = enr.getCapabilities()
-
   let rvCatchable = catch:
     RendezVous.new(switch = switch, minDuration = DefaultRegistrationTTL)
 
@@ -258,14 +262,13 @@ proc new*(
   var wrv = WakuRendezVous()
   wrv.rendezvous = rv
   wrv.peerManager = peerManager
-  wrv.relayshard = relayshard
-  wrv.capabilities = capabilities
+  wrv.clusterId = clusterId
+  wrv.getShards = getShards
+  wrv.getCapabilities = getCapabilities
   wrv.registrationInterval = DefaultRegistrationInterval
 
   debug "waku rendezvous initialized",
-    cluster = relayshard.clusterId,
-    shards = relayshard.shardIds,
-    capabilities = capabilities
+    clusterId = clusterId, shards = getShards(), capabilities = getCapabilities()
 
   return ok(wrv)
 

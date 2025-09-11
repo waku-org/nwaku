@@ -47,15 +47,10 @@ proc withWssTransport*(
 ): SwitchBuilder {.raises: [Defect, IOError].} =
   let key: TLSPrivateKey = getSecureKey(secureKeyPath)
   let cert: TLSCertificate = getSecureCert(secureCertPath)
-  b.withTransport(
-    proc(upgr: Upgrade, privateKey: crypto.PrivateKey): Transport =
-      WsTransport.new(
-        upgr,
-        tlsPrivateKey = key,
-        tlsCertificate = cert,
-        autotls = nil, # required 5th param
-        tlsFlags = {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName},
-      )
+  b.withWsTransport(
+    tlsPrivateKey = key,
+    tlsCertificate = cert,
+    {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}, # THIS IS INSECURE, NO?
   )
 
 proc newWakuSwitch*(
