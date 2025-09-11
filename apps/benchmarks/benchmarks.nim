@@ -11,32 +11,29 @@ import
   ],
   tests/waku_rln_relay/utils_onchain
 
-proc main(): Future[string] {.async, gcsafe.} =
-  # Spin up a local Ethereum JSON-RPC (Anvil) and deploy the RLN contract
-  let anvilProc = runAnvil()
-  defer:
-    stopAnvil(anvilProc)
-
-  # Set up an On-chain group manager (includes contract deployment)
-  let manager = await setupOnchainGroupManager()
-  (await manager.init()).isOkOr:
-    raiseAssert $error
-
+proc benchmark(
+    manager: OnChainGroupManager, registerCount: int, messageLimit: int
+): Future[string] {.async, gcsafe.} =
   # Register a new member so that we can later generate proofs
-  let idCredentials = generateCredentials(manager.rlnInstance)
+  let idCredentials = generateCredentials(manager.rlnInstance, registerCount)
 
-  try:
-    await manager.register(idCredentials, UserMessageLimit(100))
-  except Exception, CatchableError:
-    assert false, "exception raised: " & getCurrentExceptionMsg()
+  var start_time = getTime()
+  for i in 0 .. registerCount - 1:
+    try:
+      await manager.register(idCredentials[i], UserMessageLimit(messageLimit + 1))
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  let rootUpdated = await manager.updateRoots()
+    if i >= registerCount - 50:
+      discard await manager.updateRoots()
 
-  if rootUpdated:
-    let proofResult = await manager.fetchMerkleProofElements()
-    if proofResult.isErr():
-      error "Failed to fetch Merkle proof", error = proofResult.error
-    manager.merkleProofCache = proofResult.get()
+    debug "iteration finished",
+      iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
+
+  let proofResult = await manager.fetchMerkleProofElements()
+  if proofResult.isErr():
+    error "Failed to fetch Merkle proof", error = proofResult.error
+  manager.merkleProofCache = proofResult.get()
 
   let epoch = default(Epoch)
   debug "epoch in bytes", epochHex = epoch.inHex()
@@ -45,22 +42,35 @@ proc main(): Future[string] {.async, gcsafe.} =
   var proofGenTimes: seq[times.Duration] = @[]
   var proofVerTimes: seq[times.Duration] = @[]
 
-  for i in 1 .. 100:
-    var time = getTime()
+  start_time = getTime()
+  for i in 1 .. messageLimit:
+    var generate_time = getTime()
     let proof = manager.generateProof(data, epoch, MessageId(i.uint8)).valueOr:
       raiseAssert $error
-    proofGenTimes.add(getTime() - time)
+    proofGenTimes.add(getTime() - generate_time)
 
-    time = getTime()
+    let verify_time = getTime()
     let ok = manager.verifyProof(data, proof).valueOr:
       raiseAssert $error
-    proofVerTimes.add(getTime() - time)
+    proofVerTimes.add(getTime() - verify_time)
+    debug "iteration finished",
+      iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
 
   echo "Proof generation times: ", sum(proofGenTimes) div len(proofGenTimes)
   echo "Proof verification times: ", sum(proofVerTimes) div len(proofVerTimes)
 
+proc main() =
+  # Start a local Ethereum JSON-RPC (Anvil) so that the group-manager setup can connect.
+  let anvilProc = runAnvil()
+  defer:
+    stopAnvil(anvilProc)
+
+  # Set up an On-chain group manager (includes contract deployment)
+  let manager = waitFor setupOnchainGroupManager()
+  (waitFor manager.init()).isOkOr:
+    raiseAssert $error
+
+  discard waitFor benchmark(manager, 200, 20)
+
 when isMainModule:
-  try:
-    discard waitFor main()
-  except CatchableError as e:
-    raise e
+  main()

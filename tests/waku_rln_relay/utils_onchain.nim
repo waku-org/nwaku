@@ -566,7 +566,7 @@ proc setupOnchainGroupManager*(
   # we just need to fund the default account
   # the send procedure returns a tx hash that we don't use, hence discard
   discard await sendEthTransfer(
-    web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
+    web3, web3.defaultAccount, acc, ethToWei(10000000.u256), some(0.u256)
   )
 
   let testTokenAddress = (await deployTestToken(privateKey, acc, web3)).valueOr:
@@ -575,7 +575,12 @@ proc setupOnchainGroupManager*(
 
   # mint the token from the generated account
   discard await sendMintCall(
-    web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
+    web3,
+    web3.defaultAccount,
+    testTokenAddress,
+    acc,
+    ethToWei(10000000.u256),
+    some(0.u256),
   )
 
   let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
