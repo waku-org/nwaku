@@ -33,7 +33,11 @@ procSuite "Waku Rendezvous":
       )
 
     await allFutures(
-      [node1.mountRendezvous(), node2.mountRendezvous(), node3.mountRendezvous()]
+      [
+        node1.mountRendezvous(clusterId),
+        node2.mountRendezvous(clusterId),
+        node3.mountRendezvous(clusterId),
+      ]
     )
     await allFutures([node1.start(), node2.start(), node3.start()])
 
