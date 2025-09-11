@@ -37,6 +37,8 @@ declarePublicGauge waku_connected_peers,
   labels = ["direction", "protocol"]
 declarePublicGauge waku_connected_peers_per_shard,
   "Number of physical connections per shard", labels = ["shard"]
+declarePublicGauge waku_connected_peers_per_agent,
+  "Number of physical connections per agent", labels = ["agent"]
 declarePublicGauge waku_streams_peers,
   "Number of streams per direction and protocol", labels = ["direction", "protocol"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
@@ -72,7 +74,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.minutes(3)
+  LogAndMetricsInterval = chronos.minutes(5)
 
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
@@ -771,8 +773,20 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    for shard in pm.getShards().items:
-      waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
+    # Update metrics for number of physical connections per agent implementation
+    var agentCounts = initTable[string, int]()
+    for peerId, muxers in pm.switch.connManager.getConnections():
+      # Each peerId listed here has at least one physical connection (muxer)
+      if peerStore[AgentBook].contains(peerId):
+        let agentStr = peerStore[AgentBook][peerId]
+        if agentStr.len == 0:
+          continue
+        let agent = agentStr.split("/")[0] # take the agent name without version suffix
+        agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
+
+    # expose collected values via Prometheus gauge
+    for agent, count in agentCounts:
+      waku_connected_peers_per_agent.set(count.float64, labelValues = [$agent])
 
     for shard in pm.getShards().items:
       let connectedPeers =
