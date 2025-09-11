@@ -4,7 +4,7 @@ import waku/factory/waku
 
 import ./libwaku_conf
 
-proc createNode*(config: LibWakuConf): Future[Result[Waku, string]] {.async.} =
+proc createNode*(config: LibWakuConfig): Future[Result[Waku, string]] {.async.} =
   let wakuConf = toWakuConf(config).valueOr:
     return err("Failed to handle the configuration: " & error)
 

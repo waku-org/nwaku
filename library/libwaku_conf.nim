@@ -9,7 +9,7 @@ type ShardingMode* = enum
   AutoSharding = "auto"
   StaticSharding = "static"
 
-type AutoShardingConf* = object
+type AutoShardingConfig* = object
   numShardsInCluster*: uint16
 
 type RlnConfig* = object
@@ -21,32 +21,32 @@ type MessageValidation* = object
   maxMessageSizeBytes*: uint64
   rlnConfig*: Option[RlnConfig]
 
-type NetworkConf* = object
+type NetworkConfig* = object
   bootstrapNodes*: seq[string]
   staticStoreNodes*: seq[string]
   clusterId*: uint16
   shardingMode*: Option[ShardingMode]
-  autoShardingConf*: Option[AutoShardingConf]
+  autoShardingConfig*: Option[AutoShardingConfig]
   messageValidation*: Option[MessageValidation]
 
 type WakuMode* = enum
   Edge = "edge"
   Relay = "relay"
 
-type LibWakuConf* = object
+type LibWakuConfig* = object
   mode*: WakuMode
-  networkConf*: Option[NetworkConf]
+  networkConfig*: Option[NetworkConfig]
   storeConfirmation*: bool
   ethRpcEndpoints*: seq[string]
 
 proc DefaultShardingMode(): ShardingMode =
   return ShardingMode.Autosharding
 
-proc DefaultAutoShardingConf(): AutoShardingConf =
-  return AutoShardingConf(numShardsInCluster: 1)
+proc DefaultAutoShardingConfig(): AutoShardingConfig =
+  return AutoShardingConfig(numShardsInCluster: 1)
 
-proc DefaultNetworkConf(): NetworkConf =
-  return NetworkConf(
+proc DefaultNetworkConfig(): NetworkConfig =
+  return NetworkConfig(
     bootstrapNodes:
       @[
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
@@ -54,7 +54,7 @@ proc DefaultNetworkConf(): NetworkConf =
     staticStoreNodes: @[], # TODO
     clusterId: 1,
     shardingMode: some(ShardingMode.AutoSharding),
-    autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
+    autoShardingConfig: some(AutoShardingConfig(numShardsInCluster: 8)),
     messageValidation: some(
       MessageValidation(
         maxMessageSizeBytes: 153600,
@@ -72,10 +72,10 @@ proc DefaultNetworkConf(): NetworkConf =
 proc DefaultMessageValidation(): MessageValidation =
   return MessageValidation(maxMessageSizeBytes: 153600, rlnConfig: none(RlnConfig))
 
-proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
+proc toWakuConf*(config: LibWakuConfig): Result[WakuConf, string] =
   var b = WakuConfBuilder.init()
 
-  case libConf.mode
+  case config.mode
   of Relay:
     b.withRelay(true)
 
@@ -94,32 +94,33 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
   #TODO: store confirmation
 
   ## Network Conf
-  let networkConf = libConf.networkConf.get(DefaultNetworkConf())
+  let networkConfig = config.networkConfig.get(DefaultNetworkConfig())
 
   # Set cluster ID
-  b.withClusterId(networkConf.clusterId)
+  b.withClusterId(networkConfig.clusterId)
 
   # Set sharding configuration
-  case networkConf.shardingMode.get(DefaultShardingMode())
+  case networkConfig.shardingMode.get(DefaultShardingMode())
   of AutoSharding:
     b.withShardingConf(ShardingConfKind.AutoSharding)
-    let autoShardingConf = networkConf.autoShardingConf.get(DefaultAutoShardingConf())
-    b.withNumShardsInCluster(autoShardingConf.numShardsInCluster)
+    let autoShardingConfig =
+      networkConfig.autoShardingConfig.get(DefaultAutoShardingConfig())
+    b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
   of StaticSharding:
     b.withShardingConf(ShardingConfKind.StaticSharding)
 
   # Set bootstrap nodes
-  if networkConf.bootstrapNodes.len > 0:
-    b.discv5Conf.withBootstrapNodes(networkConf.bootstrapNodes)
+  if networkConfig.bootstrapNodes.len > 0:
+    b.discv5Conf.withBootstrapNodes(networkConfig.bootstrapNodes)
 
   # TODO: verify behaviour
   # Set static store nodes
-  if networkConf.staticStoreNodes.len > 0:
-    b.withStaticNodes(networkConf.staticStoreNodes)
+  if networkConfig.staticStoreNodes.len > 0:
+    b.withStaticNodes(networkConfig.staticStoreNodes)
 
   # Set message validation
 
-  let msgValidation = networkConf.messageValidation.get(DefaultMessageValidation())
+  let msgValidation = networkConfig.messageValidation.get(DefaultMessageValidation())
   b.withMaxMessageSize(msgValidation.maxMessageSizeBytes)
 
   # Set RLN config if provided
@@ -130,7 +131,7 @@ proc toWakuConf*(libConf: LibWakuConf): Result[WakuConf, string] =
     b.rlnRelayConf.withChainId(rlnConfig.chainId)
     b.rlnRelayConf.withEpochSizeSec(rlnConfig.epochSizeSec)
     b.rlnRelayConf.withDynamic(true)
-    b.rlnRelayConf.withEthClientUrls(libConf.ethRpcEndpoints)
+    b.rlnRelayConf.withEthClientUrls(config.ethRpcEndpoints)
 
     # TODO: we should get rid of those two
     b.rlnRelayconf.withUserMessageLimit(100)

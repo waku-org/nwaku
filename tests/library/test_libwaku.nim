@@ -6,15 +6,15 @@ import library/libwaku_api, library/libwaku_conf, waku/factory/waku
 suite "LibWaku - createNode":
   asyncTest "Create node with minimal Relay configuration":
     ## Given
-    let libConf = LibWakuConf(
+    let libConf = LibWakuConfig(
       mode: Relay,
-      networkConf: some(
-        libwaku_conf.NetworkConf(
+      networkConfig: some(
+        libwaku_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 1,
           shardingMode: some(StaticSharding),
-          autoShardingConf: none(AutoShardingConf),
+          autoShardingConfig: none(AutoShardingConfig),
           messageValidation: none(MessageValidation),
         )
       ),
@@ -33,15 +33,15 @@ suite "LibWaku - createNode":
 
   asyncTest "Create node with auto-sharding configuration":
     ## Given
-    let libConf = LibWakuConf(
+    let libConf = LibWakuConfig(
       mode: Relay,
-      networkConf: some(
-        libwaku_conf.NetworkConf(
+      networkConfig: some(
+        libwaku_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 42,
           shardingMode: some(AutoSharding),
-          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 8)),
+          autoShardingConfig: some(AutoShardingConfig(numShardsInCluster: 8)),
           messageValidation: none(MessageValidation),
         )
       ),
@@ -60,10 +60,10 @@ suite "LibWaku - createNode":
 
   asyncTest "Create node with full configuration":
     ## Given
-    let libConf = LibWakuConf(
+    let libConf = LibWakuConfig(
       mode: Relay,
-      networkConf: some(
-        libwaku_conf.NetworkConf(
+      networkConfig: some(
+        libwaku_conf.NetworkConfig(
           bootstrapNodes:
             @[
               "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
@@ -74,7 +74,7 @@ suite "LibWaku - createNode":
             ],
           clusterId: 99,
           shardingMode: some(AutoSharding),
-          autoShardingConf: some(AutoShardingConf(numShardsInCluster: 16)),
+          autoShardingConfig: some(AutoShardingConfig(numShardsInCluster: 16)),
           messageValidation: some(
             MessageValidation(
               maxMessageSizeBytes: 1024'u64 * 1024'u64, # 1MB
