@@ -431,6 +431,11 @@ proc setupProtocols(
 
   if conf.peerExchangeDiscovery:
     await node.mountPeerExchangeClient()
+
+  #mount mix
+  if conf.mixConf.isSome():
+    (await node.mountMix(conf.clusterId, conf.mixConf.get().mixKey)).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
 ## Start node

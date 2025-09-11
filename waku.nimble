@@ -148,7 +148,19 @@ task chat2, "Build example Waku chat usage":
   #buildBinary name, "examples/", "-d:chronicles_log_level=WARN"
 
   let name = "chat2"
-  buildBinary name, "apps/chat2/", "-d:chronicles_sinks=textlines[file] -d:ssl"
+  buildBinary name,
+    "apps/chat2/",
+    "-d:chronicles_sinks=textlines[file] -d:ssl -d:chronicles_log_level='TRACE' "
+
+task chat2mix, "Build example Waku chat mix usage":
+  # NOTE For debugging, set debug level. For chat usage we want minimal log
+  # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
+  #buildBinary name, "examples/", "-d:chronicles_log_level=WARN"
+
+  let name = "chat2mix"
+  buildBinary name,
+    "apps/chat2mix/",
+    "-d:chronicles_sinks=textlines[file] -d:ssl -d:chronicles_log_level='TRACE' "
 
 task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
@@ -157,6 +169,10 @@ task chat2bridge, "Build chat2bridge":
 task liteprotocoltester, "Build liteprotocoltester":
   let name = "liteprotocoltester"
   buildBinary name, "apps/liteprotocoltester/"
+
+task lightpushwithmix, "Build lightpushwithmix":
+  let name = "lightpush_publisher_mix"
+  buildBinary name, "examples/lightpush_mix/"
 
 task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
