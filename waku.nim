@@ -3,13 +3,8 @@
 ## This module re-exports the public API for creating and managing Waku nodes
 ## when using nwaku as a library dependency.
 
-# Import the modules to make them available
-import library/libwaku_api
-import library/libwaku_conf
+import waku/api/[api, api_conf]
+export api, api_conf
 
-# Re-export essential types from waku factory
 import waku/factory/waku
 export Waku
-
-# Re-export the main types and functions
-export libwaku_api, libwaku_conf

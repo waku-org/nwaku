@@ -1,7 +1,7 @@
 {.used.}
 
 import std/options, results, stint, testutils/unittests
-import library/libwaku_conf, waku/factory/waku_conf, waku/factory/networks_config
+import waku/api/api_conf, waku/factory/waku_conf, waku/factory/networks_config
 
 suite "LibWaku Conf - toWakuConf":
   test "Relay mode configuration":
@@ -9,7 +9,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 1,
@@ -40,7 +40,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 42,
@@ -74,7 +74,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: bootstrapNodes,
           staticStoreNodes: @[],
           clusterId: 1,
@@ -107,7 +107,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: staticStoreNodes,
           clusterId: 1,
@@ -134,7 +134,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 1,
@@ -166,7 +166,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes: @[],
           staticStoreNodes: @[],
           clusterId: 1,
@@ -213,7 +213,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = WakuApiConfig(
       mode: Relay,
       networkConfig: some(
-        libwaku_conf.NetworkConfig(
+        api_conf.NetworkConfig(
           bootstrapNodes:
             @[
               "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"

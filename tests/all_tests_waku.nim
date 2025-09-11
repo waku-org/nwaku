@@ -99,5 +99,5 @@ import ./waku_rln_relay/test_all
 # Node Factory
 import ./factory/test_all
 
-# Library tests
-import ./library/test_all
+# Waku API tests
+import ./api/test_all

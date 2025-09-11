@@ -98,7 +98,7 @@ proc initializeLibrary() {.exported.} =
 ################################################################################
 
 ################################################################################
-### FFI Exported procs
+### Exported procs
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
@@ -849,5 +849,5 @@ proc waku_is_online(
     userData,
   )
 
-### End of FFI exported procs
+### End of exported procs
 ################################################################################

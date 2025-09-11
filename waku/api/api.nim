@@ -2,7 +2,7 @@ import chronicles, chronos, results
 
 import waku/factory/waku
 
-import ./libwaku_conf
+import ./api_conf
 
 proc createNode*(config: WakuApiConfig): Future[Result[Waku, string]] {.async.} =
   let wakuConf = toWakuConf(config).valueOr:
