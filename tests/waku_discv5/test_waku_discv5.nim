@@ -450,7 +450,7 @@ suite "Waku Discovery v5":
         raiseAssert error
 
       await waku1.node.mountPeerExchange()
-      await waku1.node.mountRendezvous()
+      await waku1.node.mountRendezvous(conf.clusterId)
 
       confBuilder.discv5Conf.withBootstrapNodes(@[waku1.node.enr.toURI()])
       confBuilder.withP2pTcpPort(60003.Port)
