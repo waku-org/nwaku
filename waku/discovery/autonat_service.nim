@@ -4,7 +4,7 @@ import
   bearssl/rand,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
-  libp2p/protocols/connectivity/autonat/core
+  libp2p/protocols/connectivity/autonat/types
 
 const AutonatCheckInterval = Opt.some(chronos.seconds(30))
 
