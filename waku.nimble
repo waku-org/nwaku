@@ -28,7 +28,8 @@ requires "nim >= 2.2.4",
   "regex",
   "results",
   "db_connector",
-  "minilru"
+  "minilru",
+  "toml_serialization" # Necessary for confutils/toml support
 
 ### Helper functions
 
