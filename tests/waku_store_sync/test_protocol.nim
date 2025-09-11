@@ -119,7 +119,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 3
-      localWants.len == 0
       remoteNeeds.contains((clientPeerInfo.peerId, hash1)) == true
       remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == true
       remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == true
@@ -156,7 +155,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 3
-      localWants.len == 0
       remoteNeeds.contains((serverPeerInfo.peerId, hash1)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, hash2)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == true
@@ -193,7 +191,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 2
-      localWants.len == 2
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == true
       remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == true
 
@@ -236,28 +233,9 @@ suite "Waku Sync: reconciliation":
     server.messageIngress(hash2, "/waku/2/rs/2/2", msg2)
     server.messageIngress(hash3, "/waku/2/rs/2/3", msg3)
 
-    check:
-      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
-      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
-
-    server = await newTestWakuRecon(
-      serverSwitch,
-      @["/waku/2/rs/2/1", "/waku/2/rs/2/2", "/waku/2/rs/2/3"],
-      @[DefaultContentTopic],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-    )
-    client = await newTestWakuRecon(
-      clientSwitch,
-      @["/waku/2/rs/2/5", "/waku/2/rs/2/6", "/waku/2/rs/2/7"],
-      @[],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-    )
+    client.messageIngress(hash4, "/waku/2/rs/2/4", msg4)
+    client.messageIngress(hash5, "/waku/2/rs/2/5", msg5)
+    client.messageIngress(hash6, "/waku/2/rs/2/6", msg6)
 
     check:
       remoteNeeds.len == 0
@@ -267,11 +245,8 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 2
-      localWants.len == 2
-      remoteNeeds.contains((serverPeerInfo.peerId, hash4)) == true
       remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == true
-      localWants.contains(clientPeerInfo.peerId) == true
-      localWants.contains(serverPeerInfo.peerId) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, hash4)) == true
 
   asyncTest "sync 2 nodes same hashes":
     server = await newTestWakuRecon(
@@ -335,8 +310,6 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 0
-      localWants.len == 0
-      localWants.contains(serverPeerInfo.peerId) == false
       remoteNeeds.contains((clientPeerInfo.peerId, WakuMessageHash(diff))) == false
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
@@ -344,14 +317,19 @@ suite "Waku Sync: reconciliation":
 
     check:
       remoteNeeds.len == 1
-      localWants.len == 1
-      localWants.contains(serverPeerInfo.peerId) == true
       remoteNeeds.contains((clientPeerInfo.peerId, WakuMessageHash(diff))) == true
 
   asyncTest "sync 2 nodes 10K msgs 1K diffs":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     const
-      msgCount = 200_000 # total messages on the server
-      diffCount = 100 # messages initially missing on the client
+      msgCount = 10_000 # total messages on the server
+      diffCount = 1000 # messages initially missing on the client
 
     ## ── choose which messages will be absent from the client ─────────────
     var missingIdx: HashSet[int]
@@ -380,10 +358,17 @@ suite "Waku Sync: reconciliation":
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
-    ## ── verify that ≈100 diffs were queued (allow 10 % slack) ────────────
-    check remoteNeeds.len >= 90 # ≈ 100 × 0.9
+    ## ── verify that ≈1000 diffs were queued (allow 10 % slack) ────────────
+    check remoteNeeds.len >= 900 # ≈ 1000 × 0.9
 
   asyncTest "sync 2 nodes 400K msgs 100k diffs":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     const
       msgCount = 400_000
       diffCount = 100_000
@@ -421,6 +406,13 @@ suite "Waku Sync: reconciliation":
     check deliveredHash in diffMsgHashes
 
   asyncTest "sync 2 nodes 100 msgs 20 diff – 1-second window":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     const
       msgCount = 100
       diffCount = 20
@@ -462,6 +454,13 @@ suite "Waku Sync: reconciliation":
       check deliveredHash in diffMsgHashes
 
   asyncTest "sync 2 nodes 500k msgs 300k diff – stress window":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     const
       msgCount = 500_000
       diffCount = 300_000
@@ -508,6 +507,13 @@ suite "Waku Sync: reconciliation":
       check deliveredHash in diffMsgHashes
 
   asyncTest "sync 2 nodes, 40 msgs: 18 in-window diff, 20 out-window ignored":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     const
       diffInWin = 18
       diffOutWin = 20
@@ -569,6 +575,13 @@ suite "Waku Sync: reconciliation":
       check deliveredHashes notin outWinHashes
 
   asyncTest "hash-fingerprint collision, same timestamp – stable sort":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     let ts = Timestamp(getNowInNanosecondTime())
 
     var msg1 = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
@@ -614,6 +627,13 @@ suite "Waku Sync: reconciliation":
     check vec[0].time == ts and vec[1].time == ts
 
   asyncTest "malformed message-ID is ignored during reconciliation":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     let nowTs = Timestamp(getNowInNanosecondTime())
 
     let goodMsg = fakeWakuMessage(ts = nowTs, contentTopic = DefaultContentTopic)
@@ -649,6 +669,13 @@ suite "Waku Sync: reconciliation":
     check neededHash != badHash
 
   asyncTest "malformed ID: future-timestamp msg is ignored":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     let nowNs = getNowInNanosecondTime()
     let tsNow = Timestamp(nowNs)
 
@@ -686,6 +713,13 @@ suite "Waku Sync: reconciliation":
     check neededHash != badHash
 
   asyncTest "duplicate ID is queued only once":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     let ts = Timestamp(getNowInNanosecondTime())
     let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
     let h = computeMessageHash(DefaultPubsubTopic, msg)
@@ -713,6 +747,13 @@ suite "Waku Sync: reconciliation":
     check neededHash == h
 
   asyncTest "sync terminates immediately when no diffs exist":
+    server = await newTestWakuRecon(
+      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
     let ts = Timestamp(getNowInNanosecondTime())
     let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
     let hash = computeMessageHash(DefaultPubsubTopic, msg)

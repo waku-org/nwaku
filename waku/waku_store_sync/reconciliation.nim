@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, options, packedsets, sets],
+  std/[sequtils, options, sets],
   stew/byteutils,
   results,
   chronicles,
@@ -207,11 +207,8 @@ proc processRequest(
         remote = conn.peerId,
         payload = preProcessedPayload
 
-      sendPayload = self.storage.processPayload(
-        preProcessedPayload.pubsubTopics, preProcessedPayload.contentTopics,
-        preProcessedPayload.ranges, preProcessedPayload.fingerprints,
-        preProcessedPayload.itemSets, hashToSend, hashToRecv,
-      )
+      sendPayload =
+        self.storage.processPayload(preProcessedPayload, hashToSend, hashToRecv)
 
       trace "sync payload processed",
         hash_to_send = hashToSend, hash_to_recv = hashToRecv

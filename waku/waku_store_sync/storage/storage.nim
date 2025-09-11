@@ -1,4 +1,4 @@
-import std/packedsets, results
+import results
 
 import
   ../../waku_core/time,
@@ -32,19 +32,21 @@ method computeFingerprint*(
     pubsubTopics: seq[PubsubTopic],
     contentTopics: seq[ContentTopic],
 ): Fingerprint {.base, gcsafe, raises: [].} =
-  return EmptyFingerprint
+  return FullFingerprint
 
 method processPayload*(
     self: SyncStorage,
-    pubsubTopics: seq[PubsubTopic],
-    contentTopics: seq[ContentTopic],
-    ranges: seq[(Slice[SyncID], RangeType)],
-    fingerprints: seq[Fingerprint],
-    itemSets: seq[ItemSet],
+    input: RangesData,
     hashToSend: var seq[Fingerprint],
     hashToRecv: var seq[Fingerprint],
 ): RangesData {.base, gcsafe, raises: [].} =
-  return RangesData()
+  return RangesData(
+    pubsubTopics: @["InsertPubsubTopicHere"],
+    contentTopics: @["InsertContentTopicHere"],
+    ranges: @[],
+    fingerprints: @[FullFingerprint],
+    itemSets: @[],
+  )
 
 method length*(self: SyncStorage): int {.base, gcsafe, raises: [].} =
   -1
