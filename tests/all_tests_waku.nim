@@ -1,5 +1,7 @@
 ## Waku v2
 
+import ./test_waku
+
 # Waku core test suite
 import
   ./waku_core/test_namespaced_topics,

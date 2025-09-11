@@ -5,6 +5,8 @@ import
   waku/factory/conf_builder/conf_builder,
   waku/factory/networks_config
 
+# TODO: requireInit on all?
+
 type ShardingMode* = enum
   AutoSharding = "auto"
   StaticSharding = "static"
@@ -38,6 +40,7 @@ type LibWakuConfig* = object
   networkConfig*: Option[NetworkConfig]
   storeConfirmation*: bool
   ethRpcEndpoints*: seq[string]
+  autoStart*: Option[bool]
 
 proc DefaultShardingMode(): ShardingMode =
   return ShardingMode.Autosharding
