@@ -19,7 +19,7 @@ proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
     echo "Building RLN library..."
     let buildDir = getCurrentDir()
     let outFile = libFile
-    exec "bash ../scripts/build_rln.sh " & buildDir & " " & version & " " & outFile
+    exec "bash ../../scripts/build_rln.sh " & buildDir & " " & version & " " & outFile
   else:
     echo "RLN library already exists: " & libFile
 
