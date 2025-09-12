@@ -17,4 +17,4 @@ type
     requestId*: string
     statusCode*: LightPushStatusCode
     statusDesc*: Option[string]
-    relayPeerCount*: Option[uint32]
+    publishedPeerCount*: Option[uint32]

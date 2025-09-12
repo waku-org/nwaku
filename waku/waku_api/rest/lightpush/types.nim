@@ -20,7 +20,7 @@ type
 
   PushResponse* = object
     statusDesc*: Option[string]
-    relayPeerCount*: Option[uint32]
+    publishedPeerCount*: Option[uint32]
 
 #### Serialization and deserialization
 proc writeValue*(
@@ -76,8 +76,8 @@ proc writeValue*(
   writer.beginRecord()
   if value.statusDesc.isSome():
     writer.writeField("statusDesc", value.statusDesc.get())
-  if value.relayPeerCount.isSome():
-    writer.writeField("relayPeerCount", value.relayPeerCount.get())
+  if value.publishedPeerCount.isSome():
+    writer.writeField("publishedPeerCount", value.publishedPeerCount.get())
   writer.endRecord()
 
 proc readValue*(
@@ -85,7 +85,7 @@ proc readValue*(
 ) {.raises: [SerializationError, IOError].} =
   var
     statusDesc = none(string)
-    relayPeerCount = none(uint32)
+    publishedPeerCount = none(uint32)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -101,14 +101,14 @@ proc readValue*(
     case fieldName
     of "statusDesc":
       statusDesc = some(reader.readValue(string))
-    of "relayPeerCount":
-      relayPeerCount = some(reader.readValue(uint32))
+    of "publishedPeerCount":
+      publishedPeerCount = some(reader.readValue(uint32))
     else:
       unrecognizedFieldWarning(value)
 
-  if relayPeerCount.isNone() and statusDesc.isNone():
+  if publishedPeerCount.isNone() and statusDesc.isNone():
     reader.raiseUnexpectedValue(
-      "Fields are missing, either `relayPeerCount` or `statusDesc` must be present"
+      "Fields are missing, either `publishedPeerCount` or `statusDesc` must be present"
     )
 
-  value = PushResponse(statusDesc: statusDesc, relayPeerCount: relayPeerCount)
+  value = PushResponse(statusDesc: statusDesc, publishedPeerCount: publishedPeerCount)

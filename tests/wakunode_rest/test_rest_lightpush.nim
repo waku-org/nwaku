@@ -122,7 +122,7 @@ suite "Waku v2 Rest API - lightpush":
     check:
       response.status == 505
       response.data.statusDesc == some("No peers for topic, skipping publish")
-      response.data.relayPeerCount == none[uint32]()
+      response.data.publishedPeerCount == none[uint32]()
 
   asyncTest "Push message request":
     # Given
@@ -160,7 +160,7 @@ suite "Waku v2 Rest API - lightpush":
     # Then
     check:
       response.status == 200
-      response.data.relayPeerCount == some(1.uint32)
+      response.data.publishedPeerCount == some(1.uint32)
 
     await restLightPushTest.shutdown()
 
@@ -262,7 +262,7 @@ suite "Waku v2 Rest API - lightpush":
       # Then
       check:
         response.status == 200
-        response.data.relayPeerCount == some(1.uint32)
+        response.data.publishedPeerCount == some(1.uint32)
 
     let pushRejectedProc = proc() {.async.} =
       let message: RelayWakuMessage = fakeWakuMessage(
