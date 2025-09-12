@@ -12,11 +12,11 @@ import
   secp256k1
 
 import
+  ../wakunode2/cli_args,
   waku/[
     common/confutils/envvar/defs as confEnvvarDefs,
     common/confutils/envvar/std/net as confEnvvarNet,
     common/logging,
-    factory/external_config,
     waku_core,
     waku_core/topics/pubsub_topic,
   ]
