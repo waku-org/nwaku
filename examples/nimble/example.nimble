@@ -12,6 +12,7 @@ bin           = @["example"]
 
 requires "chronos"
 requires "results"
+requires "waku"
 
 proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
   if not fileExists(libFile):
