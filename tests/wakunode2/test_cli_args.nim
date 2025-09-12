@@ -10,12 +10,15 @@ import
   secp256k1,
   confutils,
   stint
+
+import apps/wakunode2/cli_args
+
 import
-  ../../waku/factory/external_config,
   ../../waku/factory/networks_config,
   ../../waku/factory/waku_conf,
   ../../waku/common/logging,
-  ../../waku/common/utils/parse_size_units
+  ../../waku/common/utils/parse_size_units,
+  ../../waku/waku_core/message/default_values
 
 suite "Waku external config - default values":
   test "Default sharding value":

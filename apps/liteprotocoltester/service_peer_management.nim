@@ -11,8 +11,8 @@ import
   libp2p/wire
 
 import
+  ../wakunode2/cli_args,
   waku/[
-    factory/external_config,
     common/enr,
     waku_node,
     node/peer_manager,

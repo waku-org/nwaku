@@ -1,5 +1,7 @@
 ## Waku v2
 
+import ./test_waku
+
 # Waku core test suite
 import
   ./waku_core/test_namespaced_topics,
@@ -96,3 +98,6 @@ import ./waku_rln_relay/test_all
 
 # Node Factory
 import ./factory/test_all
+
+# Waku API tests
+import ./api/test_all

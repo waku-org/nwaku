@@ -28,7 +28,8 @@ requires "nim >= 2.2.4",
   "regex",
   "results",
   "db_connector",
-  "minilru"
+  "minilru",
+  "toml_serialization#c8dc4527cc7f27b67f41402451a757668819127c" # Necessary for confutils/toml support - commit hash for https://github.com/status-im/nim-toml-serialization/issues/97
 
 ### Helper functions
 
