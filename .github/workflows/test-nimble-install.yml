@@ -39,9 +39,14 @@ jobs:
       run: |
         nimble list --installed --ver
         
-    - name: Run and build example project
+    - name: Build example project
       working-directory: examples/nimble
       run: |
-        echo "Building test project..."
-        nimble --verbose run_example
-        
+        echo "Building example project..."
+        nimble --verbose build
+
+    - name: Run example project
+      working-directory: examples/nimble
+      run: |
+        echo "Running example project..."
+        nimble --verbose run

@@ -26,10 +26,3 @@ proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
 before install:
   echo "ensure RLN before build"
   ensureRln()
-
-#task build, "Build the project with RLN support":
-#  additionalArguments = @["--passL:build/librln.a", "--passL:-lm"]
-
-task run_example, "Run example":
-  ensureRln()
-  exec "nim c --passL:build/librln.a --passL:-lm -r src/example.nim"
