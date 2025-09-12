@@ -97,7 +97,7 @@ proc handleRequest*(
       statusDesc: some(desc),
     )
 
-  let relayPeerCount = (await wl.handleRequest(peerId, request)).valueOr:
+  let publishedPeerCount = (await wl.handleRequest(peerId, request)).valueOr:
     let desc = error.desc
     waku_lightpush_v3_errors.inc(labelValues = [$error.code])
     error "failed to push message", error = desc
@@ -109,7 +109,7 @@ proc handleRequest*(
     requestId: request.requestId,
     statusCode: LightPushSuccessCode.SUCCESS,
     statusDesc: none[string](),
-    relayPeerCount: some(relayPeerCount),
+    publishedPeerCount: some(publishedPeerCount),
   )
 
 proc initProtocolHandler(wl: WakuLightPush) =
