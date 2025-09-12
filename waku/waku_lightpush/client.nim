@@ -55,7 +55,7 @@ proc sendPushRequest(
       )
 
   try:
-    await connection.writeLp(req.encode().buffer)
+    await connection.writeLp(request.encode().buffer)
   except LPStreamRemoteClosedError:
     error "Failed to write request to peer", error = getCurrentExceptionMsg()
     return lightpushResultInternalError(
@@ -76,12 +76,12 @@ proc sendPushRequest(
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
     return lightpushResultInternalError(decodeRpcFailure)
 
-  let requestIdMismatch = response.requestId != req.requestId
+  let requestIdMismatch = response.requestId != request.requestId
   let tooManyRequests = response.statusCode == LightPushErrorCode.TOO_MANY_REQUESTS
   if requestIdMismatch and (not tooManyRequests):
     # response with TOO_MANY_REQUESTS error code has no requestId by design
     error "response failure, requestId mismatch",
-      requestId = req.requestId, responseRequestId = response.requestId
+      requestId = request.requestId, responseRequestId = response.requestId
     return lightpushResultInternalError("response failure, requestId mismatch")
 
   return toPushResult(response)
@@ -98,10 +98,10 @@ proc publish*(
   let msgHash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
   info "publish", peerId = shortPeerId(peer), msg_hash = msgHash
 
-  let pushRequest = LightpushRequest(
+  let request = LightpushRequest(
     requestId: generateRequestId(wl.rng), pubsubTopic: pubsubTopic, message: message
   )
-  let relayPeerCount = ?await wl.sendPushRequest(pushRequest, peer)
+  let relayPeerCount = ?await wl.sendPushRequest(request, peer)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubsubTopic.get(""), message)
