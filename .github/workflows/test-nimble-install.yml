@@ -33,7 +33,6 @@ jobs:
     - name: Install waku from current commit
       working-directory: examples/nimble
       run: |
-        HEAD=`git rev-parse HEAD`
         echo "installing waku#${{ github.sha }}"
         nimble install "waku#${{ github.sha }}"
         
