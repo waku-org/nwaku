@@ -29,7 +29,7 @@ type WakuLightPush* = ref object of LPProtocol
   autoSharding: Option[Sharding]
 
 proc extractPubsubTopic(
-    wl: WakuLightPush, req: LightpushRequest
+    wl: WakuLightPush, request: LightpushRequest
 ): Result[PubsubTopic, ErrorStatus] =
   ## A pubsubTopic uniquely identifies a shard. Two sharding modes:
   ##   Static sharding: pubsubTopic must be specified in the request
@@ -39,7 +39,7 @@ proc extractPubsubTopic(
     error "Lightpush request handling error: ", error = err
     err((code, some(err)))
 
-  let pubsubTopic = req.pubSubTopic.valueOr:
+  let pubsubTopic = request.pubSubTopic.valueOr:
     if wl.autoSharding.isNone():
       # Static sharding is enabled, but no pubsub topic is provided
       return mkErr(
@@ -47,7 +47,7 @@ proc extractPubsubTopic(
         "Pubsub topic is required for static sharding",
       )
 
-    let contentTopic = NsContentTopic.parse(req.message.contentTopic).valueOr:
+    let contentTopic = NsContentTopic.parse(request.message.contentTopic).valueOr:
       return
         mkErr(LightPushErrorCode.INVALID_MESSAGE, "Invalid content topic: " & $error)
 
@@ -63,30 +63,30 @@ proc extractPubsubTopic(
   return ok(pubsubTopic)
 
 proc handleRequest(
-    wl: WakuLightPush, peerId: PeerId, pushRequest: LightpushRequest
+    wl: WakuLightPush, peerId: PeerId, request: LightpushRequest
 ): Future[WakuLightPushResult] {.async.} =
-  let pubsubTopic = (wl.extractPubsubTopic(pushRequest)).valueOr:
+  let pubsubTopic = (wl.extractPubsubTopic(request)).valueOr:
     return err((code: error.code, desc: error.desc))
 
   waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
-  let msg_hash = computeMessageHash(pubsubTopic, pushRequest.message).to0xHex()
+  let msg_hash = computeMessageHash(pubsubTopic, request.message).to0xHex()
   notice "handling lightpush request",
     my_peer_id = wl.peerManager.switch.peerInfo.peerId,
     peer_id = peerId,
-    requestId = pushRequest.requestId,
-    pubsubTopic = pushRequest.pubsubTopic,
+    requestId = request.requestId,
+    pubsubTopic = request.pubsubTopic,
     msg_hash = msg_hash,
     receivedTime = getNowInNanosecondTime()
 
-  let res = (await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)).valueOr:
+  let res = (await wl.pushHandler(peerId, pubsubTopic, request.message)).valueOr:
     return err((code: error.code, desc: error.desc))
   return ok(res)
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
 ): Future[LightPushResponse] {.async.} =
-  let pushRequest = LightPushRequest.decode(buffer).valueOr:
+  let request = LightPushRequest.decode(buffer).valueOr:
     let desc = decodeRpcFailure & ": " & $error
     error "failed to decode Lightpush request", error = desc
     let errorCode = LightPushErrorCode.BAD_REQUEST
@@ -97,16 +97,16 @@ proc handleRequest*(
       statusDesc: some(desc),
     )
 
-  let relayPeerCount = (await wl.handleRequest(peerId, pushRequest)).valueOr:
+  let relayPeerCount = (await wl.handleRequest(peerId, request)).valueOr:
     let desc = error.desc
     waku_lightpush_v3_errors.inc(labelValues = [$error.code])
     error "failed to push message", error = desc
     return LightPushResponse(
-      requestId: pushRequest.requestId, statusCode: error.code, statusDesc: desc
+      requestId: request.requestId, statusCode: error.code, statusDesc: desc
     )
 
   return LightPushResponse(
-    requestId: pushRequest.requestId,
+    requestId: request.requestId,
     statusCode: LightPushSuccessCode.SUCCESS,
     statusDesc: none[string](),
     relayPeerCount: some(relayPeerCount),
