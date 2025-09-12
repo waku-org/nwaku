@@ -6,19 +6,16 @@ proc main() {.async.} =
   echo("Starting Waku node...")
 
   # Create a basic configuration for the Waku node
-  let config = WakuApiConfig(
-    mode: Relay,
-    networkConfig: some(
-      api_conf.NetworkConfig(
-        bootstrapNodes: @[],
-        staticStoreNodes: @[],
-        clusterId: 42,
-        shardingMode: some(StaticSharding),
-        autoShardingConfig: none(AutoShardingConfig),
-        messageValidation: none(MessageValidation),
-      )
-    ),
-    storeConfirmation: false,
+  # No RLN so we don't need to path an eth rpc endpoint
+  let config = newNodeConfig(
+    newWakuConfig(
+      bootstrapNodes = @[],
+      clusterId = 42,
+      messageValidation = MessageValidation(
+        maxMessageSizeBytes: 150'u64 * 1024'u64, # 150kB
+        rlnConfig: none(RlnConfig),
+      ),
+    )
   )
 
   # Create the node using the library API's createNode function

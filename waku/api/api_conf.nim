@@ -5,80 +5,94 @@ import
   waku/factory/conf_builder/conf_builder,
   waku/factory/networks_config
 
-# TODO: requireInit on all?
-
-type ShardingMode* = enum
-  AutoSharding = "auto"
-  StaticSharding = "static"
-
-type AutoShardingConfig* = object
+type AutoShardingConfig* {.requiresInit.} = object
   numShardsInCluster*: uint16
 
-type RlnConfig* = object
+type RlnConfig* {.requiresInit.} = object
   contractAddress*: string
   chainId*: uint
   epochSizeSec*: uint64
 
-type MessageValidation* = object
+type MessageValidation* {.requiresInit.} = object
   maxMessageSizeBytes*: uint64
   rlnConfig*: Option[RlnConfig]
 
-type NetworkConfig* = object
-  bootstrapNodes*: seq[string]
-  staticStoreNodes*: seq[string]
-  clusterId*: uint16
-  shardingMode*: Option[ShardingMode]
-  autoShardingConfig*: Option[AutoShardingConfig]
-  messageValidation*: Option[MessageValidation]
-
-type WakuMode* = enum
-  Edge = "edge"
-  Relay = "relay"
-
-type WakuApiConfig* = object
-  mode*: WakuMode
-  networkConfig*: Option[NetworkConfig]
-  storeConfirmation*: bool
-  ethRpcEndpoints*: seq[string]
-  autoStart*: Option[bool]
-
-proc DefaultShardingMode(): ShardingMode =
-  return ShardingMode.Autosharding
+type WakuConfig* {.requiresInit.} = object
+  bootstrapNodes: seq[string]
+  staticStoreNodes: seq[string]
+  clusterId: uint16
+  autoShardingConfig: AutoShardingConfig
+  messageValidation: MessageValidation
 
 proc DefaultAutoShardingConfig(): AutoShardingConfig =
   return AutoShardingConfig(numShardsInCluster: 1)
 
-proc DefaultNetworkConfig(): NetworkConfig =
-  return NetworkConfig(
+proc DefaultMessageValidation(): MessageValidation =
+  return MessageValidation(maxMessageSizeBytes: 153600, rlnConfig: none(RlnConfig))
+
+proc newWakuConfig*(
+    bootstrapNodes: seq[string],
+    staticStoreNodes: seq[string] = @[],
+    clusterId: uint16,
+    autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig(),
+    messageValidation: MessageValidation = DefaultMessageValidation(),
+): WakuConfig =
+  return WakuConfig(
+    bootstrapNodes: bootstrapNodes,
+    staticStoreNodes: staticStoreNodes,
+    clusterId: clusterId,
+    autoShardingConfig: autoShardingConfig,
+    messageValidation: messageValidation,
+  )
+
+proc DefaultWakuConfig(): WakuConfig =
+  return WakuConfig(
     bootstrapNodes:
       @[
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
       ],
     staticStoreNodes: @[], # TODO
     clusterId: 1,
-    shardingMode: some(ShardingMode.AutoSharding),
-    autoShardingConfig: some(AutoShardingConfig(numShardsInCluster: 8)),
-    messageValidation: some(
-      MessageValidation(
-        maxMessageSizeBytes: 153600,
-        rlnConfig: some (
-          RlnConfig(
-            contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
-            chain_id: 59141,
-            epoch_size_sec: 600, # 10 minutes
-          )
-        ),
-      )
+    autoShardingConfig: AutoShardingConfig(numShardsInCluster: 8),
+    messageValidation: MessageValidation(
+      maxMessageSizeBytes: 153600,
+      rlnConfig: some(
+        RlnConfig(
+          contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
+          chain_id: 59141,
+          epoch_size_sec: 600, # 10 minutes
+        )
+      ),
     ),
   )
 
-proc DefaultMessageValidation(): MessageValidation =
-  return MessageValidation(maxMessageSizeBytes: 153600, rlnConfig: none(RlnConfig))
+type WakuMode* = enum
+  Edge = "edge"
+  Relay = "relay"
 
-proc toWakuConf*(config: WakuApiConfig): Result[WakuConf, string] =
+type NodeConfig* {.requiresInit.} = object
+  mode: WakuMode
+  wakuConfig: WakuConfig
+  storeConfirmation: bool
+  ethRpcEndpoints: seq[string]
+
+proc newNodeConfig*(
+    mode: WakuMode = WakuMode.Relay,
+    wakuConfig: WakuConfig = DefaultWakuConfig(),
+    storeConfirmation: bool = true,
+    ethRpcEndpoints: seq[string] = @[],
+): NodeConfig =
+  return NodeConfig(
+    mode: mode,
+    wakuConfig: wakuConfig,
+    storeConfirmation: storeConfirmation,
+    ethRpcEndpoints: ethRpcEndpoints,
+  )
+
+proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   var b = WakuConfBuilder.init()
 
-  case config.mode
+  case nodeConfig.mode
   of Relay:
     b.withRelay(true)
 
@@ -97,33 +111,28 @@ proc toWakuConf*(config: WakuApiConfig): Result[WakuConf, string] =
   #TODO: store confirmation
 
   ## Network Conf
-  let networkConfig = config.networkConfig.get(DefaultNetworkConfig())
+  let wakuConfig = nodeConfig.wakuConfig
 
   # Set cluster ID
-  b.withClusterId(networkConfig.clusterId)
+  b.withClusterId(wakuConfig.clusterId)
 
   # Set sharding configuration
-  case networkConfig.shardingMode.get(DefaultShardingMode())
-  of AutoSharding:
-    b.withShardingConf(ShardingConfKind.AutoSharding)
-    let autoShardingConfig =
-      networkConfig.autoShardingConfig.get(DefaultAutoShardingConfig())
-    b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
-  of StaticSharding:
-    b.withShardingConf(ShardingConfKind.StaticSharding)
+  b.withShardingConf(ShardingConfKind.AutoSharding)
+  let autoShardingConfig = wakuConfig.autoShardingConfig
+  b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
 
   # Set bootstrap nodes
-  if networkConfig.bootstrapNodes.len > 0:
-    b.discv5Conf.withBootstrapNodes(networkConfig.bootstrapNodes)
+  if wakuConfig.bootstrapNodes.len > 0:
+    b.discv5Conf.withBootstrapNodes(wakuConfig.bootstrapNodes)
 
   # TODO: verify behaviour
   # Set static store nodes
-  if networkConfig.staticStoreNodes.len > 0:
-    b.withStaticNodes(networkConfig.staticStoreNodes)
+  if wakuConfig.staticStoreNodes.len > 0:
+    b.withStaticNodes(wakuConfig.staticStoreNodes)
 
   # Set message validation
 
-  let msgValidation = networkConfig.messageValidation.get(DefaultMessageValidation())
+  let msgValidation = wakuConfig.messageValidation
   b.withMaxMessageSize(msgValidation.maxMessageSizeBytes)
 
   # Set RLN config if provided
@@ -134,7 +143,7 @@ proc toWakuConf*(config: WakuApiConfig): Result[WakuConf, string] =
     b.rlnRelayConf.withChainId(rlnConfig.chainId)
     b.rlnRelayConf.withEpochSizeSec(rlnConfig.epochSizeSec)
     b.rlnRelayConf.withDynamic(true)
-    b.rlnRelayConf.withEthClientUrls(config.ethRpcEndpoints)
+    b.rlnRelayConf.withEthClientUrls(nodeConfig.ethRpcEndpoints)
 
     # TODO: we should get rid of those two
     b.rlnRelayconf.withUserMessageLimit(100)
