@@ -35,8 +35,15 @@ func isSuccess*(response: LightPushResponse): bool =
 
 func toPushResult*(response: LightPushResponse): WakuLightPushResult =
   if isSuccess(response):
-    # TODO: check relayPeerCount > 0? Publish to 0 peers considered a success?
-    return ok(response.relayPeerCount.get(0))
+    let relayPeerCount = response.relayPeerCount.get(0)
+    return (
+      if (relayPeerCount == 0):
+        # Consider publishing to zero peers an error even if the service node
+        # sent us a "successful" response with zero peers 
+        err((LightPushErrorCode.NO_PEERS_TO_RELAY, response.statusDesc))
+      else:
+        ok(relayPeerCount)
+    )
   else:
     return err((response.statusCode, response.statusDesc))
 
