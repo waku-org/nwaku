@@ -45,7 +45,7 @@ proc encode*(rpc: LightPushResponse): ProtoBuffer =
   pb.write3(1, rpc.requestId)
   pb.write3(10, rpc.statusCode.uint32)
   pb.write3(11, rpc.statusDesc)
-  pb.write3(12, rpc.relayPeerCount)
+  pb.write3(12, rpc.publishedPeerCount)
   pb.finish3()
 
   return pb
@@ -72,10 +72,10 @@ proc decode*(T: type LightPushResponse, buffer: seq[byte]): ProtobufResult[T] =
   else:
     rpc.statusDesc = some(statusDesc)
 
-  var relayPeerCount: uint32
-  if not ?pb.getField(12, relayPeerCount):
-    rpc.relayPeerCount = none(uint32)
+  var publishedPeerCount: uint32
+  if not ?pb.getField(12, publishedPeerCount):
+    rpc.publishedPeerCount = none(uint32)
   else:
-    rpc.relayPeerCount = some(relayPeerCount)
+    rpc.publishedPeerCount = some(publishedPeerCount)
 
   return ok(rpc)

@@ -42,7 +42,7 @@ func shortPeerId(peer: RemotePeerInfo): string =
 
 proc sendPushRequest(
     wl: WakuLightPushClient,
-    req: LightPushRequest,
+    request: LightPushRequest,
     peer: PeerId | RemotePeerInfo,
     conn: Option[Connection] = none(Connection),
 ): Future[WakuLightPushResult] {.async.} =
@@ -101,12 +101,12 @@ proc publish*(
   let request = LightpushRequest(
     requestId: generateRequestId(wl.rng), pubsubTopic: pubsubTopic, message: message
   )
-  let relayPeerCount = ?await wl.sendPushRequest(request, peer)
+  let publishedPeerCount = ?await wl.sendPushRequest(request, peer)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubsubTopic.get(""), message)
 
-  return lightpushSuccessResult(relayPeerCount)
+  return lightpushSuccessResult(publishedPeerCount)
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubsubTopic: PubsubTopic, wakuMessage: WakuMessage
