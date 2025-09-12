@@ -76,10 +76,10 @@ proc sendPushRequest(
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
     return lightpushResultInternalError(decodeRpcFailure)
 
-  let isTooManyRequests = response.statusCode == LightPushErrorCode.TOO_MANY_REQUESTS
-  let requestIdMatches = response.requestId == req.requestId
-  if (not requestIdMatches) and (not isTooManyRequests):
-    # response with TOO_MANY_REQUESTS error code does not have requestId by design
+  let requestIdMismatch = response.requestId != req.requestId
+  let tooManyRequests = response.statusCode == LightPushErrorCode.TOO_MANY_REQUESTS
+  if requestIdMismatch and (not tooManyRequests):
+    # response with TOO_MANY_REQUESTS error code has no requestId by design
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
     return lightpushResultInternalError("response failure, requestId mismatch")
