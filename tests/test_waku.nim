@@ -7,10 +7,8 @@ import waku
 suite "Waku API - Create node":
   asyncTest "Create node with minimal Relay configuration":
     ## Given
-    let nodeConfig = newNodeConfig(
-      wakuConfig = newWakuConfig(bootstrapNodes = @[], clusterId = 1),
-      storeConfirmation = false,
-    )
+    let nodeConfig =
+      newNodeConfig(wakuConfig = newWakuConfig(bootstrapNodes = @[], clusterId = 1))
 
     ## When
     let node = (await createNode(nodeConfig)).valueOr:

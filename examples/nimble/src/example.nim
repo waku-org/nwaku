@@ -7,16 +7,8 @@ proc main() {.async.} =
 
   # Create a basic configuration for the Waku node
   # No RLN so we don't need to path an eth rpc endpoint
-  let config = newNodeConfig(
-    newWakuConfig(
-      bootstrapNodes = @[],
-      clusterId = 42,
-      messageValidation = MessageValidation(
-        maxMessageSizeBytes: 150'u64 * 1024'u64, # 150kB
-        rlnConfig: none(RlnConfig),
-      ),
-    )
-  )
+  let config =
+    newNodeConfig(wakuConfig = newWakuConfig(bootstrapNodes = @[], clusterId = 42))
 
   # Create the node using the library API's createNode function
   let node = (await createNode(config)).valueOr:
