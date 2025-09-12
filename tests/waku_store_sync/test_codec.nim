@@ -99,6 +99,8 @@ suite "Waku Store Sync Codec":
     let range4 = (bounds4, RangeType.ItemSet)
 
     let payload = RangesData(
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[],
       ranges: @[range1, range2, range3, range4],
       fingerprints: @[],
       itemSets: @[itemSet1, itemSet2, itemSet3, itemSet4],
@@ -139,6 +141,8 @@ suite "Waku Store Sync Codec":
       ranges.add(range)
 
     let payload = RangesData(
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[],
       ranges: ranges,
       fingerprints:
         @[randomHash(rng), randomHash(rng), randomHash(rng), randomHash(rng)],
@@ -186,8 +190,13 @@ suite "Waku Store Sync Codec":
       ranges.add((bound, RangeType.ItemSet))
       itemSets.add(itemSet)
 
-    let payload =
-      RangesData(ranges: ranges, fingerprints: fingerprints, itemSets: itemSets)
+    let payload = RangesData(
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[],
+      ranges: ranges,
+      fingerprints: fingerprints,
+      itemSets: itemSets,
+    )
 
     let encodedPayload = payload.deltaEncode()
 
