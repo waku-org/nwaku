@@ -33,8 +33,8 @@ jobs:
     - name: Install waku from current commit
       working-directory: examples/nimble
       run: |
-        echo "installing waku#${{ github.head_ref }}"
-        nimble install "waku#${{ github.head_ref }}"
+        echo "installing waku#${{ github.event.pull_request.head.sha }}"
+        nimble install "waku#${{ github.event.pull_request.head.sha }}"
         
     - name: List installed packages
       working-directory: examples/nimble
