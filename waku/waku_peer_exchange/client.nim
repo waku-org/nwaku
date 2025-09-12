@@ -92,7 +92,7 @@ proc request*(
   let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
     waku_px_client_errors.inc(labelValues = [peerNotFoundFailure])
-    error "peer exchange error peerOpt is none"
+    info "peer exchange request could not be made as no peer exchange peers found"
     return err(
       (
         status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
