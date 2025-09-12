@@ -37,7 +37,7 @@ jobs:
     - name: List installed packages
       working-directory: examples/nimble
       run: |
-        nimble list --installed
+        nimble list --installed --ver
         
     - name: Run and build example project
       working-directory: examples/nimble
