@@ -34,7 +34,8 @@ jobs:
       working-directory: examples/nimble
       run: |
         HEAD=`git rev-parse HEAD`
-        nimble install "waku#${HEAD}"
+        echo "installing waku#${{ github.sha }}"
+        nimble install "waku#${{ github.sha }}"
         
     - name: List installed packages
       working-directory: examples/nimble
