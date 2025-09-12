@@ -32,4 +32,4 @@ before install:
 
 task run_example, "Run example":
   ensureRln()
-  exec "nim c --passL:build/librln.a --passL:-lm -r src/waku_api_dogfood.nim"
+  exec "nim c --passL:build/librln.a --passL:-lm -r src/example.nim"
