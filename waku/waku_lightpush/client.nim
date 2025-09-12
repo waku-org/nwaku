@@ -40,22 +40,21 @@ func shortPeerId(peer: PeerId): string =
 func shortPeerId(peer: RemotePeerInfo): string =
   shortLog(peer.peerId)
 
-proc sendPushRequest(
-    wl: WakuLightPushClient,
-    request: LightPushRequest,
-    peer: PeerId | RemotePeerInfo,
-    conn: Option[Connection] = none(Connection),
-): Future[WakuLightPushResult] {.async.} =
-  let connection = conn.valueOr:
-    (await wl.peerManager.dialPeer(peer, WakuLightPushCodec)).valueOr:
-      waku_lightpush_v3_errors.inc(labelValues = [dialFailure])
-      return lighpushErrorResult(
-        LightPushErrorCode.NO_PEERS_TO_RELAY,
-        dialFailure & ": " & $peer & " is not accessible",
-      )
+proc getConnection(
+    wl: WakuLightPushClient, peer: PeerId | RemotePeerInfo
+): Future[Result[Connection, string]] {.async.} =
+  let dialResult = await wl.peerManager.dialPeer(peer, WakuLightPushCodec)
+  if dialResult.isNone():
+    waku_lightpush_v3_errors.inc(labelValues = [dialFailure])
+    return err(dialFailure & ": " & $peer & " is not accessible")
 
+  return ok(dialResult.get())
+
+proc sendPushRequestToConn(
+    wl: WakuLightPushClient, request: LightPushRequest, conn: Connection
+): Future[WakuLightPushResult] {.async.} =
   try:
-    await connection.writeLp(request.encode().buffer)
+    await conn.writeLp(request.encode().buffer)
   except LPStreamRemoteClosedError:
     error "Failed to write request to peer", error = getCurrentExceptionMsg()
     return lightpushResultInternalError(
@@ -64,7 +63,7 @@ proc sendPushRequest(
 
   var buffer: seq[byte]
   try:
-    buffer = await connection.readLp(DefaultMaxRpcSize.int)
+    buffer = await conn.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
     error "Failed to read response from peer", error = getCurrentExceptionMsg()
     return lightpushResultInternalError(
@@ -85,6 +84,14 @@ proc sendPushRequest(
     return lightpushResultInternalError("response failure, requestId mismatch")
 
   return toPushResult(response)
+
+proc sendPushRequest(
+    wl: WakuLightPushClient, request: LightPushRequest, peer: PeerId | RemotePeerInfo
+): Future[WakuLightPushResult] {.async.} =
+  let conn = (await wl.getConnection(peer)).valueOr:
+    return lighpushErrorResult(LightPushErrorCode.NO_PEERS_TO_RELAY, error)
+
+  await wl.sendPushRequestToConn(request, conn)
 
 proc publish*(
     wl: WakuLightPushClient,
@@ -129,25 +136,28 @@ proc publishToAny*(
     msg_hash = msgHash,
     sentTime = getNowInNanosecondTime()
 
-  let pushRequest = LightpushRequest(
+  let request = LightpushRequest(
     requestId: generateRequestId(wl.rng),
-    pubSubTopic: some(pubSubTopic),
+    pubsubTopic: some(pubsubTopic),
     message: message,
   )
-  let publishedPeerCount = ?await wl.sendPushRequest(pushRequest, peer)
+  let publishedPeerCount = ?await wl.sendPushRequest(request, peer)
 
   for obs in wl.publishObservers:
-    obs.onMessagePublished(pubSubTopic, message)
+    obs.onMessagePublished(pubsubTopic, message)
 
   return lightpushSuccessResult(publishedPeerCount)
 
 proc publishWithConn*(
     wl: WakuLightPushClient,
-    pubSubTopic: PubsubTopic,
-    message: WakuMessage,
+    pubsubTopic: PubsubTopic,
+    wakuMessage: WakuMessage,
     conn: Connection,
     destPeer: PeerId,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
+  var message = wakuMessage
+  ensureTimestampSet(message)
+
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
   info "publishWithConn",
     my_peer_id = wl.peerManager.switch.peerInfo.peerId,
@@ -155,16 +165,15 @@ proc publishWithConn*(
     msg_hash = msgHash,
     sentTime = getNowInNanosecondTime()
 
-  let pushRequest = LightpushRequest(
+  let request = LightpushRequest(
     requestId: generateRequestId(wl.rng),
-    pubSubTopic: some(pubSubTopic),
+    pubsubTopic: some(pubsubTopic),
     message: message,
   )
-  #TODO: figure out how to not pass destPeer as this is just a hack
-  let publishedPeerCount =
-    ?await wl.sendPushRequest(pushRequest, destPeer, conn = some(conn))
+
+  let publishedPeerCount = ?await wl.sendPushRequestToConn(request, conn)
 
   for obs in wl.publishObservers:
-    obs.onMessagePublished(pubSubTopic, message)
+    obs.onMessagePublished(pubsubTopic, message)
 
   return lightpushSuccessResult(publishedPeerCount)
