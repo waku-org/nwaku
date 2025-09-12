@@ -22,22 +22,22 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
 
 proc newTestWakuRecon*(
     switch: Switch,
-    idsRx: AsyncQueue[SyncID],
-    wantsTx: AsyncQueue[PeerId],
-    needsTx: AsyncQueue[(PeerId, Fingerprint)],
-    cluster: uint16 = 1,
+    pubsubTopics: seq[PubsubTopic] = @[],
+    contentTopics: seq[ContentTopic] = @[],
     syncRange: timer.Duration = DefaultSyncRange,
-    shards: seq[uint16] = @[0, 1, 2, 3, 4, 5, 6, 7],
+    idsRx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
+    wantsTx: AsyncQueue[PeerId],
+    needsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[SyncReconciliation] {.async.} =
   let peerManager = PeerManager.new(switch)
 
   let res = await SyncReconciliation.new(
-    cluster = cluster,
-    shards = shards,
+    pubsubTopics = pubsubTopics,
+    contentTopics = contentTopics,
     peerManager = peerManager,
     wakuArchive = nil,
-    relayJitter = 0.seconds,
     syncRange = syncRange,
+    relayJitter = 0.seconds,
     idsRx = idsRx,
     localWantsTx = wantsTx,
     remoteNeedsTx = needsTx,
@@ -52,9 +52,9 @@ proc newTestWakuRecon*(
 
 proc newTestWakuTransfer*(
     switch: Switch,
-    idsTx: AsyncQueue[SyncID],
+    idsTx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     wantsRx: AsyncQueue[PeerId],
-    needsRx: AsyncQueue[(PeerId, Fingerprint)],
+    needsRx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): SyncTransfer =
   let peerManager = PeerManager.new(switch)
 

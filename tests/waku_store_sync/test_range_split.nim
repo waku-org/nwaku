@@ -2,6 +2,8 @@ import unittest, nimcrypto, std/sequtils, results
 import ../../waku/waku_store_sync/[reconciliation, common]
 import ../../waku/waku_store_sync/storage/seq_storage
 import ../../waku/waku_core/message/digest
+import ../../waku/waku_core/topics/pubsub_topic
+import ../../waku/waku_core/topics/content_topic
 
 proc toDigest(s: string): WakuMessageHash =
   let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, (s.len - 1)))
@@ -18,8 +20,8 @@ suite "Waku Sync – reconciliation":
     const N = 2_048
     const mismatchI = 70
 
-    let local = SeqStorage.new(@[])
-    let remote = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[], @[], @[])
+    let remote = SeqStorage.new(@[], @[], @[])
 
     var baseHashMismatch: WakuMessageHash
     var remoteHashMismatch: WakuMessageHash
@@ -27,7 +29,10 @@ suite "Waku Sync – reconciliation":
     for i in 0 ..< N:
       let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
-      local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
+
+      local.insert(
+        SyncID(time: ts, hash: hashLocal), DefaultPubsubTopic, DefaultContentTopic
+      ).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
@@ -35,18 +40,23 @@ suite "Waku Sync – reconciliation":
         baseHashMismatch = hashLocal
         remoteHashMismatch = toDigest("msg" & $i & "_x")
         hashRemote = remoteHashMismatch
-      remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
+
+      remote.insert(
+        SyncID(time: ts, hash: hashRemote), DefaultPubsubTopic, DefaultContentTopic
+      ).isOkOr:
         assert false, "failed to insert hash: " & $error
 
     var z: WakuMessageHash
     let whole = SyncID(time: 1000, hash: z) .. SyncID(time: 1000 + N - 1, hash: z)
 
-    check local.computeFingerprint(whole) != remote.computeFingerprint(whole)
+    check local.computeFingerprint(whole, @[DefaultPubsubTopic], @[DefaultContentTopic]) !=
+      remote.computeFingerprint(whole, @[DefaultPubsubTopic], @[DefaultContentTopic])
 
-    let remoteFp = remote.computeFingerprint(whole)
+    let remoteFp =
+      remote.computeFingerprint(whole, @[DefaultPubsubTopic], @[DefaultContentTopic])
     let payload = RangesData(
-      cluster: 0,
-      shards: @[0],
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[DefaultContentTopic],
       ranges: @[(whole, RangeType.Fingerprint)],
       fingerprints: @[remoteFp],
       itemSets: @[],
@@ -75,8 +85,10 @@ suite "Waku Sync – reconciliation":
     const threshold = 4
     const partitions = 2
 
-    let local = SeqStorage.new(@[], threshold = threshold, partitions = partitions)
-    let remote = SeqStorage.new(@[], threshold = threshold, partitions = partitions)
+    let local =
+      SeqStorage.new(@[], @[], @[], threshold = threshold, partitions = partitions)
+    let remote =
+      SeqStorage.new(@[], @[], @[], threshold = threshold, partitions = partitions)
 
     var mismatchHash: WakuMessageHash
     for i in 0 ..< 8:
@@ -90,8 +102,12 @@ suite "Waku Sync – reconciliation":
         mismatchHash = toDigest("msg" & $i & "_x")
         localHash = mismatchHash
 
-      discard local.insert (SyncID(time: t, hash: localHash))
-      discard remote.insert(SyncID(time: t, hash: remoteHash))
+      discard local.insert(
+        SyncID(time: t, hash: localHash), DefaultPubsubTopic, DefaultContentTopic
+      )
+      discard remote.insert(
+        SyncID(time: t, hash: remoteHash), DefaultPubsubTopic, DefaultContentTopic
+      )
 
     var zeroHash: WakuMessageHash
     let wholeRange =
@@ -100,10 +116,15 @@ suite "Waku Sync – reconciliation":
     var toSend, toRecv: seq[WakuMessageHash]
 
     let payload = RangesData(
-      cluster: 0,
-      shards: @[0],
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[DefaultContentTopic],
       ranges: @[(wholeRange, RangeType.Fingerprint)],
-      fingerprints: @[remote.computeFingerprint(wholeRange)],
+      fingerprints:
+        @[
+          remote.computeFingerprint(
+            wholeRange, @[DefaultPubsubTopic], @[DefaultContentTopic]
+          )
+        ],
       itemSets: @[],
     )
 
@@ -120,15 +141,18 @@ suite "Waku Sync – reconciliation":
     const N = 2_048
     const mismatchI = 70
 
-    let local = SeqStorage.new(@[])
-    let remote = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[], @[], @[])
+    let remote = SeqStorage.new(@[], @[], @[])
 
     var baseHashMismatch, remoteHashMismatch: WakuMessageHash
 
     for i in 0 ..< N:
       let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
-      local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
+
+      local.insert(
+        SyncID(time: ts, hash: hashLocal), DefaultPubsubTopic, DefaultContentTopic
+      ).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
@@ -136,19 +160,32 @@ suite "Waku Sync – reconciliation":
         baseHashMismatch = hashLocal
         remoteHashMismatch = toDigest("msg" & $i & "_x")
         hashRemote = remoteHashMismatch
-        remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
+
+        remote.insert(
+          SyncID(time: ts, hash: hashRemote), DefaultPubsubTopic, DefaultContentTopic
+        ).isOkOr:
           assert false, "failed to insert hash: " & $error
 
     var zero: WakuMessageHash
     let sliceWhole =
       SyncID(time: 1000, hash: zero) .. SyncID(time: 1000 + N - 1, hash: zero)
-    check local.computeFingerprint(sliceWhole) != remote.computeFingerprint(sliceWhole)
+    check local.computeFingerprint(
+      sliceWhole, @[DefaultPubsubTopic], @[DefaultContentTopic]
+    ) !=
+      remote.computeFingerprint(
+        sliceWhole, @[DefaultPubsubTopic], @[DefaultContentTopic]
+      )
 
     let payload1 = RangesData(
-      cluster: 0,
-      shards: @[0],
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[DefaultContentTopic],
       ranges: @[(sliceWhole, RangeType.Fingerprint)],
-      fingerprints: @[remote.computeFingerprint(sliceWhole)],
+      fingerprints:
+        @[
+          remote.computeFingerprint(
+            sliceWhole, @[DefaultPubsubTopic], @[DefaultContentTopic]
+          )
+        ],
       itemSets: @[],
     )
 
@@ -167,10 +204,15 @@ suite "Waku Sync – reconciliation":
     check subSlice.a.time != 0
 
     let payload2 = RangesData(
-      cluster: 0,
-      shards: @[0],
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[DefaultContentTopic],
       ranges: @[(subSlice, RangeType.Fingerprint)],
-      fingerprints: @[remote.computeFingerprint(subSlice)],
+      fingerprints:
+        @[
+          remote.computeFingerprint(
+            subSlice, @[DefaultPubsubTopic], @[DefaultContentTopic]
+          )
+        ],
       itemSets: @[],
     )
 
@@ -192,8 +234,8 @@ suite "Waku Sync – reconciliation":
     check toRecv2.len == 0
 
   test "second-round payload remote":
-    let local = SeqStorage.new(@[])
-    let remote = SeqStorage.new(@[])
+    let local = SeqStorage.new(@[], @[], @[])
+    let remote = SeqStorage.new(@[], @[], @[])
 
     var baseHash: WakuMessageHash
     var alteredHash: WakuMessageHash
@@ -201,7 +243,10 @@ suite "Waku Sync – reconciliation":
     for i in 0 ..< 8:
       let ts = 1000 + i
       let hashLocal = toDigest("msg" & $i)
-      local.insert(SyncID(time: ts, hash: hashLocal)).isOkOr:
+
+      local.insert(
+        SyncID(time: ts, hash: hashLocal), DefaultPubsubTopic, DefaultContentTopic
+      ).isOkOr:
         assert false, "failed to insert hash: " & $error
 
       var hashRemote = hashLocal
@@ -210,23 +255,33 @@ suite "Waku Sync – reconciliation":
         alteredHash = toDigest("msg" & $i & "_x")
         hashRemote = alteredHash
 
-      remote.insert(SyncID(time: ts, hash: hashRemote)).isOkOr:
+      remote.insert(
+        SyncID(time: ts, hash: hashRemote), DefaultPubsubTopic, DefaultContentTopic
+      ).isOkOr:
         assert false, "failed to insert hash: " & $error
 
     var zero: WakuMessageHash
     let slice = SyncID(time: 1000, hash: zero) .. SyncID(time: 1007, hash: zero)
 
-    check local.computeFingerprint(slice) != remote.computeFingerprint(slice)
+    check local.computeFingerprint(slice, @[DefaultPubsubTopic], @[DefaultContentTopic]) !=
+      remote.computeFingerprint(slice, @[DefaultPubsubTopic], @[DefaultContentTopic])
 
     var toSend1, toRecv1: seq[WakuMessageHash]
-    let pay1 = RangesData(
-      cluster: 0,
-      shards: @[0],
+
+    let rangeData = RangesData(
+      pubsubTopics: @[DefaultPubsubTopic],
+      contentTopics: @[DefaultContentTopic],
       ranges: @[(slice, RangeType.Fingerprint)],
-      fingerprints: @[remote.computeFingerprint(slice)],
+      fingerprints:
+        @[
+          remote.computeFingerprint(
+            slice, @[DefaultPubsubTopic], @[DefaultContentTopic]
+          )
+        ],
       itemSets: @[],
     )
-    let rep1 = local.processPayload(pay1, toSend1, toRecv1)
+
+    let rep1 = local.processPayload(rangeData, toSend1, toRecv1)
 
     check rep1.ranges.len == 1
     check rep1.ranges[0][1] == RangeType.ItemSet
