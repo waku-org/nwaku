@@ -116,19 +116,17 @@ proc publishToAny*(
   var message = wakuMessage
   ensureTimestampSet(message)
 
-  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
-  info "publishToAny", msg_hash = msgHash
-
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(
       LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
     )
 
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
   info "publishToAny",
     my_peer_id = wl.peerManager.switch.peerInfo.peerId,
     peer_id = peer.peerId,
-    msg_hash = computeMessageHash(pubsubTopic, message).to0xHex,
+    msg_hash = msgHash,
     sentTime = getNowInNanosecondTime()
 
   let pushRequest = LightpushRequest(
@@ -136,12 +134,12 @@ proc publishToAny*(
     pubSubTopic: some(pubSubTopic),
     message: message,
   )
-  let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
+  let publishedPeerCount = ?await wl.sendPushRequest(pushRequest, peer)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
 
-  return lightpushSuccessResult(publishedCount)
+  return lightpushSuccessResult(publishedPeerCount)
 
 proc publishWithConn*(
     wl: WakuLightPushClient,
@@ -150,10 +148,11 @@ proc publishWithConn*(
     conn: Connection,
     destPeer: PeerId,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
   info "publishWithConn",
     my_peer_id = wl.peerManager.switch.peerInfo.peerId,
     peer_id = destPeer,
-    msg_hash = computeMessageHash(pubsubTopic, message).to0xHex,
+    msg_hash = msgHash,
     sentTime = getNowInNanosecondTime()
 
   let pushRequest = LightpushRequest(
@@ -162,10 +161,10 @@ proc publishWithConn*(
     message: message,
   )
   #TODO: figure out how to not pass destPeer as this is just a hack
-  let publishedCount =
+  let publishedPeerCount =
     ?await wl.sendPushRequest(pushRequest, destPeer, conn = some(conn))
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
 
-  return lightpushSuccessResult(publishedCount)
+  return lightpushSuccessResult(publishedPeerCount)
