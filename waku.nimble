@@ -33,6 +33,24 @@ requires "nim >= 2.2.4",
 
 ### Helper functions
 
+when defined(windows):
+  const mingwPath = "/mingw64"
+
+  # Add include path
+  switch("passC", "-I" & mingwPath / "include")
+
+  # Add library paths
+  switch("passL", "-L" & mingwPath / "lib")
+  switch("passL", "-Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc")
+  switch("passL", "-Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream")
+
+  # Add libraries
+  for lib in [
+    "-static", "-lws2_32", "-lbcrypt", "-liphlpapi", "-luserenv", "-lntdll",
+    "-lminiupnpc", "-lnatpmp", "-lpq",
+  ]:
+    switch("passL", lib)
+
 proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
   if not fileExists(libFile):
     echo "Building RLN library..."
@@ -65,8 +83,9 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     mkDir "build"
 
   ensureRln()
-  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & " --passL:build/librln.a --passL:-lm --passL:-L" & getCurrentDir() & " " & params & " " &
-    srcDir & name & ".nim"
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " &
+    " --passL:build/librln.a --passL:-lm --passL:-L" & getCurrentDir() & " " & params &
+    " " & srcDir & name & ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
   if not dirExists "build":

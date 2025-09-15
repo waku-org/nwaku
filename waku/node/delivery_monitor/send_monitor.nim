@@ -1,7 +1,7 @@
 ## This module reinforces the publish operation with regular store-v3 requests.
 ##
 
-import std/sequtils
+import std/[sequtils, tables]
 import chronos, chronicles, libp2p/utility
 import
   ./delivery_callback,
