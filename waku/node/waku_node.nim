@@ -1238,7 +1238,7 @@ proc lightpushPublishHandler(
         WakuLightPushCodec,
         Opt.some(
           MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1)))
-            # indicating we expect a single reply hence numSurbs = 1
+            # indicating we only want a single path to be used for reply hence numSurbs = 1
         ),
       ).valueOr:
         error "could not create mix connection"
