@@ -9,9 +9,8 @@
   stableSystems ? [
     "x86_64-linux" "aarch64-linux"
   ],
-  androidArch,
-  abidir,
-  zerokitPkg,
+  abidir ? null,
+  zerokitRln,
 }:
 
 assert pkgs.lib.assertMsg ((src.submodules or true) == true)
@@ -51,7 +50,7 @@ in stdenv.mkDerivation rec {
       cmake
       which
       lsb-release
-      zerokitPkg
+      zerokitRln
       nim-unwrapped-2_0
       fakeGit
       fakeCargo
@@ -96,15 +95,20 @@ in stdenv.mkDerivation rec {
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
     popd
-    mkdir -p vendor/zerokit/target/${androidArch}/release
-    cp ${zerokitPkg}/librln.so vendor/zerokit/target/${androidArch}/release/
+    cp -r ${zerokitRln}/target vendor/zerokit/
+    find vendor/zerokit/target
+    # TODO
+    #cp vendor/zerokit/target/release/librln.a librln_v0.7.0.a
   '';
 
-  installPhase = ''
+  installPhase = if abidir != null then ''
     mkdir -p $out/jni
     cp -r ./build/android/${abidir}/* $out/jni/
     echo '${androidManifest}' > $out/jni/AndroidManifest.xml
     cd $out && zip -r libwaku.aar *
+  '' else ''
+    mkdir -p $out/bin
+    cp -r build/* $out/bin
   '';
 
   meta = with pkgs.lib; {
