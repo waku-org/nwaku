@@ -1527,10 +1527,6 @@ proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).}
     error "initializing waku rendezvous failed", error = error
     return
 
-  # Always start discovering peers at startup
-  (await node.wakuRendezvous.initialRequestAll()).isOkOr:
-    error "rendezvous failed initial requests", error = error
-
   if node.started:
     await node.wakuRendezvous.start()
 

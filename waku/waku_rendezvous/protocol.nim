@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[sugar, options],
+  std/sugar,
   results,
   chronos,
   chronicles,
@@ -10,14 +10,7 @@ import
   libp2p/switch,
   libp2p/utility
 
-import
-  ../node/peer_manager,
-  ../common/callbacks,
-  ../waku_enr/capabilities,
-  ../waku_core/peers,
-  ../waku_core/topics,
-  ../waku_core/topics/pubsub_topic,
-  ./common
+import ../node/peer_manager, ../common/callbacks, ./common
 
 logScope:
   topics = "waku rendezvous"
@@ -34,6 +27,9 @@ type WakuRendezVous* = ref object
 
   registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
+
+  requestInterval: timer.Duration
+  periodicRequestFut: Future[void]
 
 proc batchAdvertise*(
     self: WakuRendezVous,
@@ -214,7 +210,7 @@ proc initialRequestAll*(
         rendezvousPeerFoundTotal.inc()
         self.peerManager.addPeer(record)
 
-  debug "waku rendezvous initial requests finished"
+  debug "waku rendezvous initial request finished"
 
   return ok()
 
@@ -236,6 +232,19 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
 
     # Back to normal interval if no errors
     self.registrationInterval = DefaultRegistrationInterval
+
+proc periodicRequests(self: WakuRendezVous) {.async.} =
+  debug "waku rendezvous periodic requests started", interval = self.requestInterval
+
+  # infinite loop
+  while true:
+    (await self.initialRequestAll()).isOkOr:
+      debug "waku rendezvous requests failed", error = error
+
+    await sleepAsync(self.requestInterval)
+
+    # Exponential backoff
+    self.requestInterval += self.requestInterval
 
 proc new*(
     T: type WakuRendezVous,
@@ -266,6 +275,7 @@ proc new*(
   wrv.getShards = getShards
   wrv.getCapabilities = getCapabilities
   wrv.registrationInterval = DefaultRegistrationInterval
+  wrv.requestInterval = DefaultRequestsInterval
 
   debug "waku rendezvous initialized",
     clusterId = clusterId, shards = getShards(), capabilities = getCapabilities()
@@ -275,6 +285,8 @@ proc new*(
 proc start*(self: WakuRendezVous) {.async: (raises: []).} =
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
+
+  sefl.periodicRequestFut = self.periodicRequests()
 
   debug "waku rendezvous discovery started"
 
