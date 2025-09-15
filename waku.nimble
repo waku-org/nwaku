@@ -11,24 +11,25 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils#e214b39",
+  "confutils",
   "chronos",
   "dnsdisc",
   "eth",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
-  "serialization >= 0.4.9",
+  "serialization",
   "stew",
   "stint",
   "metrics",
-  "libp2p == 1.10.1", # Only for Waku v2
-  "web3#48fb2d4", # fix 0.7.0 undeclared field: 'stream' error
+  "libp2p >= 1.12.0",
+  "web3",
   "presto",
   "regex",
   "results",
   "db_connector",
-  "minilru"
+  "minilru",
+  "https://github.com/vacp2p/mix#e45cd05"
 
 ### Helper functions
 
