@@ -20,7 +20,7 @@ requires "nim >= 2.2.4",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
-  "serialization", #TODO: match vendor
+  "serialization",
   "stew",
   "stint",
   "metrics",
