@@ -30,7 +30,7 @@ requires "nim >= 2.2.4",
   "results",
   "db_connector",
   "minilru",
-  "toml_serialization", # Necessary for confutils/toml support
+  "toml_serialization",
   "json_serialization", # TODO: match vendor for Windows uin16 fix
   "https://github.com/vacp2p/mix#0.1.0"
 
