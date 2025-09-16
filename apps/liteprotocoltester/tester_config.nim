@@ -12,14 +12,9 @@ import
   secp256k1
 
 import
-  ../wakunode2/cli_args,
-  waku/[
-    common/confutils/envvar/defs as confEnvvarDefs,
-    common/confutils/envvar/std/net as confEnvvarNet,
-    common/logging,
-    waku_core,
-    waku_core/topics/pubsub_topic,
-  ]
+  ../../tools/confutils/
+    [cli_args, envvar as confEnvvarDefs, envvar_net as confEnvvarNet],
+  waku/[common/logging, waku_core, waku_core/topics/pubsub_topic]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 

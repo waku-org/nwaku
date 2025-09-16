@@ -20,11 +20,7 @@ import
 
 import
   waku/factory/[waku_conf, conf_builder/conf_builder, networks_config],
-  waku/common/[
-    confutils/envvar/defs as confEnvvarDefs,
-    confutils/envvar/std/net as confEnvvarNet,
-    logging,
-  ],
+  waku/common/[logging],
   waku/[
     waku_enr,
     node/peer_manager,
@@ -33,6 +29,8 @@ import
   ],
   ../../tools/
     [rln_keystore_generator/rln_keystore_generator, rln_db_inspector/rln_db_inspector]
+
+import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
 

@@ -101,3 +101,6 @@ import ./factory/test_all
 
 # Waku API tests
 import ./api/test_all
+
+# Waku tools tests
+import ./tools/test_all
