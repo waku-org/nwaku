@@ -18,17 +18,18 @@ requires "nim >= 2.2.4",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
+  "serialization",
   "stew",
   "stint",
   "metrics",
-  "libp2p == 1.10.1", # Only for Waku v2
+  "libp2p >= 1.12.0",
   "web3",
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
-  "quic"
+  "https://github.com/vacp2p/mix#e45cd05"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =
