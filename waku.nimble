@@ -22,7 +22,7 @@ requires "nim >= 2.2.4",
   "stew",
   "stint",
   "metrics",
-  "libp2p >= 1.12.0",
+  "libp2p#c3faabf52", # for mix
   "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
