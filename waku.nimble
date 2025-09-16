@@ -21,14 +21,15 @@ requires "nim >= 2.2.4",
   "stew",
   "stint",
   "metrics",
-  "libp2p == 1.10.1", # Only for Waku v2
+  "libp2p >= 1.12.0", # Only for Waku v2
   "web3",
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
-  "quic"
+  "quic",
+  "https://github.com/vacp2p/mix#5e95337"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =
