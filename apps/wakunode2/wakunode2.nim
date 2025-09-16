@@ -9,8 +9,10 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
-  ./cli_args,
-  ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/[
+    rln_keystore_generator/rln_keystore_generator,
+    confutils/cli_args,
+  ],
   waku/[
     common/logging,
     factory/waku,
