@@ -28,6 +28,7 @@ const ProtocolsTable = {
   "rendezvous": "/rendezvous/",
   "ipfs-ping": "/ipfs/ping/",
   "peer-exchange": "/vac/waku/peer-exchange/",
+  "mix": "mix/1.0.0",
 }.toTable
 
 const WebSocketPortOffset = 1000

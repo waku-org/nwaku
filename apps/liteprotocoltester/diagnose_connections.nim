@@ -27,19 +27,6 @@ import
 logScope:
   topics = "diagnose connections"
 
-proc `$`*(cap: Capabilities): string =
-  case cap
-  of Capabilities.Relay:
-    return "Relay"
-  of Capabilities.Store:
-    return "Store"
-  of Capabilities.Filter:
-    return "Filter"
-  of Capabilities.Lightpush:
-    return "Lightpush"
-  of Capabilities.Sync:
-    return "Sync"
-
 proc allPeers(pm: PeerManager): string =
   var allStr: string = ""
   for idx, peer in pm.switch.peerStore.peers():
