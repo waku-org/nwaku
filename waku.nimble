@@ -21,14 +21,14 @@ requires "nim >= 2.2.4",
   "stew",
   "stint",
   "metrics",
-  "libp2p", # TODO: need a new version of libp2p
+  "libp2p",
   "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
-  "toml_serialization", # Necessary for confutils/toml support
+  "toml_serialization",
   "json_serialization", # TODO: match vendor for Windows uin16 fix
   "https://github.com/vacp2p/mix#e45cd05"
 
