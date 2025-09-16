@@ -13,7 +13,6 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils#e214b39",
   "chronos",
   "dnsdisc",
   "eth",
@@ -228,15 +227,3 @@ task libWakuAndroid, "Build the mobile bindings for Android":
   let srcDir = "./library"
   let extraParams = "-d:chronicles_log_level=ERROR"
   buildMobileAndroid srcDir, extraParams
-
-import std/[os, strutils] #XXX from os import parentDir, getEnv, dirExists fails
-proc getNimbleDir: string =
-  result = getEnv("NIMBLE_DIR", getEnv("nimbleDir", ""))
-  if result.len > 0: return
-  if (let (installDir, ex) = gorgeEx("nimble path procs"); ex == 0):
-    result = installDir.strip.parentDir.parentDir  # Hopefully .ini nimbleDir
-
-task showPaths, "Show various paths":
-  echo "Nimble directory: ", getNimbleDir()
-  echo "Current directory: ", getCurrentDir()
-
