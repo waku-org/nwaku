@@ -13,7 +13,7 @@ import
   secp256k1
 import
   waku/[waku_core, node/peer_manager, waku_node, factory/validator_signed],
-  apps/wakunode2/cli_args,
+  tools/confutils/cli_args,
   ../testlib/wakucore,
   ../testlib/wakunode
 
