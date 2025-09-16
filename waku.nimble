@@ -18,11 +18,11 @@ requires "nim >= 2.2.4",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
-  "serialization",
+  "serialization", #TODO: match vendor
   "stew",
   "stint",
   "metrics",
-  "libp2p#c3faabf52", # for mix
+  "libp2p", # TODO: need a new version of libp2p
   "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
@@ -30,6 +30,7 @@ requires "nim >= 2.2.4",
   "db_connector",
   "minilru",
   "toml_serialization", # Necessary for confutils/toml support
+  "json_serialization", # TODO: match vendor for Windows uin16 fix
   "https://github.com/vacp2p/mix#e45cd05"
 
 ### Helper functions
@@ -225,3 +226,15 @@ task libWakuAndroid, "Build the mobile bindings for Android":
   let srcDir = "./library"
   let extraParams = "-d:chronicles_log_level=ERROR"
   buildMobileAndroid srcDir, extraParams
+
+import std/[os, strutils] #XXX from os import parentDir, getEnv, dirExists fails
+proc getNimbleDir: string =
+  result = getEnv("NIMBLE_DIR", getEnv("nimbleDir", ""))
+  if result.len > 0: return
+  if (let (installDir, ex) = gorgeEx("nimble path procs"); ex == 0):
+    result = installDir.strip.parentDir.parentDir  # Hopefully .ini nimbleDir
+
+task showPaths, "Show various paths":
+  echo "Nimble directory: ", getNimbleDir()
+  echo "Current directory: ", getCurrentDir()
+
