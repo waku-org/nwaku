@@ -246,7 +246,7 @@ proc periodicRequests(self: WakuRendezVous) {.async.} =
   # infinite loop
   while true:
     (await self.initialRequestAll()).isOkOr:
-      debug "waku rendezvous requests failed", error = error
+      error "waku rendezvous requests failed", error = error
 
     await sleepAsync(self.requestInterval)
 
@@ -300,5 +300,8 @@ proc start*(self: WakuRendezVous) {.async: (raises: []).} =
 proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   if not self.periodicRegistrationFut.isNil():
     await self.periodicRegistrationFut.cancelAndWait()
+
+  if not self.periodicRequestFut.isNil():
+    await self.periodicRequestFut.cancelAndWait()
 
   debug "waku rendezvous discovery stopped"
