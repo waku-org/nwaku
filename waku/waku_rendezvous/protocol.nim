@@ -10,7 +10,14 @@ import
   libp2p/switch,
   libp2p/utility
 
-import ../node/peer_manager, ../common/callbacks, ./common
+import
+  ../node/peer_manager,
+  ../common/callbacks,
+  ../waku_enr/capabilities,
+  ../waku_core/peers,
+  ../waku_core/topics,
+  ../waku_core/topics/pubsub_topic,
+  ./common
 
 logScope:
   topics = "waku rendezvous"
@@ -286,7 +293,7 @@ proc start*(self: WakuRendezVous) {.async: (raises: []).} =
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 
-  sefl.periodicRequestFut = self.periodicRequests()
+  self.periodicRequestFut = self.periodicRequests()
 
   debug "waku rendezvous discovery started"
 
