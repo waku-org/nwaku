@@ -1,3 +1,3 @@
 {.used.}
 
-import ./test_node_factory, ./test_waku_conf
+import ./test_waku_conf, ./test_node_factory
