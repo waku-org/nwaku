@@ -35,6 +35,9 @@ type WakuRendezVous* = ref object
   registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
 
+  requestInterval: timer.Duration
+  periodicRequestFut: Future[void]
+
 proc batchAdvertise*(
     self: WakuRendezVous,
     namespace: string,
@@ -143,10 +146,11 @@ proc advertiseAll(
   let futs = collect(newSeq):
     for shardId in shards:
       # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(
-        RendezVousCodec,
-        some(toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))),
-      ).valueOr:
+
+      let pubsub =
+        toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))
+
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some(pubsub)).valueOr:
         continue
 
       let namespace = computeNamespace(self.clusterId, shardId)
@@ -214,7 +218,7 @@ proc initialRequestAll*(
         rendezvousPeerFoundTotal.inc()
         self.peerManager.addPeer(record)
 
-  debug "waku rendezvous initial requests finished"
+  debug "waku rendezvous initial request finished"
 
   return ok()
 
@@ -236,6 +240,22 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
 
     # Back to normal interval if no errors
     self.registrationInterval = DefaultRegistrationInterval
+
+proc periodicRequests(self: WakuRendezVous) {.async.} =
+  debug "waku rendezvous periodic requests started", interval = self.requestInterval
+
+  # infinite loop
+  while true:
+    (await self.initialRequestAll()).isOkOr:
+      error "waku rendezvous requests failed", error = error
+
+    await sleepAsync(self.requestInterval)
+
+    # Exponential backoff
+    self.requestInterval += self.requestInterval
+
+    if self.requestInterval >= 1.days:
+      break
 
 proc new*(
     T: type WakuRendezVous,
@@ -266,6 +286,7 @@ proc new*(
   wrv.getShards = getShards
   wrv.getCapabilities = getCapabilities
   wrv.registrationInterval = DefaultRegistrationInterval
+  wrv.requestInterval = DefaultRequestsInterval
 
   debug "waku rendezvous initialized",
     clusterId = clusterId, shards = getShards(), capabilities = getCapabilities()
@@ -276,10 +297,15 @@ proc start*(self: WakuRendezVous) {.async: (raises: []).} =
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 
+  self.periodicRequestFut = self.periodicRequests()
+
   debug "waku rendezvous discovery started"
 
 proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   if not self.periodicRegistrationFut.isNil():
     await self.periodicRegistrationFut.cancelAndWait()
+
+  if not self.periodicRequestFut.isNil():
+    await self.periodicRequestFut.cancelAndWait()
 
   debug "waku rendezvous discovery stopped"
