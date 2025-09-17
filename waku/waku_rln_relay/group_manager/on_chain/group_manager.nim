@@ -201,22 +201,23 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
       await sleepAsync(rpcDelay)
       let rootUpdated = await g.updateRoots()
 
-      if rootUpdated:
+      # merkleProofElements is only needed for rln registered nodes
+      if rootUpdated and g.membershipIndex.isSome():
         let proofResult = await g.fetchMerkleProofElements()
         if proofResult.isErr():
           error "Failed to fetch Merkle proof", error = proofResult.error
         else:
           g.merkleProofCache = proofResult.get()
 
-        let nextFreeIndex = await g.fetchNextFreeIndex()
-        if nextFreeIndex.isErr():
-          error "Failed to fetch next free index", error = nextFreeIndex.error
-          raise newException(
-            CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
-          )
+      let nextFreeIndex = await g.fetchNextFreeIndex()
+      if nextFreeIndex.isErr():
+        error "Failed to fetch next free index", error = nextFreeIndex.error
+        raise newException(
+          CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
+        )
 
-        let memberCount = cast[int64](nextFreeIndex.get())
-        waku_rln_number_registered_memberships.set(float64(memberCount))
+      let memberCount = cast[int64](nextFreeIndex.get())
+      waku_rln_number_registered_memberships.set(float64(memberCount))
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
 
