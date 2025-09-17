@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/sugar,
+  std/[sugar, options],
   results,
   chronos,
   chronicles,
@@ -146,10 +146,11 @@ proc advertiseAll(
   let futs = collect(newSeq):
     for shardId in shards:
       # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(
-        RendezVousCodec,
-        some(toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))),
-      ).valueOr:
+
+      let pubsub =
+        toPubsubTopic(RelayShard(clusterId: self.clusterId, shardId: shardId))
+
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some(pubsub)).valueOr:
         continue
 
       let namespace = computeNamespace(self.clusterId, shardId)
@@ -252,6 +253,9 @@ proc periodicRequests(self: WakuRendezVous) {.async.} =
 
     # Exponential backoff
     self.requestInterval += self.requestInterval
+
+    if self.requestInterval >= 1.days:
+      break
 
 proc new*(
     T: type WakuRendezVous,
