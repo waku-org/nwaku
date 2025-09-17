@@ -24,12 +24,10 @@ proc benchmark(
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    if i >= registerCount - 50:
-      discard await manager.updateRoots()
-
-    debug "iteration finished",
+    debug "registration finished",
       iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
 
+  discard await manager.updateRoots()
   let proofResult = await manager.fetchMerkleProofElements()
   if proofResult.isErr():
     error "Failed to fetch Merkle proof", error = proofResult.error
