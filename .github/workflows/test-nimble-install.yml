@@ -19,12 +19,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - uses: iffy/install-nim@v5
-      with:
-        version: ${{ matrix.nim-version }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - uses: nim-lang/setup-nimble-action@v1
       with:
         nimble-version: "nightly"
