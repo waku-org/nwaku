@@ -27,7 +27,7 @@ jobs:
     - name: Display Nimble versions
       run: |
         nimble --version
-        ls -lRt /home/runner/work/nwaku/nwaku/.nimble_runtime
+        ls -lRt /Users/runner/work/nwaku/nwaku/.nimble_runtime/bin/nimble
 
     - name: Install waku from current commit
       working-directory: examples/nimble
