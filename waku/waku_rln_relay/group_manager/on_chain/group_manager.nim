@@ -246,10 +246,8 @@ method register*(
   let wakuRlnContract = g.wakuRlnContract.get()
 
   var gasPrice: int
-  const MaxGasPrice = 100_000_000_000 # 100 gwei
   g.retryWrapper(gasPrice, "Failed to get gas price"):
-    min(int(await ethRpc.provider.eth_gasPrice()) * 2, MaxGasPrice)
-
+    int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
   debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
