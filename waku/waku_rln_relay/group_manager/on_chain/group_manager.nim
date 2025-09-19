@@ -202,8 +202,10 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
       let rootUpdated = await g.updateRoots()
 
       if rootUpdated:
+        ## The membership set on-chain has changed (some new members have joined or some members have left)
         if g.membershipIndex.isSome():
-          # merkleProofElements is only needed for rln registered nodes
+          ## A membership index exists only if the node has registered with RLN.
+          ## Non-registered nodes cannot have Merkle proof elements.
           let proofResult = await g.fetchMerkleProofElements()
           if proofResult.isErr():
             error "Failed to fetch Merkle proof", error = proofResult.error
