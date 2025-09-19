@@ -11,7 +11,6 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils",
   "chronos",
   "dnsdisc",
   "eth",
@@ -22,13 +21,15 @@ requires "nim >= 2.2.4",
   "stew",
   "stint",
   "metrics",
-  "libp2p >= 1.12.0",
-  "web3",
+  "libp2p",
+  "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
+  "toml_serialization",
+  "json_serialization", # TODO: match vendor for Windows uin16 fix
   "https://github.com/vacp2p/mix#e45cd05"
 
 ### Helper functions

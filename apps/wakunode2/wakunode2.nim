@@ -9,14 +9,17 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
-  ../../tools/rln_keystore_generator/rln_keystore_generator,
-  ../../tools/rln_db_inspector/rln_db_inspector,
+  ../../tools/[
+    rln_keystore_generator/rln_keystore_generator,
+    rln_db_inspector/rln_db_inspector,
+    confutils/cli_args,
+  ],
   waku/[
     common/logging,
-    factory/external_config,
     factory/waku,
     node/health_monitor,
     waku_api/rest/builder as rest_server_builder,
+    waku_core/message/default_values,
   ]
 
 logScope:
