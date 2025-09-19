@@ -585,12 +585,12 @@ proc setupOnchainGroupManager*(
   # If the generated account wishes to register a membership, it needs to approve the contract to spend its tokens
   let tokenApprovalResult = await approveTokenAllowanceAndVerify(
     web3,
-    acc, # owner
+    acc,
     privateKey,
-    testTokenAddress, # ERC20 token address
-    contractAddress, # spender - the proxy contract that will spend the tokens
+    testTokenAddress,
+    contractAddress,
     ethToWei(200.u256),
-    some(0.u256), # expected allowance before approval
+    some(0.u256),
   )
 
   assert tokenApprovalResult.isOk, tokenApprovalResult.error()
