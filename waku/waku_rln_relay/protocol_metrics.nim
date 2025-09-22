@@ -25,10 +25,9 @@ declarePublicCounter(
   waku_rln_invalid_messages_total, "number of invalid messages detected", ["type"]
 )
 # This metric will be useful in detecting the index of the root in the acceptable window of roots
-declarePublicHistogram(
-  identifier = waku_rln_valid_messages_total,
-  help = "number of valid messages with their roots tracked",
-  buckets = generateBucketsForHistogram(AcceptableRootWindowSize),
+declarePublicCounter(
+  waku_rln_valid_messages_total,
+  "number of valid messages with their roots tracked",
 )
 declarePublicCounter(
   waku_rln_errors_total,
@@ -36,7 +35,8 @@ declarePublicCounter(
   ["type"],
 )
 declarePublicCounter(
-  waku_rln_proof_verification_total, "number of times the rln proofs are verified"
+  waku_rln_proof_verification_total,
+  "number of times the rln proofs are verified"
 )
 # this is a gauge so that we can set it based on the events we receive
 declarePublicGauge(
