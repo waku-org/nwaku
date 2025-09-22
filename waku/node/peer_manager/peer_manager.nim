@@ -747,7 +747,8 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     let notConnectedPeers =
       peerStore.getDisconnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
-    let totalConnections = pm.switch.connManager.getConnections().len
+    let connections = pm.switch.connManager.getConnections()
+    let totalConnections = connections.len
 
     info "Relay peer connections",
       inRelayConns = $inRelayPeers.len & "/" & $pm.inRelayPeersTarget,
@@ -773,26 +774,33 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    # Update metrics for number of physical connections per agent implementation
+    # connected-peers-per-agent
     var agentCounts = initTable[string, int]()
-    for peerId, muxers in pm.switch.connManager.getConnections():
-      # Each peerId listed here has at least one physical connection (muxer)
+    for peerId, muxers in connections:
       if peerStore[AgentBook].contains(peerId):
         let agentStr = peerStore[AgentBook][peerId]
         if agentStr.len == 0:
           continue
-        let agent = agentStr.split("/")[0] # take the agent name without version suffix
+        let agent = agentStr.split("/")[0]
         agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
-
-    # expose collected values via Prometheus gauge
     for agent, count in agentCounts:
       waku_connected_peers_per_agent.set(count.float64, labelValues = [$agent])
 
+    # connected-peers-per-shard
+    var connectedPeerIds: HashSet[PeerId]
+    for peerId, _ in connections:
+      connectedPeerIds.incl(peerId)
+
     for shard in pm.getShards().items:
-      let connectedPeers =
+      # peers known for this shard
+      let shardPeers =
         peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), shard)
+
+      # keep only those that are physically connected right now
+      let connectedInShard = shardPeers.filterIt(connectedPeerIds.contains(it.peerId))
+
       waku_connected_peers_per_shard.set(
-        connectedPeers.len.float64, labelValues = [$shard]
+        connectedInShard.len.float64, labelValues = [$shard]
       )
 
 proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
