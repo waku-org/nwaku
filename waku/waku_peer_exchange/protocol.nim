@@ -96,7 +96,7 @@ proc getEnrsFromCache(
 
 proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
   if peer.origin != Discv5:
-    debug "peer not from discv5", peer = $peer, origin = $peer.origin
+    trace "peer not from discv5", peer = $peer, origin = $peer.origin
     return false
 
   if peer.enr.isNone():
