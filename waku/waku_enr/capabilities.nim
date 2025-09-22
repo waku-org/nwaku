@@ -120,18 +120,3 @@ proc getCapabilities*(r: Record): seq[Capabilities] =
 proc getCapabilitiesCodecs*(r: Record): seq[string] {.raises: [ValueError].} =
   let capabilities = r.getCapabilities()
   return capabilities.mapIt(capabilityToCodec[it])
-
-proc `$`*(cap: Capabilities): string =
-  case cap
-  of Capabilities.Relay:
-    return "Relay"
-  of Capabilities.Store:
-    return "Store"
-  of Capabilities.Filter:
-    return "Filter"
-  of Capabilities.Lightpush:
-    return "Lightpush"
-  of Capabilities.Sync:
-    return "Sync"
-  of Capabilities.Mix:
-    return "Mix"
