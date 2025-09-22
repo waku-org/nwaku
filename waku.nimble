@@ -36,15 +36,6 @@ requires "nim >= 2.2.4",
 
 ### Helper functions
 
-proc ensureRln(libFile: string = "build/librln.a", version = "v0.7.0") =
-  if not fileExists(libFile):
-    echo "Building RLN library..."
-    let buildDir = getCurrentDir()
-    let outFile = libFile
-    exec "bash ./scripts/build_rln.sh " & buildDir & " " & version & " " & outFile
-  else:
-    echo "RLN library already exists: " & libFile
-
 proc buildModule(filePath, params = "", lang = "c"): bool =
   if not dirExists "build":
     mkDir "build"
@@ -67,8 +58,11 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
 
-  ensureRln()
-  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & " --passL:build/librln.a --passL:-lm --passL:-L" & getCurrentDir() & " " & params & " " &
+  # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
+  var extra_params = params
+  for i in 2 ..< paramCount():
+    extra_params &= " " & paramStr(i)
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " &
     srcDir & name & ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
