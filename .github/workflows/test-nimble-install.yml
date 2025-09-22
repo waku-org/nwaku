@@ -28,9 +28,9 @@ jobs:
       run: |
         nimble --version
 
-    - name: Install random library test nimble
+    - name: Install waku from head of PR branch
       working-directory: examples/nimble
-      run: nimble --verbose install results
+      run: nimble --verbose install "waku@#${{ github.event.pull_request.head.sha }}"
         
     - name: List installed packages
       working-directory: examples/nimble
