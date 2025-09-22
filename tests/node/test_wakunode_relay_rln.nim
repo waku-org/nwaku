@@ -86,7 +86,6 @@ proc getWakuRlnConfigOnChain*(
     credIndex: some(credIndex),
     ethContractAddress: rlnRelayEthContractAddress,
     ethClientAddress: ethClientAddress.get(EthClient),
-    treePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     epochSizeSec: 1,
     onFatalErrorAction: fatalErrorHandler.get(fatalErrorVoidHandler),
     # If these are used, initialisation fails with "failed to mount WakuRlnRelay: could not initialize the group manager: the commitment does not have a membership"
@@ -228,7 +227,6 @@ suite "Waku RlnRelay - End to End - Static":
         dynamic: true,
         credIndex: some(0.uint),
         userMessageLimit: 111,
-        treepath: genTempPath("rln_tree", "wakunode_0"),
         ethClientAddress: EthClient,
         ethContractAddress: $contractAddress,
         chainId: 1337,

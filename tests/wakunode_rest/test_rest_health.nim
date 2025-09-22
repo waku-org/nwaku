@@ -78,11 +78,7 @@ suite "Waku v2 REST API - health":
 
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(
-      getWakuRlnConfig(
-        manager = manager,
-        treePath = genTempPath("rln_tree", "wakunode"),
-        index = MembershipIndex(1),
-      )
+      getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     )
 
     node.mountLightPushClient()

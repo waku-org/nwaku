@@ -23,12 +23,7 @@ proc setupStaticRln*(
     rlnRelayEthContractAddress: Option[string] = none(string),
 ) {.async.} =
   await node.mountRlnRelay(
-    WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(identifier),
-      treePath: genTempPath("rln_tree", "wakunode_" & $identifier),
-      epochSizeSec: 1,
-    )
+    WakuRlnConfig(dynamic: false, credIndex: some(identifier), epochSizeSec: 1)
   )
 
 proc setupRelayWithStaticRln*(
