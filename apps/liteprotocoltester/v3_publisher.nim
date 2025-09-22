@@ -20,7 +20,7 @@ method send*(
   discard (
     await self.wakuNode.lightpushPublish(some(topic), message, some(servicePeer))
   ).valueOr:
-    if error.code == NO_PEERS_TO_RELAY and
+    if error.code == LightPushErrorCode.NO_PEERS_TO_RELAY and
         error.desc != some("No peers for topic, skipping publish"):
       # TODO: We need better separation of errors happening on the client side or the server side.-
       return err("dial_failure")
