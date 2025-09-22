@@ -38,12 +38,12 @@ proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
     return false
 
   if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
-    debug "peer has mismatching cluster", peer = $peer
+    trace "peer has mismatching cluster", peer = $peer
     return false
 
   # Filter if mix is enabled
   if not peer.enr.get().supportsCapability(Capabilities.Mix):
-    debug "peer doesn't support mix", peer = $peer
+    trace "peer doesn't support mix", peer = $peer
     return false
 
   return true
