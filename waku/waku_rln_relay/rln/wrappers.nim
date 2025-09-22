@@ -6,7 +6,7 @@ import
   stew/[arrayops, byteutils, endians2],
   stint,
   results,
-  std/[sequtils, strutils, tables]
+  std/[sequtils, strutils, tables, tempfiles]
 
 import ./rln_interface, ../conversion_utils, ../protocol_types, ../protocol_metrics
 import ../../waku_core, ../../waku_keystore
@@ -118,12 +118,13 @@ proc createRLNInstanceLocal(
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc createRLNInstance*(
-    d = MerkleTreeDepth, tree_path = DefaultRlnTreePath
-): RLNResult =
+proc createRLNInstance*(d = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
   var res: RLNResult
+  # logically we not required tree_path bcz we are not use local merkle tree 
+  # but we need to generate a unique tree path for zerokit api
+  let tree_path = genTempPath("rln_tree", "waku_rln_relay")
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
     res = createRLNInstanceLocal(d, tree_path)
   return res

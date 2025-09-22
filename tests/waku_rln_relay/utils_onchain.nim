@@ -549,8 +549,7 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
 proc setupOnchainGroupManager*(
     ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =
-  let rlnInstanceRes =
-    createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
+  let rlnInstanceRes = createRlnInstance()
   check:
     rlnInstanceRes.isOk()
 

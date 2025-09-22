@@ -408,7 +408,7 @@ proc mount(
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
+  let rlnInstance = createRLNInstance().valueOr:
     return err("could not create RLN instance: " & $error)
 
   let (rlnRelayCredPath, rlnRelayCredPassword) =
