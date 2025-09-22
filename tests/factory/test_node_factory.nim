@@ -48,8 +48,9 @@ asynctest "Set up a node with Filter enabled":
   check:
     not node.isNil()
     not node.wakuFilter.isNil()
+  echo "TEST END"
 
-asynctest "Start a node based on default configurations":
+asynctest "Start a node based on default test configuration":
   let conf = defaultTestWakuConf()
 
   let node = (await setupNode(conf, relay = Relay.new())).valueOr:
