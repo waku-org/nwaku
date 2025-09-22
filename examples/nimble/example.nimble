@@ -12,4 +12,4 @@ bin           = @["example"]
 
 requires "chronos"
 requires "results"
-requires "waku#f380604fb1fa9202cee8d1d0068d078b9a90aaad" # pinning to when nim-libp2p release is fine
+requires "waku"
