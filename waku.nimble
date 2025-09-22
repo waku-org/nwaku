@@ -1,3 +1,5 @@
+#!fmt: off
+
 import os
 mode = ScriptMode.Verbose
 
@@ -10,25 +12,26 @@ license = "MIT or Apache License 2.0"
 
 ### Dependencies
 requires "nim >= 2.2.4",
-  "chronicles",
-  "confutils",
-  "chronos",
-  "dnsdisc",
-  "eth",
-  "json_rpc",
+  "chronicles", 
+  "confutils", 
+  "chronos", 
+  "dnsdisc", 
+  "eth", 
+  "json_rpc", 
   "libbacktrace",
   "nimcrypto",
-  "stew",
-  "stint",
-  "metrics",
-  "libp2p == 1.10.1", # Only for Waku v2
-  "web3",
+  "stew", 
+  "stint", 
+  "metrics", 
+  "libp2p >= 1.13.0", 
+  "web3", 
   "presto",
-  "regex",
-  "results",
-  "db_connector",
-  "minilru",
-  "quic"
+  "regex", 
+  "results", 
+  "db_connector", 
+  "minilru", 
+  "quic",
+  "https://github.com/vacp2p/mix#0.1.0"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =
