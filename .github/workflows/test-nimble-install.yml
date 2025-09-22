@@ -24,10 +24,13 @@ jobs:
         nimble-version: "nightly"
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Display Nimble versions
+    - name: Display Nimble version
       run: |
         nimble --version
-        ls -lRt /Users/runner/work/nwaku/nwaku/.nimble_runtime/bin/nimble
+
+    - name: Install random library test nimble
+      working-directory: examples/nimble
+      run: nimble --verbose install results
 
     - name: Install waku from current commit
       working-directory: examples/nimble
