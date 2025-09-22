@@ -9,3 +9,6 @@ bin           = @["example"]
 
 
 # Dependencies
+
+requires "chronos"
+requires "results"
