@@ -356,7 +356,6 @@ proc setupProtocols(
       chainId: rlnRelayConf.chainId,
       ethClientUrls: rlnRelayConf.ethClientUrls,
       creds: rlnRelayConf.creds,
-      treePath: rlnRelayConf.treePath,
       userMessageLimit: rlnRelayConf.userMessageLimit,
       epochSizeSec: rlnRelayConf.epochSizeSec,
       onFatalErrorAction: onFatalErrorAction,

@@ -214,8 +214,6 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
   if wakuConf.rlnRelayConf.isSome():
     let rlnRelayConf = wakuConf.rlnRelayConf.get()
 
-    if isEmptyOrWhiteSpace(rlnRelayConf.treePath):
-      return err("rln-relay-tree-path is an empty string")
     if rlnRelayConf.ethClientUrls.len == 0:
       return err("rln-relay-eth-client-address is empty")
     if isEmptyOrWhiteSpace(rlnRelayConf.ethContractAddress):

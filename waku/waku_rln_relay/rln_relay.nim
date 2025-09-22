@@ -46,7 +46,6 @@ type RlnRelayConf* = object of RootObj
   ethClientUrls*: seq[string]
   chainId*: UInt256
   creds*: Option[RlnRelayCreds]
-  treePath*: string
   epochSizeSec*: uint64
   userMessageLimit*: uint64
   ethPrivateKey*: Option[string]
