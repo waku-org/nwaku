@@ -28,6 +28,7 @@ declarePublicCounter(
 declarePublicCounter(
   waku_rln_valid_messages_total,
   "number of valid messages with their roots tracked",
+  ["shard"],
 )
 declarePublicCounter(
   waku_rln_errors_total,
@@ -35,8 +36,7 @@ declarePublicCounter(
   ["type"],
 )
 declarePublicCounter(
-  waku_rln_proof_verification_total,
-  "number of times the rln proofs are verified"
+  waku_rln_proof_verification_total, "number of times the rln proofs are verified"
 )
 # this is a gauge so that we can set it based on the events we receive
 declarePublicGauge(

@@ -256,8 +256,7 @@ proc validateMessage*(
     return MessageValidationResult.Spam
 
   trace "message is valid", payloadLen = msg.payload.len
-  let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
-  waku_rln_valid_messages_total.inc()
+  # Metric increment moved to validator to include shard label
   return MessageValidationResult.Valid
 
 proc validateMessageAndUpdateLog*(
@@ -356,15 +355,16 @@ proc generateRlnValidator*(
       payload = string.fromBytes(message.payload)
     case validationRes
     of Valid:
-      trace "message validity is verified, relaying:",
+      trace "message validity is verified, relaying",
         proof = proof,
         root = root,
         shareX = shareX,
         shareY = shareY,
         nullifier = nullifier
+      waku_rln_valid_messages_total.inc(labelValues = [topic])
       return pubsub.ValidationResult.Accept
     of Invalid:
-      trace "message validity could not be verified, discarding:",
+      trace "message validity could not be verified, discarding",
         proof = proof,
         root = root,
         shareX = shareX,
