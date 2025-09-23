@@ -28,6 +28,12 @@ jobs:
       run: |
         nimble --version
 
+    - name: Display example.nimble
+      run: cat examples/nimble/example.nimble
+
+    - name: Display waku.nimble
+      run: head waku.nimble -n40
+
     - name: Install waku from head of PR branch
       working-directory: examples/nimble
       run: nimble --verbose install "waku@#${{ github.event.pull_request.head.sha }}"
