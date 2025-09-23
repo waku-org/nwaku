@@ -32,7 +32,7 @@ jobs:
       run: cat examples/nimble/example.nimble
 
     - name: Display waku.nimble
-      run: head waku.nimble -n40
+      run: head -n40 waku.nimble
 
     - name: Install waku from head of PR branch
       working-directory: examples/nimble
