@@ -29,7 +29,6 @@ The following options are available:
      --rln-relay               Enable spam protection through rln-relay: true|false [=true].
      --rln-relay-dynamic       Enable  waku-rln-relay with on-chain dynamic group management: true|false
                                [=true].
-     --rln-relay-tree-path     Path to the RLN merkle tree sled db (https://github.com/spacejam/sled).
      --rln-relay-eth-client-address  HTTP address of an Ethereum testnet client e.g., http://localhost:8540/
                                [=http://localhost:8540/].
      --rln-relay-eth-contract-address  Address of membership contract on an Ethereum testnet.

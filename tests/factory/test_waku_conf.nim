@@ -27,7 +27,6 @@ suite "Waku Conf - build with cluster conf":
     builder.rlnRelayConf.withEthClientUrls(@["https://my_eth_rpc_url/"])
     builder.withNetworkConf(networkConf)
     builder.withRelay(true)
-    builder.rlnRelayConf.withTreePath("/tmp/test-tree-path")
 
     ## When
     let resConf = builder.build()
@@ -180,7 +179,6 @@ suite "Waku Conf - build with cluster conf":
     builder.rlnRelayConf.withEthContractAddress(contractAddress)
     builder.withNetworkConf(networkConf)
     builder.withRelay(true)
-    builder.rlnRelayConf.withTreePath("/tmp/test")
 
     ## When
     let resConf = builder.build()
