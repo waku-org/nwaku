@@ -28,8 +28,7 @@ import
   ../waku_enr,
   ../node/peer_manager,
   ../waku_core/topics/pubsub_topic,
-  ../../tools/rln_keystore_generator/rln_keystore_generator,
-  ../../tools/rln_db_inspector/rln_db_inspector
+  ../../tools/rln_keystore_generator/rln_keystore_generator
 
 include ../waku_core/message/default_values
 
@@ -48,7 +47,6 @@ type EthRpcUrl* = distinct string
 type StartUpCommand* = enum
   noCommand # default, runs waku
   generateRlnKeystore # generates a new RLN keystore
-  inspectRlnDb # Inspects a given RLN tree db, providing essential db stats
 
 type WakuNodeConf* = object
   configFile* {.
@@ -132,13 +130,6 @@ type WakuNodeConf* = object
   .}: string
 
   case cmd* {.command, defaultValue: noCommand.}: StartUpCommand
-  of inspectRlnDb:
-    # have to change the name here since it counts as a duplicate, within noCommand
-    treePath* {.
-      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-      defaultValue: "",
-      name: "rln-relay-tree-path"
-    .}: string
   of generateRlnKeystore:
     execute* {.
       desc: "Runs the registration function on-chain. By default, a dry-run will occur",
@@ -302,12 +293,6 @@ hence would have reachability issues.""",
       defaultValue: false,
       name: "rln-relay-dynamic"
     .}: bool
-
-    rlnRelayTreePath* {.
-      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-      defaultValue: "",
-      name: "rln-relay-tree-path"
-    .}: string
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
@@ -863,9 +848,6 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
     credPassword: n.rlnRelayCredPassword,
   )
 
-proc toInspectRlnDbConf*(n: WakuNodeConf): InspectRlnDbConf =
-  return InspectRlnDbConf(treePath: n.treePath)
-
 proc toNetworkConf(
     preset: string, clusterId: Option[uint16]
 ): ConfResult[Option[NetworkConf]] =
@@ -908,8 +890,6 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   if n.rlnRelayCredIndex.isSome():
     b.rlnRelayConf.withCredIndex(n.rlnRelayCredIndex.get())
   b.rlnRelayConf.withDynamic(n.rlnRelayDynamic)
-
-  b.rlnRelayConf.withTreePath(n.rlnRelayTreePath)
 
   if n.maxMessageSize != "":
     b.withMaxMessageSize(n.maxMessageSize)

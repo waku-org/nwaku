@@ -10,7 +10,6 @@ import
   libp2p/crypto/crypto
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
-  ../../tools/rln_db_inspector/rln_db_inspector,
   waku/[
     common/logging,
     factory/external_config,
@@ -48,9 +47,6 @@ when isMainModule:
   of generateRlnKeystore:
     let conf = wakuNodeConf.toKeystoreGeneratorConf()
     doRlnKeystoreGenerator(conf)
-  of inspectRlnDb:
-    let conf = wakuNodeConf.toInspectRlnDbConf()
-    doInspectRlnDb(conf)
   of noCommand:
     let conf = wakuNodeConf.toWakuConf().valueOr:
       error "Waku configuration failed", error = error
