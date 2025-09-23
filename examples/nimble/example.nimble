@@ -12,4 +12,4 @@ bin           = @["example"]
 
 requires "chronos"
 requires "results"
-# requires "waku" # commented as we add the head in the CI to test
+requires "waku"
