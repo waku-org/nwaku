@@ -4,9 +4,10 @@ import testutils/unittests, chronos, libp2p/protocols/connectivity/relay/relay
 
 import
   ../testlib/wakunode,
-  waku/factory/node_factory,
   waku/waku_node,
-  waku/factory/conf_builder/conf_builder
+  waku/factory/node_factory,
+  waku/factory/conf_builder/conf_builder,
+  waku/factory/conf_builder/web_socket_conf_builder
 
 suite "Node Factory":
   asynctest "Set up a node based on default configurations":
