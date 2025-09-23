@@ -626,7 +626,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     else:
       error "LightPushClient not mounted. Couldn't parse conf.serviceNode",
         error = pInfo.error
-  if servicePeerInfo.isNil():
+  if servicePeerInfo.peerId == "":
     # Assuming that service node supports all services
     let pInfo = selectRandomServicePeer(
       node.peerManager, none(RemotePeerInfo), WakuLightpushCodec
@@ -645,13 +645,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   asyncSpawn maintainSubscription(
     node, pubsubTopic, conf.contentTopic, servicePeerInfo, false
   )
+  echo "waiting for mix nodes to be discovered..."
   while true:
     if node.getMixNodePoolSize() >= 3:
       break
     discard await node.fetchPeerExchangePeers()
     await sleepAsync(1000)
 
-  echo "waiting for mix nodes to be discovered..."
   while node.getMixNodePoolSize() < 3:
     info "waiting for mix nodes to be discovered",
       currentpoolSize = node.getMixNodePoolSize()
