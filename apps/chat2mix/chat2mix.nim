@@ -13,7 +13,8 @@ import
   chronos,
   eth/keys,
   bearssl,
-  stew/[byteutils, results],
+  results,
+  stew/[byteutils],
   metrics,
   metrics/chronos_httpserver
 import
@@ -626,7 +627,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     else:
       error "LightPushClient not mounted. Couldn't parse conf.serviceNode",
         error = pInfo.error
-  if servicePeerInfo.peerId == "":
+  if $servicePeerInfo.peerId == "":
     # Assuming that service node supports all services
     let pInfo = selectRandomServicePeer(
       node.peerManager, none(RemotePeerInfo), WakuLightpushCodec
