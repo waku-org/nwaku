@@ -37,6 +37,12 @@ declareCounter waku_relay_network_bytes,
   labels = ["topic", "type", "direction"]
 
 declarePublicGauge(
+  waku_relay_total_msg_bytes_per_shard,
+  "total length of messages seen per shard",
+  labels = ["shard"],
+)
+
+declarePublicGauge(
   waku_relay_max_msg_bytes_per_shard,
   "Maximum length of messages seen per shard",
   labels = ["shard"],
@@ -227,6 +233,8 @@ proc logMessageInfo*(
   waku_relay_max_msg_bytes_per_shard.set(shardMetrics.maxSize, labelValues = [topic])
 
   waku_relay_avg_msg_bytes_per_shard.set(shardMetrics.avgSize, labelValues = [topic])
+
+  waku_relay_total_msg_bytes_per_shard.set(shardMetrics.sizeSum, labelValues = [topic])
 
 proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
