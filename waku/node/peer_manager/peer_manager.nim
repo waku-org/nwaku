@@ -37,6 +37,8 @@ declarePublicGauge waku_connected_peers,
   labels = ["direction", "protocol"]
 declarePublicGauge waku_connected_peers_per_shard,
   "Number of physical connections per shard", labels = ["shard"]
+declarePublicGauge waku_connected_peers_per_agent,
+  "Number of physical connections per agent", labels = ["agent"]
 declarePublicGauge waku_streams_peers,
   "Number of streams per direction and protocol", labels = ["direction", "protocol"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
@@ -72,7 +74,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.minutes(3)
+  LogAndMetricsInterval = chronos.minutes(5)
 
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
@@ -745,7 +747,8 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     let notConnectedPeers =
       peerStore.getDisconnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
-    let totalConnections = pm.switch.connManager.getConnections().len
+    let connections = pm.switch.connManager.getConnections()
+    let totalConnections = connections.len
 
     info "Relay peer connections",
       inRelayConns = $inRelayPeers.len & "/" & $pm.inRelayPeersTarget,
@@ -771,14 +774,26 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    for shard in pm.getShards().items:
-      waku_connected_peers_per_shard.set(0.0, labelValues = [$shard])
+    var agentCounts = initTable[string, int]()
+    var connectedPeerIds: HashSet[PeerId]
+    for peerId, muxers in connections:
+      connectedPeerIds.incl(peerId)
+      if peerStore[AgentBook].contains(peerId):
+        let agent = peerStore[AgentBook][peerId]
+        agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
+    for agent, count in agentCounts:
+      waku_connected_peers_per_agent.set(count.float64, labelValues = [$agent])
 
     for shard in pm.getShards().items:
-      let connectedPeers =
+      # peers known for this shard
+      let shardPeers =
         peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), shard)
+
+      # keep only those that are physically connected right now
+      let connectedInShard = shardPeers.filterIt(connectedPeerIds.contains(it.peerId))
+
       waku_connected_peers_per_shard.set(
-        connectedPeers.len.float64, labelValues = [$shard]
+        connectedInShard.len.float64, labelValues = [$shard]
       )
 
 proc getOnlineStateObserver*(pm: PeerManager): OnOnlineStateChange =
