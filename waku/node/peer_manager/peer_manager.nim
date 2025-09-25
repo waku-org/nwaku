@@ -774,22 +774,15 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         protoStreamsOut.float64, labelValues = [$Direction.Out, proto]
       )
 
-    # connected-peers-per-agent
     var agentCounts = initTable[string, int]()
+    var connectedPeerIds: HashSet[PeerId]
     for peerId, muxers in connections:
+      connectedPeerIds.incl(peerId)
       if peerStore[AgentBook].contains(peerId):
-        let agentStr = peerStore[AgentBook][peerId]
-        if agentStr.len == 0:
-          continue
-        let agent = agentStr.split("/")[0]
+        let agent = peerStore[AgentBook][peerId]
         agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
     for agent, count in agentCounts:
       waku_connected_peers_per_agent.set(count.float64, labelValues = [$agent])
-
-    # connected-peers-per-shard
-    var connectedPeerIds: HashSet[PeerId]
-    for peerId, _ in connections:
-      connectedPeerIds.incl(peerId)
 
     for shard in pm.getShards().items:
       # peers known for this shard
