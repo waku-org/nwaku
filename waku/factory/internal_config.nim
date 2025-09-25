@@ -5,7 +5,7 @@ import
   libp2p/crypto/curve25519,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils, net, strutils],
+  std/[options, sequtils, net],
   results
 
 import ../common/utils/nat, ../node/net_config, ../waku_enr, ../waku_core, ./waku_conf

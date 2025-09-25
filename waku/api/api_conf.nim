@@ -1,6 +1,9 @@
+import std/[net, options]
+
+import results
+
 import
-  std/options,
-  results,
+  waku/common/utils/parse_size_units,
   waku/factory/waku_conf,
   waku/factory/conf_builder/conf_builder,
   waku/factory/networks_config
@@ -13,54 +16,62 @@ type RlnConfig* {.requiresInit.} = object
   chainId*: uint
   epochSizeSec*: uint64
 
+type NetworkingConfig* {.requiresInit.} = object
+  listenIpv4*: string
+  p2pTcpPort*: uint16
+  discv5UdpPort*: uint16
+
 type MessageValidation* {.requiresInit.} = object
-  maxMessageSizeBytes*: uint64
+  maxMessageSize*: string # Accepts formats like "150 KiB", "1500 B"
   rlnConfig*: Option[RlnConfig]
 
 type WakuConfig* {.requiresInit.} = object
-  bootstrapNodes: seq[string]
+  seedNodes: seq[string]
   staticStoreNodes: seq[string]
   clusterId: uint16
   autoShardingConfig: AutoShardingConfig
   messageValidation: MessageValidation
 
+proc DefaultNetworkingConfig(): NetworkingConfig =
+  return NetworkingConfig(listenIpv4: "0.0.0.0", p2pTcpPort: 60000, discv5UdpPort: 9000)
+
 proc DefaultAutoShardingConfig(): AutoShardingConfig =
   return AutoShardingConfig(numShardsInCluster: 1)
 
 proc DefaultMessageValidation(): MessageValidation =
-  return MessageValidation(maxMessageSizeBytes: 153600, rlnConfig: none(RlnConfig))
+  return MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
 
 proc newWakuConfig*(
-    bootstrapNodes: seq[string],
+    seedNodes: seq[string],
     staticStoreNodes: seq[string] = @[],
     clusterId: uint16,
     autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig(),
     messageValidation: MessageValidation = DefaultMessageValidation(),
 ): WakuConfig =
   return WakuConfig(
-    bootstrapNodes: bootstrapNodes,
+    seedNodes: seedNodes,
     staticStoreNodes: staticStoreNodes,
     clusterId: clusterId,
     autoShardingConfig: autoShardingConfig,
     messageValidation: messageValidation,
   )
 
-proc DefaultWakuConfig(): WakuConfig =
+proc TheWakuNetworkPreset(): WakuConfig =
   return WakuConfig(
-    bootstrapNodes:
+    seedNodes:
       @[
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
       ],
-    staticStoreNodes: @[], # TODO
+    staticStoreNodes: @[],
     clusterId: 1,
     autoShardingConfig: AutoShardingConfig(numShardsInCluster: 8),
     messageValidation: MessageValidation(
-      maxMessageSizeBytes: 153600,
+      maxMessageSize: "150 KiB",
       rlnConfig: some(
         RlnConfig(
           contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
-          chain_id: 59141,
-          epoch_size_sec: 600, # 10 minutes
+          chainId: 59141,
+          epochSizeSec: 600, # 10 minutes
         )
       ),
     ),
@@ -70,27 +81,42 @@ type WakuMode* = enum
   Edge = "edge"
   Relay = "relay"
 
+type MessageConfirmationMode* = enum
+  Store = "store"
+  Filter = "filter"
+
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
   wakuConfig: WakuConfig
-  storeConfirmation: bool
+  messageConfirmation: seq[MessageConfirmationMode]
+  networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
 proc newNodeConfig*(
     mode: WakuMode = WakuMode.Relay,
-    wakuConfig: WakuConfig = DefaultWakuConfig(),
-    storeConfirmation: bool = true,
+    wakuConfig: WakuConfig = TheWakuNetworkPreset(),
+    messageConfirmation: seq[MessageConfirmationMode] = @[],
+    networkingConfig: NetworkingConfig = DefaultNetworkingConfig(),
     ethRpcEndpoints: seq[string] = @[],
 ): NodeConfig =
   return NodeConfig(
     mode: mode,
     wakuConfig: wakuConfig,
-    storeConfirmation: storeConfirmation,
+    messageConfirmation: messageConfirmation,
+    networkingConfig: networkingConfig,
     ethRpcEndpoints: ethRpcEndpoints,
   )
 
 proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   var b = WakuConfBuilder.init()
+
+  # Apply networking configuration
+  let networkingConfig = nodeConfig.networkingConfig
+  let ip = parseIpAddress(networkingConfig.listenIpv4)
+
+  b.withP2pListenAddress(ip)
+  b.withP2pTcpPort(networkingConfig.p2pTcpPort)
+  b.discv5Conf.withUdpPort(networkingConfig.discv5UdpPort)
 
   case nodeConfig.mode
   of Relay:
@@ -121,9 +147,9 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   let autoShardingConfig = wakuConfig.autoShardingConfig
   b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
 
-  # Set bootstrap nodes
-  if wakuConfig.bootstrapNodes.len > 0:
-    b.discv5Conf.withBootstrapNodes(wakuConfig.bootstrapNodes)
+  # set bootstrap nodes
+  if wakuConfig.seedNodes.len > 0:
+    b.discv5Conf.withBootstrapNodes(wakuConfig.seedNodes)
 
   # TODO: verify behaviour
   # Set static store nodes
@@ -131,9 +157,10 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
     b.withStaticNodes(wakuConfig.staticStoreNodes)
 
   # Set message validation
-
   let msgValidation = wakuConfig.messageValidation
-  b.withMaxMessageSize(msgValidation.maxMessageSizeBytes)
+  let maxSizeBytes = parseMsgSize(msgValidation.maxMessageSize).valueOr:
+    return err("Failed to parse max message size: " & error)
+  b.withMaxMessageSize(maxSizeBytes)
 
   # Set RLN config if provided
   if msgValidation.rlnConfig.isSome():

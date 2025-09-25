@@ -23,11 +23,9 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Relay mode configuration":
     ## Given
-    let wakuConfig =
-      newWakuConfig(bootstrapNodes = @[], staticStoreNodes = @[], clusterId = 1)
+    let wakuConfig = newWakuConfig(seedNodes = @[], clusterId = 1)
 
-    let nodeConfig =
-      newNodeConfig(mode = Relay, wakuConfig = wakuConfig, storeConfirmation = false)
+    let nodeConfig = newNodeConfig(mode = Relay, wakuConfig = wakuConfig)
 
     ## When
     let wakuConfRes = toWakuConf(nodeConfig)
@@ -47,12 +45,11 @@ suite "LibWaku Conf - toWakuConf":
     let nodeConfig = newNodeConfig(
       mode = Relay,
       wakuConfig = newWakuConfig(
-        bootstrapNodes = @[],
+        seedNodes = @[],
         staticStoreNodes = @[],
         clusterId = 42,
         autoShardingConfig = AutoShardingConfig(numShardsInCluster: 16),
       ),
-      storeConfirmation = false,
     )
 
     ## When
@@ -68,17 +65,16 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Bootstrap nodes configuration":
     ## Given
-    let bootstrapNodes =
+    let seedNodes =
       @[
         "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g",
         "enr:-QEkuECnZ3IbVAgkOzv-QLnKC4dRKAPRY80m1-R7G8jZ7yfT3ipEfBrhKN7ARcQgQ-vg-h40AQzyvAkPYlHPaFKk6u9MBgmlkgnY0iXNlY3AyNTZrMaEDk49D8JjMSns4p1XVNBvJquOUzT4PENSJknkROspfAFGg3RjcIJ2X4N1ZHCCd2g",
       ]
     let libConf = newNodeConfig(
       mode = Relay,
-      wakuConfig = newWakuConfig(
-        bootstrapNodes = bootstrapNodes, staticStoreNodes = @[], clusterId = 1
-      ),
-      storeConfirmation = false,
+      wakuConfig =
+        newWakuConfig(seedNodes = seedNodes, staticStoreNodes = @[], clusterId = 1),
+      messageConfirmation = @[],
     )
 
     ## When
@@ -90,7 +86,7 @@ suite "LibWaku Conf - toWakuConf":
     require wakuConf.validate().isOk()
     require wakuConf.discv5Conf.isSome()
     check:
-      wakuConf.discv5Conf.get().bootstrapNodes == bootstrapNodes
+      wakuConf.discv5Conf.get().bootstrapNodes == seedNodes
 
   test "Static store nodes configuration":
     ## Given
@@ -101,7 +97,7 @@ suite "LibWaku Conf - toWakuConf":
       ]
     let nodeConf = newNodeConfig(
       wakuConfig = newWakuConfig(
-        bootstrapNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
+        seedNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
       )
     )
 
@@ -119,15 +115,13 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = newNodeConfig(
       wakuConfig = newWakuConfig(
-        bootstrapNodes = @[],
+        seedNodes = @[],
         staticStoreNodes = @[],
         clusterId = 1,
-        messageValidation = MessageValidation(
-          maxMessageSizeBytes: 100'u64 * 1024'u64, # 100kB
-          rlnConfig: none(RlnConfig),
-        ),
+        messageValidation =
+          MessageValidation(maxMessageSize: "100KiB", rlnConfig: none(RlnConfig)),
       ),
-      storeConfirmation = false,
+      messageConfirmation = @[],
     )
 
     ## When
@@ -144,10 +138,10 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = newNodeConfig(
       wakuConfig = newWakuConfig(
-        bootstrapNodes = @[],
+        seedNodes = @[],
         clusterId = 1,
         messageValidation = MessageValidation(
-          maxMessageSizeBytes: 150'u64 * 1024'u64, # 150KB
+          maxMessageSize: "150 KiB",
           rlnConfig: some(
             RlnConfig(
               contractAddress: "0x1234567890123456789012345678901234567890",
@@ -183,7 +177,7 @@ suite "LibWaku Conf - toWakuConf":
     let nodeConfig = newNodeConfig(
       mode = Relay,
       wakuConfig = newWakuConfig(
-        bootstrapNodes =
+        seedNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
           ],
@@ -194,7 +188,7 @@ suite "LibWaku Conf - toWakuConf":
         clusterId = 99,
         autoShardingConfig = AutoShardingConfig(numShardsInCluster: 12),
         messageValidation = MessageValidation(
-          maxMessageSizeBytes: 512'u64 * 1024'u64, # 512KB
+          maxMessageSize: "512KiB",
           rlnConfig: some(
             RlnConfig(
               contractAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
@@ -204,7 +198,7 @@ suite "LibWaku Conf - toWakuConf":
           ),
         ),
       ),
-      storeConfirmation = true,
+      messageConfirmation = @[],
       ethRpcEndpoints = @["https://127.0.0.1:8333"],
     )
 
