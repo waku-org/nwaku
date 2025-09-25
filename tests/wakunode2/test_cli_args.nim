@@ -11,7 +11,7 @@ import
   confutils,
   stint
 
-import apps/wakunode2/cli_args
+import tools/confutils/cli_args
 
 import
   ../../waku/factory/networks_config,
