@@ -13,27 +13,29 @@ license = "MIT or Apache License 2.0"
 ### Dependencies
 requires "nim >= 2.2.4",
   "chronicles",
-  "confutils",
   "chronos",
   "dnsdisc",
   "eth",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
+  "serialization",
   "stew",
   "stint",
   "metrics",
   "libp2p >= 1.13.0",
-  "web3",
+  "web3#141907c", # fix 0.7.0 undeclared field: 'stream' error + readValue UInt256
   "presto",
   "regex",
   "results",
   "db_connector",
   "minilru",
-  "quic",
+  "toml_serialization",
+  "json_serialization", # TODO: match vendor for Windows uin16 fix
   "https://github.com/vacp2p/mix#0.1.0"
 
 ### Helper functions
+
 proc buildModule(filePath, params = "", lang = "c"): bool =
   if not dirExists "build":
     mkDir "build"
@@ -55,6 +57,7 @@ proc buildModule(filePath, params = "", lang = "c"): bool =
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
+
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
   var extra_params = params
   for i in 2 ..< paramCount():

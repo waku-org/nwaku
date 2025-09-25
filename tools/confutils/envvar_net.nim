@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[strutils, net]
-import ../../../envvar_serialization
+import ./envvar_serialization
 
 export net, envvar_serialization
 

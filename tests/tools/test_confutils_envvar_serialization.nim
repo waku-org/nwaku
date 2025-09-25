@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests
-import waku/common/envvar_serialization/utils
+import ../../tools/confutils/envvar_serialization/utils
 
 suite "nim-envvar-serialization - utils":
   test "construct env var key":

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sets, sequtils, times, strformat, strutils, math, random, tables],
+  std/[options, sets, sequtils, tables, times, strformat, strutils, math, random, tables],
   chronos,
   chronicles,
   metrics,

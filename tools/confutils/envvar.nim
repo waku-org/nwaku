@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import confutils/defs as confutilsDefs
-import ../../envvar_serialization
+import ./envvar_serialization
 
 export envvar_serialization, confutilsDefs
 

@@ -4,7 +4,10 @@ import chronos, confutils/toml/std/net, libp2p/multiaddress, testutils/unittests
 
 import ./testlib/wakunode, waku/waku_enr/capabilities
 
-include waku/node/net_config
+include
+  waku/node/net_config,
+  waku/factory/conf_builder/web_socket_conf_builder,
+  waku/factory/conf_builder/conf_builder
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(
@@ -150,9 +153,15 @@ suite "Waku NetConfig":
       netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
 
   asyncTest "AnnouncedAddresses includes WebSocket addresses when enabled":
-    var
-      conf = defaultTestWakuConf()
-      wssEnabled = false
+    var confBuilder = defaultTestWakuConfBuilder()
+
+    confBuilder.webSocketConf.withEnabled(true)
+    confBuilder.webSocketConf.withWebSocketPort(Port(8000))
+
+    let conf = confBuilder.build().valueOr:
+      raiseAssert error
+
+    var wssEnabled = false
 
     var netConfigRes = NetConfig.init(
       bindIp = conf.endpointConf.p2pListenAddress,
@@ -197,8 +206,14 @@ suite "Waku NetConfig":
       )
 
   asyncTest "Announced WebSocket address contains external IP if provided":
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.webSocketConf.withEnabled(true)
+    confBuilder.webSocketConf.withWebSocketPort(Port(8000))
+
+    let conf = confBuilder.build().valueOr:
+      raiseAssert error
+
     let
-      conf = defaultTestWakuConf()
       extIp = parseIpAddress("1.2.3.4")
       extPort = Port(1234)
       wssEnabled = false
@@ -222,8 +237,14 @@ suite "Waku NetConfig":
         (ip4TcpEndPoint(extIp, conf.websocketConf.get().port) & wsFlag(wssEnabled))
 
   asyncTest "Announced WebSocket address contains dns4DomainName if provided":
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.webSocketConf.withEnabled(true)
+    confBuilder.webSocketConf.withWebSocketPort(Port(8000))
+
+    let conf = confBuilder.build().valueOr:
+      raiseAssert error
+
     let
-      conf = defaultTestWakuConf()
       dns4DomainName = "example.com"
       extPort = Port(1234)
       wssEnabled = false
@@ -249,8 +270,14 @@ suite "Waku NetConfig":
       )
 
   asyncTest "Announced WebSocket address contains dns4DomainName if provided alongside extIp":
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.webSocketConf.withEnabled(true)
+    confBuilder.webSocketConf.withWebSocketPort(Port(8000))
+
+    let conf = confBuilder.build().valueOr:
+      raiseAssert error
+
     let
-      conf = defaultTestWakuConf()
       dns4DomainName = "example.com"
       extIp = parseIpAddress("1.2.3.4")
       extPort = Port(1234)

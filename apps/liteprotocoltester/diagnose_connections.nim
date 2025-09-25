@@ -14,8 +14,8 @@ import
   libp2p/wire
 
 import
+  ../../tools/confutils/cli_args,
   waku/[
-    factory/external_config,
     node/peer_manager,
     waku_lightpush/common,
     waku_relay,
