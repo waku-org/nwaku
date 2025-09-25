@@ -8,7 +8,7 @@ suite "Waku API - Create node":
   asyncTest "Create node with minimal Relay configuration":
     ## Given
     let nodeConfig =
-      newNodeConfig(wakuConfig = newWakuConfig(bootstrapNodes = @[], clusterId = 1))
+      newNodeConfig(wakuConfig = newWakuConfig(seedNodes = @[], clusterId = 1))
 
     ## When
     let node = (await createNode(nodeConfig)).valueOr:
@@ -25,7 +25,7 @@ suite "Waku API - Create node":
     let nodeConfig = newNodeConfig(
       mode = Relay,
       wakuConfig = newWakuConfig(
-        bootstrapNodes =
+        seedNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
           ],
@@ -35,12 +35,10 @@ suite "Waku API - Create node":
           ],
         clusterId = 99,
         autoShardingConfig = AutoShardingConfig(numShardsInCluster: 16),
-        messageValidation = MessageValidation(
-          maxMessageSizeBytes: 1024'u64 * 1024'u64, # 1MB
-          rlnConfig: none(RlnConfig),
-        ),
+        messageValidation =
+          MessageValidation(maxMessageSize: "1024 KiB", rlnConfig: none(RlnConfig)),
       ),
-      storeConfirmation = true,
+      messageConfirmation = @[MessageConfirmationMode.Store],
     )
 
     ## When

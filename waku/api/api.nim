@@ -4,6 +4,7 @@ import waku/factory/waku
 
 import ./api_conf
 
+# TODO: Specs says it should return a `WakuNode`. As `send` and other APIs are defined, we can align.
 proc createNode*(config: NodeConfig): Future[Result[Waku, string]] {.async.} =
   let wakuConf = toWakuConf(config).valueOr:
     return err("Failed to handle the configuration: " & error)
