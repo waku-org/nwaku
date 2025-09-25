@@ -1,6 +1,7 @@
 {.push raises: [].}
 
-import waku/[common/logging, factory/[waku, networks_config, external_config]]
+import ../../apps/wakunode2/cli_args
+import waku/[common/logging, factory/[waku, networks_config]]
 import
   std/[options, strutils, os, sequtils],
   chronicles,
