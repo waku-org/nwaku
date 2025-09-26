@@ -5,10 +5,13 @@ import chronos, testutils/unittests, std/options
 import waku
 
 suite "Waku API - Create node":
-  asyncTest "Create node with minimal Relay configuration":
+  asyncTest "Create node with minimal configuration":
     ## Given
     let nodeConfig =
-      newNodeConfig(wakuConfig = newWakuConfig(seedNodes = @[], clusterId = 1))
+      newNodeConfig(wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 1))
+
+    # This is the actual minimal config but as the node auto-start, it is not suitable for tests
+    # newNodeConfig(ethRpcEndpoints = @["http://someaddress"])
 
     ## When
     let node = (await createNode(nodeConfig)).valueOr:
@@ -23,9 +26,9 @@ suite "Waku API - Create node":
   asyncTest "Create node with full configuration":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Relay,
+      mode = Sovereign,
       wakuConfig = newWakuConfig(
-        seedNodes =
+        entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
           ],
@@ -38,7 +41,7 @@ suite "Waku API - Create node":
         messageValidation =
           MessageValidation(maxMessageSize: "1024 KiB", rlnConfig: none(RlnConfig)),
       ),
-      messageConfirmation = @[MessageConfirmationMode.Store],
+      messageConfirmation = true,
     )
 
     ## When
@@ -55,3 +58,4 @@ suite "Waku API - Create node":
       node.conf.relay == true
       node.conf.lightPush == true
       node.conf.peerExchangeService == true
+      node.conf.rendezvous == true

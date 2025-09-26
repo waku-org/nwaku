@@ -26,7 +26,7 @@ type MessageValidation* {.requiresInit.} = object
   rlnConfig*: Option[RlnConfig]
 
 type WakuConfig* {.requiresInit.} = object
-  seedNodes: seq[string]
+  entryNodes: seq[string]
   staticStoreNodes: seq[string]
   clusterId: uint16
   autoShardingConfig: AutoShardingConfig
@@ -42,14 +42,14 @@ proc DefaultMessageValidation(): MessageValidation =
   return MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
 
 proc newWakuConfig*(
-    seedNodes: seq[string],
+    entryNodes: seq[string],
     staticStoreNodes: seq[string] = @[],
     clusterId: uint16,
     autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig(),
     messageValidation: MessageValidation = DefaultMessageValidation(),
 ): WakuConfig =
   return WakuConfig(
-    seedNodes: seedNodes,
+    entryNodes: entryNodes,
     staticStoreNodes: staticStoreNodes,
     clusterId: clusterId,
     autoShardingConfig: autoShardingConfig,
@@ -58,7 +58,7 @@ proc newWakuConfig*(
 
 proc TheWakuNetworkPreset(): WakuConfig =
   return WakuConfig(
-    seedNodes:
+    entryNodes:
       @[
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
       ],
@@ -79,23 +79,19 @@ proc TheWakuNetworkPreset(): WakuConfig =
 
 type WakuMode* = enum
   Edge = "edge"
-  Relay = "relay"
-
-type MessageConfirmationMode* = enum
-  Store = "store"
-  Filter = "filter"
+  Sovereign = "sovereign"
 
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
   wakuConfig: WakuConfig
-  messageConfirmation: seq[MessageConfirmationMode]
+  messageConfirmation: bool
   networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
 proc newNodeConfig*(
-    mode: WakuMode = WakuMode.Relay,
+    mode: WakuMode = WakuMode.Sovereign,
     wakuConfig: WakuConfig = TheWakuNetworkPreset(),
-    messageConfirmation: seq[MessageConfirmationMode] = @[],
+    messageConfirmation: bool = true,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig(),
     ethRpcEndpoints: seq[string] = @[],
 ): NodeConfig =
@@ -119,8 +115,10 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   b.discv5Conf.withUdpPort(networkingConfig.discv5UdpPort)
 
   case nodeConfig.mode
-  of Relay:
+  of Sovereign:
     b.withRelay(true)
+
+    # Metadata is always mounted
 
     b.filterServiceConf.withEnabled(true)
     b.filterServiceConf.withMaxPeersToServe(20)
@@ -129,12 +127,18 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
 
     b.discv5Conf.withEnabled(true)
     b.withPeerExchange(true)
+    b.withRendezvous(true)
+
+    # TODO: fix store as client usage
 
     b.rateLimitConf.withRateLimits(@["filter:100/1s", "lightpush:5/1s", "px:5/1s"])
   of Edge:
     return err("Edge mode is not implemented")
 
-  #TODO: store confirmation
+  # Configure message confirmation
+  #if nodeConfig.messageConfirmation:
+  # TODO: Implement store-based reliability for publishing
+  # As per spec: When set to true, Store-based reliability for publishing SHOULD be enabled, filter-based reliability MAY be used
 
   ## Network Conf
   let wakuConfig = nodeConfig.wakuConfig
@@ -148,8 +152,9 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
 
   # set bootstrap nodes
-  if wakuConfig.seedNodes.len > 0:
-    b.discv5Conf.withBootstrapNodes(wakuConfig.seedNodes)
+  if wakuConfig.entryNodes.len > 0:
+    #TODO: make it accept multiaddress too
+    b.discv5Conf.withBootstrapNodes(wakuConfig.entryNodes)
 
   # TODO: verify behaviour
   # Set static store nodes
