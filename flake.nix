@@ -9,7 +9,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?rev=f44bd8ca21e026135061a0a57dcf3d0775b67a49";
     zerokit = {
-      url = "github:vacp2p/zerokit?rev=c60e0c33fc6350a4b1c20e6b6727c44317129582";
+      url = "github:vacp2p/zerokit?rev=9a5d421ceabb09263eae9f1455e98737fe35fb4b";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -49,11 +49,18 @@
         libwaku-android-arm64 = pkgs.callPackage ./nix/default.nix {
           inherit stableSystems;
           src = self;
-          targets = ["libwaku-android-arm64"]; 
-          androidArch = "aarch64-linux-android";
+          targets = ["libwaku-android-arm64"];
           abidir = "arm64-v8a";
-          zerokitPkg = zerokit.packages.${system}.zerokit-android-arm64;
+          zerokitRln = zerokit.packages.${system}.rln-android-arm64;
         };
+
+        wakucanary = pkgs.callPackage ./nix/default.nix {
+          inherit stableSystems;
+          src = self;
+          targets = ["wakucanary"];
+          zerokitRln = zerokit.packages.${system}.rln-native;
+        };
+
         default = libwaku-android-arm64;
       });
 
