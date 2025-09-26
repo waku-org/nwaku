@@ -61,18 +61,29 @@ proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId: PeerId): MultiAdd
     return multiaddr
   return cleanAddr
 
+func getIPv4Multiaddr*(maddrs: seq[MultiAddress]): Option[MultiAddress] =
+  for multiaddr in maddrs:
+    trace "checking multiaddr", addr = $multiaddr
+    if multiaddr.contains(multiCodec("ip4")).get():
+      trace "found ipv4 multiaddr", addr = $multiaddr
+      return some(multiaddr)
+  trace "no ipv4 multiaddr found"
+  return none(MultiAddress)
+
 proc populateMixNodePool*(mix: WakuMix) =
   # populate only peers that i) are reachable ii) share cluster iii) support mix
-  let remotePeers = mix.peerManager.switch.peerStore.getReachablePeers().filterIt(
+  let remotePeers = mix.peerManager.switch.peerStore.peers().filterIt(
       mixPoolFilter(some(mix.clusterId), it)
     )
   var mixNodes = initTable[PeerId, MixPubInfo]()
 
   for i in 0 ..< min(remotePeers.len, 100):
     let remotePeerENR = remotePeers[i].enr.get()
-    # TODO: use the most exposed/external multiaddr of the peer, right now using the first
+    let ipv4addr = getIPv4Multiaddr(remotePeers[i].addrs).valueOr:
+      trace "peer has no ipv4 address", peer = $remotePeers[i]
+      continue
     let maddrWithPeerId =
-      toString(appendPeerIdToMultiaddr(remotePeers[i].addrs[0], remotePeers[i].peerId))
+      toString(appendPeerIdToMultiaddr(ipv4addr, remotePeers[i].peerId))
     trace "remote peer ENR",
       peerId = remotePeers[i].peerId, enr = remotePeerENR, maddr = maddrWithPeerId
 

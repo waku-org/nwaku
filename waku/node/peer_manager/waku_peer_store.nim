@@ -40,9 +40,15 @@ type
   ENRBook* = ref object of PeerBook[enr.Record]
 
 proc getPeer*(peerStore: PeerStore, peerId: PeerId): RemotePeerInfo =
+  let addresses =
+    if peerStore[LastSeenBook][peerId].isSome():
+      @[peerStore[LastSeenBook][peerId].get()] & peerStore[AddressBook][peerId]
+    else:
+      peerStore[AddressBook][peerId]
+
   RemotePeerInfo(
     peerId: peerId,
-    addrs: peerStore[AddressBook][peerId],
+    addrs: addresses,
     enr:
       if peerStore[ENRBook][peerId] != default(enr.Record):
         some(peerStore[ENRBook][peerId])
@@ -66,6 +72,7 @@ proc delete*(peerStore: PeerStore, peerId: PeerId) =
 
 proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   let allKeys = concat(
+      toSeq(peerStore[LastSeenBook].book.keys()),
       toSeq(peerStore[AddressBook].book.keys()),
       toSeq(peerStore[ProtoBook].book.keys()),
       toSeq(peerStore[KeyBook].book.keys()),

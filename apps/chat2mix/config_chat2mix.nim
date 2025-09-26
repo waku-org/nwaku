@@ -14,7 +14,7 @@ import waku/waku_core
 type
   Fleet* = enum
     none
-    prod
+    sandbox
     test
 
   EthRpcUrl* = distinct string
@@ -78,7 +78,8 @@ type
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
-      name: "staticnode"
+      name: "staticnode",
+      defaultValue: @[]
     .}: seq[string]
 
     mixnodes* {.
@@ -94,20 +95,30 @@ type
     clusterId* {.
       desc:
         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
-      defaultValue: 2,
+      defaultValue: 1,
       name: "cluster-id"
     .}: uint16
 
     numShardsInNetwork* {.
       desc: "Number of shards in the network",
-      defaultValue: 1,
+      defaultValue: 8,
       name: "num-shards-in-network"
     .}: uint32
 
     shards* {.
       desc:
         "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
-      defaultValue: @[uint16(0)],
+      defaultValue:
+        @[
+          uint16(0),
+          uint16(1),
+          uint16(2),
+          uint16(3),
+          uint16(4),
+          uint16(5),
+          uint16(6),
+          uint16(7),
+        ],
       name: "shard"
     .}: seq[uint16]
 
@@ -187,7 +198,7 @@ type
     fleet* {.
       desc:
         "Select the fleet to connect to. This sets the DNS discovery URL to the selected fleet.",
-      defaultValue: Fleet.none,
+      defaultValue: Fleet.test,
       name: "fleet"
     .}: Fleet
 
