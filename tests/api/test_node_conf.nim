@@ -246,3 +246,36 @@ suite "LibWaku Conf - toWakuConf":
       rlnConf.ethContractAddress == "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       rlnConf.chainId == 5'u256
       rlnConf.epochSizeSec == 300'u64
+
+  test "NodeConfig with mixed entry nodes (integration test)":
+    ## Given
+    let entryNodes =
+      @[
+        "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im",
+        "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc",
+      ]
+
+    let nodeConfig = newNodeConfig(
+      mode = Sovereign,
+      wakuConfig =
+        newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+      messageConfirmation = false,
+    )
+
+    ## When
+    let wakuConfRes = toWakuConf(nodeConfig)
+
+    ## Then
+    require wakuConfRes.isOk()
+    let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
+
+    # Check that ENRTree went to DNS discovery
+    require wakuConf.dnsDiscoveryConf.isSome()
+    check:
+      wakuConf.dnsDiscoveryConf.get().enrTreeUrl == entryNodes[0]
+
+    # Check that multiaddr went to static nodes
+    check:
+      wakuConf.staticNodes.len == 1
+      wakuConf.staticNodes[0] == entryNodes[1]

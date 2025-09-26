@@ -1,3 +1,3 @@
 {.used.}
 
-import ./test_node_conf
+import ./test_entry_nodes, ./test_node_conf
