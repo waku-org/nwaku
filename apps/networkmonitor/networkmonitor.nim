@@ -640,7 +640,6 @@ when isMainModule:
       credIndex: some(uint(0)),
       ethContractAddress: conf.rlnRelayEthContractAddress,
       ethClientUrls: conf.ethClientUrls.mapIt(string(it)),
-      treePath: conf.rlnRelayTreePath,
       epochSizeSec: conf.rlnEpochSizeSec,
       creds: none(RlnRelayCreds),
       onFatalErrorAction: onFatalErrorAction,

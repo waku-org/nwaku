@@ -64,7 +64,6 @@ suite "Waku external config - apply preset":
       preset: "twn",
       relay: true,
       ethClientUrls: @["http://someaddress".EthRpcUrl],
-      rlnRelayTreePath: "/tmp/sometreepath",
     )
 
     ## When
@@ -149,7 +148,6 @@ suite "Waku external config - apply preset":
       clusterId: 1.uint16,
       relay: true,
       ethClientUrls: @["http://someaddress".EthRpcUrl],
-      rlnRelayTreePath: "/tmp/sometreepath",
     )
 
     ## When

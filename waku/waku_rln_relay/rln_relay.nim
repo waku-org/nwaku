@@ -46,7 +46,6 @@ type RlnRelayConf* = object of RootObj
   ethClientUrls*: seq[string]
   chainId*: UInt256
   creds*: Option[RlnRelayCreds]
-  treePath*: string
   epochSizeSec*: uint64
   userMessageLimit*: uint64
   ethPrivateKey*: Option[string]
@@ -408,7 +407,7 @@ proc mount(
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstance = createRLNInstance(tree_path = conf.treePath).valueOr:
+  let rlnInstance = createRLNInstance().valueOr:
     return err("could not create RLN instance: " & $error)
 
   let (rlnRelayCredPath, rlnRelayCredPassword) =

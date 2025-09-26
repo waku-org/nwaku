@@ -61,7 +61,6 @@ fi
 
 if [ "${CLUSTER_ID}" -eq 1 ]; then
     RLN_RELAY_CRED_PATH=--rln-relay-cred-path=${RLN_RELAY_CRED_PATH:-/keystore/keystore.json}
-    RLN_TREE_PATH=--rln-relay-tree-path="/etc/rln_tree"
 fi
 
 if [ -n "${RLN_RELAY_CRED_PASSWORD}" ]; then

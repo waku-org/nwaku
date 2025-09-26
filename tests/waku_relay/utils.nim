@@ -42,12 +42,7 @@ proc newTestWakuRelay*(switch = newTestSwitch()): Future[WakuRelay] {.async.} =
 
 proc setupRln*(node: WakuNode, identifier: uint) {.async.} =
   await node.mountRlnRelay(
-    WakuRlnConfig(
-      dynamic: false,
-      credIndex: some(identifier),
-      treePath: genTempPath("rln_tree", "wakunode_" & $identifier),
-      epochSizeSec: 1,
-    )
+    WakuRlnConfig(dynamic: false, credIndex: some(identifier), epochSizeSec: 1)
   )
 
 proc subscribeToContentTopicWithHandler*(

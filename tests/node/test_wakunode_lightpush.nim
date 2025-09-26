@@ -132,11 +132,7 @@ suite "RLN Proofs as a Lightpush Service":
     manager = waitFor setupOnchainGroupManager()
 
     # mount rln-relay
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "wakunode_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
     await allFutures(server.start(), client.start())
     await server.start()

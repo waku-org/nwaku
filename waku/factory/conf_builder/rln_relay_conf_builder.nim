@@ -18,7 +18,6 @@ type RlnRelayConfBuilder* = object
   dynamic*: Option[bool]
   epochSizeSec*: Option[uint64]
   userMessageLimit*: Option[uint64]
-  treePath*: Option[string]
 
 proc init*(T: type RlnRelayConfBuilder): RlnRelayConfBuilder =
   RlnRelayConfBuilder()
@@ -56,9 +55,6 @@ proc withEpochSizeSec*(b: var RlnRelayConfBuilder, epochSizeSec: uint64) =
 proc withUserMessageLimit*(b: var RlnRelayConfBuilder, userMessageLimit: uint64) =
   b.userMessageLimit = some(userMessageLimit)
 
-proc withTreePath*(b: var RlnRelayConfBuilder, treePath: string) =
-  b.treePath = some(treePath)
-
 proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
   if not b.enabled.get(false):
     return ok(none(RlnRelayConf))
@@ -86,8 +82,6 @@ proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
     return err("rlnRelay.epochSizeSec is not specified")
   if b.userMessageLimit.isNone():
     return err("rlnRelay.userMessageLimit is not specified")
-  if b.treePath.isNone():
-    return err("rlnRelay.treePath is not specified")
 
   return ok(
     some(
@@ -100,7 +94,6 @@ proc build*(b: RlnRelayConfBuilder): Result[Option[RlnRelayConf], string] =
         ethContractAddress: b.ethContractAddress.get(),
         epochSizeSec: b.epochSizeSec.get(),
         userMessageLimit: b.userMessageLimit.get(),
-        treePath: b.treePath.get(),
       )
     )
   )

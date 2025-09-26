@@ -259,11 +259,7 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
@@ -514,11 +510,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
@@ -590,11 +582,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
@@ -656,11 +644,7 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
@@ -735,11 +719,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
 
-    let wakuRlnConfig = getWakuRlnConfig(
-      manager = manager,
-      treePath = genTempPath("rln_tree", "waku_rest_relay_1"),
-      index = MembershipIndex(1),
-    )
+    let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 

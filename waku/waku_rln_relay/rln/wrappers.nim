@@ -6,7 +6,7 @@ import
   stew/[arrayops, byteutils, endians2],
   stint,
   results,
-  std/[sequtils, strutils, tables]
+  std/[sequtils, strutils, tables, tempfiles]
 
 import ./rln_interface, ../conversion_utils, ../protocol_types, ../protocol_metrics
 import ../../waku_core, ../../waku_keystore
@@ -63,7 +63,6 @@ type RlnTreeConfig = ref object of RootObj
   mode: string
   compression: bool
   flush_every_ms: int
-  path: string
 
 type RlnConfig = ref object of RootObj
   resources_folder: string
@@ -78,17 +77,13 @@ proc `%`(c: RlnConfig): JsonNode =
       "mode": %c.tree_config.mode,
       "compression": %c.tree_config.compression,
       "flush_every_ms": %c.tree_config.flush_every_ms,
-      "path": %c.tree_config.path,
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
-proc createRLNInstanceLocal(
-    d = MerkleTreeDepth, tree_path = DefaultRlnTreePath
-): RLNResult =
+proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree
-  ## tree_path indicates the path of the Merkle tree
   ## Returns an error if the instance creation fails
 
   let rln_config = RlnConfig(
@@ -98,7 +93,6 @@ proc createRLNInstanceLocal(
       mode: "high_throughput",
       compression: false,
       flush_every_ms: 500,
-      path: tree_path,
     ),
   )
 
@@ -118,14 +112,12 @@ proc createRLNInstanceLocal(
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc createRLNInstance*(
-    d = MerkleTreeDepth, tree_path = DefaultRlnTreePath
-): RLNResult =
+proc createRLNInstance*(d = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d, tree_path)
+    res = createRLNInstanceLocal(d)
   return res
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =

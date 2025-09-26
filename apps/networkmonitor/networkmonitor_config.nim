@@ -80,12 +80,6 @@ type NetworkMonitorConf* = object
     name: "rln-relay-dynamic"
   .}: bool
 
-  rlnRelayTreePath* {.
-    desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-    defaultValue: "",
-    name: "rln-relay-tree-path"
-  .}: string
-
   ethClientUrls* {.
     desc:
       "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/. Argument may be repeated.",
