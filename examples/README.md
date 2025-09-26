@@ -7,9 +7,21 @@ Make all examples.
 make example2
 ```
 
-## basic2
+## Waku API
 
-TODO
+Uses the simplified Waku API to create and start a node:
+
+Without RLN:
+
+```console
+./build/waku_api
+```
+
+With RLN, need RPC endpoint for Linea Sepolia:
+
+```console
+./build/waku_api --ethRpcEndpoint=https://linea-sepolia.infura.io/v3/<your key>
+```
 
 ## publisher/subscriber
 
