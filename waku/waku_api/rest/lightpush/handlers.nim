@@ -41,7 +41,7 @@ proc makeRestResponse(response: WakuLightPushResult): RestApiResponse =
   var apiResponse: PushResponse
 
   if response.isOk():
-    apiResponse.relayPeerCount = some(response.get())
+    apiResponse.publishedPeerCount = some(response.get())
   else:
     httpStatus = convertErrorKindToHttpStatus(response.error().code)
     apiResponse.statusDesc = response.error().desc
