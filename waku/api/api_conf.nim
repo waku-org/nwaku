@@ -198,7 +198,6 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
 
     # TODO: we should get rid of those two
     b.rlnRelayconf.withUserMessageLimit(100)
-    b.rlnRelayConf.withTreePath("./rln_tree")
 
   ## Various configurations
   b.withNatStrategy("any")
