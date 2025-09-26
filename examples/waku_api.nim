@@ -7,7 +7,9 @@ type CliArgs* = object
     defaultValue: "", desc: "ETH RPC Endpoint, if passed, RLN is enabled"
   .}: string
 
-proc main(args: CliArgs) {.async.} =
+when isMainModule:
+  let args = CliArgs.load()
+
   echo("Starting Waku node...")
 
   let config =
@@ -20,19 +22,17 @@ proc main(args: CliArgs) {.async.} =
       newNodeConfig(ethRpcEndpoints = @[args.ethRpcEndpoint])
 
   # Create the node using the library API's createNode function
-  let node = (await createNode(config)).valueOr:
+  let node = (waitFor createNode(config)).valueOr:
     echo("Failed to create node: ", error)
-    quit(1)
+    quit(QuitFailure)
 
   echo("Waku node created successfully!")
 
   # Start the node
-  (await startWaku(addr node)).isOkOr:
+  (waitFor startWaku(addr node)).isOkOr:
     echo("Failed to start node: ", error)
-    quit(1)
+    quit(QuitFailure)
 
-  echo("Node started successfully! exiting")
+  echo("Node started successfully!")
 
-when isMainModule:
-  let args = CliArgs.load()
-  waitFor main(args)
+  runForever()
