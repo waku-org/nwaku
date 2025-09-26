@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, sets, strutils, tables],
+  std/[options, sequtils, sets, tables],
   stew/byteutils,
   chronicles,
   chronos,

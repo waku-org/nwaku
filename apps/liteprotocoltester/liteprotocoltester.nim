@@ -11,11 +11,11 @@ import
   confutils
 
 import
+  ../../tools/confutils/cli_args,
   waku/[
     common/enr,
     common/logging,
     factory/waku as waku_factory,
-    factory/external_config,
     waku_node,
     node/waku_metrics,
     node/peer_manager,

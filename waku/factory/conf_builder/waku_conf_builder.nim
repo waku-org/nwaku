@@ -1,7 +1,7 @@
 import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
-  std/[net, options, sequtils, strutils],
+  std/[net, options, sequtils],
   stint,
   chronicles,
   chronos,

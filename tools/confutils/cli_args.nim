@@ -19,23 +19,22 @@ import
   json
 
 import
-  ./waku_conf,
-  ./conf_builder/conf_builder,
-  ./networks_config,
-  ../common/confutils/envvar/defs as confEnvvarDefs,
-  ../common/confutils/envvar/std/net as confEnvvarNet,
-  ../common/logging,
-  ../waku_enr,
-  ../node/peer_manager,
-  ../waku_core/topics/pubsub_topic,
+  waku/factory/[waku_conf, conf_builder/conf_builder, networks_config],
+  waku/common/[logging],
+  waku/[
+    waku_enr,
+    node/peer_manager,
+    waku_core/topics/pubsub_topic,
+    waku_core/message/default_values,
+  ],
   ../../tools/rln_keystore_generator/rln_keystore_generator
 
-include ../waku_core/message/default_values
+import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
 
 logScope:
-  topics = "waku external config"
+  topics = "waku cli args"
 
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -161,7 +160,7 @@ type WakuNodeConf* = object
     .}: uint16
 
     agentString* {.
-      defaultValue: "nwaku-" & external_config.git_version,
+      defaultValue: "nwaku-" & cli_args.git_version,
       desc: "Node agent string which is used as identifier in network",
       name: "agent-string"
     .}: string

@@ -57,7 +57,6 @@ import
   ../common/rate_limit/setting,
   ../common/callbacks,
   ../common/nimchronos,
-  ../waku_enr/mix,
   ../waku_mix
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]

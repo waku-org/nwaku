@@ -42,7 +42,6 @@ import
   ../waku_filter_v2,
   ../factory/node_factory,
   ../factory/internal_config,
-  ../factory/external_config,
   ../factory/app_callbacks,
   ../waku_enr/multiaddr,
   ./waku_conf
