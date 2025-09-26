@@ -21,11 +21,11 @@ suite "LibWaku Conf - toWakuConf":
       wakuConf.shardingConf.numShardsInCluster == 8
       wakuConf.staticNodes.len == 0
 
-  test "Relay mode configuration":
+  test "Sovereign mode configuration":
     ## Given
-    let wakuConfig = newWakuConfig(seedNodes = @[], clusterId = 1)
+    let wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 1)
 
-    let nodeConfig = newNodeConfig(mode = Relay, wakuConfig = wakuConfig)
+    let nodeConfig = newNodeConfig(mode = Sovereign, wakuConfig = wakuConfig)
 
     ## When
     let wakuConfRes = toWakuConf(nodeConfig)
@@ -43,9 +43,9 @@ suite "LibWaku Conf - toWakuConf":
   test "Auto-sharding configuration":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Relay,
+      mode = Sovereign,
       wakuConfig = newWakuConfig(
-        seedNodes = @[],
+        entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 42,
         autoShardingConfig = AutoShardingConfig(numShardsInCluster: 16),
@@ -65,16 +65,16 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Bootstrap nodes configuration":
     ## Given
-    let seedNodes =
+    let entryNodes =
       @[
         "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g",
         "enr:-QEkuECnZ3IbVAgkOzv-QLnKC4dRKAPRY80m1-R7G8jZ7yfT3ipEfBrhKN7ARcQgQ-vg-h40AQzyvAkPYlHPaFKk6u9MBgmlkgnY0iXNlY3AyNTZrMaEDk49D8JjMSns4p1XVNBvJquOUzT4PENSJknkROspfAFGg3RjcIJ2X4N1ZHCCd2g",
       ]
     let libConf = newNodeConfig(
-      mode = Relay,
+      mode = Sovereign,
       wakuConfig =
-        newWakuConfig(seedNodes = seedNodes, staticStoreNodes = @[], clusterId = 1),
-      messageConfirmation = @[],
+        newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+      messageConfirmation = false,
     )
 
     ## When
@@ -86,7 +86,7 @@ suite "LibWaku Conf - toWakuConf":
     require wakuConf.validate().isOk()
     require wakuConf.discv5Conf.isSome()
     check:
-      wakuConf.discv5Conf.get().bootstrapNodes == seedNodes
+      wakuConf.discv5Conf.get().bootstrapNodes == entryNodes
 
   test "Static store nodes configuration":
     ## Given
@@ -97,7 +97,7 @@ suite "LibWaku Conf - toWakuConf":
       ]
     let nodeConf = newNodeConfig(
       wakuConfig = newWakuConfig(
-        seedNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
+        entryNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
       )
     )
 
@@ -115,13 +115,13 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = newNodeConfig(
       wakuConfig = newWakuConfig(
-        seedNodes = @[],
+        entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 1,
         messageValidation =
           MessageValidation(maxMessageSize: "100KiB", rlnConfig: none(RlnConfig)),
       ),
-      messageConfirmation = @[],
+      messageConfirmation = false,
     )
 
     ## When
@@ -138,7 +138,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = newNodeConfig(
       wakuConfig = newWakuConfig(
-        seedNodes = @[],
+        entryNodes = @[],
         clusterId = 1,
         messageValidation = MessageValidation(
           maxMessageSize: "150 KiB",
@@ -172,12 +172,12 @@ suite "LibWaku Conf - toWakuConf":
       rlnConf.chainId == 1'u256
       rlnConf.epochSizeSec == 600'u64
 
-  test "Full Relay mode configuration with all fields":
+  test "Full Sovereign mode configuration with all fields":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Relay,
+      mode = Sovereign,
       wakuConfig = newWakuConfig(
-        seedNodes =
+        entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
           ],
@@ -198,7 +198,7 @@ suite "LibWaku Conf - toWakuConf":
           ),
         ),
       ),
-      messageConfirmation = @[],
+      messageConfirmation = false,
       ethRpcEndpoints = @["https://127.0.0.1:8333"],
     )
 
@@ -216,6 +216,7 @@ suite "LibWaku Conf - toWakuConf":
       wakuConf.relay == true
       wakuConf.lightPush == true
       wakuConf.peerExchangeService == true
+      wakuConf.rendezvous == true
       wakuConf.clusterId == 99
 
     # Check sharding
