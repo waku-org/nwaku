@@ -26,7 +26,7 @@ suite "Waku API - Create node":
   asyncTest "Create node with full configuration":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig = newWakuConfig(
         entryNodes =
           @[
@@ -63,7 +63,7 @@ suite "Waku API - Create node":
   asyncTest "Create node with mixed entry nodes (enrtree, multiaddr)":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig = newWakuConfig(
         entryNodes =
           @[

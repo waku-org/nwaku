@@ -21,11 +21,11 @@ suite "LibWaku Conf - toWakuConf":
       wakuConf.shardingConf.numShardsInCluster == 8
       wakuConf.staticNodes.len == 0
 
-  test "Sovereign mode configuration":
+  test "Core mode configuration":
     ## Given
     let wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 1)
 
-    let nodeConfig = newNodeConfig(mode = Sovereign, wakuConfig = wakuConfig)
+    let nodeConfig = newNodeConfig(mode = Core, wakuConfig = wakuConfig)
 
     ## When
     let wakuConfRes = toWakuConf(nodeConfig)
@@ -43,7 +43,7 @@ suite "LibWaku Conf - toWakuConf":
   test "Auto-sharding configuration":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig = newWakuConfig(
         entryNodes = @[],
         staticStoreNodes = @[],
@@ -71,7 +71,7 @@ suite "LibWaku Conf - toWakuConf":
         "enr:-QEkuECnZ3IbVAgkOzv-QLnKC4dRKAPRY80m1-R7G8jZ7yfT3ipEfBrhKN7ARcQgQ-vg-h40AQzyvAkPYlHPaFKk6u9MBgmlkgnY0iXNlY3AyNTZrMaEDk49D8JjMSns4p1XVNBvJquOUzT4PENSJknkROspfAFGg3RjcIJ2X4N1ZHCCd2g",
       ]
     let libConf = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig =
         newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
       messageConfirmation = false,
@@ -172,10 +172,10 @@ suite "LibWaku Conf - toWakuConf":
       rlnConf.chainId == 1'u256
       rlnConf.epochSizeSec == 600'u64
 
-  test "Full Sovereign mode configuration with all fields":
+  test "Full Core mode configuration with all fields":
     ## Given
     let nodeConfig = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig = newWakuConfig(
         entryNodes =
           @[
@@ -256,7 +256,7 @@ suite "LibWaku Conf - toWakuConf":
       ]
 
     let nodeConfig = newNodeConfig(
-      mode = Sovereign,
+      mode = Core,
       wakuConfig =
         newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
       messageConfirmation = false,

@@ -80,7 +80,7 @@ proc TheWakuNetworkPreset(): WakuConfig =
 
 type WakuMode* = enum
   Edge = "edge"
-  Sovereign = "sovereign"
+  Core = "core"
 
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
@@ -90,7 +90,7 @@ type NodeConfig* {.requiresInit.} = object
   ethRpcEndpoints: seq[string]
 
 proc newNodeConfig*(
-    mode: WakuMode = WakuMode.Sovereign,
+    mode: WakuMode = WakuMode.Core,
     wakuConfig: WakuConfig = TheWakuNetworkPreset(),
     messageConfirmation: bool = true,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig(),
@@ -116,7 +116,7 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   b.discv5Conf.withUdpPort(networkingConfig.discv5UdpPort)
 
   case nodeConfig.mode
-  of Sovereign:
+  of Core:
     b.withRelay(true)
 
     # Metadata is always mounted
