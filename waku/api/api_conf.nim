@@ -6,7 +6,8 @@ import
   waku/common/utils/parse_size_units,
   waku/factory/waku_conf,
   waku/factory/conf_builder/conf_builder,
-  waku/factory/networks_config
+  waku/factory/networks_config,
+  ./entry_nodes
 
 type AutoShardingConfig* {.requiresInit.} = object
   numShardsInCluster*: uint16
@@ -151,10 +152,28 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
   let autoShardingConfig = wakuConfig.autoShardingConfig
   b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
 
-  # set bootstrap nodes
+  # Process entry nodes - supports enrtree:, enr:, and multiaddress formats
   if wakuConfig.entryNodes.len > 0:
-    #TODO: make it accept multiaddress too
-    b.discv5Conf.withBootstrapNodes(wakuConfig.entryNodes)
+    let (enrTreeUrls, bootstrapEnrs, staticNodesFromEntry) = processEntryNodes(
+      wakuConfig.entryNodes
+    ).valueOr:
+      return err("Failed to process entry nodes: " & error)
+
+    # Set ENRTree URLs for DNS discovery
+    if enrTreeUrls.len > 0:
+      for url in enrTreeUrls:
+        b.dnsDiscoveryConf.withEnrTreeUrl(url)
+        b.dnsDiscoveryconf.withNameServers(
+          @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
+        )
+
+    # Set ENR records as bootstrap nodes for discv5
+    if bootstrapEnrs.len > 0:
+      b.discv5Conf.withBootstrapNodes(bootstrapEnrs)
+
+    # Add static nodes (multiaddrs and those extracted from ENR entries)
+    if staticNodesFromEntry.len > 0:
+      b.withStaticNodes(staticNodesFromEntry)
 
   # TODO: verify behaviour
   # Set static store nodes
