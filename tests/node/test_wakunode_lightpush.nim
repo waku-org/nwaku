@@ -48,7 +48,7 @@ suite "Waku Lightpush - End To End":
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await server.mountLightpush() # without rln-relay
+    check (await server.mountLightpush()).isOk() # without rln-relay
     client.mountLightpushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
@@ -144,7 +144,7 @@ suite "RLN Proofs as a Lightpush Service":
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await server.mountRlnRelay(wakuRlnConfig)
-    await server.mountLightPush()
+    check (await server.mountLightPush()).isOk()
     client.mountLightPushClient()
 
     let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
@@ -210,7 +210,7 @@ suite "Waku Lightpush message delivery":
       assert false, "Failed to mount relay"
     (await bridgeNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await bridgeNode.mountLightPush()
+    check (await bridgeNode.mountLightPush()).isOk()
     lightNode.mountLightPushClient()
 
     discard await lightNode.peerManager.dialPeer(
@@ -248,3 +248,19 @@ suite "Waku Lightpush message delivery":
 
     ## Cleanup
     await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
+
+suite "Waku Lightpush mounting behavior":
+  asyncTest "fails to mount when relay is not mounted":
+    ## Given a node without Relay mounted
+    let
+      key = generateSecp256k1Key()
+      node = newTestWakuNode(key, parseIpAddress("0.0.0.0"), Port(0))
+
+    # Do not mount Relay on purpose
+    check node.wakuRelay.isNil()
+
+    ## Then mounting Lightpush must fail with service unavailable result
+    let res = await node.mountLightPush()
+    check:
+      res.isErr()
+      res.error.code == LightPushErrorCode.SERVICE_NOT_AVAILABLE
