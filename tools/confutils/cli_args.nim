@@ -27,8 +27,7 @@ import
     waku_core/topics/pubsub_topic,
     waku_core/message/default_values,
   ],
-  ../../tools/
-    [rln_keystore_generator/rln_keystore_generator, rln_db_inspector/rln_db_inspector]
+  ../../tools/rln_keystore_generator/rln_keystore_generator
 
 import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
