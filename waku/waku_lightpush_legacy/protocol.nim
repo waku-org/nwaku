@@ -67,6 +67,9 @@ proc handleRequest*(
 proc initProtocolHandler(wl: WakuLegacyLightPush) =
   proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
     var rpc: PushRPC
+    defer:
+      await conn.closeWithEOF()
+
     wl.requestRateLimiter.checkUsageLimit(WakuLegacyLightPushCodec, conn):
       var buffer: seq[byte]
       try:

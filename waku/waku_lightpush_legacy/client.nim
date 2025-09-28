@@ -40,6 +40,9 @@ proc sendPushRequest(
     return err(dialFailure)
   let connection = connOpt.get()
 
+  defer:
+    await connection.closeWithEOF()
+
   let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: some(req))
   await connection.writeLP(rpc.encode().buffer)
 

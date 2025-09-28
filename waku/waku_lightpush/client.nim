@@ -43,6 +43,9 @@ proc sendPushRequest(
         dialFailure & ": " & $peer & " is not accessible",
       )
 
+  defer:
+    await connection.closeWithEOF()
+
   await connection.writeLP(req.encode().buffer)
 
   var buffer: seq[byte]
