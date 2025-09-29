@@ -84,7 +84,6 @@ type WakuMode* = enum
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
   wakuConfig: WakuConfig
-  messageConfirmation: bool
   networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
@@ -92,14 +91,12 @@ proc init*(
     T: typedesc[NodeConfig],
     mode: WakuMode = WakuMode.Core,
     wakuConfig: WakuConfig = TheWakuNetworkPreset,
-    messageConfirmation: bool = true,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig,
     ethRpcEndpoints: seq[string] = @[],
 ): T =
   return T(
     mode: mode,
     wakuConfig: wakuConfig,
-    messageConfirmation: messageConfirmation,
     networkingConfig: networkingConfig,
     ethRpcEndpoints: ethRpcEndpoints,
   )
@@ -135,11 +132,6 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
     b.rateLimitConf.withRateLimits(@["filter:100/1s", "lightpush:5/1s", "px:5/1s"])
   of Edge:
     return err("Edge mode is not implemented")
-
-  # Configure message confirmation
-  #if nodeConfig.messageConfirmation:
-  # TODO: Implement store-based reliability for publishing
-  # As per spec: When set to true, Store-based reliability for publishing SHOULD be enabled, filter-based reliability MAY be used
 
   ## Network Conf
   let wakuConfig = nodeConfig.wakuConfig

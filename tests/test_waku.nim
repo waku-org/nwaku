@@ -41,7 +41,6 @@ suite "Waku API - Create node":
         messageValidation =
           MessageValidation(maxMessageSize: "1024 KiB", rlnConfig: none(RlnConfig)),
       ),
-      messageConfirmation = true,
     )
 
     ## When
