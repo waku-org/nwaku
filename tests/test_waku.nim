@@ -8,10 +8,10 @@ suite "Waku API - Create node":
   asyncTest "Create node with minimal configuration":
     ## Given
     let nodeConfig =
-      newNodeConfig(wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 1))
+      NodeConfig.init(wakuConfig = WakuConfig.init(entryNodes = @[], clusterId = 1))
 
     # This is the actual minimal config but as the node auto-start, it is not suitable for tests
-    # newNodeConfig(ethRpcEndpoints = @["http://someaddress"])
+    # NodeConfig.init(ethRpcEndpoints = @["http://someaddress"])
 
     ## When
     let node = (await createNode(nodeConfig)).valueOr:
@@ -25,9 +25,9 @@ suite "Waku API - Create node":
 
   asyncTest "Create node with full configuration":
     ## Given
-    let nodeConfig = newNodeConfig(
+    let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = newWakuConfig(
+      wakuConfig = WakuConfig.init(
         entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
@@ -62,9 +62,9 @@ suite "Waku API - Create node":
 
   asyncTest "Create node with mixed entry nodes (enrtree, multiaddr)":
     ## Given
-    let nodeConfig = newNodeConfig(
+    let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = newWakuConfig(
+      wakuConfig = WakuConfig.init(
         entryNodes =
           @[
             "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im",
