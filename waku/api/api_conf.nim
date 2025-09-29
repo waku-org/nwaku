@@ -42,14 +42,15 @@ proc DefaultAutoShardingConfig(): AutoShardingConfig =
 proc DefaultMessageValidation(): MessageValidation =
   return MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
 
-proc newWakuConfig*(
+proc init*(
+    T: typedesc[WakuConfig],
     entryNodes: seq[string],
     staticStoreNodes: seq[string] = @[],
     clusterId: uint16,
     autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig(),
     messageValidation: MessageValidation = DefaultMessageValidation(),
-): WakuConfig =
-  return WakuConfig(
+): T =
+  return T(
     entryNodes: entryNodes,
     staticStoreNodes: staticStoreNodes,
     clusterId: clusterId,
@@ -89,14 +90,15 @@ type NodeConfig* {.requiresInit.} = object
   networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
-proc newNodeConfig*(
+proc init*(
+    T: typedesc[NodeConfig],
     mode: WakuMode = WakuMode.Core,
     wakuConfig: WakuConfig = TheWakuNetworkPreset(),
     messageConfirmation: bool = true,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig(),
     ethRpcEndpoints: seq[string] = @[],
-): NodeConfig =
-  return NodeConfig(
+): T =
+  return T(
     mode: mode,
     wakuConfig: wakuConfig,
     messageConfirmation: messageConfirmation,

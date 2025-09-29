@@ -6,7 +6,7 @@ import waku/api/api_conf, waku/factory/waku_conf, waku/factory/networks_config
 suite "LibWaku Conf - toWakuConf":
   test "Minimal configuration":
     ## Given
-    let nodeConfig = newNodeConfig(ethRpcEndpoints = @["http://someaddress"])
+    let nodeConfig = NodeConfig.init(ethRpcEndpoints = @["http://someaddress"])
 
     ## When
     let wakuConfRes = toWakuConf(nodeConfig)
@@ -23,9 +23,9 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Core mode configuration":
     ## Given
-    let wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 1)
+    let wakuConfig = WakuConfig.init(entryNodes = @[], clusterId = 1)
 
-    let nodeConfig = newNodeConfig(mode = Core, wakuConfig = wakuConfig)
+    let nodeConfig = NodeConfig.init(mode = Core, wakuConfig = wakuConfig)
 
     ## When
     let wakuConfRes = toWakuConf(nodeConfig)
@@ -42,9 +42,9 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Auto-sharding configuration":
     ## Given
-    let nodeConfig = newNodeConfig(
+    let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = newWakuConfig(
+      wakuConfig = WakuConfig.init(
         entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 42,
@@ -70,10 +70,10 @@ suite "LibWaku Conf - toWakuConf":
         "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g",
         "enr:-QEkuECnZ3IbVAgkOzv-QLnKC4dRKAPRY80m1-R7G8jZ7yfT3ipEfBrhKN7ARcQgQ-vg-h40AQzyvAkPYlHPaFKk6u9MBgmlkgnY0iXNlY3AyNTZrMaEDk49D8JjMSns4p1XVNBvJquOUzT4PENSJknkROspfAFGg3RjcIJ2X4N1ZHCCd2g",
       ]
-    let libConf = newNodeConfig(
+    let libConf = NodeConfig.init(
       mode = Core,
       wakuConfig =
-        newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+        WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
       messageConfirmation = false,
     )
 
@@ -95,8 +95,8 @@ suite "LibWaku Conf - toWakuConf":
         "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc",
         "/ip4/192.168.1.1/tcp/60001/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYd",
       ]
-    let nodeConf = newNodeConfig(
-      wakuConfig = newWakuConfig(
+    let nodeConf = NodeConfig.init(
+      wakuConfig = WakuConfig.init(
         entryNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
       )
     )
@@ -113,8 +113,8 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Message validation with max message size":
     ## Given
-    let nodeConfig = newNodeConfig(
-      wakuConfig = newWakuConfig(
+    let nodeConfig = NodeConfig.init(
+      wakuConfig = WakuConfig.init(
         entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 1,
@@ -136,8 +136,8 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Message validation with RLN config":
     ## Given
-    let nodeConfig = newNodeConfig(
-      wakuConfig = newWakuConfig(
+    let nodeConfig = NodeConfig.init(
+      wakuConfig = WakuConfig.init(
         entryNodes = @[],
         clusterId = 1,
         messageValidation = MessageValidation(
@@ -174,9 +174,9 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Full Core mode configuration with all fields":
     ## Given
-    let nodeConfig = newNodeConfig(
+    let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = newWakuConfig(
+      wakuConfig = WakuConfig.init(
         entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
@@ -255,10 +255,10 @@ suite "LibWaku Conf - toWakuConf":
         "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc",
       ]
 
-    let nodeConfig = newNodeConfig(
+    let nodeConfig = NodeConfig.init(
       mode = Core,
       wakuConfig =
-        newWakuConfig(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+        WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
       messageConfirmation = false,
     )
 

@@ -16,10 +16,10 @@ when isMainModule:
     if (args.ethRpcEndpoint == ""):
       # Create a basic configuration for the Waku node
       # No RLN as we don't have an ETH RPC Endpoint
-      newNodeConfig(wakuConfig = newWakuConfig(entryNodes = @[], clusterId = 42))
+      NodeConfig.init(wakuConfig = WakuConfig.init(entryNodes = @[], clusterId = 42))
     else:
       # Connect to TWN, use ETH RPC Endpoint for RLN
-      newNodeConfig(ethRpcEndpoints = @[args.ethRpcEndpoint])
+      NodeConfig.init(ethRpcEndpoints = @[args.ethRpcEndpoint])
 
   # Create the node using the library API's createNode function
   let node = (waitFor createNode(config)).valueOr:
