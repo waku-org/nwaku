@@ -74,7 +74,6 @@ suite "LibWaku Conf - toWakuConf":
       mode = Core,
       wakuConfig =
         WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
-      messageConfirmation = false,
     )
 
     ## When
@@ -120,8 +119,7 @@ suite "LibWaku Conf - toWakuConf":
         clusterId = 1,
         messageValidation =
           MessageValidation(maxMessageSize: "100KiB", rlnConfig: none(RlnConfig)),
-      ),
-      messageConfirmation = false,
+      )
     )
 
     ## When
@@ -198,7 +196,6 @@ suite "LibWaku Conf - toWakuConf":
           ),
         ),
       ),
-      messageConfirmation = false,
       ethRpcEndpoints = @["https://127.0.0.1:8333"],
     )
 
@@ -259,7 +256,6 @@ suite "LibWaku Conf - toWakuConf":
       mode = Core,
       wakuConfig =
         WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
-      messageConfirmation = false,
     )
 
     ## When
