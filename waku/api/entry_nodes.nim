@@ -4,10 +4,10 @@ import results, eth/p2p/discoveryv5/enr
 
 import waku/waku_core/peers
 
-type EntryNodeType* = enum
-  EntryNodeEnrTree
-  EntryNodeEnr
-  EntryNodeMultiaddr
+type EntryNodeType {.pure.} = enum
+  EnrTree
+  Enr
+  Multiaddr
 
 proc classifyEntryNode(address: string): Result[EntryNodeType, string] =
   ## Classifies an entry node address by its type
@@ -17,11 +17,11 @@ proc classifyEntryNode(address: string): Result[EntryNodeType, string] =
 
   let lowerAddress = address.toLowerAscii()
   if lowerAddress.startsWith("enrtree:"):
-    return ok(EntryNodeEnrTree)
+    return ok(EnrTree)
   elif lowerAddress.startsWith("enr:"):
-    return ok(EntryNodeEnr)
+    return ok(Enr)
   elif address[0] == '/':
-    return ok(EntryNodeMultiaddr)
+    return ok(Multiaddr)
   else:
     return
       err("Unrecognized entry node format. Must start with 'enrtree:', 'enr:', or '/'")
@@ -58,10 +58,10 @@ proc processEntryNodes*(
       return err("Entry node error: " & error)
 
     case nodeType
-    of EntryNodeEnrTree:
+    of EnrTree:
       # ENRTree URLs go to DNS discovery configuration
       enrTreeUrls.add(node)
-    of EntryNodeEnr:
+    of Enr:
       # ENR records go to bootstrap nodes for discv5
       bootstrapEnrs.add(node)
       # Additionally, extract multiaddrs for static connections
@@ -70,7 +70,7 @@ proc processEntryNodes*(
         for maddr in multiaddrsRes.get():
           staticNodes.add(maddr)
       # If we can't extract multiaddrs, just use it as bootstrap (already added above)
-    of EntryNodeMultiaddr:
+    of Multiaddr:
       # Multiaddresses go to static nodes
       staticNodes.add(node)
 
