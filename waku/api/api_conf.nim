@@ -33,22 +33,21 @@ type WakuConfig* {.requiresInit.} = object
   autoShardingConfig: AutoShardingConfig
   messageValidation: MessageValidation
 
-proc DefaultNetworkingConfig(): NetworkingConfig =
-  return NetworkingConfig(listenIpv4: "0.0.0.0", p2pTcpPort: 60000, discv5UdpPort: 9000)
+const DefaultNetworkingConfig* =
+  NetworkingConfig(listenIpv4: "0.0.0.0", p2pTcpPort: 60000, discv5UdpPort: 9000)
 
-proc DefaultAutoShardingConfig(): AutoShardingConfig =
-  return AutoShardingConfig(numShardsInCluster: 1)
+const DefaultAutoShardingConfig* = AutoShardingConfig(numShardsInCluster: 1)
 
-proc DefaultMessageValidation(): MessageValidation =
-  return MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
+const DefaultMessageValidation* =
+  MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
 
 proc init*(
     T: typedesc[WakuConfig],
     entryNodes: seq[string],
     staticStoreNodes: seq[string] = @[],
     clusterId: uint16,
-    autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig(),
-    messageValidation: MessageValidation = DefaultMessageValidation(),
+    autoShardingConfig: AutoShardingConfig = DefaultAutoShardingConfig,
+    messageValidation: MessageValidation = DefaultMessageValidation,
 ): T =
   return T(
     entryNodes: entryNodes,
@@ -58,26 +57,25 @@ proc init*(
     messageValidation: messageValidation,
   )
 
-proc TheWakuNetworkPreset(): WakuConfig =
-  return WakuConfig(
-    entryNodes:
-      @[
-        "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
-      ],
-    staticStoreNodes: @[],
-    clusterId: 1,
-    autoShardingConfig: AutoShardingConfig(numShardsInCluster: 8),
-    messageValidation: MessageValidation(
-      maxMessageSize: "150 KiB",
-      rlnConfig: some(
-        RlnConfig(
-          contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
-          chainId: 59141,
-          epochSizeSec: 600, # 10 minutes
-        )
-      ),
+const TheWakuNetworkPreset* = WakuConfig(
+  entryNodes:
+    @[
+      "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
+    ],
+  staticStoreNodes: @[],
+  clusterId: 1,
+  autoShardingConfig: AutoShardingConfig(numShardsInCluster: 8),
+  messageValidation: MessageValidation(
+    maxMessageSize: "150 KiB",
+    rlnConfig: some(
+      RlnConfig(
+        contractAddress: "0xB9cd878C90E49F797B4431fBF4fb333108CB90e6",
+        chainId: 59141,
+        epochSizeSec: 600, # 10 minutes
+      )
     ),
-  )
+  ),
+)
 
 type WakuMode* = enum
   Edge = "edge"
@@ -93,9 +91,9 @@ type NodeConfig* {.requiresInit.} = object
 proc init*(
     T: typedesc[NodeConfig],
     mode: WakuMode = WakuMode.Core,
-    wakuConfig: WakuConfig = TheWakuNetworkPreset(),
+    wakuConfig: WakuConfig = TheWakuNetworkPreset,
     messageConfirmation: bool = true,
-    networkingConfig: NetworkingConfig = DefaultNetworkingConfig(),
+    networkingConfig: NetworkingConfig = DefaultNetworkingConfig,
     ethRpcEndpoints: seq[string] = @[],
 ): T =
   return T(
