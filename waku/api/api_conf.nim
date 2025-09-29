@@ -77,9 +77,9 @@ const TheWakuNetworkPreset* = WakuConfig(
   ),
 )
 
-type WakuMode* = enum
-  Edge = "edge"
-  Core = "core"
+type WakuMode* {.pure.} = enum
+  Edge
+  Core
 
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
