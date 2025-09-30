@@ -85,7 +85,7 @@ type
     mixnodes* {.
       desc:
         "Multiaddress and mix-key of mix node to be statically specified in format multiaddr:mixPubKey. Argument may be repeated.",
-      name: "mixnodes"
+      name: "mixnode"
     .}: seq[MixNodePubInfo]
 
     keepAlive* {.

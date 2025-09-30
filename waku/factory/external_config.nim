@@ -621,7 +621,7 @@ with the drawback of consuming some more bandwidth.""",
     mixnodes* {.
       desc:
         "Multiaddress and mix-key of mix node to be statically specified in format multiaddr:mixPubKey. Argument may be repeated.",
-      name: "mixnodes"
+      name: "mixnode"
     .}: seq[MixNodePubInfo]
 
     ## websocket config

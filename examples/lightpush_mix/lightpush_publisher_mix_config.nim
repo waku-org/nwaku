@@ -32,7 +32,7 @@ type LightPushMixConf* = object
   mixnodes* {.
     desc:
       "Multiaddress and mix-key of mix node to be statically specified in format multiaddr:mixPubKey. Argument may be repeated.",
-    name: "mixnodes"
+    name: "mixnode"
   .}: seq[MixNodePubInfo]
 
 proc parseCmdArg*(T: type MixNodePubInfo, p: string): T =

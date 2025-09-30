@@ -27,7 +27,6 @@ type
     peerManager*: PeerManager
     clusterId: uint16
     nodePoolLoopHandle: Future[void]
-    bootstrapMixNodes*: Table[PeerId, MixPubInfo]
 
   WakuMixResult*[T] = Result[T, string]
 
