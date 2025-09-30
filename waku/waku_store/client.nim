@@ -25,6 +25,9 @@ proc sendStoreRequest(
 ): Future[StoreQueryResult] {.async, gcsafe.} =
   var req = request
 
+  defer:
+    await connection.closeWithEof()
+
   if req.requestId == "":
     req.requestId = generateRequestId(self.rng)
 

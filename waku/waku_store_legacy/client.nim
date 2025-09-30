@@ -43,6 +43,9 @@ proc sendHistoryQueryRPC(
 
   let connection = connOpt.get()
 
+  defer:
+    await connection.closeWithEof()
+
   let requestId =
     if req.requestId != "":
       req.requestId
