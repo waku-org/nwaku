@@ -1,4 +1,6 @@
-import confutils/defs
+import confutils/defs, libp2p/crypto/curve25519, nimcrypto/utils as ncrutils
+
+import waku/waku_mix
 
 type LightPushMixConf* = object
   destPeerAddr* {.desc: "Destination peer address with peerId.", name: "dp-addr".}:
@@ -26,3 +28,20 @@ type LightPushMixConf* = object
   mixDisabled* {.
     desc: "Do not use mix for publishing.", defaultValue: false, name: "without-mix"
   .}: bool
+
+  mixnodes* {.
+    desc:
+      "Multiaddress and mix-key of mix node to be statically specified in format multiaddr:mixPubKey. Argument may be repeated.",
+    name: "mixnodes"
+  .}: seq[MixNodePubInfo]
+
+proc parseCmdArg*(T: type MixNodePubInfo, p: string): T =
+  let elements = p.split(":")
+  if elements.len != 2:
+    raise newException(
+      ValueError, "Invalid format for mix node expected multiaddr:mixPublicKey"
+    )
+
+  return MixNodePubInfo(
+    multiaddr: elements[0], pubKey: intoCurve25519Key(ncrutils.fromHex(elements[1]))
+  )

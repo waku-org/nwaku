@@ -107,7 +107,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
     let (mixPrivKey, mixPubKey) = generateKeyPair().valueOr:
       error "failed to generate mix key pair", error = error
       return
-    (await node.mountMix(clusterId, mixPrivKey)).isOkOr:
+    (await node.mountMix(clusterId, mixPrivKey, conf.mixnodes)).isOkOr:
       error "failed to mount waku mix protocol: ", error = $error
       return
 

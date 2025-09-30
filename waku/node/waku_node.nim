@@ -246,7 +246,10 @@ proc getMixNodePoolSize*(node: WakuNode): int =
   return node.wakuMix.getNodePoolSize()
 
 proc mountMix*(
-    node: WakuNode, clusterId: uint16, mixPrivKey: Curve25519Key
+    node: WakuNode,
+    clusterId: uint16,
+    mixPrivKey: Curve25519Key,
+    mixnodes: seq[MixNodePubInfo],
 ): Future[Result[void, string]] {.async.} =
   info "mounting mix protocol", nodeId = node.info #TODO log the config used
 
@@ -258,8 +261,9 @@ proc mountMix*(
   info "local addr", localaddr = localaddrStr
 
   let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
-  # TODO: Pass bootnodes from config,
-  node.wakuMix = WakuMix.new(nodeAddr, node.peerManager, clusterId, mixPrivKey).valueOr:
+  node.wakuMix = WakuMix.new(
+    nodeAddr, node.peerManager, clusterId, mixPrivKey, mixnodes
+  ).valueOr:
     error "Waku Mix protocol initialization failed", err = error
     return
   node.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))
