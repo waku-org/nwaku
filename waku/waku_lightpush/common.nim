@@ -22,7 +22,7 @@ const LightPushErrorCode* = (
 )
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
-type WakuLightPushResult* = Result[uint32, ErrorStatus]
+type WakuLightPushResult* = Result[uint32, ErrorStatus] # Ok result is publishedPeerCount
 
 type PushMessageHandler* = proc(
   peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
@@ -35,12 +35,20 @@ func isSuccess*(response: LightPushResponse): bool =
 
 func toPushResult*(response: LightPushResponse): WakuLightPushResult =
   if isSuccess(response):
-    return ok(response.relayPeerCount.get(0))
+    let publishedPeerCount = response.publishedPeerCount.get(0)
+    return (
+      if (publishedPeerCount == 0):
+        # Consider publishing to zero peers an error even if the service node
+        # sent us a "successful" response with zero peers 
+        err((LightPushErrorCode.NO_PEERS_TO_RELAY, response.statusDesc))
+      else:
+        ok(publishedPeerCount)
+    )
   else:
     return err((response.statusCode, response.statusDesc))
 
-func lightpushSuccessResult*(relayPeerCount: uint32): WakuLightPushResult =
-  return ok(relayPeerCount)
+func lightpushSuccessResult*(publishedPeerCount: uint32): WakuLightPushResult =
+  return ok(publishedPeerCount)
 
 func lightpushResultInternalError*(msg: string): WakuLightPushResult =
   return err((LightPushErrorCode.INTERNAL_SERVER_ERROR, some(msg)))
@@ -50,11 +58,6 @@ func lightpushResultBadRequest*(msg: string): WakuLightPushResult =
 
 func lightpushResultServiceUnavailable*(msg: string): WakuLightPushResult =
   return err((LightPushErrorCode.SERVICE_NOT_AVAILABLE, some(msg)))
-
-func lighpushErrorResult*(
-    statusCode: LightpushStatusCode, desc: Option[string]
-): WakuLightPushResult =
-  return err((statusCode, desc))
 
 func lighpushErrorResult*(
     statusCode: LightpushStatusCode, desc: string
