@@ -298,6 +298,7 @@ int main(int argc, char** argv) {
     snprintf(jsonConfig, 5000, "{ \
                                     \"clusterId\": 16, \
                                     \"shards\": [ 1, 32, 64, 128, 256 ], \
+                                    \"numShardsInNetwork\": 257, \
                                     \"listenAddress\": \"%s\",    \
                                     \"tcpPort\": %d,        \
                                     \"relay\": %s,       \
