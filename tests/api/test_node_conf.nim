@@ -72,8 +72,9 @@ suite "LibWaku Conf - toWakuConf":
       ]
     let libConf = NodeConfig.init(
       mode = Core,
-      protocolsConfig =
-        ProtocolsConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+      protocolsConfig = ProtocolsConfig.init(
+        entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1
+      ),
     )
 
     ## When
@@ -254,8 +255,9 @@ suite "LibWaku Conf - toWakuConf":
 
     let nodeConfig = NodeConfig.init(
       mode = Core,
-      protocolsConfig =
-        ProtocolsConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+      protocolsConfig = ProtocolsConfig.init(
+        entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1
+      ),
     )
 
     ## When

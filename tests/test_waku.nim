@@ -7,8 +7,9 @@ import waku
 suite "Waku API - Create node":
   asyncTest "Create node with minimal configuration":
     ## Given
-    let nodeConfig =
-      NodeConfig.init(protocolsConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 1))
+    let nodeConfig = NodeConfig.init(
+      protocolsConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 1)
+    )
 
     # This is the actual minimal config but as the node auto-start, it is not suitable for tests
     # NodeConfig.init(ethRpcEndpoints = @["http://someaddress"])
