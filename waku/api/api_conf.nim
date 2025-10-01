@@ -26,7 +26,7 @@ type MessageValidation* {.requiresInit.} = object
   maxMessageSize*: string # Accepts formats like "150 KiB", "1500 B"
   rlnConfig*: Option[RlnConfig]
 
-type WakuConfig* {.requiresInit.} = object
+type ProtocolsConfig* {.requiresInit.} = object
   entryNodes: seq[string]
   staticStoreNodes: seq[string]
   clusterId: uint16
@@ -42,7 +42,7 @@ const DefaultMessageValidation* =
   MessageValidation(maxMessageSize: "150 KiB", rlnConfig: none(RlnConfig))
 
 proc init*(
-    T: typedesc[WakuConfig],
+    T: typedesc[ProtocolsConfig],
     entryNodes: seq[string],
     staticStoreNodes: seq[string] = @[],
     clusterId: uint16,
@@ -57,7 +57,7 @@ proc init*(
     messageValidation: messageValidation,
   )
 
-const TheWakuNetworkPreset* = WakuConfig(
+const TheWakuNetworkPreset* = ProtocolsConfig(
   entryNodes:
     @[
       "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
@@ -83,14 +83,14 @@ type WakuMode* {.pure.} = enum
 
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
-  wakuConfig: WakuConfig
+  wakuConfig: ProtocolsConfig
   networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
 proc init*(
     T: typedesc[NodeConfig],
     mode: WakuMode = WakuMode.Core,
-    wakuConfig: WakuConfig = TheWakuNetworkPreset,
+    wakuConfig: ProtocolsConfig = TheWakuNetworkPreset,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig,
     ethRpcEndpoints: seq[string] = @[],
 ): T =

@@ -23,7 +23,7 @@ suite "LibWaku Conf - toWakuConf":
 
   test "Core mode configuration":
     ## Given
-    let wakuConfig = WakuConfig.init(entryNodes = @[], clusterId = 1)
+    let wakuConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 1)
 
     let nodeConfig = NodeConfig.init(mode = Core, wakuConfig = wakuConfig)
 
@@ -44,7 +44,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 42,
@@ -73,7 +73,7 @@ suite "LibWaku Conf - toWakuConf":
     let libConf = NodeConfig.init(
       mode = Core,
       wakuConfig =
-        WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+        ProtocolsConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
     )
 
     ## When
@@ -95,7 +95,7 @@ suite "LibWaku Conf - toWakuConf":
         "/ip4/192.168.1.1/tcp/60001/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYd",
       ]
     let nodeConf = NodeConfig.init(
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes = @[], staticStoreNodes = staticStoreNodes, clusterId = 1
       )
     )
@@ -113,7 +113,7 @@ suite "LibWaku Conf - toWakuConf":
   test "Message validation with max message size":
     ## Given
     let nodeConfig = NodeConfig.init(
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes = @[],
         staticStoreNodes = @[],
         clusterId = 1,
@@ -135,7 +135,7 @@ suite "LibWaku Conf - toWakuConf":
   test "Message validation with RLN config":
     ## Given
     let nodeConfig = NodeConfig.init(
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes = @[],
         clusterId = 1,
         messageValidation = MessageValidation(
@@ -174,7 +174,7 @@ suite "LibWaku Conf - toWakuConf":
     ## Given
     let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
@@ -255,7 +255,7 @@ suite "LibWaku Conf - toWakuConf":
     let nodeConfig = NodeConfig.init(
       mode = Core,
       wakuConfig =
-        WakuConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
+        ProtocolsConfig.init(entryNodes = entryNodes, staticStoreNodes = @[], clusterId = 1),
     )
 
     ## When

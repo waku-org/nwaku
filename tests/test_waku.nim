@@ -8,7 +8,7 @@ suite "Waku API - Create node":
   asyncTest "Create node with minimal configuration":
     ## Given
     let nodeConfig =
-      NodeConfig.init(wakuConfig = WakuConfig.init(entryNodes = @[], clusterId = 1))
+      NodeConfig.init(wakuConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 1))
 
     # This is the actual minimal config but as the node auto-start, it is not suitable for tests
     # NodeConfig.init(ethRpcEndpoints = @["http://someaddress"])
@@ -27,7 +27,7 @@ suite "Waku API - Create node":
     ## Given
     let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes =
           @[
             "enr:-QESuEC1p_s3xJzAC_XlOuuNrhVUETmfhbm1wxRGis0f7DlqGSw2FM-p2Vn7gmfkTTnAe8Ys2cgGBN8ufJnvzKQFZqFMBgmlkgnY0iXNlY3AyNTZrMaEDS8-D878DrdbNwcuY-3p1qdDp5MOoCurhdsNPJTXZ3c5g3RjcIJ2X4N1ZHCCd2g"
@@ -63,7 +63,7 @@ suite "Waku API - Create node":
     ## Given
     let nodeConfig = NodeConfig.init(
       mode = Core,
-      wakuConfig = WakuConfig.init(
+      wakuConfig = ProtocolsConfig.init(
         entryNodes =
           @[
             "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im",
