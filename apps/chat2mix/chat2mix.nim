@@ -13,7 +13,8 @@ import
   chronos,
   eth/keys,
   bearssl,
-  stew/[byteutils, results],
+  results,
+  stew/[byteutils],
   metrics,
   metrics/chronos_httpserver
 import
@@ -481,13 +482,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     error "failed to mount waku metadata protocol: ", err = error
     quit(QuitFailure)
 
-  try:
-    await node.mountPeerExchange()
-  except CatchableError:
-    error "failed to mount waku peer-exchange protocol",
-      error = getCurrentExceptionMsg()
-    quit(QuitFailure)
-
   let (mixPrivKey, mixPubKey) = generateKeyPair().valueOr:
     error "failed to generate mix key pair", error = error
     return
@@ -501,17 +495,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   node.peerManager.start()
 
-  #[   if conf.rlnRelayCredPath == "":
-    raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
-
-  if conf.relay:
-    let shards =
-      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
-    (await node.mountRelay()).isOkOr:
-      echo "failed to mount relay: " & error
-      return
-      ]#
   await node.mountLibp2pPing()
+  await node.mountPeerExchangeClient()
   let pubsubTopic = conf.getPubsubTopic(node, conf.contentTopic)
   echo "pubsub topic is: " & pubsubTopic
   let nick = await readNick(transp)
@@ -634,22 +619,33 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       chat.printReceivedMessage(msg)
 
     node.wakuFilterClient.registerPushHandler(filterHandler)
+  var servicePeerInfo: RemotePeerInfo
+  if conf.serviceNode != "":
+    servicePeerInfo = parsePeerInfo(conf.serviceNode).valueOr:
+      error "Couldn't parse conf.serviceNode", error = error
+      RemotePeerInfo()
+  if $servicePeerInfo.peerId == "":
+    # Assuming that service node supports all services
+    servicePeerInfo = selectRandomServicePeer(
+      node.peerManager, none(RemotePeerInfo), WakuLightpushCodec
+    ).valueOr:
+      error "Couldn't find any service peer"
+      quit(QuitFailure)
 
-  if conf.serviceNode != "": #TODO: use one of discovered nodes if not present.  
-    let peerInfo = parsePeerInfo(conf.serviceNode)
-    if peerInfo.isOk():
-      #await mountLegacyLightPush(node)
-      node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
-      node.peerManager.addServicePeer(peerInfo.value, WakuPeerExchangeCodec)
-      # Start maintaining subscription
-      asyncSpawn maintainSubscription(
-        node, pubsubTopic, conf.contentTopic, peerInfo.value, false
-      )
-    else:
-      error "LightPushClient not mounted. Couldn't parse conf.serviceNode",
-        error = peerInfo.error
-  # TODO: Loop faster
-  node.startPeerExchangeLoop()
+  #await mountLegacyLightPush(node)
+  node.peerManager.addServicePeer(servicePeerInfo, WakuLightpushCodec)
+  node.peerManager.addServicePeer(servicePeerInfo, WakuPeerExchangeCodec)
+
+  # Start maintaining subscription
+  asyncSpawn maintainSubscription(
+    node, pubsubTopic, conf.contentTopic, servicePeerInfo, false
+  )
+  echo "waiting for mix nodes to be discovered..."
+  while true:
+    if node.getMixNodePoolSize() >= 3:
+      break
+    discard await node.fetchPeerExchangePeers()
+    await sleepAsync(1000)
 
   while node.getMixNodePoolSize() < 3:
     info "waiting for mix nodes to be discovered",
@@ -658,6 +654,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   notice "ready to publish with mix node pool size ",
     currentpoolSize = node.getMixNodePoolSize()
   echo "ready to publish messages now"
+
+  # Once min mixnodes are discovered loop as per default setting
+  node.startPeerExchangeLoop()
 
   if conf.metricsLogging:
     startMetricsLog()
