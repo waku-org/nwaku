@@ -5,6 +5,7 @@
 import std/[options, atomics, os, net, locks]
 import chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, results
 import
+  waku/common/logging,
   waku/factory/waku,
   waku/node/peer_manager,
   waku/waku_relay/[protocol, topic_health],
@@ -154,6 +155,8 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
 
 proc wakuThreadBody(ctx: ptr WakuContext) {.thread.} =
   ## Waku thread that attends library user requests (stop, connect_to, etc.)
+
+  logging.setupLog(logging.LogLevel.DEBUG, logging.LogFormat.TEXT)
 
   let wakuRun = proc(ctx: ptr WakuContext) {.async.} =
     var waku: Waku
