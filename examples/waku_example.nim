@@ -16,7 +16,7 @@ when isMainModule:
     if (args.ethRpcEndpoint == ""):
       # Create a basic configuration for the Waku node
       # No RLN as we don't have an ETH RPC Endpoint
-      NodeConfig.init(wakuConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 42))
+      NodeConfig.init(protocolsConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 42))
     else:
       # Connect to TWN, use ETH RPC Endpoint for RLN
       NodeConfig.init(ethRpcEndpoints = @[args.ethRpcEndpoint])

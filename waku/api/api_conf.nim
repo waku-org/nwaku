@@ -83,20 +83,20 @@ type WakuMode* {.pure.} = enum
 
 type NodeConfig* {.requiresInit.} = object
   mode: WakuMode
-  wakuConfig: ProtocolsConfig
+  protocolsConfig: ProtocolsConfig
   networkingConfig: NetworkingConfig
   ethRpcEndpoints: seq[string]
 
 proc init*(
     T: typedesc[NodeConfig],
     mode: WakuMode = WakuMode.Core,
-    wakuConfig: ProtocolsConfig = TheWakuNetworkPreset,
+    protocolsConfig: ProtocolsConfig = TheWakuNetworkPreset,
     networkingConfig: NetworkingConfig = DefaultNetworkingConfig,
     ethRpcEndpoints: seq[string] = @[],
 ): T =
   return T(
     mode: mode,
-    wakuConfig: wakuConfig,
+    protocolsConfig: protocolsConfig,
     networkingConfig: networkingConfig,
     ethRpcEndpoints: ethRpcEndpoints,
   )
@@ -134,20 +134,20 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
     return err("Edge mode is not implemented")
 
   ## Network Conf
-  let wakuConfig = nodeConfig.wakuConfig
+  let protocolsConfig = nodeConfig.protocolsConfig
 
   # Set cluster ID
-  b.withClusterId(wakuConfig.clusterId)
+  b.withClusterId(protocolsConfig.clusterId)
 
   # Set sharding configuration
   b.withShardingConf(ShardingConfKind.AutoSharding)
-  let autoShardingConfig = wakuConfig.autoShardingConfig
+  let autoShardingConfig = protocolsConfig.autoShardingConfig
   b.withNumShardsInCluster(autoShardingConfig.numShardsInCluster)
 
   # Process entry nodes - supports enrtree:, enr:, and multiaddress formats
-  if wakuConfig.entryNodes.len > 0:
+  if protocolsConfig.entryNodes.len > 0:
     let (enrTreeUrls, bootstrapEnrs, staticNodesFromEntry) = processEntryNodes(
-      wakuConfig.entryNodes
+      protocolsConfig.entryNodes
     ).valueOr:
       return err("Failed to process entry nodes: " & error)
 
@@ -169,11 +169,11 @@ proc toWakuConf*(nodeConfig: NodeConfig): Result[WakuConf, string] =
 
   # TODO: verify behaviour
   # Set static store nodes
-  if wakuConfig.staticStoreNodes.len > 0:
-    b.withStaticNodes(wakuConfig.staticStoreNodes)
+  if protocolsConfig.staticStoreNodes.len > 0:
+    b.withStaticNodes(protocolsConfig.staticStoreNodes)
 
   # Set message validation
-  let msgValidation = wakuConfig.messageValidation
+  let msgValidation = protocolsConfig.messageValidation
   let maxSizeBytes = parseMsgSize(msgValidation.maxMessageSize).valueOr:
     return err("Failed to parse max message size: " & error)
   b.withMaxMessageSize(maxSizeBytes)
