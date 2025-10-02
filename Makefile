@@ -177,12 +177,11 @@ nimbus-build-system-nimble-dir:
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-LIBRLN_VERSION := v0.7.0
+LIBRLN_VERSION ?= v0.7.0
 
+LIBRLN_FILE ?= librln_$(LIBRLN_VERSION).a
 ifeq ($(detected_OS),Windows)
-LIBRLN_FILE := rln.lib
-else
-LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
+LIBRLN_FILE ?= rln.lib
 endif
 
 $(LIBRLN_FILE):
@@ -543,4 +542,3 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
-
