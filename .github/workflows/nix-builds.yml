@@ -1,0 +1,21 @@
+---
+name: ci / nix-builds
+on:
+  pull_request:
+    branches: [master]
+jobs:
+  build:
+    name: Build Nix Flake packages
+    runs-on: [self-hosted, Linux]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build wakucanary
+        shell: bash
+        run: nix build --accept-flake-config '.?submodules=1#wakucanary'
+
+      - name: Build Android library
+        shell: bash
+        run: nix build --accept-flake-config '.?submodules=1#libwaku-android-arm64'

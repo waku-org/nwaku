@@ -9,9 +9,8 @@
   stableSystems ? [
     "x86_64-linux" "aarch64-linux"
   ],
-  androidArch,
-  abidir,
-  zerokitPkg,
+  abidir ? null,
+  zerokitRln,
 }:
 
 assert pkgs.lib.assertMsg ((src.submodules or true) == true)
@@ -20,51 +19,38 @@ assert pkgs.lib.assertMsg ((src.submodules or true) == true)
 let
   inherit (pkgs) stdenv lib writeScriptBin callPackage;
 
-  revision = lib.substring 0 8 (src.rev or "dirty");
+  version = lib.substring 0 8 (src.sourceInfo.rev or "dirty");
 
 in stdenv.mkDerivation rec {
-
   pname = "nwaku";
-
-  version = "1.0.0-${revision}";
-
-  inherit src;
+  inherit src version;
 
   buildInputs = with pkgs; [
     openssl
     gmp
     zip
+    zerokitRln
   ];
 
   # Dependencies that should only exist in the build environment.
   nativeBuildInputs = let
     # Fix for Nim compiler calling 'git rev-parse' and 'lsb_release'.
     fakeGit = writeScriptBin "git" "echo ${version}";
-    # Fix for the zerokit package that is built with cargo/rustup/cross.
-    fakeCargo = writeScriptBin "cargo" "echo ${version}";
-    # Fix for the zerokit package that is built with cargo/rustup/cross.
-    fakeRustup = writeScriptBin "rustup" "echo ${version}";
-    # Fix for the zerokit package that is built with cargo/rustup/cross.
-    fakeCross = writeScriptBin "cross" "echo ${version}";
   in
     with pkgs; [
       cmake
       which
       lsb-release
-      zerokitPkg
-      nim-unwrapped-2_0
+      nim-unwrapped-2_2
       fakeGit
-      fakeCargo
-      fakeRustup
-      fakeCross
   ];
 
   # Environment variables required for Android builds
-  ANDROID_SDK_ROOT="${pkgs.androidPkgs.sdk}";
-  ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
-  NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
+  ANDROID_SDK_ROOT = "${pkgs.androidPkgs.sdk}";
+  ANDROID_NDK_HOME = "${pkgs.androidPkgs.ndk}";
+  NIMFLAGS = "--passL:'-L${zerokitRln}/lib' -d:disableMarchNative -d:git_revision_override=${version}";
+  LIBRLN_FILE = "${zerokitRln}/lib/librln.a";
   XDG_CACHE_HOME = "/tmp";
-  androidManifest = "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"com.example.mylibrary\" />";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
@@ -84,27 +70,22 @@ in stdenv.mkDerivation rec {
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
-    chmod 777 -R dist/nimble
-    mkdir -p dist/nimble/dist
-    cp -r ${callPackage ./checksums.nix {}} dist/checksums  # need both
-    cp -r ${callPackage ./checksums.nix {}} dist/nimble/dist/checksums
-    cp -r ${callPackage ./atlas.nix {}}     dist/atlas
-    chmod 777 -R dist/atlas
-    mkdir dist/atlas/dist
-    cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist/sat
-    cp -r ${callPackage ./sat.nix {}}       dist/atlas/dist/sat
+    cp -r ${callPackage ./checksums.nix {}} dist/checksums
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
     popd
-    mkdir -p vendor/zerokit/target/${androidArch}/release
-    cp ${zerokitPkg}/librln.so vendor/zerokit/target/${androidArch}/release/
   '';
 
-  installPhase = ''
+  androidManifest = "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"com.example.mylibrary\" />";
+
+  installPhase = if abidir != null then ''
     mkdir -p $out/jni
     cp -r ./build/android/${abidir}/* $out/jni/
     echo '${androidManifest}' > $out/jni/AndroidManifest.xml
     cd $out && zip -r libwaku.aar *
+  '' else ''
+    mkdir -p $out/bin
+    cp -r build/* $out/bin
   '';
 
   meta = with pkgs.lib; {
