@@ -446,7 +446,6 @@ ifeq ($(STATIC), 1)
 endif
 
 libwaku: | build deps librln
-	rm -f build/libwaku*
 	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim $(BUILD_COMMAND) $(NIM_PARAMS) waku.nims
 
 #####################
