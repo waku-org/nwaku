@@ -427,16 +427,32 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
+LIB_EXT ?= so
 libwaku: | build deps librln
 	rm -f build/libwaku*
 
-ifeq ($(STATIC), 1)
-	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
-else ifeq ($(detected_OS),Windows)
-	make -f scripts/libwaku_windows_setup.mk windows-setup
-	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+ifeq ($(detected_OS),Windows)
+	ifeq ($(STATIC), 1)
+		LIB_EXT = lib
+	else
+		LIB_EXT = dll
+else ifeq ($(detected_OS),Darwin)
+	ifeq ($(STATIC), 1)
+		LIB_EXT = a
+	else
+		LIB_EXT = dylib
 else
-	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+	ifeq ($(STATIC), 1)
+		LIB_EXT = a
+	else
+		LIB_EXT = so
+
+ifeq ($(STATIC), 1)
+	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
+else ifeq ($(detected_OS),Windows)
+	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+else
+	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
 #####################
@@ -549,4 +565,3 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
-
