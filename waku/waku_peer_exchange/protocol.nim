@@ -176,8 +176,8 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         return
 
       let enrs = wpx.getEnrsFromCache(decBuf.get().request.numPeers)
-      debug "peer exchange request received", enrs = $enrs
-
+      debug "peer exchange request received"
+      trace "px enrs to respond", enrs = $enrs
       try:
         (await wpx.respond(enrs, conn)).isErrOr:
           waku_px_peers_sent.inc(enrs.len().int64())
