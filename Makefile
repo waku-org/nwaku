@@ -426,34 +426,28 @@ docker-liteprotocoltester-push:
 .PHONY: cbindings cwaku_example libwaku
 
 STATIC ?= 0
-
-LIB_EXT ?= so
-libwaku: | build deps librln
-	rm -f build/libwaku*
+BUILD_COMMAND ?= libwakuDynamic
 
 ifeq ($(detected_OS),Windows)
-	ifeq ($(STATIC), 1)
-		LIB_EXT = lib
-	else
-		LIB_EXT = dll
+	LIB_EXT_DYNAMIC = dll
+	LIB_EXT_STATIC = lib
 else ifeq ($(detected_OS),Darwin)
-	ifeq ($(STATIC), 1)
-		LIB_EXT = a
-	else
-		LIB_EXT = dylib
-else
-	ifeq ($(STATIC), 1)
-		LIB_EXT = a
-	else
-		LIB_EXT = so
-
-ifeq ($(STATIC), 1)
-	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
-else ifeq ($(detected_OS),Windows)
-	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
-else
-	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
+	LIB_EXT_DYNAMIC = dylib
+	LIB_EXT_STATIC = a
+else ifeq ($(detected_OS),Linux)
+	LIB_EXT_DYNAMIC = so
+	LIB_EXT_STATIC = a
 endif
+
+LIB_EXT := $(LIB_EXT_DYNAMIC)
+ifeq ($(STATIC), 1)
+	LIB_EXT = $(LIB_EXT_STATIC)
+	BUILD_COMMAND = libwakuStatic
+endif
+
+libwaku: | build deps librln
+	rm -f build/libwaku*
+	echo -e $(BUILD_MSG) "build/$@.$(LIB_EXT)" && $(ENV_SCRIPT) nim $(BUILD_COMMAND) $(NIM_PARAMS) waku.nims
 
 #####################
 ## Mobile Bindings ##
