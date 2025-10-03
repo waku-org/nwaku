@@ -73,7 +73,8 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:on -d:discv5_protocol_id=d5waku " &
       extra_params & " " & srcDir & name & ".nim"
   else:
-    let lib_name = (when defined(windows): toDll(name) else: name & ".so")
+    let lib_ext_unix = if extra_params.contains("macos"): ".dylib" else: ".so"
+    let lib_name = (when defined(windows): toDll(name) else: name & lib_ext_unix)
     when defined(windows):
       exec "nim c" & " --out:build/" & lib_name &
         " --threads:on --app:lib --opt:size --noMain --mm:refc --header -d:metrics --nimMainPrefix:libwaku --skipParentCfg:off -d:discv5_protocol_id=d5waku " &
