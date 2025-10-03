@@ -222,7 +222,7 @@ testwaku: | build deps rln-deps librln
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 	\
-		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) -d:chronicles_runtime_filtering:on waku.nims
 
 benchmarks: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \

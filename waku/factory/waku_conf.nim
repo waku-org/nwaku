@@ -126,6 +126,7 @@ type WakuConf* {.requiresInit.} = ref object
 
   logLevel*: logging.LogLevel
   logFormat*: logging.LogFormat
+  logTopicsConfig*: seq[LogTopicConfig]
 
   peerPersistence*: bool
   # TODO: should clearly be a uint

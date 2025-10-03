@@ -14,6 +14,10 @@ type LogFormat* = enum
   TEXT
   JSON
 
+type LogTopicConfig* = object
+  topic*: string
+  level*: LogLevel
+
 ## Utils
 
 proc stripAnsi(v: string): string =
@@ -63,7 +67,6 @@ proc writeAndFlush(f: syncio.File, s: LogOutputStr) =
 ## Setup
 
 proc setupLogLevel(level: LogLevel) =
-  # TODO: Support per topic level configuratio
   topics_registry.setLogLevel(level)
 
 proc setupLogFormat(format: LogFormat, color = true) =
@@ -103,3 +106,11 @@ proc setupLog*(level: LogLevel, format: LogFormat) =
 
   setupLogLevel(level)
   setupLogFormat(format, color)
+
+proc setTopicConfig*(logTopicsConfig: seq[LogTopicConfig]) =
+  for topicConf in logTopicsConfig:
+    if not topics_registry.setTopicState(topicConf.topic, Enabled, topicConf.level):
+      error "Unknown logging topic or unable to set loglevel",
+        topic = topicConf.topic, level = $topicConf.level
+
+{.pop.}

@@ -1,5 +1,5 @@
 import
-  std/[strutils, strformat, sequtils],
+  std/[strutils, strformat, sequtils, enumutils],
   results,
   chronicles,
   chronos,
@@ -70,6 +70,13 @@ type WakuNodeConf* = object
     defaultValue: logging.LogFormat.TEXT,
     name: "log-format"
   .}: logging.LogFormat
+
+  logTopicsConfig* {.
+    desc:
+      "Sets the log level for specific topics. Format: <topic>:<level>. Argument may be repeated. ",
+    defaultValue: newSeq[LogTopicConfig](0),
+    name: "log-topic-config"
+  .}: seq[LogTopicConfig]
 
   rlnRelayCredPath* {.
     desc: "The path for persisting rln-relay credential",
@@ -703,6 +710,21 @@ proc isNumber(x: string): bool =
   except ValueError:
     result = false
 
+proc parseCmdArg*(T: type LogTopicConfig, p: string): T =
+  let elements = p.split(":")
+  if elements.len != 2:
+    raise newException(
+      ValueError, "Invalid format for logTopicsConfig expected topic:loglevel"
+    )
+
+  var logTopicConfig: LogTopicConfig
+  try:
+    let logLevel = parseEnum[LogLevel](elements[1])
+    logTopicConfig = LogTopicConfig(topic: elements[0], level: logLevel)
+  except ValueError:
+    raise newException(ValueError, "Invalid log level")
+  return logTopicConfig
+
 proc parseCmdArg*(T: type MixNodePubInfo, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
@@ -800,6 +822,22 @@ proc readValue*(
 ) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(
+    r: var TomlReader, value: var LogTopicConfig
+) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(LogTopicConfig, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(
+    r: var EnvvarReader, value: var LogTopicConfig
+) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(LogTopicConfig, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
@@ -911,6 +949,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
 
   b.withLogLevel(n.logLevel)
   b.withLogFormat(n.logFormat)
+  b.withLogTopicsConfig(n.logTopicsConfig)
 
   b.rlnRelayConf.withEnabled(n.rlnRelay)
   if n.rlnRelayCredPath != "":
