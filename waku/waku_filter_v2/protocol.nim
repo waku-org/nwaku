@@ -293,6 +293,9 @@ proc initProtocolHandler(wf: WakuFilter) =
 
     var response: FilterSubscribeResponse
 
+    defer:
+      await conn.closeWithEOF()
+
     wf.peerRequestRateLimiter.checkUsageLimit(WakuFilterSubscribeCodec, conn):
       var buf: seq[byte]
       try:

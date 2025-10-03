@@ -114,6 +114,10 @@ proc initProtocolHandler(ws: WakuStore) =
     var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: StoreResp
     var queryDuration: float
+
+    defer:
+      await conn.closeWithEof()
+
     ws.requestRateLimiter.checkUsageLimit(WakuLegacyStoreCodec, conn):
       let readRes = catch:
         await conn.readLp(DefaultMaxRpcSize.int)
