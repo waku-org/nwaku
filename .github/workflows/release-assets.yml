@@ -90,7 +90,7 @@ jobs:
             echo "Section: libs\n" >> pkg/DEBIAN/control
             echo "Architecture: ${{matrix.arch}}\n" >> pkg/DEBIAN/control
             echo "Maintainer: Waku Team <ivansete@status.im>\n" >> pkg/DEBIAN/control
-            echo "Description: Waku library"\n" >> pkg/DEBIAN/control
+            echo "Description: Waku library\n" >> pkg/DEBIAN/control
 
             dpkg-deb --build pkg ${{steps.vars.outputs.libwaku}}
           fi
