@@ -84,13 +84,14 @@ jobs:
             cp build/libwaku.a pkg/usr/local/lib/
             cp library/libwaku.h pkg/usr/local/include/
 
-            echo "Package: waku
-            Version: ${GITHUB_REF#refs/tags/}
-            Priority: optional
-            Section: libs
-            Architecture: ${{matrix.arch}}
-            Maintainer: Waku Team <ivansete@status.im>
-            Description: Waku library" > pkg/DEBIAN/control
+            echo "Package: waku\n" >> pkg/DEBIAN/control
+            echo "Version: ${GITHUB_REF#refs/tags/}\n" >> pkg/DEBIAN/control
+            echo "Priority: optional\n" >> pkg/DEBIAN/control
+            echo "Section: libs\n" >> pkg/DEBIAN/control
+            echo "Architecture: ${{matrix.arch}}\n" >> pkg/DEBIAN/control
+            echo "Maintainer: Waku Team <ivansete@status.im>\n" >> pkg/DEBIAN/control
+            echo "Description: Waku library"\n" >> pkg/DEBIAN/control
+
             dpkg-deb --build pkg ${{steps.vars.outputs.libwaku}}
           fi
 
