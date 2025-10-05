@@ -96,7 +96,7 @@ jobs:
           fi
 
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-              LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-${GITHUB_REF#refs/tags/}-${{ matrix.arch }}-macos.tar.gz" | tr "[:upper:]" "[:lower:]")
+              LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-0.1.0-${{ matrix.arch }}-macos.tar.gz" | tr "[:upper:]" "[:lower:]")
               tar -cvzf ${{steps.vars.outputs.libwaku}} ./build/libwaku.dylib ./build/libwaku.a ./library/libwaku.h
           fi
 
