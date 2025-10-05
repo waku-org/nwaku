@@ -85,7 +85,7 @@ jobs:
             cp library/libwaku.h pkg/usr/local/include/
 
             echo "Package: waku" >> pkg/DEBIAN/control
-            echo "Version: ${GITHUB_REF#refs/tags/}" >> pkg/DEBIAN/control
+            echo "Version: 0.1.0" >> pkg/DEBIAN/control
             echo "Priority: optional" >> pkg/DEBIAN/control
             echo "Section: libs" >> pkg/DEBIAN/control
             echo "Architecture: ${{matrix.arch}}" >> pkg/DEBIAN/control
