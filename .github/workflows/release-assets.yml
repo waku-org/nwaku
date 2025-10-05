@@ -103,7 +103,7 @@ jobs:
       - name: Upload asset
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: libwaku-wakunod2-and-chat2-${GITHUB_REF#refs/tags/}-${{matrix.arch}}-${{runner.os}}
+          name: libwaku-wakunod2-and-chat2-0.1.0-${{matrix.arch}}-${{runner.os}}
           path: |
             ${{steps.vars.outputs.waku}}
             ${{steps.vars.outputs.libwaku}}
