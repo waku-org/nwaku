@@ -70,10 +70,10 @@ jobs:
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" V=1 update
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}} -d:postgres" CI=false wakunode2
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" CI=false chat2
+          tar -cvzf ${{steps.vars.outputs.waku}} ./build/
+
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}} -d:postgres" CI=false libwaku
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}} -d:postgres" CI=false STATIC=1 libwaku
-
-          tar -cvzf ${{steps.vars.outputs.waku}} ./build/
 
       - name: Create distributable libwaku package
         run: |
@@ -100,12 +100,16 @@ jobs:
               tar -cvzf ${{steps.vars.outputs.libwaku}} ./build/libwaku.dylib ./build/libwaku.a ./library/libwaku.h
           fi
 
-      - name: Upload asset
+      - name: Upload waku artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: libwaku-wakunod2-and-chat2-0.1.0-${{matrix.arch}}-${{runner.os}}
-          path: |
-            ${{steps.vars.outputs.waku}}
-            ${{steps.vars.outputs.libwaku}}
+          name: waku-0.1.0-${{ matrix.arch }}-${{ runner.os }}
+          path: ${{ steps.vars.outputs.waku }}
+          if-no-files-found: error
 
+      - name: Upload libwaku artifact
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: libwaku-0.1.0-${{ matrix.arch }}-${{ runner.os }}
+          path: ${{ steps.vars.outputs.libwaku }}
           if-no-files-found: error
