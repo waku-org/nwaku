@@ -397,22 +397,6 @@ proc maintainSubscription(
 
     await sleepAsync(30000) # Subscription maintenance interval
 
-proc processMixNodes(localnode: WakuNode, nodes: seq[string]) {.async.} =
-  if nodes.len == 0:
-    return
-
-  info "Processing mix nodes: ", nodes = $nodes
-  for node in nodes:
-    var enrRec: enr.Record
-    if enrRec.fromURI(node):
-      let peerInfo = enrRec.toRemotePeerInfo().valueOr:
-        error "Failed to parse mix node", error = error
-        continue
-      localnode.peermanager.addPeer(peerInfo, Discv5)
-      info "Added mix node", peer = peerInfo
-    else:
-      error "Failed to parse mix node ENR", node = node
-
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
@@ -486,11 +470,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     error "failed to generate mix key pair", error = error
     return
 
-  (await node.mountMix(conf.clusterId, mixPrivKey)).isOkOr:
+  (await node.mountMix(conf.clusterId, mixPrivKey, conf.mixnodes)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     quit(QuitFailure)
-  if conf.mixnodes.len > 0:
-    await processMixNodes(node, conf.mixnodes)
   await node.start()
 
   node.peerManager.start()
@@ -624,7 +606,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     servicePeerInfo = parsePeerInfo(conf.serviceNode).valueOr:
       error "Couldn't parse conf.serviceNode", error = error
       RemotePeerInfo()
-  if $servicePeerInfo.peerId == "":
+  if servicePeerInfo == nil or $servicePeerInfo.peerId == "":
     # Assuming that service node supports all services
     servicePeerInfo = selectRandomServicePeer(
       node.peerManager, none(RemotePeerInfo), WakuLightpushCodec

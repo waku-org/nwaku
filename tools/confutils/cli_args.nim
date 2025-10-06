@@ -11,9 +11,11 @@ import
   confutils/std/net,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
+  libp2p/crypto/curve25519,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
+  libp2p/multicodec,
   nimcrypto/utils,
   secp256k1,
   json
@@ -26,6 +28,7 @@ import
     node/peer_manager,
     waku_core/topics/pubsub_topic,
     waku_core/message/default_values,
+    waku_mix,
   ],
   ../../tools/rln_keystore_generator/rln_keystore_generator
 
@@ -615,6 +618,12 @@ with the drawback of consuming some more bandwidth.""",
       name: "mixkey"
     .}: Option[string]
 
+    mixnodes* {.
+      desc:
+        "Multiaddress and mix-key of mix node to be statically specified in format multiaddr:mixPubKey. Argument may be repeated.",
+      name: "mixnode"
+    .}: seq[MixNodePubInfo]
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",
@@ -693,6 +702,22 @@ proc isNumber(x: string): bool =
     result = true
   except ValueError:
     result = false
+
+proc parseCmdArg*(T: type MixNodePubInfo, p: string): T =
+  let elements = p.split(":")
+  if elements.len != 2:
+    raise newException(
+      ValueError, "Invalid format for mix node expected multiaddr:mixPublicKey"
+    )
+  let multiaddr = MultiAddress.init(elements[0]).valueOr:
+    raise newException(ValueError, "Invalid multiaddress format")
+  if not multiaddr.contains(multiCodec("ip4")).get():
+    raise newException(
+      ValueError, "Invalid format for ip address, expected a ipv4 multiaddress"
+    )
+  return MixNodePubInfo(
+    multiaddr: elements[0], pubKey: intoCurve25519Key(ncrutils.fromHex(elements[1]))
+  )
 
 proc parseCmdArg*(T: type ProtectedShard, p: string): T =
   let elements = p.split(":")
@@ -775,6 +800,22 @@ proc readValue*(
 ) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(
+    r: var TomlReader, value: var MixNodePubInfo
+) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(MixNodePubInfo, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(
+    r: var EnvvarReader, value: var MixNodePubInfo
+) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(MixNodePubInfo, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
@@ -972,6 +1013,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.storeServiceConf.storeSyncConf.withRelayJitterSec(n.storeSyncRelayJitter)
 
   b.mixConf.withEnabled(n.mix)
+  b.mixConf.withMixNodes(n.mixnodes)
   b.withMix(n.mix)
   if n.mixkey.isSome():
     b.mixConf.withMixKey(n.mixkey.get())

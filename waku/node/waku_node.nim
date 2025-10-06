@@ -97,6 +97,7 @@ type
   WakuInfo* = object # NOTE One for simplicity, can extend later as needed
     listenAddresses*: seq[string]
     enrUri*: string #multiaddrStrings*: seq[string]
+    mixPubKey*: Option[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object
@@ -201,7 +202,11 @@ proc info*(node: WakuNode): WakuInfo =
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
   let enrUri = node.enr.toUri()
-  let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
+  var wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
+  if not node.wakuMix.isNil():
+    let keyStr = node.wakuMix.pubKey.to0xHex()
+    wakuInfo.mixPubKey = some(keyStr)
+  info "node info", wakuInfo
   return wakuInfo
 
 proc connectToNodes*(
@@ -245,7 +250,10 @@ proc getMixNodePoolSize*(node: WakuNode): int =
   return node.wakuMix.getNodePoolSize()
 
 proc mountMix*(
-    node: WakuNode, clusterId: uint16, mixPrivKey: Curve25519Key
+    node: WakuNode,
+    clusterId: uint16,
+    mixPrivKey: Curve25519Key,
+    mixnodes: seq[MixNodePubInfo],
 ): Future[Result[void, string]] {.async.} =
   info "mounting mix protocol", nodeId = node.info #TODO log the config used
 
@@ -257,8 +265,9 @@ proc mountMix*(
   info "local addr", localaddr = localaddrStr
 
   let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
-  # TODO: Pass bootnodes from config,
-  node.wakuMix = WakuMix.new(nodeAddr, node.peerManager, clusterId, mixPrivKey).valueOr:
+  node.wakuMix = WakuMix.new(
+    nodeAddr, node.peerManager, clusterId, mixPrivKey, mixnodes
+  ).valueOr:
     error "Waku Mix protocol initialization failed", err = error
     return
   node.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))

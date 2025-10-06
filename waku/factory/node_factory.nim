@@ -434,7 +434,11 @@ proc setupProtocols(
 
   #mount mix
   if conf.mixConf.isSome():
-    (await node.mountMix(conf.clusterId, conf.mixConf.get().mixKey)).isOkOr:
+    (
+      await node.mountMix(
+        conf.clusterId, conf.mixConf.get().mixKey, conf.mixConf.get().mixnodes
+      )
+    ).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
