@@ -195,7 +195,7 @@ suite "Waku v2 Rest API - Relay":
     var messages =
       @[
         fakeWakuMessage(
-          contentTopic = "content-topic-x",
+          contentTopic = fmt "\\x/content-topic\\\\\\x",
           payload = toBytes("TEST-1"),
           meta = toBytes("test-meta"),
           ephemeral = true,
@@ -205,7 +205,7 @@ suite "Waku v2 Rest API - Relay":
     # Prevent duplicate messages
     for i in 0 ..< 2:
       var msg = fakeWakuMessage(
-        contentTopic = "content-topic-x",
+        contentTopic = fmt "\\x/content-topic\\\\\\x",
         payload = toBytes("TEST-1"),
         meta = toBytes("test-meta"),
         ephemeral = true,
@@ -213,7 +213,7 @@ suite "Waku v2 Rest API - Relay":
 
       while msg == messages[i]:
         msg = fakeWakuMessage(
-          contentTopic = "content-topic-x",
+          contentTopic = fmt "\\x/content-topic\\\\\\x",
           payload = toBytes("TEST-1"),
           meta = toBytes("test-meta"),
           ephemeral = true,
@@ -241,7 +241,7 @@ suite "Waku v2 Rest API - Relay":
       response.data.len == 3
       response.data.all do(msg: RelayWakuMessage) -> bool:
         msg.payload == base64.encode("TEST-1") and
-          msg.contentTopic.get() == "content-topic-x" and msg.version.get() == 2 and
+          msg.contentTopic.get() == "\\x/content-topic\\\\\\x" and msg.version.get() == 2 and
           msg.timestamp.get() != Timestamp(0) and
           msg.meta.get() == base64.encode("test-meta") and msg.ephemeral.get() == true
 
@@ -263,7 +263,7 @@ suite "Waku v2 Rest API - Relay":
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
 
@@ -514,7 +514,7 @@ suite "Waku v2 Rest API - Relay":
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
 
@@ -586,7 +586,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
 
@@ -648,7 +648,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
 
@@ -723,7 +723,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials(manager.rlnInstance)
 
