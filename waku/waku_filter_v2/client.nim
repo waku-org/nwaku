@@ -58,6 +58,9 @@ proc sendSubscribeRequest(
 
   let connection = connOpt.get()
 
+  defer:
+    await connection.closeWithEOF()
+
   try:
     await connection.writeLP(filterSubscribeRequest.encode().buffer)
   except CatchableError:
