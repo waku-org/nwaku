@@ -102,6 +102,7 @@ type WakuConfBuilder* = object
 
   logLevel: Option[logging.LogLevel]
   logFormat: Option[logging.LogFormat]
+  logTopicsConfig: seq[LogTopicConfig]
 
   natStrategy: Option[string]
 
@@ -220,6 +221,11 @@ proc withLogLevel*(b: var WakuConfBuilder, logLevel: logging.LogLevel) =
 
 proc withLogFormat*(b: var WakuConfBuilder, logFormat: logging.LogFormat) =
   b.logFormat = some(logFormat)
+
+proc withLogTopicsConfig*(
+    b: var WakuConfBuilder, logTopicsConfig: seq[LogTopicConfig]
+) =
+  b.logTopicsConfig = logTopicsConfig
 
 proc withP2pTcpPort*(b: var WakuConfBuilder, p2pTcpPort: Port) =
   b.p2pTcpPort = some(p2pTcpPort)
@@ -645,6 +651,7 @@ proc build*(
     maxMessageSizeBytes: maxMessageSizeBytes,
     logLevel: logLevel,
     logFormat: logFormat,
+    logTopicsConfig: builder.logTopicsConfig,
     # TODO: Separate builders
     endpointConf: EndpointConf(
       natStrategy: natStrategy,

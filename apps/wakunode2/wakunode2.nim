@@ -96,7 +96,7 @@ when isMainModule:
         quit(QuitFailure)
 
       c_signal(ansi_c.SIGSEGV, handleSigsegv)
-
+    logging.setTopicConfig(wakuNodeConf.logTopicsConfig)
     info "Node setup complete"
 
     runForever()

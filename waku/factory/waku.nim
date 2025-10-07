@@ -164,8 +164,6 @@ proc new*(
 ): Future[Result[Waku, string]] {.async.} =
   let rng = crypto.newRng()
 
-  logging.setupLog(wakuConf.logLevel, wakuConf.logFormat)
-
   ?wakuConf.validate()
   wakuConf.logConf()
 

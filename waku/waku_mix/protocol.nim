@@ -19,7 +19,7 @@ import
   ../common/nimchronos
 
 logScope:
-  topics = "waku mix"
+  topics = "wakumix"
 
 const mixMixPoolSize = 3
 
