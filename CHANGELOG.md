@@ -9,6 +9,7 @@
 - Legacy `store` protocol is no longer supported by default.
 - Improved sharding configuration: now explicit and shard-specific metrics added.
 - Mix nodes are limited to IPv4 addresses only.
+- [lightpush legacy](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) is being deprecated. Use [lightpush v3](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md) instead.
 
 ### Features
 
