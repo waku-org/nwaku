@@ -9,12 +9,15 @@ import std/typetraits
 type DebugWakuInfo* = object
   listenAddresses*: seq[string]
   enrUri*: Option[string]
+  mixPubKey*: Option[string]
 
 #### Type conversion
 
 proc toDebugWakuInfo*(nodeInfo: WakuInfo): DebugWakuInfo =
   DebugWakuInfo(
-    listenAddresses: nodeInfo.listenAddresses, enrUri: some(nodeInfo.enrUri)
+    listenAddresses: nodeInfo.listenAddresses,
+    enrUri: some(nodeInfo.enrUri),
+    mixPubKey: nodeInfo.mixPubKey,
   )
 
 #### Serialization and deserialization
@@ -26,6 +29,8 @@ proc writeValue*(
   writer.writeField("listenAddresses", value.listenAddresses)
   if value.enrUri.isSome():
     writer.writeField("enrUri", value.enrUri.get())
+  if value.mixPubKey.isSome():
+    writer.writeField("mixPubKey", value.mixPubKey.get())
   writer.endRecord()
 
 proc readValue*(
@@ -47,10 +52,18 @@ proc readValue*(
       if enrUri.isSome():
         reader.raiseUnexpectedField("Multiple `enrUri` fields found", "DebugWakuInfo")
       enrUri = some(reader.readValue(string))
+    of "mixPubKey":
+      if value.mixPubKey.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `mixPubKey` fields found", "DebugWakuInfo"
+        )
+      value.mixPubKey = some(reader.readValue(string))
     else:
       unrecognizedFieldWarning(value)
 
   if listenAddresses.isNone():
     reader.raiseUnexpectedValue("Field `listenAddresses` is missing")
 
-  value = DebugWakuInfo(listenAddresses: listenAddresses.get, enrUri: enrUri)
+  value = DebugWakuInfo(
+    listenAddresses: listenAddresses.get, enrUri: enrUri, mixPubKey: value.mixPubKey
+  )

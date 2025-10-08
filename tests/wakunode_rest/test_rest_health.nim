@@ -94,7 +94,7 @@ suite "Waku v2 REST API - health":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.nodeHealth == HealthStatus.READY
-      response.data.protocolsHealth.len() == 14
+      response.data.protocolsHealth.len() == 15
       response.data.protocolsHealth[0].protocol == "Relay"
       response.data.protocolsHealth[0].health == HealthStatus.NOT_READY
       response.data.protocolsHealth[0].desc == some("No connected peers")
@@ -114,19 +114,21 @@ suite "Waku v2 REST API - health":
       response.data.protocolsHealth[7].health == HealthStatus.NOT_MOUNTED
       response.data.protocolsHealth[8].protocol == "Rendezvous"
       response.data.protocolsHealth[8].health == HealthStatus.NOT_MOUNTED
-      response.data.protocolsHealth[9].protocol == "Lightpush Client"
-      response.data.protocolsHealth[9].health == HealthStatus.NOT_READY
-      response.data.protocolsHealth[9].desc ==
+      response.data.protocolsHealth[9].protocol == "Mix"
+      response.data.protocolsHealth[9].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[10].protocol == "Lightpush Client"
+      response.data.protocolsHealth[10].health == HealthStatus.NOT_READY
+      response.data.protocolsHealth[10].desc ==
         some("No Lightpush service peer available yet")
-      response.data.protocolsHealth[10].protocol == "Legacy Lightpush Client"
-      response.data.protocolsHealth[10].health == HealthStatus.NOT_MOUNTED
-      response.data.protocolsHealth[11].protocol == "Store Client"
+      response.data.protocolsHealth[11].protocol == "Legacy Lightpush Client"
       response.data.protocolsHealth[11].health == HealthStatus.NOT_MOUNTED
-      response.data.protocolsHealth[12].protocol == "Legacy Store Client"
+      response.data.protocolsHealth[12].protocol == "Store Client"
       response.data.protocolsHealth[12].health == HealthStatus.NOT_MOUNTED
-      response.data.protocolsHealth[13].protocol == "Filter Client"
-      response.data.protocolsHealth[13].health == HealthStatus.NOT_READY
-      response.data.protocolsHealth[13].desc ==
+      response.data.protocolsHealth[13].protocol == "Legacy Store Client"
+      response.data.protocolsHealth[13].health == HealthStatus.NOT_MOUNTED
+      response.data.protocolsHealth[14].protocol == "Filter Client"
+      response.data.protocolsHealth[14].health == HealthStatus.NOT_READY
+      response.data.protocolsHealth[14].desc ==
         some("No Filter service peer available yet")
 
     await restServer.stop()
