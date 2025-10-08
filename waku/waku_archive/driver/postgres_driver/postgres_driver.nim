@@ -51,7 +51,7 @@ const SelectNoCursorAscStmtDef =
 
 const SelectNoCursorNoDataAscStmtName = "SelectWithoutCursorAndDataAsc"
 const SelectNoCursorNoDataAscStmtDef =
-  """SELECT messageHash FROM messages 
+  """SELECT messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -196,7 +196,7 @@ proc hashCallbackImpl(
     pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
 ) =
   ## Callback to get a hash out of the DB.
-  ## Used when queries only ask for hashes 
+  ## Used when queries only ask for hashes
 
   let numFields = pqResult.pqnfields()
   if numFields != 1:
@@ -1233,33 +1233,30 @@ proc refreshPartitionsInfo(
   debug "refreshPartitionsInfo"
   self.partitionMngr.clearPartitionInfo()
 
-  let partitionNamesRes = await self.getPartitionsList()
-  if not partitionNamesRes.isOk():
-    return err("Could not retrieve partitions list: " & $partitionNamesRes.error)
-  else:
-    let partitionNames = partitionNamesRes.get()
-    for partitionName in partitionNames:
-      ## partitionName contains something like 'messages_1708449815_1708449875'
-      let bothTimes = partitionName.replace("messages_", "")
-      let times = bothTimes.split("_")
-      if times.len != 2:
-        return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
+  let partitionNames = (await self.getPartitionsList()).valueOr:
+    return err("could not get partitions list: " & $error)
+  for partitionName in partitionNames:
+    ## partitionName contains something like 'messages_1708449815_1708449875'
+    let bothTimes = partitionName.replace("messages_", "")
+    let times = bothTimes.split("_")
+    if times.len != 2:
+      return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
 
-      var beginning: int64
-      try:
-        beginning = parseInt(times[0])
-      except ValueError:
-        return err("Could not parse beginning time: " & getCurrentExceptionMsg())
+    var beginning: int64
+    try:
+      beginning = parseInt(times[0])
+    except ValueError:
+      return err("Could not parse beginning time: " & getCurrentExceptionMsg())
 
-      var `end`: int64
-      try:
-        `end` = parseInt(times[1])
-      except ValueError:
-        return err("Could not parse end time: " & getCurrentExceptionMsg())
+    var `end`: int64
+    try:
+      `end` = parseInt(times[1])
+    except ValueError:
+      return err("Could not parse end time: " & getCurrentExceptionMsg())
 
-      self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+    self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
 
-    return ok()
+  return ok()
 
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
 
@@ -1338,10 +1335,7 @@ proc removePartition(
   let partitionName = partition.getName()
   debug "beginning of removePartition", partitionName
 
-  var partSize = ""
-  let partSizeRes = await self.getTableSize(partitionName)
-  if partSizeRes.isOk():
-    partSize = partSizeRes.get()
+  let partSize = (await self.getTableSize(partitionName)).valueOr("")
 
   ## Detach and remove the partition concurrently to not block the parent table (messages)
   let detachPartitionQuery =

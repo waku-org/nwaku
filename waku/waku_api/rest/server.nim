@@ -91,7 +91,7 @@ proc new*(
   ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
     discard
 
-  let sres = HttpServerRef.new(
+  server.httpServer = HttpServerRef.new(
     address,
     defaultProcessCallback,
     serverFlags,
@@ -106,12 +106,9 @@ proc new*(
     maxRequestBodySize,
     dualstack = dualstack,
     middlewares = middlewares,
-  )
-  if sres.isOk():
-    server.httpServer = sres.get()
-    ok(server)
-  else:
-    err(sres.error)
+  ).valueOr:
+    return err(error)
+  return ok(server)
 
 proc getRouter(): RestRouter =
   # TODO: Review this `validate` method. Check in nim-presto what is this used for.
