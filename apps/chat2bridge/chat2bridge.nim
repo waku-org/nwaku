@@ -136,9 +136,7 @@ proc toMatterbridge(
 
 proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async.} =
   while cmb.running:
-    let getRes = cmb.mbClient.getMessages()
-
-    if getRes.isOk():
+    if (let getRes = cmb.mbClient.getMessages(); getRes.isOk()):
       for jsonNode in getRes[]:
         await handler(jsonNode)
     else:
@@ -169,9 +167,7 @@ proc new*(
   let mbClient = MatterbridgeClient.new(mbHostUri, mbGateway)
 
   # Let's verify the Matterbridge configuration before continuing
-  let clientHealth = mbClient.isHealthy()
-
-  if clientHealth.isOk() and clientHealth[]:
+  if mbClient.isHealthy().valueOr(false):
     info "Reached Matterbridge host", host = mbClient.host
   else:
     raise newException(ValueError, "Matterbridge client not reachable/healthy")

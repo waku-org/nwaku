@@ -89,23 +89,20 @@ proc maintainSubscription(
           await sleepAsync(2.seconds) # Wait a bit before retrying
           continue
         elif not preventPeerSwitch:
-          let peerOpt = selectRandomServicePeer(
+          actualFilterPeer = selectRandomServicePeer(
             wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
-          )
-          if peerOpt.isOk():
-            actualFilterPeer = peerOpt.get()
-
-            info "Found new peer for codec",
-              codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
-
-            noFailedSubscribes = 0
-            lpt_change_service_peer_count.inc(labelValues = ["receiver"])
-            isFirstPingOnNewPeer = true
-            continue # try again with new peer without delay
-          else:
+          ).valueOr:
             error "Failed to find new service peer. Exiting."
             noFailedServiceNodeSwitches += 1
             break
+
+          info "Found new peer for codec",
+            codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
+
+          noFailedSubscribes = 0
+          lpt_change_service_peer_count.inc(labelValues = ["receiver"])
+          isFirstPingOnNewPeer = true
+          continue # try again with new peer without delay
       else:
         if noFailedSubscribes > 0:
           noFailedSubscribes -= 1
