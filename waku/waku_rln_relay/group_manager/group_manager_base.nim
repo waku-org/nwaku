@@ -1,10 +1,6 @@
-import
-  ../../common/error_handling,
-  ../protocol_types,
-  ../protocol_metrics,
-  ../constants,
-  ../rln
-import options, chronos, results, std/[deques, sequtils]
+import ../../common/error_handling, ../protocol_types, ../protocol_metrics, ../constants
+
+import options, chronos, results, std/[deques]
 
 export options, chronos, results, protocol_types, protocol_metrics, deques
 

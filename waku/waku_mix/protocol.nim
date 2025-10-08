@@ -7,7 +7,6 @@ import
   mix/mix_protocol,
   mix/mix_node,
   mix/mix_metrics,
-  mix/tag_manager,
   libp2p/[multiaddress, multicodec, peerid],
   eth/common/keys
 
