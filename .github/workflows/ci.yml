@@ -56,7 +56,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 45
 
     name: build-${{ matrix.os }}
     steps:
@@ -92,9 +92,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-22.04, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 45
 
     name: test-${{ matrix.os }}
     steps:
