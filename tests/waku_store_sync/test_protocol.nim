@@ -522,31 +522,54 @@ suite "Waku Sync: reconciliation":
 
     randomize()
 
-    let nowNs = getNowInNanosecondTime()
-    let sliceStart = Timestamp(uint64(nowNs) - 700_000_000'u64)
-    let sliceEnd = nowNs
-    let stepIn = (sliceEnd.int64 - sliceStart.int64) div diffInWin
-
-    let oldStart = Timestamp(uint64(sliceStart) - outOffsetNs)
+    # Use a fixed base time to eliminate race conditions between macOS and Ubuntu
+    let baseTime = getNowInNanosecondTime()
+    
+    # The reconciliation will use: calculateTimeRange(relayJitter, syncRange)
+    # which does: now = getNow() - jitter; return [now - syncRange, now]
+    # With 1s syncRange and default 20s jitter, the effective sync window will be:
+    # [actualTime - jitter - 1s, actualTime - jitter]
+    
+    # We want our sync window to be [baseTime - 1s, baseTime]
+    # So we need: actualTime - jitter = baseTime
+    # Therefore: timeOffset should make actualTime equal to baseTime + jitter
+    
+    const syncRangeNs = 1_000_000_000'i64     # 1 second in nanoseconds
+    
+    # Define our intended sync window clearly
+    let syncWindowEnd = Timestamp(baseTime)
+    let syncWindowStart = Timestamp(baseTime - syncRangeNs)
+    
+    # Create in-window messages: spread them safely within the sync window
+    # Use a buffer to ensure they're clearly inside
+    let inWinStart = Timestamp(syncWindowStart.int64 + 50_000_000'i64)  # 50ms after window starts
+    let inWinEnd = Timestamp(syncWindowEnd.int64 - 50_000_000'i64)      # 50ms before window ends  
+    let stepIn = (inWinEnd.int64 - inWinStart.int64) div diffInWin
+    
+    # Create out-window messages: place them clearly before the sync window
+    # Start well before the window starts to avoid any overlap
+    let outWinStart = Timestamp(syncWindowStart.int64 - int64(outOffsetNs))
     let stepOut = Timestamp(stepOutNs)
 
     var inWinHashes, outWinHashes: HashSet[WakuMessageHash]
 
-    var ts = sliceStart + (Timestamp(stepIn) * 2)
+    # Create 18 in-window messages
+    var ts = inWinStart
     for _ in 0 ..< diffInWin:
-      let msg = fakeWakuMessage(ts = Timestamp ts, contentTopic = DefaultContentTopic)
+      let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
       let hash = computeMessageHash(DefaultPubsubTopic, msg)
       server.messageIngress(hash, DefaultPubsubTopic, msg)
       inWinHashes.incl hash
       ts += Timestamp(stepIn)
 
-    ts = oldStart
+    # Create 20 out-window messages  
+    ts = outWinStart
     for _ in 0 ..< diffOutWin:
-      let msg = fakeWakuMessage(ts = Timestamp ts, contentTopic = DefaultContentTopic)
+      let msg = fakeWakuMessage(ts = ts, contentTopic = DefaultContentTopic)
       let hash = computeMessageHash(DefaultPubsubTopic, msg)
       server.messageIngress(hash, DefaultPubsubTopic, msg)
       outWinHashes.incl hash
-      ts += Timestamp(stepOut)
+      ts += stepOut
 
     check remoteNeeds.len == 0
 
@@ -564,7 +587,19 @@ suite "Waku Sync: reconciliation":
       server.stop()
       client.stop()
 
-    let res = await client.storeSynchronization(some(serverPeerInfo))
+    # Calculate offset so the reconciliation window is [baseTime - 1s, baseTime]
+    # calculateTimeRange(now, jitterParam, syncRange):
+    #   now0 = getNow()
+    #   now  = now0 - jitterParam
+    #   return [now - syncRange, now]
+    # To make 'now' equal baseTime, set jitterParam = now0 - baseTime.
+    let actualNow = getNowInNanosecondTime()
+    let timeOffset = timer.nanoseconds(actualNow - baseTime)
+    
+    let res = await client.storeSynchronization(
+      peerInfo = some(serverPeerInfo), 
+      offset = timeOffset
+    )
     assert res.isOk(), $res.error
 
     check remoteNeeds.len == diffInWin
