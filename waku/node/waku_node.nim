@@ -9,6 +9,7 @@ import
   eth/keys,
   nimcrypto,
   bearssl/rand,
+  stew/byteutils,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/crypto/curve25519,
