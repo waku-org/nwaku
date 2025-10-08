@@ -233,6 +233,15 @@ proc getRendezvousHealth(hm: NodeHealthMonitor): ProtocolHealth =
 
   return p.ready()
 
+proc getMixHealth(hm: NodeHealthMonitor): ProtocolHealth =
+  var p = ProtocolHealth.init("Mix")
+  checkWakuNodeNotNil(hm.node, p)
+
+  if hm.node.wakuMix.isNil():
+    return p.notMounted()
+
+  return p.ready()
+
 proc selectRandomPeersForKeepalive(
     node: WakuNode, outPeers: seq[PeerId], numRandomPeers: int
 ): Future[seq[PeerId]] {.async.} =
@@ -387,6 +396,7 @@ proc getNodeHealthReport*(hm: NodeHealthMonitor): Future[HealthReport] {.async.}
     report.protocolsHealth.add(hm.getLegacyStoreHealth())
     report.protocolsHealth.add(hm.getPeerExchangeHealth())
     report.protocolsHealth.add(hm.getRendezvousHealth())
+    report.protocolsHealth.add(hm.getMixHealth())
 
     report.protocolsHealth.add(hm.getLightpushClientHealth(relayHealth.health))
     report.protocolsHealth.add(hm.getLegacyLightpushClientHealth(relayHealth.health))

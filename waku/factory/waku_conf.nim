@@ -15,7 +15,8 @@ import
   ../common/logging,
   ../common/rate_limit/setting,
   ../waku_enr/capabilities,
-  ./networks_config
+  ./networks_config,
+  ../waku_mix
 
 export RlnRelayConf, RlnRelayCreds, RestServerConf, Discv5Conf, MetricsServerConf
 
@@ -48,6 +49,7 @@ type StoreSyncConf* {.requiresInit.} = object
 type MixConf* = ref object
   mixKey*: Curve25519Key
   mixPubKey*: Curve25519Key
+  mixnodes*: seq[MixNodePubInfo]
 
 type StoreServiceConf* {.requiresInit.} = object
   dbMigration*: bool

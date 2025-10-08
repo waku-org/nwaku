@@ -1,8 +1,3 @@
-import
-  ./common/enr,
-  ./waku_enr/capabilities,
-  ./waku_enr/multiaddr,
-  ./waku_enr/sharding,
-  ./waku_enr/mix
+import ./common/enr, ./waku_enr/capabilities, ./waku_enr/multiaddr, ./waku_enr/sharding
 
-export enr, capabilities, multiaddr, sharding, mix
+export enr, capabilities, multiaddr, sharding
