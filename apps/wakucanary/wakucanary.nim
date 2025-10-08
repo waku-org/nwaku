@@ -274,9 +274,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   if conf.ping:
     try:
       pingSuccess = await pingFut
-    except CatchableError:
+    except CatchableError as exc:
       pingSuccess = false
-      error "Ping operation failed or timed out"
+      error "Ping operation failed or timed out", error = exc.msg
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
@@ -285,12 +285,11 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
       error "Not all protocols are supported",
         expected = conf.protocols, supported = nodeProtocols
       quit(QuitFailure)
-    
+
     # Check ping result if ping was enabled
     if conf.ping and not pingSuccess:
       error "Node is reachable and supports protocols but ping failed - connection may be unstable"
       quit(QuitFailure)
-      
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId
     quit(QuitFailure)
