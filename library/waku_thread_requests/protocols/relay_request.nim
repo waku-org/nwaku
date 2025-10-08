@@ -4,14 +4,14 @@ import
   waku/waku_core/message/message,
   waku/factory/[validator_signed, waku],
   tools/confutils/cli_args,
-  waku/waku_node,
   waku/waku_core/message,
   waku/waku_core/time, # Timestamp
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/topics,
+  waku/node/api/relay,
   waku/waku_relay/protocol,
   waku/node/peer_manager
-  
+
 import
 
 registerReqFFI(GetPeersInMeshReq, waku: ptr Waku):
