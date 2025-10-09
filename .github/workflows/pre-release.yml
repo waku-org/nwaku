@@ -34,10 +34,10 @@ jobs:
     needs: tag-name
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-22.04, macos-15]
         arch: [amd64]
         include:
-        - os: macos-13
+        - os: macos-15
           arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
