@@ -18,6 +18,7 @@ import
     factory/waku_conf,
     factory/conf_builder/conf_builder,
     factory/builder,
+    common/logging,
   ],
   ./common
 
@@ -72,6 +73,8 @@ proc newTestWakuNode*(
     clusterId = DefaultClusterId,
     subscribeShards = @[DefaultShardId],
 ): WakuNode =
+  logging.setupLog(logging.LogLevel.DEBUG, logging.LogFormat.TEXT)
+
   var resolvedExtIp = extIp
 
   # Update extPort to default value if it's missing and there's an extIp or a DNS domain
