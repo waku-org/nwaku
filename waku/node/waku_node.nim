@@ -44,6 +44,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_metadata,
   ../waku_rendezvous/protocol,
+  ../waku_rendezvous/waku_peer_record,
   ../waku_lightpush_legacy/client as legacy_ligntpuhs_client,
   ../waku_lightpush_legacy as legacy_lightpush_protocol,
   ../waku_lightpush/client as ligntpuhs_client,
@@ -148,6 +149,17 @@ proc getCapabilitiesGetter(node: WakuNode): GetCapabilities =
     if node.wakuRelay.isNil():
       return @[]
     return node.enr.getCapabilities()
+
+proc getWakuPeerRecordGetter(node: WakuNode): GetWakuPeerRecord =
+  return proc(): WakuPeerRecord {.closure, gcsafe, raises: [].} =
+    var mixKey: string
+    if not node.wakuMix.isNil():
+      mixKey = node.wakuMix.pubKey.to0xHex()
+    return WakuPeerRecord.init(
+      peerId = node.switch.peerInfo.peerId,
+      addresses = node.announcedAddresses,
+      mixKey = mixKey,
+    )
 
 proc new*(
     T: type WakuNode,
@@ -356,6 +368,7 @@ proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).}
     clusterId,
     node.getShardsGetter(),
     node.getCapabilitiesGetter(),
+    node.getWakuPeerRecordGetter(),
   ).valueOr:
     error "initializing waku rendezvous failed", error = error
     return
