@@ -243,20 +243,18 @@ proc jsonStat*(self: Statistics): string =
            }},
           "lostIndices": {self.missingIndices()}
      }}""".fmt()
-  if json.isErr:
-    return "{\"result:\": \"" & json.error.msg & "\"}"
 
-  return json.get()
+  return json.valueOr("{\"result:\": \"" & error.msg & "\"}")
 
 proc echoStats*(self: var PerPeerStatistics) =
   for peerId, stats in self.pairs:
     let peerLine = catch:
       "Receiver statistics from peer {peerId}".fmt()
-    if peerLine.isErr:
+    peerLine.isOkOr:
       echo "Error while printing statistics"
-    else:
-      echo peerLine.get()
-      stats.echoStat(peerId)
+      continue
+    echo peerLine.get()
+    stats.echoStat(peerId)
 
 proc jsonStats*(self: PerPeerStatistics): string =
   try:
