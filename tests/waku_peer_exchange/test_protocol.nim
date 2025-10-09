@@ -17,7 +17,6 @@ import
     waku_peer_exchange/rpc_codec,
     waku_peer_exchange/protocol,
     waku_peer_exchange/client,
-    node/peer_manager,
     waku_core,
     common/enr/builder,
     waku_enr/sharding,

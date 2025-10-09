@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[net, tables, strutils, times, sequtils, random],
+  std/[net, tables, strutils, times, sequtils, random, sugar],
   results,
   chronicles,
   chronicles/topics_registry,
@@ -183,16 +183,14 @@ proc setConnectedPeersMetrics(
     for maddr in peerInfo.addrs:
       if $maddr notin customPeerInfo.maddrs:
         customPeerInfo.maddrs.add $maddr
-    let typedRecord = discNode.toTypedRecord()
-    if not typedRecord.isOk():
+    let typedRecord = discNode.toTypedRecord().valueOr:
       warn "could not convert record to typed record", record = discNode
       continue
-    if not typedRecord.get().ip.isSome():
-      warn "ip field is not set", record = typedRecord.get()
+    let ipAddr = typedRecord.ip.valueOr:
+      warn "ip field is not set", record = typedRecord
       continue
 
-    let ip = $typedRecord.get().ip.get().join(".")
-    customPeerInfo.ip = ip
+    customPeerInfo.ip = $ipAddr.join(".")
 
     # try to ping the peer
     if shouldReconnect(customPeerInfo):
@@ -374,14 +372,9 @@ proc retrieveDynamicBootstrapNodes(
       if resolved.len > 0:
         return resolved[0] # Use only first answer
 
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return (await wakuDnsDiscovery.get().findPeers()).mapErr(
-        proc(e: cstring): string =
-          $e
-      )
-    else:
-      warn "Failed to init Waku DNS discovery"
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver).errorOr:
+      return (await value.findPeers()).mapErr(e => $e)
+    warn "Failed to init Waku DNS discovery"
 
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
@@ -391,11 +384,10 @@ proc getBootstrapFromDiscDns(
 ): Future[Result[seq[enr.Record], string]] {.async.} =
   try:
     let dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
-    let dynamicBootstrapNodesRes =
+    let dynamicBootstrapNodes = (
       await retrieveDynamicBootstrapNodes(conf.dnsDiscoveryUrl, dnsNameServers)
-    if not dynamicBootstrapNodesRes.isOk():
-      error("failed discovering peers from DNS")
-    let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+    ).valueOr:
+      return err("Failed retrieving dynamic bootstrap nodes: " & $error)
 
     # select dynamic bootstrap nodes that have an ENR containing a udp port.
     # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
@@ -411,7 +403,7 @@ proc getBootstrapFromDiscDns(
           discv5BootstrapEnrs.add(enr)
     return ok(discv5BootstrapEnrs)
   except CatchableError:
-    error("failed discovering peers from DNS")
+    error("failed discovering peers from DNS: " & getCurrentExceptionMsg())
 
 proc initAndStartApp(
     conf: NetworkMonitorConf
