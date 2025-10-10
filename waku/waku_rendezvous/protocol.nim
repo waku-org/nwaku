@@ -17,7 +17,8 @@ import
   ../waku_core/peers,
   ../waku_core/topics,
   ../waku_core/topics/pubsub_topic,
-  ./common
+  ./common,
+  ./waku_peer_record
 
 logScope:
   topics = "waku rendezvous"
@@ -31,6 +32,7 @@ type WakuRendezVous* = ref object
   clusterId: uint16
   getShards: GetShards
   getCapabilities: GetCapabilities
+  getPeerRecord: GetWakuPeerRecord
 
   registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
@@ -73,12 +75,9 @@ proc batchAdvertise*(
 
       let conn = connOpt.valueOr:
         continue
-
       conn
-
   let advertCatch = catch:
-    await self.rendezvous.advertise(namespace, ttl, peers)
-
+    await self.rendezvous.advertise(namespace, self.getPeerRecord(), ttl, peers)
   for conn in conns:
     await conn.close()
 
@@ -92,7 +91,7 @@ proc batchRequest*(
     namespace: string,
     count: int = DiscoverLimit,
     peers: seq[PeerId],
-): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
+): Future[Result[seq[WakuPeerRecord], string]] {.async: (raises: []).} =
   ## Request all records from all rendezvous peers matching a namespace
 
   # rendezvous.request expects already opened connections
@@ -126,7 +125,9 @@ proc batchRequest*(
       conn
 
   let reqCatch = catch:
-    await self.rendezvous.request(Opt.some(namespace), count, peers)
+    await rendezvous.request[WakuPeerRecord](
+      self.rendezvous, Opt.some(namespace), Opt.some(count), Opt.some(peers)
+    )
 
   for conn in conns:
     await conn.close()
@@ -210,13 +211,14 @@ proc initialRequestAll*(
     elif fut.finished():
       let res = fut.value()
 
-      let records = res.valueOr:
+      let records: seq[WakuPeerRecord] = res.valueOr:
         warn "a rendezvous request failed", cause = $res.error
         continue
 
       for record in records:
         rendezvousPeerFoundTotal.inc()
-        self.peerManager.addPeer(record)
+        let rInfo = RemotePeerInfo.init(record.peerId, record.addresses)
+        self.peerManager.addPeer(rInfo)
 
   debug "waku rendezvous initial request finished"
 
@@ -264,6 +266,7 @@ proc new*(
     clusterId: uint16,
     getShards: GetShards,
     getCapabilities: GetCapabilities,
+    getPeerRecord: GetWakuPeerRecord,
 ): Result[T, string] {.raises: [].} =
   let rvCatchable = catch:
     RendezVous.new(switch = switch, minDuration = DefaultRegistrationTTL)
@@ -287,6 +290,7 @@ proc new*(
   wrv.getCapabilities = getCapabilities
   wrv.registrationInterval = DefaultRegistrationInterval
   wrv.requestInterval = DefaultRequestsInterval
+  wrv.getPeerRecord = getPeerRecord
 
   debug "waku rendezvous initialized",
     clusterId = clusterId, shards = getShards(), capabilities = getCapabilities()
