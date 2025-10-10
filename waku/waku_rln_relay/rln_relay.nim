@@ -406,9 +406,6 @@ proc mount(
   var
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
-  # create an RLN instance
-  let rlnInstance = createRLNInstance().valueOr:
-    return err("could not create RLN instance: " & $error)
 
   let (rlnRelayCredPath, rlnRelayCredPassword) =
     if conf.creds.isSome:
@@ -421,7 +418,6 @@ proc mount(
     ethClientUrls: conf.ethClientUrls,
     ethContractAddress: $conf.ethContractAddress,
     chainId: conf.chainId,
-    rlnInstance: rlnInstance,
     registrationHandler: registrationHandler,
     keystorePath: rlnRelayCredPath,
     keystorePassword: rlnRelayCredPassword,

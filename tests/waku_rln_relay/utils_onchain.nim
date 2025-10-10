@@ -549,12 +549,6 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
 proc setupOnchainGroupManager*(
     ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =
-  let rlnInstanceRes = createRlnInstance()
-  check:
-    rlnInstanceRes.isOk()
-
-  let rlnInstance = rlnInstanceRes.get()
-
   # connect to the eth client
   let web3 = await newWeb3(ethClientUrl)
   let accounts = await web3.provider.eth_accounts()
@@ -599,7 +593,6 @@ proc setupOnchainGroupManager*(
     ethContractAddress: $contractAddress,
     chainId: CHAIN_ID,
     ethPrivateKey: some($privateKey),
-    rlnInstance: rlnInstance,
     onFatalErrorAction: proc(errStr: string) =
       raiseAssert errStr
     ,

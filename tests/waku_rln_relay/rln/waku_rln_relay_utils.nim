@@ -7,9 +7,6 @@ import
     nonce_manager,
   ]
 
-proc createRLNInstanceWrapper*(): RLNResult =
-  return createRlnInstance()
-
 proc unsafeAppendRLNProof*(
     rlnPeer: WakuRLNRelay, msg: var WakuMessage, epoch: Epoch, messageId: MessageId
 ): RlnRelayResult[void] =
