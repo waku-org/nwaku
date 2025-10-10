@@ -36,15 +36,11 @@ suite "Waku rln relay":
   test "key_gen Nim Wrappers":
     let merkleDepth: csize_t = 20
 
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
     # keysBufferPtr will hold the generated identity credential i.e., id trapdoor, nullifier, secret hash and commitment
     var keysBuffer: Buffer
     let
       keysBufferPtr = addr(keysBuffer)
-      done = key_gen(rlnInstance.get(), keysBufferPtr)
+      done = key_gen(keysBufferPtr, true)
     require:
       # check whether the keys are generated successfully
       done

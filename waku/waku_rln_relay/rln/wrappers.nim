@@ -14,7 +14,7 @@ import ../../waku_core, ../../waku_keystore
 logScope:
   topics = "waku rln_relay ffi"
 
-proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
+proc membershipKeyGen*(): RlnRelayResult[IdentityCredential] =
   ## generates a IdentityCredential that can be used for the registration into the rln membership contract
   ## Returns an error if the key generation fails
 
@@ -22,7 +22,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   var
     keysBuffer: Buffer
     keysBufferPtr = addr(keysBuffer)
-    done = key_gen(ctxPtr, keysBufferPtr)
+    done = key_gen(keysBufferPtr, true)
 
   # check whether the keys are generated successfully
   if (done == false):
