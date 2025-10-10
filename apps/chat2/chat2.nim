@@ -132,25 +132,14 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
-proc getChatLine(c: Chat, msg: WakuMessage): Result[string, string] =
+proc getChatLine(payload: seq[byte]): string =
   # No payload encoding/encryption from Waku
-  let
-    pb = Chat2Message.init(msg.payload)
-    chatLine =
-      if pb.isOk:
-        pb[].toString()
-      else:
-        string.fromBytes(msg.payload)
-  return ok(chatline)
+  let pb = Chat2Message.init(payload).valueOr:
+    return string.fromBytes(payload)
+  return $pb
 
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
-  let
-    pb = Chat2Message.init(msg.payload)
-    chatLine =
-      if pb.isOk:
-        pb[].toString()
-      else:
-        string.fromBytes(msg.payload)
+  let chatLine = getChatLine(msg.payload)
   try:
     echo &"{chatLine}"
   except ValueError:
@@ -173,18 +162,16 @@ proc startMetricsServer(
 ): Result[MetricsHttpServerRef, string] =
   info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
 
-  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
-  if metricsServerRes.isErr():
-    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
+  let server = MetricsHttpServerRef.new($serverIp, serverPort).valueOr:
+    return err("metrics HTTP server start failed: " & $error)
 
-  let server = metricsServerRes.value
   try:
     waitFor server.start()
   except CatchableError:
     return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
 
   info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
-  ok(metricsServerRes.value)
+  ok(server)
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
@@ -202,19 +189,17 @@ proc publish(c: Chat, line: string) =
     version: 0,
     timestamp: getNanosecondTime(time),
   )
+
   if not isNil(c.node.wakuRlnRelay):
     # for future version when we support more than one rln protected content topic,
     # we should check the message content topic as well
-    let appendRes = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-    if appendRes.isErr():
+    if c.node.wakuRlnRelay.appendRLNProof(message, float64(time)).isErr():
       debug "could not append rate limit proof to the message"
     else:
       debug "rate limit proof is appended to the message"
-      let decodeRes = RateLimitProof.init(message.proof)
-      if decodeRes.isErr():
+      let proof = RateLimitProof.init(message.proof).valueOr:
         error "could not decode the RLN proof"
-
-      let proof = decodeRes.get()
+        return
       # TODO move it to log after dogfooding
       let msgEpoch = fromEpoch(proof.epoch)
       if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
@@ -438,7 +423,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       let resolved = await dnsResolver.resolveTxt(domain)
       return resolved[0] # Use only first answer
 
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
+    let wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
     if wakuDnsDiscovery.isOk:
       let discoveredPeers = await wakuDnsDiscovery.get().findPeers()
       if discoveredPeers.isOk:
@@ -446,8 +431,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         discoveredNodes = discoveredPeers.get()
         echo "Discovered and connecting to " & $discoveredNodes
         waitFor chat.node.connectToNodes(discoveredNodes)
+      else:
+        warn "Failed to find peers via DNS discovery", error = discoveredPeers.error
     else:
-      warn "Failed to init Waku DNS discovery"
+      warn "Failed to init Waku DNS discovery", error = wakuDnsDiscovery.error
 
   let peerInfo = node.switch.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -483,21 +470,19 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
             else:
               newSeq[byte](0)
 
-          let
-            pb = Chat2Message.init(payload)
-            chatLine =
-              if pb.isOk:
-                pb[].toString()
-              else:
-                string.fromBytes(payload)
+          let chatLine = getChatLine(payload)
           echo &"{chatLine}"
         info "Hit store handler"
 
-      let queryRes = await node.query(
-        StoreQueryRequest(contentTopics: @[chat.contentTopic]), storenode.get()
-      )
-      if queryRes.isOk():
-        storeHandler(queryRes.value)
+      block storeQueryBlock:
+        let queryRes = (
+          await node.query(
+            StoreQueryRequest(contentTopics: @[chat.contentTopic]), storenode.get()
+          )
+        ).valueOr:
+          error "Store query failed", error = error
+          break storeQueryBlock
+        storeHandler(queryRes)
 
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
@@ -511,8 +496,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         error = peerInfo.error
 
   if conf.filternode != "":
-    let peerInfo = parsePeerInfo(conf.filternode)
-    if peerInfo.isOk():
+    if (let peerInfo = parsePeerInfo(conf.filternode); peerInfo.isErr()):
+      error "Filter not mounted. Couldn't parse conf.filternode", error = peerInfo.error
+    else:
       await node.mountFilter()
       await node.mountFilterClient()
 
@@ -523,8 +509,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
       # TODO: Here to support FilterV2 relevant subscription.
-    else:
-      error "Filter not mounted. Couldn't parse conf.filternode", error = peerInfo.error
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:
@@ -545,11 +529,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
       proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
         debug "spam handler is called"
-        let chatLineResult = chat.getChatLine(wakuMessage)
-        if chatLineResult.isOk():
-          echo "A spam message is found and discarded : ", chatLineResult.value
-        else:
-          echo "A spam message is found and discarded"
+        let chatLineResult = getChatLine(wakuMessage.payload)
+        echo "spam message is found and discarded : " & chatLineResult
         chat.prompt = false
         showChatPrompt(chat)
 

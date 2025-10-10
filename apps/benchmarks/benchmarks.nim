@@ -28,10 +28,9 @@ proc benchmark(
       iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
 
   discard await manager.updateRoots()
-  let proofResult = await manager.fetchMerkleProofElements()
-  if proofResult.isErr():
-    error "Failed to fetch Merkle proof", error = proofResult.error
-  manager.merkleProofCache = proofResult.get()
+  manager.merkleProofCache = (await manager.fetchMerkleProofElements()).valueOr:
+    error "Failed to fetch Merkle proof", error = error
+    quit(QuitFailure)
 
   let epoch = default(Epoch)
   debug "epoch in bytes", epochHex = epoch.inHex()
