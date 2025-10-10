@@ -96,18 +96,16 @@ proc sendRequestToWakuThread*(
     deallocShared(req)
     return err("Couldn't send a request to the waku thread: " & $req[])
 
-  let fireSyncRes = ctx.reqSignal.fireSync()
-  if fireSyncRes.isErr():
+  let fireSync = ctx.reqSignal.fireSync().valueOr:
     deallocShared(req)
-    return err("failed fireSync: " & $fireSyncRes.error)
+    return err("failed fireSync: " & $error)
 
-  if fireSyncRes.get() == false:
+  if not fireSync:
     deallocShared(req)
     return err("Couldn't fireSync in time")
 
   ## wait until the Waku Thread properly received the request
-  let res = ctx.reqReceivedSignal.waitSync(timeout)
-  if res.isErr():
+  ctx.reqReceivedSignal.waitSync(timeout).isOkOr:
     deallocShared(req)
     return err("Couldn't receive reqReceivedSignal signal")
 
@@ -176,9 +174,8 @@ proc wakuThreadBody(ctx: ptr WakuContext) {.thread.} =
       ## Handle the request
       asyncSpawn WakuThreadRequest.process(request, addr waku)
 
-      let fireRes = ctx.reqReceivedSignal.fireSync()
-      if fireRes.isErr():
-        error "could not fireSync back to requester thread", error = fireRes.error
+      ctx.reqReceivedSignal.fireSync().isOkOr:
+        error "could not fireSync back to requester thread", error = error
 
   waitFor wakuRun(ctx)
 

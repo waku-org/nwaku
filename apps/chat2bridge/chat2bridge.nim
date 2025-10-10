@@ -134,13 +134,12 @@ proc toMatterbridge(
 
 proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async.} =
   while cmb.running:
-    if (let getRes = cmb.mbClient.getMessages(); getRes.isOk()):
-      for jsonNode in getRes[]:
-        await handler(jsonNode)
-    else:
+    let msg = cmb.mbClient.getMessages().valueOr:
       error "Matterbridge host unreachable. Sleeping before retrying."
       await sleepAsync(chronos.seconds(10))
-
+      continue
+    for jsonNode in msg:
+      await handler(jsonNode)
     await sleepAsync(cmb.pollPeriod)
 
 ##############
