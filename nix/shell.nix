@@ -17,7 +17,7 @@ pkgs.mkShell {
     cargo
     rustup
     cmake
-    nim-unwrapped-2_0
+    nim-unwrapped-2_2
   ];
 
 }
