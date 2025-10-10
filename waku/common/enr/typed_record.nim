@@ -61,6 +61,7 @@ func toTyped*(record: Record): EnrResult[TypedRecord] =
 # Typed record field accessors
 
 func id*(record: TypedRecord): Option[RecordId] =
+  #return record.tryGet("id", string).flatMap(idStr => toRecordId(idStr).ok)
   let fieldOpt = record.tryGet("id", string)
   if fieldOpt.isNone():
     return none(RecordId)

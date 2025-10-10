@@ -181,12 +181,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     protocols = conf.protocols,
     logLevel = conf.logLevel
 
-  let peerRes = parsePeerInfo(conf.address)
-  if peerRes.isErr():
-    error "Couldn't parse 'conf.address'", error = peerRes.error
+  let peer = parsePeerInfo(conf.address).valueOr:
+    error "Couldn't parse 'conf.address'", error = error
     quit(QuitFailure)
-
-  let peer = peerRes.value
 
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -225,13 +222,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     error "could not initialize ENR with shards", error
     quit(QuitFailure)
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create enr record", error = recordRes.error
-      quit(QuitFailure)
-    else:
-      recordRes.get()
+  let record = enrBuilder.build().valueOr:
+    error "failed to create enr record", error = error
+    quit(QuitFailure)
 
   if isWss and
       (conf.websocketSecureKeyPath.len == 0 or conf.websocketSecureCertPath.len == 0):

@@ -29,13 +29,9 @@ proc enrConfiguration*(
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create record", error = recordRes.error
-      return err($recordRes.error)
-    else:
-      recordRes.get()
+  let record = enrBuilder.build().valueOr:
+    error "failed to create enr record", error = error
+    return err($error)
 
   return ok(record)
 
@@ -70,16 +66,13 @@ proc networkConfiguration*(
 ): Future[NetConfigResult] {.async.} =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
-  let natRes = setupNat(
+  var (extIp, extTcpPort, _) = setupNat(
     conf.natStrategy.string,
     clientId,
     Port(uint16(conf.p2pTcpPort) + portsShift),
     Port(uint16(conf.p2pTcpPort) + portsShift),
-  )
-  if natRes.isErr():
-    return err("failed to setup NAT: " & $natRes.error)
-
-  var (extIp, extTcpPort, _) = natRes.get()
+  ).valueOr:
+    return err("failed to setup NAT: " & $error)
 
   let
     discv5UdpPort =
@@ -101,12 +94,10 @@ proc networkConfiguration*(
   # Resolve and use DNS domain IP
   if conf.dns4DomainName.isSome() and extIp.isNone():
     try:
-      let dnsRes = await dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)
+      let dns = (await dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)).valueOr:
+        return err($error) # Pass error down the stack
 
-      if dnsRes.isErr():
-        return err($dnsRes.error) # Pass error down the stack
-
-      extIp = some(parseIpAddress(dnsRes.get()))
+      extIp = some(parseIpAddress(dns))
     except CatchableError:
       return
         err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())

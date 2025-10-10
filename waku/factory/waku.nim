@@ -205,13 +205,11 @@ proc new*(
     if wakuConf.remoteStoreNode.isNone():
       return err("A storenode should be set when reliability mode is on")
 
-    let deliveryMonitorRes = DeliveryMonitor.new(
+    let deliveryMonitor = DeliveryMonitor.new(
       node.wakuStoreClient, node.wakuRelay, node.wakuLightpushClient,
       node.wakuFilterClient,
-    )
-    if deliveryMonitorRes.isErr():
-      return err("could not create delivery monitor: " & $deliveryMonitorRes.error)
-    deliveryMonitor = deliveryMonitorRes.get()
+    ).valueOr:
+      return err("could not create delivery monitor: " & $error)
 
   var waku = Waku(
     version: git_version,
@@ -328,15 +326,13 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
     await sleepAsync(30.seconds)
     if waku.conf.dnsDiscoveryConf.isSome():
       let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
-      let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-        dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
-      )
-      if dynamicBootstrapNodesRes.isErr():
-        error "Retrieving dynamic bootstrap nodes failed",
-          error = dynamicBootstrapNodesRes.error
+      waku[].dynamicBootstrapNodes = (
+        await waku_dnsdisc.retrieveDynamicBootstrapNodes(
+          dnsDiscoveryConf.enrTreeUrl, dnsDiscoveryConf.nameServers
+        )
+      ).valueOr:
+        error "Retrieving dynamic bootstrap nodes failed", error = error
         continue
-
-      waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
     if not waku[].wakuDiscv5.isNil():
       let dynamicBootstrapEnrs = waku[].dynamicBootstrapNodes

@@ -59,7 +59,4 @@ proc logSelfPeers*(pm: PeerManager) =
 {allPeers(pm)}
 *------------------------------------------------------------------------------------------*""".fmt()
 
-  if printable.isErr():
-    echo "Error while printing statistics: " & printable.error().msg
-  else:
-    echo printable.get()
+  echo printable.valueOr("Error while printing statistics: " & error.msg)
