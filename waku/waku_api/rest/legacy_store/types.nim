@@ -60,13 +60,11 @@ proc parseMsgDigest*(
     return ok(none(waku_store_common.MessageDigest))
 
   let decodedUrl = decodeUrl(input.get())
-  let base64Decoded = base64.decode(Base64String(decodedUrl))
+  let base64DecodedArr = base64.decode(Base64String(decodedUrl)).valueOr:
+    return err(error)
+
   var messageDigest = waku_store_common.MessageDigest()
 
-  if not base64Decoded.isOk():
-    return err(base64Decoded.error)
-
-  let base64DecodedArr = base64Decoded.get()
   # Next snippet inspired by "nwaku/waku/waku_archive/archive.nim"
   # TODO: Improve coherence of MessageDigest type
   messageDigest = block:
@@ -220,10 +218,9 @@ proc readValue*(
     of "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple `data` fields found", "MessageDigest")
-      let decoded = base64.decode(reader.readValue(Base64String))
-      if not decoded.isOk():
+      let decoded = base64.decode(reader.readValue(Base64String)).valueOr:
         reader.raiseUnexpectedField("Failed decoding data", "MessageDigest")
-      data = some(decoded.get())
+      data = some(decoded)
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 

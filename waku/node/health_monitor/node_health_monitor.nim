@@ -1,13 +1,14 @@
 {.push raises: [].}
 
 import
-  std/[options, sets, strformat, random, sequtils],
+  std/[options, sets, random, sequtils],
   chronos,
   chronicles,
   libp2p/protocols/rendezvous
 
 import
   ../waku_node,
+  ../api,
   ../../waku_rln_relay,
   ../../waku_relay,
   ../peer_manager,

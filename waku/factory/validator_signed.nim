@@ -67,9 +67,8 @@ proc addSignedShardsValidator*(
         if msg.timestamp != 0:
           if msg.withinTimeWindow():
             let msgHash = SkMessage(topic.msgHash(msg))
-            let recoveredSignature = SkSignature.fromRaw(msg.meta)
-            if recoveredSignature.isOk():
-              if recoveredSignature.get.verify(msgHash, protectedShard.key):
+            SkSignature.fromRaw(msg.meta).isErrOr:
+              if value.verify(msgHash, protectedShard.key):
                 outcome = errors.ValidationResult.Accept
 
         if outcome != errors.ValidationResult.Accept:

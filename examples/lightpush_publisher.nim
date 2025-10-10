@@ -86,7 +86,9 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
       timestamp: now(),
     ) # current timestamp
 
-    let lightpushPeer = parsePeerInfo(LightpushPeer).get()
+    let lightpushPeer = parsePeerInfo(LightpushPeer).valueOr:
+      error "failed to parse LightpushPeer", error = error
+      quit(QuitFailure)
 
     let res = await node.legacyLightpushPublish(
       some(LightpushPubsubTopic), message, lightpushPeer

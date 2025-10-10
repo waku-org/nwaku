@@ -6,7 +6,7 @@ import
   stew/[arrayops, byteutils, endians2],
   stint,
   results,
-  std/[sequtils, strutils, tables, tempfiles]
+  std/[sequtils, strutils, tables]
 
 import ./rln_interface, ../conversion_utils, ../protocol_types, ../protocol_metrics
 import ../../waku_core, ../../waku_keystore

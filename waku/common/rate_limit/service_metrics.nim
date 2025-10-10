@@ -1,7 +1,6 @@
 {.push raises: [].}
 
 import std/options
-import chronos/timer
 import metrics, setting
 
 export metrics

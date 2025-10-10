@@ -190,24 +190,21 @@ proc publishMessages(
         )
         if not preventPeerSwitch and noFailedPush > maxFailedPush:
           info "Max push failure limit reached, Try switching peer."
-          let peerOpt = selectRandomServicePeer(
+          actualServicePeer = selectRandomServicePeer(
             wakuNode.peerManager, some(actualServicePeer), WakuLightPushCodec
-          )
-          if peerOpt.isOk():
-            actualServicePeer = peerOpt.get()
-
-            info "New service peer in use",
-              codec = lightpushPubsubTopic,
-              peer = constructMultiaddrStr(actualServicePeer)
-
-            noFailedPush = 0
-            noOfServicePeerSwitches += 1
-            lpt_change_service_peer_count.inc(labelValues = ["publisher"])
-            continue # try again with new peer without delay
-          else:
+          ).valueOr:
             error "Failed to find new service peer. Exiting."
             noFailedServiceNodeSwitches += 1
             break
+
+          info "New service peer in use",
+            codec = lightpushPubsubTopic,
+            peer = constructMultiaddrStr(actualServicePeer)
+
+          noFailedPush = 0
+          noOfServicePeerSwitches += 1
+          lpt_change_service_peer_count.inc(labelValues = ["publisher"])
+          continue # try again with new peer without delay
 
     await sleepAsync(messageInterval)
 

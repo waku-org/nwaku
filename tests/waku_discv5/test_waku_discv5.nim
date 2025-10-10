@@ -22,6 +22,7 @@ import
     factory/conf_builder/conf_builder,
     factory/waku,
     node/waku_node,
+    node/api,
     node/peer_manager,
   ],
   ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],

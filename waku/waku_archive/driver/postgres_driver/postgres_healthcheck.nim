@@ -24,8 +24,7 @@ proc checkConnectivity*(
 
         var numTrial = 0
         while numTrial < MaxNumTrials:
-          let res = await connPool.pgQuery(HealthCheckQuery)
-          if res.isOk():
+          (await connPool.pgQuery(HealthCheckQuery)).isErrOr:
             ## Connection resumed. Let's go back to the normal healthcheck.
             break errorBlock
 

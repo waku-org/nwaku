@@ -20,6 +20,7 @@ requires "nim >= 2.2.4",
   "json_rpc",
   "libbacktrace",
   "nimcrypto",
+  "serialization",
   "stew",
   "stint",
   "metrics",
@@ -30,7 +31,6 @@ requires "nim >= 2.2.4",
   "results",
   "db_connector",
   "minilru",
-  "quic",
   "https://github.com/vacp2p/mix#0.1.0"
 
 ### Helper functions

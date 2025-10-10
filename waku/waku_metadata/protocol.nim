@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, sets],
+  std/[options, sequtils],
   results,
   chronicles,
   chronos,

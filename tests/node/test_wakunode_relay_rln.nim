@@ -17,6 +17,7 @@ import
     node/peer_manager,
     waku_core,
     waku_node,
+    node/api,
     common/error_handling,
     waku_rln_relay,
     waku_rln_relay/rln,

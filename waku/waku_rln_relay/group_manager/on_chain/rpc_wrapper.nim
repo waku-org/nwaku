@@ -1,5 +1,4 @@
 import
-  os,
   web3,
   web3/eth_api_types,
   web3/primitives,
@@ -8,14 +7,12 @@ import
   nimcrypto/keccak as keccak,
   stint,
   json,
-  std/[strutils, tables, algorithm],
-  stew/[byteutils, arrayops],
+  std/strutils,
+  stew/byteutils,
   sequtils
 
 import
   ../../../waku_keystore,
-  ../../rln,
-  ../../rln/rln_interface,
   ../../conversion_utils,
   ../../protocol_types,
   ../group_manager_base

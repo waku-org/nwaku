@@ -91,7 +91,7 @@ type Chat2MatterbridgeConf* = object
     name: "filternode"
   .}: string
 
-  # Matterbridge options    
+  # Matterbridge options
   mbHostAddress* {.
     desc: "Listening address of the Matterbridge host",
     defaultValue: parseIpAddress("127.0.0.1"),
@@ -126,11 +126,9 @@ proc completeCmdArg*(T: type keys.KeyPair, val: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
-  let key = SkPrivateKey.init(p)
-  if key.isOk():
-    crypto.PrivateKey(scheme: Secp256k1, skkey: key.get())
-  else:
+  let key = SkPrivateKey.init(p).valueOr:
     raise newException(ValueError, "Invalid private key")
+  return crypto.PrivateKey(scheme: Secp256k1, skkey: key)
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]

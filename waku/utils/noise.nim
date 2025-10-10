@@ -12,11 +12,9 @@ proc decodePayloadV2*(
   case message.version
   of 2:
     # We attempt to decode the WakuMessage payload
-    let deserializedPayload2 = deserializePayloadV2(message.payload)
-    if deserializedPayload2.isOk():
-      return ok(deserializedPayload2.get())
-    else:
+    let deserializedPayload2 = deserializePayloadV2(message.payload).valueOr:
       return err("Failed to decode WakuMessage")
+    return ok(deserializedPayload2)
   else:
     return err("Wrong message version while decoding payload")
 
@@ -28,13 +26,11 @@ proc encodePayloadV2*(
     raises: [NoiseMalformedHandshake, NoisePublicKeyError]
 .} =
   # We attempt to encode the PayloadV2
-  let serializedPayload2 = serializePayloadV2(payload2)
-  if not serializedPayload2.isOk():
+  let serializedPayload2 = serializePayloadV2(payload2).valueOr:
     return err("Failed to encode PayloadV2")
 
   # If successful, we create and return a WakuMessage
-  let msg = WakuMessage(
-    payload: serializedPayload2.get(), version: 2, contentTopic: contentTopic
-  )
+  let msg =
+    WakuMessage(payload: serializedPayload2, version: 2, contentTopic: contentTopic)
 
   return ok(msg)

@@ -70,30 +70,27 @@ proc parseCursor(
     digest: Option[string],
 ): Result[Option[HistoryCursor], string] =
   # Parse sender time
-  let parsedSenderTime = parseTime(senderTime)
-  if not parsedSenderTime.isOk():
-    return err(parsedSenderTime.error)
+  let parsedSenderTime = parseTime(senderTime).valueOr:
+    return err(error)
 
   # Parse store time
-  let parsedStoreTime = parseTime(storeTime)
-  if not parsedStoreTime.isOk():
-    return err(parsedStoreTime.error)
+  let parsedStoreTime = parseTime(storeTime).valueOr:
+    return err(error)
 
   # Parse message digest
-  let parsedMsgDigest = parseMsgDigest(digest)
-  if not parsedMsgDigest.isOk():
-    return err(parsedMsgDigest.error)
+  let parsedMsgDigest = parseMsgDigest(digest).valueOr:
+    return err(error)
 
   # Parse cursor information
-  if parsedPubsubTopic.isSome() and parsedSenderTime.value.isSome() and
-      parsedStoreTime.value.isSome() and parsedMsgDigest.value.isSome():
+  if parsedPubsubTopic.isSome() and parsedSenderTime.isSome() and
+      parsedStoreTime.isSome() and parsedMsgDigest.isSome():
     return ok(
       some(
         HistoryCursor(
           pubsubTopic: parsedPubsubTopic.get(),
-          senderTime: parsedSenderTime.value.get(),
-          storeTime: parsedStoreTime.value.get(),
-          digest: parsedMsgDigest.value.get(),
+          senderTime: parsedSenderTime.get(),
+          storeTime: parsedStoreTime.get(),
+          digest: parsedMsgDigest.get(),
         )
       )
     )
@@ -225,16 +222,14 @@ proc installStoreApiHandlers*(
       endTime.toOpt(),
       pageSize.toOpt(),
       ascending.toOpt(),
-    )
-
-    if not histQuery.isOk():
-      return RestApiResponse.badRequest(histQuery.error)
+    ).valueOr:
+      return RestApiResponse.badRequest(error)
 
     if peerAddr.isNone() and not node.wakuLegacyStore.isNil():
       ## The user didn't specify a peer address and self-node is configured as a store node.
       ## In this case we assume that the user is willing to retrieve the messages stored by
       ## the local/self store node.
-      return await node.retrieveMsgsFromSelfNode(histQuery.get())
+      return await node.retrieveMsgsFromSelfNode(histQuery)
 
     # Parse the peer address parameter
     let parsedPeerAddr = parseUrlPeerAddr(peerAddr.toOpt()).valueOr:
@@ -253,4 +248,4 @@ proc installStoreApiHandlers*(
             "No suitable service peer & none discovered"
           )
 
-    return await node.performHistoryQuery(histQuery.value, peerAddr)
+    return await node.performHistoryQuery(histQuery, peerAddr)

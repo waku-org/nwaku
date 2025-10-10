@@ -6,7 +6,7 @@
 ## EIP-1459 is defined in https://eips.ethereum.org/EIPS/eip-1459
 
 import
-  std/[options, net, sequtils],
+  std/[options, net, sequtils, sugar],
   chronicles,
   chronos,
   metrics,
@@ -67,14 +67,11 @@ proc findPeers*(
 
   for enr in discoveredEnr:
     # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
-    let res = enr.toRemotePeerInfo()
-
-    if res.isOk():
-      discoveredNodes.add(res.get())
-    else:
-      error "Failed to convert ENR to peer info", enr = $enr, err = res.error()
+    let peerInfo = enr.toRemotePeerInfo().valueOr:
+      error "Failed to convert ENR to peer info", enr = $enr, error = error
       waku_dnsdisc_errors.inc(labelValues = ["peer_info_failure"])
-
+      continue
+    discoveredNodes.add(peerInfo)
   if discoveredNodes.len > 0:
     info "Successfully discovered nodes", count = discoveredNodes.len
     waku_dnsdisc_discovered.inc(discoveredNodes.len.int64)
@@ -117,14 +114,9 @@ proc retrieveDynamicBootstrapNodes*(
       if resolved.len > 0:
         return resolved[0] # Use only first answer
 
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return (await wakuDnsDiscovery.get().findPeers()).mapErr(
-        proc(e: cstring): string =
-          $e
-      )
-    else:
-      warn "Failed to init Waku DNS discovery"
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver).errorOr:
+      return (await value.findPeers()).mapErr(e => $e)
+    warn "Failed to init Waku DNS discovery"
 
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default

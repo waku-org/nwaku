@@ -251,21 +251,15 @@ proc setupProtocols(
 
   mountStoreClient(node)
   if conf.remoteStoreNode.isSome():
-    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
-    if storeNode.isOk():
-      node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
-    else:
-      return err("failed to set node waku store peer: " & storeNode.error)
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get()).valueOr:
+      return err("failed to set node waku store peer: " & error)
+    node.peerManager.addServicePeer(storeNode, WakuStoreCodec)
 
   mountLegacyStoreClient(node)
   if conf.remoteStoreNode.isSome():
-    let storeNode = parsePeerInfo(conf.remoteStoreNode.get())
-    if storeNode.isOk():
-      node.peerManager.addServicePeer(
-        storeNode.value, legacy_common.WakuLegacyStoreCodec
-      )
-    else:
-      return err("failed to set node waku legacy store peer: " & storeNode.error)
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get()).valueOr:
+      return err("failed to set node waku legacy store peer: " & error)
+    node.peerManager.addServicePeer(storeNode, WakuLegacyStoreCodec)
 
   if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
     node.setupStoreResume()
@@ -377,12 +371,10 @@ proc setupProtocols(
   mountLightPushClient(node)
   mountLegacyLightPushClient(node)
   if conf.remoteLightPushNode.isSome():
-    let lightPushNode = parsePeerInfo(conf.remoteLightPushNode.get())
-    if lightPushNode.isOk():
-      node.peerManager.addServicePeer(lightPushNode.value, WakuLightPushCodec)
-      node.peerManager.addServicePeer(lightPushNode.value, WakuLegacyLightPushCodec)
-    else:
-      return err("failed to set node waku lightpush peer: " & lightPushNode.error)
+    let lightPushNode = parsePeerInfo(conf.remoteLightPushNode.get()).valueOr:
+      return err("failed to set node waku lightpush peer: " & error)
+    node.peerManager.addServicePeer(lightPushNode, WakuLightPushCodec)
+    node.peerManager.addServicePeer(lightPushNode, WakuLegacyLightPushCodec)
 
   # Filter setup. NOTE Must be mounted after relay
   if conf.filterServiceConf.isSome():
@@ -400,16 +392,13 @@ proc setupProtocols(
 
   await node.mountFilterClient()
   if conf.remoteFilterNode.isSome():
-    let filterNode = parsePeerInfo(conf.remoteFilterNode.get())
-    if filterNode.isOk():
-      try:
-        node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
-      except CatchableError:
-        return err(
-          "failed to mount waku filter client protocol: " & getCurrentExceptionMsg()
-        )
-    else:
-      return err("failed to set node waku filter peer: " & filterNode.error)
+    let filterNode = parsePeerInfo(conf.remoteFilterNode.get()).valueOr:
+      return err("failed to set node waku filter peer: " & error)
+    try:
+      node.peerManager.addServicePeer(filterNode, WakuFilterSubscribeCodec)
+    except CatchableError:
+      return
+        err("failed to mount waku filter client protocol: " & getCurrentExceptionMsg())
 
   # waku peer exchange setup
   if conf.peerExchangeService:
@@ -422,12 +411,9 @@ proc setupProtocols(
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
   if conf.remotePeerExchangeNode.isSome():
-    let peerExchangeNode = parsePeerInfo(conf.remotePeerExchangeNode.get())
-    if peerExchangeNode.isOk():
-      node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
-    else:
-      return
-        err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+    let peerExchangeNode = parsePeerInfo(conf.remotePeerExchangeNode.get()).valueOr:
+      return err("failed to set node waku peer-exchange peer: " & error)
+    node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
 
   if conf.peerExchangeDiscovery:
     await node.mountPeerExchangeClient()
@@ -481,7 +467,7 @@ proc startNode*(
       error "error while fetching peers from peer exchange", error = error
 
   # TODO: behavior described by comment is undesired. PX as client should be used in tandem with discv5.
-  # 
+  #
   # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
   # periodic loop to find peers and px returned peers actually come from discv5
   if conf.peerExchangeDiscovery and not conf.discv5Conf.isSome():

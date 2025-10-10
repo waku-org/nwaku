@@ -6,6 +6,7 @@ import
   waku/[
     common/paging,
     node/waku_node,
+    node/api,
     node/peer_manager,
     waku_core,
     waku_store_legacy,

@@ -146,25 +146,14 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
-proc getChatLine(c: Chat, msg: WakuMessage): Result[string, string] =
+proc getChatLine(payload: seq[byte]): string =
   # No payload encoding/encryption from Waku
-  let
-    pb = Chat2Message.init(msg.payload)
-    chatLine =
-      if pb.isOk:
-        pb[].toString()
-      else:
-        string.fromBytes(msg.payload)
-  return ok(chatline)
+  let pb = Chat2Message.init(payload).valueOr:
+    return string.fromBytes(payload)
+  return $pb
 
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
-  let
-    pb = Chat2Message.init(msg.payload)
-    chatLine =
-      if pb.isOk:
-        pb[].toString()
-      else:
-        string.fromBytes(msg.payload)
+  let chatLine = getChatLine(msg.payload)
   try:
     echo &"{chatLine}"
   except ValueError:
@@ -375,18 +364,17 @@ proc maintainSubscription(
           let peerOpt = selectRandomServicePeer(
             wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
           )
-          if peerOpt.isOk():
-            actualFilterPeer = peerOpt.get()
-
-            info "Found new peer for codec",
-              codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
-
-            noFailedSubscribes = 0
-            continue # try again with new peer without delay
-          else:
+          peerOpt.isOkOr:
             error "Failed to find new service peer. Exiting."
             noFailedServiceNodeSwitches += 1
             break
+
+          actualFilterPeer = peerOpt.get()
+          info "Found new peer for codec",
+            codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
+
+          noFailedSubscribes = 0
+          continue # try again with new peer without delay
       else:
         if noFailedSubscribes > 0:
           noFailedSubscribes -= 1
@@ -530,7 +518,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       let resolved = await dnsResolver.resolveTxt(domain)
       return resolved[0] # Use only first answer
 
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
+    let wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
     if wakuDnsDiscovery.isOk:
       let discoveredPeers = await wakuDnsDiscovery.get().findPeers()
       if discoveredPeers.isOk:
@@ -538,8 +526,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         discoveredNodes = discoveredPeers.get()
         echo "Discovered and connecting to " & $discoveredNodes
         waitFor chat.node.connectToNodes(discoveredNodes)
+      else:
+        warn "Failed to find peers via DNS discovery", error = discoveredPeers.error
     else:
-      warn "Failed to init Waku DNS discovery"
+      warn "Failed to init Waku DNS discovery", error = wakuDnsDiscovery.error
 
   let peerInfo = node.switch.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -575,13 +565,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
             else:
               newSeq[byte](0)
 
-          let
-            pb = Chat2Message.init(payload)
-            chatLine =
-              if pb.isOk:
-                pb[].toString()
-              else:
-                string.fromBytes(payload)
+          let chatLine = getChatLine(payload)
           echo &"{chatLine}"
         info "Hit store handler"
 
