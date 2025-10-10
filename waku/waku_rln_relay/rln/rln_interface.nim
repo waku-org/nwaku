@@ -23,7 +23,7 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 
 #-------------------------------- zkSNARKs operations -----------------------------------------
 proc key_gen*(
-  ctx: ptr RLN, output_buffer: ptr Buffer
+  output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "extended_key_gen".}
 
 ## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> |
@@ -32,7 +32,7 @@ proc key_gen*(
 ## the return bool value indicates the success or failure of the operation
 
 proc seeded_key_gen*(
-  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "seeded_extended_key_gen".}
 
 ## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> | using ChaCha20
@@ -40,6 +40,7 @@ proc seeded_key_gen*(
 ## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
 ## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
 ## id commitment is the poseidon hash of the identity secret hash
+# use_little_endian: if true, uses big or little endian for serialization (default: true)
 ## the return bool value indicates the success or failure of the operation
 
 proc generate_proof*(
