@@ -61,16 +61,14 @@ func toTyped*(record: Record): EnrResult[TypedRecord] =
 # Typed record field accessors
 
 func id*(record: TypedRecord): Option[RecordId] =
-  #return record.tryGet("id", string).flatMap(idStr => toRecordId(idStr).ok)
   let fieldOpt = record.tryGet("id", string)
   if fieldOpt.isNone():
     return none(RecordId)
 
-  let fieldRes = toRecordId(fieldOpt.get())
-  if fieldRes.isErr():
+  let field = toRecordId(fieldOpt.get()).valueOr:
     return none(RecordId)
 
-  some(fieldRes.value)
+  return some(field)
 
 func secp256k1*(record: TypedRecord): Option[array[33, byte]] =
   record.tryGet("secp256k1", array[33, byte])

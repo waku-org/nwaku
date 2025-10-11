@@ -50,12 +50,8 @@ proc installLightPushRequestHandler*(
     ## Send a request to push a waku message
     debug "post", ROUTE_LIGHTPUSH, contentBody
 
-    let decodedBody = decodeRequestBody[PushRequest](contentBody)
-
-    if decodedBody.isErr():
-      return decodedBody.error()
-
-    let req: PushRequest = decodedBody.value()
+    let req: PushRequest = decodeRequestBody[PushRequest](contentBody).valueOr:
+      return error
 
     let msg = req.message.toWakuMessage().valueOr:
       return RestApiResponse.badRequest("Invalid message: " & $error)
@@ -80,12 +76,12 @@ proc installLightPushRequestHandler*(
       error "Failed to request a message push due to timeout!"
       return RestApiResponse.serviceUnavailable("Push request timed out")
 
-    if subFut.value().isErr():
-      if subFut.value().error == TooManyRequestsMessage:
+    subFut.value().isOkOr:
+      if error == TooManyRequestsMessage:
         return RestApiResponse.tooManyRequests("Request rate limmit reached")
 
       return RestApiResponse.serviceUnavailable(
-        fmt("Failed to request a message push: {subFut.value().error}")
+        fmt("Failed to request a message push: {error}")
       )
 
     return RestApiResponse.ok()

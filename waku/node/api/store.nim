@@ -87,30 +87,27 @@ proc toArchiveQuery(
 proc toHistoryResult*(
     res: waku_archive_legacy.ArchiveResult
 ): legacy_store_common.HistoryResult =
-  if res.isErr():
-    let error = res.error
-    case res.error.kind
+  let response = res.valueOr:
+    case error.kind
     of waku_archive_legacy.ArchiveErrorKind.DRIVER_ERROR,
         waku_archive_legacy.ArchiveErrorKind.INVALID_QUERY:
-      err(HistoryError(kind: HistoryErrorKind.BAD_REQUEST, cause: res.error.cause))
+      return err(HistoryError(kind: HistoryErrorKind.BAD_REQUEST, cause: error.cause))
     else:
-      err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
-  else:
-    let response = res.get()
-    ok(
-      HistoryResponse(
-        messages: response.messages,
-        cursor: response.cursor.map(
-          proc(cursor: waku_archive_legacy.ArchiveCursor): HistoryCursor =
-            HistoryCursor(
-              pubsubTopic: cursor.pubsubTopic,
-              senderTime: cursor.senderTime,
-              storeTime: cursor.storeTime,
-              digest: cursor.digest,
-            )
-        ),
-      )
+      return err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
+  return ok(
+    HistoryResponse(
+      messages: response.messages,
+      cursor: response.cursor.map(
+        proc(cursor: waku_archive_legacy.ArchiveCursor): HistoryCursor =
+          HistoryCursor(
+            pubsubTopic: cursor.pubsubTopic,
+            senderTime: cursor.senderTime,
+            storeTime: cursor.storeTime,
+            digest: cursor.digest,
+          )
+      ),
     )
+  )
 
 proc mountLegacyStore*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
@@ -160,11 +157,8 @@ proc query*(
   if node.wakuLegacyStoreClient.isNil():
     return err("waku legacy store client is nil")
 
-  let queryRes = await node.wakuLegacyStoreClient.query(query, peer)
-  if queryRes.isErr():
-    return err("legacy store client query error: " & $queryRes.error)
-
-  let response = queryRes.get()
+  let response = (await node.wakuLegacyStoreClient.query(query, peer)).valueOr:
+    return err("legacy store client query error: " & $error)
 
   return ok(response)
 
@@ -201,9 +195,8 @@ when defined(waku_exp_store_resume):
     if node.wakuLegacyStoreClient.isNil():
       return
 
-    let retrievedMessages = await node.wakuLegacyStoreClient.resume(peerList)
-    if retrievedMessages.isErr():
-      error "failed to resume store", error = retrievedMessages.error
+    let retrievedMessages = (await node.wakuLegacyStoreClient.resume(peerList)).valueOr:
+      error "failed to resume store", error = error
       return
 
     info "the number of retrieved messages since the last online time: ",

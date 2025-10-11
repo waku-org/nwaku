@@ -74,13 +74,12 @@ proc originMiddlewareProc(
     reqfence: RequestFence,
     nextHandler: HttpProcessCallback2,
 ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
-  if reqfence.isErr():
+  let request = reqfence.valueOr:
     # Ignore request errors that detected before our middleware.
     # Let final handler deal with it.
     return await nextHandler(reqfence)
 
   let self = OriginHandlerMiddlewareRef(middleware)
-  let request = reqfence.get()
   var reqHeaders = request.headers
   var response = request.getResponse()
 

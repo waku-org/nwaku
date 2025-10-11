@@ -49,15 +49,12 @@ func decodeRequestBody[T](
 
   let reqBodyData = contentBody.get().data
 
-  let requestResult = decodeFromJsonBytes(T, reqBodyData)
-  if requestResult.isErr():
+  let requestResult = decodeFromJsonBytes(T, reqBodyData).valueOr:
     return err(
-      RestApiResponse.badRequest(
-        "Invalid content body, could not decode. " & $requestResult.error
-      )
+      RestApiResponse.badRequest("Invalid content body, could not decode. " & $error)
     )
 
-  return ok(requestResult.get())
+  return ok(requestResult)
 
 proc getStatusDesc(
     protocolClientRes: filter_protocol_type.FilterSubscribeResult
@@ -129,16 +126,15 @@ proc makeRestResponse(
     httpStatus = convertErrorKindToHttpStatus(protocolClientRes.error().kind)
       # TODO: convert status codes!
 
-  let resp =
-    RestApiResponse.jsonResponse(filterSubscriptionResponse, status = httpStatus)
-
-  if resp.isErr():
-    error "An error ocurred while building the json respose: ", error = resp.error
+  let resp = RestApiResponse.jsonResponse(
+    filterSubscriptionResponse, status = httpStatus
+  ).valueOr:
+    error "An error ocurred while building the json respose: ", error = error
     return RestApiResponse.internalServerError(
-      fmt("An error ocurred while building the json respose: {resp.error}")
+      fmt("An error ocurred while building the json respose: {error}")
     )
 
-  return resp.get()
+  return resp
 
 proc makeRestResponse(
     requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeError
@@ -149,16 +145,15 @@ proc makeRestResponse(
   let httpStatus = convertErrorKindToHttpStatus(protocolClientRes.kind)
     # TODO: convert status codes!
 
-  let resp =
-    RestApiResponse.jsonResponse(filterSubscriptionResponse, status = httpStatus)
-
-  if resp.isErr():
-    error "An error ocurred while building the json respose: ", error = resp.error
+  let resp = RestApiResponse.jsonResponse(
+    filterSubscriptionResponse, status = httpStatus
+  ).valueOr:
+    error "An error ocurred while building the json respose: ", error = error
     return RestApiResponse.internalServerError(
-      fmt("An error ocurred while building the json respose: {resp.error}")
+      fmt("An error ocurred while building the json respose: {error}")
     )
 
-  return resp.get()
+  return resp
 
 const NoPeerNoDiscoError = FilterSubscribeError.serviceUnavailable(
   "No suitable service peer & no discovery method"
@@ -175,17 +170,13 @@ proc filterPostPutSubscriptionRequestHandler(
 ): Future[RestApiResponse] {.async.} =
   ## handles any filter subscription requests, adds or modifies.
 
-  let decodedBody = decodeRequestBody[FilterSubscribeRequest](contentBody)
-
-  if decodedBody.isErr():
+  let req: FilterSubscribeRequest = decodeRequestBody[FilterSubscribeRequest](
+    contentBody
+  ).valueOr:
     return makeRestResponse(
       "unknown",
-      FilterSubscribeError.badRequest(
-        fmt("Failed to decode request: {decodedBody.error}")
-      ),
+      FilterSubscribeError.badRequest(fmt("Failed to decode request: {error}")),
     )
-
-  let req: FilterSubscribeRequest = decodedBody.value()
 
   let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
     let handler = discHandler.valueOr:
@@ -256,17 +247,13 @@ proc installFilterDeleteSubscriptionsHandler(
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
-    let decodedBody = decodeRequestBody[FilterUnsubscribeRequest](contentBody)
-
-    if decodedBody.isErr():
+    let req: FilterUnsubscribeRequest = decodeRequestBody[FilterUnsubscribeRequest](
+      contentBody
+    ).valueOr:
       return makeRestResponse(
         "unknown",
-        FilterSubscribeError.badRequest(
-          fmt("Failed to decode request: {decodedBody.error}")
-        ),
+        FilterSubscribeError.badRequest(fmt("Failed to decode request: {error}")),
       )
-
-    let req: FilterUnsubscribeRequest = decodedBody.value()
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
@@ -308,17 +295,13 @@ proc installFilterDeleteAllSubscriptionsHandler(
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
 
-    let decodedBody = decodeRequestBody[FilterUnsubscribeAllRequest](contentBody)
-
-    if decodedBody.isErr():
+    let req: FilterUnsubscribeAllRequest = decodeRequestBody[
+      FilterUnsubscribeAllRequest
+    ](contentBody).valueOr:
       return makeRestResponse(
         "unknown",
-        FilterSubscribeError.badRequest(
-          fmt("Failed to decode request: {decodedBody.error}")
-        ),
+        FilterSubscribeError.badRequest(fmt("Failed to decode request: {error}")),
       )
-
-    let req: FilterUnsubscribeAllRequest = decodedBody.value()
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
@@ -399,24 +382,20 @@ proc installFilterGetMessagesHandler(
     ## TODO: ability to specify a return message limit, maybe use cursor to control paging response.
     debug "get", ROUTE_FILTER_MESSAGES, contentTopic = contentTopic
 
-    if contentTopic.isErr():
+    let contentTopic = contentTopic.valueOr:
       return RestApiResponse.badRequest("Missing contentTopic")
 
-    let contentTopic = contentTopic.get()
-
-    let msgRes = cache.getAutoMessages(contentTopic, clear = true)
-    if msgRes.isErr():
+    let msg = cache.getAutoMessages(contentTopic, clear = true).valueOr:
       return RestApiResponse.badRequest("Not subscribed to topic: " & contentTopic)
 
-    let data = FilterGetMessagesResponse(msgRes.get().map(toFilterWakuMessage))
-    let resp = RestApiResponse.jsonResponse(data, status = Http200)
-    if resp.isErr():
-      error "An error ocurred while building the json respose: ", error = resp.error
+    let data = FilterGetMessagesResponse(msg.map(toFilterWakuMessage))
+    let resp = RestApiResponse.jsonResponse(data, status = Http200).valueOr:
+      error "An error ocurred while building the json respose: ", error = error
       return RestApiResponse.internalServerError(
         "An error ocurred while building the json respose"
       )
 
-    return resp.get()
+    return resp
 
 proc installFilterRestApiHandlers*(
     router: var RestRouter,

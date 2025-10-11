@@ -426,14 +426,13 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
         FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria)
       )
 
-    let resp = RestApiResponse.jsonResponse(subscriptions, status = Http200)
-    if resp.isErr():
-      error "An error ocurred while building the json respose: ", error = resp.error
+    let resp = RestApiResponse.jsonResponse(subscriptions, status = Http200).valueOr:
+      error "An error ocurred while building the json respose: ", error = error
       return RestApiResponse.internalServerError(
-        fmt("An error ocurred while building the json respose: {resp.error}")
+        fmt("An error ocurred while building the json respose: {error}")
       )
 
-    return resp.get()
+    return resp
 
 proc installAdminV1PostLogLevelHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodPost, ROUTE_ADMIN_V1_POST_LOG_LEVEL) do(

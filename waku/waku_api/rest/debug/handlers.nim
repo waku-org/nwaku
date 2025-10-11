@@ -15,12 +15,11 @@ const ROUTE_DEBUG_INFOV1 = "/debug/v1/info"
 proc installDebugInfoV1Handler(router: var RestRouter, node: WakuNode) =
   let getInfo = proc(): RestApiResponse =
     let info = node.info().toDebugWakuInfo()
-    let resp = RestApiResponse.jsonResponse(info, status = Http200)
-    if resp.isErr():
-      debug "An error occurred while building the json respose", error = resp.error
+    let resp = RestApiResponse.jsonResponse(info, status = Http200).valueOr:
+      debug "An error occurred while building the json respose", error = error
       return RestApiResponse.internalServerError()
 
-    return resp.get()
+    return resp
 
   # /debug route is deprecated, will be removed
   router.api(MethodGet, ROUTE_DEBUG_INFOV1) do() -> RestApiResponse:
