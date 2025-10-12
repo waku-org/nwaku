@@ -186,11 +186,11 @@ proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Option[Times
   let catchable = catch:
     parseBiggestInt(rawTimestamp)
 
-  if catchable.isErr():
-    error "could not parse correctly", error = catchable.error.msg
+  let time = catchable.valueOr:
+    error "could not parse correctly", error = error.msg
     return
 
-  timeCursor = some(catchable.get())
+  timeCursor = some(time)
 
 proc hashCallbackImpl(
     pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
@@ -214,11 +214,10 @@ proc hashCallbackImpl(
     let catchable = catch:
       parseHexStr(rawHash)
 
-    if catchable.isErr():
-      error "could not parse correctly", error = catchable.error.msg
+    let hashHex = catchable.valueOr:
+      error "could not parse correctly", error = error.msg
       return
 
-    let hashHex = catchable.get()
     let msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
 
     rows.add((msgHash, "", WakuMessage()))
@@ -953,11 +952,10 @@ method getDatabaseSize*(
 method getMessagesCount*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
-  let intRes = await s.getInt("SELECT COUNT(1) FROM messages")
-  if intRes.isErr():
-    return err("error in getMessagesCount: " & intRes.error)
+  let intRes = (await s.getInt("SELECT COUNT(1) FROM messages")).valueOr:
+    return err("error in getMessagesCount: " & error)
 
-  return ok(intRes.get())
+  return ok(intRes)
 
 method getOldestMessageTimestamp*(
     s: PostgresDriver
@@ -970,47 +968,44 @@ method getOldestMessageTimestamp*(
 
   let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
 
-  let intRes = await s.getInt("SELECT MIN(timestamp) FROM messages")
-  if intRes.isErr():
+  let intRes = (await s.getInt("SELECT MIN(timestamp) FROM messages")).valueOr:
     ## Just return the oldest partition time considering the partitions set
     return ok(Timestamp(oldestPartitionTimeNanoSec))
 
-  return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
+  return ok(Timestamp(min(intRes, oldestPartitionTimeNanoSec)))
 
 method getNewestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  let intRes = await s.getInt("SELECT MAX(timestamp) FROM messages")
+  let intRes = (await s.getInt("SELECT MAX(timestamp) FROM messages")).valueOr:
+    return err("error in getNewestMessageTimestamp: " & error)
 
-  if intRes.isErr():
-    return err("error in getNewestMessageTimestamp: " & intRes.error)
-
-  return ok(Timestamp(intRes.get()))
+  return ok(Timestamp(intRes))
 
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  var execRes = await s.writeConnPool.pgQuery(
-    """DELETE FROM messages WHERE messageHash NOT IN
+  var execRes = (
+    await s.writeConnPool.pgQuery(
+      """DELETE FROM messages WHERE messageHash NOT IN
                           (
                         SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
                           );""",
-    @[$limit],
-  )
-  if execRes.isErr():
-    return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
-
-  execRes = await s.writeConnPool.pgQuery(
-    """DELETE FROM messages_lookup WHERE messageHash NOT IN
-                          (
-                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
-                          );""",
-    @[$limit],
-  )
-  if execRes.isErr():
-    return err(
-      "error in deleteOldestMessagesNotWithinLimit messages_lookup: " & execRes.error
+      @[$limit],
     )
+  ).valueOr:
+    return err("error in deleteOldestMessagesNotWithinLimit: " & error)
+
+  execRes = (
+    await s.writeConnPool.pgQuery(
+      """DELETE FROM messages_lookup WHERE messageHash NOT IN
+                          (
+                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
+                          );""",
+      @[$limit],
+    )
+  ).valueOr:
+    return err("error in deleteOldestMessagesNotWithinLimit messages_lookup: " & error)
 
   return ok()
 
@@ -1282,11 +1277,9 @@ proc loopPartitionFactory(
       (await self.addPartition(now)).isOkOr:
         onFatalError("error when creating a new partition from empty state: " & $error)
     else:
-      let newestPartitionRes = self.partitionMngr.getNewestPartition()
-      if newestPartitionRes.isErr():
-        onFatalError("could not get newest partition: " & $newestPartitionRes.error)
+      let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
+        onFatalError("could not get newest partition: " & $error)
 
-      let newestPartition = newestPartitionRes.get()
       if newestPartition.containsMoment(now):
         debug "creating a new partition for the future"
         ## The current used partition is the last one that was created.

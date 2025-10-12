@@ -129,8 +129,7 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
     count = sqlite3_column_int64(s, 0)
 
   let query = countMessagesQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to count number of messages in the database")
 
   return ok(count)
@@ -146,8 +145,7 @@ proc selectOldestTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inl
     timestamp = queryRowTimestampCallback(s, 0)
 
   let query = selectOldestMessageTimestampQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to get the oldest receiver timestamp from the database")
 
   return ok(timestamp)
@@ -163,8 +161,7 @@ proc selectNewestTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inl
     timestamp = queryRowTimestampCallback(s, 0)
 
   let query = selectNewestMessageTimestampQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to get the newest receiver timestamp from the database")
 
   return ok(timestamp)

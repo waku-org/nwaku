@@ -67,7 +67,7 @@ proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
 
   let catchRes = catch:
     pb.write(4, remotePeerInfo.publicKey)
-  if catchRes.isErr():
+  catchRes.isOkOr:
     return err("Enncoding public key failed: " & catchRes.error.msg)
 
   pb.write(5, uint32(ord(remotePeerInfo.connectedness)))

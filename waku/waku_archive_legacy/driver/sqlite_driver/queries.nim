@@ -166,8 +166,7 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
     count = sqlite3_column_int64(s, 0)
 
   let query = countMessagesQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to count number of messages in the database")
 
   return ok(count)
@@ -185,8 +184,7 @@ proc selectOldestReceiverTimestamp*(
     timestamp = queryRowReceiverTimestampCallback(s, 0)
 
   let query = selectOldestMessageTimestampQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to get the oldest receiver timestamp from the database")
 
   return ok(timestamp)
@@ -204,8 +202,7 @@ proc selectNewestReceiverTimestamp*(
     timestamp = queryRowReceiverTimestampCallback(s, 0)
 
   let query = selectNewestMessageTimestampQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
+  db.query(query, queryRowCallback).isOkOr:
     return err("failed to get the newest receiver timestamp from the database")
 
   return ok(timestamp)
@@ -280,9 +277,8 @@ proc selectAllMessages*(
     rows.add((pubsubTopic, wakuMessage, digest, storedAt, hash))
 
   let query = selectAllMessagesQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
-    return err(res.error())
+  db.query(query, queryRowCallback).isOkOr:
+    return err(error)
 
   return ok(rows)
 
@@ -498,7 +494,7 @@ proc execSelectMessageByHash(
   except Exception, CatchableError:
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible  
+    discard sqlite3_clear_bindings(s) # no errors possible
 
 proc selectMessageByHashQuery(): SqlQueryStr =
   var query: string

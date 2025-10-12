@@ -20,20 +20,18 @@ method execute*(
   ## Delete messages that exceed the retention time by 10% and more (batch delete for efficiency)
   debug "beginning of executing message retention policy - time"
 
-  let omtRes = await driver.getOldestMessageTimestamp()
-  if omtRes.isErr():
-    return err("failed to get oldest message timestamp: " & omtRes.error)
+  let omt = (await driver.getOldestMessageTimestamp()).valueOr:
+    return err("failed to get oldest message timestamp: " & error)
 
   let now = getNanosecondTime(getTime().toUnixFloat())
   let retentionTimestamp = now - p.retentionTime.nanoseconds
   let thresholdTimestamp = retentionTimestamp - p.retentionTime.nanoseconds div 10
 
-  if thresholdTimestamp <= omtRes.value:
+  if thresholdTimestamp <= omt:
     return ok()
 
-  let res = await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)
-  if res.isErr():
-    return err("failed to delete oldest messages: " & res.error)
+  (await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)).isOkOr:
+    return err("failed to delete oldest messages: " & error)
 
   debug "end of executing message retention policy - time"
   return ok()
