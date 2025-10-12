@@ -58,13 +58,10 @@ proc sendHistoryQueryRPC(
   #TODO: I see a challenge here, if storeNode uses a different MaxRPCSize this read will fail.
   # Need to find a workaround for this.
   let buf = await connection.readLp(DefaultMaxRpcSize.int)
-  let respDecodeRes = HistoryRPC.decode(buf)
-  if respDecodeRes.isErr():
+  let respRpc = HistoryRPC.decode(buf).valueOr:
     waku_legacy_store_errors.inc(labelValues = [decodeRpcFailure])
     return
       err(HistoryError(kind: HistoryErrorKind.BAD_RESPONSE, cause: decodeRpcFailure))
-
-  let respRpc = respDecodeRes.get()
 
   # Disabled ,for now, since the default response is a possible case (no messages, pagesize = 0, error = NONE(0))
   # TODO: Rework the RPC protocol to differentiate the default value from an empty value (e.g., status = 200 (OK))
@@ -112,11 +109,8 @@ when defined(waku_exp_store_resume):
     var messageList: seq[WakuMessage] = @[]
 
     while true:
-      let queryRes = await w.query(req, peer)
-      if queryRes.isErr():
-        return err($queryRes.error)
-
-      let response = queryRes.get()
+      let response = (await w.query(req, peer)).valueOr:
+        return err($error)
 
       messageList.add(response.messages)
 
@@ -232,15 +226,14 @@ when defined(waku_exp_store_resume):
       debug "a peer is selected from peer manager"
       res = await w.queryAll(req, peerOpt.get())
 
-    if res.isErr():
+    res.isOkOr:
       debug "failed to resume the history"
       return err("failed to resume the history")
 
     # Save the retrieved messages in the store
     var added: uint = 0
     for msg in res.get():
-      let putStoreRes = w.store.put(pubsubTopic, msg)
-      if putStoreRes.isErr():
+      w.store.put(pubsubTopic, msg).isOkOr:
         continue
 
       added.inc()

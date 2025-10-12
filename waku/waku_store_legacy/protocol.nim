@@ -42,13 +42,10 @@ type StoreResp = tuple[resp: seq[byte], requestId: string]
 proc handleLegacyQueryRequest(
     self: WakuStore, requestor: PeerId, raw_request: seq[byte]
 ): Future[StoreResp] {.async.} =
-  let decodeRes = HistoryRPC.decode(raw_request)
-  if decodeRes.isErr():
-    error "failed to decode rpc", peerId = requestor, error = $decodeRes.error
+  let reqRpc = HistoryRPC.decode(raw_request).valueOr:
+    error "failed to decode rpc", peerId = requestor, error = $error
     waku_legacy_store_errors.inc(labelValues = [decodeRpcFailure])
     return (newSeq[byte](), "failed to decode rpc")
-
-  let reqRpc = decodeRes.value
 
   if reqRpc.query.isNone():
     error "empty query rpc", peerId = requestor, requestId = reqRpc.requestId
@@ -77,9 +74,9 @@ proc handleLegacyQueryRequest(
       requestId,
     )
 
-  if responseRes.isErr():
+  responseRes.isOkOr:
     error "history query failed",
-      peerId = requestor, requestId = requestId, error = responseRes.error
+      peerId = requestor, requestId = requestId, error = error
 
     let response = responseRes.toRPC()
     return (
@@ -150,8 +147,8 @@ proc initProtocolHandler(ws: WakuStore) =
     let writeRes = catch:
       await conn.writeLp(resBuf.resp)
 
-    if writeRes.isErr():
-      error "Connection write error", error = writeRes.error.msg
+    writeRes.isOkOr:
+      error "Connection write error", error = error.msg
       return
 
     if successfulQuery:

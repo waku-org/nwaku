@@ -230,10 +230,9 @@ proc processRequest(
     let writeRes = catch:
       await conn.writeLP(rawPayload)
 
-    if writeRes.isErr():
+    writeRes.isOkOr:
       await conn.close()
-      return
-        err("remote " & $conn.peerId & " connection write error: " & writeRes.error.msg)
+      return err("remote " & $conn.peerId & " connection write error: " & error.msg)
 
     trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
@@ -286,11 +285,9 @@ proc initiate(
   let writeRes = catch:
     await connection.writeLP(sendPayload)
 
-  if writeRes.isErr():
+  writeRes.isOkOr:
     await connection.close()
-    return err(
-      "remote " & $connection.peerId & " connection write error: " & writeRes.error.msg
-    )
+    return err("remote " & $connection.peerId & " connection write error: " & error.msg)
 
   trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
