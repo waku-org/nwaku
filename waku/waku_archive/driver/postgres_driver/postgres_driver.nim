@@ -985,7 +985,7 @@ method getNewestMessageTimestamp*(
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  var execRes = (
+  (
     await s.writeConnPool.pgQuery(
       """DELETE FROM messages WHERE messageHash NOT IN
                           (
@@ -993,10 +993,10 @@ method deleteOldestMessagesNotWithinLimit*(
                           );""",
       @[$limit],
     )
-  ).valueOr:
+  ).isOkOr:
     return err("error in deleteOldestMessagesNotWithinLimit: " & error)
 
-  execRes = (
+  (
     await s.writeConnPool.pgQuery(
       """DELETE FROM messages_lookup WHERE messageHash NOT IN
                           (
@@ -1004,7 +1004,7 @@ method deleteOldestMessagesNotWithinLimit*(
                           );""",
       @[$limit],
     )
-  ).valueOr:
+  ).isOkOr:
     return err("error in deleteOldestMessagesNotWithinLimit messages_lookup: " & error)
 
   return ok()
@@ -1277,9 +1277,11 @@ proc loopPartitionFactory(
       (await self.addPartition(now)).isOkOr:
         onFatalError("error when creating a new partition from empty state: " & $error)
     else:
-      let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
-        onFatalError("could not get newest partition: " & $error)
+      let newestPartitionRes = self.partitionMngr.getNewestPartition()
+      if newestPartitionRes.isErr():
+        onFatalError("could not get newest partition: " & $newestPartitionRes.error)
 
+      let newestPartition = newestPartitionRes.get()
       if newestPartition.containsMoment(now):
         debug "creating a new partition for the future"
         ## The current used partition is the last one that was created.
