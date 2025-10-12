@@ -19,13 +19,7 @@ host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
 
 tarball="${host_triplet}"
 
-# use arkzkey feature for v0.7.0
-# TODO: update this script in the future when arkzkey is default
-if [[ "${rln_version}" == "v0.7.0" ]]; then
-    tarball+="-arkzkey-rln.tar.gz"
-else
-    tarball+="-rln.tar.gz"
-fi
+tarball+="-rln.tar.gz"
 
 # Download the prebuilt rln library if it is available
 if curl --silent --fail-with-body -L \
