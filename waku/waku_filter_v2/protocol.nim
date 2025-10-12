@@ -157,15 +157,14 @@ proc handleSubscribeRequest*(
     requestDurationSec, labelValues = [$request.filterSubscribeType]
   )
 
-  if subscribeResult.isErr():
+  subscribeResult.isOkOr:
     error "subscription request error", peerId = shortLog(peerId), request = request
     return FilterSubscribeResponse(
       requestId: request.requestId,
-      statusCode: subscribeResult.error.kind.uint32,
-      statusDesc: some($subscribeResult.error),
+      statusCode: error.kind.uint32,
+      statusDesc: some($error),
     )
-  else:
-    return FilterSubscribeResponse.ok(request.requestId)
+  return FilterSubscribeResponse.ok(request.requestId)
 
 proc pushToPeer(
     wf: WakuFilter, peerId: PeerId, buffer: seq[byte]
@@ -309,14 +308,12 @@ proc initProtocolHandler(wf: WakuFilter) =
         amount = buf.len().int64, labelValues = [WakuFilterSubscribeCodec, "in"]
       )
 
-      let decodeRes = FilterSubscribeRequest.decode(buf)
-      if decodeRes.isErr():
+      #TODO: toAPI() split here
+      let request = FilterSubscribeRequest.decode(buf).valueOr:
         error "failed to decode filter subscribe request",
-          peer_id = conn.peerId, err = decodeRes.error
+          peer_id = conn.peerId, err = error
         waku_filter_errors.inc(labelValues = [decodeRpcFailure])
         return
-
-      let request = decodeRes.value #TODO: toAPI() split here
 
       try:
         response = await wf.handleSubscribeRequest(conn.peerId, request)
