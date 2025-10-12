@@ -123,8 +123,7 @@ proc mountLegacyStore*(
       request: HistoryQuery
   ): Future[legacy_store_common.HistoryResult] {.async.} =
     if request.cursor.isSome():
-      request.cursor.get().checkHistCursor().isOkOr:
-        return err(error)
+      ?request.cursor.get().checkHistCursor()
 
     let request = request.toArchiveQuery()
     let response = await node.wakuLegacyArchive.findMessagesV2(request)

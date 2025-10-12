@@ -114,10 +114,8 @@ proc legacyLightpushPublish*(
 
     if node.wakuAutoSharding.isNone():
       return err("Pubsub topic must be specified when static sharding is enabled")
-    let topicMap = node.wakuAutoSharding
-      .get()
-      .getShardsFromContentTopics(message.contentTopic).valueOr:
-        return err(error)
+    let topicMap =
+      ?node.wakuAutoSharding.get().getShardsFromContentTopics(message.contentTopic)
 
     for pubsub, _ in topicMap.pairs: # There's only one pair anyway
       return await internalPublish(node, $pubsub, message, peer)

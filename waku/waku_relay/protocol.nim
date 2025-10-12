@@ -399,8 +399,7 @@ proc getPeersInMesh*(
 ): Result[seq[PeerId], string] =
   ## Returns the list of peerIds in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.
-  let pubSubPeers = w.getPubSubPeersInMesh(pubsubTopic).valueOr:
-    return err(error)
+  let pubSubPeers = ?w.getPubSubPeersInMesh(pubsubTopic)
   let peerIds = toSeq(pubSubPeers).mapIt(it.peerId)
 
   return ok(peerIds)
@@ -668,8 +667,7 @@ proc getConnectedPeers*(
   ## Returns the list of peerIds of connected peers and subscribed to the passed pubsub topic.
   ## The 'gossipsub' atribute is defined in the GossipSub ref object.
 
-  let peers = w.getConnectedPubSubPeers(pubsubTopic).valueOr:
-    return err(error)
+  let peers = ?w.getConnectedPubSubPeers(pubsubTopic)
 
   let peerIds = toSeq(peers).mapIt(it.peerId)
   return ok(peerIds)

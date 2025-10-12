@@ -68,16 +68,13 @@ proc parseCursor(
     digest: Option[string],
 ): Result[Option[HistoryCursor], string] =
   # Parse sender time
-  let parsedSenderTime = parseTime(senderTime).valueOr:
-    return err(error)
+  let parsedSenderTime = ?parseTime(senderTime)
 
   # Parse store time
-  let parsedStoreTime = parseTime(storeTime).valueOr:
-    return err(error)
+  let parsedStoreTime = ?parseTime(storeTime)
 
   # Parse message digest
-  let parsedMsgDigest = parseMsgDigest(digest).valueOr:
-    return err(error)
+  let parsedMsgDigest = ?parseMsgDigest(digest)
 
   # Parse cursor information
   if parsedPubsubTopic.isSome() and parsedSenderTime.isSome() and

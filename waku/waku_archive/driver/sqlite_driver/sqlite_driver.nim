@@ -35,8 +35,7 @@ type SqliteDriver* = ref object of ArchiveDriver
 
 proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
   # Database initialization
-  init(db).isOkOr:
-    return err(error)
+  ?init(db)
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()

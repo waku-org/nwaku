@@ -25,8 +25,7 @@ proc checkAndGenerateRLNProof*(
     time = getTime().toUnix()
     senderEpochTime = float64(time)
   var msgWithProof = message
-  rlnPeer.get().appendRLNProof(msgWithProof, senderEpochTime).isOkOr:
-    return err(error)
+  ?(rlnPeer.get().appendRLNProof(msgWithProof, senderEpochTime))
   return ok(msgWithProof)
 
 proc getNilPushHandler*(): PushMessageHandler =

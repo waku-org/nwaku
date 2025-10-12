@@ -277,8 +277,7 @@ proc selectAllMessages*(
     rows.add((pubsubTopic, wakuMessage, digest, storedAt, hash))
 
   let query = selectAllMessagesQuery(DbTable)
-  db.query(query, queryRowCallback).isOkOr:
-    return err(error)
+  discard ?db.query(query, queryRowCallback)
 
   return ok(rows)
 
