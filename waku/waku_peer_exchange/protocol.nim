@@ -157,15 +157,14 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
           error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
-      let decBuf = PeerExchangeRpc.decode(buffer)
-      if decBuf.isErr():
+      let decBuf = PeerExchangeRpc.decode(buffer).valueOr:
         waku_px_errors.inc(labelValues = [decodeRpcFailure])
-        error "Failed to decode PeerExchange request", error = $decBuf.error
+        error "Failed to decode PeerExchange request", error = $error
 
         (
           try:
             await wpx.respondError(
-              PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
+              PeerExchangeResponseStatusCode.BAD_REQUEST, some($error), conn
             )
           except CatchableError:
             error "could not send error response decode",
@@ -175,7 +174,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
           error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
-      let enrs = wpx.getEnrsFromCache(decBuf.get().request.numPeers)
+      let enrs = wpx.getEnrsFromCache(decBuf.request.numPeers)
       debug "peer exchange request received"
       trace "px enrs to respond", enrs = $enrs
       try:

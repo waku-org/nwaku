@@ -49,12 +49,10 @@ proc getRelayPushHandler*(
     (await wakuRelay.validateMessage(pubSubTopic, msgWithProof)).isOkOr:
       return lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, $error)
 
-    let publishedResult = await wakuRelay.publish(pubsubTopic, msgWithProof)
-
-    if publishedResult.isErr():
+    let publishedResult = (await wakuRelay.publish(pubsubTopic, msgWithProof)).valueOr:
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       notice "Lightpush request has not been published to any peers",
-        msg_hash = msgHash, reason = $publishedResult.error
-      return mapPubishingErrorToPushResult(publishedResult.error)
+        msg_hash = msgHash, reason = $error
+      return mapPubishingErrorToPushResult(error)
 
-    return lightpushSuccessResult(publishedResult.get().uint32)
+    return lightpushSuccessResult(publishedResult.uint32)

@@ -544,22 +544,20 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   let topicHandler = proc(
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
-    let decMsg = WakuMessage.decode(data)
-    if decMsg.isErr():
+    let decMsg = WakuMessage.decode(data).valueOr:
       # fine if triggerSelf enabled, since validators are bypassed
       error "failed to decode WakuMessage, validator passed a wrong message",
-        pubsubTopic = pubsubTopic, error = decMsg.error
+        pubsubTopic = pubsubTopic, error = error
       let fut = newFuture[void]()
       fut.complete()
       return fut
-    else:
-      # this subscription handler is called once for every validated message
-      # that will be relayed, hence this is the place we can count net incoming traffic
-      waku_relay_network_bytes.inc(
-        data.len.int64 + pubsubTopic.len.int64, labelValues = [pubsubTopic, "net", "in"]
-      )
+    # this subscription handler is called once for every validated message
+    # that will be relayed, hence this is the place we can count net incoming traffic
+    waku_relay_network_bytes.inc(
+      data.len.int64 + pubsubTopic.len.int64, labelValues = [pubsubTopic, "net", "in"]
+    )
 
-      return handler(pubsubTopic, decMsg.get())
+    return handler(pubsubTopic, decMsg)
 
   # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.

@@ -42,19 +42,15 @@ proc getRelayPushHandler*(
       peer: PeerId, pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult[void]] {.async.} =
     # append RLN proof
-    let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message)
-    if msgWithProof.isErr():
-      return err(msgWithProof.error)
+    let msgWithProof = ?checkAndGenerateRLNProof(rlnPeer, message)
 
-    (await wakuRelay.validateMessage(pubSubTopic, msgWithProof.value)).isOkOr:
-      return err(error)
+    ?(await wakuRelay.validateMessage(pubSubTopic, msgWithProof))
 
-    let publishResult = await wakuRelay.publish(pubsubTopic, msgWithProof.value)
-    if publishResult.isErr():
+    (await wakuRelay.publish(pubsubTopic, msgWithProof)).isOkOr:
       ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       notice "Lightpush request has not been published to any peers",
-        msg_hash = msgHash, reason = $publishResult.error
+        msg_hash = msgHash, reason = $error
       # for legacy lightpush we do not detail the reason towards clients. All error during publish result in not-published-to-any-peer
       # this let client of the legacy protocol to react as they did so far.
       return err(protocol_metrics.notPublishedAnyPeer)
