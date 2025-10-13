@@ -85,7 +85,6 @@ suite "Waku rln relay":
       rln
       .setMetadata(
         RlnMetadata(
-          lastProcessedBlock: 128,
           chainId: 1155511'u256,
           contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
         )
@@ -103,7 +102,6 @@ suite "Waku rln relay":
       rln
       .setMetadata(
         RlnMetadata(
-          lastProcessedBlock: 128,
           chainId: 1155511'u256,
           contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
         )
@@ -116,7 +114,6 @@ suite "Waku rln relay":
     assert metadataOpt.isSome(), "metadata is not set"
     let metadata = metadataOpt.get()
     check:
-      metadata.lastProcessedBlock == 128
       metadata.chainId == 1155511'u256
       metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
 

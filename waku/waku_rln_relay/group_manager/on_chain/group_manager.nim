@@ -145,13 +145,11 @@ proc fetchMaxMembershipRateLimit*(
     return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
 
 proc setMetadata*(
-    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
+    g: OnchainGroupManager
 ): GroupManagerResult[void] =
-  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
       RlnMetadata(
-        lastProcessedBlock: normalizedBlock.uint64,
         chainId: g.chainId,
         contractAddress: g.ethContractAddress,
         validRoots: g.validRoots.toSeq(),

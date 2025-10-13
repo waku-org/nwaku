@@ -194,7 +194,6 @@ proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
   )
 
 type RlnMetadata* = object
-  lastProcessedBlock*: uint64
   chainId*: UInt256
   contractAddress*: string
   validRoots*: seq[MerkleNode]
@@ -203,7 +202,6 @@ proc serialize(metadata: RlnMetadata): seq[byte] =
   ## serializes the metadata
   ## returns the serialized metadata
   return concat(
-    @(metadata.lastProcessedBlock.toBytes()),
     @(metadata.chainId.toBytes(Endianness.littleEndian)[0 .. 7]),
     @(hexToSeqByte(toLower(metadata.contractAddress))),
     @(uint64(metadata.validRoots.len()).toBytes()),
@@ -267,13 +265,11 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
     return ok(none(RlnMetadata))
 
   let
-    lastProcessedBlockOffset = 0
-    chainIdOffset = lastProcessedBlockOffset + 8
+    chainIdOffset = 0
     contractAddressOffset = chainIdOffset + 8
     validRootsOffset = contractAddressOffset + 20
 
   var
-    lastProcessedBlock: uint64
     chainId: UInt256
     contractAddress: string
     validRoots: MerkleNodeSeq
@@ -283,8 +279,6 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
   trace "received metadata bytes",
     metadataBytes = metadataBytes, len = metadataBytes.len
 
-  lastProcessedBlock =
-    uint64.fromBytes(metadataBytes[lastProcessedBlockOffset .. chainIdOffset - 1])
   chainId = UInt256.fromBytes(
     metadataBytes[chainIdOffset .. contractAddressOffset - 1], Endianness.littleEndian
   )
@@ -296,7 +290,6 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
   return ok(
     some(
       RlnMetadata(
-        lastProcessedBlock: lastProcessedBlock,
         chainId: chainId,
         contractAddress: "0x" & contractAddress,
         validRoots: validRoots,
