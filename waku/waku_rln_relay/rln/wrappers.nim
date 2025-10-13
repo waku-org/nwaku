@@ -86,7 +86,7 @@ proc createRLNInstanceLocal(): RLNResult =
   ## Returns an error if the instance creation fails
 
   let rln_config = RlnConfig(
-    resources_folder: "tree_height_" & "/",
+    resources_folder: "tree_height_/",
     tree_config: RlnTreeConfig(
       cache_capacity: 15_000,
       mode: "high_throughput",
@@ -190,38 +190,3 @@ proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
       externalNullifier: externalNullifier,
     )
   )
-
-type RlnMetadata* = object
-  chainId*: UInt256
-  contractAddress*: string
-  validRoots*: seq[MerkleNode]
-
-proc serialize(metadata: RlnMetadata): seq[byte] =
-  ## serializes the metadata
-  ## returns the serialized metadata
-  return concat(
-    @(metadata.chainId.toBytes(Endianness.littleEndian)[0 .. 7]),
-    @(hexToSeqByte(toLower(metadata.contractAddress))),
-    @(uint64(metadata.validRoots.len()).toBytes()),
-    @(serialize(metadata.validRoots)),
-  )
-
-type MerkleNodeSeq = seq[MerkleNode]
-
-proc deserialize(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
-  ## deserializes a byte seq to a seq of MerkleNodes
-  ## the order of serialization is |merkle_node_len<8>|merkle_node[len]|
-
-  var roots = newSeq[MerkleNode]()
-  let len = uint64.fromBytes(merkleNodeByteSeq[0 .. 7], Endianness.littleEndian)
-  trace "length of valid roots", len
-  for i in 0'u64 ..< len:
-    # convert seq[byte] to array[32, byte]
-    let fromByte = 8 + i * 32
-    let toByte = fromByte + 31
-    let rawRoot = merkleNodeByteSeq[fromByte .. toByte]
-    trace "raw root", rawRoot = rawRoot
-    var root: MerkleNode
-    discard root.copyFrom(rawRoot)
-    roots.add(root)
-  return roots
