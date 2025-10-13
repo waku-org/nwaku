@@ -198,6 +198,7 @@ proc new*(
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
   if wakuConf.p2pReliability:
+    debug "AAAAA Setting up delivery monitor"
     if wakuConf.remoteStoreNode.isNone():
       return err("A storenode should be set when reliability mode is on")
 

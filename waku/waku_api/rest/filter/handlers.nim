@@ -197,6 +197,8 @@ proc filterPostPutSubscriptionRequestHandler(
     peerOp.valueOr:
       return makeRestResponse(req.requestId, NoPeerNoneFoundError)
 
+  debug "AAAAA subscribing to filter",
+    pubsubTopic = req.pubsubTopic, contentFilter = req.contentFilters, peer
   let subFut = node.filterSubscribe(req.pubsubTopic, req.contentFilters, peer)
 
   if not await subFut.withTimeout(futTimeoutForSubscriptionProcessing):
