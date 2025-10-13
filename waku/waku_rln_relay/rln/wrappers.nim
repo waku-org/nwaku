@@ -80,14 +80,13 @@ proc `%`(c: RlnConfig): JsonNode =
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
-proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
+proc createRLNInstanceLocal(): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-  ## d indicates the depth of Merkle tree
   ## Returns an error if the instance creation fails
 
   let rln_config = RlnConfig(
-    resources_folder: "tree_height_" & $d & "/",
+    resources_folder: "tree_height_" & "/",
     tree_config: RlnTreeConfig(
       cache_capacity: 15_000,
       mode: "high_throughput",
@@ -100,24 +99,23 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
 
   var
     rlnInstance: ptr RLN
-    merkleDepth: csize_t = uint(d)
     configBuffer =
       serialized_rln_config.toOpenArrayByte(0, serialized_rln_config.high).toBuffer()
 
   # create an instance of RLN
-  let res = new_circuit(merkleDepth, addr configBuffer, addr rlnInstance)
+  let res = new_circuit(addr configBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false):
     debug "error in parameters generation"
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc createRLNInstance*(d = MerkleTreeDepth): RLNResult =
+proc createRLNInstance*(): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d)
+    res = createRLNInstanceLocal()
   return res
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =

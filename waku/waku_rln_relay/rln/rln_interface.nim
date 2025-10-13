@@ -121,32 +121,21 @@ proc zk_verify*(
 ## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
 ## the return bool value indicates the success or failure of the operation
 
-#----------------------------------------------------------------------------------------------
-
 #-------------------------------- Common procedures -------------------------------------------
-proc new_circuit*(
-  tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
-): bool {.importc: "new".}
+proc new_circuit*(input_buffer: ptr Buffer, ctx: ptr (ptr RLN)): bool {.importc: "new".}
 
 ## creates an instance of rln object as defined by the zerokit RLN lib
-## tree_height represent the depth of the Merkle tree
 ## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
 
 proc new_circuit_from_data*(
-  tree_height: uint,
-  circom_buffer: ptr Buffer,
-  zkey_buffer: ptr Buffer,
-  vk_buffer: ptr Buffer,
-  ctx: ptr (ptr RLN),
+  zkey_buffer: ptr Buffer, graph_buffer: ptr Buffer, ctx: ptr (ptr RLN)
 ): bool {.importc: "new_with_params".}
 
 ## creates an instance of rln object as defined by the zerokit RLN lib by passing the required inputs as byte arrays
-## tree_height represent the depth of the Merkle tree
-## circom_buffer contains the bytes read from the Circom .wasm circuit
 ## zkey_buffer contains the bytes read from the .zkey proving key
-## vk_buffer contains the bytes read from the verification_key.json
+## graph_buffer contains the bytes read from the graph data file
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
 
