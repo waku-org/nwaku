@@ -160,22 +160,3 @@ proc poseidon*(
 ## inputs_buffer holds the hash input as a byte seq
 ## the hash output is generated and populated inside output_buffer
 ## the output_buffer contains 32 bytes hash output
-
-#-------------------------------- Persistent Metadata utils -------------------------------------------
-
-proc set_metadata*(
-  ctx: ptr RLN, input_buffer: ptr Buffer
-): bool {.importc: "set_metadata".}
-
-## sets the metadata stored by ctx to the value passed by input_buffer
-## the input_buffer holds a serialized representation of the metadata (format to be defined)
-## input_buffer holds the metadata as a byte seq
-## the return bool value indicates the success or failure of the operation
-
-proc get_metadata*(
-  ctx: ptr RLN, output_buffer: ptr Buffer
-): bool {.importc: "get_metadata".}
-
-## gets the metadata stored by ctx and populates the passed pointer output_buffer with it
-## the output_buffer holds the metadata as a byte seq
-## the return bool value indicates the success or failure of the operation

@@ -144,23 +144,6 @@ proc fetchMaxMembershipRateLimit*(
     error "Failed to fetch max membership rate limit", error = getCurrentExceptionMsg()
     return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
 
-proc setMetadata*(
-    g: OnchainGroupManager
-): GroupManagerResult[void] =
-  try:
-    let metadataSetRes = g.rlnInstance.setMetadata(
-      RlnMetadata(
-        chainId: g.chainId,
-        contractAddress: g.ethContractAddress,
-        validRoots: g.validRoots.toSeq(),
-      )
-    )
-    if metadataSetRes.isErr():
-      return err("failed to persist rln metadata: " & metadataSetRes.error)
-  except CatchableError:
-    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
-  return ok()
-
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
@@ -590,18 +573,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     debug "membershipExists", membershipExists = membershipExists
 
     g.idCredentials = some(keystoreCred.identityCredential)
-
-  let metadataGetOptRes = g.rlnInstance.getMetadata()
-  if metadataGetOptRes.isErr():
-    warn "could not initialize with persisted rln metadata"
-  elif metadataGetOptRes.get().isSome():
-    let metadata = metadataGetOptRes.get().get()
-    if metadata.chainId != g.chainId:
-      return err(
-        fmt"chain id mismatch. persisted={metadata.chainId}, smart_contract_chainId={g.chainId}"
-      )
-    if metadata.contractAddress != g.ethContractAddress.toLower():
-      return err("persisted data: contract address mismatch")
 
   let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
   let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:

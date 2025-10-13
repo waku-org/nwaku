@@ -49,6 +49,6 @@ else
         exit 1
     fi
     # if submodule version = version in Makefile, build rln
-    cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" --no-default-features --features stateless,parallel
+    cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" 
     cp "${build_dir}/target/release/librln.a" "${output_filename}"
 fi
