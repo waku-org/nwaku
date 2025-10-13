@@ -175,7 +175,7 @@ proc initProtocolHandler(w: WakuRelay) =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string
     ## e.g. ``/wakusub/0.0.1``, etc...
-    debug "Incoming WakuRelay connection", connection = conn, protocol = proto
+    info "Incoming WakuRelay connection", connection = conn, protocol = proto
 
     try:
       await w.handleConn(conn, proto)
@@ -380,7 +380,7 @@ proc getPubSubPeersInMesh*(
     return ok(allPeers)
 
   if not w.mesh.hasKey(pubsubTopic):
-    debug "getPubSubPeersInMesh - there is no mesh peer for the given pubsub topic",
+    info "getPubSubPeersInMesh - there is no mesh peer for the given pubsub topic",
       pubsubTopic = pubsubTopic
     return ok(initHashSet[PubSubPeer]())
 
@@ -461,12 +461,12 @@ proc topicsHealthLoop(wakuRelay: WakuRelay) {.async.} =
     await sleepAsync(10.seconds)
 
 method start*(w: WakuRelay) {.async, base.} =
-  debug "start"
+  info "start"
   await procCall GossipSub(w).start()
   w.topicHealthLoopHandle = w.topicsHealthLoop()
 
 method stop*(w: WakuRelay) {.async, base.} =
-  debug "stop"
+  info "stop"
   await procCall GossipSub(w).stop()
   if not w.topicHealthLoopHandle.isNil():
     await w.topicHealthLoopHandle.cancelAndWait()
@@ -538,7 +538,7 @@ proc validateMessage*(
   return ok()
 
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
-  debug "subscribe", pubsubTopic = pubsubTopic
+  info "subscribe", pubsubTopic = pubsubTopic
 
   # We need to wrap the handler since gossipsub doesnt understand WakuMessage
   let topicHandler = proc(
@@ -580,7 +580,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic
 
-  debug "unsubscribe all", pubsubTopic = pubsubTopic
+  info "unsubscribe all", pubsubTopic = pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
   w.topicValidator.del(pubsubTopic)
@@ -604,7 +604,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
     error "exception in unsubscribe", pubsubTopic, error = getCurrentExceptionMsg()
     return
 
-  debug "unsubscribe", pubsubTopic
+  info "unsubscribe", pubsubTopic
   procCall GossipSub(w).unsubscribe(pubsubTopic, topicHandler)
   procCall GossipSub(w).removeValidator(pubsubTopic, topicValidator)
 

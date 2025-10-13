@@ -72,7 +72,7 @@ procSuite "WakuNode - RLN relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     # node 2
     (await node2.mountRelay()).isOkOr:
@@ -85,7 +85,7 @@ procSuite "WakuNode - RLN relay":
 
     let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
     let rootUpdated2 = waitFor manager2.updateRoots()
-    debug "Updated root for node2", rootUpdated2
+    info "Updated root for node2", rootUpdated2
 
     # node 3
     (await node3.mountRelay()).isOkOr:
@@ -98,7 +98,7 @@ procSuite "WakuNode - RLN relay":
 
     let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
     let rootUpdated3 = waitFor manager3.updateRoots()
-    debug "Updated root for node3", rootUpdated3
+    info "Updated root for node3", rootUpdated3
 
     # connect them together
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -108,7 +108,7 @@ procSuite "WakuNode - RLN relay":
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
-      debug "The received topic:", topic
+      info "The received topic:", topic
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
@@ -139,7 +139,7 @@ procSuite "WakuNode - RLN relay":
       .isOk()
     )
 
-    debug " Nodes participating in the test",
+    info " Nodes participating in the test",
       node1 = shortLog(node1.switch.peerInfo.peerId),
       node2 = shortLog(node2.switch.peerInfo.peerId),
       node3 = shortLog(node3.switch.peerInfo.peerId)
@@ -189,7 +189,7 @@ procSuite "WakuNode - RLN relay":
           "exception raised when calling register: " & getCurrentExceptionMsg()
 
       let rootUpdated = waitFor manager.updateRoots()
-      debug "Updated root for node", node = index + 1, rootUpdated = rootUpdated
+      info "Updated root for node", node = index + 1, rootUpdated = rootUpdated
 
     # connect them together
     await nodes[0].connectToNodes(@[nodes[1].switch.peerInfo.toRemotePeerInfo()])
@@ -308,7 +308,7 @@ procSuite "WakuNode - RLN relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     # node 2
     (await node2.mountRelay()).isOkOr:
@@ -321,7 +321,7 @@ procSuite "WakuNode - RLN relay":
 
     let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
     let rootUpdated2 = waitFor manager2.updateRoots()
-    debug "Updated root for node2", rootUpdated2
+    info "Updated root for node2", rootUpdated2
 
     # node 3
     (await node3.mountRelay()).isOkOr:
@@ -334,7 +334,7 @@ procSuite "WakuNode - RLN relay":
 
     let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
     let rootUpdated3 = waitFor manager3.updateRoots()
-    debug "Updated root for node3", rootUpdated3
+    info "Updated root for node3", rootUpdated3
 
     # connect them together
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -345,7 +345,7 @@ procSuite "WakuNode - RLN relay":
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
-      debug "The received topic:", topic
+      info "The received topic:", topic
       if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
@@ -425,7 +425,7 @@ procSuite "WakuNode - RLN relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     # node 2
     (await node2.mountRelay()).isOkOr:
@@ -440,7 +440,7 @@ procSuite "WakuNode - RLN relay":
     # Registration is mandatory before sending messages with rln-relay 
     let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
     let rootUpdated2 = waitFor manager2.updateRoots()
-    debug "Updated root for node2", rootUpdated2
+    info "Updated root for node2", rootUpdated2
 
     # node 3
     (await node3.mountRelay()).isOkOr:
@@ -455,7 +455,7 @@ procSuite "WakuNode - RLN relay":
     # Registration is mandatory before sending messages with rln-relay 
     let manager3 = cast[OnchainGroupManager](node3.wakuRlnRelay.groupManager)
     let rootUpdated3 = waitFor manager3.updateRoots()
-    debug "Updated root for node3", rootUpdated3
+    info "Updated root for node3", rootUpdated3
 
     # connect the nodes together node1 <-> node2 <-> node3
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -510,7 +510,7 @@ procSuite "WakuNode - RLN relay":
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
-      debug "The received topic:", topic
+      info "The received topic:", topic
       if topic == DefaultPubsubTopic:
         if msg == wm1:
           completionFut1.complete(true)
@@ -592,7 +592,7 @@ procSuite "WakuNode - RLN relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     # Mount rlnrelay in node2 in off-chain mode
     (await node2.mountRelay()).isOkOr:
@@ -604,7 +604,7 @@ procSuite "WakuNode - RLN relay":
     # Registration is mandatory before sending messages with rln-relay 
     let manager2 = cast[OnchainGroupManager](node2.wakuRlnRelay.groupManager)
     let rootUpdated2 = waitFor manager2.updateRoots()
-    debug "Updated root for node2", rootUpdated2
+    info "Updated root for node2", rootUpdated2
 
     # Given the two nodes are started and connected
     waitFor allFutures(node1.start(), node2.start())
@@ -636,7 +636,7 @@ procSuite "WakuNode - RLN relay":
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
-      debug "The received topic:", topic
+      info "The received topic:", topic
       if topic == DefaultPubsubTopic:
         if msg == wm1:
           completionFut1.complete(true)

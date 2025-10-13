@@ -61,7 +61,7 @@ proc installRelayApiHandlers*(
   ) -> RestApiResponse:
     ## Subscribes a node to a list of PubSub topics
 
-    debug "post_waku_v2_relay_v1_subscriptions"
+    info "post_waku_v2_relay_v1_subscriptions"
 
     # Check the request body
     if contentBody.isNone():
@@ -90,7 +90,7 @@ proc installRelayApiHandlers*(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     # ## Subscribes a node to a list of PubSub topics
-    # debug "delete_waku_v2_relay_v1_subscriptions"
+    # info "delete_waku_v2_relay_v1_subscriptions"
 
     # Check the request body
     if contentBody.isNone():
@@ -124,7 +124,7 @@ proc installRelayApiHandlers*(
     # ## Returns all WakuMessages received on a PubSub topic since the
     # ## last time this method was called
     # ## TODO: ability to specify a return message limit
-    # debug "get_waku_v2_relay_v1_messages", topic=topic
+    # info "get_waku_v2_relay_v1_messages", topic=topic
 
     if pubsubTopic.isErr():
       return RestApiResponse.badRequest()
@@ -132,13 +132,13 @@ proc installRelayApiHandlers*(
 
     let messages = cache.getMessages(pubSubTopic, clear = true)
     if messages.isErr():
-      debug "Not subscribed to topic", topic = pubSubTopic
+      info "Not subscribed to topic", topic = pubSubTopic
       return RestApiResponse.notFound()
 
     let data = RelayGetMessagesResponse(messages.get().map(toRelayWakuMessage))
     let resp = RestApiResponse.jsonResponse(data, status = Http200)
     if resp.isErr():
-      debug "An error ocurred while building the json respose", error = resp.error
+      info "An error ocurred while building the json respose", error = resp.error
       return RestApiResponse.internalServerError()
 
     return resp.get()
@@ -185,7 +185,7 @@ proc installRelayApiHandlers*(
     logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message",
+    info "Publishing message",
       pubSubTopic = pubSubTopic, rln = not node.wakuRlnRelay.isNil()
     if not (waitFor node.publish(some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic = pubSubTopic
@@ -203,7 +203,7 @@ proc installRelayApiHandlers*(
   ) -> RestApiResponse:
     ## Subscribes a node to a list of content topics.
 
-    debug "post_waku_v2_relay_v1_auto_subscriptions"
+    info "post_waku_v2_relay_v1_auto_subscriptions"
 
     let req: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](contentBody).valueOr:
       return error
@@ -228,7 +228,7 @@ proc installRelayApiHandlers*(
   ) -> RestApiResponse:
     ## Unsubscribes a node from a list of content topics.
 
-    debug "delete_waku_v2_relay_v1_auto_subscriptions"
+    info "delete_waku_v2_relay_v1_auto_subscriptions"
 
     let req: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](contentBody).valueOr:
       return error
@@ -253,19 +253,19 @@ proc installRelayApiHandlers*(
     ## Returns all WakuMessages received on a content topic since the
     ## last time this method was called.
 
-    debug "get_waku_v2_relay_v1_auto_messages", contentTopic = contentTopic
+    info "get_waku_v2_relay_v1_auto_messages", contentTopic = contentTopic
 
     let contentTopic = contentTopic.valueOr:
       return RestApiResponse.badRequest($error)
 
     let messages = cache.getAutoMessages(contentTopic, clear = true).valueOr:
-      debug "Not subscribed to topic", topic = contentTopic
+      info "Not subscribed to topic", topic = contentTopic
       return RestApiResponse.notFound(contentTopic)
 
     let data = RelayGetMessagesResponse(messages.map(toRelayWakuMessage))
 
     return RestApiResponse.jsonResponse(data, status = Http200).valueOr:
-      debug "An error ocurred while building the json respose", error = error
+      info "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError($error)
 
   router.api(MethodOptions, ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC) do() -> RestApiResponse:
@@ -311,7 +311,7 @@ proc installRelayApiHandlers*(
     logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message",
+    info "Publishing message",
       contentTopic = message.contentTopic, rln = not node.wakuRlnRelay.isNil()
 
     var publishFut = node.publish(some($pubsubTopic), message)

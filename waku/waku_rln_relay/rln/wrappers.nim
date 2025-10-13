@@ -108,7 +108,7 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
   let res = new_circuit(merkleDepth, addr configBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false):
-    debug "error in parameters generation"
+    info "error in parameters generation"
     return err("error in parameters generation")
   return ok(rlnInstance)
 

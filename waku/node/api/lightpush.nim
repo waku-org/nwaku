@@ -42,16 +42,16 @@ proc mountLegacyLightPush*(
 
   let pushHandler =
     if node.wakuRelay.isNil:
-      debug "mounting legacy lightpush without relay (nil)"
+      info "mounting legacy lightpush without relay (nil)"
       legacy_lightpush_protocol.getNilPushHandler()
     else:
-      debug "mounting legacy lightpush with relay"
+      info "mounting legacy lightpush with relay"
       let rlnPeer =
         if isNil(node.wakuRlnRelay):
-          debug "mounting legacy lightpush without rln-relay"
+          info "mounting legacy lightpush without rln-relay"
           none(WakuRLNRelay)
         else:
-          debug "mounting legacy lightpush with rln-relay"
+          info "mounting legacy lightpush with rln-relay"
           some(node.wakuRlnRelay)
       legacy_lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
@@ -157,16 +157,16 @@ proc mountLightPush*(
 
   let pushHandler =
     if node.wakuRelay.isNil():
-      debug "mounting lightpush v2 without relay (nil)"
+      info "mounting lightpush v2 without relay (nil)"
       lightpush_protocol.getNilPushHandler()
     else:
-      debug "mounting lightpush with relay"
+      info "mounting lightpush with relay"
       let rlnPeer =
         if isNil(node.wakuRlnRelay):
-          debug "mounting lightpush without rln-relay"
+          info "mounting lightpush without rln-relay"
           none(WakuRLNRelay)
         else:
-          debug "mounting lightpush with rln-relay"
+          info "mounting lightpush with rln-relay"
           some(node.wakuRlnRelay)
       lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 

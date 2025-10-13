@@ -24,7 +24,7 @@ template heartbeat*(name: string, interval: Duration, body: untyped): untyped =
         info "Missed multiple heartbeats",
           heartbeat = name, delay = delay, hinterval = itv
       else:
-        debug "Missed heartbeat", heartbeat = name, delay = delay, hinterval = itv
+        info "Missed heartbeat", heartbeat = name, delay = delay, hinterval = itv
 
       nextHeartbeat = now + itv
 

@@ -74,7 +74,7 @@ proc openConnection(
   let conn: Connection = connOpt.valueOr:
     return err("fail to dial remote " & $peerId)
 
-  debug "transfer session initialized",
+  info "transfer session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
   return ok(conn)
@@ -103,7 +103,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       ## sanity check, should not be possible
     self.outSessions[peerId].isClosedRemotely:
       ## quite possibly remote end has closed the connection, believing transfer to be done
-      debug "opening transfer connection to remote peer",
+      info "opening transfer connection to remote peer",
         my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId
 
       let connection = (await self.openConnection(peerId)).valueOr:
@@ -188,7 +188,7 @@ proc initProtocolHandler(self: SyncTransfer) =
 
     await conn.close()
 
-    debug "transfer session ended",
+    info "transfer session ended",
       local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
     return
