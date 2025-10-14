@@ -99,11 +99,12 @@ proc createRLNInstanceLocal(): RLNResult =
 
   var
     rlnInstance: ptr RLN
+    merkleDepth: csize_t = uint(20)
     configBuffer =
       serialized_rln_config.toOpenArrayByte(0, serialized_rln_config.high).toBuffer()
 
   # create an instance of RLN
-  let res = new_circuit(addr configBuffer, addr rlnInstance)
+  let res = new_circuit(merkleDepth, addr configBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false):
     debug "error in parameters generation"

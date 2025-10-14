@@ -122,12 +122,18 @@ proc zk_verify*(
 ## the return bool value indicates the success or failure of the operation
 
 #-------------------------------- Common procedures -------------------------------------------
-proc new_circuit*(input_buffer: ptr Buffer, ctx: ptr (ptr RLN)): bool {.importc: "new".}
+# stateful version
+proc new_circuit*(
+  tree_depth: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
+): bool {.importc: "new".}
 
 ## creates an instance of rln object as defined by the zerokit RLN lib
 ## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
+
+# stateless version
+proc new_circuit*(ctx: ptr (ptr RLN)): bool {.importc: "new".}
 
 proc new_circuit_from_data*(
   zkey_buffer: ptr Buffer, graph_buffer: ptr Buffer, ctx: ptr (ptr RLN)
