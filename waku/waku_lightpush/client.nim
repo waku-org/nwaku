@@ -102,7 +102,7 @@ proc publish*(
   let msgHash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
   info "publish",
     myPeerId = wl.peerManager.switch.peerInfo.peerId,
-    peerId =
+    toPeerId =
       when dest is Connection:
         shortPeerId(dest.peerId)
       else:
