@@ -52,12 +52,7 @@ suite "Waku rln relay":
     debug "generated keys: ", generatedKeys
 
   test "membership Key Generation":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let idCredentialsRes = membershipKeyGen(rlnInstance.get())
+    let idCredentialsRes = membershipKeyGen()
     require:
       idCredentialsRes.isOk()
 
@@ -75,58 +70,6 @@ suite "Waku rln relay":
 
     debug "the generated identity credential: ", idCredential
 
-  test "setMetadata rln utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-    check:
-      rln
-      .setMetadata(
-        RlnMetadata(
-          chainId: 1155511'u256,
-          contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
-        )
-      )
-      .isOk()
-
-  test "getMetadata rln utils":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    require:
-      rln
-      .setMetadata(
-        RlnMetadata(
-          chainId: 1155511'u256,
-          contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
-        )
-      )
-      .isOk()
-
-    let metadataOpt = rln.getMetadata().valueOr:
-      raiseAssert $error
-
-    assert metadataOpt.isSome(), "metadata is not set"
-    let metadata = metadataOpt.get()
-    check:
-      metadata.chainId == 1155511'u256
-      metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
-
-  test "getMetadata: empty rln metadata":
-    # create an RLN instance which also includes an empty Merkle tree
-    let rln = createRLNInstanceWrapper().valueOr:
-      raiseAssert $error
-    let metadata = rln.getMetadata().valueOr:
-      raiseAssert $error
-
-    check:
-      metadata.isNone()
-
   test "hash Nim Wrappers":
     # create an RLN instance
     let rlnInstance = createRLNInstanceWrapper()
@@ -142,7 +85,7 @@ suite "Waku rln relay":
     # prepare other inputs to the hash function
     let outputBuffer = default(Buffer)
 
-    let hashSuccess = sha256(unsafeAddr hashInputBuffer, unsafeAddr outputBuffer)
+    let hashSuccess = sha256(unsafeAddr hashInputBuffer, unsafeAddr outputBuffer, true)
     require:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
@@ -341,7 +284,7 @@ suite "Waku rln relay":
       raiseAssert $error
 
     let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -398,7 +341,7 @@ suite "Waku rln relay":
       raiseAssert $error
 
     let manager = cast[OnchainGroupManager](wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -448,7 +391,7 @@ suite "Waku rln relay":
       raiseAssert "failed to create waku rln relay: " & $error
 
     let manager1 = cast[OnchainGroupManager](wakuRlnRelay1.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
@@ -462,7 +405,7 @@ suite "Waku rln relay":
       raiseAssert "failed to create waku rln relay: " & $error
 
     let manager2 = cast[OnchainGroupManager](wakuRlnRelay2.groupManager)
-    let idCredentials2 = generateCredentials(manager2.rlnInstance)
+    let idCredentials2 = generateCredentials()
 
     try:
       waitFor manager2.register(idCredentials2, UserMessageLimit(20))
@@ -495,15 +438,7 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Valid
 
   test "toIDCommitment and toUInt256":
-    # create an instance of rln
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let rln = rlnInstance.get()
-
-    # create an idendity credential
-    let idCredentialRes = rln.membershipKeyGen()
+    let idCredentialRes = membershipKeyGen()
     require:
       idCredentialRes.isOk()
 
@@ -519,12 +454,7 @@ suite "Waku rln relay":
       idCredential.idCommitment == idCommitment
 
   test "Read/Write RLN credentials":
-    # create an RLN instance
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-
-    let idCredentialRes = membershipKeyGen(rlnInstance.get())
+    let idCredentialRes = membershipKeyGen()
     require:
       idCredentialRes.isOk()
 

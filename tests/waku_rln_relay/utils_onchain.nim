@@ -44,8 +44,8 @@ func strip0xPrefix(s: string): string =
   else:
     s
 
-proc generateCredentials*(rlnInstance: ptr RLN): IdentityCredential =
-  let credRes = membershipKeyGen(rlnInstance)
+proc generateCredentials*(): IdentityCredential =
+  let credRes = membershipKeyGen()
   return credRes.get()
 
 proc getRateCommitment*(
@@ -55,10 +55,10 @@ proc getRateCommitment*(
     idCommitment: idCredential.idCommitment, userMessageLimit: userMessageLimit
   ).toLeaf()
 
-proc generateCredentials*(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] =
+proc generateCredentials*(n: int): seq[IdentityCredential] =
   var credentials: seq[IdentityCredential]
   for i in 0 ..< n:
-    credentials.add(generateCredentials(rlnInstance))
+    credentials.add(generateCredentials())
   return credentials
 
 proc getContractAddressFromDeployScriptOutput(output: string): Result[string, string] =

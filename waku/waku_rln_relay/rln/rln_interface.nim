@@ -148,7 +148,7 @@ proc new_circuit_from_data*(
 #-------------------------------- Hashing utils -------------------------------------------
 
 proc sha256*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "hash".}
 
 ## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
@@ -158,7 +158,7 @@ proc sha256*(
 ## the output_buffer contains 32 bytes hash output
 
 proc poseidon*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "poseidon_hash".}
 
 ## it hashes (poseidon) the plain text supplied in inputs_buffer

@@ -127,7 +127,7 @@ proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
     outputBuffer: Buffer # will holds the hash output
 
   trace "sha256 hash input buffer length", bufflen = hashInputBuffer.len
-  let hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer)
+  let hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer, true)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
@@ -144,7 +144,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
     hashInputBuffer = inputBytes.toBuffer()
     outputBuffer: Buffer # will holds the hash output
 
-  let hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer)
+  let hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer, true)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
