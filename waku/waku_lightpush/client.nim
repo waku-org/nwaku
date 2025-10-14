@@ -104,7 +104,7 @@ proc publish*(
     myPeerId = wl.peerManager.switch.peerInfo.peerId,
     peerId =
       when dest is Connection:
-        "unknown (using connection directly)"
+        shortPeerId(dest.peerId)
       else:
         shortPeerId(dest),
     msgHash = msgHash,
