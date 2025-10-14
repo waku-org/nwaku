@@ -168,8 +168,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
       timestamp: getNowInNanosecondTime(),
     ) # current timestamp
 
-    let res = await node.wakuLightpushClient.publishWithConn(
-      LightpushPubsubTopic, message, conn, dPeerId
+    let res = await node.wakuLightpushClient.publish(
+      some(LightpushPubsubTopic), message, conn
     )
 
     if res.isOk():
