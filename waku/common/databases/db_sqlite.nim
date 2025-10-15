@@ -383,7 +383,7 @@ proc listSqlScripts(path: string): DatabaseResult[seq[string]] =
       if isSqlScript(scriptPath):
         scripts.add(scriptPath)
       else:
-        debug "invalid migration script", file = scriptPath
+        info "invalid migration script", file = scriptPath
   except OSError:
     return err("failed to list migration scripts: " & getCurrentExceptionMsg())
 
@@ -448,7 +448,7 @@ proc migrate*(
   let userVersion = ?db.getUserVersion()
 
   if userVersion == targetVersion:
-    debug "database schema is up to date",
+    info "database schema is up to date",
       userVersion = userVersion, targetVersion = targetVersion
     return ok()
 
@@ -466,7 +466,7 @@ proc migrate*(
   migrationScriptsPaths = sortMigrationScripts(migrationScriptsPaths)
 
   if migrationScriptsPaths.len <= 0:
-    debug "no scripts to be run"
+    info "no scripts to be run"
     return ok()
 
   let scripts = ?loadMigrationScripts(migrationScriptsPaths)
@@ -474,7 +474,7 @@ proc migrate*(
   # Run the migration scripts
   for script in scripts:
     for statement in script.breakIntoStatements():
-      debug "executing migration statement", statement = statement
+      info "executing migration statement", statement = statement
 
       let execRes = db.query(statement, NoopRowHandler)
       if execRes.isErr():
@@ -482,12 +482,12 @@ proc migrate*(
           statement = statement, error = execRes.error
         return err("failed to execute migration statement")
 
-      debug "migration statement executed succesfully", statement = statement
+      info "migration statement executed succesfully", statement = statement
 
   # Update user_version
   ?db.setUserVersion(targetVersion)
 
-  debug "database user_version updated", userVersion = targetVersion
+  info "database user_version updated", userVersion = targetVersion
   ok()
 
 proc performSqliteVacuum*(db: SqliteDatabase): DatabaseResult[void] =
@@ -495,11 +495,11 @@ proc performSqliteVacuum*(db: SqliteDatabase): DatabaseResult[void] =
   # TODO: Run vacuuming conditionally based on database page stats
   # if (pageCount > 0 and freelistCount > 0):
 
-  debug "starting sqlite database vacuuming"
+  info "starting sqlite database vacuuming"
 
   let resVacuum = db.vacuum()
   if resVacuum.isErr():
     return err("failed to execute vacuum: " & resVacuum.error)
 
-  debug "finished sqlite database vacuuming"
+  info "finished sqlite database vacuuming"
   ok()

@@ -37,7 +37,7 @@ type WakuDnsDiscovery* = object
 #####################
 
 proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
-  debug "Empty resolver called", domain = domain
+  info "Empty resolver called", domain = domain
   return ""
 
 proc findPeers*(
@@ -83,13 +83,13 @@ proc init*(
 ): Result[T, cstring] =
   ## Initialise Waku peer discovery via DNS
 
-  debug "init WakuDnsDiscovery", locationUrl = locationUrl
+  info "init WakuDnsDiscovery", locationUrl = locationUrl
 
   let
     client = ?Client.init(locationUrl)
     wakuDnsDisc = WakuDnsDiscovery(client: client, resolver: resolver)
 
-  debug "init success"
+  info "init success"
 
   return ok(wakuDnsDisc)
 
@@ -100,7 +100,7 @@ proc retrieveDynamicBootstrapNodes*(
 
   if dnsDiscoveryUrl != "":
     # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
+    info "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
 
     var nameServers: seq[TransportAddress]
     for ip in dnsAddrsNameServers:
@@ -118,5 +118,5 @@ proc retrieveDynamicBootstrapNodes*(
       return (await value.findPeers()).mapErr(e => $e)
     warn "Failed to init Waku DNS discovery"
 
-  debug "No method for retrieving dynamic bootstrap nodes specified."
+  info "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default

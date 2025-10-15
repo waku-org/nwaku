@@ -583,7 +583,7 @@ proc reconnectPeers*(
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
 
-  debug "Reconnecting peers", proto = proto
+  info "Reconnecting peers", proto = proto
 
   # Proto is not persisted, we need to iterate over all peers.
   for peerInfo in pm.switch.peerStore.peers(protocolMatcher(proto)):
@@ -594,7 +594,7 @@ proc reconnectPeers*(
       continue
 
     if backoffTime > ZeroDuration:
-      debug "Backing off before reconnect",
+      info "Backing off before reconnect",
         peerId = peerInfo.peerId, backoffTime = backoffTime
       # We disconnected recently and still need to wait for a backoff period before connecting
       await sleepAsync(backoffTime)
@@ -682,7 +682,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     let inRelayPeers = pm.connectedPeers(WakuRelayCodec)[0]
     if inRelayPeers.len > pm.inRelayPeersTarget and
         peerStore.hasPeer(peerId, WakuRelayCodec):
-      debug "disconnecting relay peer because reached max num in-relay peers",
+      info "disconnecting relay peer because reached max num in-relay peers",
         peerId = peerId,
         inRelayPeers = inRelayPeers.len,
         inRelayPeersTarget = pm.inRelayPeersTarget
@@ -698,7 +698,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       # pm.colocationLimit == 0 disables the ip colocation limit
       if pm.colocationLimit != 0 and peersBehindIp.len > pm.colocationLimit:
         for peerId in peersBehindIp[0 ..< (peersBehindIp.len - pm.colocationLimit)]:
-          debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
+          info "Pruning connection due to ip colocation", peerId = peerId, ip = ip
           asyncSpawn(pm.switch.disconnect(peerId))
           peerStore.delete(peerId)
 
@@ -721,7 +721,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       # we don't want to await for the callback to finish
       asyncSpawn pm.onConnectionChange(peerId, Left)
   of Identified:
-    debug "event identified", peerId = peerId
+    info "event identified", peerId = peerId
 
   peerStore[ConnectionBook][peerId] = connectedness
   peerStore[DirectionBook][peerId] = direction
@@ -861,7 +861,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let relayCount = connectablePeers.len
 
-    debug "Sharded Peer Management",
+    info "Sharded Peer Management",
       shard = shard,
       connectable = $connectableCount & "/" & $shardCount,
       relayConnectable = $relayCount & "/" & $shardCount,

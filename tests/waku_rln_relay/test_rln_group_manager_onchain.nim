@@ -160,7 +160,7 @@ suite "Onchain group manager":
 
     try:
       for i in 0 ..< credentials.len():
-        debug "Registering credential", index = i, credential = credentials[i]
+        info "Registering credential", index = i, credential = credentials[i]
         waitFor manager.register(credentials[i], UserMessageLimit(20))
         discard waitFor manager.updateRoots()
     except Exception, CatchableError:
@@ -282,7 +282,7 @@ suite "Onchain group manager":
     let messageBytes = "Hello".toBytes()
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
@@ -315,7 +315,7 @@ suite "Onchain group manager":
     let messageBytes = "Hello".toBytes()
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
@@ -365,7 +365,7 @@ suite "Onchain group manager":
 
     # prepare the epoch
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let validProof = manager.generateProof(
@@ -400,7 +400,7 @@ suite "Onchain group manager":
       manager.merkleProofCache[i] = byte(rand(255))
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let invalidProofRes = manager.generateProof(

@@ -595,13 +595,13 @@ suite "Waku Filter - End to End":
       await peers[index].mountFilterClient()
 
       ## connect switches
-      debug "establish connection", peerId = peers[index].peerInfo.peerId
+      info "establish connection", peerId = peers[index].peerInfo.peerId
 
       await server.switch.connect(
         peers[index].switch.peerInfo.peerId, peers[index].switch.peerInfo.listenAddrs
       )
 
-      debug "adding subscription"
+      info "adding subscription"
 
       (
         await wakuFilter.subscriptions.addSubscription(

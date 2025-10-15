@@ -43,7 +43,7 @@ suite "Queue driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -85,7 +85,7 @@ suite "Queue driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -129,7 +129,7 @@ suite "Queue driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -175,7 +175,7 @@ suite "Queue driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -218,7 +218,7 @@ suite "Queue driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -313,7 +313,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -377,7 +377,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -439,7 +439,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -489,7 +489,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -536,7 +536,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -581,7 +581,7 @@ suite "Queue driver - query by cursor":
       ]
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -633,7 +633,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -683,7 +683,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -776,7 +776,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -870,7 +870,7 @@ suite "Queue driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -922,7 +922,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -967,7 +967,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -1057,7 +1057,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1107,7 +1107,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -1155,7 +1155,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = await driver.put(
@@ -1205,7 +1205,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = waitFor driver.put(
@@ -1256,7 +1256,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = await driver.put(
@@ -1310,7 +1310,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       let retFut = await driver.put(
@@ -1396,7 +1396,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1484,7 +1484,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1573,7 +1573,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1663,7 +1663,7 @@ suite "Queue driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:

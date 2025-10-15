@@ -199,7 +199,7 @@ proc relayShardingIndicesList*(record: TypedRecord): Option[RelayShards] =
     return none(RelayShards)
 
   let indexList = fromIndicesList(field).valueOr:
-    debug "invalid shards list", error = error
+    info "invalid shards list", error = error
     return none(RelayShards)
 
   some(indexList)
@@ -209,7 +209,7 @@ proc relayShardingBitVector*(record: TypedRecord): Option[RelayShards] =
     return none(RelayShards)
 
   let bitVector = fromBitVector(field).valueOr:
-    debug "invalid shards bit vector", error = error
+    info "invalid shards bit vector", error = error
     return none(RelayShards)
 
   some(bitVector)
@@ -241,7 +241,7 @@ proc containsShard*(r: Record, shard: RelayShard): bool =
 proc containsShard*(r: Record, topic: PubsubTopic): bool =
   let parseRes = RelayShard.parse(topic)
   if parseRes.isErr():
-    debug "invalid static sharding topic", topic = topic, error = parseRes.error
+    info "invalid static sharding topic", topic = topic, error = parseRes.error
     return false
 
   containsShard(r, parseRes.value)

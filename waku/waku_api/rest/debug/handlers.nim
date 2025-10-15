@@ -17,7 +17,7 @@ proc installDebugInfoV1Handler(router: var RestRouter, node: WakuNode) =
     let info = node.info().toDebugWakuInfo()
     let resp = RestApiResponse.jsonResponse(info, status = Http200)
     if resp.isErr():
-      debug "An error occurred while building the json respose", error = resp.error
+      info "An error occurred while building the json respose", error = resp.error
       return RestApiResponse.internalServerError()
 
     return resp.get()

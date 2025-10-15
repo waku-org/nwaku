@@ -205,7 +205,7 @@ proc installStoreApiHandlers*(
     pageSize: Option[string],
     ascending: Option[string]
   ) -> RestApiResponse:
-    debug "REST-GET /store/v1/messages ", peer_addr = $peerAddr
+    info "REST-GET /store/v1/messages ", peer_addr = $peerAddr
 
     # All the GET parameters are URL-encoded (https://en.wikipedia.org/wiki/URL_encoding)
     # Example:

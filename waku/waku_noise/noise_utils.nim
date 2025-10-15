@@ -249,7 +249,7 @@ proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
       mntb.counter += 1
   else:
     # We warn users if no secret is set
-    debug "The message nametags buffer has not a secret set"
+    info "The message nametags buffer has not a secret set"
 
 # Deletes the first n elements in buffer and appends n new ones
 proc delete*(mntb: var MessageNametagBuffer, n: int) =
@@ -272,7 +272,7 @@ proc delete*(mntb: var MessageNametagBuffer, n: int) =
       mntb.counter += 1
   else:
     # We warn users that no secret is set
-    debug "The message nametags buffer has no secret set"
+    info "The message nametags buffer has no secret set"
 
 # Checks if the input messageNametag is contained in the input MessageNametagBuffer
 proc checkNametag*(
@@ -486,7 +486,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
     serializedHandshakeMessage.add serializedPk
     # If we are processing more than 256 byte, we return an error
     if serializedHandshakeMessageLen > uint8.high.int:
-      debug "PayloadV2 malformed: too many public keys contained in the handshake message"
+      info "PayloadV2 malformed: too many public keys contained in the handshake message"
       return err("Too many public keys in handshake message")
 
   # We get the transport message byte length
@@ -542,7 +542,7 @@ proc deserializePayloadV2*(
   # We read the Handshake Message lenght (1 byte)
   var handshakeMessageLen = payload[i].uint64
   if handshakeMessageLen > uint8.high.uint64:
-    debug "Payload malformed: too many public keys contained in the handshake message"
+    info "Payload malformed: too many public keys contained in the handshake message"
     return err("Too many public keys in handshake message")
 
   i += 1

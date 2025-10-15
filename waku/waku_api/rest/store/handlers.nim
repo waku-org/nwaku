@@ -45,7 +45,7 @@ proc performStoreQuery(
   let res = futRes.get().toHex()
 
   if res.statusCode == uint32(ErrorCode.TOO_MANY_REQUESTS):
-    debug "Request rate limit reached on peer ", storePeer
+    info "Request rate limit reached on peer ", storePeer
     return RestApiResponse.tooManyRequests("Request rate limit reached")
 
   let resp = RestApiResponse.jsonResponse(res, status = Http200).valueOr:
@@ -194,7 +194,7 @@ proc installStoreApiHandlers*(
   ) -> RestApiResponse:
     let peer = peerAddr.toOpt()
 
-    debug "REST-GET /store/v3/messages ", peer_addr = $peer
+    info "REST-GET /store/v3/messages ", peer_addr = $peer
 
     # All the GET parameters are URL-encoded (https://en.wikipedia.org/wiki/URL_encoding)
     # Example:

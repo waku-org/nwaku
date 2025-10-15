@@ -22,7 +22,7 @@ suite "Waku Keepalive":
     var completionFut = newFuture[bool]()
 
     proc pingHandler(peerId: PeerID) {.async, gcsafe.} =
-      debug "Ping received"
+      info "Ping received"
 
       check:
         peerId == node1.switch.peerInfo.peerId
