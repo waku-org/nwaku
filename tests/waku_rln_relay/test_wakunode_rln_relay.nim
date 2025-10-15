@@ -63,7 +63,7 @@ procSuite "WakuNode - RLN relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
@@ -180,7 +180,7 @@ procSuite "WakuNode - RLN relay":
       await node.mountRlnRelay(wakuRlnConfig)
       await node.start()
       let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-      let idCredentials = generateCredentials(manager.rlnInstance)
+      let idCredentials = generateCredentials()
 
       try:
         waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -299,7 +299,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
@@ -416,7 +416,7 @@ procSuite "WakuNode - RLN relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
@@ -583,7 +583,7 @@ procSuite "WakuNode - RLN relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager1 = cast[OnchainGroupManager](node1.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))

@@ -151,7 +151,7 @@ suite "RLN Proofs as a Lightpush Service":
     client.mountLegacyLightPushClient()
 
     let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
