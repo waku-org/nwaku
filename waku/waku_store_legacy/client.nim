@@ -201,7 +201,7 @@ when defined(waku_exp_store_resume):
       lastSeenTime = w.store.getNewestMessageTimestamp().get(Timestamp(0))
       now = getNanosecondTime(getTime().toUnixFloat())
 
-    debug "resuming with offline time window",
+    info "resuming with offline time window",
       lastSeenTime = lastSeenTime, currentTime = now
 
     let
@@ -218,10 +218,10 @@ when defined(waku_exp_store_resume):
 
     var res: WakuStoreResult[seq[WakuMessage]]
     if peerList.isSome():
-      debug "trying the candidate list to fetch the history"
+      info "trying the candidate list to fetch the history"
       res = await w.queryLoop(req, peerList.get())
     else:
-      debug "no candidate list is provided, selecting a random peer"
+      info "no candidate list is provided, selecting a random peer"
       # if no peerList is set then query from one of the peers stored in the peer manager
       let peerOpt = w.peerManager.selectPeer(WakuLegacyStoreCodec)
       if peerOpt.isNone():
@@ -229,11 +229,11 @@ when defined(waku_exp_store_resume):
         waku_legacy_store_errors.inc(labelValues = [peerNotFoundFailure])
         return err("no suitable remote peers")
 
-      debug "a peer is selected from peer manager"
+      info "a peer is selected from peer manager"
       res = await w.queryAll(req, peerOpt.get())
 
     if res.isErr():
-      debug "failed to resume the history"
+      info "failed to resume the history"
       return err("failed to resume the history")
 
     # Save the retrieved messages in the store

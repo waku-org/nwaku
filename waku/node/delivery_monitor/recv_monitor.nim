@@ -76,7 +76,7 @@ proc performDeliveryFeedback(
       success, dir, comment, msg_hash
     return
 
-  debug "recv monitor performDeliveryFeedback",
+  info "recv monitor performDeliveryFeedback",
     success, dir, comment, msg_hash = shortLog(msgHash)
   self.deliveryCb(success, dir, comment, msgHash, msg)
 
@@ -129,7 +129,7 @@ proc msgChecker(self: RecvMonitor) {.async.} =
 method onSubscribe(
     self: RecvMonitor, pubsubTopic: string, contentTopics: seq[string]
 ) {.gcsafe, raises: [].} =
-  debug "onSubscribe", pubsubTopic, contentTopics
+  info "onSubscribe", pubsubTopic, contentTopics
   self.topicsInterest.withValue(pubsubTopic, contentTopicsOfInterest):
     contentTopicsOfInterest[].add(contentTopics)
   do:
@@ -138,7 +138,7 @@ method onSubscribe(
 method onUnsubscribe(
     self: RecvMonitor, pubsubTopic: string, contentTopics: seq[string]
 ) {.gcsafe, raises: [].} =
-  debug "onUnsubscribe", pubsubTopic, contentTopics
+  info "onUnsubscribe", pubsubTopic, contentTopics
 
   self.topicsInterest.withValue(pubsubTopic, contentTopicsOfInterest):
     let remainingCTopics =

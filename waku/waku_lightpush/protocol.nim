@@ -127,7 +127,7 @@ proc initProtocolHandler(wl: WakuLightPush) =
       except CatchableError:
         error "lightpush failed handleRequest", error = getCurrentExceptionMsg()
     do:
-      debug "lightpush request rejected due rate limit exceeded",
+      info "lightpush request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
 
       rpc = static(

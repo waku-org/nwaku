@@ -160,7 +160,7 @@ suite "RLN Proofs as a Lightpush Service":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     if rootUpdated1:
       let proofResult = waitFor manager1.fetchMerkleProofElements()

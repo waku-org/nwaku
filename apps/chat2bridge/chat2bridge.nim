@@ -197,7 +197,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   cmb.running = true
 
-  debug "Start polling Matterbridge"
+  info "Start polling Matterbridge"
 
   # Start Matterbridge polling (@TODO: use streaming interface)
   proc mbHandler(jsonNode: JsonNode) {.async.} =
@@ -207,7 +207,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   asyncSpawn cmb.pollMatterbridge(mbHandler)
 
   # Start Waku v2 node
-  debug "Start listening on Waku v2"
+  info "Start listening on Waku v2"
   await cmb.nodev2.start()
 
   # Always mount relay for bridge

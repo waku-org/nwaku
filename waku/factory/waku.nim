@@ -82,12 +82,12 @@ proc setupSwitchServices(
     waku: Waku, conf: WakuConf, circuitRelay: Relay, rng: ref HmacDrbgContext
 ) =
   proc onReservation(addresses: seq[MultiAddress]) {.gcsafe, raises: [].} =
-    debug "circuit relay handler new reserve event",
+    info "circuit relay handler new reserve event",
       addrs_before = $(waku.node.announcedAddresses), addrs = $addresses
 
     waku.node.announcedAddresses.setLen(0) ## remove previous addresses
     waku.node.announcedAddresses.add(addresses)
-    debug "waku node announced addresses updated",
+    info "waku node announced addresses updated",
       announcedAddresses = waku.node.announcedAddresses
 
     if not isNil(waku.wakuDiscv5):
@@ -297,7 +297,7 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
   waku[].node.enr.update(parsedPk, extraFields = enrFields).isOkOr:
     return err("failed to update multiaddress in ENR updateAddressInENR: " & $error)
 
-  debug "Waku node ENR updated successfully with new multiaddress",
+  info "Waku node ENR updated successfully with new multiaddress",
     enr = waku[].node.enr.toUri(), record = $(waku[].node.enr)
 
   ## Now update the ENR infor in discv5
@@ -305,7 +305,7 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
     waku[].wakuDiscv5.protocol.localNode.record = waku[].node.enr
     let enr = waku[].wakuDiscv5.protocol.localNode.record
 
-    debug "Waku discv5 ENR updated successfully with new multiaddress",
+    info "Waku discv5 ENR updated successfully with new multiaddress",
       enr = enr.toUri(), record = $(enr)
 
   return ok()
@@ -365,7 +365,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     warn "startWaku: waku node already started"
     return ok()
 
-  debug "Retrieve dynamic bootstrap nodes"
+  info "Retrieve dynamic bootstrap nodes"
   let conf = waku[].conf
 
   if conf.dnsDiscoveryConf.isSome():

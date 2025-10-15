@@ -90,7 +90,7 @@ proc performFeedbackAndCleanup(
     return
 
   for hash, deliveryInfo in msgsToDiscard:
-    debug "send monitor performFeedbackAndCleanup",
+    info "send monitor performFeedbackAndCleanup",
       success, dir, comment, msg_hash = shortLog(hash)
 
     self.deliveryCb(success, dir, comment, hash, deliveryInfo.msg)
@@ -170,14 +170,14 @@ proc processMessages(self: SendMonitor) {.async.} =
     let pubsubTopic = deliveryInfo.pubsubTopic
     let msg = deliveryInfo.msg
     if not self.wakuRelay.isNil():
-      debug "trying to publish again with wakuRelay", msgHash, pubsubTopic
+      info "trying to publish again with wakuRelay", msgHash, pubsubTopic
       (await self.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
         error "could not publish with wakuRelay.publish",
           msgHash, pubsubTopic, error = $error
       continue
 
     if not self.wakuLightpushClient.isNil():
-      debug "trying to publish again with wakuLightpushClient", msgHash, pubsubTopic
+      info "trying to publish again with wakuLightpushClient", msgHash, pubsubTopic
       (await self.wakuLightpushClient.publishToAny(pubsubTopic, msg)).isOkOr:
         error "could not publish with publishToAny", error = $error
       continue
@@ -196,7 +196,7 @@ method onMessagePublished(
   ## When publishing a message either through relay or lightpush, we want to add some extra effort
   ## to make sure it is received to one store node. Hence, keep track of those published messages.
 
-  debug "onMessagePublished"
+  info "onMessagePublished"
   let msgHash = computeMessageHash(pubSubTopic, msg)
 
   if not self.publishedMessages.hasKey(msgHash):

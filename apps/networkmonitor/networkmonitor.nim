@@ -213,7 +213,7 @@ proc setConnectedPeersMetrics(
       continue
     var customPeerInfo = allPeers[peerIdStr]
 
-    debug "connected to peer", peer = customPeerInfo[]
+    info "connected to peer", peer = customPeerInfo[]
 
     # after connection, get supported protocols
     let lp2pPeerStore = node.switch.peerStore
@@ -358,7 +358,7 @@ proc retrieveDynamicBootstrapNodes(
 
   if dnsDiscoveryUrl != "":
     # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
+    info "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
 
     var nameServers: seq[TransportAddress]
     for ip in dnsAddrsNameServers:
@@ -376,7 +376,7 @@ proc retrieveDynamicBootstrapNodes(
       return (await value.findPeers()).mapErr(e => $e)
     warn "Failed to init Waku DNS discovery"
 
-  debug "No method for retrieving dynamic bootstrap nodes specified."
+  info "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
 proc getBootstrapFromDiscDns(

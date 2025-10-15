@@ -95,7 +95,7 @@ proc encryptWithAd*(
   # Otherwise we return the input plaintext according to specification http://www.noiseprotocol.org/noise.html#the-cipherstate-object
   else:
     ciphertext = @plaintext
-    debug "encryptWithAd called with no encryption key set. Returning plaintext."
+    info "encryptWithAd called with no encryption key set. Returning plaintext."
 
   return ciphertext
 
@@ -133,7 +133,7 @@ proc decryptWithAd*(
 
     # We check if the input authorization tag matches the decryption authorization tag
     if inputAuthorizationTag != authorizationTag:
-      debug "decryptWithAd failed",
+      info "decryptWithAd failed",
         plaintext = plaintext,
         ciphertext = ciphertext,
         inputAuthorizationTag = inputAuthorizationTag,
@@ -155,7 +155,7 @@ proc decryptWithAd*(
   # Otherwise we return the input ciphertext according to specification http://www.noiseprotocol.org/noise.html#the-cipherstate-object    
   else:
     plaintext = @ciphertext
-    debug "decryptWithAd called with no encryption key set. Returning ciphertext."
+    info "decryptWithAd called with no encryption key set. Returning ciphertext."
 
   return plaintext
 
@@ -359,6 +359,6 @@ proc decrypt*(
   trace "decrypt", tagIn = tagIn, tagOut = tagOut, nonce = state.nonce
   # We check if the authorization tag computed while decrypting is the same as the input tag
   if tagIn != tagOut:
-    debug "decrypt failed", plaintext = shortLog(plaintext)
+    info "decrypt failed", plaintext = shortLog(plaintext)
     raise newException(NoiseDecryptTagError, "decrypt tag authentication failed.")
   return plaintext
