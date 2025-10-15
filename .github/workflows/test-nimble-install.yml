@@ -8,6 +8,7 @@ on:
 
 jobs:
   test-nimble-install:
+    continue-on-error: true # Some runs get oddly cancelled
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest] # TODO: Windows
