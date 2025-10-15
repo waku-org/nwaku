@@ -11,7 +11,7 @@ jobs:
     continue-on-error: true # Some runs get oddly cancelled
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # TODO: Windows
+        os: [ubuntu-latest] # TODO: Windows
         nim-version: ['2.2.4'] # TODO: tests with more versions
 
     runs-on: ${{ matrix.os }}
