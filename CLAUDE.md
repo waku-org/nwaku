@@ -4,35 +4,35 @@ This file provides essential context for LLMs assisting with nwaku development.
 
 ## Project Identity
 
-**nwaku** is a Nim implementation of the Waku v2 protocol suite for private, censorship-resistant P2P messaging. It targets resource-restricted devices and privacy-preserving communication.
+nwaku is a Nim implementation of the Waku v2 protocol suite for private, censorship-resistant P2P messaging. It targets resource-restricted devices and privacy-preserving communication.
 
 ### Design Philosophy
 
-Waku is designed as a **shared public network** for generalized messaging, not application-specific infrastructure. Key architectural decisions:
+Waku is designed as a shared public network for generalized messaging, not application-specific infrastructure. Key architectural decisions:
 
-**Resource-restricted first**: Protocols differentiate between full nodes (relay) and light clients (filter, lightpush, store). Light clients can participate without maintaining full message history or relay capabilities. This explains the client/server split in protocol implementations.
+Resource-restricted first: Protocols differentiate between full nodes (relay) and light clients (filter, lightpush, store). Light clients can participate without maintaining full message history or relay capabilities. This explains the client/server split in protocol implementations.
 
-**Privacy through unlinkability**: RLN (Rate Limiting Nullifier) provides DoS protection while preserving sender anonymity. Messages are routed through pubsub topics with automatic sharding across 8 shards. Code prioritizes metadata privacy alongside content encryption.
+Privacy through unlinkability: RLN (Rate Limiting Nullifier) provides DoS protection while preserving sender anonymity. Messages are routed through pubsub topics with automatic sharding across 8 shards. Code prioritizes metadata privacy alongside content encryption.
 
-**Scalability via sharding**: The network uses automatic content-topic-based sharding to distribute traffic. This is why you'll see sharding logic throughout the codebase and why pubsub topic selection is protocol-level, not application-level.
+Scalability via sharding: The network uses automatic content-topic-based sharding to distribute traffic. This is why you'll see sharding logic throughout the codebase and why pubsub topic selection is protocol-level, not application-level.
 
 See [The Waku Network documentation](https://docs.waku.org/learn/) for architectural details.
 
 ### Core Protocols
-- **Relay**: Pub/sub message routing using GossipSub
-- **Store**: Historical message retrieval and persistence
-- **Filter**: Lightweight message filtering for resource-restricted clients
-- **Lightpush**: Lightweight message publishing for clients
-- **Peer Exchange**: Peer discovery mechanism
-- **RLN Relay**: Rate limiting nullifier for spam protection
+- Relay: Pub/sub message routing using GossipSub
+- Store: Historical message retrieval and persistence
+- Filter: Lightweight message filtering for resource-restricted clients
+- Lightpush: Lightweight message publishing for clients
+- Peer Exchange: Peer discovery mechanism
+- RLN Relay: Rate limiting nullifier for spam protection
 
 ### Key Terminology
-- **ENR** (Ethereum Node Record): Node identity and capability advertisement
-- **Multiaddr**: libp2p addressing format (e.g., `/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2...`)
-- **PubsubTopic**: Gossipsub topic for message routing (e.g., `/waku/2/default-waku/proto`)
-- **ContentTopic**: Application-level message categorization (e.g., `/my-app/1/chat/proto`)
-- **Sharding**: Partitioning network traffic across topics (static or auto-sharding)
-- **RLN** (Rate Limiting Nullifier): Zero-knowledge proof system for spam prevention
+- ENR (Ethereum Node Record): Node identity and capability advertisement
+- Multiaddr: libp2p addressing format (e.g., `/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2...`)
+- PubsubTopic: Gossipsub topic for message routing (e.g., `/waku/2/default-waku/proto`)
+- ContentTopic: Application-level message categorization (e.g., `/my-app/1/chat/proto`)
+- Sharding: Partitioning network traffic across topics (static or auto-sharding)
+- RLN (Rate Limiting Nullifier): Zero-knowledge proof system for spam prevention
 
 ### Specifications
 All Waku specs are at [rfc.vac.dev/waku](https://rfc.vac.dev/waku). RFCs use `WAKU2-XXX` format (not legacy `WAKU-XXX`).
@@ -77,7 +77,7 @@ waku_<protocol>/
 ```
 
 ### WakuNode Architecture
-- **WakuNode** (`waku/node/waku_node.nim`) is the central orchestrator
+- WakuNode (`waku/node/waku_node.nim`) is the central orchestrator
 - Protocols are "mounted" onto the node's switch (libp2p component)
 - PeerManager handles peer selection and connection management
 - Switch provides libp2p transport, security, and multiplexing
@@ -93,8 +93,8 @@ type WakuFilter* = ref object of LPProtocol
 ## Development Essentials
 
 ### Build Requirements
-- **Nim 2.2.4+** (affects language features available)
-- **Rust toolchain** (for RLN dependencies)
+- Nim 2.2.4+ (affects language features available)
+- Rust toolchain (for RLN dependencies)
 - Build via Make → nimbus-build-system
 
 ### Build System
@@ -110,7 +110,7 @@ make update
 make wakunode2 NIMFLAGS="-d:chronicles_log_level=DEBUG"
 ```
 
-**Note**: The build system uses `--mm:refc` memory management (automatically enforced). Only relevant if compiling outside the standard build system.
+Note: The build system uses `--mm:refc` memory management (automatically enforced). Only relevant if compiling outside the standard build system.
 
 ### Common Make Targets
 ```bash
@@ -153,7 +153,7 @@ suite "Waku ENR - Capabilities":
 ```
 
 ### Code Formatting
-**Mandatory**: All code must be formatted with `nph` (vendored in `vendor/nph`)
+Mandatory: All code must be formatted with `nph` (vendored in `vendor/nph`)
 ```bash
 # Format specific file
 make nph/waku/waku_core.nim
@@ -183,11 +183,21 @@ nim c -d:chronicles_log_level=TRACE myfile.nim
 
 ## Code Conventions
 
+Common pitfalls:
+- Always handle Result types explicitly
+- Avoid global mutable state: Pass state through parameters
+- Keep functions focused: Under 50 lines when possible
+- Prefer compile-time checks (`static assert`) over runtime checks
+
 ### Naming
-- **Files/Directories**: `snake_case` (e.g., `waku_lightpush`, `peer_manager`)
-- **Procedures**: `camelCase` (e.g., `handleRequest`, `pushMessage`)
-- **Types**: `PascalCase` (e.g., `WakuFilter`, `PubsubTopic`)
-- **Constants**: `PascalCase` (e.g., `MaxContentTopicsPerRequest`)
+- Files/Directories: `snake_case` (e.g., `waku_lightpush`, `peer_manager`)
+- Procedures: `camelCase` (e.g., `handleRequest`, `pushMessage`)
+- Types: `PascalCase` (e.g., `WakuFilter`, `PubsubTopic`)
+- Constants: `PascalCase` (e.g., `MaxContentTopicsPerRequest`)
+- Constructors: `func init(T: type Xxx, params): T`
+- For ref types: `func new(T: type Xxx, params): ref T`
+- Exceptions: `XxxError` for CatchableError, `XxxDefect` for Defect
+- ref object types: `XxxRef` suffix
 
 ### Imports Organization
 Group imports: stdlib, external libs, internal modules:
@@ -203,7 +213,7 @@ import
 ```
 
 ### Async Programming
-Uses **chronos**, not stdlib `asyncdispatch`:
+Uses chronos, not stdlib `asyncdispatch`:
 ```nim
 proc handleRequest(
     wl: WakuLightPush, peerId: PeerId
@@ -213,9 +223,9 @@ proc handleRequest(
 ```
 
 ### Error Handling
-nwaku uses **both** Result types and exceptions:
+nwaku uses both Result types and exceptions:
 
-**Result types** (nim-results) for protocol/API-level errors:
+Result types (nim-results) for protocol/API-level errors:
 ```nim
 proc subscribe(
     wf: WakuFilter, peerId: PeerID
@@ -230,7 +240,7 @@ proc subscribe(
   ok()
 ```
 
-**Exceptions** still used for:
+Exceptions still used for:
 - chronos async failures (CancelledError, etc.)
 - Database/system errors
 - Library interop
@@ -256,6 +266,150 @@ type WakuLightPush* = ref object of LPProtocol
 ### Type Visibility
 - Public exports use `*` suffix: `type WakuFilter* = ...`
 - Fields without `*` are module-private
+
+## Style Guide Essentials
+
+This section summarizes key Nim style guidelines relevant to nwaku development. Full guide: https://status-im.github.io/nim-style-guide/
+
+### Language Features
+
+Import and Export
+- Use explicit import paths with std/ prefix for stdlib
+- Group imports: stdlib, external, internal (separate blocks)
+- Export modules whose types appear in public API
+- Avoid include
+
+Macros and Templates
+- Avoid macros and templates - prefer simple constructs
+- Avoid generating public API with macros
+- Put logic in templates, use macros only for glue code
+
+Object Construction
+- Prefer Type(field: value) syntax
+- Use Type.init(params) convention for constructors
+- Default zero-initialization should be valid state
+- Avoid using result variable for construction
+
+ref object Types
+- Avoid ref object unless needed for:
+  - Resource handles requiring reference semantics
+  - Shared ownership
+  - Reference-based data structures (trees, lists)
+  - Stable pointer for FFI
+- Use explicit ref MyType where possible
+- Name ref object types with Ref suffix: XxxRef
+
+Memory Management
+- Prefer stack-based and statically sized types in core code
+- Use heap allocation in glue layers
+- Avoid alloca
+- For FFI: use create/dealloc or createShared/deallocShared
+
+Variable Usage
+- Use most restrictive of const, let, var (prefer const over let over var)
+- Prefer expressions for initialization over var then assignment
+- Avoid result variable - use explicit return or expression-based returns
+
+Functions
+- Prefer func over proc
+- Avoid public (*) symbols not part of intended API
+- Prefer openArray over seq for function parameters
+
+Methods (runtime polymorphism)
+- Avoid method keyword for dynamic dispatch
+- Prefer manual vtable with proc closures for polymorphism
+- Methods lack support for generics
+
+Miscellaneous
+- Annotate callback proc types with {.raises: [], gcsafe.}
+- Avoid explicit {.inline.} pragma
+- Avoid converters
+- Avoid finalizers
+
+Type Guidelines
+
+Binary Data
+- Use byte for binary data
+- Use seq[byte] for dynamic arrays
+- Convert string to seq[byte] early if stdlib returns binary as string
+
+Integers
+- Prefer signed (int, int64) for counting, lengths, indexing
+- Use unsigned with explicit size (uint8, uint64) for binary data, bit ops
+- Avoid Natural
+- Check ranges before converting to int
+- Avoid casting pointers to int
+- Avoid range types
+
+Strings
+- Use string for text
+- Use seq[byte] for binary data instead of string
+
+### Error Handling
+
+Philosophy
+- Avoid exceptions in nwaku codebase
+- Use Result, Opt for explicit error handling
+- Exceptions only for legacy code compatibility
+
+Result Types
+- Use Result[T, E] for operations that can fail
+- Use cstring for simple error messages: Result[T, cstring]
+- Use enum for errors needing differentiation: Result[T, SomeErrorEnum]
+- Use Opt[T] for simple optional values
+- Annotate all modules: {.push raises: [].} at top
+
+Exceptions (when unavoidable)
+- Inherit from CatchableError, name XxxError
+- Use Defect for panics/logic errors, name XxxDefect
+- Annotate functions explicitly: {.raises: [SpecificError].}
+- Catch specific error types, avoid catching CatchableError
+- Use expression-based try blocks
+- Isolate legacy exception code with try/except, convert to Result
+
+Common Defect Sources
+- Overflow in signed arithmetic
+- Array/seq indexing with []
+- Implicit range type conversions
+
+Status Codes
+- Avoid status code pattern
+- Use Result instead
+
+### Library Usage
+
+Standard Library
+- Use judiciously, prefer focused packages
+- Prefer these replacements:
+  - async: chronos
+  - bitops: stew/bitops2
+  - endians: stew/endians2
+  - exceptions: results
+  - io: stew/io2
+
+Results Library
+- Use cstring errors for diagnostics without differentiation
+- Use enum errors when caller needs to act on specific errors
+- Use complex types when additional error context needed
+- Use isOkOr pattern for chaining
+
+Wrappers (C/FFI)
+- Prefer native Nim when available
+- For C libraries: use {.compile.} to build from source
+- Create xxx_abi.nim for raw ABI wrapper
+- Avoid C++ libraries
+
+Miscellaneous
+- Print hex output in lowercase, accept both cases
+
+### Common Pitfalls
+
+- Defects lack tracking by {.raises.}
+- nil ref causes runtime crashes
+- result variable disables branch checking
+- Exception hierarchy unclear between Nim versions
+- Range types have compiler bugs
+- Finalizers infect all instances of type
 
 ## Common Workflows
 
@@ -324,12 +478,12 @@ nim c -r \
 ## Key Constraints
 
 ### Vendor Directory
-- **Never edit directly** - auto-generated from git submodules
+- Never edit directly - auto-generated from git submodules
 - Update after pull: `make update`
 - Managed by `nimbus-build-system`
 
 ### Chronicles Performance
-- Log level configured **at compile time** for performance
+- Log level configured at compile time for performance
 - Runtime filtering available but use sparingly: `-d:chronicles_runtime_filtering=on`
 - Default sinks optimized for production
 
@@ -344,7 +498,7 @@ nim c -r \
 
 ## Quick Reference
 
-**Language**: Nim 2.2.4+ | **License**: MIT or Apache 2.0 | **Version**: 0.36.0
+Language: Nim 2.2.4+ | License: MIT or Apache 2.0 | Version: 0.36.0
 
 ### Important Files
 - `Makefile` - Primary build interface
