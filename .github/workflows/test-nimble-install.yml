@@ -10,6 +10,7 @@ jobs:
   test-nimble-install:
     continue-on-error: true # Some runs get oddly cancelled
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest] # TODO: Windows
         nim-version: ['2.2.4'] # TODO: tests with more versions
