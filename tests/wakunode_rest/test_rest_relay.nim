@@ -265,7 +265,7 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -516,7 +516,7 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -588,7 +588,7 @@ suite "Waku v2 Rest API - Relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -650,7 +650,7 @@ suite "Waku v2 Rest API - Relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
@@ -725,7 +725,7 @@ suite "Waku v2 Rest API - Relay":
 
     # Registration is mandatory before sending messages with rln-relay 
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
 
     try:
       waitFor manager.register(idCredentials, UserMessageLimit(20))
