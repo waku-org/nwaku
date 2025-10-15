@@ -178,6 +178,7 @@ nimbus-build-system-nimble-dir:
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 LIBRLN_VERSION := v0.9.0
+LIBRLN_TARGET_ARCH ?=
 
 ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
@@ -187,7 +188,7 @@ endif
 
 $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE) $(LIBRLN_TARGET_ARCH)
 
 librln: | $(LIBRLN_FILE)
 	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
