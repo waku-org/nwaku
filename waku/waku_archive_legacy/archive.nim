@@ -122,7 +122,7 @@ proc handleMessage*(
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_legacy_archive_insert_duration_seconds.observe(insertDuration)
 
-  debug "message archived",
+  info "message archived",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,

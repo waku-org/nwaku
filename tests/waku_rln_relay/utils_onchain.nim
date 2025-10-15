@@ -238,7 +238,7 @@ proc deployTestToken*(
     return err(
       "Failed to get TestToken contract address from deploy script output: " & $error
     )
-  debug "Address of the TestToken contract", testTokenAddress
+  info "Address of the TestToken contract", testTokenAddress
 
   let testTokenAddressBytes = hexToByteArray[20](testTokenAddress)
   let testTokenAddressAddress = Address(testTokenAddressBytes)
@@ -334,7 +334,7 @@ proc executeForgeContractDeployScripts*(
     return err("Submodule path does not exist: " & submodulePath)
 
   let forgePath = getForgePath()
-  debug "Forge path", forgePath
+  info "Forge path", forgePath
 
   # Verify forge executable exists
   if not fileExists(forgePath):
@@ -363,7 +363,7 @@ proc executeForgeContractDeployScripts*(
   if priceCalculatorAddressRes.isErr():
     error "Failed to get LinearPriceCalculator contract address from deploy script output"
   let priceCalculatorAddress = priceCalculatorAddressRes.get()
-  debug "Address of the LinearPriceCalculator contract", priceCalculatorAddress
+  info "Address of the LinearPriceCalculator contract", priceCalculatorAddress
   putEnv("PRICE_CALCULATOR_ADDRESS", priceCalculatorAddress)
 
   let forgeCmdWakuRln =
@@ -382,7 +382,7 @@ proc executeForgeContractDeployScripts*(
     error "Failed to get WakuRlnV2 contract address from deploy script output"
     ##TODO: raise exception here?
   let wakuRlnV2Address = wakuRlnV2AddressRes.get()
-  debug "Address of the WakuRlnV2 contract", wakuRlnV2Address
+  info "Address of the WakuRlnV2 contract", wakuRlnV2Address
   putEnv("WAKURLNV2_ADDRESS", wakuRlnV2Address)
 
   # Deploy Proxy contract
@@ -490,7 +490,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
     let anvilPath = getAnvilPath()
-    debug "Anvil path", anvilPath
+    info "Anvil path", anvilPath
     let runAnvil = startProcess(
       anvilPath,
       args = [
@@ -518,7 +518,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
             break
       except Exception, CatchableError:
         break
-    debug "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
+    info "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
     return runAnvil
   except: # TODO: Fix "BareExcept" warning
     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
@@ -526,11 +526,11 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
 # Stops Anvil daemon
 proc stopAnvil*(runAnvil: Process) {.used.} =
   if runAnvil.isNil:
-    debug "stopAnvil called with nil Process"
+    info "stopAnvil called with nil Process"
     return
 
   let anvilPID = runAnvil.processID
-  debug "Stopping Anvil daemon", anvilPID = anvilPID
+  info "Stopping Anvil daemon", anvilPID = anvilPID
 
   try:
     # Send termination signals
@@ -542,9 +542,9 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
 
     # Close Process object to release resources
     close(runAnvil)
-    debug "Anvil daemon stopped", anvilPID = anvilPID
+    info "Anvil daemon stopped", anvilPID = anvilPID
   except Exception as e:
-    debug "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
+    info "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
 
 proc setupOnchainGroupManager*(
     ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256

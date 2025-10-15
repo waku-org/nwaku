@@ -49,7 +49,7 @@ suite "Waku rln relay":
     check:
       # the id trapdoor, nullifier, secert hash and commitment together are 4*32 bytes
       generatedKeys.len == 4 * 32
-    debug "generated keys: ", generatedKeys
+    info "generated keys: ", generatedKeys
 
   test "membership Key Generation":
     let idCredentialsRes = membershipKeyGen()
@@ -68,7 +68,7 @@ suite "Waku rln relay":
       idCredential.idSecretHash != empty
       idCredential.idCommitment != empty
 
-    debug "the generated identity credential: ", idCredential
+    info "the generated identity credential: ", idCredential
 
   test "hash Nim Wrappers":
     # create an RLN instance
@@ -98,7 +98,7 @@ suite "Waku rln relay":
       hashOutput = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
       hashOutputHex = hashOutput.toHex()
 
-    debug "hash output", hashOutputHex
+    info "hash output", hashOutputHex
 
   test "sha256 hash utils":
     # create an RLN instance
@@ -191,7 +191,7 @@ suite "Waku rln relay":
       decodedEpoch = epochBytes.fromEpoch()
     check:
       epoch == decodedEpoch
-    debug "encoded and decode time",
+    info "encoded and decode time",
       epoch = epoch, epochBytes = epochBytes, decodedEpoch = decodedEpoch
 
   test "Epoch comparison, epoch1 > epoch2":
@@ -470,7 +470,7 @@ suite "Waku rln relay":
       idCredential.idSecretHash != empty
       idCredential.idCommitment != empty
 
-    debug "the generated identity credential: ", idCredential
+    info "the generated identity credential: ", idCredential
 
     let index = MembershipIndex(1)
 

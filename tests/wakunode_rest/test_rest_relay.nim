@@ -274,7 +274,7 @@ suite "Waku v2 Rest API - Relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
-    debug "Updated root for node", rootUpdated
+    info "Updated root for node", rootUpdated
 
     let proofRes = waitFor manager.fetchMerkleProofElements()
     if proofRes.isErr():
@@ -525,7 +525,7 @@ suite "Waku v2 Rest API - Relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
-    debug "Updated root for node", rootUpdated
+    info "Updated root for node", rootUpdated
 
     let proofRes = waitFor manager.fetchMerkleProofElements()
     if proofRes.isErr():
@@ -597,7 +597,7 @@ suite "Waku v2 Rest API - Relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
-    debug "Updated root for node", rootUpdated
+    info "Updated root for node", rootUpdated
 
     let proofRes = waitFor manager.fetchMerkleProofElements()
     if proofRes.isErr():
@@ -659,7 +659,7 @@ suite "Waku v2 Rest API - Relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
-    debug "Updated root for node", rootUpdated
+    info "Updated root for node", rootUpdated
 
     let proofRes = waitFor manager.fetchMerkleProofElements()
     if proofRes.isErr():
@@ -734,7 +734,7 @@ suite "Waku v2 Rest API - Relay":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated = waitFor manager.updateRoots()
-    debug "Updated root for node", rootUpdated
+    info "Updated root for node", rootUpdated
 
     let proofRes = waitFor manager.fetchMerkleProofElements()
     if proofRes.isErr():

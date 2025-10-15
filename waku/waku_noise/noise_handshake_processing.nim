@@ -497,7 +497,7 @@ proc stepHandshake*(
   # If there are no more message patterns left for processing
   # we return an empty HandshakeStepResult
   if hs.msgPatternIdx > uint8(hs.handshakePattern.messagePatterns.len - 1):
-    debug "stepHandshake called more times than the number of message patterns present in handshake"
+    info "stepHandshake called more times than the number of message patterns present in handshake"
     return ok(hsStepResult)
 
   # We process the next handshake message pattern
@@ -663,7 +663,7 @@ proc readMessage*(
       # The message successfully decrypted, we can delete the first element of the inbound Message Nametag Buffer
       delete(inboundMessageNametagBuffer, 1)
     except NoiseDecryptTagError:
-      debug "A read message failed decryption. Returning empty message as plaintext."
+      info "A read message failed decryption. Returning empty message as plaintext."
       message = @[]
 
   return ok(message)

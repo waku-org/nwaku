@@ -37,7 +37,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     quit(1)
 
   let credential = credentialRes.get()
-  debug "credentials",
+  info "credentials",
     idTrapdoor = credential.idTrapdoor.inHex(),
     idNullifier = credential.idNullifier.inHex(),
     idSecretHash = credential.idSecretHash.inHex(),
@@ -81,7 +81,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
       error = getCurrentExceptionMsg()
     quit(1)
 
-  debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
+  info "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
   info "Your membership has been registered on-chain.",
     chainId = $groupManager.chainId,

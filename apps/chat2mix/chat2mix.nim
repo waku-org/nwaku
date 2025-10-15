@@ -501,7 +501,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       )
   elif conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
-    debug "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
+    info "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
     dnsDiscoveryUrl = some(conf.dnsDiscoveryUrl)
 
   var discoveredNodes: seq[RemotePeerInfo]

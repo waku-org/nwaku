@@ -24,7 +24,7 @@ proc benchmark(
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    debug "registration finished",
+    info "registration finished",
       iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
 
   discard await manager.updateRoots()
@@ -33,7 +33,7 @@ proc benchmark(
     quit(QuitFailure)
 
   let epoch = default(Epoch)
-  debug "epoch in bytes", epochHex = epoch.inHex()
+  info "epoch in bytes", epochHex = epoch.inHex()
   let data: seq[byte] = newSeq[byte](1024)
 
   var proofGenTimes: seq[times.Duration] = @[]
@@ -50,7 +50,7 @@ proc benchmark(
     let ok = manager.verifyProof(data, proof).valueOr:
       raiseAssert $error
     proofVerTimes.add(getTime() - verify_time)
-    debug "iteration finished",
+    info "iteration finished",
       iter = i, elapsed_ms = (getTime() - start_time).inMilliseconds
 
   echo "Proof generation times: ", sum(proofGenTimes) div len(proofGenTimes)
