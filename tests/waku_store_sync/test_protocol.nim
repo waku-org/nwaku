@@ -506,7 +506,7 @@ suite "Waku Sync: reconciliation":
       let (_, deliveredHash) = await remoteNeeds.get()
       check deliveredHash in diffMsgHashes
 
-  asyncTest "sync 2 nodes, 40 msgs: 18 in-window diff, 20 out-window ignored":
+  asyncTest "sync 2 nodes, 40 msgs: 17 in-window diff, 20 out-window ignored":
     server = await newTestWakuRecon(
       serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
@@ -515,7 +515,7 @@ suite "Waku Sync: reconciliation":
     )
 
     const
-      diffInWin = 18
+      diffInWin = 17
       diffOutWin = 20
       stepOutNs = 100_000_000'u64
       outOffsetNs = 3_000_000_000'u64 # for 20 mesg they sent 2 seconds earlier 
