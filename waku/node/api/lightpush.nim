@@ -218,9 +218,7 @@ proc lightpushPublishHandler(
           "Waku lightpush with mix not available",
         )
 
-      return await node.wakuLightpushClient.publish(
-        some(pubsubTopic), message, conn
-      )
+      return await node.wakuLightpushClient.publish(some(pubsubTopic), message, conn)
     else:
       return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
 
