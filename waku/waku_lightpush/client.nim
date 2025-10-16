@@ -77,7 +77,7 @@ proc sendPushRequestToConn(
 
 proc publish*(
     wl: WakuLightPushClient,
-    pubsubTopic: Option[PubsubTopic] = none(PubsubTopic),
+    pubsubTopic: PubsubTopic,
     wakuMessage: WakuMessage,
     dest: Connection | PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult] {.async, gcsafe.} =
@@ -99,7 +99,7 @@ proc publish*(
   var message = wakuMessage
   ensureTimestampSet(message)
 
-  let msgHash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
   info "publish",
     myPeerId = wl.peerManager.switch.peerInfo.peerId,
     toPeerId =
@@ -111,12 +111,14 @@ proc publish*(
     sentTime = getNowInNanosecondTime()
 
   let request = LightpushRequest(
-    requestId: generateRequestId(wl.rng), pubsubTopic: pubsubTopic, message: message
+    requestId: generateRequestId(wl.rng),
+    pubsubTopic: some(pubsubTopic),
+    message: message,
   )
   let publishedPeerCount = ?await wl.sendPushRequestToConn(request, conn)
 
   for obs in wl.publishObservers:
-    obs.onMessagePublished(pubsubTopic.get(""), message)
+    obs.onMessagePublished(pubsubTopic, message)
 
   return lightpushSuccessResult(publishedPeerCount)
 
@@ -129,4 +131,4 @@ proc publishToAny*(
     return lighpushErrorResult(
       LightPushErrorCode.NO_PEERS_TO_RELAY, "no suitable remote peers"
     )
-  return await wl.publish(some(pubsubTopic), wakuMessage, peer)
+  return await wl.publish(pubsubTopic, wakuMessage, peer)

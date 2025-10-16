@@ -28,59 +28,21 @@ type WakuLightPush* = ref object of LPProtocol
   requestRateLimiter*: RequestRateLimiter
   autoSharding: Option[Sharding]
 
-proc extractPubsubTopic(
-    wl: WakuLightPush, request: LightpushRequest
-): Result[PubsubTopic, ErrorStatus] =
-  ## A pubsubTopic uniquely identifies a shard. Two sharding modes:
-  ##   Static sharding: pubsubTopic must be specified in the request
-  ##   Auto-sharding: generate pubsubTopic from message contentTopic
-
-  proc mkErr(code: LightPushStatusCode, err: string): Result[PubsubTopic, ErrorStatus] =
-    error "Lightpush request handling error: ", error = err
-    err((code, some(err)))
-
-  let pubsubTopic = request.pubSubTopic.valueOr:
-    if wl.autoSharding.isNone():
-      # Static sharding is enabled, but no pubsub topic is provided
-      return mkErr(
-        LightPushErrorCode.INVALID_MESSAGE,
-        "Pubsub topic is required for static sharding",
-      )
-
-    let contentTopic = NsContentTopic.parse(request.message.contentTopic).valueOr:
-      return
-        mkErr(LightPushErrorCode.INVALID_MESSAGE, "Invalid content topic: " & $error)
-
-    wl.autoSharding.get().getShard(contentTopic).valueOr:
-      return
-        mkErr(LightPushErrorCode.INTERNAL_SERVER_ERROR, "Auto-sharding error: " & error)
-
-  if pubsubTopic.isEmptyOrWhitespace():
-    return mkErr(
-      LightPushErrorCode.BAD_REQUEST, "Pubsub topic must not be empty or whitespace"
-    )
-
-  return ok(pubsubTopic)
-
 proc handleRequest(
     wl: WakuLightPush, peerId: PeerId, request: LightpushRequest
 ): Future[WakuLightPushResult] {.async.} =
-  let pubsubTopic = (wl.extractPubsubTopic(request)).valueOr:
-    return err((code: error.code, desc: error.desc))
-
   waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
-  let msg_hash = computeMessageHash(pubsubTopic, request.message).to0xHex()
   notice "handling lightpush request",
     my_peer_id = wl.peerManager.switch.peerInfo.peerId,
     peer_id = peerId,
     requestId = request.requestId,
     pubsubTopic = request.pubsubTopic,
-    msg_hash = msg_hash,
     receivedTime = getNowInNanosecondTime()
 
-  let res = (await wl.pushHandler(peerId, pubsubTopic, request.message)).valueOr:
-    return err((code: error.code, desc: error.desc))
+  let res =
+    (await wl.pushHandler(peerId, request.pubSubTopic, request.message, wl.autoSharding)).valueOr:
+      return err((code: error.code, desc: error.desc))
   return ok(res)
 
 proc handleRequest*(

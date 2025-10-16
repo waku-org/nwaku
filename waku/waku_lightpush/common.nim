@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/options, results, chronos, libp2p/peerid
-import ../waku_core, ./rpc, ../waku_relay/protocol
+import ../waku_core, ./rpc, ../waku_relay/protocol, ../waku_core/topics/sharding
 
 from ../waku_core/codecs import WakuLightPushCodec
 export WakuLightPushCodec
@@ -22,10 +22,13 @@ const LightPushErrorCode* = (
 )
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
-type WakuLightPushResult* = Result[uint32, ErrorStatus] # Ok result is publishedPeerCount
+type WakuLightPushResult* = Result[uint32, ErrorStatus]
 
 type PushMessageHandler* = proc(
-  peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+  peer: PeerId,
+  pubsubTopic: Option[PubsubTopic],
+  message: WakuMessage,
+  autoSharding: Option[Sharding],
 ): Future[WakuLightPushResult] {.async.}
 
 const TooManyRequestsMessage* = "Request rejected due to too many requests"
