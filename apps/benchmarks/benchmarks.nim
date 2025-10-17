@@ -15,7 +15,7 @@ proc benchmark(
     manager: OnChainGroupManager, registerCount: int, messageLimit: int
 ): Future[string] {.async, gcsafe.} =
   # Register a new member so that we can later generate proofs
-  let idCredentials = generateCredentials(manager.rlnInstance, registerCount)
+  let idCredentials = generateCredentials(registerCount)
 
   var start_time = getTime()
   for i in 0 .. registerCount - 1:
