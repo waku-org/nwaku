@@ -83,7 +83,7 @@ proc initProtocolHandler(m: WakuMetadata) =
       error "Response decoding error", error = error
       return
 
-    debug "Received WakuMetadata request",
+    info "Received WakuMetadata request",
       remoteClusterId = response.clusterId,
       remoteShards = response.shards,
       localClusterId = m.clusterId,

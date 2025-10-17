@@ -157,7 +157,7 @@ proc unsubscribe*(
     warn "No-effect API call to `unsubscribe`. Was not subscribed", pubsubTopic
     return ok()
 
-  debug "unsubscribe", pubsubTopic, contentTopicOp
+  info "unsubscribe", pubsubTopic, contentTopicOp
   node.wakuRelay.unsubscribe(pubsubTopic)
   node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
 
@@ -247,7 +247,7 @@ proc mountRlnRelay*(
   let validator = generateRlnValidator(rlnRelay, spamHandler)
 
   # register rln validator as default validator
-  debug "Registering RLN validator"
+  info "Registering RLN validator"
   node.wakuRelay.addValidator(validator, "RLN validation failed")
 
   node.wakuRlnRelay = rlnRelay

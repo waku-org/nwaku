@@ -278,7 +278,7 @@ proc setupProtocols(
         # only peers with populated records
         .mapIt(toRemotePeerInfo(it.record.get()))
 
-      debug "adding exchanged peers",
+      info "adding exchanged peers",
         src = peer, topic = topic, numPeers = exchangedPeers.len
 
       for peer in exchangedPeers:
@@ -297,7 +297,7 @@ proc setupProtocols(
     else:
       @[]
 
-  debug "Shards created from content topics",
+  info "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
 
   let confShards = conf.subscribeShards.mapIt(
@@ -306,7 +306,7 @@ proc setupProtocols(
   let shards = confShards & autoShards
 
   if conf.relay:
-    debug "Setting max message size", num_bytes = conf.maxMessageSizeBytes
+    info "Setting max message size", num_bytes = conf.maxMessageSizeBytes
 
     (
       await mountRelay(
@@ -496,7 +496,7 @@ proc setupNode*(
     error "cluster id mismatch configured shards"
     return err("cluster id mismatch configured shards")
 
-  debug "Setting up storage"
+  info "Setting up storage"
 
   ## Peer persistence
   var peerStore: Option[WakuPeerStorage]
@@ -505,13 +505,13 @@ proc setupNode*(
       error "Setting up storage failed", error = "failed to setup peer store " & error
       return err("Setting up storage failed: " & error)
 
-  debug "Initializing node"
+  info "Initializing node"
 
   let node = initNode(wakuConf, netConfig, rng, record, peerStore, relay).valueOr:
     error "Initializing node failed", error = error
     return err("Initializing node failed: " & error)
 
-  debug "Mounting protocols"
+  info "Mounting protocols"
 
   try:
     (await node.setupProtocols(wakuConf)).isOkOr:

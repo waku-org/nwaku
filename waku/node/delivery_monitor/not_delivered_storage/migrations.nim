@@ -15,10 +15,10 @@ template projectRoot(): string =
 const PeerStoreMigrationPath: string = projectRoot / "migrations" / "sent_msgs"
 
 proc migrate*(db: SqliteDatabase): DatabaseResult[void] =
-  debug "starting peer store's sqlite database migration for sent messages"
+  info "starting peer store's sqlite database migration for sent messages"
 
   migrate(db, TargetSchemaVersion, migrationsScriptsDir = PeerStoreMigrationPath).isOkOr:
     return err("failed to execute migration scripts: " & error)
 
-  debug "finished peer store's sqlite database migration for sent messages"
+  info "finished peer store's sqlite database migration for sent messages"
   ok()

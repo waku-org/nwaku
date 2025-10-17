@@ -107,7 +107,7 @@ proc sendSubscribeRequest(
 proc ping*(
     wfc: WakuFilterClient, servicePeer: RemotePeerInfo
 ): Future[FilterSubscribeResult] {.async.} =
-  debug "sending ping", servicePeer = shortLog($servicePeer)
+  info "sending ping", servicePeer = shortLog($servicePeer)
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.ping(requestId)
 
@@ -191,7 +191,7 @@ proc initProtocolHandler(wfc: WakuFilterClient) =
       let msg_hash =
         computeMessageHash(msgPush.pubsubTopic, msgPush.wakuMessage).to0xHex()
 
-      debug "Received message push",
+      info "Received message push",
         peerId = conn.peerId,
         msg_hash,
         payload = shortLog(msgPush.wakuMessage.payload),

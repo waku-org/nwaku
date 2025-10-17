@@ -30,17 +30,12 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   # 1. load configuration
   trace "configuration", conf = $conf
 
-  # 2. initialize rlnInstance
-  let rlnInstance = createRLNInstance(d = 20).valueOr:
-    error "failure while creating RLN instance", error = error
-    quit(QuitFailure)
-
-  # 3. generate credentials
-  let credential = rlnInstance.membershipKeyGen().valueOr:
+  # 2. generate credentials
+  let credential = membershipKeyGen().valueOr:
     error "failure while generating credentials", error = error
     quit(QuitFailure)
 
-  debug "credentials",
+  info "credentials",
     idTrapdoor = credential.idTrapdoor.inHex(),
     idNullifier = credential.idNullifier.inHex(),
     idSecretHash = credential.idSecretHash.inHex(),
@@ -56,12 +51,11 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
-  # 4. initialize OnchainGroupManager
+  # 3. initialize OnchainGroupManager
   let groupManager = OnchainGroupManager(
     ethClientUrls: conf.ethClientUrls,
     chainId: conf.chainId,
     ethContractAddress: conf.ethContractAddress,
-    rlnInstance: rlnInstance,
     keystorePath: none(string),
     keystorePassword: none(string),
     ethPrivateKey: some(conf.ethPrivateKey),
@@ -77,7 +71,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
       error = getCurrentExceptionMsg()
     quit(QuitFailure)
 
-  # 5. register on-chain
+  # 4. register on-chain
   try:
     waitFor groupManager.register(credential, conf.userMessageLimit)
   except Exception, CatchableError:
@@ -85,7 +79,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
       error = getCurrentExceptionMsg()
     quit(QuitFailure)
 
-  debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
+  info "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
   info "Your membership has been registered on-chain.",
     chainId = $groupManager.chainId,
@@ -93,7 +87,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     membershipIndex = groupManager.membershipIndex.get()
   info "Your user message limit is", userMessageLimit = conf.userMessageLimit
 
-  # 6. write to keystore
+  # 5. write to keystore
   let keystoreCred = KeystoreMembership(
     membershipContract: MembershipContract(
       chainId: $groupManager.chainId, address: conf.ethContractAddress

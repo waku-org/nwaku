@@ -127,7 +127,7 @@ proc watchdogThreadBody(ctx: ptr WakuContext) {.thread.} =
       await sleepAsync(WatchdogTimeinterval)
 
       if ctx.running.load == false:
-        debug "Watchdog thread exiting because WakuContext is not running"
+        info "Watchdog thread exiting because WakuContext is not running"
         break
 
       let wakuCallback = proc(

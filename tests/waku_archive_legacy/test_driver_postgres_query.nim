@@ -90,7 +90,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -131,7 +131,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -186,7 +186,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -229,7 +229,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -274,7 +274,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -334,7 +334,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -426,7 +426,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -487,7 +487,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -546,7 +546,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -592,7 +592,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -638,7 +638,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -682,7 +682,7 @@ suite "Postgres driver - queries":
       ]
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -736,7 +736,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -785,7 +785,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -877,7 +877,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -968,7 +968,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1016,7 +1016,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     let hashes = messages.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
@@ -1057,7 +1057,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1101,7 +1101,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1190,7 +1190,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1237,7 +1237,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1284,7 +1284,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1333,7 +1333,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1383,7 +1383,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1436,7 +1436,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1521,7 +1521,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1606,7 +1606,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1692,7 +1692,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1779,7 +1779,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1830,7 +1830,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1882,7 +1882,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1924,7 +1924,7 @@ suite "Postgres driver - queries":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (

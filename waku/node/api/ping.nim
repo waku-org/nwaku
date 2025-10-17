@@ -49,7 +49,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
       try:
         await stream.close()
       except CatchableError as e:
-        debug "Error closing ping connection", peerId = peerId, error = e.msg
+        info "Error closing ping connection", peerId = peerId, error = e.msg
 
     # Perform ping
     let pingDuration = await node.libp2pPing.ping(stream)

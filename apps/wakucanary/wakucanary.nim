@@ -123,7 +123,7 @@ proc areProtocolsSupported(
 
   for rawProtocol in toValidateProtocols:
     let protocolTag = ProtocolsTable[rawProtocol]
-    debug "Checking if protocol is supported", expected_protocol_tag = protocolTag
+    info "Checking if protocol is supported", expected_protocol_tag = protocolTag
 
     var protocolSupported = false
     for nodeProtocol in nodeProtocols:

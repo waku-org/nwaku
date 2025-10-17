@@ -43,7 +43,7 @@ proc setup*(): Waku =
   if conf.relay:
     conf.rlnRelay = twnNetworkConf.rlnRelay
 
-  debug "Starting node"
+  info "Starting node"
   var waku = (waitFor Waku.new(conf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)

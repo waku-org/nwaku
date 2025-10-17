@@ -22,10 +22,10 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## If not `targetVersion` is provided, it defaults to `SchemaVersion`.
   ##
   ## NOTE: Down migration it is not currently supported
-  debug "starting peer store's sqlite database migration"
+  info "starting peer store's sqlite database migration"
 
   migrate(db, targetVersion, migrationsScriptsDir = PeerStoreMigrationPath).isOkOr:
     return err("failed to execute migration scripts: " & error)
 
-  debug "finished peer store's sqlite database migration"
+  info "finished peer store's sqlite database migration"
   ok()

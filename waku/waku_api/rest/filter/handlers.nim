@@ -213,7 +213,7 @@ proc installFilterPostSubscriptionsHandler(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a pubsubTopic
-    debug "post", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
+    info "post", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
     return await filterPostPutSubscriptionRequestHandler(
       node, contentBody, cache, discHandler
@@ -229,7 +229,7 @@ proc installFilterPutSubscriptionsHandler(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     ## Modifies a subscribtion of a node to a list of contentTopics of a pubsubTopic
-    debug "put", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
+    info "put", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
     return await filterPostPutSubscriptionRequestHandler(
       node, contentBody, cache, discHandler
@@ -245,7 +245,7 @@ proc installFilterDeleteSubscriptionsHandler(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
-    debug "delete", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
+    info "delete", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
     let req: FilterUnsubscribeRequest = decodeRequestBody[FilterUnsubscribeRequest](
       contentBody
@@ -293,7 +293,7 @@ proc installFilterDeleteAllSubscriptionsHandler(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
-    debug "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
+    info "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
 
     let req: FilterUnsubscribeAllRequest = decodeRequestBody[
       FilterUnsubscribeAllRequest
@@ -340,7 +340,7 @@ proc installFilterPingSubscriberHandler(
     requestId: string
   ) -> RestApiResponse:
     ## Checks if a node has valid subscription or not.
-    debug "get", ROUTE_FILTER_SUBSCRIBER_PING, requestId
+    info "get", ROUTE_FILTER_SUBSCRIBER_PING, requestId
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
@@ -380,7 +380,7 @@ proc installFilterGetMessagesHandler(
     ## Returns all WakuMessages received on a specified content topic since the
     ## last time this method was called
     ## TODO: ability to specify a return message limit, maybe use cursor to control paging response.
-    debug "get", ROUTE_FILTER_MESSAGES, contentTopic = contentTopic
+    info "get", ROUTE_FILTER_MESSAGES, contentTopic = contentTopic
 
     let contentTopic = contentTopic.valueOr:
       return RestApiResponse.badRequest("Missing contentTopic")

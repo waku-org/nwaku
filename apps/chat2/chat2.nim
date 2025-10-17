@@ -194,9 +194,9 @@ proc publish(c: Chat, line: string) =
     # for future version when we support more than one rln protected content topic,
     # we should check the message content topic as well
     if c.node.wakuRlnRelay.appendRLNProof(message, float64(time)).isErr():
-      debug "could not append rate limit proof to the message"
+      info "could not append rate limit proof to the message"
     else:
-      debug "rate limit proof is appended to the message"
+      info "rate limit proof is appended to the message"
       let proof = RateLimitProof.init(message.proof).valueOr:
         error "could not decode the RLN proof"
         return
@@ -398,7 +398,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       )
   elif conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
-    debug "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
+    info "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
     dnsDiscoveryUrl = some(conf.dnsDiscoveryUrl)
 
   var discoveredNodes: seq[RemotePeerInfo]
@@ -520,7 +520,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       info "WakuRLNRelay is enabled"
 
       proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
-        debug "spam handler is called"
+        info "spam handler is called"
         let chatLineResult = getChatLine(wakuMessage.payload)
         echo "spam message is found and discarded : " & chatLineResult
         chat.prompt = false

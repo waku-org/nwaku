@@ -23,7 +23,7 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 
 #-------------------------------- zkSNARKs operations -----------------------------------------
 proc key_gen*(
-  ctx: ptr RLN, output_buffer: ptr Buffer
+  output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "extended_key_gen".}
 
 ## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> |
@@ -32,7 +32,7 @@ proc key_gen*(
 ## the return bool value indicates the success or failure of the operation
 
 proc seeded_key_gen*(
-  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "seeded_extended_key_gen".}
 
 ## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> | using ChaCha20
@@ -40,6 +40,7 @@ proc seeded_key_gen*(
 ## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
 ## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
 ## id commitment is the poseidon hash of the identity secret hash
+# use_little_endian: if true, uses big or little endian for serialization (default: true)
 ## the return bool value indicates the success or failure of the operation
 
 proc generate_proof*(
@@ -120,39 +121,34 @@ proc zk_verify*(
 ## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
 ## the return bool value indicates the success or failure of the operation
 
-#----------------------------------------------------------------------------------------------
-
 #-------------------------------- Common procedures -------------------------------------------
+# stateful version
 proc new_circuit*(
-  tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
+  tree_depth: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
 ): bool {.importc: "new".}
 
 ## creates an instance of rln object as defined by the zerokit RLN lib
-## tree_height represent the depth of the Merkle tree
 ## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
 
+# stateless version
+proc new_circuit*(ctx: ptr (ptr RLN)): bool {.importc: "new".}
+
 proc new_circuit_from_data*(
-  tree_height: uint,
-  circom_buffer: ptr Buffer,
-  zkey_buffer: ptr Buffer,
-  vk_buffer: ptr Buffer,
-  ctx: ptr (ptr RLN),
+  zkey_buffer: ptr Buffer, graph_buffer: ptr Buffer, ctx: ptr (ptr RLN)
 ): bool {.importc: "new_with_params".}
 
 ## creates an instance of rln object as defined by the zerokit RLN lib by passing the required inputs as byte arrays
-## tree_height represent the depth of the Merkle tree
-## circom_buffer contains the bytes read from the Circom .wasm circuit
 ## zkey_buffer contains the bytes read from the .zkey proving key
-## vk_buffer contains the bytes read from the verification_key.json
+## graph_buffer contains the bytes read from the graph data file
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
 
 #-------------------------------- Hashing utils -------------------------------------------
 
 proc sha256*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "hash".}
 
 ## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
@@ -162,7 +158,7 @@ proc sha256*(
 ## the output_buffer contains 32 bytes hash output
 
 proc poseidon*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer
+  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
 ): bool {.importc: "poseidon_hash".}
 
 ## it hashes (poseidon) the plain text supplied in inputs_buffer
@@ -170,27 +166,3 @@ proc poseidon*(
 ## inputs_buffer holds the hash input as a byte seq
 ## the hash output is generated and populated inside output_buffer
 ## the output_buffer contains 32 bytes hash output
-
-#-------------------------------- Persistent Metadata utils -------------------------------------------
-
-proc set_metadata*(
-  ctx: ptr RLN, input_buffer: ptr Buffer
-): bool {.importc: "set_metadata".}
-
-## sets the metadata stored by ctx to the value passed by input_buffer
-## the input_buffer holds a serialized representation of the metadata (format to be defined)
-## input_buffer holds the metadata as a byte seq
-## the return bool value indicates the success or failure of the operation
-
-proc get_metadata*(
-  ctx: ptr RLN, output_buffer: ptr Buffer
-): bool {.importc: "get_metadata".}
-
-## gets the metadata stored by ctx and populates the passed pointer output_buffer with it
-## the output_buffer holds the metadata as a byte seq
-## the return bool value indicates the success or failure of the operation
-
-proc flush*(ctx: ptr RLN): bool {.importc: "flush".}
-## flushes the write buffer to the database
-## the return bool value indicates the success or failure of the operation
-## This allows more robust and graceful handling of the database connection

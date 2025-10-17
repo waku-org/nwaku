@@ -890,7 +890,7 @@ method decreaseDatabaseSize*(
   # if totalSizeOfDB <= targetSizeInBytes:
   #   return ok()
 
-  # debug "start reducing database size",
+  # info "start reducing database size",
   #   targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
 
   # while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
@@ -909,7 +909,7 @@ method decreaseDatabaseSize*(
 
   #   totalSizeOfDB = newCurrentSize
 
-  #   debug "reducing database size",
+  #   info "reducing database size",
   #     targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
 
   return ok()

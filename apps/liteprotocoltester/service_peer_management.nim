@@ -73,7 +73,7 @@ proc selectRandomCapablePeer*(
     let rndPeerIndex = rand(0 .. supportivePeers.len - 1)
     let randomPeer = supportivePeers[rndPeerIndex]
 
-    debug "Dialing random peer",
+    info "Dialing random peer",
       idx = $rndPeerIndex, peer = constructMultiaddrStr(randomPeer)
 
     supportivePeers.delete(rndPeerIndex .. rndPeerIndex)
@@ -82,12 +82,12 @@ proc selectRandomCapablePeer*(
     if (await connOpt.withTimeout(10.seconds)):
       if connOpt.value().isSome():
         found = some(randomPeer)
-        debug "Dialing successful",
+        info "Dialing successful",
           peer = constructMultiaddrStr(randomPeer), codec = codec
       else:
-        debug "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
+        info "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
     else:
-      debug "Timeout dialing service peer",
+      info "Timeout dialing service peer",
         peer = constructMultiaddrStr(randomPeer), codec = codec
 
   return found
@@ -105,8 +105,8 @@ proc tryCallAllPxPeers*(
   var supportivePeers = pm.switch.peerStore.getPeersByCapability(capability)
 
   lpt_px_peers.set(supportivePeers.len)
-  debug "Found supportive peers count", count = supportivePeers.len()
-  debug "Found supportive peers", supportivePeers = $supportivePeers
+  info "Found supportive peers count", count = supportivePeers.len()
+  info "Found supportive peers", supportivePeers = $supportivePeers
   if supportivePeers.len == 0:
     return none(seq[RemotePeerInfo])
 
@@ -116,7 +116,7 @@ proc tryCallAllPxPeers*(
     let rndPeerIndex = rand(0 .. supportivePeers.len - 1)
     let randomPeer = supportivePeers[rndPeerIndex]
 
-    debug "Dialing random peer",
+    info "Dialing random peer",
       idx = $rndPeerIndex, peer = constructMultiaddrStr(randomPeer)
 
     supportivePeers.delete(rndPeerIndex, rndPeerIndex)

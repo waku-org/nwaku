@@ -38,7 +38,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -85,7 +85,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -146,7 +146,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -195,7 +195,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -246,7 +246,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -294,7 +294,7 @@ suite "SQLite driver - query by content topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -399,7 +399,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -466,7 +466,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -531,7 +531,7 @@ suite "SQLite driver - query by pubsub topic":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -584,7 +584,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -636,7 +636,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -686,7 +686,7 @@ suite "SQLite driver - query by cursor":
       ]
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -744,7 +744,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -799,7 +799,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -897,7 +897,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -994,7 +994,7 @@ suite "SQLite driver - query by cursor":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1049,7 +1049,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1099,7 +1099,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1194,7 +1194,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1247,7 +1247,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1300,7 +1300,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1355,7 +1355,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1411,7 +1411,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1470,7 +1470,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+    info "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
       require (
@@ -1561,7 +1561,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1652,7 +1652,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1744,7 +1744,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:
@@ -1837,7 +1837,7 @@ suite "SQLite driver - query by time range":
     var messages = expected
 
     shuffle(messages)
-    debug "randomized message insertion sequence",
+    info "randomized message insertion sequence",
       sequence = messages.mapIt(it[1].payload)
 
     for row in messages:

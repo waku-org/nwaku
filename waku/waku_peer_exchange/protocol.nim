@@ -83,7 +83,7 @@ proc getEnrsFromCache(
     wpx: WakuPeerExchange, numPeers: uint64
 ): seq[enr.Record] {.gcsafe.} =
   if wpx.enrCache.len() == 0:
-    debug "peer exchange ENR cache is empty"
+    info "peer exchange ENR cache is empty"
     return @[]
 
   # copy and shuffle
@@ -100,11 +100,11 @@ proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
     return false
 
   if peer.enr.isNone():
-    debug "peer has no ENR", peer = $peer
+    info "peer has no ENR", peer = $peer
     return false
 
   if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
-    debug "peer has mismatching cluster", peer = $peer
+    info "peer has mismatching cluster", peer = $peer
     return false
 
   return true
@@ -175,7 +175,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         return
 
       let enrs = wpx.getEnrsFromCache(decBuf.request.numPeers)
-      debug "peer exchange request received"
+      info "peer exchange request received"
       trace "px enrs to respond", enrs = $enrs
       try:
         (await wpx.respond(enrs, conn)).isErrOr:

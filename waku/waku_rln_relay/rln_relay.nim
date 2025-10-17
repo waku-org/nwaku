@@ -190,7 +190,7 @@ proc validateMessage*(
 
   let timeDiff = uint64(abs(currentTime - messageTime))
 
-  debug "time info",
+  info "time info",
     currentTime = currentTime, messageTime = messageTime, msgHash = msg.hash
 
   if timeDiff > rlnPeer.rlnMaxTimestampGap:

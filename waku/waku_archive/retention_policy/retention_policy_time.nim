@@ -18,7 +18,7 @@ method execute*(
     p: TimeRetentionPolicy, driver: ArchiveDriver
 ): Future[RetentionPolicyResult[void]] {.async.} =
   ## Delete messages that exceed the retention time by 10% and more (batch delete for efficiency)
-  debug "beginning of executing message retention policy - time"
+  info "beginning of executing message retention policy - time"
 
   let omt = (await driver.getOldestMessageTimestamp()).valueOr:
     return err("failed to get oldest message timestamp: " & error)
@@ -33,5 +33,5 @@ method execute*(
   (await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)).isOkOr:
     return err("failed to delete oldest messages: " & error)
 
-  debug "end of executing message retention policy - time"
+  info "end of executing message retention policy - time"
   return ok()

@@ -75,7 +75,7 @@ proc batchAdvertise*(
       conn
 
   let advertCatch = catch:
-    await self.rendezvous.advertise(namespace, ttl, peers)
+    await self.rendezvous.advertise(namespace, Opt.some(ttl))
 
   for conn in conns:
     await conn.close()
@@ -122,7 +122,7 @@ proc batchRequest*(
       conn
 
   let reqCatch = catch:
-    await self.rendezvous.request(Opt.some(namespace), count, peers)
+    await self.rendezvous.request(Opt.some(namespace), Opt.some(count), Opt.some(peers))
 
   for conn in conns:
     await conn.close()
@@ -135,7 +135,7 @@ proc batchRequest*(
 proc advertiseAll(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
-  debug "waku rendezvous advertisements started"
+  info "waku rendezvous advertisements started"
 
   let shards = self.getShards()
 
@@ -167,14 +167,14 @@ proc advertiseAll(
     if fut.failed():
       warn "a rendezvous advertisement failed", cause = fut.error.msg
 
-  debug "waku rendezvous advertisements finished"
+  info "waku rendezvous advertisements finished"
 
   return ok()
 
 proc initialRequestAll*(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
-  debug "waku rendezvous initial requests started"
+  info "waku rendezvous initial requests started"
 
   let shards = self.getShards()
 
@@ -214,12 +214,12 @@ proc initialRequestAll*(
         rendezvousPeerFoundTotal.inc()
         self.peerManager.addPeer(record)
 
-  debug "waku rendezvous initial request finished"
+  info "waku rendezvous initial request finished"
 
   return ok()
 
 proc periodicRegistration(self: WakuRendezVous) {.async.} =
-  debug "waku rendezvous periodic registration started",
+  info "waku rendezvous periodic registration started",
     interval = self.registrationInterval
 
   # infinite loop
@@ -227,7 +227,7 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
     await sleepAsync(self.registrationInterval)
 
     (await self.advertiseAll()).isOkOr:
-      debug "waku rendezvous advertisements failed", error = error
+      info "waku rendezvous advertisements failed", error = error
 
       if self.registrationInterval > MaxRegistrationInterval:
         self.registrationInterval = MaxRegistrationInterval
@@ -238,7 +238,7 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
     self.registrationInterval = DefaultRegistrationInterval
 
 proc periodicRequests(self: WakuRendezVous) {.async.} =
-  debug "waku rendezvous periodic requests started", interval = self.requestInterval
+  info "waku rendezvous periodic requests started", interval = self.requestInterval
 
   # infinite loop
   while true:
@@ -282,7 +282,7 @@ proc new*(
   wrv.registrationInterval = DefaultRegistrationInterval
   wrv.requestInterval = DefaultRequestsInterval
 
-  debug "waku rendezvous initialized",
+  info "waku rendezvous initialized",
     clusterId = clusterId, shards = getShards(), capabilities = getCapabilities()
 
   return ok(wrv)
@@ -293,7 +293,7 @@ proc start*(self: WakuRendezVous) {.async: (raises: []).} =
 
   self.periodicRequestFut = self.periodicRequests()
 
-  debug "waku rendezvous discovery started"
+  info "waku rendezvous discovery started"
 
 proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   if not self.periodicRegistrationFut.isNil():
@@ -302,4 +302,4 @@ proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   if not self.periodicRequestFut.isNil():
     await self.periodicRequestFut.cancelAndWait()
 
-  debug "waku rendezvous discovery stopped"
+  info "waku rendezvous discovery stopped"

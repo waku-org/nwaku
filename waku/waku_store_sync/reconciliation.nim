@@ -315,7 +315,7 @@ proc storeSynchronization*(
   let conn: Connection = connOpt.valueOr:
     return err("fail to dial remote " & $peer.peerId)
 
-  debug "sync session initialized",
+  info "sync session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
   (
@@ -328,7 +328,7 @@ proc storeSynchronization*(
 
     return err("sync request error: " & error)
 
-  debug "sync session ended gracefully",
+  info "sync session ended gracefully",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
   return ok()
@@ -351,7 +351,7 @@ proc initFillStorage(
     direction: PagingDirection.FORWARD,
   )
 
-  debug "initial storage filling started"
+  info "initial storage filling started"
 
   var storage = SeqStorage.new(DefaultStorageCap)
 
@@ -373,7 +373,7 @@ proc initFillStorage(
 
     query.cursor = response.cursor
 
-  debug "initial storage filling done", elements = storage.length()
+  info "initial storage filling done", elements = storage.length()
 
   return ok(storage)
 
@@ -427,21 +427,21 @@ proc new*(
   return ok(sync)
 
 proc periodicSync(self: SyncReconciliation) {.async.} =
-  debug "periodic sync initialized", interval = $self.syncInterval
+  info "periodic sync initialized", interval = $self.syncInterval
 
   while true: # infinite loop
     await sleepAsync(self.syncInterval)
 
-    debug "periodic sync started"
+    info "periodic sync started"
 
     (await self.storeSynchronization()).isOkOr:
       error "periodic sync failed", err = error
       continue
 
-    debug "periodic sync done"
+    info "periodic sync done"
 
 proc periodicPrune(self: SyncReconciliation) {.async.} =
-  debug "periodic prune initialized", interval = $self.syncInterval
+  info "periodic prune initialized", interval = $self.syncInterval
 
   # preventing sync and prune loops of happening at the same time.
   await sleepAsync((self.syncInterval div 2))
@@ -449,7 +449,7 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
   while true: # infinite loop
     await sleepAsync(self.syncInterval)
 
-    debug "periodic prune started"
+    info "periodic prune started"
 
     let time = getNowInNanosecondTime() - self.syncRange.nanos
 
@@ -457,7 +457,7 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
 
     total_messages_cached.set(self.storage.length())
 
-    debug "periodic prune done", elements_pruned = count
+    info "periodic prune done", elements_pruned = count
 
 proc idsReceiverLoop(self: SyncReconciliation) {.async.} =
   while true: # infinite loop

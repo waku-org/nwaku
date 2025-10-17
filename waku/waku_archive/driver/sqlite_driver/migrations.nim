@@ -54,7 +54,7 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## If not `targetVersion` is provided, it defaults to `SchemaVersion`.
   ##
   ## NOTE: Down migration it is not currently supported
-  debug "starting message store's sqlite database migration"
+  info "starting message store's sqlite database migration"
 
   let userVersion = ?db.getUserVersion()
   let isSchemaVersion7 = ?db.isSchemaVersion7()
@@ -67,5 +67,5 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   migrate(db, targetVersion, migrationsScriptsDir = MessageStoreMigrationPath).isOkOr:
     return err("failed to execute migration scripts: " & error)
 
-  debug "finished message store's sqlite database migration"
+  info "finished message store's sqlite database migration"
   return ok()

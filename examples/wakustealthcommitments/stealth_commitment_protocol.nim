@@ -52,7 +52,7 @@ proc sendThruWaku*(
   (await self.waku.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
     return err("failed to publish message: " & $error)
 
-  debug "rate limit proof is appended to the message"
+  info "rate limit proof is appended to the message"
 
   return ok()
 

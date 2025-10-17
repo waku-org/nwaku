@@ -144,26 +144,6 @@ proc fetchMaxMembershipRateLimit*(
     error "Failed to fetch max membership rate limit", error = getCurrentExceptionMsg()
     return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
 
-proc setMetadata*(
-    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
-): GroupManagerResult[void] =
-  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
-  try:
-    (
-      g.rlnInstance.setMetadata(
-        RlnMetadata(
-          lastProcessedBlock: normalizedBlock.uint64,
-          chainId: g.chainId,
-          contractAddress: g.ethContractAddress,
-          validRoots: g.validRoots.toSeq(),
-        )
-      )
-    ).isOkOr:
-      return err("failed to persist rln metadata: " & error)
-  except CatchableError:
-    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
-  return ok()
-
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
@@ -231,7 +211,7 @@ method register*(
     let leaf = rateCommitment.toLeaf().get()
     if g.registerCb.isSome():
       let idx = g.latestIndex
-      debug "registering member via callback", rateCommitment = leaf, index = idx
+      info "registering member via callback", rateCommitment = leaf, index = idx
       await g.registerCb.get()(@[Membership(rateCommitment: leaf, index: idx)])
     g.latestIndex.inc()
   except CatchableError:
@@ -251,10 +231,10 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
+  info "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
   let idCommitmentsToErase: seq[UInt256] = @[]
-  debug "registering the member",
+  info "registering the member",
     idCommitment = idCommitment,
     userMessageLimit = userMessageLimit,
     idCommitmentsToErase = idCommitmentsToErase
@@ -268,11 +248,11 @@ method register*(
   var tsReceipt: ReceiptObject
   g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
     await ethRpc.getMinedTransactionReceipt(txHash)
-  debug "registration transaction mined", txHash = txHash
+  info "registration transaction mined", txHash = txHash
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
-  debug "ts receipt", receipt = tsReceipt[]
+  info "ts receipt", receipt = tsReceipt[]
 
   if tsReceipt.status.isNone():
     raise newException(ValueError, "Transaction failed: status is None")
@@ -283,7 +263,7 @@ method register*(
 
   ## Extract MembershipRegistered event from transaction logs (third event)
   let thirdTopic = tsReceipt.logs[2].topics[0]
-  debug "third topic", thirdTopic = thirdTopic
+  info "third topic", thirdTopic = thirdTopic
   if thirdTopic !=
       cast[FixedBytes[32]](keccak.keccak256.digest(
         "MembershipRegistered(uint256,uint256,uint32)"
@@ -292,7 +272,7 @@ method register*(
 
   ## Parse MembershipRegistered event data: rateCommitment(256) || membershipRateLimit(256) || index(32)
   let arguments = tsReceipt.logs[2].data
-  debug "tx log data", arguments = arguments
+  info "tx log data", arguments = arguments
   let
     ## Extract membership index from transaction log data (big endian)
     membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
@@ -445,7 +425,7 @@ method generateProof*(
     nullifier: nullifier,
   )
 
-  debug "Proof generated successfully", proof = output
+  info "Proof generated successfully", proof = output
 
   waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()
@@ -481,7 +461,7 @@ method verifyProof*(
   if not ffiOk:
     return err("could not verify the proof")
   else:
-    debug "Proof verified successfully"
+    info "Proof verified successfully"
 
   return ok(validProof)
 
@@ -578,27 +558,15 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     let idCommitmentBytes = keystoreCred.identityCredential.idCommitment
     let idCommitmentUInt256 = keystoreCred.identityCredential.idCommitment.toUInt256()
     let idCommitmentHex = idCommitmentBytes.inHex()
-    debug "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
-    debug "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
-    debug "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
+    info "Keystore idCommitment in bytes", idCommitmentBytes = idCommitmentBytes
+    info "Keystore idCommitment in UInt256 ", idCommitmentUInt256 = idCommitmentUInt256
+    info "Keystore idCommitment in hex ", idCommitmentHex = idCommitmentHex
     let idCommitment = keystoreCred.identityCredential.idCommitment
     let membershipExists = (await g.fetchMembershipStatus(idCommitment)).valueOr:
       return err("the commitment does not have a membership: " & error)
-    debug "membershipExists", membershipExists = membershipExists
+    info "membershipExists", membershipExists = membershipExists
 
     g.idCredentials = some(keystoreCred.identityCredential)
-
-  let metadataGetOptRes = g.rlnInstance.getMetadata()
-  if metadataGetOptRes.isErr():
-    warn "could not initialize with persisted rln metadata"
-  elif metadataGetOptRes.get().isSome():
-    let metadata = metadataGetOptRes.get().get()
-    if metadata.chainId != g.chainId:
-      return err(
-        fmt"chain id mismatch. persisted={metadata.chainId}, smart_contract_chainId={g.chainId}"
-      )
-    if metadata.contractAddress != g.ethContractAddress.toLower():
-      return err("persisted data: contract address mismatch")
 
   let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
   let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:
@@ -626,9 +594,6 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
   if g.ethRpc.isSome():
     g.ethRpc.get().ondisconnect = nil
     await g.ethRpc.get().close()
-  let flushed = g.rlnInstance.flush()
-  if not flushed:
-    error "failed to flush to the tree db"
 
   g.initialized = false
 

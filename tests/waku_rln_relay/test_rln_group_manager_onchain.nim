@@ -60,44 +60,6 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-  test "should error on initialization when loaded metadata does not match":
-    (waitFor manager.init()).isOkOr:
-      assert false, $error
-    let metadataSetRes = manager.setMetadata()
-    assert metadataSetRes.isOk(), metadataSetRes.error
-    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
-      assert false, $error
-      return
-    assert metadataOpt.isSome(), "metadata is not set"
-    let metadata = metadataOpt.get()
-    assert metadata.chainId == 1234, "chainId is not equal to 1234"
-    assert metadata.contractAddress == manager.ethContractAddress,
-      "contractAddress is not equal to " & manager.ethContractAddress
-    let web3 = manager.ethRpc.get()
-    let accounts = waitFor web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[2]
-    let (privateKey, acc) = createEthAccount(web3)
-    let tokenAddress = (waitFor deployTestToken(privateKey, acc, web3)).valueOr:
-      assert false, "Failed to deploy test token contract: " & $error
-      return
-    let differentContractAddress = (
-      waitFor executeForgeContractDeployScripts(privateKey, acc, web3)
-    ).valueOr:
-      assert false, "Failed to deploy RLN contract: " & $error
-      return
-    # simulating a change in the contractAddress
-    let manager2 = OnchainGroupManager(
-      ethClientUrls: @[EthClient],
-      ethContractAddress: $differentContractAddress,
-      rlnInstance: manager.rlnInstance,
-      onFatalErrorAction: proc(errStr: string) =
-        assert false, errStr
-      ,
-    )
-    let e = waitFor manager2.init()
-    (e).isErrOr:
-      assert false, "Expected error when contract address doesn't match"
-
   test "should error if contract does not exist":
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
 
@@ -118,7 +80,7 @@ suite "Onchain group manager":
       check getCurrentExceptionMsg().len == 38
 
   test "trackRootChanges: should sync to the state of the group":
-    let credentials = generateCredentials(manager.rlnInstance)
+    let credentials = generateCredentials()
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
@@ -133,17 +95,7 @@ suite "Onchain group manager":
 
     let merkleRootAfter = waitFor manager.fetchMerkleRoot()
 
-    let metadataSetRes = manager.setMetadata()
-    assert metadataSetRes.isOk(), metadataSetRes.error
-
-    let metadataOpt = getMetadata(manager.rlnInstance).valueOr:
-      raiseAssert $error
-
-    assert metadataOpt.isSome(), "metadata is not set"
-    let metadata = metadataOpt.get()
-
     check:
-      metadata.validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
 
   test "trackRootChanges: should fetch history correctly":
@@ -152,7 +104,7 @@ suite "Onchain group manager":
     #       so we can't use it in this test. 
 
     const credentialCount = 6
-    let credentials = generateCredentials(manager.rlnInstance, credentialCount)
+    let credentials = generateCredentials(credentialCount)
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
@@ -160,7 +112,7 @@ suite "Onchain group manager":
 
     try:
       for i in 0 ..< credentials.len():
-        debug "Registering credential", index = i, credential = credentials[i]
+        info "Registering credential", index = i, credential = credentials[i]
         waitFor manager.register(credentials[i], UserMessageLimit(20))
         discard waitFor manager.updateRoots()
     except Exception, CatchableError:
@@ -191,7 +143,7 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
     let merkleRootBefore = waitFor manager.fetchMerkleRoot()
 
     try:
@@ -207,7 +159,7 @@ suite "Onchain group manager":
       manager.latestIndex == 1
 
   test "register: callback is called":
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
     let idCommitment = idCredentials.idCommitment
 
     let fut = newFuture[void]()
@@ -237,7 +189,7 @@ suite "Onchain group manager":
     waitFor fut
 
   test "withdraw: should guard against uninitialized state":
-    let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
+    let idSecretHash = generateCredentials().idSecretHash
 
     try:
       waitFor manager.withdraw(idSecretHash)
@@ -247,7 +199,7 @@ suite "Onchain group manager":
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
   test "validateRoot: should validate good root":
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
     let idCommitment = idCredentials.idCommitment
 
     let fut = newFuture[void]()
@@ -282,7 +234,7 @@ suite "Onchain group manager":
     let messageBytes = "Hello".toBytes()
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
@@ -298,7 +250,7 @@ suite "Onchain group manager":
       validated
 
   test "validateRoot: should reject bad root":
-    let idCredentials = generateCredentials(manager.rlnInstance)
+    let idCredentials = generateCredentials()
     let idCommitment = idCredentials.idCommitment
 
     (waitFor manager.init()).isOkOr:
@@ -315,7 +267,7 @@ suite "Onchain group manager":
     let messageBytes = "Hello".toBytes()
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
@@ -331,7 +283,7 @@ suite "Onchain group manager":
       validated == false
 
   test "verifyProof: should verify valid proof":
-    let credentials = generateCredentials(manager.rlnInstance)
+    let credentials = generateCredentials()
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
@@ -365,7 +317,7 @@ suite "Onchain group manager":
 
     # prepare the epoch
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let validProof = manager.generateProof(
@@ -383,7 +335,7 @@ suite "Onchain group manager":
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 
-    let idCredential = generateCredentials(manager.rlnInstance)
+    let idCredential = generateCredentials()
 
     try:
       waitFor manager.register(idCredential, UserMessageLimit(20))
@@ -400,7 +352,7 @@ suite "Onchain group manager":
       manager.merkleProofCache[i] = byte(rand(255))
 
     let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
+    info "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let invalidProofRes = manager.generateProof(
@@ -420,7 +372,7 @@ suite "Onchain group manager":
 
   test "root queue should be updated correctly":
     const credentialCount = 12
-    let credentials = generateCredentials(manager.rlnInstance, credentialCount)
+    let credentials = generateCredentials(credentialCount)
     (waitFor manager.init()).isOkOr:
       raiseAssert $error
 

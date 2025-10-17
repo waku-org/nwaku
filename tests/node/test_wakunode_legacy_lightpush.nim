@@ -151,7 +151,7 @@ suite "RLN Proofs as a Lightpush Service":
     client.mountLegacyLightPushClient()
 
     let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
@@ -160,7 +160,7 @@ suite "RLN Proofs as a Lightpush Service":
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
     let rootUpdated1 = waitFor manager1.updateRoots()
-    debug "Updated root for node1", rootUpdated1
+    info "Updated root for node1", rootUpdated1
 
     if rootUpdated1:
       let proofResult = waitFor manager1.fetchMerkleProofElements()

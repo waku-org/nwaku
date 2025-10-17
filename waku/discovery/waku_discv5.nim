@@ -60,14 +60,14 @@ proc shardingPredicate*(
 ): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
   let typedRecord = record.toTyped().valueOr:
-    debug "peer filtering failed", reason = error
+    info "peer filtering failed", reason = error
     return none(WakuDiscv5Predicate)
 
   let nodeShard = typedRecord.relaySharding().valueOr:
-    debug "no relay sharding information, peer filtering disabled"
+    info "no relay sharding information, peer filtering disabled"
     return none(WakuDiscv5Predicate)
 
-  debug "peer filtering updated"
+  info "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
     bootnodes.contains(record) or # Temp. Bootnode exception
@@ -124,7 +124,7 @@ proc updateAnnouncedMultiAddress*(
   wd.protocol.updateRecord([(MultiaddrEnrField, encodedAddrs)]).isOkOr:
     return err("failed to update multiaddress in ENR: " & $error)
 
-  debug "ENR updated successfully with new multiaddress",
+  info "ENR updated successfully with new multiaddress",
     enrUri = wd.protocol.localNode.record.toUri(), enr = $(wd.protocol.localNode.record)
 
   return ok()
@@ -312,15 +312,15 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
     let subRes = wd.updateENRShards(subs, true)
 
     if subRes.isErr():
-      debug "ENR shard addition failed", reason = $subRes.error
+      info "ENR shard addition failed", reason = $subRes.error
 
     if unsubRes.isErr():
-      debug "ENR shard removal failed", reason = $unsubRes.error
+      info "ENR shard removal failed", reason = $unsubRes.error
 
     if subRes.isErr() and unsubRes.isErr():
       continue
 
-    debug "ENR updated successfully",
+    info "ENR updated successfully",
       enrUri = wd.protocol.localNode.record.toUri(),
       enr = $(wd.protocol.localNode.record)
 
@@ -335,7 +335,7 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises:
 
   info "Starting discovery v5 service"
 
-  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
+  info "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
   try:
     wd.protocol.open()
   except CatchableError:
@@ -349,7 +349,7 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises:
   asyncSpawn wd.searchLoop()
   asyncSpawn wd.subscriptionsListener()
 
-  debug "Successfully started discovery v5 service"
+  info "Successfully started discovery v5 service"
   info "Discv5: discoverable ENR ",
     enrUri = wd.protocol.localNode.record.toUri(), enr = $(wd.protocol.localNode.record)
 
@@ -365,7 +365,7 @@ proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
   trace "Stop listening on discv5 port"
   await wd.protocol.closeWait()
 
-  debug "Successfully stopped discovery v5 service"
+  info "Successfully stopped discovery v5 service"
 
 ## Helper functions
 
@@ -394,7 +394,7 @@ proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]
     return
 
   let enr = parseBootstrapAddress(bootstrapAddr).valueOr:
-    debug "ignoring invalid bootstrap address", reason = error
+    info "ignoring invalid bootstrap address", reason = error
     return
 
   bootstrapEnrs.add(enr)
@@ -421,7 +421,7 @@ proc setupDiscoveryV5*(
 
   for enr in discv5BootstrapEnrs:
     let peerInfo = enr.toRemotePeerInfo().valueOr:
-      debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
+      info "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
         enr = enr.toUri(), error = error
       continue
     nodePeerManager.addPeer(peerInfo, PeerOrigin.Discv5)
