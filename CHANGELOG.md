@@ -19,6 +19,8 @@
 - Rendezvous: add request interval option ([#3569](https://github.com/waku-org/nwaku/pull/3569)) ([cc7a6406](https://github.com/waku-org/nwaku/commit/cc7a6406))
 - Shard-specific metrics tracking ([#3520](https://github.com/waku-org/nwaku/pull/3520)) ([c3da29fd](https://github.com/waku-org/nwaku/commit/c3da29fd))
 - Libwaku: build Windows DLL for Status-go ([#3460](https://github.com/waku-org/nwaku/pull/3460)) ([5c38a53f](https://github.com/waku-org/nwaku/commit/5c38a53f))
+- RLN: add Stateless RLN support ([#3621](https://github.com/waku-org/nwaku/pull/3621))
+- LOG: Reduce log level of messages from debug to info for better visibility ([#3622](https://github.com/waku-org/nwaku/pull/3622))
 
 ### Bug Fixes
 
@@ -30,6 +32,7 @@
 - Metrics: switched to counter instead of gauge ([#3355](https://github.com/waku-org/nwaku/pull/3355)) ([a27eec90](https://github.com/waku-org/nwaku/commit/a27eec90))
 - Fixed lightpush metrics and diagnostics ([#3486](https://github.com/waku-org/nwaku/pull/3486)) ([0ed3fc80](https://github.com/waku-org/nwaku/commit/0ed3fc80))
 - Misc sync, dashboard, and CI fixes ([#3434](https://github.com/waku-org/nwaku/pull/3434), [#3508](https://github.com/waku-org/nwaku/pull/3508), [#3464](https://github.com/waku-org/nwaku/pull/3464))
+- Raise log level of numerous operational messages from debug to info for better visibility ([#3622](https://github.com/waku-org/nwaku/pull/3622))
 
 ### Changes
 
