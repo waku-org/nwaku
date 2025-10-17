@@ -49,6 +49,7 @@ else
         exit 1
     fi
     # update dependencies
+    rustup update
     cargo update --manifest-path "${build_dir}/rln/Cargo.toml"
     # if submodule version = version in Makefile, build rln
     cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" 
