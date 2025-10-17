@@ -38,7 +38,7 @@ proc newTestSwitch*(
 ): Switch =
   let peerKey = key.get(generateSecp256k1Key())
   let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get())
-  return newStandardSwitch(some(peerKey), addrs = peerAddr)
+  return newStandardSwitch(privKey = Opt.some(peerKey), addrs = peerAddr)
 
 # Waku message
 
