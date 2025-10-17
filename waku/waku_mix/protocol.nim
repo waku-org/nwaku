@@ -37,17 +37,12 @@ type
 proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
   # Note that origin based(discv5) filtering is not done intentionally
   # so that more mix nodes can be discovered.
-  if peer.enr.isNone():
-    trace "peer has no ENR", peer = $peer
+  if peer.mixPubKey.isNone():
+    trace "peer has no mix Pub Key", peer = $peer
     return false
 
   if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
     trace "peer has mismatching cluster", peer = $peer
-    return false
-
-  # Filter if mix is enabled
-  if not peer.enr.get().supportsCapability(Capabilities.Mix):
-    trace "peer doesn't support mix", peer = $peer
     return false
 
   return true
@@ -74,8 +69,7 @@ func getIPv4Multiaddr*(maddrs: seq[MultiAddress]): Option[MultiAddress] =
   trace "no ipv4 multiaddr found"
   return none(MultiAddress)
 
-#[ Not deleting as these can be reused once discovery is sorted
-  proc populateMixNodePool*(mix: WakuMix) =
+proc populateMixNodePool*(mix: WakuMix) =
   # populate only peers that i) are reachable ii) share cluster iii) support mix
   let remotePeers = mix.peerManager.switch.peerStore.peers().filterIt(
       mixPoolFilter(some(mix.clusterId), it)
@@ -89,10 +83,13 @@ func getIPv4Multiaddr*(maddrs: seq[MultiAddress]): Option[MultiAddress] =
       continue
     let maddrWithPeerId =
       toString(appendPeerIdToMultiaddr(ipv4addr, remotePeers[i].peerId))
-    trace "remote peer ENR",
-      peerId = remotePeers[i].peerId, enr = remotePeerENR, maddr = maddrWithPeerId
+    trace "remote peer info", info = remotePeers[i]
 
-    let peerMixPubKey = mixKey(remotePeerENR).get()
+    if remotePeers[i].mixPubKey.isNone():
+      trace "peer has no mix Pub Key", peer = $remotePeers[i]
+      continue
+
+    let peerMixPubKey = remotePeers[i].mixPubKey.get()
     let mixNodePubInfo =
       createMixPubInfo(maddrWithPeerId.value, intoCurve25519Key(peerMixPubKey))
     mixNodes[remotePeers[i].peerId] = mixNodePubInfo
@@ -102,6 +99,7 @@ func getIPv4Multiaddr*(maddrs: seq[MultiAddress]): Option[MultiAddress] =
   mix.setNodePool(mixNodes)
   trace "mix node pool updated", poolSize = mix.getNodePoolSize()
 
+# Once mix protocol starts to use info from PeerStore, then this can be removed.
 proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
   info "starting mix node pool manager"
   # try more aggressively to populate the pool at startup
@@ -115,9 +113,10 @@ proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
   # TODO: make interval configurable
   heartbeat "Updating mix node pool", 5.seconds:
     mix.populateMixNodePool()
- ]#
 
-proc toMixNodeTable(bootnodes: seq[MixNodePubInfo]): Table[PeerId, MixPubInfo] =
+proc processBootNodes(
+    bootnodes: seq[MixNodePubInfo], peermgr: PeerManager
+): Table[PeerId, MixPubInfo] =
   var mixNodes = initTable[PeerId, MixPubInfo]()
   for node in bootnodes:
     let pInfo = parsePeerInfo(node.multiAddr).valueOr:
@@ -140,6 +139,11 @@ proc toMixNodeTable(bootnodes: seq[MixNodePubInfo]): Table[PeerId, MixPubInfo] =
       continue
 
     mixNodes[peerId] = MixPubInfo.init(peerId, multiAddr, node.pubKey, peerPubKey.skkey)
+
+    peermgr.addPeer(
+      RemotePeerInfo.init(peerId, @[multiAddr], mixPubKey = some(node.pubKey))
+    )
+
   info "using mix bootstrap nodes ", bootNodes = mixNodes
   return mixNodes
 
@@ -160,17 +164,18 @@ proc new*(
     peermgr.switch.peerInfo.publicKey.skkey, peermgr.switch.peerInfo.privateKey.skkey,
   )
   if bootnodes.len < mixMixPoolSize:
-    warn "publishing with mix won't work as there are less than 3 mix nodes in node pool"
-  let initTable = toMixNodeTable(bootnodes)
+    warn "publishing with mix won't work until atleast 3 mix nodes in node pool"
+  let initTable = processBootNodes(bootnodes, peermgr)
+
   if len(initTable) < mixMixPoolSize:
-    warn "publishing with mix won't work as there are less than 3 mix nodes in node pool"
+    warn "publishing with mix won't work until atleast  3 mix nodes in node pool"
   var m = WakuMix(peerManager: peermgr, clusterId: clusterId, pubKey: mixPubKey)
   procCall MixProtocol(m).init(localMixNodeInfo, initTable, peermgr.switch)
   return ok(m)
 
 method start*(mix: WakuMix) =
   info "starting waku mix protocol"
-  #mix.nodePoolLoopHandle = mix.startMixNodePoolMgr() This can be re-enabled once discovery is addressed
+  mix.nodePoolLoopHandle = mix.startMixNodePoolMgr()
 
 method stop*(mix: WakuMix) {.async.} =
   if mix.nodePoolLoopHandle.isNil():
