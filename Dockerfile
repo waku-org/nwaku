@@ -19,6 +19,9 @@ RUN apk update && apk upgrade
 # Ran separately from 'make' to avoid re-doing
 RUN git submodule update --init --recursive
 
+# Install Rust toolchain for building RLN
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
 RUN if [ "$HEAPTRACK_BUILD" = "1" ]; then \
       git apply --directory=vendor/nimbus-build-system/vendor/Nim docs/tutorial/nim.2.2.4_heaptracker_addon.patch; \
     fi
