@@ -24,18 +24,15 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
     return err("db not initialized")
 
   # Create table, if doesn't exist
-  let resCreate = createTable(db)
-  if resCreate.isErr():
-    return err("failed to create table: " & resCreate.error())
+  createTable(db).isOkOr:
+    return err("failed to create table: " & error)
 
   # Create indices, if don't exist
-  let resRtIndex = createOldestMessageTimestampIndex(db)
-  if resRtIndex.isErr():
-    return err("failed to create i_rt index: " & resRtIndex.error())
+  createOldestMessageTimestampIndex(db).isOkOr:
+    return err("failed to create i_rt index: " & error)
 
-  let resMsgIndex = createHistoryQueryIndex(db)
-  if resMsgIndex.isErr():
-    return err("failed to create i_query index: " & resMsgIndex.error())
+  createHistoryQueryIndex(db).isOkOr:
+    return err("failed to create i_query index: " & error)
 
   return ok()
 
@@ -45,9 +42,7 @@ type SqliteDriver* = ref object of ArchiveDriver
 
 proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
   # Database initialization
-  let resInit = init(db)
-  if resInit.isErr():
-    return err(resInit.error())
+  ?init(db)
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()

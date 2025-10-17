@@ -178,11 +178,8 @@ proc validateMessage*(
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
-  let decodeRes = RateLimitProof.init(msg.proof)
-  if decodeRes.isErr():
+  let proof = RateLimitProof.init(msg.proof).valueOr:
     return MessageValidationResult.Invalid
-
-  let proof = decodeRes.get()
 
   # track message count for metrics
   waku_rln_messages_total.inc()
@@ -228,7 +225,7 @@ proc validateMessage*(
     let proofVerificationRes =
       rlnPeer.groupManager.verifyProof(msg.toRLNSignal(), proof)
 
-  if proofVerificationRes.isErr():
+  proofVerificationRes.isOkOr:
     waku_rln_errors_total.inc(labelValues = ["proof_verification"])
     warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
@@ -240,13 +237,12 @@ proc validateMessage*(
     return MessageValidationResult.Invalid
 
   # check if double messaging has happened
-  let proofMetadataRes = proof.extractMetadata()
-  if proofMetadataRes.isErr():
+  let proofMetadata = proof.extractMetadata().valueOr:
     waku_rln_errors_total.inc(labelValues = ["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
 
   let msgEpoch = proof.epoch
-  let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
+  let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadata)
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues = ["duplicate_check"])
   elif hasDup.value == true:
@@ -266,20 +262,16 @@ proc validateMessageAndUpdateLog*(
 
   let isValidMessage = rlnPeer.validateMessage(msg)
 
-  let decodeRes = RateLimitProof.init(msg.proof)
-  if decodeRes.isErr():
+  let msgProof = RateLimitProof.init(msg.proof).valueOr:
     return MessageValidationResult.Invalid
 
-  let msgProof = decodeRes.get()
-  let proofMetadataRes = msgProof.extractMetadata()
-
-  if proofMetadataRes.isErr():
+  let proofMetadata = msgProof.extractMetadata().valueOr:
     return MessageValidationResult.Invalid
 
   # insert the message to the log (never errors) only if the
   # message is valid.
   if isValidMessage == MessageValidationResult.Valid:
-    discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
+    discard rlnPeer.updateLog(msgProof.epoch, proofMetadata)
 
   return isValidMessage
 
@@ -333,13 +325,9 @@ proc generateRlnValidator*(
     trace "rln-relay topic validator is called"
     wakuRlnRelay.clearNullifierLog()
 
-    let decodeRes = RateLimitProof.init(message.proof)
-
-    if decodeRes.isErr():
-      trace "generateRlnValidator reject", error = decodeRes.error
+    let msgProof = RateLimitProof.init(message.proof).valueOr:
+      trace "generateRlnValidator reject", error = error
       return pubsub.ValidationResult.Reject
-
-    let msgProof = decodeRes.get()
 
     # validate the message and update log
     let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(message)

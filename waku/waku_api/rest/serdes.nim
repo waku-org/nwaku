@@ -117,8 +117,4 @@ proc encodeString*(value: SomeUnsignedInt): SerdesResult[string] =
   ok(Base10.toString(value))
 
 proc decodeString*(T: typedesc[SomeUnsignedInt], value: string): SerdesResult[T] =
-  let v = Base10.decode(T, value)
-  if v.isErr():
-    return err(v.error())
-  else:
-    return ok(v.get())
+  return Base10.decode(T, value)

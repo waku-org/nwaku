@@ -226,8 +226,8 @@ proc mountMetadata*(
 
   let catchRes = catch:
     node.switch.mount(node.wakuMetadata, protocolMatcher(WakuMetadataCodec))
-  if catchRes.isErr():
-    return err(catchRes.error.msg)
+  catchRes.isOkOr:
+    return err(error.msg)
 
   return ok()
 
@@ -267,8 +267,8 @@ proc mountMix*(
   node.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))
   let catchRes = catch:
     node.switch.mount(node.wakuMix)
-  if catchRes.isErr():
-    return err(catchRes.error.msg)
+  catchRes.isOkOr:
+    return err(error.msg)
   return ok()
 
 ## Waku Sync
@@ -301,8 +301,8 @@ proc mountStoreSync*(
     node.switch.mount(
       node.wakuStoreReconciliation, protocolMatcher(WakuReconciliationCodec)
     )
-  if reconMountRes.isErr():
-    return err(reconMountRes.error.msg)
+  reconMountRes.isOkOr:
+    return err(error.msg)
 
   let transfer = SyncTransfer.new(
     node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
@@ -312,8 +312,8 @@ proc mountStoreSync*(
 
   let transMountRes = catch:
     node.switch.mount(node.wakuStoreTransfer, protocolMatcher(WakuTransferCodec))
-  if transMountRes.isErr():
-    return err(transMountRes.error.msg)
+  transMountRes.isOkOr:
+    return err(error.msg)
 
   return ok()
 

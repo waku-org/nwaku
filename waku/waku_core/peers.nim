@@ -249,11 +249,10 @@ proc parseUrlPeerAddr*(
     return ok(none(RemotePeerInfo))
 
   let parsedAddr = decodeUrl(peerAddr.get())
-  let parsedPeerInfo = parsePeerInfo(parsedAddr)
-  if parsedPeerInfo.isErr():
-    return err("Failed parsing remote peer info [" & parsedPeerInfo.error & "]")
+  let parsedPeerInfo = parsePeerInfo(parsedAddr).valueOr:
+    return err("Failed parsing remote peer info [" & error & "]")
 
-  return ok(some(parsedPeerInfo.value))
+  return ok(some(parsedPeerInfo))
 
 proc toRemotePeerInfo*(enrRec: enr.Record): Result[RemotePeerInfo, cstring] =
   ## Converts an ENR to dialable RemotePeerInfo
@@ -339,11 +338,10 @@ proc hasProtocol*(ma: MultiAddress, proto: string): bool =
   ## Returns ``true`` if ``ma`` contains protocol ``proto``.
   let proto = MultiCodec.codec(proto)
 
-  let protos = ma.protocols()
-  if protos.isErr():
+  let protos = ma.protocols().valueOr:
     return false
 
-  return protos.get().anyIt(it == proto)
+  return protos.anyIt(it == proto)
 
 func hasUdpPort*(peer: RemotePeerInfo): bool =
   if peer.enr.isNone():

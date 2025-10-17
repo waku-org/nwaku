@@ -42,10 +42,9 @@ proc getTxAndTxReceipt(
   let receiptFuture = eligibilityManager.getMinedTransactionReceipt(txHash)
   await allFutures(txFuture, receiptFuture)
   let tx = txFuture.read()
-  let txReceipt = receiptFuture.read()
-  if txReceipt.isErr():
-    return err("Cannot get tx receipt: " & txReceipt.error)
-  return ok((tx, txReceipt.get()))
+  let txReceipt = receiptFuture.read().valueOr:
+    return err("Cannot get tx receipt: " & error)
+  return ok((tx, txReceipt))
 
 proc isEligibleTxId*(
     eligibilityManager: EligibilityManager,

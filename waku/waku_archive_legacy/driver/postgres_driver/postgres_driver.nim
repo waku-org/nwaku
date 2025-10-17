@@ -798,11 +798,10 @@ method getDatabaseSize*(
 method getMessagesCount*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
-  let intRes = await s.getInt("SELECT COUNT(1) FROM messages")
-  if intRes.isErr():
-    return err("error in getMessagesCount: " & intRes.error)
+  let intRes = (await s.getInt("SELECT COUNT(1) FROM messages")).valueOr:
+    return err("error in getMessagesCount: " & error)
 
-  return ok(intRes.get())
+  return ok(intRes)
 
 method getOldestMessageTimestamp*(
     s: PostgresDriver
@@ -812,11 +811,10 @@ method getOldestMessageTimestamp*(
 method getNewestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  let intRes = await s.getInt("SELECT MAX(timestamp) FROM messages")
-  if intRes.isErr():
-    return err("error in getNewestMessageTimestamp: " & intRes.error)
+  let intRes = (await s.getInt("SELECT MAX(timestamp) FROM messages")).valueOr:
+    return err("error in getNewestMessageTimestamp: " & error)
 
-  return ok(Timestamp(intRes.get()))
+  return ok(Timestamp(intRes))
 
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int

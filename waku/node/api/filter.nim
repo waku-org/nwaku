@@ -108,12 +108,9 @@ proc filterSubscribe*(
       error = "waku filter client is not set up"
     return err(FilterSubscribeError.serviceUnavailable())
 
-  let remotePeerRes = parsePeerInfo(peer)
-  if remotePeerRes.isErr():
-    error "Couldn't parse the peer info properly", error = remotePeerRes.error
+  let remotePeer = parsePeerInfo(peer).valueOr:
+    error "Couldn't parse the peer info properly", error = error
     return err(FilterSubscribeError.serviceUnavailable("No peers available"))
-
-  let remotePeer = remotePeerRes.value
 
   if pubsubTopic.isSome():
     info "registering filter subscription to content",
@@ -143,15 +140,11 @@ proc filterSubscribe*(
   else:
     # No pubsub topic, autosharding is used to deduce it
     # but content topics must be well-formed for this
-    let topicMapRes =
-      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
-
-    let topicMap =
-      if topicMapRes.isErr():
-        error "can't get shard", error = topicMapRes.error
+    let topicMap = node.wakuAutoSharding
+      .get()
+      .getShardsFromContentTopics(contentTopics).valueOr:
+        error "can't get shard", error = error
         return err(FilterSubscribeError.badResponse("can't get shard"))
-      else:
-        topicMapRes.get()
 
     var futures = collect(newSeq):
       for shard, topics in topicMap.pairs:
@@ -195,12 +188,9 @@ proc filterUnsubscribe*(
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
-  let remotePeerRes = parsePeerInfo(peer)
-  if remotePeerRes.isErr():
-    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+  let remotePeer = parsePeerInfo(peer).valueOr:
+    error "couldn't parse remotePeerInfo", error = error
     return err(FilterSubscribeError.serviceUnavailable("No peers available"))
-
-  let remotePeer = remotePeerRes.value
 
   if pubsubTopic.isSome():
     info "deregistering filter subscription to content",
@@ -226,15 +216,11 @@ proc filterUnsubscribe*(
     error "Failed filter un-subscription, pubsub topic must be specified with static sharding"
     waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
   else: # pubsubTopic.isNone
-    let topicMapRes =
-      node.wakuAutoSharding.get().getShardsFromContentTopics(contentTopics)
-
-    let topicMap =
-      if topicMapRes.isErr():
-        error "can't get shard", error = topicMapRes.error
+    let topicMap = node.wakuAutoSharding
+      .get()
+      .getShardsFromContentTopics(contentTopics).valueOr:
+        error "can't get shard", error = error
         return err(FilterSubscribeError.badResponse("can't get shard"))
-      else:
-        topicMapRes.get()
 
     var futures = collect(newSeq):
       for shard, topics in topicMap.pairs:
@@ -275,12 +261,9 @@ proc filterUnsubscribeAll*(
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
-  let remotePeerRes = parsePeerInfo(peer)
-  if remotePeerRes.isErr():
-    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+  let remotePeer = parsePeerInfo(peer).valueOr:
+    error "couldn't parse remotePeerInfo", error = error
     return err(FilterSubscribeError.serviceUnavailable("No peers available"))
-
-  let remotePeer = remotePeerRes.value
 
   info "deregistering all filter subscription to content", peer = remotePeer.peerId
 

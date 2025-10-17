@@ -55,18 +55,16 @@ proc batchAdvertise*(
   let dialCatch = catch:
     await allFinished(futs)
 
-  if dialCatch.isErr():
-    return err("batchAdvertise: " & dialCatch.error.msg)
-
-  futs = dialCatch.get()
+  futs = dialCatch.valueOr:
+    return err("batchAdvertise: " & error.msg)
 
   let conns = collect(newSeq):
     for fut in futs:
       let catchable = catch:
         fut.read()
 
-      if catchable.isErr():
-        warn "a rendezvous dial failed", cause = catchable.error.msg
+      catchable.isOkOr:
+        warn "a rendezvous dial failed", cause = error.msg
         continue
 
       let connOpt = catchable.get()
@@ -82,8 +80,8 @@ proc batchAdvertise*(
   for conn in conns:
     await conn.close()
 
-  if advertCatch.isErr():
-    return err("batchAdvertise: " & advertCatch.error.msg)
+  advertCatch.isOkOr:
+    return err("batchAdvertise: " & error.msg)
 
   return ok()
 
@@ -104,18 +102,16 @@ proc batchRequest*(
   let dialCatch = catch:
     await allFinished(futs)
 
-  if dialCatch.isErr():
-    return err("batchRequest: " & dialCatch.error.msg)
-
-  futs = dialCatch.get()
+  futs = dialCatch.valueOr:
+    return err("batchRequest: " & error.msg)
 
   let conns = collect(newSeq):
     for fut in futs:
       let catchable = catch:
         fut.read()
 
-      if catchable.isErr():
-        warn "a rendezvous dial failed", cause = catchable.error.msg
+      catchable.isOkOr:
+        warn "a rendezvous dial failed", cause = error.msg
         continue
 
       let connOpt = catchable.get()
@@ -131,8 +127,8 @@ proc batchRequest*(
   for conn in conns:
     await conn.close()
 
-  if reqCatch.isErr():
-    return err("batchRequest: " & reqCatch.error.msg)
+  reqCatch.isOkOr:
+    return err("batchRequest: " & error.msg)
 
   return ok(reqCatch.get())
 
@@ -164,8 +160,8 @@ proc advertiseAll(
   let catchable = catch:
     await allFinished(futs)
 
-  if catchable.isErr():
-    return err(catchable.error.msg)
+  catchable.isOkOr:
+    return err(error.msg)
 
   for fut in catchable.get():
     if fut.failed():
@@ -201,8 +197,8 @@ proc initialRequestAll*(
   let catchable = catch:
     await allFinished(futs)
 
-  if catchable.isErr():
-    return err(catchable.error.msg)
+  catchable.isOkOr:
+    return err(error.msg)
 
   for fut in catchable.get():
     if fut.failed():
@@ -211,7 +207,7 @@ proc initialRequestAll*(
       let res = fut.value()
 
       let records = res.valueOr:
-        warn "a rendezvous request failed", cause = $res.error
+        warn "a rendezvous request failed", cause = $error
         continue
 
       for record in records:
@@ -268,16 +264,14 @@ proc new*(
   let rvCatchable = catch:
     RendezVous.new(switch = switch, minDuration = DefaultRegistrationTTL)
 
-  if rvCatchable.isErr():
-    return err(rvCatchable.error.msg)
-
-  let rv = rvCatchable.get()
+  let rv = rvCatchable.valueOr:
+    return err(error.msg)
 
   let mountCatchable = catch:
     switch.mount(rv)
 
-  if mountCatchable.isErr():
-    return err(mountCatchable.error.msg)
+  mountCatchable.isOkOr:
+    return err(error.msg)
 
   var wrv = WakuRendezVous()
   wrv.rendezvous = rv

@@ -187,25 +187,20 @@ proc toAPI*(err: HistoryResponseErrorRPC): HistoryError =
     HistoryError(kind: HistoryErrorKind.UNKNOWN)
 
 proc toRPC*(res: HistoryResult): HistoryResponseRPC =
-  if res.isErr():
-    let error = res.error.toRPC()
+  let resp = res.valueOr:
+    return HistoryResponseRPC(error: error.toRPC())
+  let
+    messages = resp.messages
 
-    HistoryResponseRPC(error: error)
-  else:
-    let resp = res.get()
+    pagingInfo = block:
+      if resp.cursor.isNone():
+        none(PagingInfoRPC)
+      else:
+        some(PagingInfoRPC(cursor: resp.cursor.map(toRPC)))
 
-    let
-      messages = resp.messages
+    error = HistoryResponseErrorRPC.NONE
 
-      pagingInfo = block:
-        if resp.cursor.isNone():
-          none(PagingInfoRPC)
-        else:
-          some(PagingInfoRPC(cursor: resp.cursor.map(toRPC)))
-
-      error = HistoryResponseErrorRPC.NONE
-
-    HistoryResponseRPC(messages: messages, pagingInfo: pagingInfo, error: error)
+  HistoryResponseRPC(messages: messages, pagingInfo: pagingInfo, error: error)
 
 proc toAPI*(rpc: HistoryResponseRPC): HistoryResult =
   if rpc.error != HistoryResponseErrorRPC.NONE:
