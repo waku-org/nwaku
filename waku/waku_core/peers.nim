@@ -9,6 +9,7 @@ import
   eth/p2p/discoveryv5/enr,
   eth/net/utils,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/crypto/secp,
   libp2p/errors,
   libp2p/multiaddress,
@@ -48,6 +49,7 @@ type RemotePeerInfo* = ref object
   addrs*: seq[MultiAddress]
   enr*: Option[enr.Record]
   protocols*: seq[string]
+  mixPubKey*: Option[Curve25519Key]
 
   agent*: string
   protoVersion*: string
@@ -82,6 +84,7 @@ proc init*(
     direction: PeerDirection = UnknownDirection,
     lastFailedConn: Moment = Moment.init(0, Second),
     numberFailedConn: int = 0,
+    mixPubKey: Option[Curve25519Key] = none(Curve25519Key),
 ): T =
   RemotePeerInfo(
     peerId: peerId,
@@ -97,6 +100,7 @@ proc init*(
     direction: direction,
     lastFailedConn: lastFailedConn,
     numberFailedConn: numberFailedConn,
+    mixPubKey: mixPubKey,
   )
 
 proc init*(

@@ -1,12 +1,18 @@
 {.used.}
 
-import std/options, chronos, testutils/unittests, libp2p/builders
+import
+  std/options,
+  chronos,
+  testutils/unittests,
+  libp2p/builders,
+  libp2p/protocols/rendezvous
 
 import
   waku/waku_core/peers,
   waku/node/waku_node,
   waku/node/peer_manager/peer_manager,
   waku/waku_rendezvous/protocol,
+  waku/waku_rendezvous/waku_peer_record,
   ./testlib/[wakucore, wakunode]
 
 procSuite "Waku Rendezvous":
@@ -52,16 +58,22 @@ procSuite "Waku Rendezvous":
 
     let namespace = "test/name/space"
 
-    let res = await node1.wakuRendezvous.batchAdvertise(
-      namespace, 60.seconds, @[peerInfo2.peerId]
-    )
+    let res =
+      await node1.wakuRendezvous.advertise(namespace, @[peerInfo2.peerId], 60.seconds)
     assert res.isOk(), $res.error
 
-    let response =
-      await node3.wakuRendezvous.batchRequest(namespace, 1, @[peerInfo2.peerId])
-    assert response.isOk(), $response.error
-    let records = response.get()
+    var records: seq[WakuPeerRecord]
+    try:
+      records = await rendezvous.request[WakuPeerRecord](
+        node3.wakuRendezvous,
+        Opt.some(namespace),
+        Opt.some(1),
+        Opt.some(@[peerInfo2.peerId]),
+      )
+    except CatchableError as e:
+      assert false, "Request failed with exception: " & e.msg
 
     check:
       records.len == 1
       records[0].peerId == peerInfo1.peerId
+      #records[0].mixPubKey == $node1.wakuMix.pubKey
