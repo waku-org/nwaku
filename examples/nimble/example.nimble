@@ -12,4 +12,4 @@ bin           = @["example"]
 
 requires "chronos"
 requires "results"
-requires "waku"
+requires "waku#da5767a388f1a4ab0b7ce43f3765d20cf1d098ed"
