@@ -141,7 +141,7 @@ proc advertiseAll(
   if self.clientOnlyMode:
     return err("cannot advertise in client only mode")
 
-  info "waku rendezvous advertisements started"
+  trace "waku rendezvous advertisements started"
 
   let rpi = self.peerManager.selectPeer(self.codec).valueOr:
     return err("could not get a peer supporting RendezVousCodec")
@@ -151,14 +151,14 @@ proc advertiseAll(
   # Advertise yourself on that peer
   let res = await self.advertise(namespace, @[rpi.peerId])
 
-  info "waku rendezvous advertisements finished"
+  trace "waku rendezvous advertisements finished"
 
   return res
 
 proc requestAll*(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
-  info "waku rendezvous requests started"
+  trace "waku rendezvous requests started"
 
   let namespace = computeMixNamespace(self.clusterId)
   # Get a random WakuRDV peer
@@ -186,7 +186,7 @@ proc requestAll*(
     )
     self.peerManager.addPeer(rInfo)
 
-  info "waku rendezvous initial request finished"
+  trace "waku rendezvous initial request finished"
 
   return ok()
 
@@ -260,6 +260,7 @@ proc new*(
   wrv.requestInterval = 10.seconds # TODO: for testing, need to move back to default
   wrv.getPeerRecord = getPeerRecord
   wrv.switch = switch
+  wrv.codec = WakuRendezVousCodec
 
   if not clientOnlyMode:
     proc handleStream(
@@ -290,7 +291,6 @@ proc new*(
         await conn.close()
 
     wrv.handler = handleStream
-    wrv.codec = WakuRendezVousCodec
 
     let mountCatchable = catch:
       switch.mount(wrv)

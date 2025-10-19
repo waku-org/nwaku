@@ -41,7 +41,8 @@ proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
     trace "peer has no mix Pub Key", peer = $peer
     return false
 
-  if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
+  if cluster.isSome() and peer.enr.isSome() and
+      peer.enr.get().isClusterMismatched(cluster.get()):
     trace "peer has mismatching cluster", peer = $peer
     return false
 
@@ -77,7 +78,6 @@ proc populateMixNodePool*(mix: WakuMix) =
   var mixNodes = initTable[PeerId, MixPubInfo]()
 
   for i in 0 ..< min(remotePeers.len, 100):
-    let remotePeerENR = remotePeers[i].enr.get()
     let ipv4addr = getIPv4Multiaddr(remotePeers[i].addrs).valueOr:
       trace "peer has no ipv4 address", peer = $remotePeers[i]
       continue

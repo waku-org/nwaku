@@ -461,6 +461,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   (await node.mountMix(conf.clusterId, mixPrivKey, conf.mixnodes)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     quit(QuitFailure)
+  await node.mountRendezvousClient(conf.clusterId)
+
   await node.start()
 
   node.peerManager.start()
@@ -601,6 +603,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   #await mountLegacyLightPush(node)
   node.peerManager.addServicePeer(servicePeerInfo, WakuLightpushCodec)
   node.peerManager.addServicePeer(servicePeerInfo, WakuPeerExchangeCodec)
+  #node.peerManager.addServicePeer(servicePeerInfo, WakuRendezVousCodec)
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(
