@@ -31,7 +31,7 @@ requires "nim >= 2.2.4",
   "results",
   "db_connector",
   "minilru",
-  "https://github.com/vacp2p/mix#0.1.0"
+  "https://github.com/vacp2p/mix#v0.1.0"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =
