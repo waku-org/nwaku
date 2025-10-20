@@ -20,6 +20,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: "true" # Needed to pull RLN script
 
     - uses: nim-lang/setup-nimble-action@v1
       with:
