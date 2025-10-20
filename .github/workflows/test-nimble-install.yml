@@ -29,14 +29,13 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Display Nimble version
-      run: |
-        nimble --version
+      run: nimble --version
 
-    - name: Display example.nimble
-      run: cat examples/nimble/example.nimble
+    - name: Run nimble install on waku
+      run: nimble --verbose install
 
-    - name: Display waku.nimble
-      run: head -n40 waku.nimble
+    - name: Run nimble check on waku
+      run: nimble check -l
 
     - name: Build example project
       working-directory: examples/nimble
