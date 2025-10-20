@@ -1,1 +1,4 @@
 nimbledeps
+nimble.develop
+nimble.paths
+example
