@@ -1,4 +1,3 @@
-import std/options
 import chronos, results
 import waku
 
