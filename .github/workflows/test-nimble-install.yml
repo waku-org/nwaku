@@ -25,7 +25,7 @@ jobs:
 
     - uses: nim-lang/setup-nimble-action@v1
       with:
-        nimble-version: "0.20.1"
+        nimble-version: "nightly"
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Display Nimble version
