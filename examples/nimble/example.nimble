@@ -12,7 +12,7 @@ bin           = @["example"]
 
 requires "chronos"
 requires "results"
-requires "waku#da5767a388f1a4ab0b7ce43f3765d20cf1d098ed"
+requires "waku#2073b5518b074408e6cf23c6f890c82d0c88ea56"
 
 import os
 
