@@ -21,6 +21,11 @@ proc ensureRln(libFile: string = "build/librln.a", version = "v0.8.0") =
     echo "Building RLN library..."
     let buildDir = parentDir(parentDir(getCurrentDir())) & "/vendor/zerokit"
     let outFile = libFile
+    
+    let outDir = parentDir(outFile)
+    if not dirExists(outDir):
+      mkDir(outDir)  # Ensure build directory exists
+
     exec "bash ../../scripts/build_rln.sh " & buildDir & " " & version & " " & outFile
   else:
     echo "RLN library already exists: " & libFile
