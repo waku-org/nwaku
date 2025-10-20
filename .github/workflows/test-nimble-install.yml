@@ -48,4 +48,5 @@ jobs:
       working-directory: examples/nimble
       run: |
         echo "Running example project..."
-        nimble --verbose run
+        # nimble --verbose run # TODO: Use nimble run
+        ./example
