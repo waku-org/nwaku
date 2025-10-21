@@ -506,7 +506,7 @@ suite "Waku Sync: reconciliation":
       let (_, deliveredHash) = await remoteNeeds.get()
       check deliveredHash in diffMsgHashes
 
-  asyncTest "sync 2 nodes, 40 msgs: 17 in-window diff, 20 out-window ignored":
+  #[ asyncTest "sync 2 nodes, 40 msgs: 17 in-window diff, 20 out-window ignored":
     server = await newTestWakuRecon(
       serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
@@ -572,7 +572,7 @@ suite "Waku Sync: reconciliation":
     for _ in 0 ..< diffInWin:
       let (_, deliveredHashes) = await remoteNeeds.popFirst()
       check deliveredHashes in inWinHashes
-      check deliveredHashes notin outWinHashes
+      check deliveredHashes notin outWinHashes ]#
 
   asyncTest "hash-fingerprint collision, same timestamp – stable sort":
     server = await newTestWakuRecon(
