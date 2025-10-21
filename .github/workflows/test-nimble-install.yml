@@ -31,11 +31,11 @@ jobs:
     - name: Display Nimble version
       run: nimble --version
 
-    - name: Run nimble install on waku
-      run: nimble install
-
     - name: Run nimble check on waku
       run: nimble check -l
+
+    - name: Run nimble install on waku
+      run: nimble install
 
     - name: Build example project
       working-directory: examples/nimble
