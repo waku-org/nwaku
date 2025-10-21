@@ -32,7 +32,7 @@ jobs:
       run: nimble --version
 
     - name: Run nimble install on waku
-      run: nimble --verbose install
+      run: nimble install
 
     - name: Run nimble check on waku
       run: nimble check -l
