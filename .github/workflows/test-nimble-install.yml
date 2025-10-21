@@ -31,11 +31,13 @@ jobs:
     - name: Display Nimble version
       run: nimble --version
 
-    - name: Run nimble check on waku
-      run: nimble check -l
-
     - name: Run nimble install on waku
       run: nimble install
+      timeout-minutes: 60
+
+    - name: Run nimble check on waku
+      run: nimble check -l
+      timeout-minutes: 60
 
     - name: Build example project
       working-directory: examples/nimble
