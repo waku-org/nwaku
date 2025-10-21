@@ -184,3 +184,5 @@ To get help, or participate in the conversation, join the [Waku Discord](https:/
 ### Docs
 
 * [REST API Documentation](https://waku-org.github.io/waku-rest-api/)
+<br>## Welcome to Waku Messaging<br>Waku's P2P protocol secures DeFi chats—new contributors, start with the Light Node tutorial for your first message relay. Tip: Use Waku v2 for privacy! <br>
+
