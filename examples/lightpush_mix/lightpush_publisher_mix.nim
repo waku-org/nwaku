@@ -7,13 +7,13 @@ import
   confutils,
   libp2p/crypto/crypto,
   libp2p/crypto/curve25519,
+  libp2p/protocols/mix,
+  libp2p/protocols/mix/curve25519,
   libp2p/multiaddress,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   metrics,
   metrics/chronos_httpserver
-
-import mix, mix/mix_protocol, mix/curve25519
 
 import
   waku/[
@@ -119,7 +119,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
     conn = node.wakuMix.toConnection(
       MixDestination.init(dPeerId, pxPeerInfo.addrs[0]), # destination lightpush peer
       WakuLightPushCodec, # protocol codec which will be used over the mix connection
-      Opt.some(MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1)))),
+      MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
         # mix parameters indicating we expect a single reply
     ).valueOr:
       error "failed to create mix connection", error = error

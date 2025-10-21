@@ -30,8 +30,7 @@ requires "nim >= 2.2.4",
   "regex",
   "results",
   "db_connector",
-  "minilru",
-  "https://github.com/vacp2p/mix#0.1.0"
+  "minilru"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =

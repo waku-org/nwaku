@@ -3,7 +3,7 @@
 import
   std/[options, bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
 import ../common/enr, ../waku_core/codecs
-import mix/mix_protocol
+import libp2p/protocols/mix
 
 const CapabilitiesEnrField* = "waku2"
 
