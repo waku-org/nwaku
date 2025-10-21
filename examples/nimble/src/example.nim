@@ -6,8 +6,9 @@ proc main() {.async.} =
 
   # Create a basic configuration for the Waku node
   # No RLN so we don't need to path an eth rpc endpoint
-  let config =
-    NodeConfig.init(protocolsConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 42))
+  let config = NodeConfig.init(
+    protocolsConfig = ProtocolsConfig.init(entryNodes = @[], clusterId = 42)
+  )
 
   # Create the node using the library API's createNode function
   let node = (await createNode(config)).valueOr:
