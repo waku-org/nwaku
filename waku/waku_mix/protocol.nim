@@ -1,12 +1,11 @@
 {.push raises: [].}
 
-import chronicles, std/[options, tables, sequtils], chronos, results, metrics
+import chronicles, std/[options, tables, sequtils], chronos, results, metrics, strutils
 
 import
   libp2p/crypto/curve25519,
-  mix/mix_protocol,
-  mix/mix_node,
-  mix/mix_metrics,
+  libp2p/protocols/mix,
+  libp2p/protocols/mix/mix_node,
   libp2p/[multiaddress, multicodec, peerid],
   eth/common/keys
 
@@ -117,14 +116,30 @@ proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
   heartbeat "Updating mix node pool", 5.seconds:
     mix.populateMixNodePool()
  ]#
+
 proc toMixNodeTable(bootnodes: seq[MixNodePubInfo]): Table[PeerId, MixPubInfo] =
   var mixNodes = initTable[PeerId, MixPubInfo]()
   for node in bootnodes:
-    let peerId = getPeerIdFromMultiAddr(node.multiAddr).valueOr:
+    let pInfo = parsePeerInfo(node.multiAddr).valueOr:
       error "Failed to get peer id from multiaddress: ",
         error = error, multiAddr = $node.multiAddr
       continue
-    mixNodes[peerId] = createMixPubInfo(node.multiAddr, node.pubKey)
+    let peerId = pInfo.peerId
+    var peerPubKey: crypto.PublicKey
+    if not peerId.extractPublicKey(peerPubKey):
+      warn "Failed to extract public key from peerId, skipping node", peerId = peerId
+      continue
+
+    if peerPubKey.scheme != PKScheme.Secp256k1:
+      warn "Peer public key is not Secp256k1, skipping node",
+        peerId = peerId, scheme = peerPubKey.scheme
+      continue
+
+    let multiAddr = MultiAddress.init(node.multiAddr).valueOr:
+      error "Failed to parse multiaddress", multiAddr = node.multiAddr, error = error
+      continue
+
+    mixNodes[peerId] = MixPubInfo.init(peerId, multiAddr, node.pubKey, peerPubKey.skkey)
   info "using mix bootstrap nodes ", bootNodes = mixNodes
   return mixNodes
 
@@ -138,10 +153,11 @@ proc new*(
 ): WakuMixResult[T] =
   let mixPubKey = public(mixPrivKey)
   info "mixPrivKey", mixPrivKey = mixPrivKey, mixPubKey = mixPubKey
-
+  let nodeMultiAddr = MultiAddress.init(nodeAddr).valueOr:
+    return err("failed to parse mix node address: " & $nodeAddr & ", error: " & error)
   let localMixNodeInfo = initMixNodeInfo(
-    nodeAddr, mixPubKey, mixPrivKey, peermgr.switch.peerInfo.publicKey.skkey,
-    peermgr.switch.peerInfo.privateKey.skkey,
+    peermgr.switch.peerInfo.peerId, nodeMultiAddr, mixPubKey, mixPrivKey,
+    peermgr.switch.peerInfo.publicKey.skkey, peermgr.switch.peerInfo.privateKey.skkey,
   )
   if bootnodes.len < mixMixPoolSize:
     warn "publishing with mix won't work as there are less than 3 mix nodes in node pool"
