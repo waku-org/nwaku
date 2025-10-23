@@ -216,11 +216,9 @@ proc lightpushPublishHandler(
           "Waku lightpush with mix not available",
         )
 
-      return await node.wakuLightpushClient.publishWithConn(
-        pubsubTopic, message, conn, peer.peerId
-      )
+      return await node.wakuLightpushClient.publish(pubsubTopic, message, conn)
     else:
-      return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
+      return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
   if not node.wakuLightPush.isNil():
     if mixify:
