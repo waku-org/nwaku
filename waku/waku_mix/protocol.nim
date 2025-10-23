@@ -117,19 +117,14 @@ proc startMixNodePoolMgr*(mix: WakuMix) {.async.} =
     mix.populateMixNodePool()
  ]#
 
-proc getPeerIdFromMultiAddr*(multiAddr: string): Result[PeerId, string] =
-  let parts = multiAddr.split("/")
-  if parts.len != 7:
-    return err("Invalid multiaddress format")
-  ok(PeerId.init(parts[6]).get())
-
 proc toMixNodeTable(bootnodes: seq[MixNodePubInfo]): Table[PeerId, MixPubInfo] =
   var mixNodes = initTable[PeerId, MixPubInfo]()
   for node in bootnodes:
-    let peerId = getPeerIdFromMultiAddr(node.multiAddr).valueOr:
+    let pInfo = parsePeerInfo(node.multiAddr).valueOr:
       error "Failed to get peer id from multiaddress: ",
         error = error, multiAddr = $node.multiAddr
       continue
+    let peerId = pInfo.peerId
     var peerPubKey: crypto.PublicKey
     if not peerId.extractPublicKey(peerPubKey):
       warn "Failed to extract public key from peerId, skipping node", peerId = peerId
