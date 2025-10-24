@@ -52,13 +52,11 @@ proc sendPushRequest(
   except LPStreamRemoteClosedError:
     return err("Exception reading: " & getCurrentExceptionMsg())
 
-  let decodeRespRes = PushRPC.decode(buffer)
-  if decodeRespRes.isErr():
+  let pushResponseRes = PushRPC.decode(buffer).valueOr:
     error "failed to decode response"
     waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
     return err(decodeRpcFailure)
 
-  let pushResponseRes = decodeRespRes.get()
   if pushResponseRes.response.isNone():
     waku_lightpush_errors.inc(labelValues = [emptyResponseBodyFailure])
     return err(emptyResponseBodyFailure)

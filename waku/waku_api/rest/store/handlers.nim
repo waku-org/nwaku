@@ -1,6 +1,7 @@
 {.push raises: [].}
 
-import std/strformat, results, chronicles, uri, json_serialization, presto/route
+import
+  std/[strformat, sugar], results, chronicles, uri, json_serialization, presto/route
 import
   ../../../waku_core,
   ../../../waku_store/common,
@@ -35,14 +36,10 @@ proc performStoreQuery(
     error msg
     return RestApiResponse.internalServerError(msg)
 
-  let futRes = queryFut.read()
-
-  if futRes.isErr():
-    const msg = "Error occurred in queryFut.read()"
-    error msg, error = futRes.error
-    return RestApiResponse.internalServerError(fmt("{msg} [{futRes.error}]"))
-
-  let res = futRes.get().toHex()
+  let res = queryFut.read().map(val => val.toHex()).valueOr:
+      const msg = "Error occurred in queryFut.read()"
+      error msg, error = error
+      return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
 
   if res.statusCode == uint32(ErrorCode.TOO_MANY_REQUESTS):
     info "Request rate limit reached on peer ", storePeer

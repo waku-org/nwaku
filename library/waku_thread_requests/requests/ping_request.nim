@@ -44,13 +44,11 @@ proc process*(
   let pingFuture = ping()
   let pingRTT: Duration =
     if self[].timeout == chronos.milliseconds(0): # No timeout expected
-      (await pingFuture).valueOr:
-        return err(error)
+      ?(await pingFuture)
     else:
       let timedOut = not (await pingFuture.withTimeout(self[].timeout))
       if timedOut:
         return err("ping timed out")
-      pingFuture.read().valueOr:
-        return err(error)
+      ?(pingFuture.read())
 
   ok($(pingRTT.nanos))

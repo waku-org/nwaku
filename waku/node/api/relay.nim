@@ -240,11 +240,8 @@ proc mountRlnRelay*(
       CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
     )
 
-  let rlnRelayRes = await WakuRlnRelay.new(rlnConf, registrationHandler)
-  if rlnRelayRes.isErr():
-    raise
-      newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
-  let rlnRelay = rlnRelayRes.get()
+  let rlnRelay = (await WakuRlnRelay.new(rlnConf, registrationHandler)).valueOr:
+    raise newException(CatchableError, "failed to mount WakuRlnRelay: " & error)
   if (rlnConf.userMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
     error "rln-relay-user-message-limit can't exceed the MAX_MESSAGE_LIMIT in the rln contract"
   let validator = generateRlnValidator(rlnRelay, spamHandler)
