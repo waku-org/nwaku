@@ -129,13 +129,45 @@ proc advertise*(
     return err("rendezvous advertisement failed: Failed to sign Waku Peer Record")
   let sprBuff = se.encode().valueOr:
     return err("rendezvous advertisement failed: Wrong Signed Peer Record")
+
+  # rendezvous.advertise expects already opened connections
+  # must dial first
+
+  var futs = collect(newSeq):
+    for peerId in peers:
+      self.peerManager.dialPeer(peerId, self.codec)
+
+  let dialCatch = catch:
+    await allFinished(futs)
+
+  if dialCatch.isErr():
+    return err("advertise: " & dialCatch.error.msg)
+
+  futs = dialCatch.get()
+
+  let conns = collect(newSeq):
+    for fut in futs:
+      let catchable = catch:
+        fut.read()
+
+      if catchable.isErr():
+        warn "a rendezvous dial failed", cause = catchable.error.msg
+        continue
+
+      let connOpt = catchable.get()
+
+      let conn = connOpt.valueOr:
+        continue
+
+      conn
+
   try:
     await self.advertise(namespace, ttl, peers, sprBuff)
   except Exception as e:
     return err("rendezvous advertisement failed: " & e.msg)
   return ok()
 
-proc advertiseAll(
+proc advertiseAll*(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
   if self.clientOnlyMode:
@@ -161,9 +193,16 @@ proc requestAll*(
   trace "waku rendezvous requests started"
 
   let namespace = computeMixNamespace(self.clusterId)
+
   # Get a random WakuRDV peer
   let rpi = self.peerManager.selectPeer(self.codec).valueOr:
     return err("could not get a peer supporting WakuRendezVousCodec")
+
+  # rendezvous.request expects already opened connections
+  # must dial first
+  if self.peerManager.dialPeer(rpi.peerId, self.codec).value().isNone():
+    return err("could not dial peer supporting WakuRendezVousCodec")
+
   var records: seq[WakuPeerRecord]
   try:
     # Ask for peer records
@@ -291,12 +330,6 @@ proc new*(
         await conn.close()
 
     wrv.handler = handleStream
-
-    let mountCatchable = catch:
-      switch.mount(wrv)
-
-    if mountCatchable.isErr():
-      return err(mountCatchable.error.msg)
 
   info "waku rendezvous initialized",
     clusterId = clusterId,

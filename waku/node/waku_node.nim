@@ -393,6 +393,11 @@ proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).}
   if node.started:
     await node.wakuRendezvous.start()
 
+  try:
+    node.switch.mount(node.wakuRendezvous, protocolMatcher(WakuRendezVousCodec))
+  except LPError:
+    error "failed to mount wakuRendezvous", error = getCurrentExceptionMsg()
+
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
   if inputStr.contains("0.0.0.0/tcp/0") or inputStr.contains("127.0.0.1/tcp/0"):

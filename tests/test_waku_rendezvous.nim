@@ -9,9 +9,11 @@ import
 
 import
   waku/waku_core/peers,
+  waku/waku_core/codecs,
   waku/node/waku_node,
   waku/node/peer_manager/peer_manager,
   waku/waku_rendezvous/protocol,
+  waku/waku_rendezvous/common,
   waku/waku_rendezvous/waku_peer_record,
   ./testlib/[wakucore, wakunode]
 
@@ -56,17 +58,19 @@ procSuite "Waku Rendezvous":
     node2.peerManager.addPeer(peerInfo3)
     node3.peerManager.addPeer(peerInfo2)
 
-    let namespace = "test/name/space"
-
-    let res =
-      await node1.wakuRendezvous.advertise(namespace, @[peerInfo2.peerId], 60.seconds)
+    let res = await node1.wakuRendezvous.advertiseAll()
     assert res.isOk(), $res.error
+    # Rendezvous Request API requires dialing first
+    let connOpt =
+      await node3.peerManager.dialPeer(peerInfo2.peerId, WakuRendezVousCodec)
+    require:
+      connOpt.isSome
 
     var records: seq[WakuPeerRecord]
     try:
       records = await rendezvous.request[WakuPeerRecord](
         node3.wakuRendezvous,
-        Opt.some(namespace),
+        Opt.some(computeMixNamespace(clusterId)),
         Opt.some(1),
         Opt.some(@[peerInfo2.peerId]),
       )

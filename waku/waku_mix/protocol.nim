@@ -6,6 +6,7 @@ import
   libp2p/crypto/curve25519,
   libp2p/protocols/mix,
   libp2p/protocols/mix/mix_node,
+  libp2p/protocols/mix/mix_protocol,
   libp2p/[multiaddress, multicodec, peerid],
   eth/common/keys
 
@@ -81,8 +82,7 @@ proc populateMixNodePool*(mix: WakuMix) =
     let ipv4addr = getIPv4Multiaddr(remotePeers[i].addrs).valueOr:
       trace "peer has no ipv4 address", peer = $remotePeers[i]
       continue
-    let maddrWithPeerId =
-      toString(appendPeerIdToMultiaddr(ipv4addr, remotePeers[i].peerId))
+    let maddrWithPeerId = appendPeerIdToMultiaddr(ipv4addr, remotePeers[i].peerId)
     trace "remote peer info", info = remotePeers[i]
 
     if remotePeers[i].mixPubKey.isNone():
@@ -90,11 +90,25 @@ proc populateMixNodePool*(mix: WakuMix) =
       continue
 
     let peerMixPubKey = remotePeers[i].mixPubKey.get()
-    let mixNodePubInfo =
-      createMixPubInfo(maddrWithPeerId.value, intoCurve25519Key(peerMixPubKey))
+    var peerPubKey: crypto.PublicKey
+    if not remotePeers[i].peerId.extractPublicKey(peerPubKey):
+      warn "Failed to extract public key from peerId, skipping node",
+        peerId = remotePeers[i].peerId
+      continue
+
+    if peerPubKey.scheme != PKScheme.Secp256k1:
+      warn "Peer public key is not Secp256k1, skipping node",
+        peerId = remotePeers[i].peerId, scheme = peerPubKey.scheme
+      continue
+
+    let mixNodePubInfo = MixPubInfo.init(
+      remotePeers[i].peerId,
+      maddrWithPeerId,
+      intoCurve25519Key(peerMixPubKey),
+      peerPubKey.skkey,
+    )
     mixNodes[remotePeers[i].peerId] = mixNodePubInfo
 
-  mix_pool_size.set(len(mixNodes))
   # set the mix node pool
   mix.setNodePool(mixNodes)
   trace "mix node pool updated", poolSize = mix.getNodePoolSize()
