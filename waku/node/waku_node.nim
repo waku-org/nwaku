@@ -22,9 +22,8 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
-  mix,
-  mix/mix_node,
-  mix/mix_protocol
+  libp2p/protocols/mix,
+  libp2p/protocols/mix/mix_protocol
 
 import
   ../waku_core,
