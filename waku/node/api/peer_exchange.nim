@@ -111,10 +111,9 @@ proc setPeerExchangePeer*(
 
   info "Set peer-exchange peer", peer = peer
 
-  let remotePeerRes = parsePeerInfo(peer)
-  if remotePeerRes.isErr():
-    error "could not parse peer info", error = remotePeerRes.error
+  let remotePeer = parsePeerInfo(peer).valueOr:
+    error "could not parse peer info", error = error
     return
 
-  node.peerManager.addPeer(remotePeerRes.value, PeerExchange)
+  node.peerManager.addPeer(remotePeer, PeerExchange)
   waku_px_peers.inc()

@@ -393,12 +393,11 @@ proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
 
-  let enrRes = parseBootstrapAddress(bootstrapAddr)
-  if enrRes.isErr():
-    info "ignoring invalid bootstrap address", reason = enrRes.error
+  let enr = parseBootstrapAddress(bootstrapAddr).valueOr:
+    info "ignoring invalid bootstrap address", reason = error
     return
 
-  bootstrapEnrs.add(enrRes.value)
+  bootstrapEnrs.add(enr)
 
 proc setupDiscoveryV5*(
     myENR: enr.Record,

@@ -1,6 +1,7 @@
 {.push raises: [].}
 
-import std/strformat, results, chronicles, uri, json_serialization, presto/route
+import
+  std/[strformat, sugar], results, chronicles, uri, json_serialization, presto/route
 import
   ../../../waku_core,
   ../../../waku_store_legacy/common,
@@ -34,20 +35,17 @@ proc performHistoryQuery(
     error msg
     return RestApiResponse.internalServerError(msg)
 
-  let res = queryFut.read()
-  if res.isErr():
-    const msg = "Error occurred in queryFut.read()"
-    error msg, error = res.error
-    return RestApiResponse.internalServerError(fmt("{msg} [{res.error}]"))
+  let storeResp = queryFut.read().map(res => res.toStoreResponseRest()).valueOr:
+      const msg = "Error occurred in queryFut.read()"
+      error msg, error = error
+      return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
 
-  let storeResp = res.value.toStoreResponseRest()
-  let resp = RestApiResponse.jsonResponse(storeResp, status = Http200)
-  if resp.isErr():
+  let resp = RestApiResponse.jsonResponse(storeResp, status = Http200).valueOr:
     const msg = "Error building the json respose"
-    error msg, error = resp.error
-    return RestApiResponse.internalServerError(fmt("{msg} [{resp.error}]"))
+    error msg, error = error
+    return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
 
-  return resp.get()
+  return resp
 
 # Converts a string time representation into an Option[Timestamp].
 # Only positive time is considered a valid Timestamp in the request
@@ -70,16 +68,13 @@ proc parseCursor(
     digest: Option[string],
 ): Result[Option[HistoryCursor], string] =
   # Parse sender time
-  let parsedSenderTime = parseTime(senderTime).valueOr:
-    return err(error)
+  let parsedSenderTime = ?parseTime(senderTime)
 
   # Parse store time
-  let parsedStoreTime = parseTime(storeTime).valueOr:
-    return err(error)
+  let parsedStoreTime = ?parseTime(storeTime)
 
   # Parse message digest
-  let parsedMsgDigest = parseMsgDigest(digest).valueOr:
-    return err(error)
+  let parsedMsgDigest = ?parseMsgDigest(digest)
 
   # Parse cursor information
   if parsedPubsubTopic.isSome() and parsedSenderTime.isSome() and

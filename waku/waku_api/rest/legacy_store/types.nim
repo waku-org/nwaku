@@ -60,8 +60,7 @@ proc parseMsgDigest*(
     return ok(none(waku_store_common.MessageDigest))
 
   let decodedUrl = decodeUrl(input.get())
-  let base64DecodedArr = base64.decode(Base64String(decodedUrl)).valueOr:
-    return err(error)
+  let base64DecodedArr = ?base64.decode(Base64String(decodedUrl))
 
   var messageDigest = waku_store_common.MessageDigest()
 

@@ -126,29 +126,25 @@ proc installRelayApiHandlers*(
     # ## TODO: ability to specify a return message limit
     # info "get_waku_v2_relay_v1_messages", topic=topic
 
-    if pubsubTopic.isErr():
+    let pubSubTopic = pubsubTopic.valueOr:
       return RestApiResponse.badRequest()
-    let pubSubTopic = pubsubTopic.get()
 
-    let messages = cache.getMessages(pubSubTopic, clear = true)
-    if messages.isErr():
+    let messages = cache.getMessages(pubSubTopic, clear = true).valueOr:
       info "Not subscribed to topic", topic = pubSubTopic
       return RestApiResponse.notFound()
 
-    let data = RelayGetMessagesResponse(messages.get().map(toRelayWakuMessage))
-    let resp = RestApiResponse.jsonResponse(data, status = Http200)
-    if resp.isErr():
-      info "An error ocurred while building the json respose", error = resp.error
+    let data = RelayGetMessagesResponse(messages.map(toRelayWakuMessage))
+    let resp = RestApiResponse.jsonResponse(data, status = Http200).valueOr:
+      info "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError()
 
-    return resp.get()
+    return resp
 
   router.api(MethodPost, ROUTE_RELAY_MESSAGESV1) do(
     pubsubTopic: string, contentBody: Option[ContentBody]
   ) -> RestApiResponse:
-    if pubsubTopic.isErr():
+    let pubSubTopic = pubsubTopic.valueOr:
       return RestApiResponse.badRequest()
-    let pubSubTopic = pubsubTopic.get()
 
     # ensure the node is subscribed to the topic. otherwise it risks publishing
     # to a topic with no connected peers
@@ -318,9 +314,7 @@ proc installRelayApiHandlers*(
     if not await publishFut.withTimeout(futTimeout):
       return RestApiResponse.internalServerError("Failed to publish: timedout")
 
-    var res = publishFut.read()
-
-    if res.isErr():
-      return RestApiResponse.badRequest("Failed to publish. " & res.error)
+    publishFut.read().isOkOr:
+      return RestApiResponse.badRequest("Failed to publish: " & error)
 
     return RestApiResponse.ok()
