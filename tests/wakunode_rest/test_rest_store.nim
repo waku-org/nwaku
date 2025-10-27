@@ -485,7 +485,7 @@ procSuite "Waku Rest API - Store v3":
       $response.contentType == $MIMETYPE_TEXT
       response.data.messages.len == 0
       response.data.statusDesc ==
-        "Failed parsing remote peer info [MultiAddress.init [multiaddress: Invalid MultiAddress, must start with `/`]]"
+        "Failed parsing remote peer info: MultiAddress.init [multiaddress: Invalid MultiAddress, must start with `/`]"
 
     await restServer.stop()
     await restServer.closeWait()
