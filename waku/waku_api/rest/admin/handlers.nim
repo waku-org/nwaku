@@ -427,7 +427,7 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
       )
 
     let resp = RestApiResponse.jsonResponse(subscriptions, status = Http200).valueOr:
-      error "An error ocurred while building the json respose: ", error = error
+      error "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError(
         fmt("An error ocurred while building the json respose: {error}")
       )

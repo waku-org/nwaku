@@ -250,7 +250,7 @@ proc parseUrlPeerAddr*(
 
   let parsedAddr = decodeUrl(peerAddr.get())
   let parsedPeerInfo = parsePeerInfo(parsedAddr).valueOr:
-    return err("Failed parsing remote peer info [" & error & "]")
+    return err("Failed parsing remote peer info: " & error)
 
   return ok(some(parsedPeerInfo))
 

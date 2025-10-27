@@ -331,15 +331,13 @@ proc maintainSubscription(
   const maxFailedServiceNodeSwitches = 10
   var noFailedSubscribes = 0
   var noFailedServiceNodeSwitches = 0
-  const retryWaitMs = 2000 # Quick retry interval
-  const subscriptionMaintenanceMs = 30000 # Subscription maintenance interval
-  var nextWaitMs = 0
+  const RetryWaitMs = 2.seconds # Quick retry interval
+  const SubscriptionMaintenanceMs = 30.seconds # Subscription maintenance interval
   while true:
-    await sleepAsync(nextWaitMs)
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
     let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(SubscriptionMaintenanceMs)
       info "subscription is live."
       continue
 
@@ -352,7 +350,7 @@ proc maintainSubscription(
         some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(SubscriptionMaintenanceMs)
       if noFailedSubscribes > 0:
         noFailedSubscribes -= 1
       notice "subscribe request successful."
@@ -367,24 +365,22 @@ proc maintainSubscription(
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
-      nextWaitMs = retryWaitMs # Wait a bit before retrying
+      await sleepAsync(RetryWaitMs) # Wait a bit before retrying
     elif not preventPeerSwitch:
-      nextWaitMs = 0 # try again with new peer without delay
-      let peerOpt = selectRandomServicePeer(
+      # try again with new peer without delay
+      let actualFilterPeer = selectRandomServicePeer(
         wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
-      )
-      peerOpt.isOkOr:
+      ).valueOr:
         error "Failed to find new service peer. Exiting."
         noFailedServiceNodeSwitches += 1
         break
 
-      actualFilterPeer = peerOpt.get()
       info "Found new peer for codec",
         codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
 
       noFailedSubscribes = 0
     else:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(SubscriptionMaintenanceMs)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError

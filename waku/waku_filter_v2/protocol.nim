@@ -308,7 +308,6 @@ proc initProtocolHandler(wf: WakuFilter) =
         amount = buf.len().int64, labelValues = [WakuFilterSubscribeCodec, "in"]
       )
 
-      #TODO: toAPI() split here
       let request = FilterSubscribeRequest.decode(buf).valueOr:
         error "failed to decode filter subscribe request",
           peer_id = conn.peerId, err = error

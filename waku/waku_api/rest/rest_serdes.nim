@@ -47,7 +47,7 @@ func decodeRequestBody*[T](
 
   let requestResult = decodeFromJsonBytes(T, reqBodyData).valueOr:
     return err(
-      RestApiResponse.badRequest("Invalid content body, could not decode. " & $error)
+      RestApiResponse.badRequest("Invalid content body, could not decode: " & $error)
     )
 
   return ok(requestResult)

@@ -315,6 +315,6 @@ proc installRelayApiHandlers*(
       return RestApiResponse.internalServerError("Failed to publish: timedout")
 
     publishFut.read().isOkOr:
-      return RestApiResponse.badRequest("Failed to publish. " & error)
+      return RestApiResponse.badRequest("Failed to publish: " & error)
 
     return RestApiResponse.ok()

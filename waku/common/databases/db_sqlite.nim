@@ -489,7 +489,7 @@ proc performSqliteVacuum*(db: SqliteDatabase): DatabaseResult[void] =
   info "starting sqlite database vacuuming"
 
   db.vacuum().isOkOr:
-    return err("failed to execute vacuum")
+    return err("failed to execute vacuum: " & error)
 
   info "finished sqlite database vacuuming"
   ok()

@@ -54,15 +54,13 @@ proc maintainSubscription(
   var noFailedSubscribes = 0
   var noFailedServiceNodeSwitches = 0
   var isFirstPingOnNewPeer = true
-  const retryWaitMs = 2000 # Quick retry interval
-  const subscriptionMaintenanceMs = 30000 # Subscription maintenance interval
-  var nextWaitMs = 0
+  const RetryWaitMs = 2.seconds # Quick retry interval
+  const SubscriptionMaintenanceMs = 30.seconds # Subscription maintenance interval
   while true:
-    await sleepAsync(nextWaitMs)
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
     let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(SubscriptionMaintenanceMs)
       info "subscription is live."
       continue
 
@@ -79,7 +77,7 @@ proc maintainSubscription(
         some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(subscriptionMaintenanceMs)
       if noFailedSubscribes > 0:
         noFailedSubscribes -= 1
       notice "subscribe request successful."
@@ -97,9 +95,9 @@ proc maintainSubscription(
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
-      nextWaitMs = retryWaitMs # Wait a bit before retrying
+      await sleepAsync(RetryWaitMs) # Wait a bit before retrying
     elif not preventPeerSwitch:
-      nextWaitMs = 0 # try again with new peer without delay
+      # try again with new peer without delay
       actualFilterPeer = selectRandomServicePeer(
         wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
       ).valueOr:
@@ -114,7 +112,7 @@ proc maintainSubscription(
       lpt_change_service_peer_count.inc(labelValues = ["receiver"])
       isFirstPingOnNewPeer = true
     else:
-      nextWaitMs = subscriptionMaintenanceMs
+      await sleepAsync(SubscriptionMaintenanceMs)
 
 proc setupAndListen*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo

@@ -59,7 +59,7 @@ proc sendMessage(
     await conn.writeLP(rawPayload)
 
   writeRes.isOkOr:
-    return err("remote " & $conn.peerId & " connection write error: " & error.msg)
+    return err("remote [" & $conn.peerId & "] connection write error: " & error.msg)
 
   total_transfer_messages_exchanged.inc(labelValues = [Sending])
 
