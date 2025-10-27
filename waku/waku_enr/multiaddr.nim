@@ -88,8 +88,7 @@ func multiaddrs*(record: TypedRecord): Option[seq[MultiAddress]] =
   if field.isNone():
     return none(seq[MultiAddress])
 
-  let decodeRes = decodeMultiaddrs(field.get())
-  if decodeRes.isErr():
+  let decodeRes = decodeMultiaddrs(field.get()).valueOr:
     return none(seq[MultiAddress])
 
-  some(decodeRes.value)
+  some(decodeRes)

@@ -63,9 +63,8 @@ proc openDbConn(connString: string): Result[DbConn, string] =
     return err("exception opening new connection: " & getCurrentExceptionMsg())
 
   if conn.status != CONNECTION_OK:
-    let checkRes = conn.check()
-    if checkRes.isErr():
-      return err("failed to connect to database: " & checkRes.error)
+    conn.check().isOkOr:
+      return err("failed to connect to database: " & error)
 
     return err("unknown reason")
 
