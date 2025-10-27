@@ -74,21 +74,39 @@ proc fetchMerkleProofElements*(
     error "Failed to fetch Merkle proof elements", error = getCurrentExceptionMsg()
     return err("Failed to fetch merkle proof elements: " & getCurrentExceptionMsg())
 
+# proc fetchMerkleRoot*(
+#     g: OnchainGroupManager
+# ): Future[Result[UInt256, string]] {.async.} =
+#   try:
+#     let merkleRoot = await sendEthCallWithoutParams(
+#       ethRpc = g.ethRpc.get(),
+#       functionSignature = "root()",
+#       fromAddress = g.ethRpc.get().defaultAccount,
+#       toAddress = fromHex(Address, g.ethContractAddress),
+#       chainId = g.chainId,
+#     )
+#     return merkleRoot
+#   except CatchableError:
+#     error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+#     return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
+
+##  params = @[] - added empty params as way to get the raw return bytes (seq[bytes])
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
-): Future[Result[UInt256, string]] {.async.} =
+): Future[Result[seq[byte], string]] {.async.} =
   try:
-    let merkleRoot = await sendEthCallWithoutParams(
+    let merkleRoots = await sendEthCallWithParams(
       ethRpc = g.ethRpc.get(),
-      functionSignature = "root()",
+      functionSignature = "getRecentRoots()",
+      params = @[],
       fromAddress = g.ethRpc.get().defaultAccount,
       toAddress = fromHex(Address, g.ethContractAddress),
       chainId = g.chainId,
     )
-    return merkleRoot
+    return merkleRoots
   except CatchableError:
-    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
-    return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
+    error "Failed to fetch Merkle recent roots list", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle recent roots list: " & getCurrentExceptionMsg())
 
 proc fetchNextFreeIndex*(
     g: OnchainGroupManager
@@ -154,24 +172,117 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
+# proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
+#   let rootRes = await g.fetchMerkleRoot()
+#   if rootRes.isErr():
+#     return false
+
+#   let merkleRoot = UInt256ToField(rootRes.get())
+
+#   if g.validRoots.len == 0:
+#     g.validRoots.addLast(merkleRoot)
+#     return true
+
+#   if g.validRoots[g.validRoots.len - 1] != merkleRoot:
+#     if g.validRoots.len > AcceptableRootWindowSize:
+#       discard g.validRoots.popFirst()
+#     g.validRoots.addLast(merkleRoot)
+#     return true
+
+#   return false
+
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
+  # let rootRes = await g.fetchMerkleRecentRoots()
   if rootRes.isErr():
+    error "Failed to fetch recent roots", error = rootRes.error
     return false
 
-  let merkleRoot = UInt256ToField(rootRes.get())
+  let bytes = rootRes.get()
+  debug "recent roots raw bytes received", length = bytes.len
+  if (bytes.len mod 32) != 0:
+    error "Invalid recent roots payload length", length = bytes.len
+    return false
 
+  let chunkCount = bytes.len div 32
+  debug "recent roots parsed chunk count", chunks = chunkCount
+  if chunkCount != 5:
+    warn "Unexpected number of recent roots returned; proceeding anyway",
+      count = chunkCount
+
+  # Parse 32-byte chunks into MerkleNode values (UInt256 -> Field bytes)
+  var newRoots: seq[MerkleNode] = @[] # newest-first order from contract
+  var zeroIndices: seq[int] = @[]
+  for i in 0 ..< chunkCount:
+    let startIdx = i * 32
+    let endIdx = (i + 1) * 32 - 1
+    var allZero = true
+    for b in bytes[startIdx .. endIdx]:
+      if b != 0'u8:
+        allZero = false
+        break
+    if allZero:
+      zeroIndices.add(i)
+    let u = UInt256.fromBytesBE(bytes[startIdx .. endIdx])
+    let node = UInt256ToField(u)
+    newRoots.add(node)
+
+  if zeroIndices.len > 0:
+    debug "zero or empty roots detected in recent roots",
+      zeroRootsCount = zeroIndices.len, indices = zeroIndices
+
+  # Convert to deque order: oldest-first (so newest ends up at tail)
+  # Skip zero roots so they are not added to the validRoots list
+  var newRootsDequeOrder: seq[MerkleNode] = @[]
+  for i in countdown(newRoots.len - 1, 0):
+    if zeroIndices.contains(i):
+      continue
+    newRootsDequeOrder.add(newRoots[i])
+
+  if newRootsDequeOrder.len == 0:
+    debug "no non-zero recent roots to add; skipping update"
+    return false
+
+  # Determine overlap with existing tail so we only append truly new roots
+  var overlap = min(g.validRoots.len, newRootsDequeOrder.len)
+  var matchLen = 0
+  # Find the largest n (<= overlap) such that last n of validRoots == first n of newRootsDequeOrder
+  for n in countdown(overlap, 1):
+    var ok = true
+    let startIdx = g.validRoots.len - n
+    for i in 0 ..< n:
+      if g.validRoots[startIdx + i] != newRootsDequeOrder[i]:
+        ok = false
+        break
+    if ok:
+      matchLen = n
+      break
+
+  let toAdd = newRootsDequeOrder[matchLen ..< newRootsDequeOrder.len]
+  if toAdd.len == 0:
+    debug "recent roots already present up-to-date; skipping update"
+    return false
+
+  # If this is the first time, just seed the deque with all provided roots
   if g.validRoots.len == 0:
-    g.validRoots.addLast(merkleRoot)
+    for r in newRootsDequeOrder:
+      debug "adding new recent root", root = r
+      g.validRoots.addLast(r)
     return true
 
-  if g.validRoots[g.validRoots.len - 1] != merkleRoot:
-    if g.validRoots.len > AcceptableRootWindowSize:
-      discard g.validRoots.popFirst()
-    g.validRoots.addLast(merkleRoot)
-    return true
+  # Add all new roots to the "top" (tail) and drop the bottom 5
+  for r in toAdd:
+    debug "adding new recent root", root = r
+    g.validRoots.addLast(r)
 
-  return false
+  var removed = 0
+  let addCount = toAdd.len
+  while removed < addCount and g.validRoots.len > 0:
+    debug "removing old recent root", root = g.validRoots[0]
+    discard g.validRoots.popFirst()
+    inc removed
+
+  return true
 
 proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError]).} =
   try:
