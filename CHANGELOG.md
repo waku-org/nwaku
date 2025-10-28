@@ -1,3 +1,62 @@
+## v0.37.0 (2025-10-01)
+
+### Notes
+
+- Deprecated parameters:
+  - `tree_path` and `rlnDB` (RLN-related storage paths)
+  - `--dns-discovery` (fully removed, including dns-discovery-name-server)
+  - `keepAlive` (deprecated, config updated accordingly)
+- Legacy `store` protocol is no longer supported by default.
+- Improved sharding configuration: now explicit and shard-specific metrics added.
+- Mix nodes are limited to IPv4 addresses only.
+- [lightpush legacy](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) is being deprecated. Use [lightpush v3](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md) instead.
+
+### Features
+
+- Waku API: create node via API ([#3580](https://github.com/waku-org/nwaku/pull/3580)) ([bc8acf76](https://github.com/waku-org/nwaku/commit/bc8acf76))
+- Waku Sync: full topic support ([#3275](https://github.com/waku-org/nwaku/pull/3275)) ([9327da5a](https://github.com/waku-org/nwaku/commit/9327da5a))
+- Mix PoC implementation ([#3284](https://github.com/waku-org/nwaku/pull/3284)) ([eb7a3d13](https://github.com/waku-org/nwaku/commit/eb7a3d13))
+- Rendezvous: add request interval option ([#3569](https://github.com/waku-org/nwaku/pull/3569)) ([cc7a6406](https://github.com/waku-org/nwaku/commit/cc7a6406))
+- Shard-specific metrics tracking ([#3520](https://github.com/waku-org/nwaku/pull/3520)) ([c3da29fd](https://github.com/waku-org/nwaku/commit/c3da29fd))
+- Libwaku: build Windows DLL for Status-go ([#3460](https://github.com/waku-org/nwaku/pull/3460)) ([5c38a53f](https://github.com/waku-org/nwaku/commit/5c38a53f))
+- RLN: add Stateless RLN support ([#3621](https://github.com/waku-org/nwaku/pull/3621))
+- LOG: Reduce log level of messages from debug to info for better visibility ([#3622](https://github.com/waku-org/nwaku/pull/3622))
+
+### Bug Fixes
+
+- Prevent invalid pubsub topic subscription via Relay REST API ([#3559](https://github.com/waku-org/nwaku/pull/3559)) ([a36601ab](https://github.com/waku-org/nwaku/commit/a36601ab))
+- Fixed node crash when RLN is unregistered ([#3573](https://github.com/waku-org/nwaku/pull/3573)) ([3d0c6279](https://github.com/waku-org/nwaku/commit/3d0c6279))
+- REST: fixed sync protocol issues ([#3503](https://github.com/waku-org/nwaku/pull/3503)) ([393e3cce](https://github.com/waku-org/nwaku/commit/393e3cce))
+- Regex pattern fix for `username:password@` in URLs ([#3517](https://github.com/waku-org/nwaku/pull/3517)) ([89a3f735](https://github.com/waku-org/nwaku/commit/89a3f735))
+- Sharding: applied modulus fix ([#3530](https://github.com/waku-org/nwaku/pull/3530)) ([f68d7999](https://github.com/waku-org/nwaku/commit/f68d7999))
+- Metrics: switched to counter instead of gauge ([#3355](https://github.com/waku-org/nwaku/pull/3355)) ([a27eec90](https://github.com/waku-org/nwaku/commit/a27eec90))
+- Fixed lightpush metrics and diagnostics ([#3486](https://github.com/waku-org/nwaku/pull/3486)) ([0ed3fc80](https://github.com/waku-org/nwaku/commit/0ed3fc80))
+- Misc sync, dashboard, and CI fixes ([#3434](https://github.com/waku-org/nwaku/pull/3434), [#3508](https://github.com/waku-org/nwaku/pull/3508), [#3464](https://github.com/waku-org/nwaku/pull/3464))
+- Raise log level of numerous operational messages from debug to info for better visibility ([#3622](https://github.com/waku-org/nwaku/pull/3622))
+
+### Changes
+
+- Enable peer-exchange by default ([#3557](https://github.com/waku-org/nwaku/pull/3557)) ([7df526f8](https://github.com/waku-org/nwaku/commit/7df526f8))
+- Refactor peer-exchange client and service implementations ([#3523](https://github.com/waku-org/nwaku/pull/3523)) ([4379f9ec](https://github.com/waku-org/nwaku/commit/4379f9ec))
+- Updated rendezvous to use callback-based shard/capability updates ([#3558](https://github.com/waku-org/nwaku/pull/3558)) ([028bf297](https://github.com/waku-org/nwaku/commit/028bf297))
+- Config updates and explicit sharding setup ([#3468](https://github.com/waku-org/nwaku/pull/3468)) ([994d485b](https://github.com/waku-org/nwaku/commit/994d485b))
+- Bumped libp2p to v1.13.0 ([#3574](https://github.com/waku-org/nwaku/pull/3574)) ([b1616e55](https://github.com/waku-org/nwaku/commit/b1616e55))
+- Removed legacy dependencies (e.g., libpcre in Docker builds) ([#3552](https://github.com/waku-org/nwaku/pull/3552)) ([4db4f830](https://github.com/waku-org/nwaku/commit/4db4f830))
+- Benchmarks for RLN proof generation & verification ([#3567](https://github.com/waku-org/nwaku/pull/3567)) ([794c3a85](https://github.com/waku-org/nwaku/commit/794c3a85))
+- Various CI/CD & infra updates ([#3515](https://github.com/waku-org/nwaku/pull/3515), [#3505](https://github.com/waku-org/nwaku/pull/3505))
+
+### This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`WAKU2-LIGHTPUSH v3`](https://github.com/waku-org/specs/blob/master/standards/core/lightpush.md) | `draft` | `/vac/waku/lightpush/3.0.0` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/master/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
+
 ## v0.36.0 (2025-06-20)
 ### Notes
 
