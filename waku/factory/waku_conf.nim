@@ -154,7 +154,8 @@ proc logConf*(conf: WakuConf) =
     store = conf.storeServiceConf.isSome(),
     filter = conf.filterServiceConf.isSome(),
     lightPush = conf.lightPush,
-    peerExchange = conf.peerExchangeService
+    peerExchange = conf.peerExchangeService,
+    rendezvous = conf.rendezvous
 
   info "Configuration. Network", cluster = conf.clusterId
 
