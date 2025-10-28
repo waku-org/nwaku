@@ -45,8 +45,13 @@ proc sendPushRequest(
 
   defer:
     await connection.closeWithEOF()
-
-  await connection.writeLP(req.encode().buffer)
+  try:
+    await connection.writeLP(req.encode().buffer)
+  except CatchableError:
+    error "failed to send push request", error = getCurrentExceptionMsg()
+    return lightpushResultInternalError(
+      "failed to send push request: " & getCurrentExceptionMsg()
+    )
 
   var buffer: seq[byte]
   try:
@@ -56,9 +61,8 @@ proc sendPushRequest(
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
-
   let response = LightpushResponse.decode(buffer).valueOr:
-    error "failed to decode response"
+    error "failed to decode response", error = $error
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
     return lightpushResultInternalError(decodeRpcFailure)
 
