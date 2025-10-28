@@ -275,12 +275,10 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
     debug "adding new recent root", root = r
     g.validRoots.addLast(r)
 
-  var removed = 0
-  let addCount = toAdd.len
-  while removed < addCount and g.validRoots.len > 0:
+  # Only trim the deque if it exceeds the acceptable window size
+  while g.validRoots.len > AcceptableRootWindowSize:
     debug "removing old recent root", root = g.validRoots[0]
     discard g.validRoots.popFirst()
-    inc removed
 
   return true
 
