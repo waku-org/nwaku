@@ -77,7 +77,7 @@ proc batchAdvertise*(
       conn
 
   let advertCatch = catch:
-    await self.rendezvous.advertise(namespace, Opt.some(ttl))
+    await self.rendezvous.advertise(namespace, ttl)
 
   for conn in conns:
     await conn.close()
@@ -126,7 +126,7 @@ proc batchRequest*(
       conn
 
   let reqCatch = catch:
-    await self.rendezvous.request(Opt.some(namespace), Opt.some(count), Opt.some(peers))
+    await self.rendezvous.request(Opt.some(namespace), count, peers)
 
   for conn in conns:
     await conn.close()
