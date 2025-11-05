@@ -240,9 +240,14 @@ method register*(
   debug "AAAAA register called"
 
   var gasPrice: int
-  debug "AAAAA register called"
   g.retryWrapper(gasPrice, "Failed to get gas price"):
-    int(await ethRpc.provider.eth_gasPrice()) * 2
+    debug "AAAAA register called before calling eth_gasPrice"
+    let gasPriceValue = await ethRpc.provider.eth_gasPrice()
+    debug "AAAAA register called", gasPriceValue = gasPriceValue
+    let doubleGasPriceValue: int = gasPriceValue.int * 2
+    debug "AAAAA register called", doubleGasPriceValue
+    int(gasPriceValue) * 2
+
   debug "AAAAA register called"
   let idCommitmentHex = identityCredential.idCommitment.inHex()
   debug "AAAAA register called"
