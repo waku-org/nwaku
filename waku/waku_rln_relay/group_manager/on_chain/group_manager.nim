@@ -239,14 +239,15 @@ method register*(
   let wakuRlnContract = g.wakuRlnContract.get()
   debug "AAAAA register called"
 
-  var gasPrice: int
-  g.retryWrapper(gasPrice, "Failed to get gas price"):
-    debug "AAAAA register called before calling eth_gasPrice"
-    let gasPriceValue = await ethRpc.provider.eth_gasPrice()
-    debug "AAAAA register called", gasPriceValue = gasPriceValue
-    let doubleGasPriceValue: int = gasPriceValue.int * 2
-    debug "AAAAA register called", doubleGasPriceValue
-    int(gasPriceValue) * 2
+  ## Bypassing this because it generates a crash after 32 iterations/calls
+  # var gasPrice: int
+  # g.retryWrapper(gasPrice, "Failed to get gas price"):
+  #   debug "AAAAA register called before calling eth_gasPrice"
+  #   let gasPriceValue = await ethRpc.provider.eth_gasPrice()
+  #   debug "AAAAA register called", gasPriceValue = gasPriceValue
+  #   let doubleGasPriceValue: int = gasPriceValue.int * 2
+  #   debug "AAAAA register called", doubleGasPriceValue
+  #   int(gasPriceValue) * 2
 
   debug "AAAAA register called"
   let idCommitmentHex = identityCredential.idCommitment.inHex()
@@ -265,7 +266,7 @@ method register*(
   g.retryWrapper(txHash, "Failed to register the member"):
     await wakuRlnContract
     .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
-    .send(gasPrice = gasPrice)
+    .send(gasPrice = 1)
   debug "AAAAA register called"
 
   # wait for the transaction to be mined
