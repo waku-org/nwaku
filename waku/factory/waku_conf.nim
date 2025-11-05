@@ -9,7 +9,7 @@ import
 
 import
   ../waku_rln_relay/rln_relay,
-  ../waku_api/rest/builder,
+  ../waku_rest/endpoint/builder,
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
@@ -38,7 +38,7 @@ type ProtectedShard* {.requiresInit.} = object
 
 type DnsDiscoveryConf* {.requiresInit.} = object
   enrTreeUrl*: string
-  # TODO: should probably only have one set of name servers (see dnsaddrs) 
+  # TODO: should probably only have one set of name servers (see dnsaddrs)
   nameServers*: seq[IpAddress]
 
 type StoreSyncConf* {.requiresInit.} = object

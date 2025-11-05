@@ -1,7 +1,7 @@
 {.used.}
 
 import results, stew/byteutils, testutils/unittests, json_serialization
-import waku/waku_api/rest/serdes, waku/waku_api/rest/debug/types
+import waku/waku_rest/endpoint/serdes, waku/waku_rest/endpoint/debug/types
 
 suite "Waku v2 REST API - Debug -  serialization":
   suite "DebugWakuInfo - decode":
