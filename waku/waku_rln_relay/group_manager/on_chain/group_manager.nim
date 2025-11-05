@@ -266,7 +266,7 @@ method register*(
   g.retryWrapper(txHash, "Failed to register the member"):
     await wakuRlnContract
     .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
-    .send(gasPrice = 1)
+    .send(gasPrice = int.high)
   debug "AAAAA register called"
 
   # wait for the transaction to be mined
