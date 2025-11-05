@@ -155,21 +155,28 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   return ok(output)
 
 proc toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[seq[byte]] =
+  debug "AAAA toLeaf called"
   let idCommitment = rateCommitment.idCommitment
   var userMessageLimit: array[32, byte]
   try:
-    discard userMessageLimit.copyFrom(
-      toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian)
-    )
+    debug "AAAA toLeaf called"
+    let bytes = toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian)
+    debug "AAAA toLeaf called"
+    discard userMessageLimit.copyFrom(bytes)
+    debug "AAAA toLeaf called"
   except CatchableError:
     return err(
       "could not convert the user message limit to bytes: " & getCurrentExceptionMsg()
     )
+  debug "AAAA toLeaf called"
   let leaf = poseidon(@[@idCommitment, @userMessageLimit]).valueOr:
+    debug "AAAA toLeaf called"
     return err("could not convert the rate commitment to a leaf")
+  debug "AAAA toLeaf called"
   var retLeaf = newSeq[byte](leaf.len)
   for i in 0 ..< leaf.len:
     retLeaf[i] = leaf[i]
+  debug "AAAA toLeaf called"
   return ok(retLeaf)
 
 proc toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[seq[byte]]] =

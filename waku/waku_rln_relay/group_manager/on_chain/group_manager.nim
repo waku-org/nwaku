@@ -210,14 +210,20 @@ method register*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+  debug "AAAAA register called"
   try:
     let leaf = rateCommitment.toLeaf().get()
+    debug "AAAAA register called"
     if g.registerCb.isSome():
+      debug "AAAAA register called"
       let idx = g.latestIndex
       info "registering member via callback", rateCommitment = leaf, index = idx
       await g.registerCb.get()(@[Membership(rateCommitment: leaf, index: idx)])
+      debug "AAAAA register called"
     g.latestIndex.inc()
+    debug "AAAAA register called"
   except CatchableError:
+    debug "AAAAA register called", error = getCurrentExceptionMsg()
     raise newException(ValueError, getCurrentExceptionMsg())
 
 method register*(
@@ -226,31 +232,42 @@ method register*(
     userMessageLimit: UserMessageLimit,
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
+  debug "AAAAA register called"
 
   let ethRpc = g.ethRpc.get()
+  debug "AAAAA register called"
   let wakuRlnContract = g.wakuRlnContract.get()
+  debug "AAAAA register called"
 
   var gasPrice: int
+  debug "AAAAA register called"
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
+  debug "AAAAA register called"
   let idCommitmentHex = identityCredential.idCommitment.inHex()
+  debug "AAAAA register called"
   info "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
+  debug "AAAAA register called"
   let idCommitmentsToErase: seq[UInt256] = @[]
+  debug "AAAAA register called"
   info "registering the member",
     idCommitment = idCommitment,
     userMessageLimit = userMessageLimit,
     idCommitmentsToErase = idCommitmentsToErase
+  debug "AAAAA register called"
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
     await wakuRlnContract
     .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
     .send(gasPrice = gasPrice)
+  debug "AAAAA register called"
 
   # wait for the transaction to be mined
   var tsReceipt: ReceiptObject
   g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
     await ethRpc.getMinedTransactionReceipt(txHash)
+  debug "AAAAA register called"
   info "registration transaction mined", txHash = txHash
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
@@ -258,12 +275,15 @@ method register*(
   info "ts receipt", receipt = tsReceipt[]
 
   if tsReceipt.status.isNone():
+    debug "AAAAA register called"
     raise newException(ValueError, "Transaction failed: status is None")
   if tsReceipt.status.get() != 1.Quantity:
+    debug "AAAAA register called"
     raise newException(
       ValueError, "Transaction failed with status: " & $tsReceipt.status.get()
     )
 
+  debug "AAAAA register called"
   ## Extract MembershipRegistered event from transaction logs (third event)
   let thirdTopic = tsReceipt.logs[2].topics[0]
   info "third topic", thirdTopic = thirdTopic
@@ -273,6 +293,7 @@ method register*(
       ).data):
     raise newException(ValueError, "register: unexpected event signature")
 
+  debug "AAAAA register called"
   ## Parse MembershipRegistered event data: rateCommitment(256) || membershipRateLimit(256) || index(32)
   let arguments = tsReceipt.logs[2].data
   info "tx log data", arguments = arguments
@@ -280,22 +301,28 @@ method register*(
     ## Extract membership index from transaction log data (big endian)
     membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
 
+  debug "AAAAA register called"
   trace "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
   g.idCredentials = some(identityCredential)
 
+  debug "AAAAA register called"
   let rateCommitment = RateCommitment(
       idCommitment: identityCredential.idCommitment, userMessageLimit: userMessageLimit
     )
     .toLeaf()
     .get()
 
+  debug "AAAAA register called"
   if g.registerCb.isSome():
+    debug "AAAAA register called",
+      rateCommitment = rateCommitment, latestIndex = g.latestIndex
     let member = Membership(rateCommitment: rateCommitment, index: g.latestIndex)
     await g.registerCb.get()(@[member])
   g.latestIndex.inc()
 
+  debug "AAAAA register called"
   return
 
 method withdraw*(
