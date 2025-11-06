@@ -20,8 +20,8 @@ import
     waku_rest/endpoint/server,
     waku_rest/endpoint/client,
     waku_rest/endpoint/responses,
-    waku_rest/endpoint/store/handlers as store_api,
-    waku_rest/endpoint/store/client as store_api_client,
+    waku_rest/endpoint/store/handlers as store_rest_interface,
+    waku_rest/endpoint/store/client as store_rest_client,
     waku_rest/endpoint/store/types,
     waku_archive,
     waku_archive/driver/queue_driver,
@@ -34,7 +34,7 @@ import
   ../testlib/wakunode
 
 logScope:
-  topics = "waku node rest store_api test"
+  topics = "waku node rest store_rest_interface test"
 
 proc put(
     store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage

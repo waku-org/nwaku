@@ -3,7 +3,7 @@
 import results, stew/byteutils, chronicles, unittest2, json_serialization
 import waku/waku_rest/endpoint/serdes, waku/waku_rest/endpoint/debug/types
 
-# TODO: Decouple this test suite from the `debug_api` module by defining
+# TODO: Decouple this test suite from the `debug_rest_interface` module by defining
 #  private custom types for this test suite module
 suite "Waku v2 Rest API - Serdes":
   suite "decode":
