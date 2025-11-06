@@ -16,7 +16,7 @@ import
     waku_core/topics/sharding,
     waku_store_legacy/common,
     node/waku_node,
-    node/api,
+    node/kernel_api,
     common/paging,
     waku_core,
     waku_store/common,

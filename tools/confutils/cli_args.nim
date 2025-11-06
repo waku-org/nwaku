@@ -34,7 +34,8 @@ import
 
 import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
-export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
+export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard,
+  DefaultMaxWakuMessageSizeStr
 
 logScope:
   topics = "waku cli args"

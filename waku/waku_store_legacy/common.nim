@@ -29,7 +29,7 @@ proc computeDigest*(msg: WakuMessage): MessageDigest =
   # Computes the hash
   return ctx.finish()
 
-## Public API types
+## API types
 
 type
   HistoryCursor* = object
