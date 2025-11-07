@@ -211,7 +211,9 @@ proc startRestServerProtocolSupport*(
     rest_legacy_lightpush_endpoint.installLightPushRequestHandler(
       router, node, lightDiscoHandler
     )
-    rest_lightpush_endpoint.installLightPushRequestHandler(router, node, lightDiscoHandler)
+    rest_lightpush_endpoint.installLightPushRequestHandler(
+      router, node, lightDiscoHandler
+    )
   else:
     restServerNotInstalledTab["lightpush"] = "/lightpush endpoints are not available."
 
