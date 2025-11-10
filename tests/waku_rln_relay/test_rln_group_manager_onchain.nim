@@ -436,3 +436,26 @@ suite "Onchain group manager":
 
     check:
       isReady == true
+
+  test "register: should use max gas price when useMaxGasPrice flag is set":
+    (waitFor manager.init()).isOkOr:
+      raiseAssert $error
+
+    manager.useMaxGasPrice = true
+
+    let idCredentials = generateCredentials()
+    let merkleRootBefore = waitFor manager.fetchMerkleRoot()
+
+    try:
+      waitFor manager.register(idCredentials, UserMessageLimit(20))
+    except Exception, CatchableError:
+      assert false,
+        "exception raised when calling register with useMaxGasPrice: " &
+        getCurrentExceptionMsg()
+
+    let merkleRootAfter = waitFor manager.fetchMerkleRoot()
+
+    check:
+      merkleRootAfter != merkleRootBefore
+      manager.latestIndex == 1
+      manager.useMaxGasPrice == true
