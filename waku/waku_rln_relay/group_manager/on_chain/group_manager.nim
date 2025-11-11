@@ -43,6 +43,7 @@ type
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
     merkleProofCache*: seq[byte]
+    useMaxGasPrice*: bool
 
 # The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
 # TODO: find better solution than this custom sendEthCallWithoutParams call
@@ -227,9 +228,24 @@ method register*(
   let ethRpc = g.ethRpc.get()
   let wakuRlnContract = g.wakuRlnContract.get()
 
+  # Large gas price: 1000 Gwei (1e12 wei) for testing and extreme conditions
+  const MAX_PRACTICAL_GAS_PRICE = 1_000_000_000_000
+
   var gasPrice: int
-  g.retryWrapper(gasPrice, "Failed to get gas price"):
-    int(await ethRpc.provider.eth_gasPrice()) * 2
+  if g.useMaxGasPrice:
+    gasPrice = MAX_PRACTICAL_GAS_PRICE
+    debug "using maximum practical gas price", gasPrice = gasPrice
+  else:
+    g.retryWrapper(gasPrice, "Failed to get gas price"):
+      let currentGasPrice = int(await ethRpc.provider.eth_gasPrice())
+      # Check for potential overflow when multiplying by 2
+      if currentGasPrice > int.high div 2:
+        warn "gas price would overflow when doubled, using maximum practical gas price",
+          currentGasPrice = currentGasPrice
+        MAX_PRACTICAL_GAS_PRICE
+      else:
+        currentGasPrice * 2
+    debug "using dynamic gas price (2x current)", gasPrice = gasPrice
   let idCommitmentHex = identityCredential.idCommitment.inHex()
   info "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
