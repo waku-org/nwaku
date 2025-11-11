@@ -451,7 +451,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false,
         "exception raised when calling register with useMaxGasPrice: " &
-        getCurrentExceptionMsg()
+          getCurrentExceptionMsg()
 
     let merkleRootAfter = waitFor manager.fetchMerkleRoot()
 
