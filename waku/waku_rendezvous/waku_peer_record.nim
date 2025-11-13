@@ -21,7 +21,7 @@ proc payloadDomain*(T: typedesc[WakuPeerRecord]): string =
   $multiCodec("libp2p-custom-peer-record")
 
 proc payloadType*(T: typedesc[WakuPeerRecord]): seq[byte] =
-  @[(byte) 0x05, (byte) 0x05]
+  @[(byte) 0x30, (byte) 0x00, (byte) 0x00]
 
 proc init*(
     T: typedesc[WakuPeerRecord],

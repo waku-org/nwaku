@@ -43,6 +43,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_metadata,
   ../waku_rendezvous/protocol,
+  ../waku_rendezvous/client as rendezvous_client,
   ../waku_rendezvous/waku_peer_record,
   ../waku_lightpush_legacy/client as legacy_ligntpuhs_client,
   ../waku_lightpush_legacy as legacy_lightpush_protocol,
@@ -122,6 +123,7 @@ type
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
     wakuRendezvous*: WakuRendezVous
+    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
@@ -359,22 +361,16 @@ proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
   return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
 
 proc mountRendezvousClient*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
-  info "mounting rendezvous discovery protocol"
+  info "mounting rendezvous client"
 
-  node.wakuRendezvous = WakuRendezVous.new(
-    node.switch,
-    node.peerManager,
-    clusterId,
-    node.getShardsGetter(),
-    node.getCapabilitiesGetter(),
-    node.getWakuPeerRecordGetter(),
-    clientOnlyMode = true,
+  node.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
+    node.switch, node.peerManager, clusterId
   ).valueOr:
-    error "initializing waku rendezvous failed", error = error
+    error "initializing waku rendezvous client failed", error = error
     return
 
   if node.started:
-    await node.wakuRendezvous.start()
+    await node.wakuRendezvousClient.start()
 
 proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
@@ -474,6 +470,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.start()
 
+  if not node.wakuRendezvousClient.isNil():
+    await node.wakuRendezvousClient.start()
+
   if not node.wakuStoreReconciliation.isNil():
     node.wakuStoreReconciliation.start()
 
@@ -534,6 +533,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.stopWait()
+
+  if not node.wakuRendezvousClient.isNil():
+    await node.wakuRendezvousClient.stopWait()
 
   node.started = false
 
