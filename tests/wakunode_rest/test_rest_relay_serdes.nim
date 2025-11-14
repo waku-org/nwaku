@@ -5,8 +5,8 @@ import
   waku/
     [
       common/base64,
-      waku_rest/endpoint/serdes,
-      waku_rest/endpoint/relay/types,
+      rest_api/endpoint/serdes,
+      rest_api/endpoint/relay/types,
       waku_core,
     ]
 

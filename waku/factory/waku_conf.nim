@@ -9,7 +9,7 @@ import
 
 import
   ../waku_rln_relay/rln_relay,
-  ../waku_rest/endpoint/builder,
+  ../rest_api/endpoint/builder,
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,

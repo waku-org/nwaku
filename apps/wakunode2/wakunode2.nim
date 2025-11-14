@@ -14,7 +14,7 @@ import
     common/logging,
     factory/waku,
     node/health_monitor,
-    waku_rest/endpoint/builder as rest_server_builder,
+    rest_api/endpoint/builder as rest_server_builder,
     waku_core/message/default_values,
   ]
 
