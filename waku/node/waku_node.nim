@@ -43,6 +43,8 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_metadata,
   ../waku_rendezvous/protocol,
+  ../waku_rendezvous/client as rendezvous_client,
+  ../waku_rendezvous/waku_peer_record,
   ../waku_lightpush_legacy/client as legacy_ligntpuhs_client,
   ../waku_lightpush_legacy as legacy_lightpush_protocol,
   ../waku_lightpush/client as ligntpuhs_client,
@@ -121,6 +123,7 @@ type
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
     wakuRendezvous*: WakuRendezVous
+    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
@@ -147,6 +150,17 @@ proc getCapabilitiesGetter(node: WakuNode): GetCapabilities =
     if node.wakuRelay.isNil():
       return @[]
     return node.enr.getCapabilities()
+
+proc getWakuPeerRecordGetter(node: WakuNode): GetWakuPeerRecord =
+  return proc(): WakuPeerRecord {.closure, gcsafe, raises: [].} =
+    var mixKey: string
+    if not node.wakuMix.isNil():
+      mixKey = node.wakuMix.pubKey.to0xHex()
+    return WakuPeerRecord.init(
+      peerId = node.switch.peerInfo.peerId,
+      addresses = node.announcedAddresses,
+      mixKey = mixKey,
+    )
 
 proc new*(
     T: type WakuNode,
@@ -257,12 +271,12 @@ proc mountMix*(
     return err("Failed to convert multiaddress to string.")
   info "local addr", localaddr = localaddrStr
 
-  let nodeAddr = localaddrStr & "/p2p/" & $node.peerId
   node.wakuMix = WakuMix.new(
-    nodeAddr, node.peerManager, clusterId, mixPrivKey, mixnodes
+    localaddrStr, node.peerManager, clusterId, mixPrivKey, mixnodes
   ).valueOr:
     error "Waku Mix protocol initialization failed", err = error
     return
+  #TODO: should we do the below only for exit node? Also, what if multiple protocols use mix?
   node.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))
   let catchRes = catch:
     node.switch.mount(node.wakuMix)
@@ -346,6 +360,18 @@ proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
   shuffle(randomPeers)
   return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
 
+proc mountRendezvousClient*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
+  info "mounting rendezvous client"
+
+  node.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
+    node.switch, node.peerManager, clusterId
+  ).valueOr:
+    error "initializing waku rendezvous client failed", error = error
+    return
+
+  if node.started:
+    await node.wakuRendezvousClient.start()
+
 proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
@@ -355,12 +381,18 @@ proc mountRendezvous*(node: WakuNode, clusterId: uint16) {.async: (raises: []).}
     clusterId,
     node.getShardsGetter(),
     node.getCapabilitiesGetter(),
+    node.getWakuPeerRecordGetter(),
   ).valueOr:
     error "initializing waku rendezvous failed", error = error
     return
 
   if node.started:
     await node.wakuRendezvous.start()
+
+  try:
+    node.switch.mount(node.wakuRendezvous, protocolMatcher(WakuRendezVousCodec))
+  except LPError:
+    error "failed to mount wakuRendezvous", error = getCurrentExceptionMsg()
 
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
@@ -438,6 +470,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.start()
 
+  if not node.wakuRendezvousClient.isNil():
+    await node.wakuRendezvousClient.start()
+
   if not node.wakuStoreReconciliation.isNil():
     node.wakuStoreReconciliation.start()
 
@@ -498,6 +533,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.stopWait()
+
+  if not node.wakuRendezvousClient.isNil():
+    await node.wakuRendezvousClient.stopWait()
 
   node.started = false
 
