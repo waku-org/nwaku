@@ -36,11 +36,11 @@ type
     multiAddr*: string
     pubKey*: Curve25519Key
 
-proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
+proc filterMixNodes*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
   # Note that origin based(discv5) filtering is not done intentionally
   # so that more mix nodes can be discovered.
   if peer.mixPubKey.isNone():
-    trace "peer has no mix Pub Key", peer = $peer
+    trace "remote peer has no mix Pub Key", peer = $peer
     return false
 
   if cluster.isSome() and peer.enr.isSome() and
@@ -75,7 +75,7 @@ func getIPv4Multiaddr*(maddrs: seq[MultiAddress]): Option[MultiAddress] =
 proc populateMixNodePool*(mix: WakuMix) =
   # populate only peers that i) are reachable ii) share cluster iii) support mix
   let remotePeers = mix.peerManager.switch.peerStore.peers().filterIt(
-      mixPoolFilter(some(mix.clusterId), it)
+      filterMixNodes(some(mix.clusterId), it)
     )
   var mixNodes = initTable[PeerId, MixPubInfo]()
 
@@ -87,19 +87,19 @@ proc populateMixNodePool*(mix: WakuMix) =
     trace "remote peer info", info = remotePeers[i]
 
     if remotePeers[i].mixPubKey.isNone():
-      trace "peer has no mix Pub Key", peer = $remotePeers[i]
+      trace "peer has no mix Pub Key", remotePeerId = $remotePeers[i]
       continue
 
     let peerMixPubKey = remotePeers[i].mixPubKey.get()
     var peerPubKey: crypto.PublicKey
     if not remotePeers[i].peerId.extractPublicKey(peerPubKey):
       warn "Failed to extract public key from peerId, skipping node",
-        peerId = remotePeers[i].peerId
+        remotePeerId = remotePeers[i].peerId
       continue
 
     if peerPubKey.scheme != PKScheme.Secp256k1:
       warn "Peer public key is not Secp256k1, skipping node",
-        peerId = remotePeers[i].peerId, scheme = peerPubKey.scheme
+        remotePeerId = remotePeers[i].peerId, scheme = peerPubKey.scheme
       continue
 
     let mixNodePubInfo = MixPubInfo.init(
@@ -109,7 +109,7 @@ proc populateMixNodePool*(mix: WakuMix) =
       peerPubKey.skkey,
     )
     trace "adding mix node to pool",
-      peerId = remotePeers[i].peerId, multiAddr = $ipv4addr
+      remotePeerId = remotePeers[i].peerId, multiAddr = $ipv4addr
     mixNodes[remotePeers[i].peerId] = mixNodePubInfo
 
   # set the mix node pool

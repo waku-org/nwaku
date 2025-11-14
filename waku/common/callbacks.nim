@@ -1,4 +1,4 @@
-import ../waku_enr/capabilities, ../waku_rendezvous/waku_peer_record
+import waku/waku_enr/capabilities, waku/waku_rendezvous/waku_peer_record
 
 type GetShards* = proc(): seq[uint16] {.closure, gcsafe, raises: [].}
 
