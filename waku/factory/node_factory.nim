@@ -338,6 +338,7 @@ proc setupProtocols(
 
   if conf.rendezvous:
     await node.mountRendezvous(conf.clusterId)
+    await node.mountRendezvousClient(conf.clusterId)
 
   # Keepalive mounted on all nodes
   try:
