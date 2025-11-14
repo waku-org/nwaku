@@ -21,7 +21,7 @@ import
 logScope:
   topics = "waku mix"
 
-const mixMixPoolSize = 3
+const mixMixPoolSize = 4
 
 type
   WakuMix* = ref object of MixProtocol
