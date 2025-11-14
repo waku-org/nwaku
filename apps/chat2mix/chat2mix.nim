@@ -590,10 +590,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       error "Couldn't find any service peer"
       quit(QuitFailure)
 
-  #await mountLegacyLightPush(node)
   node.peerManager.addServicePeer(servicePeerInfo, WakuLightpushCodec)
   node.peerManager.addServicePeer(servicePeerInfo, WakuPeerExchangeCodec)
-  #node.peerManager.addServicePeer(servicePeerInfo, WakuRendezVousCodec)
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(

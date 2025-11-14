@@ -13,9 +13,9 @@ import
 import metrics except collect
 
 import
-  ../node/peer_manager,
-  ../waku_core/peers,
-  ../waku_core/codecs,
+  waku/node/peer_manager,
+  waku/waku_core/peers,
+  waku/waku_core/codecs,
   ./common,
   ./waku_peer_record
 
@@ -33,6 +33,9 @@ type WakuRendezVousClient* = ref object
   periodicRequestFut: Future[void]
   # Internal rendezvous instance for making requests
   rdv: GenericRendezVous[WakuPeerRecord]
+
+const MaxSimultanesousAdvertisements = 5
+const RendezVousLookupInterval = 10.seconds
 
 proc requestAll*(
     self: WakuRendezVousClient
@@ -56,7 +59,8 @@ proc requestAll*(
 
   trace "waku rendezvous client request got peers", count = records.len
   for record in records:
-    rendezvousPeerFoundTotal.inc()
+    if not self.switch.peerStore.peerExists(record.peerId):
+      rendezvousPeerFoundTotal.inc()
     if record.mixKey.len == 0 or record.peerId == self.switch.peerInfo.peerId:
       continue
     trace "adding peer from rendezvous",
@@ -77,10 +81,10 @@ proc periodicRequests(self: WakuRendezVousClient) {.async.} =
 
   # infinite loop
   while true:
+    await sleepAsync(self.requestInterval)
+
     (await self.requestAll()).isOkOr:
       error "waku rendezvous requests failed", error = error
-
-    await sleepAsync(self.requestInterval)
 
     # Exponential backoff
 
@@ -102,7 +106,7 @@ proc new*(
   let rdv = GenericRendezVous[WakuPeerRecord](
     switch: switch,
     rng: rng,
-    sema: newAsyncSemaphore(5),
+    sema: newAsyncSemaphore(MaxSimultanesousAdvertisements),
     minDuration: rendezvous.MinimumAcceptedDuration,
     maxDuration: rendezvous.MaximumDuration,
     minTTL: rendezvous.MinimumAcceptedDuration.seconds.uint64,
@@ -119,7 +123,7 @@ proc new*(
     switch: switch,
     peerManager: peerManager,
     clusterId: clusterId,
-    requestInterval: 10.seconds,
+    requestInterval: RendezVousLookupInterval,
     rdv: rdv,
   )
 

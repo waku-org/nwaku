@@ -45,13 +45,15 @@ type WakuRendezVous* = ref object of GenericRendezVous[WakuPeerRecord]
   registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
 
-# Override discover method to avoid collect macro generic instantiation issues
-# TODO figure out if we can use parent generic discover
+const MaximumNamespaceLen = 255
+
 method discover*(
     self: WakuRendezVous, conn: Connection, d: Discover
 ) {.async: (raises: [CancelledError, LPStreamError]).} =
+  # Override discover method to avoid collect macro generic instantiation issues
+  # TODO figure out if we can use parent generic discover
   trace "Received Discover", peerId = conn.peerId, ns = d.ns
-  if d.ns.isSome() and d.ns.get().len > 255: #MaximumNamespaceLen
+  if d.ns.isSome() and d.ns.get().len > MaximumNamespaceLen:
     await conn.sendDiscoverResponseError(InvalidNamespace)
     return
 
@@ -115,9 +117,10 @@ proc advertise*(
   let se = SignedPayload[WakuPeerRecord].init(
     self.switch.peerInfo.privateKey, self.getPeerRecord()
   ).valueOr:
-    return err("rendezvous advertisement failed: Failed to sign Waku Peer Record")
+    return
+      err("rendezvous advertisement failed: Failed to sign Waku Peer Record: " & $error)
   let sprBuff = se.encode().valueOr:
-    return err("rendezvous advertisement failed: Wrong Signed Peer Record")
+    return err("rendezvous advertisement failed: Wrong Signed Peer Record: " & $error)
 
   # rendezvous.advertise expects already opened connections
   # must dial first
@@ -205,7 +208,7 @@ proc new*(
     clusterId: uint16,
     getShards: GetShards,
     getCapabilities: GetCapabilities,
-    getPeerRecord: GetWakuPeerRecord = nil,
+    getPeerRecord: GetWakuPeerRecord,
 ): Result[T, string] {.raises: [].} =
   let rng = newRng()
   let wrv = T(
@@ -276,7 +279,7 @@ proc start*(self: WakuRendezVous) {.async: (raises: []).} =
     await procCall GenericRendezVous[WakuPeerRecord](self).start()
   except CancelledError as exc:
     error "failed to start GenericRendezVous", cause = exc.msg
-
+    return
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 

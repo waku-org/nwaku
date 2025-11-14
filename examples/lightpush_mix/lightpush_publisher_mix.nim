@@ -163,27 +163,27 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
       ephemeral: true, # tell store nodes to not store it
       timestamp: getNowInNanosecondTime(),
     ) # current timestamp
-    try:
-      let res = await node.wakuLightpushClient.publishWithConn(
+
+    (
+      await node.wakuLightpushClient.publishWithConn(
         LightpushPubsubTopic, message, conn, dPeerId
       )
+    ).isOkOr:
+      error "failed to publish message via mix", error = error.desc
+      lp_mix_failed.inc(labelValues = ["publish_error"])
+      return
 
-      if res.isOk():
-        lp_mix_success.inc()
-        notice "published message",
-          text = text,
-          timestamp = message.timestamp,
-          psTopic = LightpushPubsubTopic,
-          contentTopic = LightpushContentTopic
-      else:
-        error "failed to publish message", error = $res.error
-        lp_mix_failed.inc(labelValues = ["publish_error"])
-    except CatchableError as e:
-      error "exception while publishing message", error = getCurrentExceptionMsg()
+    lp_mix_success.inc()
+    notice "published message",
+      text = text,
+      timestamp = message.timestamp,
+      psTopic = LightpushPubsubTopic,
+      contentTopic = LightpushContentTopic
+
     if conf.mixDisabled:
       await conn.close()
     await sleepAsync(conf.msgIntervalMilliseconds)
-  info "###########Sent all messages via mix"
+  info "Sent all messages via mix"
   quit(0)
 
 when isMainModule:
