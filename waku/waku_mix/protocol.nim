@@ -21,7 +21,7 @@ import
 logScope:
   topics = "waku mix"
 
-const mixMixPoolSize = 3
+const minMixPoolSize = 4
 
 type
   WakuMix* = ref object of MixProtocol
@@ -181,11 +181,11 @@ proc new*(
     peermgr.switch.peerInfo.peerId, nodeMultiAddr, mixPubKey, mixPrivKey,
     peermgr.switch.peerInfo.publicKey.skkey, peermgr.switch.peerInfo.privateKey.skkey,
   )
-  if bootnodes.len < mixMixPoolSize:
+  if bootnodes.len < minMixPoolSize:
     warn "publishing with mix won't work until atleast 3 mix nodes in node pool"
   let initTable = processBootNodes(bootnodes, peermgr)
 
-  if len(initTable) < mixMixPoolSize:
+  if len(initTable) < minMixPoolSize:
     warn "publishing with mix won't work until atleast  3 mix nodes in node pool"
   var m = WakuMix(peerManager: peermgr, clusterId: clusterId, pubKey: mixPubKey)
   procCall MixProtocol(m).init(localMixNodeInfo, initTable, peermgr.switch)

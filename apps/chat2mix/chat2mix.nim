@@ -82,6 +82,8 @@ type
   PrivateKey* = crypto.PrivateKey
   Topic* = waku_core.PubsubTopic
 
+const MinMixNodePoolSize = 4
+
 #####################
 ## chat2 protobufs ##
 #####################
@@ -599,12 +601,12 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   )
   echo "waiting for mix nodes to be discovered..."
   while true:
-    if node.getMixNodePoolSize() >= 3:
+    if node.getMixNodePoolSize() >= MinMixNodePoolSize:
       break
     discard await node.fetchPeerExchangePeers()
     await sleepAsync(1000)
 
-  while node.getMixNodePoolSize() < 3:
+  while node.getMixNodePoolSize() < MinMixNodePoolSize:
     info "waiting for mix nodes to be discovered",
       currentpoolSize = node.getMixNodePoolSize()
     await sleepAsync(1000)

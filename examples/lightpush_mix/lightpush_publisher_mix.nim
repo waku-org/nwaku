@@ -144,7 +144,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
       conn = connOpt.get()
     else:
       conn = node.wakuMix.toConnection(
-        MixDestination.init(dPeerId, pxPeerInfo.addrs[0]), # destination lightpush peer
+        MixDestination.exitNode(dPeerId), # destination lightpush peer
         WakuLightPushCodec, # protocol codec which will be used over the mix connection
         MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
           # mix parameters indicating we expect a single reply
