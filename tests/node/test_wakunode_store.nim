@@ -6,7 +6,7 @@ import
   waku/[
     common/paging,
     node/waku_node,
-    node/api,
+    node/kernel_api,
     node/peer_manager,
     waku_core,
     waku_core/message/digest,
@@ -486,7 +486,7 @@ suite "Waku Store - End to End - Sorted Archive":
         await otherServer.start()
         let otherServerRemotePeerInfo = otherServer.peerInfo.toRemotePeerInfo()
 
-        # When making a history query to the first server node      
+        # When making a history query to the first server node
         let queryResponse = await client.query(storeQuery, serverRemotePeerInfo)
 
         # Then the response contains the messages

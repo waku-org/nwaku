@@ -77,7 +77,7 @@ proc maintainSubscription(
         some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
-      await sleepAsync(subscriptionMaintenanceMs)
+      await sleepAsync(SubscriptionMaintenanceMs)
       if noFailedSubscribes > 0:
         noFailedSubscribes -= 1
       notice "subscribe request successful."

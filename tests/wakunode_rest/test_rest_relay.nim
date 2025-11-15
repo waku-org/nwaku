@@ -12,13 +12,13 @@ import
     common/base64,
     waku_core,
     waku_node,
-    waku_api/message_cache,
-    waku_api/rest/server,
-    waku_api/rest/client,
-    waku_api/rest/responses,
-    waku_api/rest/relay/types,
-    waku_api/rest/relay/handlers as relay_api,
-    waku_api/rest/relay/client as relay_api_client,
+    rest_api/message_cache,
+    rest_api/endpoint/server,
+    rest_api/endpoint/client,
+    rest_api/endpoint/responses,
+    rest_api/endpoint/relay/types,
+    rest_api/endpoint/relay/handlers as relay_rest_interface,
+    rest_api/endpoint/relay/client as relay_rest_client,
     waku_relay,
     waku_rln_relay,
   ],
@@ -263,7 +263,7 @@ suite "Waku v2 Rest API - Relay":
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
 
@@ -514,7 +514,7 @@ suite "Waku v2 Rest API - Relay":
 
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
 
@@ -586,7 +586,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
 
@@ -648,7 +648,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
 
@@ -723,7 +723,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRlnRelay(wakuRlnConfig)
     await node.start()
 
-    # Registration is mandatory before sending messages with rln-relay 
+    # Registration is mandatory before sending messages with rln-relay
     let manager = cast[OnchainGroupManager](node.wakuRlnRelay.groupManager)
     let idCredentials = generateCredentials()
 

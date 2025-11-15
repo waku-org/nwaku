@@ -14,7 +14,7 @@ import
 import
   waku/[
     waku_node,
-    node/api,
+    node/kernel_api,
     discovery/waku_discv5,
     waku_peer_exchange,
     node/peer_manager,
