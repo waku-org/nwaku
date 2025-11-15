@@ -240,7 +240,7 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
-  import waku/common/utils/nat, waku/waku_api/message_cache
+  import waku/common/utils/nat, waku/rest_api/message_cache
 
   let
     rng = newRng()

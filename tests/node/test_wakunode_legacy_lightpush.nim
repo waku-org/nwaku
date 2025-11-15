@@ -12,7 +12,7 @@ import
     waku_core,
     node/peer_manager,
     node/waku_node,
-    node/api,
+    node/kernel_api,
     waku_lightpush_legacy,
     waku_lightpush_legacy/common,
     waku_lightpush_legacy/protocol_metrics,

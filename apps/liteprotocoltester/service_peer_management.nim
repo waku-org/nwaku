@@ -11,7 +11,7 @@ import
   libp2p/wire
 
 import
-  ../wakunode2/cli_args,
+  tools/confutils/cli_args,
   waku/[
     common/enr,
     waku_node,

@@ -8,6 +8,8 @@ import
   results,
   libp2p/peerid
 
+from std/sugar import `=>`
+
 import ./tester_message, ./lpt_metrics
 
 type

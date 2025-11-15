@@ -5,18 +5,18 @@ import presto
 import
   waku/waku_node,
   waku/discovery/waku_discv5,
-  waku/waku_api/message_cache,
-  waku/waku_api/handlers,
-  waku/waku_api/rest/server,
-  waku/waku_api/rest/debug/handlers as rest_debug_api,
-  waku/waku_api/rest/relay/handlers as rest_relay_api,
-  waku/waku_api/rest/filter/handlers as rest_filter_api,
-  waku/waku_api/rest/legacy_lightpush/handlers as rest_legacy_lightpush_api,
-  waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
-  waku/waku_api/rest/store/handlers as rest_store_api,
-  waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
-  waku/waku_api/rest/health/handlers as rest_health_api,
-  waku/waku_api/rest/admin/handlers as rest_admin_api,
+  waku/rest_api/message_cache,
+  waku/rest_api/handlers,
+  waku/rest_api/endpoint/server,
+  waku/rest_api/endpoint/debug/handlers as rest_debug_endpoint,
+  waku/rest_api/endpoint/relay/handlers as rest_relay_endpoint,
+  waku/rest_api/endpoint/filter/handlers as rest_filter_endpoint,
+  waku/rest_api/endpoint/legacy_lightpush/handlers as rest_legacy_lightpush_endpoint,
+  waku/rest_api/endpoint/lightpush/handlers as rest_lightpush_endpoint,
+  waku/rest_api/endpoint/store/handlers as rest_store_endpoint,
+  waku/rest_api/endpoint/legacy_store/handlers as rest_store_legacy_endpoint,
+  waku/rest_api/endpoint/health/handlers as rest_health_endpoint,
+  waku/rest_api/endpoint/admin/handlers as rest_admin_endpoint,
   waku/waku_core/topics,
   waku/waku_relay/protocol
 
@@ -180,7 +180,7 @@ proc startRestServerProtocolSupport*(
       else:
         none(DiscoveryHandler)
 
-    rest_filter_api.installFilterRestApiHandlers(
+    rest_filter_endpoint.installFilterRestApiHandlers(
       router, node, filterCache, filterDiscoHandler
     )
   else:
@@ -193,8 +193,8 @@ proc startRestServerProtocolSupport*(
     else:
       none(DiscoveryHandler)
 
-  rest_store_api.installStoreApiHandlers(router, node, storeDiscoHandler)
-  rest_store_legacy_api.installStoreApiHandlers(router, node, storeDiscoHandler)
+  rest_store_endpoint.installStoreApiHandlers(router, node, storeDiscoHandler)
+  rest_store_legacy_endpoint.installStoreApiHandlers(router, node, storeDiscoHandler)
 
   ## Light push API
   ## Install it either if client is mounted)
@@ -208,10 +208,12 @@ proc startRestServerProtocolSupport*(
       else:
         none(DiscoveryHandler)
 
-    rest_legacy_lightpush_api.installLightPushRequestHandler(
+    rest_legacy_lightpush_endpoint.installLightPushRequestHandler(
       router, node, lightDiscoHandler
     )
-    rest_lightpush_api.installLightPushRequestHandler(router, node, lightDiscoHandler)
+    rest_lightpush_endpoint.installLightPushRequestHandler(
+      router, node, lightDiscoHandler
+    )
   else:
     restServerNotInstalledTab["lightpush"] = "/lightpush endpoints are not available."
 
