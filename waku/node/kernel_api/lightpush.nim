@@ -17,7 +17,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
-  mix
+  libp2p/protocols/mix
 
 import
   ../waku_node,
@@ -114,14 +114,8 @@ proc legacyLightpushPublish*(
 
     if node.wakuAutoSharding.isNone():
       return err("Pubsub topic must be specified when static sharding is enabled")
-    let topicMapRes =
-      node.wakuAutoSharding.get().getShardsFromContentTopics(message.contentTopic)
-
     let topicMap =
-      if topicMapRes.isErr():
-        return err(topicMapRes.error)
-      else:
-        topicMapRes.get()
+      ?node.wakuAutoSharding.get().getShardsFromContentTopics(message.contentTopic)
 
     for pubsub, _ in topicMap.pairs: # There's only one pair anyway
       return await internalPublish(node, $pubsub, message, peer)
@@ -207,10 +201,8 @@ proc lightpushPublishHandler(
       let conn = node.wakuMix.toConnection(
         MixDestination.init(peer.peerId, peer.addrs[0]),
         WakuLightPushCodec,
-        Opt.some(
-          MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1)))
-            # indicating we only want a single path to be used for reply hence numSurbs = 1
-        ),
+        MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
+          # indicating we only want a single path to be used for reply hence numSurbs = 1
       ).valueOr:
         error "could not create mix connection"
         return lighpushErrorResult(

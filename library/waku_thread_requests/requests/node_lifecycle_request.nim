@@ -2,13 +2,15 @@ import std/[options, json, strutils, net]
 import chronos, chronicles, results, confutils, confutils/std/net
 
 import
-  ../../../waku/node/peer_manager/peer_manager,
-  ../../../tools/confutils/cli_args,
-  ../../../waku/factory/waku,
-  ../../../waku/factory/node_factory,
-  ../../../waku/factory/networks_config,
-  ../../../waku/factory/app_callbacks,
-  ../../../waku/waku_api/rest/builder,
+  waku/node/peer_manager/peer_manager,
+  tools/confutils/cli_args,
+  waku/factory/waku,
+  waku/factory/node_factory,
+  waku/factory/networks_config,
+  waku/factory/app_callbacks,
+  waku/rest_api/endpoint/builder
+
+import 
   ../../alloc
 
 type NodeLifecycleMsgType* = enum

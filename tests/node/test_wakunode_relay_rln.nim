@@ -17,7 +17,7 @@ import
     node/peer_manager,
     waku_core,
     waku_node,
-    node/api,
+    node/kernel_api,
     common/error_handling,
     waku_rln_relay,
     waku_rln_relay/rln,
@@ -514,7 +514,7 @@ suite "Waku RlnRelay - End to End - OnChain":
         ## Issues
         ### TreeIndex
         For some reason the calls to `getWakuRlnConfigOnChain` need to be made with `treeIndex` = 0 and 1, in that order.
-        But the registration needs to be made with 1 and 2. 
+        But the registration needs to be made with 1 and 2.
         #### Solutions
         Requires investigation
         ### Monkeypatching

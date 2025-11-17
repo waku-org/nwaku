@@ -80,13 +80,10 @@ proc sendSubscribeRequest(
     waku_filter_errors.inc(labelValues = [errMsg])
     return err(FilterSubscribeError.badResponse(errMsg))
 
-  let respDecodeRes = FilterSubscribeResponse.decode(respBuf)
-  if respDecodeRes.isErr():
+  let response = FilterSubscribeResponse.decode(respBuf).valueOr:
     trace "Failed to decode filter subscribe response", servicePeer
     waku_filter_errors.inc(labelValues = [decodeRpcFailure])
     return err(FilterSubscribeError.badResponse(decodeRpcFailure))
-
-  let response = respDecodeRes.get()
 
   # DOS protection rate limit checks does not know about request id
   if response.statusCode != FilterSubscribeErrorKind.TOO_MANY_REQUESTS.uint32 and

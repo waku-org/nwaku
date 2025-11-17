@@ -8,7 +8,7 @@ import
   ../../../../waku/waku_core/subscription/push_handler,
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/node/waku_node,
-  ../../../../waku/node/api,
+  ../../../../waku/node/kernel_api,
   ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/waku_core/topics/content_topic,
   ../../../alloc
