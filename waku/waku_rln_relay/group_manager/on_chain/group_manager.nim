@@ -356,19 +356,19 @@ method generateProof*(
   # Convert identity secret to CFr using FFI2
   var identitySecretVec = newVec(g.idCredentials.get().idSecretHash)
   var identitySecretCFr: CFr
-  if not ffi2_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr):
+  if not ffi_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr):
     freeVec(identitySecretVec)
     return err("Failed to convert identity secret to field element")
   freeVec(identitySecretVec)
 
   # Convert user message limit to CFr
   var userMessageLimitCFr: CFr
-  if not ffi2_cfr_from_uint(g.userMessageLimit.get(), addr userMessageLimitCFr):
+  if not ffi_cfr_from_uint(g.userMessageLimit.get(), addr userMessageLimitCFr):
     return err("Failed to convert user message limit to field element")
 
   # Convert message ID to CFr
   var messageIdCFr: CFr
-  if not ffi2_cfr_from_uint(messageId, addr messageIdCFr):
+  if not ffi_cfr_from_uint(messageId, addr messageIdCFr):
     return err("Failed to convert message ID to field element")
 
   # Convert merkle proof path elements to CFr
@@ -378,7 +378,7 @@ method generateProof*(
     var reversedChunk = chunk.reversed()
     var elementVec = newVec(reversedChunk)
     var cfr: CFr
-    if not ffi2_hash_to_field_le(addr elementVec, addr cfr):
+    if not ffi_hash_to_field_le(addr elementVec, addr cfr):
       freeVec(elementVec)
       return err("Failed to convert path element to field element")
     pathElementsCFr.add(cfr)
@@ -390,7 +390,7 @@ method generateProof*(
 
   var extNullifierVec = newVec(@extNullifierBytes)
   var externalNullifierCFr: CFr
-  if not ffi2_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
+  if not ffi_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
     freeVec(extNullifierVec)
     return err("Failed to convert external nullifier to field element")
   freeVec(extNullifierVec)
@@ -402,14 +402,14 @@ method generateProof*(
     xBytes.add(b)
   var xVec = newVec(xBytes)
   var xCFr: CFr
-  if not ffi2_hash_to_field_le(addr xVec, addr xCFr):
+  if not ffi_hash_to_field_le(addr xVec, addr xCFr):
     freeVec(xVec)
     return err("Failed to convert x coordinate to field element")
   freeVec(xVec)
 
   # Build witness input struct using FFI2
   let identityPathIndex = uint64ToIndex(g.membershipIndex.get(), 20)
-  var witness = FFI2_RLNWitnessInput(
+  var witness = ffi_RLNWitnessInput(
     identity_secret: identitySecretCFr,
     user_message_limit: userMessageLimitCFr,
     message_id: messageIdCFr,
@@ -423,9 +423,9 @@ method generateProof*(
   var signalVec = newVec(data)
 
   # Generate proof using FFI2 API
-  var ffi2Proof: FFI2_RLNProof
+  var ffi2Proof: ffi_RLNProof
   let proofSuccess =
-    ffi2_generate_rln_proof(g.rlnInstance, addr witness, addr signalVec, addr ffi2Proof)
+    ffi_generate_rln_proof(g.rlnInstance, addr witness, addr signalVec, addr ffi2Proof)
 
   # Clean up allocated memory
   freeVec(witness.path_elements)
@@ -435,7 +435,7 @@ method generateProof*(
   if not proofSuccess:
     return err("Failed to generate proof")
 
-  # Convert FFI2_RLNProof to RateLimitProof format
+  # Convert ffi_RLNProof to RateLimitProof format
   # Serialize CFr fields to bytes
   var proofVec: Vec[uint8]
   var rootVec: Vec[uint8]
@@ -444,21 +444,21 @@ method generateProof*(
   var shareYVec: Vec[uint8]
   var nullifierVec: Vec[uint8]
 
-  if not ffi2_cfr_serialize(addr ffi2Proof.root, addr rootVec):
+  if not ffi_cfr_serialize(addr ffi2Proof.root, addr rootVec):
     return err("Failed to serialize proof root")
-  if not ffi2_cfr_serialize(addr ffi2Proof.external_nullifier, addr extNullVec):
+  if not ffi_cfr_serialize(addr ffi2Proof.external_nullifier, addr extNullVec):
     freeVec(rootVec)
     return err("Failed to serialize external nullifier")
-  if not ffi2_cfr_serialize(addr ffi2Proof.share_x, addr shareXVec):
+  if not ffi_cfr_serialize(addr ffi2Proof.share_x, addr shareXVec):
     freeVec(rootVec)
     freeVec(extNullVec)
     return err("Failed to serialize share_x")
-  if not ffi2_cfr_serialize(addr ffi2Proof.share_y, addr shareYVec):
+  if not ffi_cfr_serialize(addr ffi2Proof.share_y, addr shareYVec):
     freeVec(rootVec)
     freeVec(extNullVec)
     freeVec(shareXVec)
     return err("Failed to serialize share_y")
-  if not ffi2_cfr_serialize(addr ffi2Proof.nullifier, addr nullifierVec):
+  if not ffi_cfr_serialize(addr ffi2Proof.nullifier, addr nullifierVec):
     freeVec(rootVec)
     freeVec(extNullVec)
     freeVec(shareXVec)
@@ -532,7 +532,7 @@ method verifyProof*(
   # Convert external nullifier to CFr
   var extNullifierVec = newVec(@extNullifierBytes)
   var externalNullifierCFr: CFr
-  if not ffi2_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
+  if not ffi_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
     freeVec(extNullifierVec)
     return err("Failed to convert external nullifier to field element")
   freeVec(extNullifierVec)
@@ -543,7 +543,7 @@ method verifyProof*(
     rootBytes.add(b)
   var rootVec = newVec(rootBytes)
   var rootCFr: CFr
-  if not ffi2_hash_to_field_le(addr rootVec, addr rootCFr):
+  if not ffi_hash_to_field_le(addr rootVec, addr rootCFr):
     freeVec(rootVec)
     return err("Failed to convert proof root to field element")
   freeVec(rootVec)
@@ -554,7 +554,7 @@ method verifyProof*(
     shareXBytes.add(b)
   var shareXVec = newVec(shareXBytes)
   var shareXCFr: CFr
-  if not ffi2_hash_to_field_le(addr shareXVec, addr shareXCFr):
+  if not ffi_hash_to_field_le(addr shareXVec, addr shareXCFr):
     freeVec(shareXVec)
     return err("Failed to convert share_x to field element")
   freeVec(shareXVec)
@@ -565,7 +565,7 @@ method verifyProof*(
     shareYBytes.add(b)
   var shareYVec = newVec(shareYBytes)
   var shareYCFr: CFr
-  if not ffi2_hash_to_field_le(addr shareYVec, addr shareYCFr):
+  if not ffi_hash_to_field_le(addr shareYVec, addr shareYCFr):
     freeVec(shareYVec)
     return err("Failed to convert share_y to field element")
   freeVec(shareYVec)
@@ -576,7 +576,7 @@ method verifyProof*(
     nullifierBytes.add(b)
   var nullifierVec = newVec(nullifierBytes)
   var nullifierCFr: CFr
-  if not ffi2_hash_to_field_le(addr nullifierVec, addr nullifierCFr):
+  if not ffi_hash_to_field_le(addr nullifierVec, addr nullifierCFr):
     freeVec(nullifierVec)
     return err("Failed to convert nullifier to field element")
   freeVec(nullifierVec)
@@ -586,8 +586,8 @@ method verifyProof*(
   for b in proof.proof:
     proofBytes.add(b)
 
-  # Build FFI2_RLNProof structure
-  var ffi2Proof = FFI2_RLNProof(
+  # Build ffi_RLNProof structure
+  var ffi2Proof = ffi_RLNProof(
     proof: newVec(proofBytes),
     root: rootCFr,
     external_nullifier: externalNullifierCFr,
@@ -607,7 +607,7 @@ method verifyProof*(
       validRootBytes.add(b)
     var validRootVec = newVec(validRootBytes)
     var cfr: CFr
-    if not ffi2_hash_to_field_le(addr validRootVec, addr cfr):
+    if not ffi_hash_to_field_le(addr validRootVec, addr cfr):
       freeVec(validRootVec)
       freeVec(ffi2Proof.proof)
       freeVec(signalVec)
@@ -619,7 +619,7 @@ method verifyProof*(
 
   # Verify proof using FFI2 API
   var isValid: bool
-  let success = ffi2_verify_rln_proof(
+  let success = ffi_verify_rln_proof(
     g.rlnInstance, unsafeAddr ffi2Proof, addr signalVec, addr rootsVec, addr isValid
   )
 

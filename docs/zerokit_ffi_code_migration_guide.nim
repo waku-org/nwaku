@@ -47,9 +47,9 @@ proc membershipKeyGen_OLD*(): RlnRelayResult[IdentityCredential] =
 
 # NEW FFI2 (Struct-based)
 proc membershipKeyGen_NEW*(): RlnRelayResult[IdentityCredential] =
-  var credential: FFI2_IdentityCredential
+  var credential: ffi_IdentityCredential
   
-  let success = ffi2_key_gen(addr credential)
+  let success = ffi_key_gen(addr credential)
   
   if not success:
     return err("error in key generation")
@@ -61,10 +61,10 @@ proc membershipKeyGen_NEW*(): RlnRelayResult[IdentityCredential] =
     idSecretHashVec: Vec[uint8]
     idCommitmentVec: Vec[uint8]
   
-  discard ffi2_cfr_serialize(addr credential.identity_trapdoor, addr idTrapdoorVec)
-  discard ffi2_cfr_serialize(addr credential.identity_nullifier, addr idNullifierVec)
-  discard ffi2_cfr_serialize(addr credential.identity_secret_hash, addr idSecretHashVec)
-  discard ffi2_cfr_serialize(addr credential.id_commitment, addr idCommitmentVec)
+  discard ffi_cfr_serialize(addr credential.identity_trapdoor, addr idTrapdoorVec)
+  discard ffi_cfr_serialize(addr credential.identity_nullifier, addr idNullifierVec)
+  discard ffi_cfr_serialize(addr credential.identity_secret_hash, addr idSecretHashVec)
+  discard ffi_cfr_serialize(addr credential.id_commitment, addr idCommitmentVec)
 
   let identityCredential = IdentityCredential(
     idTrapdoor: toSeq(idTrapdoorVec),
@@ -138,7 +138,7 @@ proc createRLNInstance_NEW(): RLNResult =
   var rlnInstance: ptr RLN
   
   # Pass config file path (cleaner!)
-  let res = ffi2_new(cstring(config_path), addr rlnInstance)
+  let res = ffi_new(cstring(config_path), addr rlnInstance)
   
   if not res:
     return err("error in RLN instance creation")
@@ -177,7 +177,7 @@ proc sha256_NEW(data: openArray[byte]): RlnRelayResult[MerkleNode] =
   var inputVec = newVec(lenPrefData)
   var outputCFr: CFr
 
-  let hashSuccess = ffi2_hash_to_field_le(addr inputVec, addr outputCFr)
+  let hashSuccess = ffi_hash_to_field_le(addr inputVec, addr outputCFr)
   
   if not hashSuccess:
     freeVec(inputVec)
@@ -185,7 +185,7 @@ proc sha256_NEW(data: openArray[byte]): RlnRelayResult[MerkleNode] =
 
   # Serialize to bytes
   var outputVec: Vec[uint8]
-  discard ffi2_cfr_serialize(addr outputCFr, addr outputVec)
+  discard ffi_cfr_serialize(addr outputCFr, addr outputVec)
 
   var output: MerkleNode
   copyMem(addr output[0], outputVec.data, 32)
@@ -261,39 +261,39 @@ proc generateProof_NEW(
   merkleIndices: seq[byte],
   externalNullifier: seq[byte],
   signal: seq[byte]
-): RlnRelayResult[FFI2_RLNProof] =
+): RlnRelayResult[ffi_RLNProof] =
   
   # Convert to CFr types (type-safe!)
   var identitySecretCFr: CFr
   var identitySecretVec = newVec(identitySecret)
-  discard ffi2_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr)
+  discard ffi_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr)
   freeVec(identitySecretVec)
 
   var userMessageLimitCFr: CFr
-  discard ffi2_cfr_from_uint(userMessageLimit, addr userMessageLimitCFr)
+  discard ffi_cfr_from_uint(userMessageLimit, addr userMessageLimitCFr)
 
   var messageIdCFr: CFr
-  discard ffi2_cfr_from_uint(messageId, addr messageIdCFr)
+  discard ffi_cfr_from_uint(messageId, addr messageIdCFr)
 
   # Convert merkle proof
   var pathElementsCFr: seq[CFr]
   for element in merkleProof:
     var elementVec = newVec(element)
     var cfr: CFr
-    discard ffi2_hash_to_field_le(addr elementVec, addr cfr)
+    discard ffi_hash_to_field_le(addr elementVec, addr cfr)
     pathElementsCFr.add(cfr)
     freeVec(elementVec)
 
   var externalNullifierCFr: CFr
   var externalNullifierVec = newVec(externalNullifier)
-  discard ffi2_hash_to_field_le(addr externalNullifierVec, addr externalNullifierCFr)
+  discard ffi_hash_to_field_le(addr externalNullifierVec, addr externalNullifierCFr)
   freeVec(externalNullifierVec)
 
   var xCFr: CFr
-  discard ffi2_cfr_zero(addr xCFr)
+  discard ffi_cfr_zero(addr xCFr)
 
   # Build witness struct (type-safe!)
-  var witness = FFI2_RLNWitnessInput(
+  var witness = ffi_RLNWitnessInput(
     identity_secret: identitySecretCFr,
     user_message_limit: userMessageLimitCFr,
     message_id: messageIdCFr,
@@ -304,10 +304,10 @@ proc generateProof_NEW(
   )
 
   var signalVec = newVec(signal)
-  var proof: FFI2_RLNProof
+  var proof: ffi_RLNProof
 
   # Single function call with structured types
-  let success = ffi2_generate_rln_proof(
+  let success = ffi_generate_rln_proof(
     ctx,
     addr witness,
     addr signalVec,
@@ -375,7 +375,7 @@ proc verifyProof_OLD(
 # NEW FFI2 (Structured)
 proc verifyProof_NEW(
   ctx: ptr RLN,
-  proof: FFI2_RLNProof,  # Already structured!
+  proof: ffi_RLNProof,  # Already structured!
   signal: seq[byte]
 ): RlnRelayResult[bool] =
   
@@ -384,7 +384,7 @@ proc verifyProof_NEW(
   var isValid: bool
 
   # Single function call with structured proof
-  let success = ffi2_verify_rln_proof(
+  let success = ffi_verify_rln_proof(
     ctx,
     unsafeAddr proof,
     addr signalVec,

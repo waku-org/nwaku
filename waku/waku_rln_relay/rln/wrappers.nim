@@ -25,9 +25,9 @@ proc membershipKeyGen*(): RlnRelayResult[IdentityCredential] =
   ## Generates an IdentityCredential using the new FFI2 interface
   ## Much simpler than the old buffer-based approach!
 
-  var credential: FFI2_IdentityCredential
+  var credential: ffi_IdentityCredential
 
-  let success = ffi2_key_gen(addr credential)
+  let success = ffi_key_gen(addr credential)
 
   if not success:
     return err("error in key generation")
@@ -39,13 +39,13 @@ proc membershipKeyGen*(): RlnRelayResult[IdentityCredential] =
     idSecretHashVec: Vec[uint8]
     idCommitmentVec: Vec[uint8]
 
-  if not ffi2_cfr_serialize(addr credential.identity_trapdoor, addr idTrapdoorVec):
+  if not ffi_cfr_serialize(addr credential.identity_trapdoor, addr idTrapdoorVec):
     return err("failed to serialize identity trapdoor")
-  if not ffi2_cfr_serialize(addr credential.identity_nullifier, addr idNullifierVec):
+  if not ffi_cfr_serialize(addr credential.identity_nullifier, addr idNullifierVec):
     return err("failed to serialize identity nullifier")
-  if not ffi2_cfr_serialize(addr credential.identity_secret_hash, addr idSecretHashVec):
+  if not ffi_cfr_serialize(addr credential.identity_secret_hash, addr idSecretHashVec):
     return err("failed to serialize identity secret hash")
-  if not ffi2_cfr_serialize(addr credential.id_commitment, addr idCommitmentVec):
+  if not ffi_cfr_serialize(addr credential.id_commitment, addr idCommitmentVec):
     return err("failed to serialize id commitment")
 
   # Convert Vec to seq
@@ -116,7 +116,7 @@ proc createRLNInstanceLocal(): RLNResult =
   var rlnInstance: ptr RLN
 
   # Create RLN instance using config file path (FFI2 way)
-  let res = ffi2_new(cstring(config_path), addr rlnInstance)
+  let res = ffi_new(cstring(config_path), addr rlnInstance)
 
   if not res:
     info "error in RLN instance creation"
@@ -145,7 +145,7 @@ proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
 
   trace "sha256 hash input buffer length", bufflen = inputVec.len
 
-  let hashSuccess = ffi2_hash_to_field_le(addr inputVec, addr outputCFr)
+  let hashSuccess = ffi_hash_to_field_le(addr inputVec, addr outputCFr)
 
   if not hashSuccess:
     freeVec(inputVec)
@@ -153,7 +153,7 @@ proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
 
   # Serialize CFr to bytes
   var outputVec: Vec[uint8]
-  if not ffi2_cfr_serialize(addr outputCFr, addr outputVec):
+  if not ffi_cfr_serialize(addr outputCFr, addr outputVec):
     freeVec(inputVec)
     return err("error serializing hash output")
 
@@ -181,7 +181,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
     var itemVec = newVec(item)
     var cfr: CFr
 
-    if not ffi2_hash_to_field_le(addr itemVec, addr cfr):
+    if not ffi_hash_to_field_le(addr itemVec, addr cfr):
       freeVec(itemVec)
       return err("error converting input to field element")
 
@@ -192,7 +192,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   var inputVec = newVec(inputCFrs)
   var outputCFr: CFr
 
-  let hashSuccess = ffi2_poseidon_hash(addr inputVec, addr outputCFr)
+  let hashSuccess = ffi_poseidon_hash(addr inputVec, addr outputCFr)
 
   if not hashSuccess:
     freeVec(inputVec)
@@ -200,7 +200,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
 
   # Serialize output to bytes
   var outputVec: Vec[uint8]
-  if not ffi2_cfr_serialize(addr outputCFr, addr outputVec):
+  if not ffi_cfr_serialize(addr outputCFr, addr outputVec):
     freeVec(inputVec)
     return err("error serializing hash output")
 
@@ -280,26 +280,26 @@ proc generateProof*(
     merkleIndices: seq[byte],
     externalNullifier: seq[byte],
     signal: seq[byte],
-): RlnRelayResult[FFI2_RLNProof] =
+): RlnRelayResult[ffi_RLNProof] =
   ## Example of proof generation using FFI2
   ## This shows the new structured approach
 
   # Convert identity secret to CFr
   var identitySecretVec = newVec(identitySecret)
   var identitySecretCFr: CFr
-  if not ffi2_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr):
+  if not ffi_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr):
     freeVec(identitySecretVec)
     return err("failed to convert identity secret")
   freeVec(identitySecretVec)
 
   # Convert user message limit to CFr
   var userMessageLimitCFr: CFr
-  if not ffi2_cfr_from_uint(userMessageLimit, addr userMessageLimitCFr):
+  if not ffi_cfr_from_uint(userMessageLimit, addr userMessageLimitCFr):
     return err("failed to convert user message limit")
 
   # Convert message ID to CFr
   var messageIdCFr: CFr
-  if not ffi2_cfr_from_uint(messageId, addr messageIdCFr):
+  if not ffi_cfr_from_uint(messageId, addr messageIdCFr):
     return err("failed to convert message ID")
 
   # Convert merkle proof path elements to CFr
@@ -307,7 +307,7 @@ proc generateProof*(
   for element in merkleProof:
     var elementVec = newVec(element)
     var cfr: CFr
-    if not ffi2_hash_to_field_le(addr elementVec, addr cfr):
+    if not ffi_hash_to_field_le(addr elementVec, addr cfr):
       freeVec(elementVec)
       return err("failed to convert path element")
     pathElementsCFr.add(cfr)
@@ -316,18 +316,18 @@ proc generateProof*(
   # Convert external nullifier to CFr
   var externalNullifierVec = newVec(externalNullifier)
   var externalNullifierCFr: CFr
-  if not ffi2_hash_to_field_le(addr externalNullifierVec, addr externalNullifierCFr):
+  if not ffi_hash_to_field_le(addr externalNullifierVec, addr externalNullifierCFr):
     freeVec(externalNullifierVec)
     return err("failed to convert external nullifier")
   freeVec(externalNullifierVec)
 
   # Compute x (Shamir share x-coordinate) - simplified for example
   var xCFr: CFr
-  if not ffi2_cfr_zero(addr xCFr):
+  if not ffi_cfr_zero(addr xCFr):
     return err("failed to create x coordinate")
 
   # Build witness input struct
-  var witness = FFI2_RLNWitnessInput(
+  var witness = ffi_RLNWitnessInput(
     identity_secret: identitySecretCFr,
     user_message_limit: userMessageLimitCFr,
     message_id: messageIdCFr,
@@ -341,8 +341,8 @@ proc generateProof*(
   var signalVec = newVec(signal)
 
   # Generate proof
-  var proof: FFI2_RLNProof
-  let success = ffi2_generate_rln_proof(ctx, addr witness, addr signalVec, addr proof)
+  var proof: ffi_RLNProof
+  let success = ffi_generate_rln_proof(ctx, addr witness, addr signalVec, addr proof)
 
   # Clean up
   freeVec(witness.path_elements)
@@ -360,7 +360,7 @@ proc generateProof*(
 
 proc verifyProof*(
     ctx: ptr RLN,
-    proof: FFI2_RLNProof,
+    proof: ffi_RLNProof,
     signal: seq[byte],
     roots: seq[seq[byte]] = @[] # Optional multiple roots
     ,
@@ -374,7 +374,7 @@ proc verifyProof*(
   for root in roots:
     var rootVec = newVec(root)
     var cfr: CFr
-    if not ffi2_hash_to_field_le(addr rootVec, addr cfr):
+    if not ffi_hash_to_field_le(addr rootVec, addr cfr):
       freeVec(rootVec)
       freeVec(signalVec)
       return err("failed to convert root")
@@ -384,7 +384,7 @@ proc verifyProof*(
   var rootsVec = newVec(rootsCFr)
   var isValid: bool
 
-  let success = ffi2_verify_rln_proof(
+  let success = ffi_verify_rln_proof(
     ctx, unsafeAddr proof, addr signalVec, addr rootsVec, addr isValid
   )
 

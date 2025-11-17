@@ -6,7 +6,7 @@
 **File:** `/Users/darshan/work/nwaku/waku/waku_rln_relay/rln/rln_interface_ffi2.nim`
 
 **What it contains:**
-- Complete FFI2 type definitions (CFr, Vec, FFI2_IdentityCredential, FFI2_RLNWitnessInput, FFI2_RLNProof, etc.)
+- Complete FFI2 type definitions (CFr, Vec, ffi_IdentityCredential, ffi_RLNWitnessInput, ffi_RLNProof, etc.)
 - All new FFI2 function declarations
 - Helper functions for Vec management
 - Comprehensive documentation
@@ -267,7 +267,7 @@ defer: freeVec(myVec)
 
 ### 4. Config File Path
 
-The new `ffi2_new()` function takes a config file path instead of serialized JSON:
+The new `ffi_new()` function takes a config file path instead of serialized JSON:
 
 ```nim
 # Old way:
@@ -276,7 +276,7 @@ let res = new_circuit(depth, addr configBuffer, addr ctx)
 
 # New way:
 writeFile("/tmp/rln_config.json", config_json)
-let res = ffi2_new("/tmp/rln_config.json", addr ctx)
+let res = ffi_new("/tmp/rln_config.json", addr ctx)
 ```
 
 Consider:
