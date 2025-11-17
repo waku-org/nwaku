@@ -1,9 +1,9 @@
 ## EventBroker
 ## -------------------
 ## EventBroker represents a reactive decoupling pattern, that
-## allows defining event driven development without
-## need of direct dependencies in between emitters and listeners.
-## Worth consider using it in a single or many emitters to many listeners scenario.
+## allows event-driven development without
+## need for direct dependencies in between emitters and listeners.
+## Worth considering using it in a single or many emitters to many listeners scenario.
 ##
 ## Generates a standalone, type-safe event broker for the declared object type.
 ## The macro exports the value type itself plus a broker companion that manages
@@ -243,8 +243,6 @@ macro EventBroker*(body: untyped): untyped =
         var callbacks: seq[`handlerProcIdent`] = @[]
         for cb in broker.listeners.values:
           callbacks.add(cb)
-        if callbacks.len == 0:
-          return
         for cb in callbacks:
           asyncSpawn `listenerTaskIdent`(cb, event)
 

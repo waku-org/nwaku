@@ -2,8 +2,8 @@
 ## --------------------
 ## RequestBroker represents a proactive decoupling pattern, that
 ## allows defining request-response style interactions between modules without
-## need of direct dependencies in between.
-## Worth consider using it in a single provider many requester scenario.
+## need for direct dependencies in between.
+## Worth considering using it in a single provider, many requester scenario.
 ##
 ## Provides a declarative way to define an immutable value type together with a
 ## thread-local broker that can register asynchronous providers, dispatch typed
@@ -41,7 +41,7 @@ export results
 
 proc errorFuture[T](message: string): Future[Result[T, string]] {.inline.} =
   ## Build a future that is already completed with an error result.
-  let fut = newFuture[Result[T, string]]("request_broker_new.errorFuture")
+  let fut = newFuture[Result[T, string]]("request_broker.errorFuture")
   fut.complete(err(Result[T, string], message))
   fut
 
