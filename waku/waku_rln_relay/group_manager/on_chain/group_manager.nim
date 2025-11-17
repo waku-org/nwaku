@@ -344,74 +344,157 @@ method generateProof*(
     return err("membership index is not set")
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
-
   if (g.merkleProofCache.len mod 32) != 0:
     return err("Invalid merkle proof cache length")
 
-  let identity_secret = seqToField(g.idCredentials.get().idSecretHash)
-  let user_message_limit = uint64ToField(g.userMessageLimit.get())
-  let message_id = uint64ToField(messageId)
-  var path_elements = newSeq[byte](0)
+  # Convert identity secret to CFr using FFI2
+  var identitySecretVec = newVec(g.idCredentials.get().idSecretHash)
+  var identitySecretCFr: CFr
+  if not ffi_hash_to_field_le(addr identitySecretVec, addr identitySecretCFr):
+    freeVec(identitySecretVec)
+    return err("Failed to convert identity secret to field element")
+  freeVec(identitySecretVec)
 
-  let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
+  # Convert user message limit to CFr
+  var userMessageLimitCFr: CFr
+  if not ffi_cfr_from_uint(g.userMessageLimit.get(), addr userMessageLimitCFr):
+    return err("Failed to convert user message limit to field element")
+
+  # Convert message ID to CFr
+  var messageIdCFr: CFr
+  if not ffi_cfr_from_uint(messageId, addr messageIdCFr):
+    return err("Failed to convert message ID to field element")
+
+  # Convert merkle proof path elements to CFr
+  var pathElementsCFr: seq[CFr]
   for i in 0 ..< g.merkleProofCache.len div 32:
     let chunk = g.merkleProofCache[i * 32 .. (i + 1) * 32 - 1]
-    path_elements.add(chunk.reversed())
+    var reversedChunk = chunk.reversed()
+    var elementVec = newVec(reversedChunk)
+    var cfr: CFr
+    if not ffi_hash_to_field_le(addr elementVec, addr cfr):
+      freeVec(elementVec)
+      return err("Failed to convert path element to field element")
+    pathElementsCFr.add(cfr)
+    freeVec(elementVec)
 
-  let x = keccak.keccak256.digest(data)
-
-  let extNullifier = poseidon(@[@(epoch), @(rlnIdentifier)]).valueOr:
+  # Compute external nullifier using poseidon
+  let extNullifierBytes = poseidon(@[@(epoch), @(rlnIdentifier)]).valueOr:
     return err("Failed to compute external nullifier: " & error)
 
-  let witness = RLNWitnessInput(
-    identity_secret: identity_secret,
-    user_message_limit: user_message_limit,
-    message_id: message_id,
-    path_elements: path_elements,
-    identity_path_index: identity_path_index,
-    x: x,
-    external_nullifier: extNullifier,
+  var extNullifierVec = newVec(@extNullifierBytes)
+  var externalNullifierCFr: CFr
+  if not ffi_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
+    freeVec(extNullifierVec)
+    return err("Failed to convert external nullifier to field element")
+  freeVec(extNullifierVec)
+
+  # Compute x (Shamir share x-coordinate) from keccak hash of data
+  let xHash = keccak.keccak256.digest(data)
+  var xBytes: seq[byte]
+  for b in xHash.data:
+    xBytes.add(b)
+  var xVec = newVec(xBytes)
+  var xCFr: CFr
+  if not ffi_hash_to_field_le(addr xVec, addr xCFr):
+    freeVec(xVec)
+    return err("Failed to convert x coordinate to field element")
+  freeVec(xVec)
+
+  # Build witness input struct using FFI2
+  let identityPathIndex = uint64ToIndex(g.membershipIndex.get(), 20)
+  var witness = ffi_RLNWitnessInput(
+    identity_secret: identitySecretCFr,
+    user_message_limit: userMessageLimitCFr,
+    message_id: messageIdCFr,
+    path_elements: newVec(pathElementsCFr),
+    identity_path_index: newVec(identityPathIndex),
+    x: xCFr,
+    external_nullifier: externalNullifierCFr,
   )
 
-  let serializedWitness = serialize(witness)
+  # Prepare signal (the data being proven)
+  var signalVec = newVec(data)
 
-  var input_witness_buffer = toBuffer(serializedWitness)
+  # Generate proof using FFI2 API
+  var ffi2Proof: ffi_RLNProof
+  let proofSuccess =
+    ffi_generate_rln_proof(g.rlnInstance, addr witness, addr signalVec, addr ffi2Proof)
 
-  # Generate the proof using the zerokit API
-  var output_witness_buffer: Buffer
-  let witness_success = generate_proof_with_witness(
-    g.rlnInstance, addr input_witness_buffer, addr output_witness_buffer
-  )
+  # Clean up allocated memory
+  freeVec(witness.path_elements)
+  freeVec(witness.identity_path_index)
+  freeVec(signalVec)
 
-  if not witness_success:
+  if not proofSuccess:
     return err("Failed to generate proof")
 
-  # Parse the proof into a RateLimitProof object
-  var proofValue = cast[ptr array[320, byte]](output_witness_buffer.`ptr`)
-  let proofBytes: array[320, byte] = proofValue[]
+  # Convert ffi_RLNProof to RateLimitProof format
+  # Serialize CFr fields to bytes
+  var proofVec: Vec[uint8]
+  var rootVec: Vec[uint8]
+  var extNullVec: Vec[uint8]
+  var shareXVec: Vec[uint8]
+  var shareYVec: Vec[uint8]
+  var nullifierVec: Vec[uint8]
 
-  ## Parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
-  let
-    proofOffset = 128
-    rootOffset = proofOffset + 32
-    externalNullifierOffset = rootOffset + 32
-    shareXOffset = externalNullifierOffset + 32
-    shareYOffset = shareXOffset + 32
-    nullifierOffset = shareYOffset + 32
+  if not ffi_cfr_serialize(addr ffi2Proof.root, addr rootVec):
+    return err("Failed to serialize proof root")
+  if not ffi_cfr_serialize(addr ffi2Proof.external_nullifier, addr extNullVec):
+    freeVec(rootVec)
+    return err("Failed to serialize external nullifier")
+  if not ffi_cfr_serialize(addr ffi2Proof.share_x, addr shareXVec):
+    freeVec(rootVec)
+    freeVec(extNullVec)
+    return err("Failed to serialize share_x")
+  if not ffi_cfr_serialize(addr ffi2Proof.share_y, addr shareYVec):
+    freeVec(rootVec)
+    freeVec(extNullVec)
+    freeVec(shareXVec)
+    return err("Failed to serialize share_y")
+  if not ffi_cfr_serialize(addr ffi2Proof.nullifier, addr nullifierVec):
+    freeVec(rootVec)
+    freeVec(extNullVec)
+    freeVec(shareXVec)
+    freeVec(shareYVec)
+    return err("Failed to serialize nullifier")
 
+  # Convert Vec to fixed-size arrays
   var
     zkproof: ZKSNARK
     proofRoot, shareX, shareY: MerkleNode
     externalNullifier: ExternalNullifier
     nullifier: Nullifier
 
-  discard zkproof.copyFrom(proofBytes[0 .. proofOffset - 1])
-  discard proofRoot.copyFrom(proofBytes[proofOffset .. rootOffset - 1])
-  discard
-    externalNullifier.copyFrom(proofBytes[rootOffset .. externalNullifierOffset - 1])
-  discard shareX.copyFrom(proofBytes[externalNullifierOffset .. shareXOffset - 1])
-  discard shareY.copyFrom(proofBytes[shareXOffset .. shareYOffset - 1])
-  discard nullifier.copyFrom(proofBytes[shareYOffset .. nullifierOffset - 1])
+  # Copy proof bytes (128 bytes)
+  if ffi2Proof.proof.len >= 128:
+    copyMem(addr zkproof[0], ffi2Proof.proof.data, 128)
+  else:
+    freeVec(rootVec)
+    freeVec(extNullVec)
+    freeVec(shareXVec)
+    freeVec(shareYVec)
+    freeVec(nullifierVec)
+    return err("Proof data too short")
+
+  # Copy serialized CFr fields (32 bytes each)
+  if rootVec.len >= 32:
+    copyMem(addr proofRoot[0], rootVec.data, 32)
+  if extNullVec.len >= 32:
+    copyMem(addr externalNullifier[0], extNullVec.data, 32)
+  if shareXVec.len >= 32:
+    copyMem(addr shareX[0], shareXVec.data, 32)
+  if shareYVec.len >= 32:
+    copyMem(addr shareY[0], shareYVec.data, 32)
+  if nullifierVec.len >= 32:
+    copyMem(addr nullifier[0], nullifierVec.data, 32)
+
+  # Clean up serialized vectors
+  freeVec(rootVec)
+  freeVec(extNullVec)
+  freeVec(shareXVec)
+  freeVec(shareYVec)
+  freeVec(nullifierVec)
 
   # Create the RateLimitProof object
   let output = RateLimitProof(
@@ -434,36 +517,118 @@ method generateProof*(
 method verifyProof*(
     g: OnchainGroupManager, input: seq[byte], proof: RateLimitProof
 ): GroupManagerResult[bool] {.gcsafe, raises: [].} =
-  ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots --
+  ## -- Verifies an RLN rate-limit proof against the set of valid Merkle roots using FFI2 --
 
-  var normalizedProof = proof
-
-  normalizedProof.externalNullifier = poseidon(
-    @[@(proof.epoch), @(proof.rlnIdentifier)]
-  ).valueOr:
+  # Compute external nullifier using poseidon
+  let extNullifierBytes = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)]).valueOr:
     return err("Failed to compute external nullifier: " & error)
 
-  let proofBytes = serialize(normalizedProof, input)
-  let proofBuffer = proofBytes.toBuffer()
+  # Convert external nullifier to CFr
+  var extNullifierVec = newVec(@extNullifierBytes)
+  var externalNullifierCFr: CFr
+  if not ffi_hash_to_field_le(addr extNullifierVec, addr externalNullifierCFr):
+    freeVec(extNullifierVec)
+    return err("Failed to convert external nullifier to field element")
+  freeVec(extNullifierVec)
 
-  let rootsBytes = serialize(g.validRoots.items().toSeq())
-  let rootsBuffer = rootsBytes.toBuffer()
+  # Convert proof root to CFr
+  var rootBytes: seq[byte]
+  for b in proof.merkleRoot:
+    rootBytes.add(b)
+  var rootVec = newVec(rootBytes)
+  var rootCFr: CFr
+  if not ffi_hash_to_field_le(addr rootVec, addr rootCFr):
+    freeVec(rootVec)
+    return err("Failed to convert proof root to field element")
+  freeVec(rootVec)
 
-  var validProof: bool # out-param
-  let ffiOk = verify_with_roots(
-    g.rlnInstance, # RLN context created at init()
-    addr proofBuffer, # (proof + signal)
-    addr rootsBuffer, # valid Merkle roots
-    addr validProof # will be set by the FFI call
-    ,
+  # Convert share_x to CFr
+  var shareXBytes: seq[byte]
+  for b in proof.shareX:
+    shareXBytes.add(b)
+  var shareXVec = newVec(shareXBytes)
+  var shareXCFr: CFr
+  if not ffi_hash_to_field_le(addr shareXVec, addr shareXCFr):
+    freeVec(shareXVec)
+    return err("Failed to convert share_x to field element")
+  freeVec(shareXVec)
+
+  # Convert share_y to CFr
+  var shareYBytes: seq[byte]
+  for b in proof.shareY:
+    shareYBytes.add(b)
+  var shareYVec = newVec(shareYBytes)
+  var shareYCFr: CFr
+  if not ffi_hash_to_field_le(addr shareYVec, addr shareYCFr):
+    freeVec(shareYVec)
+    return err("Failed to convert share_y to field element")
+  freeVec(shareYVec)
+
+  # Convert nullifier to CFr
+  var nullifierBytes: seq[byte]
+  for b in proof.nullifier:
+    nullifierBytes.add(b)
+  var nullifierVec = newVec(nullifierBytes)
+  var nullifierCFr: CFr
+  if not ffi_hash_to_field_le(addr nullifierVec, addr nullifierCFr):
+    freeVec(nullifierVec)
+    return err("Failed to convert nullifier to field element")
+  freeVec(nullifierVec)
+
+  # Convert proof bytes to Vec
+  var proofBytes: seq[byte]
+  for b in proof.proof:
+    proofBytes.add(b)
+
+  # Build ffi_RLNProof structure
+  var ffi2Proof = ffi_RLNProof(
+    proof: newVec(proofBytes),
+    root: rootCFr,
+    external_nullifier: externalNullifierCFr,
+    share_x: shareXCFr,
+    share_y: shareYCFr,
+    nullifier: nullifierCFr,
   )
 
-  if not ffiOk:
-    return err("could not verify the proof")
-  else:
+  # Prepare signal (input data)
+  var signalVec = newVec(input)
+
+  # Convert valid roots to CFr
+  var rootsCFr: seq[CFr]
+  for validRoot in g.validRoots.items():
+    var validRootBytes: seq[byte]
+    for b in validRoot:
+      validRootBytes.add(b)
+    var validRootVec = newVec(validRootBytes)
+    var cfr: CFr
+    if not ffi_hash_to_field_le(addr validRootVec, addr cfr):
+      freeVec(validRootVec)
+      freeVec(ffi2Proof.proof)
+      freeVec(signalVec)
+      return err("Failed to convert valid root to field element")
+    rootsCFr.add(cfr)
+    freeVec(validRootVec)
+
+  var rootsVec = newVec(rootsCFr)
+
+  # Verify proof using FFI2 API
+  var isValid: bool
+  let success = ffi_verify_rln_proof(
+    g.rlnInstance, unsafeAddr ffi2Proof, addr signalVec, addr rootsVec, addr isValid
+  )
+
+  # Clean up allocated memory
+  freeVec(ffi2Proof.proof)
+  freeVec(signalVec)
+  freeVec(rootsVec)
+
+  if not success:
+    return err("Proof verification call failed")
+
+  if isValid:
     info "Proof verified successfully"
 
-  return ok(validProof)
+  return ok(isValid)
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)

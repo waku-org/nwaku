@@ -1,168 +1,277 @@
-## Nim wrappers for the functions defined in librln
+## Nim wrappers for the NEW FFI2 functions defined in librln
+## This is the migrated version using structured types instead of raw buffers
 import ../protocol_types
 
 {.push raises: [].}
 
-## Buffer struct is taken from
-# https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
-type Buffer* = object
-  `ptr`*: ptr uint8
-  len*: uint
-
-proc toBuffer*(x: openArray[byte]): Buffer =
-  ## converts the input to a Buffer object
-  ## the Buffer object is used to communicate data with the rln lib
-  var temp = @x
-  let baseAddr = cast[pointer](x)
-  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
-  return output
-
 ######################################################################
-## RLN Zerokit module APIs
+## FFI2 Type Definitions
 ######################################################################
 
-#-------------------------------- zkSNARKs operations -----------------------------------------
-proc key_gen*(
-  output_buffer: ptr Buffer, is_little_endian: bool
-): bool {.importc: "extended_key_gen".}
+## Field element type - represents elements in the finite field
+type CFr* = object
+  data: array[32, byte] # Internal representation
 
-## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> |
-## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
-## id commitment is the poseidon hash of the identity secret hash
-## the return bool value indicates the success or failure of the operation
+## Vector type for dynamic arrays
+type Vec*[T] = object
+  data*: ptr T
+  len*: csize_t
+  cap*: csize_t
 
-proc seeded_key_gen*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
-): bool {.importc: "seeded_extended_key_gen".}
+## Identity credential structure
+type ffi_IdentityCredential* = object
+  identity_trapdoor*: CFr
+  identity_nullifier*: CFr
+  identity_secret_hash*: CFr
+  id_commitment*: CFr
 
-## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> | using ChaCha20
-## seeded with an arbitrary long seed serialized in input_buffer
-## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
-## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
-## id commitment is the poseidon hash of the identity secret hash
-# use_little_endian: if true, uses big or little endian for serialization (default: true)
-## the return bool value indicates the success or failure of the operation
+## RLN Witness Input - all data needed for proof generation
+type ffi_RLNWitnessInput* = object
+  identity_secret*: CFr
+  user_message_limit*: CFr
+  message_id*: CFr
+  path_elements*: Vec[CFr] # Merkle proof path
+  identity_path_index*: Vec[uint8] # Merkle proof indices
+  x*: CFr # Shamir secret share x-coordinate
+  external_nullifier*: CFr
 
-proc generate_proof*(
-  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
-): bool {.importc: "generate_rln_proof".}
+## RLN Proof structure - output of proof generation
+type ffi_RLNProof* = object
+  proof*: Vec[uint8] # 128 bytes zkSNARK proof
+  root*: CFr # Merkle tree root
+  external_nullifier*: CFr
+  share_x*: CFr # Shamir secret share x
+  share_y*: CFr # Shamir secret share y
+  nullifier*: CFr # Message nullifier
 
-## rln-v2
-## input_buffer has to be serialized as [ identity_secret<32> | identity_index<8> | user_message_limit<32> | message_id<32> | external_nullifier<32> | signal_len<8> | signal<var> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
-## rln-v1
-## input_buffer has to be serialized as [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
-## integers wrapped in <> indicate value sizes in bytes
-## the return bool value indicates the success or failure of the operation
+## Merkle proof structure
+type ffi_MerkleProof* = object
+  path_elements*: Vec[CFr]
+  indices*: Vec[uint8]
 
-proc generate_proof_with_witness*(
-  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
-): bool {.importc: "generate_rln_proof_with_witness".}
+######################################################################
+## RLN Zerokit FFI2 APIs
+######################################################################
 
-## rln-v2
-## "witness" term refer to collection of secret inputs with proper serialization
-## input_buffer has to be serialized as [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | external_nullifier<32> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
-## rln-v1
-## input_buffer has to be serialized as [ id_key<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | epoch<32> | rln_identifier<32> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
-## integers wrapped in <> indicate value sizes in bytes
-## path_elements and identity_path_index serialize a merkle proof and are vectors of elements of 32 and 1 bytes respectively
-## the return bool value indicates the success or failure of the operation
+#-------------------------------- Identity Generation -----------------------------------------
 
-proc verify*(
-  ctx: ptr RLN, proof_buffer: ptr Buffer, proof_is_valid_ptr: ptr bool
-): bool {.importc: "verify_rln_proof".}
+proc ffi_key_gen*(
+  output: ptr ffi_IdentityCredential
+): bool {.importc: "ffi_key_gen".}
 
-## rln-v2
-## proof_buffer has to be serialized as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> | signal_len<8> | signal<var> ]
-## rln-v1
-## ## proof_buffer has to be serialized as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
-## the return bool value indicates the success or failure of the call to the verify function
-## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
+## Generates identity trapdoor, identity nullifier, identity secret hash and id commitment
+## Output is written directly to the ffi_IdentityCredential struct
+## Returns true on success, false on failure
 
-proc verify_with_roots*(
+proc ffi_seeded_key_gen*(
+  seed: ptr Vec[uint8], output: ptr ffi_IdentityCredential
+): bool {.importc: "ffi_seeded_key_gen".}
+
+## Generates identity using a seed (hashed with Keccak256, then used with ChaCha20)
+## Returns true on success, false on failure
+
+#-------------------------------- Circuit/Context Initialization -----------------------------------------
+
+proc ffi_new*(config_path: cstring, ctx: ptr (ptr RLN)): bool {.importc: "ffi_new".}
+## Creates an RLN instance from a config file
+## config_path: path to JSON config file containing tree settings and resources folder
+## ctx: pointer to store the created RLN instance
+## Returns true on success, false on failure
+
+proc ffi_new_with_params*(
+  zkey: ptr Vec[uint8], graph: ptr Vec[uint8], ctx: ptr (ptr RLN)
+): bool {.importc: "ffi_new_with_params".}
+
+## Creates an RLN instance from raw circuit parameters
+## zkey: proving key data
+## graph: circuit graph data
+## ctx: pointer to store the created RLN instance
+## Returns true on success, false on failure
+
+#-------------------------------- Proof Generation -----------------------------------------
+
+proc ffi_generate_rln_proof*(
   ctx: ptr RLN,
-  proof_buffer: ptr Buffer,
-  roots_buffer: ptr Buffer,
-  proof_is_valid_ptr: ptr bool,
-): bool {.importc: "verify_with_roots".}
+  witness: ptr ffi_RLNWitnessInput,
+  signal: ptr Vec[uint8],
+  output: ptr ffi_RLNProof,
+): bool {.importc: "ffi_generate_rln_proof".}
 
-## rln-v2
-## proof_buffer has to be serialized as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> | signal_len<8> | signal<var> ]
-## rln-v1
-## proof_buffer has to be serialized as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
-## roots_buffer contains the concatenation of 32 bytes long serializations in little endian of root values
-## the return bool value indicates the success or failure of the call to the verify function
-## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
+## Generates an RLN proof using the Merkle tree in the context
+## witness: structured witness input with all proof parameters
+## signal: the message being proven
+## output: structured proof output
+## Returns true on success, false on failure
 
-proc zk_prove*(
-  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
-): bool {.importc: "prove".}
+proc ffi_generate_rln_proof_stateless*(
+  zkey: ptr Vec[uint8],
+  graph: ptr Vec[uint8],
+  witness: ptr ffi_RLNWitnessInput,
+  signal: ptr Vec[uint8],
+  output: ptr ffi_RLNProof,
+): bool {.importc: "ffi_generate_rln_proof_stateless".}
 
-## Computes the zkSNARK proof and stores it in output_buffer for input values stored in input_buffer
-## rln-v2
-## input_buffer is serialized as input_data as [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | external_nullifier<32> ]
-## rln-v1
-## input_buffer is serialized as input_data as [ id_key<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | epoch<32> | rln_identifier<32> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> ]
-## path_elements and indentity_path elements serialize a merkle proof for id_key and are vectors of elements of 32 and 1 bytes, respectively (not. Vec<>).
-## x is the x coordinate of the Shamir's secret share for which the proof is computed
-## epoch is the input epoch (equivalently, the nullifier)
-## the return bool value indicates the success or failure of the operation
+## Generates an RLN proof without maintaining context state
+## Useful for one-off proof generation
+## Returns true on success, false on failure
 
-proc zk_verify*(
-  ctx: ptr RLN, proof_buffer: ptr Buffer, proof_is_valid_ptr: ptr bool
-): bool {.importc: "verify".}
+#-------------------------------- Proof Verification -----------------------------------------
 
-## Verifies the zkSNARK proof passed in proof_buffer
-## input_buffer is serialized as input_data as [ proof<128> ]
-## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
-## the return bool value indicates the success or failure of the operation
+proc ffi_verify_rln_proof*(
+  ctx: ptr RLN,
+  proof: ptr ffi_RLNProof,
+  signal: ptr Vec[uint8],
+  roots: ptr Vec[CFr], # Can be empty to use root from context
+  is_valid: ptr bool,
+): bool {.importc: "ffi_verify_rln_proof".}
 
-#-------------------------------- Common procedures -------------------------------------------
-# stateful version
-proc new_circuit*(
-  tree_depth: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
-): bool {.importc: "new".}
+## Verifies an RLN proof
+## proof: structured proof to verify
+## signal: the message that was proven
+## roots: optional vector of valid roots (empty = use context root)
+## is_valid: output parameter - true if proof is valid
+## Returns true if verification completed, false on error
+## Check is_valid for actual proof validity
 
-## creates an instance of rln object as defined by the zerokit RLN lib
-## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
-## ctx holds the final created rln object
-## the return bool value indicates the success or failure of the operation
+#-------------------------------- Merkle Tree Operations -----------------------------------------
 
-# stateless version
-proc new_circuit*(ctx: ptr (ptr RLN)): bool {.importc: "new".}
+proc ffi_set_leaf*(
+  ctx: ptr RLN, index: csize_t, leaf: ptr CFr
+): bool {.importc: "ffi_set_leaf".}
 
-proc new_circuit_from_data*(
-  zkey_buffer: ptr Buffer, graph_buffer: ptr Buffer, ctx: ptr (ptr RLN)
-): bool {.importc: "new_with_params".}
+## Sets a leaf at the specified index in the Merkle tree
+## Returns true on success, false on failure
 
-## creates an instance of rln object as defined by the zerokit RLN lib by passing the required inputs as byte arrays
-## zkey_buffer contains the bytes read from the .zkey proving key
-## graph_buffer contains the bytes read from the graph data file
-## ctx holds the final created rln object
-## the return bool value indicates the success or failure of the operation
+proc ffi_get_leaf*(
+  ctx: ptr RLN, index: csize_t, output: ptr CFr
+): bool {.importc: "ffi_get_leaf".}
 
-#-------------------------------- Hashing utils -------------------------------------------
+## Gets the leaf at the specified index from the Merkle tree
+## Returns true on success, false on failure
 
-proc sha256*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
-): bool {.importc: "hash".}
+proc ffi_get_root*(ctx: ptr RLN, output: ptr CFr): bool {.importc: "ffi_get_root".}
+## Gets the current Merkle tree root
+## Returns true on success, false on failure
 
-## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
-## this proc is used to map arbitrary signals to field element for the sake of proof generation
-## inputs_buffer holds the hash input as a byte seq
-## the hash output is generated and populated inside output_buffer
-## the output_buffer contains 32 bytes hash output
+proc ffi_get_proof*(
+  ctx: ptr RLN, index: csize_t, output: ptr ffi_MerkleProof
+): bool {.importc: "ffi_get_proof".}
 
-proc poseidon*(
-  input_buffer: ptr Buffer, output_buffer: ptr Buffer, is_little_endian: bool
-): bool {.importc: "poseidon_hash".}
+## Gets the Merkle proof for the leaf at the specified index
+## Returns true on success, false on failure
 
-## it hashes (poseidon) the plain text supplied in inputs_buffer
-## this proc is used to compute the identity secret hash, and external nullifier
-## inputs_buffer holds the hash input as a byte seq
-## the hash output is generated and populated inside output_buffer
-## the output_buffer contains 32 bytes hash output
+proc ffi_verify_merkle_proof*(
+  ctx: ptr RLN, leaf: ptr CFr, proof: ptr ffi_MerkleProof, is_valid: ptr bool
+): bool {.importc: "ffi_verify_proof".}
+
+## Verifies a Merkle proof
+## is_valid: output parameter - true if proof is valid
+## Returns true if verification completed, false on error
+
+proc ffi_set_leaves*(
+  ctx: ptr RLN, start_index: csize_t, leaves: ptr Vec[CFr]
+): bool {.importc: "ffi_set_leaves".}
+
+## Sets multiple leaves starting at start_index
+## Returns true on success, false on failure
+
+proc ffi_set_leaves_from*(
+  ctx: ptr RLN, start_index: csize_t, leaves: ptr Vec[CFr]
+): bool {.importc: "ffi_set_leaves_from".}
+
+## Sets leaves from a specific index (alternative batch operation)
+## Returns true on success, false on failure
+
+#-------------------------------- Hashing Functions -----------------------------------------
+
+proc ffi_hash_to_field_le*(
+  input: ptr Vec[uint8], output: ptr CFr
+): bool {.importc: "ffi_hash_to_field_le".}
+
+## Hashes arbitrary bytes to a field element (little-endian)
+## Used to map signals to field elements
+## Returns true on success, false on failure
+
+proc ffi_hash_to_field_be*(
+  input: ptr Vec[uint8], output: ptr CFr
+): bool {.importc: "ffi_hash_to_field_be".}
+
+## Hashes arbitrary bytes to a field element (big-endian)
+## Returns true on success, false on failure
+
+proc ffi_poseidon_hash*(
+  inputs: ptr Vec[CFr], output: ptr CFr
+): bool {.importc: "ffi_poseidon_hash".}
+
+## Computes Poseidon hash of field elements
+## Used for identity secret hash and external nullifier
+## Returns true on success, false on failure
+
+#-------------------------------- Serialization Utilities -----------------------------------------
+
+proc ffi_cfr_serialize*(
+  fr: ptr CFr, output: ptr Vec[uint8]
+): bool {.importc: "ffi_cfr_serialize".}
+
+## Serializes a field element to bytes
+## Returns true on success, false on failure
+
+proc ffi_cfr_deserialize*(
+  bytes: ptr Vec[uint8], output: ptr CFr
+): bool {.importc: "ffi_cfr_deserialize".}
+
+## Deserializes bytes to a field element
+## Returns true on success, false on failure
+
+proc ffi_vec_cfr_serialize*(
+  vec: ptr Vec[CFr], output: ptr Vec[uint8]
+): bool {.importc: "ffi_vec_cfr_serialize".}
+
+## Serializes a vector of field elements to bytes
+## Returns true on success, false on failure
+
+proc ffi_vec_cfr_deserialize*(
+  bytes: ptr Vec[uint8], output: ptr Vec[CFr]
+): bool {.importc: "ffi_vec_cfr_deserialize".}
+
+## Deserializes bytes to a vector of field elements
+## Returns true on success, false on failure
+
+proc ffi_cfr_from_uint*(
+  value: uint64, output: ptr CFr
+): bool {.importc: "ffi_cfr_from_uint".}
+
+## Creates a field element from an unsigned integer
+## Returns true on success, false on failure
+
+proc ffi_cfr_zero*(output: ptr CFr): bool {.importc: "ffi_cfr_zero".}
+## Creates a zero field element
+## Returns true on success, false on failure
+
+#-------------------------------- Helper Procedures -----------------------------------------
+
+proc newVec*[T](data: seq[T]): Vec[T] =
+  ## Helper to create a Vec from a Nim seq
+  if data.len == 0:
+    return Vec[T](data: nil, len: 0, cap: 0)
+
+  var vecData = cast[ptr T](alloc(sizeof(T) * data.len))
+  copyMem(vecData, unsafeAddr data[0], sizeof(T) * data.len)
+
+  return Vec[T](data: vecData, len: csize_t(data.len), cap: csize_t(data.len))
+
+proc toSeq*[T](vec: Vec[T]): seq[T] =
+  ## Helper to convert a Vec to a Nim seq
+  if vec.len == 0 or vec.data == nil:
+    return @[]
+
+  result = newSeq[T](vec.len)
+  copyMem(addr result[0], vec.data, sizeof(T) * vec.len.int)
+
+proc freeVec*[T](vec: var Vec[T]) =
+  ## Helper to free a Vec's memory
+  if vec.data != nil:
+    dealloc(vec.data)
+    vec.data = nil
+    vec.len = 0
+    vec.cap = 0
