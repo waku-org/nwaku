@@ -27,8 +27,10 @@
 ## ```
 
 import std/[macros, tables]
-import chronos
+import chronos, chronicles
 import ./helper/broker_utils
+
+export chronicles
 
 macro EventBroker*(body: untyped): untyped =
   var typeIdent: NimNode = nil
@@ -124,6 +126,9 @@ macro EventBroker*(body: untyped): untyped =
         var broker = `accessProcIdent`()
         if broker.nextId == 0'u64:
           broker.nextId = 1'u64
+        if broker.nextId == high(uint64):
+          error "Cannot add more listeners: ID space exhausted", nextId = $broker.nextId
+          return `listenerHandleIdent`()
         let newId = broker.nextId
         inc broker.nextId
         broker.listeners[newId] = handler
@@ -186,13 +191,13 @@ macro EventBroker*(body: untyped): untyped =
     quote do:
       proc `listenerTaskIdent`(
           callback: `handlerProcIdent`, event: `typeIdent`
-      ) {.async: (raises: [Exception]), gcsafe.} =
+      ) {.async: (raises: []), gcsafe.} =
         if callback.isNil:
           return
         try:
           await callback(event)
-        except CatchableError:
-          discard
+        except Exception:
+          error "Failed to execute event listener", error = getCurrentExceptionMsg()
 
       proc `emitImplIdent`(
           event: `typeIdent`
