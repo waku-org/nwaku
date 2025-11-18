@@ -96,7 +96,8 @@ macro EventBroker*(body: untyped): untyped =
         `exportedListenerHandleIdent` = object
           id*: uint64
 
-        `exportedHandlerProcIdent` = proc(event: `typeIdent`): Future[void] {.gcsafe.}
+        `exportedHandlerProcIdent` =
+          proc(event: `typeIdent`): Future[void] {.async: (raises: []), gcsafe.}
         `exportedBrokerTypeIdent` = ref object
           listeners: Table[uint64, `handlerProcIdent`]
           nextId: uint64
@@ -120,19 +121,21 @@ macro EventBroker*(body: untyped): untyped =
 
   result.add(
     quote do:
-      proc `listenImplIdent`(handler: `handlerProcIdent`): `listenerHandleIdent` =
-        if handler.isNil:
-          return `listenerHandleIdent`()
+      proc `listenImplIdent`(
+          handler: `handlerProcIdent`
+      ): Result[`listenerHandleIdent`, string] =
+        if handler.isNil():
+          return err("Must provide a non-nil event handler")
         var broker = `accessProcIdent`()
         if broker.nextId == 0'u64:
           broker.nextId = 1'u64
         if broker.nextId == high(uint64):
           error "Cannot add more listeners: ID space exhausted", nextId = $broker.nextId
-          return `listenerHandleIdent`()
+          return err("Cannot add more listeners, listener ID space exhausted")
         let newId = broker.nextId
         inc broker.nextId
         broker.listeners[newId] = handler
-        `listenerHandleIdent`(id: newId)
+        ok(`listenerHandleIdent`(id: newId))
 
   )
 
@@ -161,12 +164,12 @@ macro EventBroker*(body: untyped): untyped =
     quote do:
       proc listen*(
           _: typedesc[`typeIdent`], handler: `handlerProcIdent`
-      ): `listenerHandleIdent` =
+      ): Result[`listenerHandleIdent`, string] =
         `listenImplIdent`(handler)
 
       proc listen*(
           _: typedesc[`brokerTypeIdent`], handler: `handlerProcIdent`
-      ): `listenerHandleIdent` =
+      ): Result[`listenerHandleIdent`, string] =
         `listenImplIdent`(handler)
 
   )
@@ -201,9 +204,10 @@ macro EventBroker*(body: untyped): untyped =
 
       proc `emitImplIdent`(
           event: `typeIdent`
-      ): Future[void] {.async: (raises: [Exception]), gcsafe.} =
+      ): Future[void] {.async: (raises: []), gcsafe.} =
         let broker = `accessProcIdent`()
         if broker.listeners.len == 0:
+          # nothing to do as nobody is listening
           return
         var callbacks: seq[`handlerProcIdent`] = @[]
         for cb in broker.listeners.values:

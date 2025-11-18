@@ -64,7 +64,7 @@ proc isReturnTypeValid(returnType, typeIdent: NimNode): bool =
 proc copyParam(def: NimNode): NimNode =
   ## Build a fresh IdentDefs node for proc type definitions.
   assert def.kind == nnkIdentDefs
-  result = newTree(nnkIdentDefs, ident("input"), def[def.len - 2], newEmptyNode())
+  newTree(nnkIdentDefs, ident("input"), def[def.len - 2], newEmptyNode())
 
 proc makeProcType(returnType: NimNode, params: seq[NimNode]): NimNode =
   var formal = newTree(nnkFormalParams)

@@ -2,13 +2,14 @@ import std/macros
 
 proc sanitizeIdentName*(node: NimNode): string =
   var raw = $node
-  result = newStringOfCap(raw.len)
+  var sanitizedName = newStringOfCap(raw.len)
   for ch in raw:
     case ch
     of 'A' .. 'Z', 'a' .. 'z', '0' .. '9', '_':
-      result.add(ch)
+      sanitizedName.add(ch)
     else:
-      result.add('_')
+      sanitizedName.add('_')
+  sanitizedName
 
 proc ensureFieldDef*(node: NimNode) =
   if node.kind != nnkIdentDefs or node.len < 3:

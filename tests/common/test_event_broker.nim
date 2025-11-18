@@ -21,12 +21,12 @@ suite "EventBroker":
     var seen: seq[(int, string)] = @[]
 
     discard SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         seen.add((evt.value, evt.label))
     )
 
     discard SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         seen.add((evt.value * 2, evt.label & "!"))
     )
 
@@ -42,16 +42,16 @@ suite "EventBroker":
     var counter = 0
 
     let handleA = SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         inc counter
     )
 
     discard SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         inc(counter, 2)
     )
 
-    SampleEvent.forget(handleA)
+    SampleEvent.forget(handleA.get())
     let eventVal = SampleEvent(value: 1, label: "one")
     SampleEvent.emit(eventVal)
     waitForListeners()
@@ -61,11 +61,11 @@ suite "EventBroker":
     var triggered = false
 
     discard SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         triggered = true
     )
     discard SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         discard
     )
 
@@ -76,17 +76,17 @@ suite "EventBroker":
     check not triggered
 
     let freshHandle = SampleEvent.listen(
-      proc(evt: SampleEvent): Future[void] {.async.} =
+      proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         discard
     )
-    check freshHandle.id > 0'u64
-    SampleEvent.forget(freshHandle)
+    check freshHandle.get().id > 0'u64
+    SampleEvent.forget(freshHandle.get())
 
   test "broker helpers operate via typedesc":
     var toggles: seq[bool] = @[]
 
     discard BinaryEventBroker.listen(
-      proc(evt: BinaryEvent): Future[void] {.async.} =
+      proc(evt: BinaryEvent): Future[void] {.async: (raises: []).} =
         toggles.add(evt.flag)
     )
 
