@@ -663,9 +663,8 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       var peerInfo = pm.switch.peerStore.getPeer(peerId)
       peerInfo.shards = metadata.shards.mapIt(it.uint16)
       # Note: We don't need to call updatePeerInfo since we modified the reference directly
-      debug "Updated peer shards from metadata", 
-        peerId = peerId, 
-        shards = peerInfo.shards
+      debug "Updated peer shards from metadata",
+        peerId = peerId, shards = peerInfo.shards
 
     return
 
