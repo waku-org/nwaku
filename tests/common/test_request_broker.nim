@@ -17,7 +17,9 @@ RequestBroker:
     key*: string
     payload*: string
 
-  proc signatureFetchWithKey*(key: string): Future[Result[KeyedResponse, string]]
+  proc signatureFetchWithKey*(
+    key: string, subKey: int
+  ): Future[Result[KeyedResponse, string]]
 
 RequestBroker:
   type DualResponse = object
@@ -52,20 +54,21 @@ suite "RequestBroker macro":
   test "serves input-based providers":
     var seen: seq[string] = @[]
     KeyedResponse.setProvider(
-      proc(key: string): Future[Result[KeyedResponse, string]] {.async.} =
+      proc(key: string, subKey: int): Future[Result[KeyedResponse, string]] {.async.} =
         seen.add(key)
-        ok(KeyedResponse(key: key, payload: key & "-payload"))
+        ok(KeyedResponse(key: key, payload: key & "-payload+" & $subKey))
     )
 
-    let res = waitFor KeyedResponse.request("topic")
+    let res = waitFor KeyedResponse.request("topic", 1)
     check res.isOk
     check res.value.key == "topic"
+    check res.value.payload == "topic-payload+1"
     check seen == @["topic"]
 
     KeyedResponse.clearProvider()
 
   test "input request errors when unset":
-    let res = waitFor KeyedResponse.request("foo")
+    let res = waitFor KeyedResponse.request("foo", 2)
     check res.isErr
     check res.error.contains("input signature")
 

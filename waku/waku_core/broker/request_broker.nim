@@ -61,10 +61,22 @@ proc isReturnTypeValid(returnType, typeIdent: NimNode): bool =
     return false
   inner[2].kind == nnkIdent and inner[2].eqIdent("string")
 
-proc copyParam(def: NimNode): NimNode =
-  ## Build a fresh IdentDefs node for proc type definitions.
-  assert def.kind == nnkIdentDefs
-  newTree(nnkIdentDefs, ident("input"), def[def.len - 2], newEmptyNode())
+proc cloneParams(params: seq[NimNode]): seq[NimNode] =
+  ## Deep copy parameter definitions so they can be inserted in multiple places.
+  result = @[]
+  for param in params:
+    result.add(copyNimTree(param))
+
+proc collectParamNames(params: seq[NimNode]): seq[NimNode] =
+  ## Extract all identifier symbols declared across IdentDefs nodes.
+  result = @[]
+  for param in params:
+    assert param.kind == nnkIdentDefs
+    for i in 0 ..< param.len - 2:
+      let nameNode = param[i]
+      if nameNode.kind == nnkEmpty:
+        continue
+      result.add(ident($nameNode))
 
 proc makeProcType(returnType: NimNode, params: seq[NimNode]): NimNode =
   var formal = newTree(nnkFormalParams)
@@ -124,10 +136,9 @@ macro RequestBroker*(body: untyped): untyped =
   var zeroArgProviderName: NimNode = nil
   var zeroArgFieldName: NimNode = nil
   var argSig: NimNode = nil
-  var argParam: NimNode = nil
+  var argParams: seq[NimNode] = @[]
   var argProviderName: NimNode = nil
   var argFieldName: NimNode = nil
-  var argTypeNode: NimNode = nil
 
   for stmt in body:
     case stmt.kind
@@ -159,19 +170,29 @@ macro RequestBroker*(body: untyped): untyped =
         zeroArgSig = stmt
         zeroArgProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderNoArgs")
         zeroArgFieldName = ident("providerNoArgs")
-      elif paramCount == 1:
+      elif paramCount >= 1:
         if argSig != nil:
           error("Only one argument-based signature is allowed", stmt)
-        let paramTypeNode = params[1][params[1].len - 2]
-        if paramTypeNode.kind == nnkEmpty:
-          error("Signature parameter must declare a type", params[1])
         argSig = stmt
-        argParam = copyParam(params[1])
-        argTypeNode = copyNimTree(paramTypeNode)
+        argParams = @[]
+        for idx in 1 ..< params.len:
+          let paramDef = params[idx]
+          if paramDef.kind != nnkIdentDefs:
+            error(
+              "Signature parameter must be a standard identifier declaration", paramDef
+            )
+          let paramTypeNode = paramDef[paramDef.len - 2]
+          if paramTypeNode.kind == nnkEmpty:
+            error("Signature parameter must declare a type", paramDef)
+          var hasName = false
+          for i in 0 ..< paramDef.len - 2:
+            if paramDef[i].kind != nnkEmpty:
+              hasName = true
+          if not hasName:
+            error("Signature parameter must declare a name", paramDef)
+          argParams.add(copyNimTree(paramDef))
         argProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderWithArgs")
         argFieldName = ident("providerWithArgs")
-      else:
-        error("Signatures may define at most one parameter", stmt)
     of nnkTypeSection, nnkEmpty:
       discard
     else:
@@ -192,7 +213,7 @@ macro RequestBroker*(body: untyped): untyped =
     let procType = makeProcType(returnType, @[])
     typeSection.add(newTree(nnkTypeDef, zeroArgProviderName, newEmptyNode(), procType))
   if not argSig.isNil:
-    let procType = makeProcType(returnType, @[argParam])
+    let procType = makeProcType(returnType, cloneParams(argParams))
     typeSection.add(newTree(nnkTypeDef, argProviderName, newEmptyNode(), procType))
 
   var brokerRecList = newTree(nnkRecList)
@@ -263,19 +284,52 @@ macro RequestBroker*(body: untyped): untyped =
       quote do:
         `accessProcIdent`().`argFieldName` = nil
     )
-    result.add(
+    let requestParamDefs = cloneParams(argParams)
+    let argNameIdents = collectParamNames(requestParamDefs)
+    let providerSym = genSym(nskLet, "provider")
+    var formalParams = newTree(nnkFormalParams)
+    formalParams.add(
       quote do:
-        proc request*(
-            _: typedesc[`typeIdent`], input: `argTypeNode`
-        ): Future[Result[`typeIdent`, string]] =
-          let provider = `accessProcIdent`().`argFieldName`
-          if provider.isNil:
-            return errorFuture[`typeIdent`](
-              "RequestBroker(" & `typeNameLit` &
-                "): no provider registered for input signature"
-            )
-          provider(input)
-
+        Future[Result[`typeIdent`, string]]
+    )
+    formalParams.add(
+      newTree(
+        nnkIdentDefs,
+        ident("_"),
+        newTree(nnkBracketExpr, ident("typedesc"), copyNimTree(typeIdent)),
+        newEmptyNode(),
+      )
+    )
+    for paramDef in requestParamDefs:
+      formalParams.add(paramDef)
+    var providerCall = newCall(providerSym)
+    for argName in argNameIdents:
+      providerCall.add(argName)
+    var requestBody = newStmtList()
+    requestBody.add(
+      quote do:
+        let `providerSym` = `accessProcIdent`().`argFieldName`
+    )
+    requestBody.add(
+      quote do:
+        if `providerSym`.isNil:
+          return errorFuture[`typeIdent`](
+            "RequestBroker(" & `typeNameLit` &
+              "): no provider registered for input signature"
+          )
+    )
+    requestBody.add(providerCall)
+    result.add(
+      newTree(
+        nnkProcDef,
+        postfix(ident("request"), "*"),
+        newEmptyNode(),
+        newEmptyNode(),
+        formalParams,
+        newEmptyNode(),
+        newEmptyNode(),
+        requestBody,
+      )
     )
 
   result.add(
