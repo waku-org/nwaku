@@ -16,7 +16,9 @@ MultiRequestBroker:
   type ArgResponse = object
     id*: string
 
-  proc signatureFetch*(suffix: string): Future[Result[ArgResponse, string]] {.async.}
+  proc signatureFetch*(
+    suffix: string, numsuffix: int
+  ): Future[Result[ArgResponse, string]] {.async.}
 
 MultiRequestBroker:
   type DualResponse = object
@@ -51,19 +53,19 @@ suite "MultiRequestBroker":
 
   test "aggregates argument providers":
     discard ArgResponse.setProvider(
-      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
-        ok(ArgResponse(id: suffix & "-a"))
+      proc(suffix: string, num: int): Future[Result[ArgResponse, string]] {.async.} =
+        ok(ArgResponse(id: suffix & "-a-" & $num))
     )
 
     discard ArgResponse.setProvider(
-      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
-        ok(ArgResponse(id: suffix & "-b"))
+      proc(suffix: string, num: int): Future[Result[ArgResponse, string]] {.async.} =
+        ok(ArgResponse(id: suffix & "-b-" & $num))
     )
 
-    let keyed = waitFor ArgResponse.request("topic")
+    let keyed = waitFor ArgResponse.request("topic", 1)
     check keyed.get().len == 2
-    check keyed.get().anyIt(it.id == "topic-a")
-    check keyed.get().anyIt(it.id == "topic-b")
+    check keyed.get().anyIt(it.id == "topic-a-1")
+    check keyed.get().anyIt(it.id == "topic-b-1")
 
     ArgResponse.clearProviders()
 
@@ -165,24 +167,24 @@ suite "MultiRequestBroker":
     var invoked: seq[string] = @[]
 
     discard ArgResponse.setProvider(
-      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
+      proc(suffix: string, num: int): Future[Result[ArgResponse, string]] {.async.} =
         invoked.add("first" & suffix)
-        ok(ArgResponse(id: suffix & "-one"))
+        ok(ArgResponse(id: suffix & "-one-" & $num))
     )
 
     let handle = ArgResponse.setProvider(
-      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
+      proc(suffix: string, num: int): Future[Result[ArgResponse, string]] {.async.} =
         invoked.add("second" & suffix)
-        ok(ArgResponse(id: suffix & "-two"))
+        ok(ArgResponse(id: suffix & "-two-" & $num))
     )
 
     ArgResponse.removeProvider(handle.get())
 
-    let single = (waitFor ArgResponse.request("topic")).valueOr:
+    let single = (waitFor ArgResponse.request("topic", 1)).valueOr:
       assert false, "request failed"
       @[]
     check single.len == 1
-    check single[0].id == "topic-one"
+    check single[0].id == "topic-one-1"
     check invoked == @["firsttopic"]
 
     ArgResponse.clearProviders()

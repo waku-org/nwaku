@@ -67,10 +67,22 @@ proc isReturnTypeValid(returnType, typeIdent: NimNode): bool =
     return false
   inner[2].kind == nnkIdent and inner[2].eqIdent("string")
 
-proc copyParam(def: NimNode): NimNode =
-  ## Build a fresh IdentDefs node for proc type definitions.
-  assert def.kind == nnkIdentDefs
-  newTree(nnkIdentDefs, ident("input"), def[def.len - 2], newEmptyNode())
+proc cloneParams(params: seq[NimNode]): seq[NimNode] =
+  ## Deep copy parameter definitions so they can be reused in generated nodes.
+  result = @[]
+  for param in params:
+    result.add(copyNimTree(param))
+
+proc collectParamNames(params: seq[NimNode]): seq[NimNode] =
+  ## Extract identifiers declared in parameter definitions.
+  result = @[]
+  for param in params:
+    assert param.kind == nnkIdentDefs
+    for i in 0 ..< param.len - 2:
+      let nameNode = param[i]
+      if nameNode.kind == nnkEmpty:
+        continue
+      result.add(ident($nameNode))
 
 proc makeProcType(returnType: NimNode, params: seq[NimNode]): NimNode =
   var formal = newTree(nnkFormalParams)
@@ -141,10 +153,9 @@ macro MultiRequestBroker*(body: untyped): untyped =
   var zeroArgProviderName: NimNode = nil
   var zeroArgFieldName: NimNode = nil
   var argSig: NimNode = nil
-  var argParam: NimNode = nil
+  var argParams: seq[NimNode] = @[]
   var argProviderName: NimNode = nil
   var argFieldName: NimNode = nil
-  var argTypeNode: NimNode = nil
 
   for stmt in body:
     case stmt.kind
@@ -176,19 +187,29 @@ macro MultiRequestBroker*(body: untyped): untyped =
         zeroArgSig = stmt
         zeroArgProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderNoArgs")
         zeroArgFieldName = ident("providerNoArgs")
-      elif paramCount == 1:
+      elif paramCount >= 1:
         if argSig != nil:
           error("Only one argument-based signature is allowed", stmt)
-        let paramTypeNode = params[1][params[1].len - 2]
-        if paramTypeNode.kind == nnkEmpty:
-          error("Signature parameter must declare a type", params[1])
         argSig = stmt
-        argParam = copyParam(params[1])
-        argTypeNode = copyNimTree(paramTypeNode)
+        argParams = @[]
+        for idx in 1 ..< params.len:
+          let paramDef = params[idx]
+          if paramDef.kind != nnkIdentDefs:
+            error(
+              "Signature parameter must be a standard identifier declaration", paramDef
+            )
+          let paramTypeNode = paramDef[paramDef.len - 2]
+          if paramTypeNode.kind == nnkEmpty:
+            error("Signature parameter must declare a type", paramDef)
+          var hasName = false
+          for i in 0 ..< paramDef.len - 2:
+            if paramDef[i].kind != nnkEmpty:
+              hasName = true
+          if not hasName:
+            error("Signature parameter must declare a name", paramDef)
+          argParams.add(copyNimTree(paramDef))
         argProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderWithArgs")
         argFieldName = ident("providerWithArgs")
-      else:
-        error("Signatures may define at most one parameter", stmt)
     of nnkTypeSection, nnkEmpty:
       discard
     else:
@@ -230,7 +251,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
     let procType = makeProcType(returnType, @[])
     typeSection.add(newTree(nnkTypeDef, zeroArgProviderName, newEmptyNode(), procType))
   if not argSig.isNil:
-    let procType = makeProcType(returnType, @[argParam])
+    let procType = makeProcType(returnType, cloneParams(argParams))
     typeSection.add(newTree(nnkTypeDef, argProviderName, newEmptyNode(), procType))
 
   var brokerRecList = newTree(nnkRecList)
@@ -384,38 +405,64 @@ macro MultiRequestBroker*(body: untyped): untyped =
         if not broker.isNil and broker.`argFieldName`.len > 0:
           broker.`argFieldName`.clear()
     )
-    result.add(
+    let requestParamDefs = cloneParams(argParams)
+    let argNameIdents = collectParamNames(requestParamDefs)
+    let providerSym = genSym(nskLet, "providerVal")
+    var providerCall = newCall(providerSym)
+    for argName in argNameIdents:
+      providerCall.add(argName)
+    var formalParams = newTree(nnkFormalParams)
+    formalParams.add(
       quote do:
-        proc request*(
-            _: typedesc[`typeIdent`], input: `argTypeNode`
-        ): Future[Result[seq[`typeIdent`], string]] {.async: (raises: []), gcsafe.} =
-          var aggregated: seq[`typeIdent`] = @[]
-          let providers = `accessProcIdent`().`argFieldName`
-          if providers.len == 0:
-            return ok(aggregated)
-          var providersFut = collect(newSeq):
-            for provider in providers.values:
-              if provider.isNil:
-                continue
-              provider(input)
-
-          let catchable = catch:
-            await allFinished(providersFut)
-
-          catchable.isOkOr:
-            return err("Some provider(s) failed:" & error.msg)
-
-          for fut in catchable.get():
-            if fut.failed():
-              return err("Some provider(s) failed:" & fut.error.msg)
-            elif fut.finished():
-              if fut.value().isOk:
-                aggregated.add(fut.value().get())
-              else:
-                return err("Some provider(s) failed:" & fut.value().error)
-
-          ok(aggregated)
-
+        Future[Result[seq[`typeIdent`], string]]
+    )
+    formalParams.add(
+      newTree(
+        nnkIdentDefs,
+        ident("_"),
+        newTree(nnkBracketExpr, ident("typedesc"), copyNimTree(typeIdent)),
+        newEmptyNode(),
+      )
+    )
+    for paramDef in requestParamDefs:
+      formalParams.add(paramDef)
+    let requestPragmas = quote:
+      {.async: (raises: []), gcsafe.}
+    let requestBody = quote:
+      var aggregated: seq[`typeIdent`] = @[]
+      let providers = `accessProcIdent`().`argFieldName`
+      if providers.len == 0:
+        return ok(aggregated)
+      var providersFut = collect(newSeq):
+        for provider in providers.values:
+          if provider.isNil:
+            continue
+          let `providerSym` = provider
+          `providerCall`
+      let catchable = catch:
+        await allFinished(providersFut)
+      catchable.isOkOr:
+        return err("Some provider(s) failed:" & error.msg)
+      for fut in catchable.get():
+        if fut.failed():
+          return err("Some provider(s) failed:" & fut.error.msg)
+        elif fut.finished():
+          if fut.value().isOk:
+            aggregated.add(fut.value().get())
+          else:
+            return err("Some provider(s) failed:" & fut.value().error)
+      ok(aggregated)
+    result.add(
+      newTree(
+        nnkProcDef,
+        postfix(ident("request"), "*"),
+        newEmptyNode(),
+        newEmptyNode(),
+        formalParams,
+        requestPragmas,
+        newEmptyNode(),
+        requestBody,
+      )
     )
 
   result.add(
