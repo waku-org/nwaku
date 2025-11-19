@@ -83,7 +83,7 @@ proc makeProcType(returnType: NimNode, params: seq[NimNode]): NimNode =
   formal.add(returnType)
   for param in params:
     formal.add(param)
-  let pragmas = newTree(nnkPragma, ident("gcsafe"))
+  let pragmas = newTree(nnkPragma, ident("async"))
   newTree(nnkProcTy, formal, pragmas)
 
 macro RequestBroker*(body: untyped): untyped =
@@ -264,13 +264,21 @@ macro RequestBroker*(body: untyped): untyped =
     )
     result.add(
       quote do:
-        proc request*(_: typedesc[`typeIdent`]): Future[Result[`typeIdent`, string]] =
+        proc request*(
+            _: typedesc[`typeIdent`]
+        ): Future[Result[`typeIdent`, string]] {.async: (raises: []).} =
           let provider = `accessProcIdent`().`zeroArgFieldName`
           if provider.isNil:
-            return errorFuture[`typeIdent`](
+            return err(
               "RequestBroker(" & `typeNameLit` & "): no zero-arg provider registered"
             )
-          provider()
+          let catchedRes = catch:
+            await provider()
+
+          if catchedRes.isErr:
+            return err("Request failed:" & catchedRes.error.msg)
+
+          catchedRes.get()
 
     )
   if not argSig.isNil:
@@ -302,6 +310,9 @@ macro RequestBroker*(body: untyped): untyped =
     )
     for paramDef in requestParamDefs:
       formalParams.add(paramDef)
+
+    let requestPragmas = quote:
+      {.async: (raises: []), gcsafe.}
     var providerCall = newCall(providerSym)
     for argName in argNameIdents:
       providerCall.add(argName)
@@ -313,12 +324,21 @@ macro RequestBroker*(body: untyped): untyped =
     requestBody.add(
       quote do:
         if `providerSym`.isNil:
-          return errorFuture[`typeIdent`](
+          return err(
             "RequestBroker(" & `typeNameLit` &
               "): no provider registered for input signature"
           )
     )
-    requestBody.add(providerCall)
+    requestBody.add(
+      quote do:
+        let catchedRes = catch:
+          await `providerCall`
+        if catchedRes.isErr:
+          return err("Request failed:" & catchedRes.error.msg)
+
+        catchedRes.get()
+    )
+    # requestBody.add(providerCall)
     result.add(
       newTree(
         nnkProcDef,
@@ -326,7 +346,7 @@ macro RequestBroker*(body: untyped): untyped =
         newEmptyNode(),
         newEmptyNode(),
         formalParams,
-        newEmptyNode(),
+        requestPragmas,
         newEmptyNode(),
         requestBody,
       )

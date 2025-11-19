@@ -10,7 +10,7 @@ RequestBroker:
   type SimpleResponse = object
     value*: string
 
-  proc signatureFetch*(): Future[Result[SimpleResponse, string]]
+  proc signatureFetch*(): Future[Result[SimpleResponse, string]] {.async.}
 
 RequestBroker:
   type KeyedResponse = object
@@ -19,15 +19,17 @@ RequestBroker:
 
   proc signatureFetchWithKey*(
     key: string, subKey: int
-  ): Future[Result[KeyedResponse, string]]
+  ): Future[Result[KeyedResponse, string]] {.async.}
 
 RequestBroker:
   type DualResponse = object
     note*: string
     count*: int
 
-  proc signatureNoInput*(): Future[Result[DualResponse, string]]
-  proc signatureWithInput*(suffix: string): Future[Result[DualResponse, string]]
+  proc signatureNoInput*(): Future[Result[DualResponse, string]] {.async.}
+  proc signatureWithInput*(
+    suffix: string
+  ): Future[Result[DualResponse, string]] {.async.}
 
 RequestBroker:
   type ImplicitResponse = object
