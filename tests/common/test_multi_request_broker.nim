@@ -3,6 +3,7 @@
 import testutils/unittests
 import chronos
 import std/sequtils
+import std/strutils
 
 import waku/waku_core/broker/multi_request_broker
 
@@ -103,7 +104,7 @@ suite "MultiRequestBroker":
     NoArgResponse.clearProviders()
     discard NoArgResponse.setProvider(
       proc(): Future[Result[NoArgResponse, string]] {.async.} =
-        err(Result[NoArgResponse, string], "boom")
+        err("boom")
     )
 
     discard NoArgResponse.setProvider(
@@ -188,3 +189,21 @@ suite "MultiRequestBroker":
     check invoked == @["firsttopic"]
 
     ArgResponse.clearProviders()
+
+  test "catches exception from providers and report error":
+    let firstHandler = NoArgResponse.setProvider(
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
+        raise newException(ValueError, "first handler raised")
+        ok(NoArgResponse(label: "any"))
+    )
+
+    discard NoArgResponse.setProvider(
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
+        ok(NoArgResponse(label: "just ok"))
+    )
+
+    let afterException = waitFor NoArgResponse.request()
+    check afterException.isErr()
+    check afterException.error().contains("first handler raised")
+
+    NoArgResponse.clearProviders()

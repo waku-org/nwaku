@@ -69,6 +69,19 @@ suite "RequestBroker macro":
 
     KeyedResponse.clearProvider()
 
+  test "catches provider exception":
+    KeyedResponse.setProvider(
+      proc(key: string, subKey: int): Future[Result[KeyedResponse, string]] {.async.} =
+        raise newException(ValueError, "simulated failure")
+        ok(KeyedResponse(key: key, payload: ""))
+    )
+
+    let res = waitFor KeyedResponse.request("neglected", 11)
+    check res.isErr()
+    check res.error.contains("simulated failure")
+
+    KeyedResponse.clearProvider()
+
   test "input request errors when unset":
     let res = waitFor KeyedResponse.request("foo", 2)
     check res.isErr
