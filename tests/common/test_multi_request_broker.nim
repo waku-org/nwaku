@@ -10,31 +10,33 @@ MultiRequestBroker:
   type NoArgResponse = object
     label*: string
 
-  proc signatureFetch*(): Future[Result[NoArgResponse, string]]
+  proc signatureFetch*(): Future[Result[NoArgResponse, string]] {.async.}
 
 MultiRequestBroker:
   type ArgResponse = object
     id*: string
 
-  proc signatureFetch*(suffix: string): Future[Result[ArgResponse, string]]
+  proc signatureFetch*(suffix: string): Future[Result[ArgResponse, string]] {.async.}
 
 MultiRequestBroker:
   type DualResponse = object
     note*: string
     suffix*: string
 
-  proc signatureBase*(): Future[Result[DualResponse, string]]
-  proc signatureWithInput*(suffix: string): Future[Result[DualResponse, string]]
+  proc signatureBase*(): Future[Result[DualResponse, string]] {.async.}
+  proc signatureWithInput*(
+    suffix: string
+  ): Future[Result[DualResponse, string]] {.async.}
 
 suite "MultiRequestBroker":
   test "aggregates zero-argument providers":
     discard NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         ok(NoArgResponse(label: "one"))
     )
 
     discard NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         discard catch:
           await sleepAsync(1.milliseconds)
         ok(NoArgResponse(label: "two"))
@@ -49,16 +51,12 @@ suite "MultiRequestBroker":
 
   test "aggregates argument providers":
     discard ArgResponse.setProvider(
-      proc(
-          suffix: string
-      ): Future[Result[ArgResponse, string]] {.async: (raises: []).} =
+      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
         ok(ArgResponse(id: suffix & "-a"))
     )
 
     discard ArgResponse.setProvider(
-      proc(
-          suffix: string
-      ): Future[Result[ArgResponse, string]] {.async: (raises: []).} =
+      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
         ok(ArgResponse(id: suffix & "-b"))
     )
 
@@ -71,14 +69,12 @@ suite "MultiRequestBroker":
 
   test "clearProviders resets both provider lists":
     discard DualResponse.setProvider(
-      proc(): Future[Result[DualResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[DualResponse, string]] {.async.} =
         ok(DualResponse(note: "base", suffix: ""))
     )
 
     discard DualResponse.setProvider(
-      proc(
-          suffix: string
-      ): Future[Result[DualResponse, string]] {.async: (raises: []).} =
+      proc(suffix: string): Future[Result[DualResponse, string]] {.async.} =
         ok(DualResponse(note: "base" & suffix, suffix: suffix))
     )
 
@@ -104,12 +100,12 @@ suite "MultiRequestBroker":
   test "failed providers will fail the request":
     NoArgResponse.clearProviders()
     discard NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         err(Result[NoArgResponse, string], "boom")
     )
 
     discard NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         ok(NoArgResponse(label: "survivor"))
     )
 
@@ -121,9 +117,7 @@ suite "MultiRequestBroker":
   test "deduplicates identical zero-argument providers":
     NoArgResponse.clearProviders()
     var invocations = 0
-    let sharedHandler = proc(): Future[Result[NoArgResponse, string]] {.
-        async: (raises: [])
-    .} =
+    let sharedHandler = proc(): Future[Result[NoArgResponse, string]] {.async.} =
       inc invocations
       ok(NoArgResponse(label: "dup"))
 
@@ -144,13 +138,13 @@ suite "MultiRequestBroker":
     var keptCalled = false
 
     let removable = NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         removedCalled = true
         ok(NoArgResponse(label: "removed"))
     )
 
     discard NoArgResponse.setProvider(
-      proc(): Future[Result[NoArgResponse, string]] {.async: (raises: []).} =
+      proc(): Future[Result[NoArgResponse, string]] {.async.} =
         keptCalled = true
         ok(NoArgResponse(label: "kept"))
     )
@@ -171,17 +165,13 @@ suite "MultiRequestBroker":
     var invoked: seq[string] = @[]
 
     discard ArgResponse.setProvider(
-      proc(
-          suffix: string
-      ): Future[Result[ArgResponse, string]] {.async: (raises: []).} =
+      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
         invoked.add("first" & suffix)
         ok(ArgResponse(id: suffix & "-one"))
     )
 
     let handle = ArgResponse.setProvider(
-      proc(
-          suffix: string
-      ): Future[Result[ArgResponse, string]] {.async: (raises: []).} =
+      proc(suffix: string): Future[Result[ArgResponse, string]] {.async.} =
         invoked.add("second" & suffix)
         ok(ArgResponse(id: suffix & "-two"))
     )

@@ -79,7 +79,7 @@ proc makeProcType(returnType: NimNode, params: seq[NimNode]): NimNode =
     formal.add(param)
 
   let pragmas = quote:
-    {.async: (raises: []), gcsafe.}
+    {.async.}
 
   newTree(nnkProcTy, formal, pragmas)
 
