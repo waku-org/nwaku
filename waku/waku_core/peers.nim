@@ -111,7 +111,9 @@ proc init*(
     shards: seq[uint16] = @[],
 ): T {.raises: [Defect, ResultError[cstring], LPError].} =
   let peerId = PeerID.init(peerId).tryGet()
-  RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols, shards: shards)
+  RemotePeerInfo(
+    peerId: peerId, addrs: addrs, enr: enr, protocols: protocols, shards: shards
+  )
 
 ## Parse
 
@@ -368,7 +370,7 @@ proc getAgent*(peer: RemotePeerInfo): string =
 proc getShards*(peer: RemotePeerInfo): seq[uint16] =
   if peer.shards.len > 0:
     return peer.shards
-  
+
   if peer.enr.isNone():
     return @[]
 
