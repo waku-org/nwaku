@@ -25,6 +25,7 @@ type RlnKeystoreGeneratorConf* = object
   credPassword*: string
   userMessageLimit*: uint64
   ethPrivateKey*: string
+  useMaxGasPrice*: bool
 
 proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   # 1. load configuration
@@ -59,6 +60,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     keystorePath: none(string),
     keystorePassword: none(string),
     ethPrivateKey: some(conf.ethPrivateKey),
+    useMaxGasPrice: conf.useMaxGasPrice,
     onFatalErrorAction: onFatalErrorAction,
   )
   try:
