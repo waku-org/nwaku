@@ -39,6 +39,9 @@ type
   # Keeps track of the ENR (Ethereum Node Record) of a peer
   ENRBook* = ref object of PeerBook[enr.Record]
 
+  # Keeps track of peer shards
+  ShardBook* = ref object of PeerBook[seq[uint16]]
+
 proc getPeer*(peerStore: PeerStore, peerId: PeerId): RemotePeerInfo =
   let addresses =
     if peerStore[LastSeenBook][peerId].isSome():
@@ -55,6 +58,7 @@ proc getPeer*(peerStore: PeerStore, peerId: PeerId): RemotePeerInfo =
       else:
         none(enr.Record),
     protocols: peerStore[ProtoBook][peerId],
+    shards: peerStore[ShardBook][peerId],
     agent: peerStore[AgentBook][peerId],
     protoVersion: peerStore[ProtoVersionBook][peerId],
     publicKey: peerStore[KeyBook][peerId],
@@ -76,6 +80,7 @@ proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
       toSeq(peerStore[AddressBook].book.keys()),
       toSeq(peerStore[ProtoBook].book.keys()),
       toSeq(peerStore[KeyBook].book.keys()),
+      toSeq(peerStore[ShardBook].book.keys()),
     )
     .toHashSet()
 
@@ -126,6 +131,9 @@ proc addPeer*(peerStore: PeerStore, peer: RemotePeerInfo, origin = UnknownOrigin
     peerStore[NumberFailedConnBook].book.hasKeyOrPut(peer.peerId, peer.numberFailedConn)
   if peer.enr.isSome():
     peerStore[ENRBook][peer.peerId] = peer.enr.get()
+
+proc setShardInfo*(peerStore: PeerStore, peerId: PeerID, shards: seq[uint16]) =
+  peerStore[ShardBook][peerId] = shards
 
 proc peers*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
   peerStore.peers().filterIt(it.protocols.contains(proto))

@@ -658,6 +658,11 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
         $clusterId
       break guardClauses
 
+    # Store the shard information from metadata in the peer store
+    if pm.switch.peerStore.peerExists(peerId):
+      let shards = metadata.shards.mapIt(it.uint16)
+      pm.switch.peerStore.setShardInfo(peerId, shards)
+
     return
 
   info "disconnecting from peer", peerId = peerId, reason = reason
