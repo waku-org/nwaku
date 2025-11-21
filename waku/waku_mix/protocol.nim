@@ -182,11 +182,11 @@ proc new*(
     peermgr.switch.peerInfo.publicKey.skkey, peermgr.switch.peerInfo.privateKey.skkey,
   )
   if bootnodes.len < mixMixPoolSize:
-    warn "publishing with mix won't work until atleast 3 mix nodes in node pool"
+    warn "publishing with mix won't work until there are 3 mix nodes in node pool"
   let initTable = processBootNodes(bootnodes, peermgr)
 
   if len(initTable) < mixMixPoolSize:
-    warn "publishing with mix won't work until atleast  3 mix nodes in node pool"
+    warn "publishing with mix won't work until there are 3 mix nodes in node pool"
   var m = WakuMix(peerManager: peermgr, clusterId: clusterId, pubKey: mixPubKey)
   procCall MixProtocol(m).init(localMixNodeInfo, initTable, peermgr.switch)
   return ok(m)

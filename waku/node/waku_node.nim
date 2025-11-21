@@ -22,6 +22,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
+  libp2p/utils/offsettedseq,
   libp2p/protocols/mix,
   libp2p/protocols/mix/mix_protocol
 

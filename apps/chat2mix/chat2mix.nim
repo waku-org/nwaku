@@ -124,7 +124,7 @@ proc encode*(message: Chat2Message): ProtoBuffer =
 
   return serialised
 
-proc toString*(message: Chat2Message): string =
+proc `$`*(message: Chat2Message): string =
   # Get message date and timestamp in local time
   let time = message.timestamp.fromUnix().local().format("'<'MMM' 'dd,' 'HH:mm'>'")
 
@@ -150,7 +150,7 @@ proc getChatLine(payload: seq[byte]): string =
   # No payload encoding/encryption from Waku
   let pb = Chat2Message.init(payload).valueOr:
     return string.fromBytes(payload)
-  return pb.toString()
+  return $pb
 
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   let chatLine = getChatLine(msg.payload)

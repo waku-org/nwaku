@@ -26,12 +26,6 @@ import
   ./common,
   ./waku_peer_record
 
-# Explicitly make the items iterator visible in this module's scope
-# This is needed for generic instantiation of rendezvous methods
-iterator items*[T](o: OffsettedSeq[T]): T =
-  for item in offsettedseq.items(o):
-    yield item
-
 logScope:
   topics = "waku rendezvous"
 
