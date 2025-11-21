@@ -47,7 +47,7 @@ proc decode*(
 
   ?pb.getRequiredField(4, record.mixKey)
 
-  ok(record)
+  return ok(record)
 
 proc encode*(record: WakuPeerRecord): seq[byte] =
   var pb = initProtoBuffer()
@@ -61,7 +61,7 @@ proc encode*(record: WakuPeerRecord): seq[byte] =
   pb.write(4, record.mixKey)
 
   pb.finish()
-  pb.buffer
+  return pb.buffer
 
 proc checkWakuPeerRecord*(
     _: WakuPeerRecord, spr: seq[byte], peerId: PeerId

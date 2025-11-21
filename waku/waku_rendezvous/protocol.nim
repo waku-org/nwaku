@@ -45,7 +45,6 @@ method discover*(
     self: WakuRendezVous, conn: Connection, d: Discover
 ) {.async: (raises: [CancelledError, LPStreamError]).} =
   # Override discover method to avoid collect macro generic instantiation issues
-  # TODO figure out if we can use parent generic discover
   trace "Received Discover", peerId = conn.peerId, ns = d.ns
   await procCall GenericRendezVous[WakuPeerRecord](self).discover(conn, d)
 
