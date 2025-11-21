@@ -164,6 +164,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
       timestamp: getNowInNanosecondTime(),
     ) # current timestamp
 
+    let startTime = getNowInNanosecondTime()
+
     (
       await node.wakuLightpushClient.publishWithConn(
         LightpushPubsubTopic, message, conn, dPeerId
@@ -173,10 +175,13 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LightPushMixConf) {.async.}
       lp_mix_failed.inc(labelValues = ["publish_error"])
       return
 
+    let latency = float64(getNowInNanosecondTime() - startTime) / 1_000_000.0
+    lp_mix_latency.observe(latency)
     lp_mix_success.inc()
     notice "published message",
       text = text,
       timestamp = message.timestamp,
+      latency = latency,
       psTopic = LightpushPubsubTopic,
       contentTopic = LightpushContentTopic
 
