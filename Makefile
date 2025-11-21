@@ -43,6 +43,9 @@ ifeq ($(detected_OS),Windows)
 
   LIBS = -lws2_32 -lbcrypt -liphlpapi -luserenv -lntdll -lminiupnpc -lnatpmp -lpq
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
+
+  export PATH := /c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$(PATH)
+
 endif
 
 ##########
@@ -421,13 +424,13 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
-
 libwaku: | build deps librln
 	rm -f build/libwaku*
 
 ifeq ($(STATIC), 1)
 	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
 else ifeq ($(detected_OS),Windows)
+	make -f scripts/libwaku_windows_setup.mk windows-setup
 	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 else
 	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
@@ -543,3 +546,4 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+
