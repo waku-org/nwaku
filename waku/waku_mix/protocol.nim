@@ -36,7 +36,7 @@ type
     multiAddr*: string
     pubKey*: Curve25519Key
 
-proc filterMixNodes*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
+proc filterMixNodes(cluster: Option[uint16], peer: RemotePeerInfo): bool =
   # Note that origin based(discv5) filtering is not done intentionally
   # so that more mix nodes can be discovered.
   if peer.mixPubKey.isNone():

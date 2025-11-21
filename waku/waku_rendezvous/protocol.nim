@@ -53,58 +53,7 @@ method discover*(
   # Override discover method to avoid collect macro generic instantiation issues
   # TODO figure out if we can use parent generic discover
   trace "Received Discover", peerId = conn.peerId, ns = d.ns
-  if d.ns.isSome() and d.ns.get().len > MaximumNamespaceLen:
-    await conn.sendDiscoverResponseError(InvalidNamespace)
-    return
-
-  var limit = min(1000'u64, d.limit.get(1000'u64)) # DiscoverLimit
-  var cookie =
-    if d.cookie.isSome():
-      try:
-        Cookie.decode(d.cookie.tryGet()).tryGet()
-      except CatchableError:
-        await conn.sendDiscoverResponseError(InvalidCookie)
-        return
-    else:
-      # Start from the current lowest index (inclusive)
-      Cookie(offset: self.registered.low().uint64)
-  if d.ns.isSome() and cookie.ns.isSome() and cookie.ns.get() != d.ns.get():
-    # Namespace changed: start from the beginning of that namespace
-    cookie = Cookie(offset: self.registered.low().uint64)
-  elif cookie.offset < self.registered.low().uint64:
-    # Cookie behind available range: reset to current low
-    cookie.offset = self.registered.low().uint64
-  elif cookie.offset > (self.registered.high() + 1).uint64:
-    # Cookie ahead of available range: reset to one past current high (empty page)
-    cookie.offset = (self.registered.high() + 1).uint64
-  let namespaces =
-    if d.ns.isSome():
-      let nsKey = d.ns.get() & self.salt
-      let ns = self.namespaces.getOrDefault(nsKey, @[])
-      if ns.len == 0:
-        await conn.sendDiscoverResponseError(InvalidNamespace)
-        return
-      ns
-    else:
-      toSeq(max(cookie.offset.int, self.registered.offset) .. self.registered.high())
-  if namespaces.len() == 0:
-    await conn.sendDiscoverResponse(@[], Cookie())
-    return
-  var nextOffset = cookie.offset
-  let n = Moment.now()
-  var s = collect(newSeq()):
-    for index in namespaces:
-      var reg = self.registered[index]
-      if limit == 0:
-        break
-      if reg.expiration < n or index.uint64 < cookie.offset:
-        continue
-      limit.dec()
-      nextOffset = index.uint64 + 1
-      reg.data.ttl = Opt.some((reg.expiration - Moment.now()).seconds.uint64)
-      reg.data
-  self.rng.shuffle(s)
-  await conn.sendDiscoverResponse(s, Cookie(offset: nextOffset, ns: d.ns))
+  await procCall GenericRendezVous[WakuPeerRecord](self).discover(conn, d)
 
 proc advertise*(
     self: WakuRendezVous,
