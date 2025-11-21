@@ -1,7 +1,7 @@
 ---
-name: Prepare release
+name: Prepare Full Release
 about: Execute tasks for the creation and publishing of a new release
-title: 'Prepare release 0.0.0'
+title: 'Prepare full release 0.0.0'
 labels: full-release
 assignees: ''
 
