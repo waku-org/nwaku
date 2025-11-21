@@ -163,6 +163,15 @@ proc setupProtocols(
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
+  #mount mix
+  if conf.mixConf.isSome():
+    (
+      await node.mountMix(
+        conf.clusterId, conf.mixConf.get().mixKey, conf.mixConf.get().mixnodes
+      )
+    ).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
+
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
     if storeServiceConf.supportV2:
@@ -327,9 +336,9 @@ proc setupProtocols(
         protectedShard = shardKey.shard, publicKey = shardKey.key
     node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
-    # Only relay nodes should be rendezvous points.
-    if conf.rendezvous:
-      await node.mountRendezvous(conf.clusterId)
+  if conf.rendezvous:
+    await node.mountRendezvous(conf.clusterId)
+    await node.mountRendezvousClient(conf.clusterId)
 
   # Keepalive mounted on all nodes
   try:
@@ -414,14 +423,6 @@ proc setupProtocols(
   if conf.peerExchangeDiscovery:
     await node.mountPeerExchangeClient()
 
-  #mount mix
-  if conf.mixConf.isSome():
-    (
-      await node.mountMix(
-        conf.clusterId, conf.mixConf.get().mixKey, conf.mixConf.get().mixnodes
-      )
-    ).isOkOr:
-      return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
 ## Start node

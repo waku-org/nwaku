@@ -124,7 +124,7 @@ proc encode*(message: Chat2Message): ProtoBuffer =
 
   return serialised
 
-proc toString*(message: Chat2Message): string =
+proc `$`*(message: Chat2Message): string =
   # Get message date and timestamp in local time
   let time = message.timestamp.fromUnix().local().format("'<'MMM' 'dd,' 'HH:mm'>'")
 
@@ -331,13 +331,14 @@ proc maintainSubscription(
   const maxFailedServiceNodeSwitches = 10
   var noFailedSubscribes = 0
   var noFailedServiceNodeSwitches = 0
-  const RetryWaitMs = 2.seconds # Quick retry interval
-  const SubscriptionMaintenanceMs = 30.seconds # Subscription maintenance interval
+  # Use chronos.Duration explicitly to avoid mismatch with std/times.Duration
+  let RetryWait = chronos.seconds(2) # Quick retry interval
+  let SubscriptionMaintenance = chronos.seconds(30) # Subscription maintenance interval
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
     let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
-      await sleepAsync(SubscriptionMaintenanceMs)
+      await sleepAsync(SubscriptionMaintenance)
       info "subscription is live."
       continue
 
@@ -350,7 +351,7 @@ proc maintainSubscription(
         some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
-      await sleepAsync(SubscriptionMaintenanceMs)
+      await sleepAsync(SubscriptionMaintenance)
       if noFailedSubscribes > 0:
         noFailedSubscribes -= 1
       notice "subscribe request successful."
@@ -365,7 +366,7 @@ proc maintainSubscription(
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
-      await sleepAsync(RetryWaitMs) # Wait a bit before retrying
+      await sleepAsync(RetryWait) # Wait a bit before retrying
     elif not preventPeerSwitch:
       # try again with new peer without delay
       let actualFilterPeer = selectRandomServicePeer(
@@ -380,7 +381,7 @@ proc maintainSubscription(
 
       noFailedSubscribes = 0
     else:
-      await sleepAsync(SubscriptionMaintenanceMs)
+      await sleepAsync(SubscriptionMaintenance)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -450,6 +451,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   (await node.mountMix(conf.clusterId, mixPrivKey, conf.mixnodes)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     quit(QuitFailure)
+  await node.mountRendezvousClient(conf.clusterId)
+
   await node.start()
 
   node.peerManager.start()
@@ -587,7 +590,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       error "Couldn't find any service peer"
       quit(QuitFailure)
 
-  #await mountLegacyLightPush(node)
   node.peerManager.addServicePeer(servicePeerInfo, WakuLightpushCodec)
   node.peerManager.addServicePeer(servicePeerInfo, WakuPeerExchangeCodec)
 
