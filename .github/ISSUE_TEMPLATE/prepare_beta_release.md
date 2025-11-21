@@ -53,5 +53,5 @@ All items below are to be completed by the owner of the given release.
 - [Fleet ownership](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64)
 - [Infra-nim-waku](https://github.com/status-im/infra-nim-waku)
 - [Jenkins](https://ci.infra.status.im/job/nim-waku/)
-- [Fleet](https://fleets.waku.org/)
+- [Fleets](https://fleets.waku.org/)
 - [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)

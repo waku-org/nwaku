@@ -75,11 +75,13 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
      > We need additional report like [this](https://www.notion.so/DST-Reports-1228f96fb65c80729cd1d98a7496fe6f) specificly from DST team.
 
    6b. **Waku fleet testing**
-     - Lock `waku.test` and `waku.sandbox` fleet to release candidate version
-     - Analyze kibana logs for possible crashes or errors in `waku.test` and `waku.sandbox`. ( 2-3 day for beta release and 6-7 day for full release)
-       - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`
-     - Run release candidate with `waku-simulator`, ensure that nodes connected to each other
-     - Unlock `waku.test` to resume auto-deployment of latest `master` commit
+      - Start job on `waku.sandbox` and `waku.test` [ Deployment job ](https://ci.infra.status.im/job/nim-waku/), Wait for completion of the job. If it fails, then debug it.
+      - Then lock both fleets to the release candidate version. (If you don't have access to lock fleets, ask the infra team to do it.)
+      - Verify at https://fleets.waku.org/ that the fleet is locked to the release candidate version.
+      - Check if the image is created at [harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)
+      - Search _Kibana_ logs from the previous month (since the last release was deployed) for possible crashes or errors in `waku.test` and `waku.sandbox`.
+        - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`
+      - Unlock `waku.test` and `waku.sandbox` to resume auto-deployment of the latest `master` commit
 
    6c. **Status fleet testing**
      - Deploy release candidate to `status.staging`
@@ -122,18 +124,6 @@ We also need to merge the release branch back into master as a final step.
   > - `IMAGE_NAME`: `wakuorg/nwaku`
   > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none -d:postgres`
   > - `GIT_REF` the release tag (e.g. `v0.36.0`)
-3. Bump the nwaku dependency in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/master/docker-compose.yml)
-4. Deploy the release to appropriate fleets:
-   - Inform clients
-   > **NOTE:** known clients are currently using some version of js-waku, go-waku, nwaku or waku-rs.
-   > Clients are reachable via the corresponding channels on the Vac Discord server.
-   > It should be enough to inform clients on the `#nwaku` and `#announce` channels on Discord.
-   > Informal conversations with specific repo maintainers are often part of this process.
-   - Check if nwaku configuration parameters changed. If so [update fleet configuration](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64) in [infra-nim-waku](https://github.com/status-im/infra-nim-waku)
-   - Deploy release to the `waku.sandbox` fleet from [Jenkins](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox/).
-   - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
-   - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
-5. Submit a PR to merge the release branch back to `master`. Make sure you use the option `Merge pull request (Create a merge commit)` to perform such merge.
 
 ### Performing a patch release
 
@@ -155,3 +145,13 @@ We also need to merge the release branch back into master as a final step.
 4. Once the release-candidate has been validated and changelog PR got merged, cherry-pick the changelog update from master to the release branch. Create a final release tag and push it.
 
 5. Create a [GitHub release](https://github.com/waku-org/nwaku/releases) from the release tag and follow the same post-release process as usual.
+
+### Links
+
+- [Release process](https://github.com/waku-org/nwaku/blob/master/docs/contributors/release-process.md)
+- [Release notes](https://github.com/waku-org/nwaku/blob/master/CHANGELOG.md)
+- [Fleet ownership](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64)
+- [Infra-nim-waku](https://github.com/status-im/infra-nim-waku)
+- [Jenkins](https://ci.infra.status.im/job/nim-waku/)
+- [Fleet](https://fleets.waku.org/)
+- [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)
