@@ -16,12 +16,22 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
   > If the effort or risk is too high, consider postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules updates are included in the release candidate.
 
+### Release types
+
+- **Full release**: follow the entire [Release process](#release-process--step-by-step). 
+
+- **Beta release**: skip just `6a` and `6c` steps from [Release process](#release-process--step-by-step).
+
+- choose the appropriate release process based on the release type.
+[Full Release](../../.github/ISSUE_TEMPLATE/prepare_full_release.md),
+[Beta Release](../../.github/ISSUE_TEMPLATE/prepare_beta_release.md)
+
 ### Release process ( step by step )
 
 1. Checkout a release branch from master
 
     ```
-    git checkout -b release/v0.1.0
+    git checkout -b release/v0.X.0
     ```
 
 2. Update `CHANGELOG.md` and ensure it is up to date. Use the helper Make target to get PR based release-notes/changelog update.
@@ -33,8 +43,8 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 3. Create a release-candidate tag with the same name as release and `-rc.N` suffix a few days before the official release and push it
 
     ```
-    git tag -as v0.1.0-rc.0 -m "Initial release."
-    git push origin v0.1.0-rc.0
+    git tag -as v0.X.0-rc.0 -m "Initial release."
+    git push origin v0.X.0-rc.0
     ```
 
     This will trigger a [workflow](../../.github/workflows/pre-release.yml) which will build RC artifacts and create and publish a GitHub release
@@ -50,26 +60,28 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
     # Make changes, rebase and create new tag
     # Squash to one commit and make a nice commit message
     git rebase -i origin/master
-    git tag -as v0.1.0-rc.1 -m "Initial release."
-    git push origin v0.1.0-rc.1
+    git tag -as v0.X.0-rc.1 -m "Initial release."
+    git push origin v0.X.0-rc.1
     ```
+
+    Similarly use v0.X.0-rc.2, v0.X.0-rc.3 etc. for additional RC tags.
 
 6. **Validation of release candidate**
 
-   - **Automated testing**
-     - Ensure js-waku tests are green against the release candidate
+   6a. **Automated testing**
+     - Ensure all the unit tests (specifically js-waku tests) are green against the release candidate.
      - Ask Vac-QA and Vac-DST to run their available tests against the release candidate, share all release candidate with both team.
 
      > We need additional report like [this](https://www.notion.so/DST-Reports-1228f96fb65c80729cd1d98a7496fe6f) specificly from DST team.
 
-   - **Waku fleet testing**
+   6b. **Waku fleet testing**
      - Lock `waku.test` and `waku.sandbox` fleet to release candidate version
-     - Search _Kibana_ logs from the previous month (since last release was deployed), for possible crashes or errors in `waku.test` and `waku.sandbox`.
+     - Analyze kibana logs for possible crashes or errors in `waku.test` and `waku.sandbox`. ( 2-3 day for beta release and 6-7 day for full release)
        - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`
      - Run release candidate with `waku-simulator`, ensure that nodes connected to each other
      - Unlock `waku.test` to resume auto-deployment of latest `master` commit
 
-   - **Status fleet testing**
+   6c. **Status fleet testing**
      - Deploy release candidate to `status.staging`
      - Perform [sanity check](https://www.notion.so/How-to-test-Nwaku-on-Status-12c6e4b9bf06420ca868bd199129b425) and log results as comments in this issue.
        - Connect 2 instances to `status.staging` fleet, one in relay mode, the other one in light client.
@@ -87,12 +99,12 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 We also need to merge the release branch back into master as a final step.
 
     ```
-    git checkout release/v0.1.0
-    git tag -as v0.1.0 -m "Initial release."
-    git push origin v0.1.0
+    git checkout release/v0.X.0
+    git tag -as v0.X.0 -m "final release." ( use v0.X.0-beta as the tag if you are creating a beta release)
+    git push origin v0.X.0
     git switch master
     git pull
-    git merge release/v0.1.0
+    git merge release/v0.X.0
     ```
 8. Update `waku-rust-bindings`, `waku-simulator` and `nwaku-compose` to use the new release.
 
@@ -106,10 +118,10 @@ We also need to merge the release branch back into master as a final step.
 2. Deploy the release image to [Dockerhub](https://hub.docker.com/r/wakuorg/nwaku) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/docker-manual/).
   > Ensure the following build parameters are set:
   > - `MAKE_TARGET`: `wakunode2`
-  > - `IMAGE_TAG`: the release tag (e.g. `v0.16.0`)
+  > - `IMAGE_TAG`: the release tag (e.g. `v0.36.0`)
   > - `IMAGE_NAME`: `wakuorg/nwaku`
   > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none -d:postgres`
-  > - `GIT_REF` the release tag (e.g. `v0.16.0`)
+  > - `GIT_REF` the release tag (e.g. `v0.36.0`)
 3. Bump the nwaku dependency in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/master/docker-compose.yml)
 4. Deploy the release to appropriate fleets:
    - Inform clients
