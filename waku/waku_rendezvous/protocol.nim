@@ -234,4 +234,7 @@ proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   # Stop the parent GenericRendezVous (stops the register deletion loop)
   await GenericRendezVous[WakuPeerRecord](self).stop()
 
+  # Stop the parent GenericRendezVous (stops the register deletion loop)
+  await GenericRendezVous[WakuPeerRecord](self).stop()
+
   info "waku rendezvous discovery stopped"
