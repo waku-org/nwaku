@@ -19,6 +19,7 @@ import
   std/[options, math],
   chronicles,
   chronos/timer,
+  chronos/ratelimit,
   libp2p/stream/connection,
   libp2p/utility
 
@@ -26,7 +27,7 @@ import std/times except TimeInterval, Duration, seconds, minutes
 
 import ./[single_token_limiter, service_metrics, timed_map]
 
-export token_bucket, setting, service_metrics
+export setting, service_metrics
 
 logScope:
   topics = "waku ratelimit"
@@ -59,6 +60,9 @@ proc checkUsage*(
     return true
 
   let peerBucket = t.mgetOrPut(conn.peerId)
+  let avail = peerBucket.getAvailableCapacity(now)
+  let globAvail = t.tokenBucket.get().getAvailableCapacity(now)
+
   ## check requesting peer's usage is not over the calculated ratio and let that peer go which not requested much/or this time...
   if not peerBucket.tryConsume(1, now):
     trace "peer usage limit reached", peer = conn.peerId

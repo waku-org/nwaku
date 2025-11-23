@@ -44,8 +44,9 @@ suite "RequestRateLimiter":
     # conn1 reached the 75% of the main bucket over 2 periods of time
     check limiter.checkUsage(proto, conn1, now + 3.minutes) == false
 
-    # conn2 has not used its tokens while we have 1 more tokens left in the main bucket
-    check limiter.checkUsage(proto, conn2, now + 3.minutes) == true
+    # conn2 has not used its tokens but while we have 0 more tokens left in the main bucket
+    # it will tolerate some burst within period.
+    check limiter.checkUsage(proto, conn2, now + 3.minutes + 50.seconds) == true
 
   test "RequestRateLimiter Restrict overusing peer":
     # keep limits low for easier calculation of ratios
@@ -55,6 +56,8 @@ suite "RequestRateLimiter":
     # as ratio is 2 in this case but max tokens are main tokens*ratio . 0.75
     # notice meanwhile we have 20 tokens over 2 period (4 mins) in sum
     # See: waku/common/rate_limit/request_limiter.nim #func calcPeriodRatio
+    # This tests shows balanced token utilization as being replenished in between periods but never overusing
+    # intended rates.
 
     let now = Moment.now()
     # with first use we register the peer also and start its timer
@@ -64,23 +67,22 @@ suite "RequestRateLimiter":
     # run out of main tokens but still used one more token from the peer's bucket
     check limiter.checkUsage(proto, conn1, now) == false
 
-    for i in 0 ..< 4:
+    for i in 0 ..< 10:
       check limiter.checkUsage(proto, conn1, now + 3.minutes) == true
 
     # conn1 reached the 75% of the main bucket over 2 periods of time
     check limiter.checkUsage(proto, conn1, now + 3.minutes) == false
 
-    check limiter.checkUsage(proto, conn2, now + 3.minutes) == true
-    check limiter.checkUsage(proto, conn2, now + 3.minutes) == true
-    check limiter.checkUsage(proto, conn3, now + 3.minutes) == true
-    check limiter.checkUsage(proto, conn2, now + 3.minutes) == true
-    check limiter.checkUsage(proto, conn3, now + 3.minutes) == true
+    check limiter.checkUsage(proto, conn2, now + 3.minutes + 50.seconds) == true
+    check limiter.checkUsage(proto, conn2, now + 3.minutes + 50.seconds) == true
+    check limiter.checkUsage(proto, conn3, now + 3.minutes + 50.seconds) == true
+    check limiter.checkUsage(proto, conn2, now + 3.minutes + 50.seconds) == true
 
     # conn1 gets replenished as the ratio was 2 giving twice as long replenish period than the main bucket
     # see waku/common/rate_limit/request_limiter.nim #func calcPeriodRatio and calcPeerTokenSetting
     check limiter.checkUsage(proto, conn1, now + 4.minutes) == true
     # requests of other peers can also go
-    check limiter.checkUsage(proto, conn2, now + 4100.milliseconds) == true
+    check limiter.checkUsage(proto, conn2, now + 5.minutes) == true
     check limiter.checkUsage(proto, conn3, now + 5.minutes) == true
 
   test "RequestRateLimiter lowest possible volume":

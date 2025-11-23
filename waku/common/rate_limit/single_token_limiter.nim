@@ -2,16 +2,16 @@
 
 {.push raises: [].}
 
-import std/[options], chronos/timer, libp2p/stream/connection, libp2p/utility
+import std/[options], chronos/timer, chronos/ratelimit, libp2p/stream/connection, libp2p/utility
 
 import std/times except TimeInterval, Duration
 
-import ./[token_bucket, setting, service_metrics]
-export token_bucket, setting, service_metrics
+import ./[setting, service_metrics]
+export setting, service_metrics
 
 proc newTokenBucket*(
     setting: Option[RateLimitSetting],
-    replenishMode: ReplenishMode = ReplenishMode.Compensating,
+    replenishMode: ReplenishMode = ReplenishMode.Balanced,
 ): Option[TokenBucket] =
   if setting.isNone():
     return none[TokenBucket]()
@@ -19,7 +19,7 @@ proc newTokenBucket*(
   if setting.get().isUnlimited():
     return none[TokenBucket]()
 
-  return some(TokenBucket.new(setting.get().volume, setting.get().period))
+  return some(TokenBucket.new(setting.get().volume, setting.get().period, replenishMode))
 
 proc checkUsage(
     t: var TokenBucket, proto: string, now = Moment.now()
