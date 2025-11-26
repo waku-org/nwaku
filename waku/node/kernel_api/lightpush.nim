@@ -199,7 +199,7 @@ proc lightpushPublishHandler(
     if mixify: #indicates we want to use mix to send the message
       #TODO: How to handle multiple addresses?
       let conn = node.wakuMix.toConnection(
-        MixDestination.init(peer.peerId, peer.addrs[0]),
+        MixDestination.exitNode(peer.peerId),
         WakuLightPushCodec,
         MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
           # indicating we only want a single path to be used for reply hence numSurbs = 1
