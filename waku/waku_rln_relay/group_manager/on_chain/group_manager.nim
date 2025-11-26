@@ -111,17 +111,17 @@ proc fetchMembershipStatus*(
 ): Future[Result[bool, string]] {.async.} =
   try:
     let params = idCommitment.reversed()
-    let resultBytes = await sendEthCallWithParams(
-      ethRpc = g.ethRpc.get(),
-      functionSignature = "isInMembershipSet(uint256)",
-      params = params,
-      fromAddress = g.ethRpc.get().defaultAccount,
-      toAddress = fromHex(Address, g.ethContractAddress),
-      chainId = g.chainId,
-    )
-    if resultBytes.isErr():
-      return err("Failed to check membership: " & resultBytes.error)
-    let responseBytes = resultBytes.get()
+    let responseBytes = (
+      await sendEthCallWithParams(
+        ethRpc = g.ethRpc.get(),
+        functionSignature = "isInMembershipSet(uint256)",
+        params = params,
+        fromAddress = g.ethRpc.get().defaultAccount,
+        toAddress = fromHex(Address, g.ethContractAddress),
+        chainId = g.chainId,
+      )
+    ).valueOr:
+      return err("Failed to check membership: " & error)
 
     return ok(responseBytes.len == 32 and responseBytes[^1] == 1'u8)
   except CatchableError:
@@ -144,25 +144,6 @@ proc fetchMaxMembershipRateLimit*(
     error "Failed to fetch max membership rate limit", error = getCurrentExceptionMsg()
     return err("Failed to fetch max membership rate limit: " & getCurrentExceptionMsg())
 
-proc setMetadata*(
-    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
-): GroupManagerResult[void] =
-  let normalizedBlock = lastProcessedBlock.get(g.latestProcessedBlock)
-  try:
-    let metadataSetRes = g.rlnInstance.setMetadata(
-      RlnMetadata(
-        lastProcessedBlock: normalizedBlock.uint64,
-        chainId: g.chainId,
-        contractAddress: g.ethContractAddress,
-        validRoots: g.validRoots.toSeq(),
-      )
-    )
-    if metadataSetRes.isErr():
-      return err("failed to persist rln metadata: " & metadataSetRes.error)
-  except CatchableError:
-    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
-  return ok()
-
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
@@ -174,11 +155,10 @@ template retryWrapper(
     body
 
 proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
-  let rootRes = await g.fetchMerkleRoot()
-  if rootRes.isErr():
+  let rootRes = (await g.fetchMerkleRoot()).valueOr:
     return false
 
-  let merkleRoot = UInt256ToField(rootRes.get())
+  let merkleRoot = UInt256ToField(rootRes)
 
   if g.validRoots.len == 0:
     g.validRoots.addLast(merkleRoot)
@@ -212,14 +192,12 @@ proc trackRootChanges*(g: OnchainGroupManager) {.async: (raises: [CatchableError
           else:
             g.merkleProofCache = proofResult.get()
 
-        let nextFreeIndex = await g.fetchNextFreeIndex()
-        if nextFreeIndex.isErr():
-          error "Failed to fetch next free index", error = nextFreeIndex.error
-          raise newException(
-            CatchableError, "Failed to fetch next free index: " & nextFreeIndex.error
-          )
+        let nextFreeIndex = (await g.fetchNextFreeIndex()).valueOr:
+          error "Failed to fetch next free index", error = error
+          raise
+            newException(CatchableError, "Failed to fetch next free index: " & error)
 
-        let memberCount = cast[int64](nextFreeIndex.get())
+        let memberCount = cast[int64](nextFreeIndex)
         waku_rln_number_registered_memberships.set(float64(memberCount))
   except CatchableError:
     error "Fatal error in trackRootChanges", error = getCurrentExceptionMsg()
@@ -334,11 +312,9 @@ proc getRootFromProofAndIndex(
   # it's currently not used anywhere, but can be used to verify the root from the proof and index
   # Compute leaf hash from idCommitment and messageLimit
   let messageLimitField = uint64ToField(g.userMessageLimit.get())
-  let leafHashRes = poseidon(@[g.idCredentials.get().idCommitment, @messageLimitField])
-  if leafHashRes.isErr():
-    return err("Failed to compute leaf hash: " & leafHashRes.error)
+  var hash = poseidon(@[g.idCredentials.get().idCommitment, @messageLimitField]).valueOr:
+    return err("Failed to compute leaf hash: " & error)
 
-  var hash = leafHashRes.get()
   for i in 0 ..< bits.len:
     let sibling = elements[i * 32 .. (i + 1) * 32 - 1]
 
@@ -350,7 +326,6 @@ proc getRootFromProofAndIndex(
 
     hash = hashRes.valueOr:
       return err("Failed to compute poseidon hash: " & error)
-    hash = hashRes.get()
 
   return ok(hash)
 
@@ -593,18 +568,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
-  let metadataGetOptRes = g.rlnInstance.getMetadata()
-  if metadataGetOptRes.isErr():
-    warn "could not initialize with persisted rln metadata"
-  elif metadataGetOptRes.get().isSome():
-    let metadata = metadataGetOptRes.get().get()
-    if metadata.chainId != g.chainId:
-      return err(
-        fmt"chain id mismatch. persisted={metadata.chainId}, smart_contract_chainId={g.chainId}"
-      )
-    if metadata.contractAddress != g.ethContractAddress.toLower():
-      return err("persisted data: contract address mismatch")
-
   let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
   let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:
     return err("failed to fetch max membership rate limit: " & error)
@@ -631,9 +594,6 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
   if g.ethRpc.isSome():
     g.ethRpc.get().ondisconnect = nil
     await g.ethRpc.get().close()
-  let flushed = g.rlnInstance.flush()
-  if not flushed:
-    error "failed to flush to the tree db"
 
   g.initialized = false
 

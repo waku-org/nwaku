@@ -9,7 +9,7 @@ import
 
 import
   ../waku_rln_relay/rln_relay,
-  ../waku_api/rest/builder,
+  ../rest_api/endpoint/builder,
   ../discovery/waku_discv5,
   ../node/waku_metrics,
   ../common/logging,
@@ -38,7 +38,7 @@ type ProtectedShard* {.requiresInit.} = object
 
 type DnsDiscoveryConf* {.requiresInit.} = object
   enrTreeUrl*: string
-  # TODO: should probably only have one set of name servers (see dnsaddrs) 
+  # TODO: should probably only have one set of name servers (see dnsaddrs)
   nameServers*: seq[IpAddress]
 
 type StoreSyncConf* {.requiresInit.} = object
@@ -154,7 +154,8 @@ proc logConf*(conf: WakuConf) =
     store = conf.storeServiceConf.isSome(),
     filter = conf.filterServiceConf.isSome(),
     lightPush = conf.lightPush,
-    peerExchange = conf.peerExchangeService
+    peerExchange = conf.peerExchangeService,
+    rendezvous = conf.rendezvous
 
   info "Configuration. Network", cluster = conf.clusterId
 

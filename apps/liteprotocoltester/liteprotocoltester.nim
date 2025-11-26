@@ -11,7 +11,7 @@ import
   confutils
 
 import
-  ../../tools/confutils/cli_args,
+  tools/confutils/cli_args,
   waku/[
     common/enr,
     common/logging,
@@ -49,12 +49,9 @@ when isMainModule:
 
   const versionString = "version / git commit hash: " & waku_factory.git_version
 
-  let confRes = LiteProtocolTesterConf.load(version = versionString)
-  if confRes.isErr():
-    error "failure while loading the configuration", error = confRes.error
+  let conf = LiteProtocolTesterConf.load(version = versionString).valueOr:
+    error "failure while loading the configuration", error = error
     quit(QuitFailure)
-
-  var conf = confRes.get()
 
   ## Logging setup
   logging.setupLog(conf.logLevel, conf.logFormat)
@@ -187,7 +184,7 @@ when isMainModule:
         error "Service node not found in time via PX"
         quit(QuitFailure)
 
-      if futForServiceNode.read().isErr():
+      futForServiceNode.read().isOkOr:
         error "Service node for test not found via PX"
         quit(QuitFailure)
 

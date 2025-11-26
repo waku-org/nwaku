@@ -34,14 +34,9 @@ proc valid(x: seq[byte]): bool =
   return true
 
 suite "membershipKeyGen":
-  var rlnRes {.threadvar.}: RLNResult
-
-  setup:
-    rlnRes = createRLNInstanceWrapper()
-
   test "ok":
     # Given we generate valid membership keys
-    let identityCredentialsRes = membershipKeyGen(rlnRes.get())
+    let identityCredentialsRes = membershipKeyGen()
 
     # Then it contains valid identity credentials
     let identityCredentials = identityCredentialsRes.get()
@@ -62,7 +57,7 @@ suite "membershipKeyGen":
       keyGenMock
 
     # When we generate the membership keys
-    let identityCredentialsRes = membershipKeyGen(rlnRes.get())
+    let identityCredentialsRes = membershipKeyGen()
 
     # Then it fails
     check:
@@ -85,7 +80,7 @@ suite "membershipKeyGen":
       keyGenMock
 
     # When we generate the membership keys
-    let identityCredentialsRes = membershipKeyGen(rlnRes.get())
+    let identityCredentialsRes = membershipKeyGen()
 
     # Then it fails
     check:

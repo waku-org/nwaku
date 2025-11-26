@@ -29,8 +29,8 @@ import
     peerid, # Implement how peers interact
     protobuf/minprotobuf, # message serialisation/deserialisation from and to protobufs
     nameresolving/dnsresolver,
+    protocols/mix/curve25519,
   ] # define DNS resolution
-import mix/curve25519
 import
   waku/[
     waku_core,
@@ -82,6 +82,8 @@ type
   PrivateKey* = crypto.PrivateKey
   Topic* = waku_core.PubsubTopic
 
+const MinMixNodePoolSize = 4
+
 #####################
 ## chat2 protobufs ##
 #####################
@@ -124,7 +126,7 @@ proc encode*(message: Chat2Message): ProtoBuffer =
 
   return serialised
 
-proc toString*(message: Chat2Message): string =
+proc `$`*(message: Chat2Message): string =
   # Get message date and timestamp in local time
   let time = message.timestamp.fromUnix().local().format("'<'MMM' 'dd,' 'HH:mm'>'")
 
@@ -175,18 +177,16 @@ proc startMetricsServer(
 ): Result[MetricsHttpServerRef, string] =
   info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
 
-  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
-  if metricsServerRes.isErr():
-    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
+  let server = MetricsHttpServerRef.new($serverIp, serverPort).valueOr:
+    return err("metrics HTTP server start failed: " & $error)
 
-  let server = metricsServerRes.value
   try:
     waitFor server.start()
   except CatchableError:
     return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
 
   info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
-  ok(metricsServerRes.value)
+  ok(server)
 
 proc publish(c: Chat, line: string) {.async.} =
   # First create a Chat2Message protobuf with this line of text
@@ -333,57 +333,57 @@ proc maintainSubscription(
   const maxFailedServiceNodeSwitches = 10
   var noFailedSubscribes = 0
   var noFailedServiceNodeSwitches = 0
+  # Use chronos.Duration explicitly to avoid mismatch with std/times.Duration
+  let RetryWait = chronos.seconds(2) # Quick retry interval
+  let SubscriptionMaintenance = chronos.seconds(30) # Subscription maintenance interval
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingRes = await wakuNode.wakuFilterClient.ping(actualFilterPeer)
-    if pingRes.isErr():
-      # No subscription found. Let's subscribe.
-      error "ping failed.", err = pingRes.error
-      trace "no subscription found. Sending subscribe request"
+    let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+      await sleepAsync(SubscriptionMaintenance)
+      info "subscription is live."
+      continue
 
-      let subscribeRes = await wakuNode.filterSubscribe(
+    # No subscription found. Let's subscribe.
+    error "ping failed.", error = pingErr
+    trace "no subscription found. Sending subscribe request"
+
+    let subscribeErr = (
+      await wakuNode.filterSubscribe(
         some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
+    ).errorOr:
+      await sleepAsync(SubscriptionMaintenance)
+      if noFailedSubscribes > 0:
+        noFailedSubscribes -= 1
+      notice "subscribe request successful."
+      continue
 
-      if subscribeRes.isErr():
-        noFailedSubscribes += 1
-        error "Subscribe request failed.",
-          err = subscribeRes.error,
-          peer = actualFilterPeer,
-          failCount = noFailedSubscribes
+    noFailedSubscribes += 1
+    error "Subscribe request failed.",
+      error = subscribeErr, peer = actualFilterPeer, failCount = noFailedSubscribes
 
-        # TODO: disconnet from failed actualFilterPeer
-        # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
-        # wakunode.peerManager.peerStore.delete(actualFilterPeer)
+    # TODO: disconnet from failed actualFilterPeer
+    # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+    # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
-        if noFailedSubscribes < maxFailedSubscribes:
-          await sleepAsync(2000) # Wait a bit before retrying
-          continue
-        elif not preventPeerSwitch:
-          let peerOpt = selectRandomServicePeer(
-            wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
-          )
-          peerOpt.isOkOr:
-            error "Failed to find new service peer. Exiting."
-            noFailedServiceNodeSwitches += 1
-            break
+    if noFailedSubscribes < maxFailedSubscribes:
+      await sleepAsync(RetryWait) # Wait a bit before retrying
+    elif not preventPeerSwitch:
+      # try again with new peer without delay
+      let actualFilterPeer = selectRandomServicePeer(
+        wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
+      ).valueOr:
+        error "Failed to find new service peer. Exiting."
+        noFailedServiceNodeSwitches += 1
+        break
 
-          actualFilterPeer = peerOpt.get()
-          info "Found new peer for codec",
-            codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
+      info "Found new peer for codec",
+        codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
 
-          noFailedSubscribes = 0
-          continue # try again with new peer without delay
-      else:
-        if noFailedSubscribes > 0:
-          noFailedSubscribes -= 1
-
-        notice "subscribe request successful."
+      noFailedSubscribes = 0
     else:
-      info "subscription is live."
-
-    await sleepAsync(30000) # Subscription maintenance interval
+      await sleepAsync(SubscriptionMaintenance)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -401,17 +401,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let natRes = setupNat(
+  let (extIp, extTcpPort, extUdpPort) = setupNat(
     conf.nat,
     clientId,
     Port(uint16(conf.tcpPort) + conf.portsShift),
     Port(uint16(conf.udpPort) + conf.portsShift),
-  )
-
-  if natRes.isErr():
-    raise newException(ValueError, "setupNat error " & natRes.error)
-
-  let (extIp, extTcpPort, extUdpPort) = natRes.get()
+  ).valueOr:
+    raise newException(ValueError, "setupNat error " & error)
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
@@ -421,13 +417,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     error "failed to add sharded topics to ENR", error = error
     quit(QuitFailure)
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create enr record", error = recordRes.error
-      quit(QuitFailure)
-    else:
-      recordRes.get()
+  let record = enrBuilder.build().valueOr:
+    error "failed to create enr record", error = error
+    quit(QuitFailure)
 
   let node = block:
     var builder = WakuNodeBuilder.init()
@@ -461,6 +453,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   (await node.mountMix(conf.clusterId, mixPrivKey, conf.mixnodes)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     quit(QuitFailure)
+  await node.mountRendezvousClient(conf.clusterId)
+
   await node.start()
 
   node.peerManager.start()
@@ -598,9 +592,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       error "Couldn't find any service peer"
       quit(QuitFailure)
 
-  #await mountLegacyLightPush(node)
   node.peerManager.addServicePeer(servicePeerInfo, WakuLightpushCodec)
   node.peerManager.addServicePeer(servicePeerInfo, WakuPeerExchangeCodec)
+  #node.peerManager.addServicePeer(servicePeerInfo, WakuRendezVousCodec)
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(
@@ -608,12 +602,12 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   )
   echo "waiting for mix nodes to be discovered..."
   while true:
-    if node.getMixNodePoolSize() >= 3:
+    if node.getMixNodePoolSize() >= MinMixNodePoolSize:
       break
     discard await node.fetchPeerExchangePeers()
     await sleepAsync(1000)
 
-  while node.getMixNodePoolSize() < 3:
+  while node.getMixNodePoolSize() < MinMixNodePoolSize:
     info "waiting for mix nodes to be discovered",
       currentpoolSize = node.getMixNodePoolSize()
     await sleepAsync(1000)

@@ -9,6 +9,7 @@ import
   eth/p2p/discoveryv5/enr,
   eth/net/utils,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/crypto/secp,
   libp2p/errors,
   libp2p/multiaddress,
@@ -48,6 +49,8 @@ type RemotePeerInfo* = ref object
   addrs*: seq[MultiAddress]
   enr*: Option[enr.Record]
   protocols*: seq[string]
+  shards*: seq[uint16]
+  mixPubKey*: Option[Curve25519Key]
 
   agent*: string
   protoVersion*: string
@@ -73,6 +76,7 @@ proc init*(
     addrs: seq[MultiAddress] = @[],
     enr: Option[enr.Record] = none(enr.Record),
     protocols: seq[string] = @[],
+    shards: seq[uint16] = @[],
     publicKey: crypto.PublicKey = crypto.PublicKey(),
     agent: string = "",
     protoVersion: string = "",
@@ -82,12 +86,14 @@ proc init*(
     direction: PeerDirection = UnknownDirection,
     lastFailedConn: Moment = Moment.init(0, Second),
     numberFailedConn: int = 0,
+    mixPubKey: Option[Curve25519Key] = none(Curve25519Key),
 ): T =
   RemotePeerInfo(
     peerId: peerId,
     addrs: addrs,
     enr: enr,
     protocols: protocols,
+    shards: shards,
     publicKey: publicKey,
     agent: agent,
     protoVersion: protoVersion,
@@ -97,6 +103,7 @@ proc init*(
     direction: direction,
     lastFailedConn: lastFailedConn,
     numberFailedConn: numberFailedConn,
+    mixPubKey: mixPubKey,
   )
 
 proc init*(
@@ -105,9 +112,12 @@ proc init*(
     addrs: seq[MultiAddress] = @[],
     enr: Option[enr.Record] = none(enr.Record),
     protocols: seq[string] = @[],
+    shards: seq[uint16] = @[],
 ): T {.raises: [Defect, ResultError[cstring], LPError].} =
   let peerId = PeerID.init(peerId).tryGet()
-  RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols)
+  RemotePeerInfo(
+    peerId: peerId, addrs: addrs, enr: enr, protocols: protocols, shards: shards
+  )
 
 ## Parse
 
@@ -249,11 +259,10 @@ proc parseUrlPeerAddr*(
     return ok(none(RemotePeerInfo))
 
   let parsedAddr = decodeUrl(peerAddr.get())
-  let parsedPeerInfo = parsePeerInfo(parsedAddr)
-  if parsedPeerInfo.isErr():
-    return err("Failed parsing remote peer info [" & parsedPeerInfo.error & "]")
+  let parsedPeerInfo = parsePeerInfo(parsedAddr).valueOr:
+    return err("Failed parsing remote peer info: " & error)
 
-  return ok(some(parsedPeerInfo.value))
+  return ok(some(parsedPeerInfo))
 
 proc toRemotePeerInfo*(enrRec: enr.Record): Result[RemotePeerInfo, cstring] =
   ## Converts an ENR to dialable RemotePeerInfo
@@ -327,6 +336,7 @@ converter toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
     addrs: peerInfo.listenAddrs,
     enr: none(enr.Record),
     protocols: peerInfo.protocols,
+    shards: @[],
     agent: peerInfo.agentVersion,
     protoVersion: peerInfo.protoVersion,
     publicKey: peerInfo.publicKey,
@@ -339,11 +349,10 @@ proc hasProtocol*(ma: MultiAddress, proto: string): bool =
   ## Returns ``true`` if ``ma`` contains protocol ``proto``.
   let proto = MultiCodec.codec(proto)
 
-  let protos = ma.protocols()
-  if protos.isErr():
+  let protos = ma.protocols().valueOr:
     return false
 
-  return protos.get().anyIt(it == proto)
+  return protos.anyIt(it == proto)
 
 func hasUdpPort*(peer: RemotePeerInfo): bool =
   if peer.enr.isNone():
@@ -363,6 +372,9 @@ proc getAgent*(peer: RemotePeerInfo): string =
   return peer.agent
 
 proc getShards*(peer: RemotePeerInfo): seq[uint16] =
+  if peer.shards.len > 0:
+    return peer.shards
+
   if peer.enr.isNone():
     return @[]
 

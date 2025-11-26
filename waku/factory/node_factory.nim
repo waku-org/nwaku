@@ -47,11 +47,10 @@ proc setupPeerStorage(): Result[Option[WakuPeerStorage], string] =
 
   ?peer_store_sqlite_migrations.migrate(db)
 
-  let res = WakuPeerStorage.new(db)
-  if res.isErr():
-    return err("failed to init peer store" & res.error)
+  let res = WakuPeerStorage.new(db).valueOr:
+    return err("failed to init peer store" & error)
 
-  ok(some(res.value))
+  return ok(some(res))
 
 ## Init waku node instance
 
@@ -164,19 +163,29 @@ proc setupProtocols(
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
+  #mount mix
+  if conf.mixConf.isSome():
+    (
+      await node.mountMix(
+        conf.clusterId, conf.mixConf.get().mixKey, conf.mixConf.get().mixnodes
+      )
+    ).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
+
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
     if storeServiceConf.supportV2:
-      let archiveDriverRes = await legacy_driver.ArchiveDriver.new(
-        storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
-        storeServiceConf.maxNumDbConnections, onFatalErrorAction,
-      )
-      if archiveDriverRes.isErr():
-        return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
+      let archiveDriver = (
+        await legacy_driver.ArchiveDriver.new(
+          storeServiceConf.dbUrl, storeServiceConf.dbVacuum,
+          storeServiceConf.dbMigration, storeServiceConf.maxNumDbConnections,
+          onFatalErrorAction,
+        )
+      ).valueOr:
+        return err("failed to setup legacy archive driver: " & error)
 
-      let mountArcRes = node.mountLegacyArchive(archiveDriverRes.get())
-      if mountArcRes.isErr():
-        return err("failed to mount waku legacy archive protocol: " & mountArcRes.error)
+      node.mountLegacyArchive(archiveDriver).isOkOr:
+        return err("failed to mount waku legacy archive protocol: " & error)
 
     ## For now we always mount the future archive driver but if the legacy one is mounted,
     ## then the legacy will be in charge of performing the archiving.
@@ -189,11 +198,8 @@ proc setupProtocols(
     ## So for now, we need to make sure that when legacy store is enabled and we use sqlite
     ## that we migrate our db according to legacy store's schema to have the extra field
 
-    let engineRes = dburl.getDbEngine(storeServiceConf.dbUrl)
-    if engineRes.isErr():
-      return err("error getting db engine in setupProtocols: " & engineRes.error)
-
-    let engine = engineRes.get()
+    let engine = dburl.getDbEngine(storeServiceConf.dbUrl).valueOr:
+      return err("error getting db engine in setupProtocols: " & error)
 
     let migrate =
       if engine == "sqlite" and storeServiceConf.supportV2:
@@ -201,20 +207,19 @@ proc setupProtocols(
       else:
         storeServiceConf.dbMigration
 
-    let archiveDriverRes = await driver.ArchiveDriver.new(
-      storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
-      storeServiceConf.maxNumDbConnections, onFatalErrorAction,
-    )
-    if archiveDriverRes.isErr():
-      return err("failed to setup archive driver: " & archiveDriverRes.error)
+    let archiveDriver = (
+      await driver.ArchiveDriver.new(
+        storeServiceConf.dbUrl, storeServiceConf.dbVacuum, migrate,
+        storeServiceConf.maxNumDbConnections, onFatalErrorAction,
+      )
+    ).valueOr:
+      return err("failed to setup archive driver: " & error)
 
-    let retPolicyRes = policy.RetentionPolicy.new(storeServiceConf.retentionPolicy)
-    if retPolicyRes.isErr():
-      return err("failed to create retention policy: " & retPolicyRes.error)
+    let retPolicy = policy.RetentionPolicy.new(storeServiceConf.retentionPolicy).valueOr:
+      return err("failed to create retention policy: " & error)
 
-    let mountArcRes = node.mountArchive(archiveDriverRes.get(), retPolicyRes.get())
-    if mountArcRes.isErr():
-      return err("failed to mount waku archive protocol: " & mountArcRes.error)
+    node.mountArchive(archiveDriver, retPolicy).isOkOr:
+      return err("failed to mount waku archive protocol: " & error)
 
     if storeServiceConf.supportV2:
       # Store legacy setup
@@ -331,9 +336,9 @@ proc setupProtocols(
         protectedShard = shardKey.shard, publicKey = shardKey.key
     node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
-    # Only relay nodes should be rendezvous points.
-    if conf.rendezvous:
-      await node.mountRendezvous(conf.clusterId)
+  if conf.rendezvous:
+    await node.mountRendezvous(conf.clusterId)
+    await node.mountRendezvousClient(conf.clusterId)
 
   # Keepalive mounted on all nodes
   try:
@@ -418,14 +423,6 @@ proc setupProtocols(
   if conf.peerExchangeDiscovery:
     await node.mountPeerExchangeClient()
 
-  #mount mix
-  if conf.mixConf.isSome():
-    (
-      await node.mountMix(
-        conf.clusterId, conf.mixConf.get().mixKey, conf.mixConf.get().mixnodes
-      )
-    ).isOkOr:
-      return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
 ## Start node

@@ -24,14 +24,13 @@ requires "nim >= 2.2.4",
   "stew",
   "stint",
   "metrics",
-  "libp2p >= 1.13.0",
+  "libp2p >= 1.14.3",
   "web3",
   "presto",
   "regex",
   "results",
   "db_connector",
-  "minilru",
-  "https://github.com/vacp2p/mix#0.1.0"
+  "minilru"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =

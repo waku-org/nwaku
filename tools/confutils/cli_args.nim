@@ -34,7 +34,9 @@ import
 
 import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
-export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard
+export
+  confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet, ProtectedShard,
+  DefaultMaxWakuMessageSizeStr
 
 logScope:
   topics = "waku cli args"
@@ -725,12 +727,11 @@ proc parseCmdArg*(T: type ProtectedShard, p: string): T =
     raise newException(
       ValueError, "Invalid format for protected shard expected shard:publickey"
     )
-  let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
-  if publicKey.isErr:
+  let publicKey = secp256k1.SkPublicKey.fromHex(elements[1]).valueOr:
     raise newException(ValueError, "Invalid public key")
 
   if isNumber(elements[0]):
-    return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
+    return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey)
 
   # TODO: Remove when removing protected-topic configuration
   let shard = RelayShard.parse(elements[0]).valueOr:
@@ -738,7 +739,7 @@ proc parseCmdArg*(T: type ProtectedShard, p: string): T =
       ValueError,
       "Invalid pubsub topic. Pubsub topics must be in the format /waku/2/rs/<cluster-id>/<shard-id>",
     )
-  return ProtectedShard(shard: shard.shardId, key: publicKey.get())
+  return ProtectedShard(shard: shard.shardId, key: publicKey)
 
 proc completeCmdArg*(T: type ProtectedShard, val: string): seq[string] =
   return @[]

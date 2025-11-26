@@ -17,12 +17,12 @@ import
     waku_core/time,
     waku_node,
     node/peer_manager,
-    waku_api/rest/server,
-    waku_api/rest/client,
-    waku_api/rest/responses,
-    waku_api/rest/store/handlers as store_api,
-    waku_api/rest/store/client as store_api_client,
-    waku_api/rest/store/types,
+    rest_api/endpoint/server,
+    rest_api/endpoint/client,
+    rest_api/endpoint/responses,
+    rest_api/endpoint/store/handlers as store_rest_interface,
+    rest_api/endpoint/store/client as store_rest_client,
+    rest_api/endpoint/store/types,
     waku_archive,
     waku_archive/driver/queue_driver,
     waku_archive/driver/sqlite_driver,
@@ -34,7 +34,7 @@ import
   ../testlib/wakunode
 
 logScope:
-  topics = "waku node rest store_api test"
+  topics = "waku node rest store_rest_interface test"
 
 proc put(
     store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage
@@ -107,7 +107,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -185,7 +185,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -255,7 +255,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -351,7 +351,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -425,7 +425,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -485,7 +485,7 @@ procSuite "Waku Rest API - Store v3":
       $response.contentType == $MIMETYPE_TEXT
       response.data.messages.len == 0
       response.data.statusDesc ==
-        "Failed parsing remote peer info [MultiAddress.init [multiaddress: Invalid MultiAddress, must start with `/`]]"
+        "Failed parsing remote peer info: MultiAddress.init [multiaddress: Invalid MultiAddress, must start with `/`]"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -515,7 +515,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)
@@ -566,7 +566,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -750,7 +750,7 @@ procSuite "Waku Rest API - Store v3":
     node.mountStoreClient()
 
     let key = generateEcdsaKey()
-    var peerSwitch = newStandardSwitch(some(key))
+    var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
     peerSwitch.mount(node.wakuStore)

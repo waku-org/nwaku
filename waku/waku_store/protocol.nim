@@ -132,8 +132,8 @@ proc initProtocolHandler(self: WakuStore) =
     let writeRes = catch:
       await conn.writeLp(resBuf.resp)
 
-    if writeRes.isErr():
-      error "Connection write error", error = writeRes.error.msg
+    writeRes.isOkOr:
+      error "Connection write error", error = error.msg
       return
 
     if successfulQuery:

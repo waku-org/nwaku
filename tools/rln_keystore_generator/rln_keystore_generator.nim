@@ -30,21 +30,11 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   # 1. load configuration
   trace "configuration", conf = $conf
 
-  # 2. initialize rlnInstance
-  let rlnInstanceRes = createRLNInstance(d = 20)
-  if rlnInstanceRes.isErr():
-    error "failure while creating RLN instance", error = rlnInstanceRes.error
-    quit(1)
+  # 2. generate credentials
+  let credential = membershipKeyGen().valueOr:
+    error "failure while generating credentials", error = error
+    quit(QuitFailure)
 
-  let rlnInstance = rlnInstanceRes.get()
-
-  # 3. generate credentials
-  let credentialRes = rlnInstance.membershipKeyGen()
-  if credentialRes.isErr():
-    error "failure while generating credentials", error = credentialRes.error
-    quit(1)
-
-  let credential = credentialRes.get()
   info "credentials",
     idTrapdoor = credential.idTrapdoor.inHex(),
     idNullifier = credential.idNullifier.inHex(),
@@ -53,7 +43,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
 
   if not conf.execute:
     info "not executing, exiting"
-    quit(0)
+    quit(QuitSuccess)
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
     ## Action to be taken when an internal error occurs during the node run.
@@ -61,12 +51,11 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     error "Unrecoverable error occurred", error = msg
     quit(QuitFailure)
 
-  # 4. initialize OnchainGroupManager
+  # 3. initialize OnchainGroupManager
   let groupManager = OnchainGroupManager(
     ethClientUrls: conf.ethClientUrls,
     chainId: conf.chainId,
     ethContractAddress: conf.ethContractAddress,
-    rlnInstance: rlnInstance,
     keystorePath: none(string),
     keystorePassword: none(string),
     ethPrivateKey: some(conf.ethPrivateKey),
@@ -75,20 +64,20 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
   try:
     (waitFor groupManager.init()).isOkOr:
       error "failure while initializing OnchainGroupManager", error = $error
-      quit(1)
+      quit(QuitFailure)
   # handling the exception is required since waitFor raises an exception
   except Exception, CatchableError:
     error "failure while initializing OnchainGroupManager",
       error = getCurrentExceptionMsg()
-    quit(1)
+    quit(QuitFailure)
 
-  # 5. register on-chain
+  # 4. register on-chain
   try:
     waitFor groupManager.register(credential, conf.userMessageLimit)
   except Exception, CatchableError:
     error "failure while registering credentials on-chain",
       error = getCurrentExceptionMsg()
-    quit(1)
+    quit(QuitFailure)
 
   info "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
@@ -98,7 +87,7 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     membershipIndex = groupManager.membershipIndex.get()
   info "Your user message limit is", userMessageLimit = conf.userMessageLimit
 
-  # 6. write to keystore
+  # 5. write to keystore
   let keystoreCred = KeystoreMembership(
     membershipContract: MembershipContract(
       chainId: $groupManager.chainId, address: conf.ethContractAddress
@@ -108,11 +97,9 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     userMessageLimit: conf.userMessageLimit,
   )
 
-  let persistRes =
-    addMembershipCredentials(conf.credPath, keystoreCred, conf.credPassword, RLNAppInfo)
-  if persistRes.isErr():
-    error "failed to persist credentials", error = persistRes.error
-    quit(1)
+  addMembershipCredentials(conf.credPath, keystoreCred, conf.credPassword, RLNAppInfo).isOkOr:
+    error "failed to persist credentials", error = error
+    quit(QuitFailure)
 
   info "credentials persisted", path = conf.credPath
 
@@ -120,5 +107,5 @@ proc doRlnKeystoreGenerator*(conf: RlnKeystoreGeneratorConf) =
     waitFor groupManager.stop()
   except CatchableError:
     error "failure while stopping OnchainGroupManager", error = getCurrentExceptionMsg()
-    quit(0) # 0 because we already registered on-chain
-  quit(0)
+    quit(QuitSuccess) # 0 because we already registered on-chain
+  quit(QuitSuccess)

@@ -43,6 +43,9 @@ ifeq ($(detected_OS),Windows)
 
   LIBS = -lws2_32 -lbcrypt -liphlpapi -luserenv -lntdll -lminiupnpc -lnatpmp -lpq
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
+
+  export PATH := /c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$(PATH)
+
 endif
 
 ##########
@@ -143,6 +146,9 @@ ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS := $(NIM_PARAMS) -d:disable_libbacktrace
 endif
 
+# enable experimental exit is dest feature in libp2p mix
+NIM_PARAMS := $(NIM_PARAMS) -d:libp2p_mix_experimental_exit_is_dest 
+
 libbacktrace:
 	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
@@ -177,7 +183,7 @@ nimbus-build-system-nimble-dir:
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-LIBRLN_VERSION := v0.8.0
+LIBRLN_VERSION := v0.9.0
 
 ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
@@ -421,13 +427,13 @@ docker-liteprotocoltester-push:
 
 STATIC ?= 0
 
-
 libwaku: | build deps librln
 	rm -f build/libwaku*
 
 ifeq ($(STATIC), 1)
 	echo -e $(BUILD_MSG) "build/$@.a" && $(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
 else ifeq ($(detected_OS),Windows)
+	make -f scripts/libwaku_windows_setup.mk windows-setup
 	echo -e $(BUILD_MSG) "build/$@.dll" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 else
 	echo -e $(BUILD_MSG) "build/$@.so" && $(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims

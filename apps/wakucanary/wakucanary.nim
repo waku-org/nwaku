@@ -143,16 +143,18 @@ proc areProtocolsSupported(
 
 proc pingNode(
     node: WakuNode, peerInfo: RemotePeerInfo
-): Future[void] {.async, gcsafe.} =
+): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
     let pingDelay = await node.libp2pPing.ping(conn)
     info "Peer response time (ms)", peerId = peerInfo.peerId, ping = pingDelay.millis
+    return true
   except CatchableError:
     var msg = getCurrentExceptionMsg()
     if msg == "Future operation cancelled!":
       msg = "timedout"
     error "Failed to ping the peer", peer = peerInfo, err = msg
+    return false
 
 proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
@@ -181,12 +183,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     protocols = conf.protocols,
     logLevel = conf.logLevel
 
-  let peerRes = parsePeerInfo(conf.address)
-  if peerRes.isErr():
-    error "Couldn't parse 'conf.address'", error = peerRes.error
+  let peer = parsePeerInfo(conf.address).valueOr:
+    error "Couldn't parse 'conf.address'", error = error
     quit(QuitFailure)
-
-  let peer = peerRes.value
 
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -225,13 +224,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     error "could not initialize ENR with shards", error
     quit(QuitFailure)
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create enr record", error = recordRes.error
-      quit(QuitFailure)
-    else:
-      recordRes.get()
+  let record = enrBuilder.build().valueOr:
+    error "failed to create enr record", error = error
+    quit(QuitFailure)
 
   if isWss and
       (conf.websocketSecureKeyPath.len == 0 or conf.websocketSecureCertPath.len == 0):
@@ -275,8 +270,13 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let lp2pPeerStore = node.switch.peerStore
   let conStatus = node.peerManager.switch.peerStore[ConnectionBook][peer.peerId]
 
+  var pingSuccess = true
   if conf.ping:
-    discard await pingFut
+    try:
+      pingSuccess = await pingFut
+    except CatchableError as exc:
+      pingSuccess = false
+      error "Ping operation failed or timed out", error = exc.msg
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
@@ -284,6 +284,11 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     if not areProtocolsSupported(conf.protocols, nodeProtocols):
       error "Not all protocols are supported",
         expected = conf.protocols, supported = nodeProtocols
+      quit(QuitFailure)
+
+    # Check ping result if ping was enabled
+    if conf.ping and not pingSuccess:
+      error "Node is reachable and supports protocols but ping failed - connection may be unstable"
       quit(QuitFailure)
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId

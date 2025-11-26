@@ -14,7 +14,7 @@ import ../../waku_core, ../../waku_keystore
 logScope:
   topics = "waku rln_relay ffi"
 
-proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
+proc membershipKeyGen*(): RlnRelayResult[IdentityCredential] =
   ## generates a IdentityCredential that can be used for the registration into the rln membership contract
   ## Returns an error if the key generation fails
 
@@ -22,7 +22,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   var
     keysBuffer: Buffer
     keysBufferPtr = addr(keysBuffer)
-    done = key_gen(ctxPtr, keysBufferPtr)
+    done = key_gen(keysBufferPtr, true)
 
   # check whether the keys are generated successfully
   if (done == false):
@@ -80,14 +80,13 @@ proc `%`(c: RlnConfig): JsonNode =
     }
   return %[("resources_folder", %c.resources_folder), ("tree_config", %tree_config)]
 
-proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
+proc createRLNInstanceLocal(): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-  ## d indicates the depth of Merkle tree
   ## Returns an error if the instance creation fails
 
   let rln_config = RlnConfig(
-    resources_folder: "tree_height_" & $d & "/",
+    resources_folder: "tree_height_/",
     tree_config: RlnTreeConfig(
       cache_capacity: 15_000,
       mode: "high_throughput",
@@ -100,7 +99,7 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
 
   var
     rlnInstance: ptr RLN
-    merkleDepth: csize_t = uint(d)
+    merkleDepth: csize_t = uint(20)
     configBuffer =
       serialized_rln_config.toOpenArrayByte(0, serialized_rln_config.high).toBuffer()
 
@@ -112,12 +111,12 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth): RLNResult =
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc createRLNInstance*(d = MerkleTreeDepth): RLNResult =
+proc createRLNInstance*(): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d)
+    res = createRLNInstanceLocal()
   return res
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
@@ -128,7 +127,7 @@ proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
     outputBuffer: Buffer # will holds the hash output
 
   trace "sha256 hash input buffer length", bufflen = hashInputBuffer.len
-  let hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer)
+  let hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer, true)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
@@ -145,7 +144,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
     hashInputBuffer = inputBytes.toBuffer()
     outputBuffer: Buffer # will holds the hash output
 
-  let hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer)
+  let hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer, true)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
@@ -190,116 +189,5 @@ proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
       shareX: proof.shareX,
       shareY: proof.shareY,
       externalNullifier: externalNullifier,
-    )
-  )
-
-type RlnMetadata* = object
-  lastProcessedBlock*: uint64
-  chainId*: UInt256
-  contractAddress*: string
-  validRoots*: seq[MerkleNode]
-
-proc serialize(metadata: RlnMetadata): seq[byte] =
-  ## serializes the metadata
-  ## returns the serialized metadata
-  return concat(
-    @(metadata.lastProcessedBlock.toBytes()),
-    @(metadata.chainId.toBytes(Endianness.littleEndian)[0 .. 7]),
-    @(hexToSeqByte(toLower(metadata.contractAddress))),
-    @(uint64(metadata.validRoots.len()).toBytes()),
-    @(serialize(metadata.validRoots)),
-  )
-
-type MerkleNodeSeq = seq[MerkleNode]
-
-proc deserialize(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
-  ## deserializes a byte seq to a seq of MerkleNodes
-  ## the order of serialization is |merkle_node_len<8>|merkle_node[len]|
-
-  var roots = newSeq[MerkleNode]()
-  let len = uint64.fromBytes(merkleNodeByteSeq[0 .. 7], Endianness.littleEndian)
-  trace "length of valid roots", len
-  for i in 0'u64 ..< len:
-    # convert seq[byte] to array[32, byte]
-    let fromByte = 8 + i * 32
-    let toByte = fromByte + 31
-    let rawRoot = merkleNodeByteSeq[fromByte .. toByte]
-    trace "raw root", rawRoot = rawRoot
-    var root: MerkleNode
-    discard root.copyFrom(rawRoot)
-    roots.add(root)
-  return roots
-
-proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[void] =
-  ## sets the metadata of the RLN instance
-  ## returns an error if the metadata could not be set
-  ## returns void if the metadata is set successfully
-
-  # serialize the metadata
-  let metadataBytes = serialize(metadata)
-  trace "setting metadata",
-    metadata = metadata, metadataBytes = metadataBytes, len = metadataBytes.len
-  var metadataBuffer = metadataBytes.toBuffer()
-  let metadataBufferPtr = addr metadataBuffer
-
-  # set the metadata
-  let metadataSet = set_metadata(rlnInstance, metadataBufferPtr)
-
-  if not metadataSet:
-    return err("could not set the metadata")
-  return ok()
-
-proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
-  ## gets the metadata of the RLN instance
-  ## returns an error if the metadata could not be retrieved
-  ## returns the metadata if the metadata is retrieved successfully
-
-  # read the metadata
-  var
-    metadata {.noinit.}: Buffer = Buffer()
-    metadataPtr = addr(metadata)
-    getMetadataSuccessful = get_metadata(rlnInstance, metadataPtr)
-  if not getMetadataSuccessful:
-    return err("could not get the metadata")
-  trace "metadata length", metadataLen = metadata.len
-
-  if metadata.len == 0:
-    return ok(none(RlnMetadata))
-
-  let
-    lastProcessedBlockOffset = 0
-    chainIdOffset = lastProcessedBlockOffset + 8
-    contractAddressOffset = chainIdOffset + 8
-    validRootsOffset = contractAddressOffset + 20
-
-  var
-    lastProcessedBlock: uint64
-    chainId: UInt256
-    contractAddress: string
-    validRoots: MerkleNodeSeq
-
-  # 8 + 8 + 20 + 8 + (5*32) = 204
-  var metadataBytes = cast[ptr array[204, byte]](metadata.`ptr`)[]
-  trace "received metadata bytes",
-    metadataBytes = metadataBytes, len = metadataBytes.len
-
-  lastProcessedBlock =
-    uint64.fromBytes(metadataBytes[lastProcessedBlockOffset .. chainIdOffset - 1])
-  chainId = UInt256.fromBytes(
-    metadataBytes[chainIdOffset .. contractAddressOffset - 1], Endianness.littleEndian
-  )
-  contractAddress =
-    byteutils.toHex(metadataBytes[contractAddressOffset .. validRootsOffset - 1])
-  let validRootsBytes = metadataBytes[validRootsOffset .. metadataBytes.high]
-  validRoots = MerkleNodeSeq.deserialize(validRootsBytes)
-
-  return ok(
-    some(
-      RlnMetadata(
-        lastProcessedBlock: lastProcessedBlock,
-        chainId: chainId,
-        contractAddress: "0x" & contractAddress,
-        validRoots: validRoots,
-      )
     )
   )

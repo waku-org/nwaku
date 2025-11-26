@@ -8,7 +8,7 @@ import
 
 import
   ../waku_node,
-  ../api,
+  ../kernel_api,
   ../../waku_rln_relay,
   ../../waku_relay,
   ../peer_manager,

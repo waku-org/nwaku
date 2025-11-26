@@ -100,8 +100,7 @@ proc getPage(
 
   # Find starting entry
   if cursor.isSome():
-    let cursorEntry = w.walkToCursor(cursor.get(), forward)
-    if cursorEntry.isErr():
+    w.walkToCursor(cursor.get(), forward).isOkOr:
       return err(QueueDriverErrorKind.INVALID_CURSOR)
 
     # Advance walker once more
@@ -182,7 +181,7 @@ proc first*(driver: QueueDriver): ArchiveDriverResult[Index] =
     res = w.first()
   w.destroy()
 
-  if res.isErr():
+  res.isOkOr:
     return err("Not found")
 
   return ok(res.value.key)
@@ -193,7 +192,7 @@ proc last*(driver: QueueDriver): ArchiveDriverResult[Index] =
     res = w.last()
   w.destroy()
 
-  if res.isErr():
+  res.isOkOr:
     return err("Not found")
 
   return ok(res.value.key)
@@ -297,8 +296,8 @@ method getMessages*(
   except CatchableError, Exception:
     return err(getCurrentExceptionMsg())
 
-  if pageRes.isErr():
-    return err($pageRes.error)
+  pageRes.isOkOr:
+    return err($error)
 
   return ok(pageRes.value)
 

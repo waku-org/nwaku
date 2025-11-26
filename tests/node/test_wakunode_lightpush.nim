@@ -12,7 +12,7 @@ import
     waku_core,
     node/peer_manager,
     node/waku_node,
-    node/api,
+    node/kernel_api,
     waku_lightpush,
     waku_rln_relay,
   ],
@@ -151,7 +151,7 @@ suite "RLN Proofs as a Lightpush Service":
     client.mountLightPushClient()
 
     let manager1 = cast[OnchainGroupManager](server.wakuRlnRelay.groupManager)
-    let idCredentials1 = generateCredentials(manager1.rlnInstance)
+    let idCredentials1 = generateCredentials()
 
     try:
       waitFor manager1.register(idCredentials1, UserMessageLimit(20))
