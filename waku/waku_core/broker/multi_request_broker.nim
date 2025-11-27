@@ -108,7 +108,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
         let rhs = def[2]
         if rhs.kind != nnkObjectTy:
           continue
-        if not typeIdent.isNil:
+        if not typeIdent.isNil():
           error("Only one object type may be declared inside MultiRequestBroker", def)
         typeIdent = baseTypeIdent(def[0])
         let recList = rhs[2]
@@ -133,7 +133,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
         objectDef = newTree(
           nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
         )
-  if typeIdent.isNil:
+  if typeIdent.isNil():
     error("MultiRequestBroker body must declare exactly one object type", body)
 
   when defined(requestBrokerDebug):
@@ -215,7 +215,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
     else:
       error("Unsupported statement inside MultiRequestBroker definition", stmt)
 
-  if zeroArgSig.isNil and argSig.isNil:
+  if zeroArgSig.isNil() and argSig.isNil():
     zeroArgSig = newEmptyNode()
     zeroArgProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderNoArgs")
     zeroArgFieldName = ident("providerNoArgs")
@@ -224,9 +224,9 @@ macro MultiRequestBroker*(body: untyped): untyped =
   typeSection.add(newTree(nnkTypeDef, exportedTypeIdent, newEmptyNode(), objectDef))
 
   var kindEnum = newTree(nnkEnumTy, newEmptyNode())
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     kindEnum.add(zeroKindIdent)
-  if not argSig.isNil:
+  if not argSig.isNil():
     kindEnum.add(argKindIdent)
   typeSection.add(newTree(nnkTypeDef, providerKindIdent, newEmptyNode(), kindEnum))
 
@@ -247,15 +247,15 @@ macro MultiRequestBroker*(body: untyped): untyped =
   let returnType = quote:
     Future[Result[`typeIdent`, string]]
 
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     let procType = makeProcType(returnType, @[])
     typeSection.add(newTree(nnkTypeDef, zeroArgProviderName, newEmptyNode(), procType))
-  if not argSig.isNil:
+  if not argSig.isNil():
     let procType = makeProcType(returnType, cloneParams(argParams))
     typeSection.add(newTree(nnkTypeDef, argProviderName, newEmptyNode(), procType))
 
   var brokerRecList = newTree(nnkRecList)
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     brokerRecList.add(
       newTree(
         nnkIdentDefs,
@@ -264,7 +264,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
         newEmptyNode(),
       )
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     brokerRecList.add(
       newTree(
         nnkIdentDefs,
@@ -277,7 +277,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
   let brokerTypeIdent = ident(sanitizeIdentName(typeIdent) & "Broker")
   let brokerTypeDef = newTree(
     nnkTypeDef,
-    postfix(brokerTypeIdent, "*"),
+    brokerTypeIdent,
     newEmptyNode(),
     newTree(
       nnkRefTy, newTree(nnkObjectTy, newEmptyNode(), newEmptyNode(), brokerRecList)
@@ -290,13 +290,13 @@ macro MultiRequestBroker*(body: untyped): untyped =
   let globalVarIdent = ident("g" & sanitizeIdentName(typeIdent) & "Broker")
   let accessProcIdent = ident("access" & sanitizeIdentName(typeIdent) & "Broker")
   var initStatements = newStmtList()
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     initStatements.add(
       quote do:
         `globalVarIdent`.`zeroArgFieldName` =
           `initTableSym`[`uint64Ident`, `zeroArgProviderName`]()
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     initStatements.add(
       quote do:
         `globalVarIdent`.`argFieldName` =
@@ -307,19 +307,16 @@ macro MultiRequestBroker*(body: untyped): untyped =
       var `globalVarIdent` {.threadvar.}: `brokerTypeIdent`
 
       proc `accessProcIdent`(): `brokerTypeIdent` =
-        if `globalVarIdent`.isNil:
+        if `globalVarIdent`.isNil():
           new(`globalVarIdent`)
           `globalVarIdent`.nextId = 1'u64
           `initStatements`
         `globalVarIdent`
 
-      proc broker*(_: typedesc[`typeIdent`]): `brokerTypeIdent` =
-        `accessProcIdent`()
-
   )
 
   var clearBody = newStmtList()
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     result.add(
       quote do:
         proc setProvider*(
@@ -342,7 +339,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
     clearBody.add(
       quote do:
         let broker = `accessProcIdent`()
-        if not broker.isNil and broker.`zeroArgFieldName`.len > 0:
+        if not broker.isNil() and broker.`zeroArgFieldName`.len > 0:
           broker.`zeroArgFieldName`.clear()
     )
     result.add(
@@ -357,7 +354,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
           # var providersFut: seq[Future[Result[`typeIdent`, string]]] = collect:
           var providersFut = collect(newSeq):
             for provider in providers.values:
-              if provider.isNil:
+              if provider.isNil():
                 continue
               provider()
 
@@ -379,7 +376,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
           ok(aggregated)
 
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     result.add(
       quote do:
         proc setProvider*(
@@ -402,7 +399,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
     clearBody.add(
       quote do:
         let broker = `accessProcIdent`()
-        if not broker.isNil and broker.`argFieldName`.len > 0:
+        if not broker.isNil() and broker.`argFieldName`.len > 0:
           broker.`argFieldName`.clear()
     )
     let requestParamDefs = cloneParams(argParams)
@@ -435,7 +432,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
         return ok(aggregated)
       var providersFut = collect(newSeq):
         for provider in providers.values:
-          if provider.isNil:
+          if provider.isNil():
             continue
           let `providerSym` = provider
           `providerCall`
@@ -470,7 +467,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
       proc clearProviders*(_: typedesc[`typeIdent`]) =
         `clearBody`
         let broker = `accessProcIdent`()
-        if not broker.isNil:
+        if not broker.isNil():
           broker.nextId = 1'u64
 
   )
@@ -483,17 +480,17 @@ macro MultiRequestBroker*(body: untyped): untyped =
       if `removeHandleSym`.id == 0'u64:
         return
       let `removeBrokerSym` = `accessProcIdent`()
-      if `removeBrokerSym`.isNil:
+      if `removeBrokerSym`.isNil():
         return
   )
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     removeBody.add(
       quote do:
         if `removeHandleSym`.kind == `zeroKindIdent`:
           `removeBrokerSym`.`zeroArgFieldName`.del(`removeHandleSym`.id)
           return
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     removeBody.add(
       quote do:
         if `removeHandleSym`.kind == `argKindIdent`:
