@@ -43,7 +43,7 @@ macro EventBroker*(body: untyped): untyped =
         let rhs = def[2]
         if rhs.kind != nnkObjectTy:
           continue
-        if not typeIdent.isNil:
+        if not typeIdent.isNil():
           error("Only one object type may be declared inside EventBroker", def)
         typeIdent = baseTypeIdent(def[0])
         let recList = rhs[2]
@@ -68,7 +68,7 @@ macro EventBroker*(body: untyped): untyped =
         objectDef = newTree(
           nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
         )
-  if typeIdent.isNil:
+  if typeIdent.isNil():
     error("EventBroker body must declare exactly one object type", body)
 
   let exportedTypeIdent = postfix(copyNimTree(typeIdent), "*")
@@ -112,7 +112,7 @@ macro EventBroker*(body: untyped): untyped =
   result.add(
     quote do:
       proc `accessProcIdent`(): `brokerTypeIdent` =
-        if `globalVarIdent`.isNil:
+        if `globalVarIdent`.isNil():
           new(`globalVarIdent`)
           `globalVarIdent`.listeners = initTable[uint64, `handlerProcIdent`]()
         `globalVarIdent`
@@ -135,7 +135,7 @@ macro EventBroker*(body: untyped): untyped =
         let newId = broker.nextId
         inc broker.nextId
         broker.listeners[newId] = handler
-        ok(`listenerHandleIdent`(id: newId))
+        return ok(`listenerHandleIdent`(id: newId))
 
   )
 
@@ -165,7 +165,7 @@ macro EventBroker*(body: untyped): untyped =
       proc listen*(
           _: typedesc[`typeIdent`], handler: `handlerProcIdent`
       ): Result[`listenerHandleIdent`, string] =
-        `listenImplIdent`(handler)
+        return `listenImplIdent`(handler)
 
   )
 
@@ -184,7 +184,7 @@ macro EventBroker*(body: untyped): untyped =
       proc `listenerTaskIdent`(
           callback: `handlerProcIdent`, event: `typeIdent`
       ) {.async: (raises: []), gcsafe.} =
-        if callback.isNil:
+        if callback.isNil():
           return
         try:
           await callback(event)

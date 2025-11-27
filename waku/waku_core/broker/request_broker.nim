@@ -99,7 +99,7 @@ macro RequestBroker*(body: untyped): untyped =
         let rhs = def[2]
         if rhs.kind != nnkObjectTy:
           continue
-        if not typeIdent.isNil:
+        if not typeIdent.isNil():
           error("Only one object type may be declared inside RequestBroker", def)
         typeIdent = baseTypeIdent(def[0])
         let recList = rhs[2]
@@ -124,7 +124,7 @@ macro RequestBroker*(body: untyped): untyped =
         objectDef = newTree(
           nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
         )
-  if typeIdent.isNil:
+  if typeIdent.isNil():
     error("RequestBroker body must declare exactly one object type", body)
 
   when defined(requestBrokerDebug):
@@ -198,7 +198,7 @@ macro RequestBroker*(body: untyped): untyped =
     else:
       error("Unsupported statement inside RequestBroker definition", stmt)
 
-  if zeroArgSig.isNil and argSig.isNil:
+  if zeroArgSig.isNil() and argSig.isNil():
     zeroArgSig = newEmptyNode()
     zeroArgProviderName = ident(sanitizeIdentName(typeIdent) & "ProviderNoArgs")
     zeroArgFieldName = ident("providerNoArgs")
@@ -209,19 +209,19 @@ macro RequestBroker*(body: untyped): untyped =
   let returnType = quote:
     Future[Result[`typeIdent`, string]]
 
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     let procType = makeProcType(returnType, @[])
     typeSection.add(newTree(nnkTypeDef, zeroArgProviderName, newEmptyNode(), procType))
-  if not argSig.isNil:
+  if not argSig.isNil():
     let procType = makeProcType(returnType, cloneParams(argParams))
     typeSection.add(newTree(nnkTypeDef, argProviderName, newEmptyNode(), procType))
 
   var brokerRecList = newTree(nnkRecList)
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     brokerRecList.add(
       newTree(nnkIdentDefs, zeroArgFieldName, zeroArgProviderName, newEmptyNode())
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     brokerRecList.add(
       newTree(nnkIdentDefs, argFieldName, argProviderName, newEmptyNode())
     )
@@ -251,7 +251,7 @@ macro RequestBroker*(body: untyped): untyped =
   )
 
   var clearBody = newStmtList()
-  if not zeroArgSig.isNil:
+  if not zeroArgSig.isNil():
     result.add(
       quote do:
         proc setProvider*(_: typedesc[`typeIdent`], handler: `zeroArgProviderName`) =
@@ -268,7 +268,7 @@ macro RequestBroker*(body: untyped): untyped =
             _: typedesc[`typeIdent`]
         ): Future[Result[`typeIdent`, string]] {.async: (raises: []).} =
           let provider = `accessProcIdent`().`zeroArgFieldName`
-          if provider.isNil:
+          if provider.isNil():
             return err(
               "RequestBroker(" & `typeNameLit` & "): no zero-arg provider registered"
             )
@@ -278,10 +278,10 @@ macro RequestBroker*(body: untyped): untyped =
           if catchedRes.isErr:
             return err("Request failed:" & catchedRes.error.msg)
 
-          catchedRes.get()
+          return catchedRes.get()
 
     )
-  if not argSig.isNil:
+  if not argSig.isNil():
     result.add(
       quote do:
         proc setProvider*(_: typedesc[`typeIdent`], handler: `argProviderName`) =
@@ -323,7 +323,7 @@ macro RequestBroker*(body: untyped): untyped =
     )
     requestBody.add(
       quote do:
-        if `providerSym`.isNil:
+        if `providerSym`.isNil():
           return err(
             "RequestBroker(" & `typeNameLit` &
               "): no provider registered for input signature"
@@ -336,7 +336,7 @@ macro RequestBroker*(body: untyped): untyped =
         if catchedRes.isErr:
           return err("Request failed:" & catchedRes.error.msg)
 
-        catchedRes.get()
+        return catchedRes.get()
     )
     # requestBody.add(providerCall)
     result.add(
