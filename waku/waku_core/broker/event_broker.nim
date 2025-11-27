@@ -27,10 +27,10 @@
 ## ```
 
 import std/[macros, tables]
-import chronos, chronicles
+import chronos, chronicles, results
 import ./helper/broker_utils
 
-export chronicles
+export chronicles, results, chronos
 
 macro EventBroker*(body: untyped): untyped =
   var typeIdent: NimNode = nil

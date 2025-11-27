@@ -38,7 +38,7 @@ import chronos
 import results
 import ./helper/broker_utils
 
-export results
+export results, chronos
 
 proc errorFuture[T](message: string): Future[Result[T, string]] {.inline.} =
   ## Build a future that is already completed with an error result.

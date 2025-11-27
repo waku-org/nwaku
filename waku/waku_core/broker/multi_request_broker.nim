@@ -50,7 +50,7 @@ import chronos
 import results
 import ./helper/broker_utils
 
-export results
+export results, chronos
 
 proc isReturnTypeValid(returnType, typeIdent: NimNode): bool =
   ## Accept Future[Result[TypeIdent, string]] as the contract.
