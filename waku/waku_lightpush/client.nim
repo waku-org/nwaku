@@ -43,9 +43,6 @@ func shortPeerId(peer: RemotePeerInfo): string =
 proc sendPushRequestToConn(
     wl: WakuLightPushClient, request: LightPushRequest, conn: Connection
 ): Future[WakuLightPushResult] {.async.} =
-  defer:
-    await conn.closeWithEOF()
-
   try:
     await conn.writeLp(request.encode().buffer)
   except LPStreamRemoteClosedError:
@@ -91,24 +88,19 @@ proc publish*(
         waku_lightpush_v3_errors.inc(labelValues = [dialFailure])
         return lighpushErrorResult(
           LightPushErrorCode.NO_PEERS_TO_RELAY,
-          dialFailure & ": " & $dest & " is not accessible",
+          "Peer is not accessible: " & dialFailure & " - " & $dest,
         )
 
   defer:
-    when not (dest is Connection):
-      await conn.closeWithEOF()
+    await conn.closeWithEOF()
 
   var message = wakuMessage
   ensureTimestampSet(message)
 
-  let msgHash = computeMessageHash(pubSubTopic.get(""), message).to0xHex
+  let msgHash = computeMessageHash(pubSubTopic.get(""), message).to0xHex()
   info "publish",
     myPeerId = wl.peerManager.switch.peerInfo.peerId,
-    peerId =
-      when dest is Connection:
-        "unknown (using connection directly)"
-      else:
-        shortPeerId(dest),
+    peerId = shortPeerId(conn.peerId),
     msgHash = msgHash,
     sentTime = getNowInNanosecondTime()
 
