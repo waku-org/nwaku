@@ -7,12 +7,40 @@
 ##
 ## Provides a declarative way to define an immutable value type together with a
 ## thread-local broker that can register multiple asynchronous providers, dispatch
-## typed requests, and clear handlers. Each macro block defines one value type
-## and the companion `<TypeName>Broker` along with the `setProvider`,
-## `removeProvider`, `request`, and `clearProviders` helpers. Unlike
-## `RequestBroker`, every call to `request` fan-outs to every registered
-## provider and returns with collected responses. Return succeeds if all providers
-## succeed, otherwise fails with an error.
+## typed requests, and clear handlers. Unlike `RequestBroker`,
+## every call to `request` fan-outs to every registered provider and returns with
+## collected responses.
+## Request succeeds if all providers succeed, otherwise fails with an error.
+##
+## Usage:
+##
+## Declare collectable request data type inside a `MultiRequestBroker` macro, add any number of fields:
+## ```nim
+## MultiRequestBroker:
+##   type TypeName = object
+##     field1*: Type1
+##     field2*: Type2
+##
+##   ## Define the request and provider signature, that is enforced at compile time.
+##   proc signature*(): Future[Result[TypeName, string]] {.async: (raises: []).}
+##
+##   ## Also possible to define signature with arbitrary input arguments.
+##   proc signature*(arg1: ArgType, arg2: AnotherArgType): Future[Result[TypeName, string]] {.async: (raises: []).}
+##
+## ```
+##
+## You regiser request processor (proveder) at any place of the code without the need to know of who ever may request.
+## Respectively to the defined signatures register provider functions with `TypeName.setProvider(...)`.
+## Providers are async procs or lambdas that return with a Future[Result[seq[TypeName], string]].
+## Notice MultiRequestBroker's `setProvider` return with a handler that can be used to remove the provider later (or error).
+
+## Requests can be made from anywhere with no direct dependency on the provider(s) by
+## calling `TypeName.request()` - with arguments respecting the signature(s).
+## This will asynchronously call the registered provider and return the collected data, in form of `Future[Result[seq[TypeName], string]]`.
+##
+## Whenever you don't want to process requests anymore (or your object instance that provides the request goes out of scope),
+## you can remove it from the broker with `TypeName.removeProvider(handle)`.
+## Alternatively, you can remove all registered providers through `TypeName.clearProviders()`.
 ##
 ## Example:
 ## ```nim
