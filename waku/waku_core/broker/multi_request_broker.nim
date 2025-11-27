@@ -311,7 +311,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
           new(`globalVarIdent`)
           `globalVarIdent`.nextId = 1'u64
           `initStatements`
-        `globalVarIdent`
+        return `globalVarIdent`
 
   )
 
@@ -333,7 +333,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
           let newId = broker.nextId
           inc broker.nextId
           broker.`zeroArgFieldName`[newId] = handler
-          ok(`providerHandleIdent`(id: newId, kind: `zeroKindIdent`))
+          return ok(`providerHandleIdent`(id: newId, kind: `zeroKindIdent`))
 
     )
     clearBody.add(
@@ -373,7 +373,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
               else:
                 return err("Some provider(s) failed:" & fut.value().error)
 
-          ok(aggregated)
+          return ok(aggregated)
 
     )
   if not argSig.isNil():
@@ -393,7 +393,7 @@ macro MultiRequestBroker*(body: untyped): untyped =
           let newId = broker.nextId
           inc broker.nextId
           broker.`argFieldName`[newId] = handler
-          ok(`providerHandleIdent`(id: newId, kind: `argKindIdent`))
+          return ok(`providerHandleIdent`(id: newId, kind: `argKindIdent`))
 
     )
     clearBody.add(
@@ -448,7 +448,8 @@ macro MultiRequestBroker*(body: untyped): untyped =
             aggregated.add(fut.value().get())
           else:
             return err("Some provider(s) failed:" & fut.value().error)
-      ok(aggregated)
+      return ok(aggregated)
+
     result.add(
       newTree(
         nnkProcDef,
