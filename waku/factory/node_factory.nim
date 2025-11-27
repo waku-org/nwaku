@@ -368,7 +368,8 @@ proc setupProtocols(
   # NOTE Must be mounted after relay
   if conf.lightPush:
     try:
-      await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
+      (await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))).isOkOr:
+        return err("failed to mount waku lightpush protocol: " & $error)
       await mountLegacyLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())

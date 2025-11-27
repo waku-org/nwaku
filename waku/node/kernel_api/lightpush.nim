@@ -34,6 +34,8 @@ import
 logScope:
   topics = "waku node lightpush api"
 
+const MountWithoutRelayError* = "cannot mount lightpush because relay is not mounted"
+
 ## Waku lightpush
 proc mountLegacyLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
@@ -146,23 +148,21 @@ proc legacyLightpushPublish*(
 
 proc mountLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async.} =
+): Future[Result[void, string]] {.async.} =
   info "mounting light push"
 
-  let pushHandler =
-    if node.wakuRelay.isNil():
-      info "mounting lightpush v2 without relay (nil)"
-      lightpush_protocol.getNilPushHandler()
+  if node.wakuRelay.isNil():
+    return err(MountWithoutRelayError)
+
+  info "mounting lightpush with relay"
+  let rlnPeer =
+    if node.wakuRlnRelay.isNil():
+      info "mounting lightpush without rln-relay"
+      none(WakuRLNRelay)
     else:
-      info "mounting lightpush with relay"
-      let rlnPeer =
-        if isNil(node.wakuRlnRelay):
-          info "mounting lightpush without rln-relay"
-          none(WakuRLNRelay)
-        else:
-          info "mounting lightpush with rln-relay"
-          some(node.wakuRlnRelay)
-      lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
+      info "mounting lightpush with rln-relay"
+      some(node.wakuRlnRelay)
+  let pushHandler = lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush = WakuLightPush.new(
     node.peerManager, node.rng, pushHandler, node.wakuAutoSharding, some(rateLimit)
@@ -173,6 +173,9 @@ proc mountLightPush*(
     await node.wakuLightPush.start()
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
+
+  info "lightpush mounted successfully"
+  return ok()
 
 proc mountLightPushClient*(node: WakuNode) =
   info "mounting light push client"
