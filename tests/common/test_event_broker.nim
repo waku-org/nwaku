@@ -38,6 +38,8 @@ suite "EventBroker":
     check seen.anyIt(it == (5, "hi"))
     check seen.anyIt(it == (10, "hi!"))
 
+    SampleEvent.dropAllListeners()
+
   test "forget removes a single listener":
     var counter = 0
 
@@ -51,25 +53,27 @@ suite "EventBroker":
         inc(counter, 2)
     )
 
-    SampleEvent.forget(handleA.get())
+    SampleEvent.dropListener(handleA.get())
     let eventVal = SampleEvent(value: 1, label: "one")
     SampleEvent.emit(eventVal)
     waitForListeners()
     check counter == 2
 
+    SampleEvent.dropAllListeners()
+
   test "forgetAll clears every listener":
     var triggered = false
 
-    discard SampleEvent.listen(
+    let handle1 = SampleEvent.listen(
       proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         triggered = true
     )
-    discard SampleEvent.listen(
+    let handle2 = SampleEvent.listen(
       proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         discard
     )
 
-    SampleEventBroker.forgetAll()
+    SampleEvent.dropAllListeners()
     let clearedEvent = SampleEvent(value: 42, label: "noop")
     SampleEvent.emit(clearedEvent)
     waitForListeners()
@@ -80,12 +84,12 @@ suite "EventBroker":
         discard
     )
     check freshHandle.get().id > 0'u64
-    SampleEvent.forget(freshHandle.get())
+    SampleEvent.dropListener(freshHandle.get())
 
   test "broker helpers operate via typedesc":
     var toggles: seq[bool] = @[]
 
-    discard BinaryEventBroker.listen(
+    let handle = BinaryEvent.listen(
       proc(evt: BinaryEvent): Future[void] {.async: (raises: []).} =
         toggles.add(evt.flag)
     )
@@ -97,3 +101,4 @@ suite "EventBroker":
     waitForListeners()
 
     check toggles == @[true, false]
+    BinaryEvent.dropAllListeners()

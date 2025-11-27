@@ -9,7 +9,7 @@
 ## The macro exports the value type itself plus a broker companion that manages
 ## listeners via thread-local storage. Users can register async listeners with
 ## `TypeName.listen`, emit events with `TypeName.emit(...)`, and remove
-## listeners through `forget`/`forgetAll` helpers on either the value type or the
+## listeners through `dropListener`/`dropAllListeners` helpers on either the value type or the
 ## broker companion.
 ##
 ## Example:
@@ -23,7 +23,7 @@
 ##     echo evt.text
 ## )
 ## GreetingEvent.emit(text: "hi")
-## GreetingEvent.forget(handle)
+## GreetingEvent.dropListener(handle)
 ## ```
 
 import std/[macros, tables]
@@ -82,8 +82,8 @@ macro EventBroker*(body: untyped): untyped =
   let accessProcIdent = ident("access" & sanitized & "Broker")
   let globalVarIdent = ident("g" & sanitized & "Broker")
   let listenImplIdent = ident("register" & sanitized & "Listener")
-  let forgetImplIdent = ident("forget" & sanitized & "Listener")
-  let forgetAllImplIdent = ident("forgetAll" & sanitized & "Listeners")
+  let dropListenerImplIdent = ident("drop" & sanitized & "Listener")
+  let dropAllListenersImplIdent = ident("dropAll" & sanitized & "Listeners")
   let emitImplIdent = ident("emit" & sanitized & "Value")
   let listenerTaskIdent = ident("notify" & sanitized & "Listener")
 
@@ -141,7 +141,7 @@ macro EventBroker*(body: untyped): untyped =
 
   result.add(
     quote do:
-      proc `forgetImplIdent`(handle: `listenerHandleIdent`) =
+      proc `dropListenerImplIdent`(handle: `listenerHandleIdent`) =
         if handle.id == 0'u64:
           return
         var broker = `accessProcIdent`()
@@ -153,7 +153,7 @@ macro EventBroker*(body: untyped): untyped =
 
   result.add(
     quote do:
-      proc `forgetAllImplIdent`() =
+      proc `dropAllListenersImplIdent`() =
         var broker = `accessProcIdent`()
         if broker.listeners.len > 0:
           broker.listeners.clear()
@@ -167,26 +167,15 @@ macro EventBroker*(body: untyped): untyped =
       ): Result[`listenerHandleIdent`, string] =
         `listenImplIdent`(handler)
 
-      proc listen*(
-          _: typedesc[`brokerTypeIdent`], handler: `handlerProcIdent`
-      ): Result[`listenerHandleIdent`, string] =
-        `listenImplIdent`(handler)
-
   )
 
   result.add(
     quote do:
-      proc forget*(_: typedesc[`typeIdent`], handle: `listenerHandleIdent`) =
-        `forgetImplIdent`(handle)
+      proc dropListener*(_: typedesc[`typeIdent`], handle: `listenerHandleIdent`) =
+        `dropListenerImplIdent`(handle)
 
-      proc forget*(_: typedesc[`brokerTypeIdent`], handle: `listenerHandleIdent`) =
-        `forgetImplIdent`(handle)
-
-      proc forgetAll*(_: typedesc[`typeIdent`]) =
-        `forgetAllImplIdent`()
-
-      proc forgetAll*(_: typedesc[`brokerTypeIdent`]) =
-        `forgetAllImplIdent`()
+      proc dropAllListeners*(_: typedesc[`typeIdent`]) =
+        `dropAllListenersImplIdent`()
 
   )
 
@@ -221,13 +210,7 @@ macro EventBroker*(body: untyped): untyped =
       proc emit*(_: typedesc[`typeIdent`], event: `typeIdent`) =
         asyncSpawn `emitImplIdent`(event)
 
-      proc emit*(_: typedesc[`brokerTypeIdent`], event: `typeIdent`) =
-        asyncSpawn `emitImplIdent`(event)
-
       template emit*(_: typedesc[`typeIdent`], args: untyped): untyped =
-        asyncSpawn `emitImplIdent`(`typeIdent`(args))
-
-      template emit*(_: typedesc[`brokerTypeIdent`], args: untyped): untyped =
         asyncSpawn `emitImplIdent`(`typeIdent`(args))
 
   )
