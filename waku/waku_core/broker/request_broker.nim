@@ -228,7 +228,7 @@ macro RequestBroker*(body: untyped): untyped =
   let brokerTypeIdent = ident(sanitizeIdentName(typeIdent) & "Broker")
   let brokerTypeDef = newTree(
     nnkTypeDef,
-    postfix(brokerTypeIdent, "*"),
+    brokerTypeIdent,
     newEmptyNode(),
     newTree(nnkObjectTy, newEmptyNode(), newEmptyNode(), brokerRecList),
   )
@@ -244,9 +244,6 @@ macro RequestBroker*(body: untyped): untyped =
 
       proc `accessProcIdent`(): var `brokerTypeIdent` =
         `globalVarIdent`
-
-      proc broker*(_: typedesc[`typeIdent`]): var `brokerTypeIdent` =
-        `accessProcIdent`()
 
   )
 
