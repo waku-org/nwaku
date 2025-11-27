@@ -39,23 +39,22 @@ const MountWithoutRelayError* = "cannot mount lightpush because relay is not mou
 ## Waku lightpush
 proc mountLegacyLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async.} =
+): Future[Result[void, string]] {.async.} =
   info "mounting legacy light push"
 
-  let pushHandler =
-    if node.wakuRelay.isNil:
-      info "mounting legacy lightpush without relay (nil)"
-      legacy_lightpush_protocol.getNilPushHandler()
+  if node.wakuRelay.isNil():
+    return err(MountWithoutRelayError)
+
+  info "mounting legacy lightpush with relay"
+  let rlnPeer =
+    if node.wakuRlnRelay.isNil():
+      info "mounting legacy lightpush without rln-relay"
+      none(WakuRLNRelay)
     else:
-      info "mounting legacy lightpush with relay"
-      let rlnPeer =
-        if isNil(node.wakuRlnRelay):
-          info "mounting legacy lightpush without rln-relay"
-          none(WakuRLNRelay)
-        else:
-          info "mounting legacy lightpush with rln-relay"
-          some(node.wakuRlnRelay)
-      legacy_lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
+      info "mounting legacy lightpush with rln-relay"
+      some(node.wakuRlnRelay)
+  let pushHandler =
+    legacy_lightpush_protocol.getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLegacyLightPush =
     WakuLegacyLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
@@ -65,6 +64,9 @@ proc mountLegacyLightPush*(
     await node.wakuLegacyLightPush.start()
 
   node.switch.mount(node.wakuLegacyLightPush, protocolMatcher(WakuLegacyLightPushCodec))
+
+  info "legacy lightpush mounted successfully"
+  return ok()
 
 proc mountLegacyLightPushClient*(node: WakuNode) =
   info "mounting legacy light push client"
