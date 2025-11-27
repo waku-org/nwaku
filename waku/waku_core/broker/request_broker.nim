@@ -6,10 +6,41 @@
 ## Worth considering using it in a single provider, many requester scenario.
 ##
 ## Provides a declarative way to define an immutable value type together with a
-## thread-local broker that can register asynchronous providers, dispatch typed
-## requests and clear handlers. Each macro block defines one value type and the
-## companion `<TypeName>Broker` along with the `setProvider`, `request`, and
-## `clearProvider` helpers.
+## thread-local broker that can register an asynchronous provider, dispatch typed
+## requests and clear provider.
+##
+## Usage:
+## Declare your desired request type inside a `RequestBroker` macro, add any number of fields.
+## Define the provider signature, that is enforced at compile time.
+##
+## ```nim
+## RequestBroker:
+##   type TypeName = object
+##     field1*: FieldType
+##     field2*: AnotherFieldType
+##
+##   proc signature*(): Future[Result[TypeName, string]]
+##   ## Also possible to define signature with arbitrary input arguments.
+##   proc signature*(arg1: ArgType, arg2: AnotherArgType): Future[Result[TypeName, string]]
+##
+## ```
+## The 'TypeName' object defines the requestable data (but also can be seen as request for action with return value).
+## The 'signature' proc defines the provider(s) signature, that is enforced at compile time.
+## One signature can be with no arguments, another with any number of arguments - where the input arguments are
+## not related to the request type - but alternative inputs for the request to be processed.
+##
+## After this, you can register a provider anywhere in your code with
+## `TypeName.setProvider(...)`, which returns error if already having a provider.
+## Providers are async procs or lambdas that take no arguments and return a Future[Result[TypeName, string]].
+## Only one provider can be registered at a time per signature type (zero arg and/or multi arg).
+##
+## Requests can be made from anywhere with no direct dependency on the provider by
+## calling `TypeName.request()` - with arguments respecting the signature(s).
+## This will asynchronously call the registered provider and return a Future[Result[TypeName, string]].
+##
+## Whenever you no want to process requests (or your object instance that provides the request goes out of scope),
+## you can remove it from the broker with `TypeName.clearProvider()`.
+##
 ##
 ## Example:
 ## ```nim
@@ -251,8 +282,13 @@ macro RequestBroker*(body: untyped): untyped =
   if not zeroArgSig.isNil():
     result.add(
       quote do:
-        proc setProvider*(_: typedesc[`typeIdent`], handler: `zeroArgProviderName`) =
+        proc setProvider*(
+            _: typedesc[`typeIdent`], handler: `zeroArgProviderName`
+        ): Result[void, string] =
+          if not `accessProcIdent`().`zeroArgFieldName`.isNil():
+            return err("Zero-arg provider already set")
           `accessProcIdent`().`zeroArgFieldName` = handler
+          return ok()
 
     )
     clearBody.add(
@@ -281,8 +317,13 @@ macro RequestBroker*(body: untyped): untyped =
   if not argSig.isNil():
     result.add(
       quote do:
-        proc setProvider*(_: typedesc[`typeIdent`], handler: `argProviderName`) =
+        proc setProvider*(
+            _: typedesc[`typeIdent`], handler: `argProviderName`
+        ): Result[void, string] =
+          if not `accessProcIdent`().`argFieldName`.isNil():
+            return err("Provider already set")
           `accessProcIdent`().`argFieldName` = handler
+          return ok()
 
     )
     clearBody.add(

@@ -7,10 +7,31 @@
 ##
 ## Generates a standalone, type-safe event broker for the declared object type.
 ## The macro exports the value type itself plus a broker companion that manages
-## listeners via thread-local storage. Users can register async listeners with
-## `TypeName.listen`, emit events with `TypeName.emit(...)`, and remove
-## listeners through `dropListener`/`dropAllListeners` helpers on either the value type or the
-## broker companion.
+## listeners via thread-local storage.
+##
+## Usage:
+## Declare your desired event type inside an `EventBroker` macro, add any number of fields.:
+## ```nim
+## EventBroker:
+##   type TypeName = object
+##     field1*: FieldType
+##     field2*: AnotherFieldType
+## ```
+##
+## After this, you can register async listeners anywhere in your code with
+## `TypeName.listen(...)`, which returns a handle to the registered listener.
+## Listeners are async procs or lambdas that take a single argument of the event type.
+## Any number of listeners can be registered in different modules.
+##
+## Events can be emitted from anywhere with no direct dependency on the listeners by
+## calling `TypeName.emit(...)` with an instance of the event type.
+## This will asynchronously notify all registered listeners with the emitted event.
+##
+## Whenever you no longer need a listener (or your object instance that listen to the event goes out of scope),
+## you can remove it from the broker with the handle returned by `listen`.
+## This is done by calling `TypeName.dropListener(handle)`.
+## Alternatively, you can remove all registered listeners through `TypeName.dropAllListeners()`.
+##
 ##
 ## Example:
 ## ```nim

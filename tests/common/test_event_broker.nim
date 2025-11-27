@@ -48,7 +48,7 @@ suite "EventBroker":
         inc counter
     )
 
-    discard SampleEvent.listen(
+    let handleB = SampleEvent.listen(
       proc(evt: SampleEvent): Future[void] {.async: (raises: []).} =
         inc(counter, 2)
     )
