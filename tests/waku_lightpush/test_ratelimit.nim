@@ -37,7 +37,7 @@ suite "Rate limited push service":
 
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, serverPeerId)
 
       check await handlerFuture.withTimeout(50.millis)
 
@@ -66,7 +66,7 @@ suite "Rate limited push service":
       var endTime = Moment.now()
       var elapsed: Duration = (endTime - startTime)
       await sleepAsync(tokenPeriod - elapsed + firstWaitExtend)
-      firstWaitEXtend = 100.millis
+      firstWaitExtend = 100.millis
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -99,7 +99,7 @@ suite "Rate limited push service":
       let message = fakeWakuMessage()
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, serverPeerId)
       discard await handlerFuture.withTimeout(10.millis)
 
       check:
@@ -114,7 +114,7 @@ suite "Rate limited push service":
       let message = fakeWakuMessage()
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, serverPeerId)
       discard await handlerFuture.withTimeout(10.millis)
 
       check:
