@@ -231,7 +231,7 @@ method register*(
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitmentHex = identityCredential.idCommitment.inHex()
-  info "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
+  debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
   let idCommitmentsToErase: seq[UInt256] = @[]
   info "registering the member",
@@ -248,11 +248,10 @@ method register*(
   var tsReceipt: ReceiptObject
   g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
     await ethRpc.getMinedTransactionReceipt(txHash)
-  info "registration transaction mined", txHash = txHash
+  debug "registration transaction mined", txHash = txHash
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
-  # TODO: make this robust. search within the event list for the event
-  info "ts receipt", receipt = tsReceipt[]
+  debug "ts receipt", receipt = tsReceipt[]
 
   if tsReceipt.status.isNone():
     raise newException(ValueError, "Transaction failed: status is None")
@@ -261,18 +260,27 @@ method register*(
       ValueError, "Transaction failed with status: " & $tsReceipt.status.get()
     )
 
-  ## Extract MembershipRegistered event from transaction logs (third event)
-  let thirdTopic = tsReceipt.logs[2].topics[0]
-  info "third topic", thirdTopic = thirdTopic
-  if thirdTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest(
-        "MembershipRegistered(uint256,uint256,uint32)"
-      ).data):
-    raise newException(ValueError, "register: unexpected event signature")
+  ## Search through all transaction logs to find the MembershipRegistered event
+  let expectedEventSignature = cast[FixedBytes[32]](keccak.keccak256.digest(
+    "MembershipRegistered(uint256,uint256,uint32)"
+  ).data)
 
-  ## Parse MembershipRegistered event data: rateCommitment(256) || membershipRateLimit(256) || index(32)
-  let arguments = tsReceipt.logs[2].data
-  info "tx log data", arguments = arguments
+  var membershipRegisteredLog: Option[LogObject]
+  for log in tsReceipt.logs:
+    if log.topics.len > 0 and log.topics[0] == expectedEventSignature:
+      membershipRegisteredLog = some(log)
+      break
+
+  if membershipRegisteredLog.isNone():
+    raise newException(
+      ValueError, "register: MembershipRegistered event not found in transaction logs"
+    )
+
+  let registrationLog = membershipRegisteredLog.get()
+
+  ## Parse MembershipRegistered event data: idCommitment(256) || membershipRateLimit(256) || index(32)
+  let arguments = registrationLog.data
+  trace "registration transaction log data", arguments = arguments
   let
     ## Extract membership index from transaction log data (big endian)
     membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
