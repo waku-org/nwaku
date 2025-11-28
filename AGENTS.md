@@ -25,6 +25,9 @@ See [The Waku Network documentation](https://docs.waku.org/learn/) for architect
 - Lightpush: Lightweight message publishing for clients
 - Peer Exchange: Peer discovery mechanism
 - RLN Relay: Rate limiting nullifier for spam protection
+- Metadata: Cluster and shard metadata exchange between peers
+- Mix: Mixnet protocol for enhanced privacy through onion routing
+- Rendezvous: Alternative peer discovery mechanism
 
 ### Key Terminology
 - ENR (Ethereum Node Record): Node identity and capability advertisement
@@ -51,8 +54,11 @@ nwaku/
 │   ├── waku_peer_exchange/ # Peer discovery via PX
 │   ├── waku_rln_relay/     # RLN spam protection
 │   ├── waku_archive/       # Message storage drivers (SQLite, PostgreSQL)
+│   ├── waku_metadata/      # Cluster/shard metadata exchange
+│   ├── waku_mix/           # Mixnet protocol for enhanced privacy
+│   ├── waku_rendezvous/    # Alternative peer discovery
 │   ├── node/               # WakuNode orchestration and peer management
-│   ├── waku_api/           # REST API handlers
+│   ├── rest_api/           # REST API handlers
 │   └── factory/            # Node factory and configuration
 ├── apps/                    # Executable applications
 │   ├── wakunode2/          # Main Waku node CLI
@@ -93,7 +99,7 @@ type WakuFilter* = ref object of LPProtocol
 ## Development Essentials
 
 ### Build Requirements
-- Nim 2.2.4+ (affects language features available)
+- Nim 2.x (check `waku.nimble` for minimum version)
 - Rust toolchain (for RLN dependencies)
 - Build via Make → nimbus-build-system
 
@@ -433,7 +439,7 @@ Miscellaneous
 7. Export module via `waku/waku_myprotocol.nim`
 
 ### Adding a REST API Endpoint
-1. Define handler in `waku/waku_api/rest/myprotocol/`
+1. Define handler in `waku/rest_api/endpoint/myprotocol/`
 2. Implement endpoint following pattern:
    ```nim
    proc installMyProtocolApiHandlers*(
@@ -443,7 +449,7 @@ Miscellaneous
        # Implementation
        return RestApiResponse.jsonResponse(data, status = Http200)
    ```
-3. Register in `waku/waku_api/handlers.nim`
+3. Register in `waku/rest_api/handlers.nim`
 
 ### Adding Database Migration
 For message_store (SQLite):
@@ -498,7 +504,7 @@ nim c -r \
 
 ## Quick Reference
 
-Language: Nim 2.2.4+ | License: MIT or Apache 2.0 | Version: 0.36.0
+Language: Nim 2.x | License: MIT or Apache 2.0
 
 ### Important Files
 - `Makefile` - Primary build interface
@@ -518,9 +524,11 @@ Language: Nim 2.2.4+ | License: MIT or Apache 2.0 | Version: 0.36.0
 - `chronos` - Async framework
 - `nim-results` - Result type for error handling
 - `chronicles` - Logging
-- `libp2p` >= 1.13.0 - P2P networking
+- `libp2p` - P2P networking
 - `confutils` - CLI argument parsing
 - `presto` - REST server
 - `nimcrypto` - Cryptographic primitives
+
+Note: For specific version requirements, check `waku.nimble`.
 
 
