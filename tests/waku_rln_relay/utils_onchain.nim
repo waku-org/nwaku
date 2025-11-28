@@ -82,6 +82,10 @@ proc getForgePath(): string =
   forgePath = joinPath(forgePath, ".foundry/bin/forge")
   return $forgePath
 
+template execForge(cmd: string): tuple[output: string, exitCode: int] =
+  # unset env vars that affect e.g. "forge script" before running forge
+  execCmdEx("unset ETH_FROM ETH_PASSWORD && " & cmd)
+
 contract(ERC20Token):
   proc allowance(owner: Address, spender: Address): UInt256 {.view.}
   proc balanceOf(account: Address): UInt256 {.view.}
@@ -225,11 +229,14 @@ proc deployTestToken*(
   # Deploy TestToken contract
   let forgeCmdTestToken =
     fmt"""cd {submodulePath} && {forgePath} script test/TestToken.sol --broadcast -vvv --rpc-url http://localhost:8540 --tc TestTokenFactory --private-key {pk} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
-  let (outputDeployTestToken, exitCodeDeployTestToken) = execCmdEx(forgeCmdTestToken)
+  let (outputDeployTestToken, exitCodeDeployTestToken) = execForge(forgeCmdTestToken)
   trace "Executed forge command to deploy TestToken contract",
     output = outputDeployTestToken
   if exitCodeDeployTestToken != 0:
-    return error("Forge command to deploy TestToken contract failed")
+    error "Forge command to deploy TestToken contract failed",
+      error = outputDeployTestToken
+    return
+      err("Forge command to deploy TestToken contract failed: " & outputDeployTestToken)
 
   # Parse the command output to find contract address
   let testTokenAddress = getContractAddressFromDeployScriptOutput(outputDeployTestToken).valueOr:
@@ -351,7 +358,7 @@ proc executeForgeContractDeployScripts*(
   let forgeCmdPriceCalculator =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployPriceCalculator --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
   let (outputDeployPriceCalculator, exitCodeDeployPriceCalculator) =
-    execCmdEx(forgeCmdPriceCalculator)
+    execForge(forgeCmdPriceCalculator)
   trace "Executed forge command to deploy LinearPriceCalculator contract",
     output = outputDeployPriceCalculator
   if exitCodeDeployPriceCalculator != 0:
@@ -368,7 +375,7 @@ proc executeForgeContractDeployScripts*(
 
   let forgeCmdWakuRln =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployWakuRlnV2 --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
-  let (outputDeployWakuRln, exitCodeDeployWakuRln) = execCmdEx(forgeCmdWakuRln)
+  let (outputDeployWakuRln, exitCodeDeployWakuRln) = execForge(forgeCmdWakuRln)
   trace "Executed forge command to deploy WakuRlnV2 contract",
     output = outputDeployWakuRln
   if exitCodeDeployWakuRln != 0:
@@ -388,7 +395,7 @@ proc executeForgeContractDeployScripts*(
   # Deploy Proxy contract
   let forgeCmdProxy =
     fmt"""cd {submodulePath} && {forgePath} script script/Deploy.s.sol --broadcast -vvvv --rpc-url http://localhost:8540 --tc DeployProxy --private-key {privateKey} && rm -rf broadcast/*/*/run-1*.json && rm -rf cache/*/*/run-1*.json"""
-  let (outputDeployProxy, exitCodeDeployProxy) = execCmdEx(forgeCmdProxy)
+  let (outputDeployProxy, exitCodeDeployProxy) = execForge(forgeCmdProxy)
   trace "Executed forge command to deploy proxy contract", output = outputDeployProxy
   if exitCodeDeployProxy != 0:
     error "Forge command to deploy Proxy failed", error = outputDeployProxy
@@ -503,7 +510,7 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "--chain-id",
         $chainId,
       ],
-      options = {poUsePath},
+      options = {poUsePath, poStdErrToStdOut},
     )
     let anvilPID = runAnvil.processID
 
@@ -516,7 +523,13 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
           anvilStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:" & $port):
             break
+        else:
+          error "Anvil daemon exited (closed output)",
+            pid = anvilPID, startLog = anvilStartLog
+          return
       except Exception, CatchableError:
+        warn "Anvil daemon stdout reading error; assuming it started OK",
+          pid = anvilPID, startLog = anvilStartLog, err = getCurrentExceptionMsg()
         break
     info "Anvil daemon is running and ready", pid = anvilPID, startLog = anvilStartLog
     return runAnvil
