@@ -101,7 +101,8 @@ proc getEnrsFromStore(
   # Reservoir sampling (Algorithm R)
   var i = 0
   let k = if numPeers > int.high.uint64: int.high else: numPeers.int
-  var enrs = newSeqOfCap[enr.Record](k)
+  let enrStoreLen = wpx.peerManager.switch.peerStore[ENRBook].len
+  var enrs = newSeqOfCap[enr.Record](min(k, enrStoreLen))
   wpx.peerManager.switch.peerStore.forEnrPeers:
     if peerConnectedness == CannotConnect:
       continue
