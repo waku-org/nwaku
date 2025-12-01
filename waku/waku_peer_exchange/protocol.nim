@@ -105,8 +105,10 @@ proc getEnrsFromStore(
   var enrs = newSeqOfCap[enr.Record](min(k, enrStoreLen))
   wpx.peerManager.switch.peerStore.forEnrPeers:
     if peerConnectedness == CannotConnect:
+      debug "Could not retrieve ENR because cannot connect to peer", remotePeerId = ...
       continue
-    if not poolFilter(wpx.cluster, peerOrigin, peerEnrRecord):
+    poolFilter(wpx.cluster, peerOrigin, peerEnrRecord).isOkOr:
+      debug "Could not get ENR because no peer matched pool", error = error
       continue
     if i < k:
       enrs.add(peerEnrRecord)
