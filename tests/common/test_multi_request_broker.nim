@@ -5,7 +5,7 @@ import chronos
 import std/sequtils
 import std/strutils
 
-import waku/waku_core/broker/multi_request_broker
+import waku/common/broker/multi_request_broker
 
 MultiRequestBroker:
   type NoArgResponse = object

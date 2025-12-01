@@ -2,7 +2,7 @@ import chronos
 import std/sequtils
 import testutils/unittests
 
-import waku/waku_core/broker/event_broker
+import waku/common/broker/event_broker
 
 EventBroker:
   type SampleEvent = object

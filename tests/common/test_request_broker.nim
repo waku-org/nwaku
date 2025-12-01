@@ -4,7 +4,7 @@ import testutils/unittests
 import chronos
 import std/strutils
 
-import waku/waku_core/broker/request_broker
+import waku/common/broker/request_broker
 
 RequestBroker:
   type SimpleResponse = object
