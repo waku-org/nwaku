@@ -111,6 +111,7 @@ proc getEnrsFromStore(
     if i < k:
       enrs.add(peerEnrRecord)
     else:
+      # Add some randomness
       let j = rand(i)
       if j < k:
         enrs[j] = peerEnrRecord
