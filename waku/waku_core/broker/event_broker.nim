@@ -43,7 +43,7 @@
 ##   proc(evt: GreetingEvent): Future[void] {.async.} =
 ##     echo evt.text
 ## )
-## GreetingEvent.emit(text: "hi")
+## GreetingEvent.emit(text= "hi")
 ## GreetingEvent.dropListener(handle)
 ## ```
 
@@ -54,27 +54,46 @@ import ./helper/broker_utils
 export chronicles, results, chronos
 
 macro EventBroker*(body: untyped): untyped =
+  when defined(eventBrokerDebug):
+    echo body.treeRepr
   var typeIdent: NimNode = nil
   var objectDef: NimNode = nil
+  var fieldNames: seq[NimNode] = @[]
+  var fieldTypes: seq[NimNode] = @[]
+  var isRefObject = false
   for stmt in body:
     if stmt.kind == nnkTypeSection:
       for def in stmt:
         if def.kind != nnkTypeDef:
           continue
         let rhs = def[2]
-        if rhs.kind != nnkObjectTy:
+        var objectType: NimNode
+        case rhs.kind
+        of nnkObjectTy:
+          objectType = rhs
+        of nnkRefTy:
+          isRefObject = true
+          if rhs.len != 1 or rhs[0].kind != nnkObjectTy:
+            error("EventBroker ref object must wrap a concrete object definition", rhs)
+          objectType = rhs[0]
+        else:
           continue
         if not typeIdent.isNil():
           error("Only one object type may be declared inside EventBroker", def)
         typeIdent = baseTypeIdent(def[0])
-        let recList = rhs[2]
+        let recList = objectType[2]
         if recList.kind != nnkRecList:
-          error("EventBroker object must declare a standard field list", rhs)
+          error("EventBroker object must declare a standard field list", objectType)
         var exportedRecList = newTree(nnkRecList)
         for field in recList:
           case field.kind
           of nnkIdentDefs:
             ensureFieldDef(field)
+            let fieldTypeNode = field[field.len - 2]
+            for i in 0 ..< field.len - 2:
+              let baseFieldIdent = baseTypeIdent(field[i])
+              fieldNames.add(copyNimTree(baseFieldIdent))
+              fieldTypes.add(copyNimTree(fieldTypeNode))
             var cloned = copyNimTree(field)
             for i in 0 ..< cloned.len - 2:
               cloned[i] = exportIdentNode(cloned[i])
@@ -86,14 +105,23 @@ macro EventBroker*(body: untyped): untyped =
               "EventBroker object definition only supports simple field declarations",
               field,
             )
-        objectDef = newTree(
-          nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
+        let exportedObjectType = newTree(
+          nnkObjectTy,
+          copyNimTree(objectType[0]),
+          copyNimTree(objectType[1]),
+          exportedRecList,
         )
+        if isRefObject:
+          objectDef = newTree(nnkRefTy, exportedObjectType)
+        else:
+          objectDef = exportedObjectType
   if typeIdent.isNil():
     error("EventBroker body must declare exactly one object type", body)
 
   let exportedTypeIdent = postfix(copyNimTree(typeIdent), "*")
   let sanitized = sanitizeIdentName(typeIdent)
+  let typeNameLit = newLit($typeIdent)
+  let isRefObjectLit = newLit(isRefObject)
   let handlerProcIdent = ident(sanitized & "ListenerProc")
   let listenerHandleIdent = ident(sanitized & "Listener")
   let brokerTypeIdent = ident(sanitized & "Broker")
@@ -215,6 +243,10 @@ macro EventBroker*(body: untyped): untyped =
       proc `emitImplIdent`(
           event: `typeIdent`
       ): Future[void] {.async: (raises: []), gcsafe.} =
+        when `isRefObjectLit`:
+          if event.isNil():
+            error "Cannot emit uninitialized event object", eventType = `typeNameLit`
+            return
         let broker = `accessProcIdent`()
         if broker.listeners.len == 0:
           # nothing to do as nobody is listening
@@ -231,10 +263,46 @@ macro EventBroker*(body: untyped): untyped =
       proc emit*(_: typedesc[`typeIdent`], event: `typeIdent`) =
         asyncSpawn `emitImplIdent`(event)
 
-      template emit*(_: typedesc[`typeIdent`], args: untyped): untyped =
-        asyncSpawn `emitImplIdent`(`typeIdent`(args))
-
   )
+
+  var emitCtorParams = newTree(nnkFormalParams, newEmptyNode())
+  let typedescParamType =
+    newTree(nnkBracketExpr, ident("typedesc"), copyNimTree(typeIdent))
+  emitCtorParams.add(
+    newTree(nnkIdentDefs, ident("_"), typedescParamType, newEmptyNode())
+  )
+  for i in 0 ..< fieldNames.len:
+    emitCtorParams.add(
+      newTree(
+        nnkIdentDefs,
+        copyNimTree(fieldNames[i]),
+        copyNimTree(fieldTypes[i]),
+        newEmptyNode(),
+      )
+    )
+
+  var emitCtorExpr = newTree(nnkObjConstr, copyNimTree(typeIdent))
+  for i in 0 ..< fieldNames.len:
+    emitCtorExpr.add(
+      newTree(nnkExprColonExpr, copyNimTree(fieldNames[i]), copyNimTree(fieldNames[i]))
+    )
+
+  let emitCtorCall = newCall(copyNimTree(emitImplIdent), emitCtorExpr)
+  let emitCtorBody = quote:
+    asyncSpawn `emitCtorCall`
+
+  let typedescEmitProc = newTree(
+    nnkProcDef,
+    postfix(ident("emit"), "*"),
+    newEmptyNode(),
+    newEmptyNode(),
+    emitCtorParams,
+    newEmptyNode(),
+    newEmptyNode(),
+    emitCtorBody,
+  )
+
+  result.add(typedescEmitProc)
 
   when defined(eventBrokerDebug):
     echo result.repr

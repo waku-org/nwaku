@@ -13,6 +13,10 @@ EventBroker:
   type BinaryEvent = object
     flag*: bool
 
+EventBroker:
+  type RefEvent = ref object
+    payload*: seq[int]
+
 template waitForListeners() =
   waitFor sleepAsync(1.milliseconds)
 
@@ -74,8 +78,8 @@ suite "EventBroker":
     )
 
     SampleEvent.dropAllListeners()
-    let clearedEvent = SampleEvent(value: 42, label: "noop")
-    SampleEvent.emit(clearedEvent)
+    SampleEvent.emit(42, "noop")
+    SampleEvent.emit(label = "noop", value = 42)
     waitForListeners()
     check not triggered
 
@@ -102,3 +106,20 @@ suite "EventBroker":
 
     check toggles == @[true, false]
     BinaryEvent.dropAllListeners()
+
+  test "ref typed event":
+    var counter: int = 0
+
+    let handle = RefEvent.listen(
+      proc(evt: RefEvent): Future[void] {.async: (raises: []).} =
+        for n in evt.payload:
+          counter += n
+    )
+
+    RefEvent(payload: @[1, 2, 3]).emit()
+    waitForListeners()
+    RefEvent.emit(payload = @[4, 5, 6])
+    waitForListeners()
+
+    check counter == 21 # 1+2+3 + 4+5+6
+    RefEvent.dropAllListeners()
