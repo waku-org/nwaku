@@ -76,12 +76,12 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
    6b. **Waku fleet testing**
       - Start job on `waku.sandbox` and `waku.test` [ Deployment job ](https://ci.infra.status.im/job/nim-waku/), Wait for completion of the job. If it fails, then debug it.
-      - Then lock both fleets to the release candidate version. (If you don't have access to lock fleets, ask the infra team to do it.)
+      - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to master.
       - Verify at https://fleets.waku.org/ that the fleet is locked to the release candidate version.
-      - Check if the image is created at [harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)
+      - Check if the image is created at [harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab).
       - Search _Kibana_ logs from the previous month (since the last release was deployed) for possible crashes or errors in `waku.test` and `waku.sandbox`.
-        - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`
-      - Unlock `waku.test` and `waku.sandbox` to resume auto-deployment of the latest `master` commit
+        - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`.
+      - Enable again the `waku.test` fleet to resume auto-deployment of the latest `master` commit
 
    6c. **Status fleet testing**
      - Deploy release candidate to `status.staging`
