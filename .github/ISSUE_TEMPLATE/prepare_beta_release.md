@@ -1,6 +1,6 @@
 ---
 name: Prepare Beta Release
-about: Execute tasks for the creation and publishing of a new beta release.
+about: Execute tasks for the creation and publishing of a new beta release
 title: 'Prepare beta release 0.0.0'
 labels: beta-release
 assignees: ''
@@ -17,13 +17,13 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
-- [ ] Create release branch ( e.g. release/v0.X.0-beta ) if it doesn't exist.
-- [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.X.0-beta-rc.0, v0.X.0-beta-rc.1, ... v0.X.0-beta-rc.N etc.
+- [ ] Create release branch (e.g. `release/v0.X.0-beta`) if it doesn't exist.
+- [ ] Assign release candidate tag to the release branch HEAD (e.g. `v0.X.0-beta-rc.0`, `v0.X.0-beta-rc.1`, ... `v0.X.0-beta-rc.N`).
 - [ ] Generate and edit release notes in CHANGELOG.md.
 
 - [ ] **Waku test and fleets validation**
   - [ ] Ensure all the unit tests (specifically js-waku tests) are green against the release candidate.
-  - [ ] Deploy the release candidate to `waku.test` only through [deploy-waku-test job](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-test/) and wait for it to finish (Jenkins access required; ask the infra team if you don't have it.).
+  - [ ] Deploy the release candidate to `waku.test` only through [deploy-waku-test job](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-test/) and wait for it to finish (Jenkins access required; ask the infra team if you don't have it).
     - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to master.
     - Verify the deployed version at https://fleets.waku.org/.
     - Confirm the container image exists on [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab).
@@ -33,14 +33,14 @@ All items below are to be completed by the owner of the given release.
 
 - [ ] **Proceed with release**
 
-  - [ ] Assign a final release tag ( v0.X.0-beta ) to the same commit that contains the validated release-candidate tag (e.g. v0.X.0-beta-rc.N) and submit a PR from the release branch to master.
+  - [ ] Assign a final release tag (`v0.X.0-beta`) to the same commit that contains the validated release-candidate tag (e.g. `v0.X.0-beta-rc.N`) and submit a PR from the release branch to `master`.
   - [ ] Update [nwaku-compose](https://github.com/waku-org/nwaku-compose) and [waku-simulator](https://github.com/waku-org/waku-simulator) according to the new release.
   - [ ] Bump nwaku dependency in [waku-rust-bindings](https://github.com/waku-org/waku-rust-bindings) and make sure all examples and tests work.
   - [ ] Bump nwaku dependency in [waku-go-bindings](https://github.com/waku-org/waku-go-bindings) and make sure all tests work.
   - [ ] Create GitHub release (https://github.com/waku-org/nwaku/releases).
-  - [ ] Submit a PR to merge the release branch back to `master`. Make sure you use the option `Merge pull request (Create a merge commit)` to perform such merge. Ping repo admin if this option is not available.
+  - [ ] Submit a PR to merge the release branch back to `master`. Make sure you use the option "Merge pull request (Create a merge commit)" to perform the merge. Ping repo admin if this option is not available.
 
-- [ ] **Promote release to fleets**.
+- [ ] **Promote release to fleets**
   - [ ] Ask the PM lead to announce the release.
   - [ ] Update infra config with any deprecated arguments or changed options.
 

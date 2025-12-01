@@ -17,26 +17,26 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
-- [ ] Create release branch ( e.g. release/v0.X.0-beta ) if it doesn't exist.
-- [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.X.0-beta-rc.0, v0.X.0-beta-rc.1, ... v0.X.0-beta-rc.N etc.
-- [ ] Generate and edit release notes in CHANGELOG.md
+- [ ] Create release branch (e.g. `release/v0.X.0`) if it doesn't exist.
+- [ ] Assign release candidate tag to the release branch HEAD (e.g. `v0.X.0-rc.0`, `v0.X.0-rc.1`, ... `v0.X.0-rc.N`).
+- [ ] Generate and edit release notes in CHANGELOG.md.
 
 - [ ] **Validation of release candidate**
 
   - [ ] **Automated testing**
     - [ ] Ensure all the unit tests (specifically js-waku tests) are green against the release candidate.
-    - [ ] Ask Vac-QA and Vac-DST to perform the available tests against the release candidate
+    - [ ] Ask Vac-QA and Vac-DST to perform the available tests against the release candidate.
     - [ ] Vac-DST (an additional report is needed; see [this](https://www.notion.so/DST-Reports-1228f96fb65c80729cd1d98a7496fe6f))
 
   - [ ] **Waku fleet testing**
     - [ ] Deploy the release candidate to `waku.test` and `waku.sandbox` fleets.
       - Start the [deployment job](https://ci.infra.status.im/job/nim-waku/) for both fleets and wait for it to finish (Jenkins access required; ask the infra team if you don't have it).
-      - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to master
+      - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to `master`.
       - Verify the deployed version at https://fleets.waku.org/.
       - Confirm the container image exists on [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab).
     - [ ] Search _Kibana_ logs from the previous month (since the last release was deployed) for possible crashes or errors in `waku.test` and `waku.sandbox`.
       - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`.
-    - [ ] Enable again the `waku.test` fleet to resume auto-deployment of the latest `master` commit
+    - [ ] Enable again the `waku.test` fleet to resume auto-deployment of the latest `master` commit.
 
 - [ ] **Status fleet testing**
   - [ ] Deploy release candidate to `status.staging`
@@ -54,15 +54,15 @@ All items below are to be completed by the owner of the given release.
 
 - [ ] **Proceed with release**
 
-  - [ ] Assign a final release tag ( v0.X.0 ) to the same commit that contains the validated release-candidate tag (e.g. v0.X.0-beta) 
+  - [ ] Assign a final release tag (`v0.X.0`) to the same commit that contains the validated release-candidate tag (e.g. `v0.X.0-rc.N`). 
   - [ ] Update [nwaku-compose](https://github.com/waku-org/nwaku-compose) and [waku-simulator](https://github.com/waku-org/waku-simulator) according to the new release.
   - [ ] Bump nwaku dependency in [waku-rust-bindings](https://github.com/waku-org/waku-rust-bindings) and make sure all examples and tests work.
   - [ ] Bump nwaku dependency in [waku-go-bindings](https://github.com/waku-org/waku-go-bindings) and make sure all tests work.
-  - [ ] Create GitHub release (https://github.com/waku-org/nwaku/releases)
-  - [ ] Submit a PR to merge the release branch back to `master`. Make sure you use the option `Merge pull request (Create a merge commit)` to perform such merge. Ping repo admin if this option is not available.
+  - [ ] Create GitHub release (https://github.com/waku-org/nwaku/releases).
+  - [ ] Submit a PR to merge the release branch back to `master`. Make sure you use the option "Merge pull request (Create a merge commit)" to perform the merge. Ping repo admin if this option is not available.
 
-- [ ] **Promote release to fleets**.
-  - [ ] Ask for release announcement to PM lead.
+- [ ] **Promote release to fleets**
+  - [ ] Ask the PM lead to announce the release.
   - [ ] Update infra config with any deprecated arguments or changed options.
 
 ### Links
@@ -72,5 +72,5 @@ All items below are to be completed by the owner of the given release.
 - [Fleet ownership](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64)
 - [Infra-nim-waku](https://github.com/status-im/infra-nim-waku)
 - [Jenkins](https://ci.infra.status.im/job/nim-waku/)
-- [Fleet](https://fleets.waku.org/)
+- [Fleets](https://fleets.waku.org/)
 - [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)

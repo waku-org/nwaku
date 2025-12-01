@@ -22,9 +22,9 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
 - **Beta release**: skip just `6a` and `6c` steps from [Release process](#release-process--step-by-step).
 
-- choose the appropriate release process based on the release type.
-[Full Release](../../.github/ISSUE_TEMPLATE/prepare_full_release.md),
-[Beta Release](../../.github/ISSUE_TEMPLATE/prepare_beta_release.md)
+- Choose the appropriate release process based on the release type:
+  - [Full Release](../../.github/ISSUE_TEMPLATE/prepare_full_release.md)
+  - [Beta Release](../../.github/ISSUE_TEMPLATE/prepare_beta_release.md)
 
 ### Release process ( step by step )
 
@@ -70,39 +70,39 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
    6a. **Automated testing**
      - Ensure all the unit tests (specifically js-waku tests) are green against the release candidate.
-     - Ask Vac-QA and Vac-DST to run their available tests against the release candidate, share all release candidate with both team.
+     - Ask Vac-QA and Vac-DST to run their available tests against the release candidate; share all release candidates with both teams.
 
-     > We need additional report like [this](https://www.notion.so/DST-Reports-1228f96fb65c80729cd1d98a7496fe6f) specificly from DST team.
+     > We need an additional report like [this](https://www.notion.so/DST-Reports-1228f96fb65c80729cd1d98a7496fe6f) specifically from the DST team.
 
    6b. **Waku fleet testing**
-      - Start job on `waku.sandbox` and `waku.test` [ Deployment job ](https://ci.infra.status.im/job/nim-waku/), Wait for completion of the job. If it fails, then debug it.
-      - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to master.
+      - Start job on `waku.sandbox` and `waku.test` [Deployment job](https://ci.infra.status.im/job/nim-waku/), wait for completion of the job. If it fails, then debug it.
+      - After completion, disable [deployment job](https://ci.infra.status.im/job/nim-waku/) so that its version is not updated on every merge to `master`.
       - Verify at https://fleets.waku.org/ that the fleet is locked to the release candidate version.
-      - Check if the image is created at [harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab).
+      - Check if the image is created at [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab).
       - Search _Kibana_ logs from the previous month (since the last release was deployed) for possible crashes or errors in `waku.test` and `waku.sandbox`.
         - Most relevant logs are `(fleet: "waku.test" AND message: "SIGSEGV")` OR `(fleet: "waku.sandbox" AND message: "SIGSEGV")`.
-      - Enable again the `waku.test` fleet to resume auto-deployment of the latest `master` commit
+      - Enable the `waku.test` fleet again to resume auto-deployment of the latest `master` commit.
 
    6c. **Status fleet testing**
      - Deploy release candidate to `status.staging`
      - Perform [sanity check](https://www.notion.so/How-to-test-Nwaku-on-Status-12c6e4b9bf06420ca868bd199129b425) and log results as comments in this issue.
        - Connect 2 instances to `status.staging` fleet, one in relay mode, the other one in light client.
-       - 1:1 chats with each other
+       - 1:1 Chats with each other
        - Send and receive messages in a community
        - Close one instance, send messages with second instance, reopen first instance and confirm messages sent while offline are retrieved from store
-     - Perform checks based on _end-user impact_
-     - Inform other (Waku and Status) CCs to point their instance to `status.staging` for a few days. Ping Status colleagues from their Discord server or [Status community](https://status.app) (not blocking point.)
-     - Ask Status-QA to perform sanity checks (as described above) + checks based on _end user impact_; do specify the version being tested
-     - Ask Status-QA or infra to run the automated Status e2e tests against `status.staging`
-     - Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
-     - **Get Status-QA sign-off**. Ensuring that `status.test` update will not disturb ongoing activities.
+     - Perform checks based on _end-user impact_.
+     - Inform other (Waku and Status) CCs to point their instances to `status.staging` for a few days. Ping Status colleagues from their Discord server or [Status community](https://status.app) (not a blocking point).
+     - Ask Status-QA to perform sanity checks (as described above) and checks based on _end user impact_; specify the version being tested.
+     - Ask Status-QA or infra to run the automated Status e2e tests against `status.staging`.
+     - Get other CCs' sign-off: they should comment on this PR, e.g., "Used the app for a week, no problem." If problems are reported, resolve them and create a new RC.
+     - **Get Status-QA sign-off**, ensuring that the `status.test` update will not disturb ongoing activities.
 
 7. Once the release-candidate has been validated, create a final release tag and push it.
 We also need to merge the release branch back into master as a final step.
 
     ```
     git checkout release/v0.X.0
-    git tag -as v0.X.0 -m "final release." ( use v0.X.0-beta as the tag if you are creating a beta release)
+    git tag -as v0.X.0 -m "final release." (use v0.X.0-beta as the tag if you are creating a beta release)
     git push origin v0.X.0
     git switch master
     git pull
@@ -153,5 +153,5 @@ We also need to merge the release branch back into master as a final step.
 - [Fleet ownership](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64)
 - [Infra-nim-waku](https://github.com/status-im/infra-nim-waku)
 - [Jenkins](https://ci.infra.status.im/job/nim-waku/)
-- [Fleet](https://fleets.waku.org/)
+- [Fleets](https://fleets.waku.org/)
 - [Harbor](https://harbor.status.im/harbor/projects/9/repositories/nwaku/artifacts-tab)
