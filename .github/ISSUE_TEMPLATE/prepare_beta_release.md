@@ -17,7 +17,7 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
-- [ ] Create release branch (e.g. `release/v0.X.0-beta`) if it doesn't exist.
+- [ ] Create release branch with major and minor only ( e.g. release/v0.X ) if it doesn't exist.
 - [ ] Assign release candidate tag to the release branch HEAD (e.g. `v0.X.0-beta-rc.0`, `v0.X.0-beta-rc.1`, ... `v0.X.0-beta-rc.N`).
 - [ ] Generate and edit release notes in CHANGELOG.md.
 
@@ -43,6 +43,7 @@ All items below are to be completed by the owner of the given release.
 - [ ] **Promote release to fleets**
   - [ ] Ask the PM lead to announce the release.
   - [ ] Update infra config with any deprecated arguments or changed options.
+  - [ ] Update waku.sandbox with [this deployment job](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox/).
 
 ### Links
 

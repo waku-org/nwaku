@@ -17,7 +17,7 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
-- [ ] Create release branch (e.g. `release/v0.X.0`) if it doesn't exist.
+- [ ] Create release branch with major and minor only ( e.g. release/v0.X ) if it doesn't exist.
 - [ ] Assign release candidate tag to the release branch HEAD (e.g. `v0.X.0-rc.0`, `v0.X.0-rc.1`, ... `v0.X.0-rc.N`).
 - [ ] Generate and edit release notes in CHANGELOG.md.
 
@@ -54,7 +54,7 @@ All items below are to be completed by the owner of the given release.
 
 - [ ] **Proceed with release**
 
-  - [ ] Assign a final release tag (`v0.X.0`) to the same commit that contains the validated release-candidate tag (e.g. `v0.X.0-rc.N`). 
+  - [ ] Assign a final release tag (`v0.X.0`) to the same commit that contains the validated release-candidate tag (e.g. `v0.X.0`). 
   - [ ] Update [nwaku-compose](https://github.com/waku-org/nwaku-compose) and [waku-simulator](https://github.com/waku-org/waku-simulator) according to the new release.
   - [ ] Bump nwaku dependency in [waku-rust-bindings](https://github.com/waku-org/waku-rust-bindings) and make sure all examples and tests work.
   - [ ] Bump nwaku dependency in [waku-go-bindings](https://github.com/waku-org/waku-go-bindings) and make sure all tests work.
