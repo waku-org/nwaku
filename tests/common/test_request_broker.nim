@@ -32,7 +32,7 @@ RequestBroker:
   ): Future[Result[DualResponse, string]] {.async.}
 
 RequestBroker:
-  type ImplicitResponse = object
+  type ImplicitResponse = ref object
     note*: string
 
 suite "RequestBroker macro":

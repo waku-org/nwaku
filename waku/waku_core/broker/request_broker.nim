@@ -122,20 +122,32 @@ macro RequestBroker*(body: untyped): untyped =
     echo body.treeRepr
   var typeIdent: NimNode = nil
   var objectDef: NimNode = nil
+  var isRefObject = false
   for stmt in body:
     if stmt.kind == nnkTypeSection:
       for def in stmt:
         if def.kind != nnkTypeDef:
           continue
         let rhs = def[2]
-        if rhs.kind != nnkObjectTy:
+        var objectType: NimNode
+        case rhs.kind
+        of nnkObjectTy:
+          objectType = rhs
+        of nnkRefTy:
+          isRefObject = true
+          if rhs.len != 1 or rhs[0].kind != nnkObjectTy:
+            error(
+              "RequestBroker ref object must wrap a concrete object definition", rhs
+            )
+          objectType = rhs[0]
+        else:
           continue
         if not typeIdent.isNil():
           error("Only one object type may be declared inside RequestBroker", def)
         typeIdent = baseTypeIdent(def[0])
-        let recList = rhs[2]
+        let recList = objectType[2]
         if recList.kind != nnkRecList:
-          error("RequestBroker object must declare a standard field list", rhs)
+          error("RequestBroker object must declare a standard field list", objectType)
         var exportedRecList = newTree(nnkRecList)
         for field in recList:
           case field.kind
@@ -152,9 +164,16 @@ macro RequestBroker*(body: untyped): untyped =
               "RequestBroker object definition only supports simple field declarations",
               field,
             )
-        objectDef = newTree(
-          nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
+        let exportedObjectType = newTree(
+          nnkObjectTy,
+          copyNimTree(objectType[0]),
+          copyNimTree(objectType[1]),
+          exportedRecList,
         )
+        if isRefObject:
+          objectDef = newTree(nnkRefTy, exportedObjectType)
+        else:
+          objectDef = exportedObjectType
   if typeIdent.isNil():
     error("RequestBroker body must declare exactly one object type", body)
 
@@ -162,7 +181,9 @@ macro RequestBroker*(body: untyped): untyped =
     echo "RequestBroker generating type: ", $typeIdent
 
   let exportedTypeIdent = postfix(copyNimTree(typeIdent), "*")
-  let typeNameLit = newLit(sanitizeIdentName(typeIdent))
+  let typeDisplayName = sanitizeIdentName(typeIdent)
+  let typeNameLit = newLit(typeDisplayName)
+  let isRefObjectLit = newLit(isRefObject)
   var zeroArgSig: NimNode = nil
   var zeroArgProviderName: NimNode = nil
   var zeroArgFieldName: NimNode = nil
@@ -308,10 +329,18 @@ macro RequestBroker*(body: untyped): untyped =
           let catchedRes = catch:
             await provider()
 
-          if catchedRes.isErr:
+          if catchedRes.isErr():
             return err("Request failed:" & catchedRes.error.msg)
 
-          return catchedRes.get()
+          let providerRes = catchedRes.get()
+          when `isRefObjectLit`:
+            if providerRes.isOk():
+              let resultValue = providerRes.get()
+              if resultValue.isNil():
+                return err(
+                  "RequestBroker(" & `typeNameLit` & "): provider returned nil result"
+                )
+          return providerRes
 
     )
   if not argSig.isNil():
@@ -371,10 +400,18 @@ macro RequestBroker*(body: untyped): untyped =
       quote do:
         let catchedRes = catch:
           await `providerCall`
-        if catchedRes.isErr:
+        if catchedRes.isErr():
           return err("Request failed:" & catchedRes.error.msg)
 
-        return catchedRes.get()
+        let providerRes = catchedRes.get()
+        when `isRefObjectLit`:
+          if providerRes.isOk():
+            let resultValue = providerRes.get()
+            if resultValue.isNil():
+              return err(
+                "RequestBroker(" & `typeNameLit` & "): provider returned nil result"
+              )
+        return providerRes
     )
     # requestBody.add(providerCall)
     result.add(
