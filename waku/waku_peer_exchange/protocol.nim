@@ -77,35 +77,34 @@ proc respondError(
   return ok()
 
 proc poolFilter*(
-    cluster: Option[uint16], origin: PeerOrigin, enr: enr.Record, log: bool = false
-): bool =
+    cluster: Option[uint16], origin: PeerOrigin, enr: enr.Record
+): Result[void, string] =
   if origin != Discv5:
-    if log:
-      trace "peer not from discv5", origin = $origin
-    return false
+    trace "peer not from discv5", origin = $origin
+    return err("peer not from discv5: " & $origin)
   if cluster.isSome() and enr.isClusterMismatched(cluster.get()):
-    if log:
-      info "peer has mismatching cluster"
-    return false
-  return true
+    trace "peer has mismatching cluster"
+    return err("peer has mismatching cluster")
+  return ok()
 
-proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
+proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): Result[void, string] =
   if peer.enr.isNone():
     info "peer has no ENR", peer = $peer
-    return false
-  return poolFilter(cluster, peer.origin, peer.enr.get(), log = true)
+    return err("peer has no ENR: " & $peer)
+  return poolFilter(cluster, peer.origin, peer.enr.get())
 
 proc getEnrsFromStore(
     wpx: WakuPeerExchange, numPeers: uint64
 ): seq[enr.Record] {.gcsafe.} =
   # Reservoir sampling (Algorithm R)
   var i = 0
-  let k = if numPeers > int.high.uint64: int.high else: numPeers.int
+  let k = min(MaxPeersCacheSize, numPeers.int)
   let enrStoreLen = wpx.peerManager.switch.peerStore[ENRBook].len
   var enrs = newSeqOfCap[enr.Record](min(k, enrStoreLen))
   wpx.peerManager.switch.peerStore.forEnrPeers:
     if peerConnectedness == CannotConnect:
-      debug "Could not retrieve ENR because cannot connect to peer", remotePeerId = ...
+      debug "Could not retrieve ENR because cannot connect to peer",
+        remotePeerId = peerId
       continue
     poolFilter(wpx.cluster, peerOrigin, peerEnrRecord).isOkOr:
       debug "Could not get ENR because no peer matched pool", error = error

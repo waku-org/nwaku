@@ -266,8 +266,8 @@ suite "Waku Peer Exchange":
       peerInfo2.origin = PeerOrigin.Discv5
 
       check:
-        not poolFilter(cluster, peerInfo1)
-        poolFilter(cluster, peerInfo2)
+        poolFilter(cluster, peerInfo1).isErr()
+        poolFilter(cluster, peerInfo2).isOk()
 
     asyncTest "Request 0 peers, with 1 peer in PeerExchange":
       # Given two valid nodes with PeerExchange
