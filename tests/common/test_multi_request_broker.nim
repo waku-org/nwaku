@@ -22,7 +22,7 @@ MultiRequestBroker:
   ): Future[Result[ArgResponse, string]] {.async.}
 
 MultiRequestBroker:
-  type DualResponse = object
+  type DualResponse = ref object
     note*: string
     suffix*: string
 
@@ -207,3 +207,28 @@ suite "MultiRequestBroker":
     check afterException.error().contains("first handler raised")
 
     NoArgResponse.clearProviders()
+
+  test "ref providers returning nil fail request":
+    DualResponse.clearProviders()
+
+    discard DualResponse.setProvider(
+      proc(): Future[Result[DualResponse, string]] {.async.} =
+        let nilResponse: DualResponse = nil
+        ok(nilResponse)
+    )
+
+    let zeroArg = waitFor DualResponse.request()
+    check zeroArg.isErr()
+
+    DualResponse.clearProviders()
+
+    discard DualResponse.setProvider(
+      proc(suffix: string): Future[Result[DualResponse, string]] {.async.} =
+        let nilResponse: DualResponse = nil
+        ok(nilResponse)
+    )
+
+    let withInput = waitFor DualResponse.request("-extra")
+    check withInput.isErr()
+
+    DualResponse.clearProviders()

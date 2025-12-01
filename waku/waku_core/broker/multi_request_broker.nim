@@ -128,20 +128,35 @@ macro MultiRequestBroker*(body: untyped): untyped =
     echo body.treeRepr
   var typeIdent: NimNode = nil
   var objectDef: NimNode = nil
+  var isRefObject = false
   for stmt in body:
     if stmt.kind == nnkTypeSection:
       for def in stmt:
         if def.kind != nnkTypeDef:
           continue
         let rhs = def[2]
-        if rhs.kind != nnkObjectTy:
+        var objectType: NimNode
+        case rhs.kind
+        of nnkObjectTy:
+          objectType = rhs
+        of nnkRefTy:
+          isRefObject = true
+          if rhs.len != 1 or rhs[0].kind != nnkObjectTy:
+            error(
+              "MultiRequestBroker ref object must wrap a concrete object definition",
+              rhs,
+            )
+          objectType = rhs[0]
+        else:
           continue
         if not typeIdent.isNil():
           error("Only one object type may be declared inside MultiRequestBroker", def)
         typeIdent = baseTypeIdent(def[0])
-        let recList = rhs[2]
+        let recList = objectType[2]
         if recList.kind != nnkRecList:
-          error("MultiRequestBroker object must declare a standard field list", rhs)
+          error(
+            "MultiRequestBroker object must declare a standard field list", objectType
+          )
         var exportedRecList = newTree(nnkRecList)
         for field in recList:
           case field.kind
@@ -158,9 +173,16 @@ macro MultiRequestBroker*(body: untyped): untyped =
               "MultiRequestBroker object definition only supports simple field declarations",
               field,
             )
-        objectDef = newTree(
-          nnkObjectTy, copyNimTree(rhs[0]), copyNimTree(rhs[1]), exportedRecList
+        let exportedObjectType = newTree(
+          nnkObjectTy,
+          copyNimTree(objectType[0]),
+          copyNimTree(objectType[1]),
+          exportedRecList,
         )
+        if isRefObject:
+          objectDef = newTree(nnkRefTy, exportedObjectType)
+        else:
+          objectDef = exportedObjectType
   if typeIdent.isNil():
     error("MultiRequestBroker body must declare exactly one object type", body)
 
@@ -169,6 +191,8 @@ macro MultiRequestBroker*(body: untyped): untyped =
 
   let exportedTypeIdent = postfix(copyNimTree(typeIdent), "*")
   let sanitized = sanitizeIdentName(typeIdent)
+  let typeNameLit = newLit($typeIdent)
+  let isRefObjectLit = newLit(isRefObject)
   let tableSym = bindSym"Table"
   let initTableSym = bindSym"initTable"
   let uint64Ident = ident("uint64")
@@ -396,10 +420,18 @@ macro MultiRequestBroker*(body: untyped): untyped =
             if fut.failed():
               return err("Some provider(s) failed:" & fut.error.msg)
             elif fut.finished():
-              if fut.value().isOk:
-                aggregated.add(fut.value().get())
+              let providerResult = fut.value()
+              if providerResult.isOk:
+                let providerValue = providerResult.get()
+                when `isRefObjectLit`:
+                  if providerValue.isNil():
+                    return err(
+                      "MultiRequestBroker(" & `typeNameLit` &
+                        "): provider returned nil result"
+                    )
+                aggregated.add(providerValue)
               else:
-                return err("Some provider(s) failed:" & fut.value().error)
+                return err("Some provider(s) failed:" & providerResult.error)
 
           return ok(aggregated)
 
@@ -472,10 +504,18 @@ macro MultiRequestBroker*(body: untyped): untyped =
         if fut.failed():
           return err("Some provider(s) failed:" & fut.error.msg)
         elif fut.finished():
-          if fut.value().isOk:
-            aggregated.add(fut.value().get())
+          let providerResult = fut.value()
+          if providerResult.isOk:
+            let providerValue = providerResult.get()
+            when `isRefObjectLit`:
+              if providerValue.isNil():
+                return err(
+                  "MultiRequestBroker(" & `typeNameLit` &
+                    "): provider returned nil result"
+                )
+            aggregated.add(providerValue)
           else:
-            return err("Some provider(s) failed:" & fut.value().error)
+            return err("Some provider(s) failed:" & providerResult.error)
       return ok(aggregated)
 
     result.add(
