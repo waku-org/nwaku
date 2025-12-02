@@ -31,18 +31,22 @@ import
   ./utils
 
 const CHAIN_ID* = 1234'u256
+const DEFAULT_ANVIL_STATE_PATH* =
+  "tests/waku_rln_relay/anvil_state/state-deployed-contracts-mint-and-approved.json"
+const TOKEN_ADDRESS* = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+const WAKU_RLNV2_PROXY_ADDRESS* = "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
 
-template skip0xPrefix(hexStr: string): int =
-  ## Returns the index of the first meaningful char in `hexStr` by skipping
-  ## "0x" prefix
-  if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2 else: 0
+# template skip0xPrefix(hexStr: string): int =
+#   ## Returns the index of the first meaningful char in `hexStr` by skipping
+#   ## "0x" prefix
+#   if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2 else: 0
 
-func strip0xPrefix(s: string): string =
-  let prefixLen = skip0xPrefix(s)
-  if prefixLen != 0:
-    s[prefixLen .. ^1]
-  else:
-    s
+# func strip0xPrefix(s: string): string =
+#   let prefixLen = skip0xPrefix(s)
+#   if prefixLen != 0:
+#     s[prefixLen .. ^1]
+#   else:
+#     s
 
 proc generateCredentials*(): IdentityCredential =
   let credRes = membershipKeyGen()
@@ -488,19 +492,26 @@ proc getAnvilPath*(): string =
   return $anvilPath
 
 # Runs Anvil daemon
-proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
+proc runAnvil*(
+    port: int = 8540,
+    chainId: string = "1234",
+    stateFile: Option[string] = none(string),
+    dumpStateOnExit: bool = false,
+): Process =
   # Passed options are
   # --port                            Port to listen on.
   # --gas-limit                       Sets the block gas limit in WEI.
   # --balance                         The default account balance, specified in ether.
   # --chain-id                        Chain ID of the network.
+  # --load-state                      Initialize the chain from a previously saved state snapshot (read-only)
+  # --dump-state                      Dump the state on exit to the given file (write-only)
   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
     let anvilPath = getAnvilPath()
     info "Anvil path", anvilPath
-    let runAnvil = startProcess(
-      anvilPath,
-      args = [
+
+    var args =
+      @[
         "--port",
         $port,
         "--gas-limit",
@@ -509,9 +520,45 @@ proc runAnvil*(port: int = 8540, chainId: string = "1234"): Process =
         "1000000000",
         "--chain-id",
         $chainId,
-      ],
-      options = {poUsePath, poStdErrToStdOut},
-    )
+      ]
+
+    # Add state file argument if provided
+    if stateFile.isSome():
+      let statePath = stateFile.get()
+      info "State file parameter provided",
+        statePath = statePath,
+        dumpStateOnExit = dumpStateOnExit,
+        absolutePath = absolutePath(statePath)
+
+      # Ensure the directory exists
+      let stateDir = parentDir(statePath)
+      if not dirExists(stateDir):
+        info "Creating state directory", dir = stateDir
+        createDir(stateDir)
+
+      # Use --load-state (read-only) when we want to use cached state without modifying it
+      # Use --dump-state (write-only) when we want to create a new cache from fresh deployment
+      if dumpStateOnExit:
+        # Fresh deployment: start clean and dump state on exit
+        args.add("--dump-state")
+        args.add(statePath)
+        debug "Anvil configured to dump state on exit", path = statePath
+      else:
+        # Using cache: only load state, don't overwrite it (preserves clean cached state)
+        if fileExists(statePath):
+          args.add("--load-state")
+          args.add(statePath)
+          debug "Anvil configured to load state file (read-only)", path = statePath
+        else:
+          warn "State file does not exist, anvil will start fresh",
+            path = statePath, absolutePath = absolutePath(statePath)
+    else:
+      info "No state file provided, anvil will start fresh without state persistence"
+
+    info "Starting anvil with arguments", args = args.join(" ")
+
+    let runAnvil =
+      startProcess(anvilPath, args = args, options = {poUsePath, poStdErrToStdOut})
     let anvilPID = runAnvil.processID
 
     # We read stdout from Anvil to see when daemon is ready
@@ -560,52 +607,100 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     info "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
 
 proc setupOnchainGroupManager*(
-    ethClientUrl: string = EthClient, amountEth: UInt256 = 10.u256
+    ethClientUrl: string = EthClient,
+    amountEth: UInt256 = 10.u256,
+    deployContracts: bool = true,
 ): Future[OnchainGroupManager] {.async.} =
+  ## Setup an onchain group manager for testing
+  ## If deployContracts is false, it will assume that the Anvil testnet already has the required contracts deployed, this significantly speeds up test runs.
+  ## To run Anvil with a cached state file containing pre-deployed contracts, see runAnvil documentation.
+  ## 
+  ## To generate/update the cached state file:
+  ## 1. Call runAnvil with stateFile and dumpStateOnExit=true
+  ## 2. Run setupOnchainGroupManager with deployContracts=true to deploy contracts
+  ## 3. The state will be saved to the specified file when anvil exits
+  ## 4. Commit this file to git
+  ## 
+  ## To use cached state:
+  ## 1. Call runAnvil with stateFile and dumpStateOnExit=false
+  ## 2. Anvil loads state in read-only mode (won't overwrite the cached file)
+  ## 3. Call setupOnchainGroupManager with deployContracts=false
+  ## 4. Tests run fast using pre-deployed contracts
   let rlnInstanceRes = createRlnInstance()
   check:
     rlnInstanceRes.isOk()
 
   let rlnInstance = rlnInstanceRes.get()
 
-  # connect to the eth client
   let web3 = await newWeb3(ethClientUrl)
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[1]
 
-  let (privateKey, acc) = createEthAccount(web3)
+  var privateKey: keys.PrivateKey
+  var acc: Address
+  var testTokenAddress: Address
+  var contractAddress: Address
 
-  # we just need to fund the default account
-  # the send procedure returns a tx hash that we don't use, hence discard
-  discard await sendEthTransfer(
-    web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
-  )
+  if not deployContracts:
+    info "Using contract addresses from constants"
 
-  let testTokenAddress = (await deployTestToken(privateKey, acc, web3)).valueOr:
-    assert false, "Failed to deploy test token contract: " & $error
-    return
+    testTokenAddress = Address(hexToByteArray[20](TOKEN_ADDRESS))
+    contractAddress = Address(hexToByteArray[20](WAKU_RLNV2_PROXY_ADDRESS))
 
-  # mint the token from the generated account
-  discard await sendMintCall(
-    web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256), some(0.u256)
-  )
+    (privateKey, acc) = createEthAccount(web3)
 
-  let contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
-    assert false, "Failed to deploy RLN contract: " & $error
-    return
+    # Fund the test account
+    discard await sendEthTransfer(web3, web3.defaultAccount, acc, ethToWei(1000.u256))
 
-  # If the generated account wishes to register a membership, it needs to approve the contract to spend its tokens
-  let tokenApprovalResult = await approveTokenAllowanceAndVerify(
-    web3,
-    acc,
-    privateKey,
-    testTokenAddress,
-    contractAddress,
-    ethToWei(200.u256),
-    some(0.u256),
-  )
+    # Mint tokens to the test account
+    discard await sendMintCall(
+      web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256)
+    )
 
-  assert tokenApprovalResult.isOk, tokenApprovalResult.error()
+    # Approve the contract to spend tokens
+    let tokenApprovalResult = await approveTokenAllowanceAndVerify(
+      web3, acc, privateKey, testTokenAddress, contractAddress, ethToWei(200.u256)
+    )
+    assert tokenApprovalResult.isOk, tokenApprovalResult.error()
+  else:
+    info "Performing Token and RLN contracts deployment"
+    (privateKey, acc) = createEthAccount(web3)
+
+    # fund the default account
+    discard await sendEthTransfer(
+      web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
+    )
+
+    testTokenAddress = (await deployTestToken(privateKey, acc, web3)).valueOr:
+      assert false, "Failed to deploy test token contract: " & $error
+      return
+
+    # mint the token from the generated account
+    discard await sendMintCall(
+      web3,
+      web3.defaultAccount,
+      testTokenAddress,
+      acc,
+      ethToWei(1000.u256),
+      some(0.u256),
+    )
+
+    contractAddress = (await executeForgeContractDeployScripts(privateKey, acc, web3)).valueOr:
+      assert false, "Failed to deploy RLN contract: " & $error
+      return
+
+    # If the generated account wishes to register a membership, it needs to approve the contract to spend its tokens
+    let tokenApprovalResult = await approveTokenAllowanceAndVerify(
+      web3,
+      acc,
+      privateKey,
+      testTokenAddress,
+      contractAddress,
+      ethToWei(200.u256),
+      some(0.u256),
+    )
+
+    assert tokenApprovalResult.isOk, tokenApprovalResult.error()
 
   let manager = OnchainGroupManager(
     ethClientUrls: @[ethClientUrl],
