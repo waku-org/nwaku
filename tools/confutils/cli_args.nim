@@ -140,6 +140,13 @@ type WakuNodeConf* = object
       defaultValue: false,
       name: "execute"
     .}: bool
+
+    rlnRelayMaxGasPrice* {.
+      desc:
+        "Use fixed large gas price (1000 Gwei) for the registration transaction. If not set, will use 2x current gas price.",
+      defaultValue: false,
+      name: "rln-relay-max-gas-price"
+    .}: bool
   of noCommand:
     ##  Application-level configuration
     protectedShards* {.
@@ -887,6 +894,7 @@ proc toKeystoreGeneratorConf*(n: WakuNodeConf): RlnKeystoreGeneratorConf =
     ethPrivateKey: n.rlnRelayEthPrivateKey,
     credPath: n.rlnRelayCredPath,
     credPassword: n.rlnRelayCredPassword,
+    useMaxGasPrice: n.rlnRelayMaxGasPrice,
   )
 
 proc toNetworkConf(
