@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[options, os, osproc, deques, streams, strutils, tempfiles, strformat],
+  std/[options, os, osproc, streams, strutils, strformat],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -14,7 +14,6 @@ import
   web3/conversions,
   web3/eth_api_types,
   json_rpc/rpcclient,
-  json,
   libp2p/crypto/crypto,
   eth/keys,
   results
@@ -24,29 +23,15 @@ import
     waku_rln_relay,
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
-    waku_rln_relay/contract,
     waku_rln_relay/rln,
   ],
-  ../testlib/common,
-  ./utils
+  ../testlib/common
 
 const CHAIN_ID* = 1234'u256
 const DEFAULT_ANVIL_STATE_PATH* =
   "tests/waku_rln_relay/anvil_state/state-deployed-contracts-mint-and-approved.json"
 const TOKEN_ADDRESS* = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 const WAKU_RLNV2_PROXY_ADDRESS* = "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
-
-# template skip0xPrefix(hexStr: string): int =
-#   ## Returns the index of the first meaningful char in `hexStr` by skipping
-#   ## "0x" prefix
-#   if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2 else: 0
-
-# func strip0xPrefix(s: string): string =
-#   let prefixLen = skip0xPrefix(s)
-#   if prefixLen != 0:
-#     s[prefixLen .. ^1]
-#   else:
-#     s
 
 proc generateCredentials*(): IdentityCredential =
   let credRes = membershipKeyGen()
