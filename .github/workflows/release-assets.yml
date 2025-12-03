@@ -41,18 +41,26 @@ jobs:
             .git/modules
           key: ${{ runner.os }}-${{matrix.arch}}-submodules-${{ steps.submodules.outputs.hash }}
 
-      - name: prep variables
+      - name: Get tag
+        id: version
+        run: |
+          # Use full tag, e.g., v0.37.0
+          echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Prep variables
         id: vars
         run: |
+          VERSION=${{ steps.version.outputs.version }}
+
           NWAKU_ARTIFACT_NAME=$(echo "waku-${{matrix.arch}}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
           echo "waku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
 
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-0.37.0-${{matrix.arch}}-${{runner.os}}-linux.deb" | tr "[:upper:]" "[:lower:]")
+            LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-${VERSION}-${{matrix.arch}}-${{runner.os}}-linux.deb" | tr "[:upper:]" "[:lower:]")
           fi
 
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-              LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-0.37.0-${{ matrix.arch }}-macos.tar.gz" | tr "[:upper:]" "[:lower:]")
+            LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-${VERSION}-${{matrix.arch}}-macos.tar.gz" | tr "[:upper:]" "[:lower:]")
           fi
 
           echo "libwaku=${LIBWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
@@ -77,6 +85,8 @@ jobs:
 
       - name: Create distributable libwaku package
         run: |
+          VERSION=${{ steps.version.outputs.version }}
+
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             rm -rf pkg
             mkdir -p pkg/DEBIAN pkg/usr/local/lib pkg/usr/local/include
@@ -85,7 +95,7 @@ jobs:
             cp library/libwaku.h pkg/usr/local/include/
 
             echo "Package: waku" >> pkg/DEBIAN/control
-            echo "Version: 0.37.0" >> pkg/DEBIAN/control
+            echo "Version: ${VERSION}" >> pkg/DEBIAN/control
             echo "Priority: optional" >> pkg/DEBIAN/control
             echo "Section: libs" >> pkg/DEBIAN/control
             echo "Architecture: ${{matrix.arch}}" >> pkg/DEBIAN/control
@@ -96,20 +106,19 @@ jobs:
           fi
 
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-              LIBWAKU_ARTIFACT_NAME=$(echo "libwaku-0.37.0-${{ matrix.arch }}-macos.tar.gz" | tr "[:upper:]" "[:lower:]")
-              tar -cvzf ${{steps.vars.outputs.libwaku}} ./build/libwaku.dylib ./build/libwaku.a ./library/libwaku.h
+            tar -cvzf ${{steps.vars.outputs.libwaku}} ./build/libwaku.dylib ./build/libwaku.a ./library/libwaku.h
           fi
 
       - name: Upload waku artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: waku-0.37.0-${{ matrix.arch }}-${{ runner.os }}
+          name: waku-${{ steps.version.outputs.version }}-${{ matrix.arch }}-${{ runner.os }}
           path: ${{ steps.vars.outputs.waku }}
           if-no-files-found: error
 
       - name: Upload libwaku artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: libwaku-0.37.0-${{ matrix.arch }}-${{ runner.os }}
+          name: libwaku-${{ steps.version.outputs.version }}-${{ matrix.arch }}-${{ runner.os }}
           path: ${{ steps.vars.outputs.libwaku }}
           if-no-files-found: error
