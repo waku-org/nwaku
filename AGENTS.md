@@ -1,14 +1,18 @@
-# CLAUDE.md - AI Coding Context
+# AGENTS.md - AI Coding Context
 
-This file provides essential context for LLMs assisting with logos messaging development.
+This file provides essential context for LLMs assisting with Logos Messaging development.
 
 ## Project Identity
 
+Logos Messaging is designed as a shared public network for generalized messaging, not application-specific infrastructure.
+
 This project is a Nim implementation of a libp2p protocol suite for private, censorship-resistant P2P messaging. It targets resource-restricted devices and privacy-preserving communication.
+
+Logos Messaging was formerly known as Waku. Waku-related terminology remains within the codebase for historical reasons.
 
 ### Design Philosophy
 
-Logos messaging is designed as a shared public network for generalized messaging, not application-specific infrastructure. Key architectural decisions:
+Key architectural decisions:
 
 Resource-restricted first: Protocols differentiate between full nodes (relay) and light clients (filter, lightpush, store). Light clients can participate without maintaining full message history or relay capabilities. This explains the client/server split in protocol implementations.
 
@@ -16,7 +20,7 @@ Privacy through unlinkability: RLN (Rate Limiting Nullifier) provides DoS protec
 
 Scalability via sharding: The network uses automatic content-topic-based sharding to distribute traffic. This is why you'll see sharding logic throughout the codebase and why pubsub topic selection is protocol-level, not application-level.
 
-See [The Waku Network documentation](https://docs.waku.org/learn/) for architectural details.
+See [documentation](https://docs.waku.org/learn/) for architectural details.
 
 ### Core Protocols
 - Relay: Pub/sub message routing using GossipSub
@@ -41,34 +45,6 @@ See [The Waku Network documentation](https://docs.waku.org/learn/) for architect
 All specs are at [rfc.vac.dev/waku](https://rfc.vac.dev/waku). RFCs use `WAKU2-XXX` format (not legacy `WAKU-XXX`).
 
 ## Architecture
-
-### Directory Structure
-```
-nwaku/
-├── waku/                    # Core protocol implementations
-│   ├── waku_core/          # Fundamental types (Message, PubsubTopic, etc.)
-│   ├── waku_relay/         # GossipSub-based relay protocol
-│   ├── waku_store/         # Message persistence and retrieval
-│   ├── waku_filter_v2/     # Lightweight filtering protocol
-│   ├── waku_lightpush/     # Lightweight publishing protocol
-│   ├── waku_peer_exchange/ # Peer discovery via PX
-│   ├── waku_rln_relay/     # RLN spam protection
-│   ├── waku_archive/       # Message storage drivers (SQLite, PostgreSQL)
-│   ├── waku_metadata/      # Cluster/shard metadata exchange
-│   ├── waku_mix/           # Mixnet protocol for enhanced privacy
-│   ├── waku_rendezvous/    # Alternative peer discovery
-│   ├── node/               # WakuNode orchestration and peer management
-│   ├── rest_api/           # REST API handlers
-│   └── factory/            # Node factory and configuration
-├── apps/                    # Executable applications
-│   ├── wakunode2/          # Main Waku node CLI
-│   ├── chat2/              # Example chat application
-│   └── networkmonitor/     # Network monitoring tool
-├── library/                 # C bindings (libwaku)
-├── tests/                   # Test suites (organized by protocol)
-├── examples/                # Usage examples
-└── vendor/                  # Git submodules (auto-generated)
-```
 
 ### Protocol Module Pattern
 Each protocol typically follows this structure:
@@ -100,11 +76,11 @@ type WakuFilter* = ref object of LPProtocol
 
 ### Build Requirements
 - Nim 2.x (check `waku.nimble` for minimum version)
-- Rust toolchain (for RLN dependencies)
-- Build via Make → nimbus-build-system
+- Rust toolchain (required for RLN dependencies)
+- Build system: Make with nimbus-build-system
 
 ### Build System
-Uses Makefile + nimbus-build-system (Status's Nim build framework):
+The project uses Makefile with nimbus-build-system (Status's Nim build framework):
 ```bash
 # Initial build (updates submodules)
 make wakunode2
@@ -167,7 +143,7 @@ make nph/waku/waku_core.nim
 # Install git pre-commit hook (auto-formats on commit)
 make install-nph
 ```
-Don't worry about formatting details - nph handles this automatically (especially with the pre-commit hook). Focus on semantic correctness.
+The nph formatter handles all formatting details automatically, especially with the pre-commit hook installed. Focus on semantic correctness.
 
 ### Logging
 Uses `chronicles` library with compile-time configuration:
@@ -229,9 +205,9 @@ proc handleRequest(
 ```
 
 ### Error Handling
-nwaku uses both Result types and exceptions:
+The project uses both Result types and exceptions:
 
-Result types (nim-results) for protocol/API-level errors:
+Result types from nim-results are used for protocol and API-level errors:
 ```nim
 proc subscribe(
     wf: WakuFilter, peerId: PeerID
@@ -251,7 +227,7 @@ Exceptions still used for:
 - Database/system errors
 - Library interop
 
-Most files start with `{.push raises: [].}` to disable exception tracking, then use try/catch where needed.
+Most files start with `{.push raises: [].}` to disable exception tracking, then use try/catch blocks where needed.
 
 ### Pragma Usage
 ```nim
@@ -275,7 +251,7 @@ type WakuLightPush* = ref object of LPProtocol
 
 ## Style Guide Essentials
 
-This section summarizes key Nim style guidelines relevant to nwaku development. Full guide: https://status-im.github.io/nim-style-guide/
+This section summarizes key Nim style guidelines relevant to this project. Full guide: https://status-im.github.io/nim-style-guide/
 
 ### Language Features
 
@@ -354,9 +330,8 @@ Strings
 ### Error Handling
 
 Philosophy
-- Avoid exceptions in nwaku codebase
-- Use Result, Opt for explicit error handling
-- Exceptions only for legacy code compatibility
+- Prefer Result, Opt for explicit error handling
+- Use Exceptions only for legacy code compatibility
 
 Result Types
 - Use Result[T, E] for operations that can fail
@@ -484,23 +459,23 @@ nim c -r \
 ## Key Constraints
 
 ### Vendor Directory
-- Never edit directly - auto-generated from git submodules
-- Update after pull: `make update`
+- Never edit files directly in vendor - it is auto-generated from git submodules
+- Always run `make update` after pulling changes
 - Managed by `nimbus-build-system`
 
 ### Chronicles Performance
-- Log level configured at compile time for performance
-- Runtime filtering available but use sparingly: `-d:chronicles_runtime_filtering=on`
-- Default sinks optimized for production
+- Log levels are configured at compile time for performance
+- Runtime filtering is available but should be used sparingly: `-d:chronicles_runtime_filtering=on`
+- Default sinks are optimized for production
 
 ### Memory Management
 - Uses `refc` (reference counting with cycle collection)
-- Automatically enforced by build system (hardcoded in `waku.nimble`)
-- Don't override unless you know what you're doing (breaks compatibility)
+- Automatically enforced by the build system (hardcoded in `waku.nimble`)
+- Do not override unless absolutely necessary, as it breaks compatibility
 
 ### RLN Dependencies
-- RLN code requires Rust (explains Rust imports in some modules)
-- Pre-built `librln` libraries checked into repo
+- RLN code requires a Rust toolchain, which explains Rust imports in some modules
+- Pre-built `librln` libraries are checked into the repository
 
 ## Quick Reference
 
