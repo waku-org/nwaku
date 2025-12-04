@@ -94,7 +94,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, macos-15]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 45
 
     name: test-${{ matrix.os }}
     steps:
