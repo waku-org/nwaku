@@ -19,7 +19,7 @@ host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
 
 tarball="${host_triplet}"
 
-tarball+="-rln.tar.gz"
+tarball+="-stateless-parallel-rln.tar.gz"
 
 # Download the prebuilt rln library if it is available
 if curl --silent --fail-with-body -L \
@@ -49,6 +49,6 @@ else
         exit 1
     fi
     # if submodule version = version in Makefile, build rln
-    cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" 
+    cargo build -p rln --release --no-default-features --features stateless,parallel --manifest-path "${build_dir}/rln/Cargo.toml" 
     cp "${build_dir}/target/release/librln.a" "${output_filename}"
 fi

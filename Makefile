@@ -183,7 +183,7 @@ nimbus-build-system-nimble-dir:
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-LIBRLN_VERSION := v0.9.0
+LIBRLN_VERSION := master
 
 ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
