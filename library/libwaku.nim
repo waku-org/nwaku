@@ -5,13 +5,12 @@
 when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
-import std/[json, atomics, strformat, options, atomics, macros]
+import std/[atomics, options, atomics, macros]
 import chronicles, chronos, chronos/threadsync, ffi
 import
   waku/factory/waku,
   waku/common/base64,
   waku/waku_core/message/message,
-  waku/node/waku_node,
   waku/node/peer_manager,
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,

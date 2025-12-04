@@ -8,11 +8,10 @@ import
   waku/waku_core/time, # Timestamp
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/topics,
-  waku/node/api/relay,
+  waku/node/kernel_api/relay,
   waku/waku_relay/protocol,
-  waku/node/peer_manager
-
-import
+  waku/node/peer_manager,
+  library/events/json_message_event
 
 registerReqFFI(GetPeersInMeshReq, waku: ptr Waku):
   proc(pubSubTopic: cstring): Future[Result[string, string]] {.async.} =
