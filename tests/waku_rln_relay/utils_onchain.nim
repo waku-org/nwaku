@@ -585,7 +585,14 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     # Send termination signals
     when not defined(windows):
       discard execCmdEx(fmt"kill -TERM {anvilPID}")
-      discard execCmdEx(fmt"kill -9 {anvilPID}")
+      # Wait for graceful shutdown to allow state dumping
+      sleep(200)
+      # Only force kill if process is still running
+      let checkResult = execCmdEx(fmt"kill -0 {anvilPID} 2>/dev/null")
+      if checkResult.exitCode == 0:
+        info "Anvil process still running after TERM signal, sending KILL",
+          anvilPID = anvilPID
+        discard execCmdEx(fmt"kill -9 {anvilPID}")
     else:
       discard execCmdEx(fmt"taskkill /F /PID {anvilPID}")
 
