@@ -229,7 +229,18 @@ method register*(
 
   var gasPrice: int
   g.retryWrapper(gasPrice, "Failed to get gas price"):
-    int(await ethRpc.provider.eth_gasPrice()) * 2
+    let fetchedGasPrice = uint64(await ethRpc.provider.eth_gasPrice())
+    ## Multiply by 2 to speed up the transaction
+    ## Check for overflow when casting to int
+    if fetchedGasPrice > uint64(high(int) div 2):
+      warn "Gas price overflow detected, capping at maximum int value",
+        fetchedGasPrice = fetchedGasPrice, maxInt = high(int)
+      high(int)
+    else:
+      let calculatedGasPrice = int(fetchedGasPrice) * 2
+      debug "Gas price calculated",
+        fetchedGasPrice = fetchedGasPrice, gasPrice = calculatedGasPrice
+      calculatedGasPrice
   let idCommitmentHex = identityCredential.idCommitment.inHex()
   debug "identityCredential idCommitmentHex", idCommitment = idCommitmentHex
   let idCommitment = identityCredential.idCommitment.toUInt256()
