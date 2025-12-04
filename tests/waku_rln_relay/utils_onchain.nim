@@ -28,9 +28,13 @@ import
   ../testlib/common
 
 const CHAIN_ID* = 1234'u256
+
+# Path to the file which Anvil loads at startup to initialize the chain with pre-deployed contracts, an account funded with tokens and approved for spending
 const DEFAULT_ANVIL_STATE_PATH* =
   "tests/waku_rln_relay/anvil_state/state-deployed-contracts-mint-and-approved.json"
+# The contract address of the TestStableToken used for the RLN Membership registration fee
 const TOKEN_ADDRESS* = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+# The contract address used ti interact with the WakuRLNV2 contract via the proxy
 const WAKU_RLNV2_PROXY_ADDRESS* = "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
 
 proc generateCredentials*(): IdentityCredential =
@@ -646,7 +650,7 @@ proc setupOnchainGroupManager*(
     let tokenApprovalResult = await approveTokenAllowanceAndVerify(
       web3, acc, privateKey, testTokenAddress, contractAddress, ethToWei(200.u256)
     )
-    assert tokenApprovalResult.isOk, tokenApprovalResult.error()
+    assert tokenApprovalResult.isOk(), tokenApprovalResult.error
   else:
     info "Performing Token and RLN contracts deployment"
     (privateKey, acc) = createEthAccount(web3)
@@ -685,7 +689,7 @@ proc setupOnchainGroupManager*(
       some(0.u256),
     )
 
-    assert tokenApprovalResult.isOk, tokenApprovalResult.error()
+    assert tokenApprovalResult.isOk(), tokenApprovalResult.error
 
   let manager = OnchainGroupManager(
     ethClientUrls: @[ethClientUrl],
