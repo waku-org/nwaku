@@ -1,14 +1,14 @@
-# CLAUDE.md - nwaku AI Coding Context
+# CLAUDE.md - AI Coding Context
 
-This file provides essential context for LLMs assisting with nwaku development.
+This file provides essential context for LLMs assisting with logos messaging development.
 
 ## Project Identity
 
-nwaku is a Nim implementation of the Waku v2 protocol suite for private, censorship-resistant P2P messaging. It targets resource-restricted devices and privacy-preserving communication.
+This project is a Nim implementation of a libp2p protocol suite for private, censorship-resistant P2P messaging. It targets resource-restricted devices and privacy-preserving communication.
 
 ### Design Philosophy
 
-Waku is designed as a shared public network for generalized messaging, not application-specific infrastructure. Key architectural decisions:
+Logos messaging is designed as a shared public network for generalized messaging, not application-specific infrastructure. Key architectural decisions:
 
 Resource-restricted first: Protocols differentiate between full nodes (relay) and light clients (filter, lightpush, store). Light clients can participate without maintaining full message history or relay capabilities. This explains the client/server split in protocol implementations.
 
@@ -38,7 +38,7 @@ See [The Waku Network documentation](https://docs.waku.org/learn/) for architect
 - RLN (Rate Limiting Nullifier): Zero-knowledge proof system for spam prevention
 
 ### Specifications
-All Waku specs are at [rfc.vac.dev/waku](https://rfc.vac.dev/waku). RFCs use `WAKU2-XXX` format (not legacy `WAKU-XXX`).
+All specs are at [rfc.vac.dev/waku](https://rfc.vac.dev/waku). RFCs use `WAKU2-XXX` format (not legacy `WAKU-XXX`).
 
 ## Architecture
 
