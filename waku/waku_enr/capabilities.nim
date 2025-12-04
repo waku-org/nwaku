@@ -3,7 +3,6 @@
 import
   std/[options, bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
 import ../common/enr, ../waku_core/codecs
-import libp2p/protocols/mix
 
 const CapabilitiesEnrField* = "waku2"
 
@@ -29,7 +28,6 @@ const capabilityToCodec = {
   Capabilities.Filter: WakuFilterSubscribeCodec,
   Capabilities.Lightpush: WakuLightPushCodec,
   Capabilities.Sync: WakuReconciliationCodec,
-  Capabilities.Mix: MixProtocolID,
 }.toTable
 
 func init*(
