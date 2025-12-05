@@ -489,7 +489,10 @@ proc decompressGzipFile*(
   try:
     let (output, exitCode) = execCmdEx(cmd)
     if exitCode != 0:
-      return err("Failed to decompress '" & compressedPath & "' to '" & targetPath & "': " & output)
+      return err(
+        "Failed to decompress '" & compressedPath & "' to '" & targetPath & "': " &
+          output
+      )
   except OSError as e:
     return err("Failed to execute gunzip command: " & e.msg)
   except IOError as e:
@@ -504,14 +507,16 @@ proc compressGzipFile*(sourcePath: string, targetPath: string): Result[void, str
   try:
     let (output, exitCode) = execCmdEx(cmd)
     if exitCode != 0:
-      return err("Failed to compress '" & sourcePath & "' to '" & targetPath & "': " & output)
+      return err(
+        "Failed to compress '" & sourcePath & "' to '" & targetPath & "': " & output
+      )
   except OSError as e:
     return err("Failed to execute gzip command: " & e.msg)
   except IOError as e:
     return err("Failed to execute gzip command: " & e.msg)
 
   ok()
-  
+
 # Runs Anvil daemon
 proc runAnvil*(
     port: int = 8540,
