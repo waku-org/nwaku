@@ -23,3 +23,7 @@ suite "Token and RLN Contract Deployment":
 
     check:
       fileExists(testStateFile.get())
+
+    #The test should still pass even if thie compression fails
+    compressGzipFile(testStateFile.get(), testStateFile.get() & ".gz").isOkOr:
+      error "Failed to compress state file", error = error

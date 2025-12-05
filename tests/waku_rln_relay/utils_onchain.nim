@@ -31,7 +31,7 @@ const CHAIN_ID* = 1234'u256
 
 # Path to the file which Anvil loads at startup to initialize the chain with pre-deployed contracts, an account funded with tokens and approved for spending
 const DEFAULT_ANVIL_STATE_PATH* =
-  "tests/waku_rln_relay/anvil_state/state-deployed-contracts-mint-and-approved.json"
+  "tests/waku_rln_relay/anvil_state/state-deployed-contracts-mint-and-approved.json.gz"
 # The contract address of the TestStableToken used for the RLN Membership registration fee
 const TOKEN_ADDRESS* = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 # The contract address used ti interact with the WakuRLNV2 contract via the proxy
@@ -480,6 +480,38 @@ proc getAnvilPath*(): string =
   anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
   return $anvilPath
 
+proc decompressGzipFile*(
+    compressedPath: string, targetPath: string
+): Result[void, string] =
+  ## Decompress a gzipped file using the gunzip command-line utility
+  let cmd = fmt"gunzip -c {compressedPath} > {targetPath}"
+
+  try:
+    let (output, exitCode) = execCmdEx(cmd)
+    if exitCode != 0:
+      return err("Failed to decompress '" & compressedPath & "' to '" & targetPath & "': " & output)
+  except OSError as e:
+    return err("Failed to execute gunzip command: " & e.msg)
+  except IOError as e:
+    return err("Failed to execute gunzip command: " & e.msg)
+
+  ok()
+
+proc compressGzipFile*(sourcePath: string, targetPath: string): Result[void, string] =
+  ## Compress a file with gzip using the gzip command-line utility
+  let cmd = fmt"gzip -c {sourcePath} > {targetPath}"
+
+  try:
+    let (output, exitCode) = execCmdEx(cmd)
+    if exitCode != 0:
+      return err("Failed to compress '" & sourcePath & "' to '" & targetPath & "': " & output)
+  except OSError as e:
+    return err("Failed to execute gzip command: " & e.msg)
+  except IOError as e:
+    return err("Failed to execute gzip command: " & e.msg)
+
+  ok()
+  
 # Runs Anvil daemon
 proc runAnvil*(
     port: int = 8540,
@@ -513,21 +545,30 @@ proc runAnvil*(
 
     # Add state file argument if provided
     if stateFile.isSome():
-      let statePath = stateFile.get()
+      var statePath = stateFile.get()
       info "State file parameter provided",
         statePath = statePath,
         dumpStateOnExit = dumpStateOnExit,
         absolutePath = absolutePath(statePath)
 
-      # Ensure the directory exists
-      let stateDir = parentDir(statePath)
-      if not dirExists(stateDir):
-        info "Creating state directory", dir = stateDir
-        createDir(stateDir)
+      # Check if the file is gzip compressed and handle decompression
+      if statePath.endsWith(".gz"):
+        let decompressedPath = statePath[0 .. ^4] # Remove .gz extension
+        debug "Gzip compressed state file detected",
+          compressedPath = statePath, decompressedPath = decompressedPath
 
-      # Use --load-state (read-only) when we want to use cached state without modifying it
-      # Use --dump-state (write-only) when we want to create a new cache from fresh deployment
+        if not fileExists(decompressedPath):
+          decompressGzipFile(statePath, decompressedPath).isOkOr:
+            error "Failed to decompress state file", error = error
+            return nil
+
+        statePath = decompressedPath
+
       if dumpStateOnExit:
+        # Ensure the directory exists
+        let stateDir = parentDir(statePath)
+        if not dirExists(stateDir):
+          createDir(stateDir)
         # Fresh deployment: start clean and dump state on exit
         args.add("--dump-state")
         args.add(statePath)
