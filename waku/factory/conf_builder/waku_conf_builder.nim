@@ -208,7 +208,11 @@ proc withPeerStoreCapacity*(b: var WakuConfBuilder, peerStoreCapacity: int) =
   b.peerStoreCapacity = some(peerStoreCapacity)
 
 proc withMaxConnections*(b: var WakuConfBuilder, maxConnections: int) =
-  b.maxConnections = some(maxConnections)
+  if maxConnections < 200:
+    raise newException(ValueError, "maxConnections cannot be less than 200")
+    b.maxConnections = some(200)
+  else:
+    b.maxConnections = some(maxConnections)
 
 proc withDnsAddrsNameServers*(
     b: var WakuConfBuilder, dnsAddrsNameServers: seq[IpAddress]
@@ -247,9 +251,6 @@ proc withAgentString*(b: var WakuConfBuilder, agentString: string) =
 
 proc withColocationLimit*(b: var WakuConfBuilder, colocationLimit: int) =
   b.colocationLimit = some(colocationLimit)
-
-proc withMaxRelayPeers*(b: var WakuConfBuilder, maxRelayPeers: int) =
-  b.maxRelayPeers = some(maxRelayPeers)
 
 proc withRelayServiceRatio*(b: var WakuConfBuilder, relayServiceRatio: string) =
   b.relayServiceRatio = some(relayServiceRatio)
