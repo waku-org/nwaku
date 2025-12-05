@@ -228,7 +228,10 @@ proc getPeersByCapability*(
   return
     peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))
 
-template forEnrPeers*(peerStore: PeerStore, body: untyped) =
+template forEnrPeers*(
+    peerStore: PeerStore,
+    peerId, peerConnectedness, peerOrigin, peerEnrRecord, body: untyped,
+) =
   let enrBook = peerStore[ENRBook]
   let connBook = peerStore[ConnectionBook]
   let sourceBook = peerStore[SourceBook]

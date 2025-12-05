@@ -101,7 +101,9 @@ proc getEnrsFromStore(
   let k = min(MaxPeersCacheSize, numPeers.int)
   let enrStoreLen = wpx.peerManager.switch.peerStore[ENRBook].len
   var enrs = newSeqOfCap[enr.Record](min(k, enrStoreLen))
-  wpx.peerManager.switch.peerStore.forEnrPeers:
+  wpx.peerManager.switch.peerStore.forEnrPeers(
+    peerId, peerConnectedness, peerOrigin, peerEnrRecord
+  ):
     if peerConnectedness == CannotConnect:
       debug "Could not retrieve ENR because cannot connect to peer",
         remotePeerId = peerId
