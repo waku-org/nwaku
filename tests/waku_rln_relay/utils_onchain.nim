@@ -99,7 +99,7 @@ proc sendMintCall(
     recipientAddress: Address,
     amountTokens: UInt256,
     recipientBalanceBeforeExpectedTokens: Option[UInt256] = none(UInt256),
-): Future[TxHash] {.async.} =
+): Future[void] {.async.} =
   let doBalanceAssert = recipientBalanceBeforeExpectedTokens.isSome()
 
   if doBalanceAssert:
@@ -135,7 +135,7 @@ proc sendMintCall(
   tx.data = Opt.some(byteutils.hexToSeqByte(mintCallData))
 
   trace "Sending mint call"
-  let txHash = await web3.send(tx)
+  discard await web3.send(tx)
 
   let balanceOfSelector = "0x70a08231"
   let balanceCallData = balanceOfSelector & paddedAddress
@@ -149,8 +149,6 @@ proc sendMintCall(
       recipientBalanceBeforeExpectedTokens.get() + amountTokens
     assert balanceAfterMint == balanceAfterExpectedTokens,
       fmt"Balance is {balanceAfterMint} after transfer but expected {balanceAfterExpectedTokens}"
-
-  return txHash
 
 # Check how many tokens a spender (the RLN contract) is allowed to spend on behalf of the owner (account which wishes to register a membership)
 proc checkTokenAllowance(
@@ -695,7 +693,7 @@ proc setupOnchainGroupManager*(
     discard await sendEthTransfer(web3, web3.defaultAccount, acc, ethToWei(1000.u256))
 
     # Mint tokens to the test account
-    discard await sendMintCall(
+    await sendMintCall(
       web3, web3.defaultAccount, testTokenAddress, acc, ethToWei(1000.u256)
     )
 
@@ -718,7 +716,7 @@ proc setupOnchainGroupManager*(
       return
 
     # mint the token from the generated account
-    discard await sendMintCall(
+    await sendMintCall(
       web3,
       web3.defaultAccount,
       testTokenAddress,
