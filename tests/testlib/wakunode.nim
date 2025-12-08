@@ -34,7 +34,7 @@ proc defaultTestWakuConfBuilder*(): WakuConfBuilder =
     @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
   )
   builder.withNatStrategy("any")
-  builder.withMaxConnections(200)
+  builder.withMaxConnections(300)
   builder.withRelayServiceRatio("50:50")
   builder.withMaxMessageSize("1024 KiB")
   builder.withClusterId(DefaultClusterId)

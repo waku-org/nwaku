@@ -585,12 +585,16 @@ proc build*(
       warn "Peer persistence not specified, defaulting to false"
       false
 
-  let maxConnections =
-    if builder.maxConnections.isSome():
-      builder.maxConnections.get()
-    else:
-      warn "Max Connections was not specified, defaulting to 300"
-      300
+  var maxConnections: int
+  if builder.maxConnections.isSome():
+    var mc = builder.maxConnections.get() # mutable to enforce minimum
+    if mc < 300:
+      warn "max-connections less than 300; using default 300", provided = mc
+      mc = 300
+    maxConnections = mc
+  else:
+    warn "Max Connections was not specified, defaulting to 300"
+    maxConnections = 300
 
   # TODO: Do the git version thing here
   let agentString = builder.agentString.get("nwaku")
@@ -660,7 +664,7 @@ proc build*(
     agentString: agentString,
     colocationLimit: colocationLimit,
     maxRelayPeers: builder.maxRelayPeers,
-    relayServiceRatio: builder.relayServiceRatio.get("60:40"),
+    relayServiceRatio: builder.relayServiceRatio.get("50:50"),
     rateLimit: rateLimit,
     circuitRelayClient: builder.circuitRelayClient.get(false),
     staticNodes: builder.staticNodes,
