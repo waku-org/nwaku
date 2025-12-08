@@ -208,11 +208,7 @@ proc withPeerStoreCapacity*(b: var WakuConfBuilder, peerStoreCapacity: int) =
   b.peerStoreCapacity = some(peerStoreCapacity)
 
 proc withMaxConnections*(b: var WakuConfBuilder, maxConnections: int) =
-  if maxConnections < 200:
-    raise newException(ValueError, "maxConnections cannot be less than 200")
-    b.maxConnections = some(200)
-  else:
-    b.maxConnections = some(maxConnections)
+  b.maxConnections = some(maxConnections)
 
 proc withDnsAddrsNameServers*(
     b: var WakuConfBuilder, dnsAddrsNameServers: seq[IpAddress]
