@@ -116,7 +116,7 @@ make test tests/test_waku_enr.nim
 make test tests/test_waku_enr.nim "check capabilities support"
 
 # Build and run test separately (for development iteration)
-make test/tests/test_waku_enr.nim
+make test tests/test_waku_enr.nim
 ```
 
 Test structure uses `testutils/unittests`:
@@ -438,7 +438,7 @@ For PostgreSQL: add in `migrations/message_store_postgres/`
 ### Running Single Test During Development
 ```bash
 # Build test binary
-make test/tests/waku_filter_v2/test_waku_client.nim
+make test tests/waku_filter_v2/test_waku_client.nim
 
 # Binary location
 ./build/tests/waku_filter_v2/test_waku_client.nim.bin
