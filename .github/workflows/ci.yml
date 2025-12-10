@@ -78,7 +78,7 @@ jobs:
 
       - name: Build binaries
         run: make V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
-  
+
   build-windows:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
@@ -121,7 +121,7 @@ jobs:
             sudo docker run --rm -d -e POSTGRES_PASSWORD=test123 -p 5432:5432 postgres:15.4-alpine3.18
             postgres_enabled=1
           fi
- 
+
           export MAKEFLAGS="-j1"
           export NIMFLAGS="--colors:off -d:chronicles_colors:none"
           export USE_LIBBACKTRACE=0
@@ -132,12 +132,12 @@ jobs:
   build-docker-image:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' || needs.changes.outputs.docker == 'true' }}
-    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
+    uses: logos-messaging/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
   nwaku-nwaku-interop-tests:
     needs: build-docker-image
-    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@SMOKE_TEST_0.0.1
+    uses: logos-messaging/logos-messaging-interop-tests/.github/workflows/nim_waku_PR.yml@SMOKE_TEST_0.0.1
     with:
       node_nwaku: ${{ needs.build-docker-image.outputs.image }}
 
@@ -145,14 +145,14 @@ jobs:
 
   js-waku-node:
     needs: build-docker-image
-    uses: waku-org/js-waku/.github/workflows/test-node.yml@master
+    uses: logos-messaging/js-waku/.github/workflows/test-node.yml@master
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
       test_type: node
 
   js-waku-node-optional:
     needs: build-docker-image
-    uses: waku-org/js-waku/.github/workflows/test-node.yml@master
+    uses: logos-messaging/js-waku/.github/workflows/test-node.yml@master
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
       test_type: node-optional
