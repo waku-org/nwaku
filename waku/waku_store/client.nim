@@ -109,12 +109,11 @@ proc queryToAny*(
       lastError = StoreError(kind: ErrorCode.PEER_DIAL_FAILURE, address: $peer)
       continue
 
-    let res = await self.sendStoreRequest(request, connection)
-    if res.isOk():
-      return res
+    let response = (await self.sendStoreRequest(request, connection)).valueOr:
+      warn "store query failed, trying next peer", peerId = peer.peerId, error = $error
+      lastError = error
+      continue
 
-    warn "store query failed, trying next peer",
-      peerId = peer.peerId, cause = $res.error
-    lastError = res.error
+    return ok(response)
 
   return err(lastError)

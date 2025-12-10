@@ -207,8 +207,8 @@ type WakuNodeConf* = object
 
     maxConnections* {.
       desc:
-        "Maximum allowed number of libp2p connections. (Default: 300) can't set it to less than 300",
-      defaultValue: 300,
+        "Maximum allowed number of libp2p connections. (Default: 150) that's recommended value for better connectivity",
+      defaultValue: 150,
       name: "max-connections"
     .}: int
 

@@ -231,19 +231,8 @@ proc validateNoEmptyStrings(wakuConf: WakuConf): Result[void, string] =
 
   return ok()
 
-proc validateMaxConnectionsAndRatio(wakuConf: WakuConf): Result[void, string] =
-  if wakuConf.maxConnections < 300:
-    return
-      err("max-connections must be at least 300, provided " & $wakuConf.maxConnections)
-  if wakuConf.relayServiceRatio != "50:50":
-    return err(
-      "relay-service-ratio must be exactly 50:50, provided " & wakuConf.relayServiceRatio
-    )
-  ok()
-
 proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
   ?wakuConf.shardingConf.validateShards(wakuConf.subscribeShards)
   ?wakuConf.validateNoEmptyStrings()
-  ?wakuConf.validateMaxConnectionsAndRatio()
   return ok()
