@@ -117,6 +117,9 @@ jobs:
             .git/modules
           key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
+      - name: Make update
+        run: make update
+
       - name: Run tests
         run: |
           postgres_enabled=0
