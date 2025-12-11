@@ -135,7 +135,7 @@ jobs:
   build-docker-image:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' || needs.changes.outputs.docker == 'true' }}
-    uses: logos-messaging/logos-messaging-nim/.github/workflows/container-image.yml@master
+    uses: ./.github/workflows/container-image.yml
     secrets: inherit
 
   nwaku-nwaku-interop-tests:
