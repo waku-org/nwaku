@@ -76,6 +76,9 @@ jobs:
             .git/modules
           key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
+      - name: Make update
+        run: make update
+
       - name: Build binaries
         run: make V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
 
@@ -132,7 +135,7 @@ jobs:
   build-docker-image:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' || needs.changes.outputs.docker == 'true' }}
-    uses: logos-messaging/nwaku/.github/workflows/container-image.yml@master
+    uses: logos-messaging/logos-messaging-nim/.github/workflows/container-image.yml@master
     secrets: inherit
 
   nwaku-nwaku-interop-tests:
