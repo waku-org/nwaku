@@ -17,6 +17,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/stream/connection,
+  libp2p/varint,
   libp2p_mix
 
 import
@@ -41,6 +42,29 @@ const MountWithoutRelayError* = "cannot mount lightpush because relay is not mou
 const MixReplyTimeout* = chronos.seconds(5)
   ## Time limit for one mix-routed lightpush, so a broken path costs one
   ## attempt.
+
+const MixLightpushSurbs* = 1'u8
+  ## The number of SURBs in a lightpush request over mix. One SURB, so the reply
+  ## uses one path.
+
+proc mixLightpushSize*(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+): tuple[size, limit: int] =
+  ## The bytes that the lightpush client writes on a mix connection for
+  ## `message`, and the bytes that remain in one mix message after the codec and
+  ## the SURBs. `message` must have its timestamp and its proof.
+  let request = LightpushRequest(
+    requestId: '0'.repeat(20), # `generateRequestId` gives 20 hex characters
+    pubsubTopic: Opt.some(pubsubTopic),
+    message: message,
+  )
+  let encoded = request.encode().len
+  # `writeLp` adds the length prefix in the same write.
+  let size = vsizeof(uint64(encoded)) + encoded
+  # An error means that no message fits.
+  let limit =
+    getMaxMessageSizeForCodec(WakuLightPushCodec, MixLightpushSurbs).valueOr(0)
+  return (size, limit)
 
 proc publishOverMix*(
     node: WakuNode,
@@ -267,7 +291,7 @@ proc lightpushPublishHandler(
         let conn = node.wakuMix.toConnection(
           MixDestination.exitNode(peer.peerId),
           WakuLightPushCodec,
-          MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
+          MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(MixLightpushSurbs)),
             # indicating we only want a single path to be used for reply hence numSurbs = 1
         ).valueOr:
           debug "Could not create mix connection"
