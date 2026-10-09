@@ -216,6 +216,13 @@ suite "Waku Store Sync Codec":
       payload.fingerprints == decodedPayload.fingerprints
       payload.itemSets == decodedPayload.itemSets
 
+  test "transfer encoding writes the pubsub topic as field 1 and the message as field 2":
+    # TODO: logos-delivery#4483
+    let payload = WakuMessageAndTopic(
+      pubsub: "/s", message: WakuMessage(payload: @[byte 1], contentTopic: "/t")
+    )
+    check payload.encode() == hexToSeqByte("0a022f73" & "12070a010112022f74")
+
 suite "Waku Store Sync - message codec refusals":
   test "a message without a pubsub topic is refused":
     let res = WakuMessageAndTopic.decode(hexToSeqByte("12070a010112022f74"))
