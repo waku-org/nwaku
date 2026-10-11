@@ -19,7 +19,8 @@ const MixNoExitReason* = "no mix exit serves the shard"
   ## No pool member serves lightpush on the message's shard.
 
 const MixUnusableRetries* = 2
-  ## Service passes a `Required` task waits for a mounted mix before it fails.
+  ## Retries a `Required` task waits for a mounted mix before it fails. Retries
+  ## come `RetryInterval` apart.
 
 type
   MixUnusable* {.pure.} = enum
@@ -88,10 +89,10 @@ proc decideWithoutMix(
     self: MixSendProcessor, task: DeliveryTask, unusable: MixUnusable
 ) =
   ## Hands a `Preferred` task to the plain path at once. Fails a `Required` task
-  ## with the reason, after `MixUnusableRetries` more passes while mix is mounted.
+  ## with the reason, after `MixUnusableRetries` more retries while mix is mounted.
   if not self.fallbackAllowed:
-    if self.waku.mixMounted() and task.heldRounds < MixUnusableRetries:
-      inc task.heldRounds
+    if self.waku.mixMounted() and task.mixGraceRetriesUsed < MixUnusableRetries:
+      task.mixGraceRetriesUsed.inc()
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
@@ -101,7 +102,6 @@ proc decideWithoutMix(
       reason = unusable.reason()
     task.state = DeliveryState.FailedToDeliver
     task.errorDesc = unusable.reason()
-    task.deliveryTime = Moment.now()
     return
 
   if self.fellBackReason != unusable:
@@ -142,7 +142,7 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
   task.anonymized = true
 
   task.errorDesc = "" # the attempt reports its own outcome
-  task.heldRounds = 0
+  task.mixGraceRetriesUsed = 0
   task.tryCount.inc()
   debug "Trying message delivery via Mix",
     requestId = task.requestId,
@@ -166,7 +166,6 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     else:
       task.state = DeliveryState.FailedToDeliver
       task.errorDesc = error.desc.get($error.code)
-      task.deliveryTime = Moment.now()
     return
 
   if numLightpushServers > 0:
@@ -174,11 +173,10 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
       requestId = task.requestId, msgHash = task.msgHash.to0xHex()
     task.state = DeliveryState.SuccessfullyPropagated
     task.propagatedAnonymously = true
-    task.deliveryTime = Moment.now()
     if task.firstPropagatedTime.isNone():
       task.firstPropagatedTime = Opt.some(Moment.now())
   else:
-    debug "Mix publish returned zero peers, request pushed back for next round",
+    debug "Mix publish returned zero peers, the task waits for a retry",
       requestId = task.requestId
     task.state = DeliveryState.NextRoundRetry
 

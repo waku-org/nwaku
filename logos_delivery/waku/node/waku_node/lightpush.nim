@@ -40,8 +40,7 @@ const MountWithoutRelayError* = "cannot mount lightpush because relay is not mou
 
 const MixReplyTimeout* = chronos.seconds(5)
   ## Time limit for one mix-routed lightpush, so a broken path costs one
-  ## attempt. It is short because one unanswered reply holds the send service's
-  ## whole batch for this long.
+  ## attempt.
 
 proc publishOverMix*(
     node: WakuNode,

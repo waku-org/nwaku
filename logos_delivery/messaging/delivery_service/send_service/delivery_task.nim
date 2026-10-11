@@ -12,7 +12,7 @@ type DeliveryState* {.pure.} = enum
   SuccessfullyValidated
     # message is known to be stored at least on one store node, thus validated
   FallbackRetry # retry sending with fallback processor if available
-  NextRoundRetry # try sending in next loop
+  NextRoundRetry # waits for its next attempt
   FailedToDeliver # final state of failed delivery
 
 type DeliveryTask* = ref object
@@ -21,27 +21,24 @@ type DeliveryTask* = ref object
   msg*: WakuMessage
   msgHash*: WakuMessageHash
   tryCount*: int
-  heldRounds*: int
-    ## Rounds a processor left this task for the next round without attempting
-    ## it; reset when an attempt starts.
+  mixGraceRetriesUsed*: int
+    ## The retries in which mix could not attempt a `Required` task. A mix attempt
+    ## resets it, and `MixUnusableRetries` is its limit.
   state*: DeliveryState
-  deliveryTime*: Moment
   firstPropagatedTime*: Opt[Moment]
     ## Set once on the first successful propagation; never reset on re-publish.
     ## Anchors the store-validation time cap (see propagationAge).
   firstAdmittedTime*: Opt[Moment]
     ## Set when the task first passes rate-limit admission; `none` while parked
     ## waiting for epoch budget. Guards re-admission on retry and anchors the
-    ## delivery-timeout reaper, so a task parked for budget is not aged out
-    ## before it can be sent.
-  propagateEventEmitted*: bool
+    ## delivery window (`isDeliveryTimedOut`), so a task parked for budget is not
+    ## aged out before it can be sent.
+  propagatedEventEmitted*: bool
+    ## Set when the task emits `MessagePropagatedEvent`. After a restart, the send
+    ## service does not send the task again.
   queuedEventEmitted*: bool
     ## Set once the task has reported itself queued for rate-limit budget, so
-    ## the event fires on the first park only and not on every retry round.
-  sentEventEmitted*: bool
-    ## Set when this task emits `MessageSent`, so the event fires once. A mixed
-    ## completion checks this flag, so an earlier `MessagePropagated` cannot hide
-    ## the completion.
+    ## the event fires on the first park only and not on every retry.
   anonymized*: bool
     ## Set at the first anonymous send attempt and never cleared; from then on,
     ## the INFO and ERROR records of this task withhold the hash.
@@ -50,6 +47,12 @@ type DeliveryTask* = ref object
     ## it: the query would name the message from this node's own address.
   lastStoreQueryTime*: Opt[Moment]
     ## When a Store peer was last asked about this task, none before the first query.
+  deliverHandle*: Future[void]
+    ## The `deliver` of the send service for this task. Nil or finished while
+    ## it does not run.
+  storeAnswer*: Future[void]
+    ## Completes when a Store node reports the message. Nil while the send service
+    ## does not wait for a Store confirmation of this task.
   errorDesc*: string
 
 proc new*(
@@ -69,33 +72,13 @@ proc new*(
   let pubsubTopic = relayShardRes.relayShard.toPubsubTopic()
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
-  return ok(
-    T(
-      requestId: requestId,
-      pubsubTopic: pubsubTopic,
-      msg: msg,
-      msgHash: msgHash,
-      tryCount: 0,
-      state: DeliveryState.Entry,
-    )
-  )
-
-func `==`*(r, l: DeliveryTask): bool =
-  if r.isNil() == l.isNil():
-    return r.isNil() or r.msgHash == l.msgHash
-  else:
-    return false
+  return
+    ok(T(requestId: requestId, pubsubTopic: pubsubTopic, msg: msg, msgHash: msgHash))
 
 proc messageAge*(self: DeliveryTask): timer.Duration =
   let actual = getNanosecondTime(getTime().toUnixFloat())
   if self.msg.timestamp >= 0 and self.msg.timestamp < actual:
     return nanoseconds(actual - self.msg.timestamp)
-  else:
-    return ZeroDuration
-
-proc deliveryAge*(self: DeliveryTask): timer.Duration =
-  if self.state == DeliveryState.SuccessfullyPropagated:
-    return timer.Moment.now() - self.deliveryTime
   else:
     return ZeroDuration
 

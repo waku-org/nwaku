@@ -61,7 +61,7 @@ proc new*(
   let maxParkedAgeSec = conf.maxParkedAgeSec.get(uint(DefaultMaxParkedAge.seconds()))
   if maxParkedAgeSec notin 1'u .. MaxParkedAgeSecLimit:
     return err("maxParkedAgeSec must be between 1 and " & $MaxParkedAgeSecLimit)
-  let sendQueueCapacity = conf.sendQueueCapacity.get(uint(DefaultMaxTaskCacheSize))
+  let sendQueueCapacity = conf.sendQueueCapacity.get(uint(DefaultSendQueueCapacity))
   if sendQueueCapacity notin 1'u .. SendQueueCapacityLimit:
     return err("sendQueueCapacity must be between 1 and " & $SendQueueCapacityLimit)
   let sendProcessor = setupSendProcessorChain(waku, anonymityLevel).valueOr:
@@ -73,7 +73,7 @@ proc new*(
     sendProcessor,
     anonymityLevel = anonymityLevel,
     maxParkedAge = seconds(int64(maxParkedAgeSec)),
-    maxTaskCacheSize = int(sendQueueCapacity),
+    sendQueueCapacity = int(sendQueueCapacity),
   )
   let backfill = ?BackfillState.init(conf)
   let recvService = RecvService.new(waku, backfill)

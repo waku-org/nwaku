@@ -9,15 +9,12 @@ import logos_delivery/waku/api/subscriptions
 import logos_delivery/messaging/delivery_service/send_service
 import logos_delivery/messaging/delivery_service/send_service/delivery_task
 
-proc send*(
+proc enqueueSend(
     self: MessagingClient, envelope: MessageEnvelope
-): Future[Result[RequestId, string]] {.async.} =
-  ## High-level messaging API send. Auto-subscribes to the content topic
-  ## (so the local node sees its own gossipsub broadcast), builds a
-  ## `DeliveryTask`, and hands it to the send service. Returns the request
-  ## id the caller can correlate with `MessageSentEvent` / `MessageErrorEvent`.
+): Result[RequestId, string] =
+  ## The body of `send`. It is not async, so it cannot suspend.
   ?self.checkApiAvailability()
-
+  # Refuse a full send queue before the subscribe.
   if self.sendService.isFull():
     return err("Send queue full, retry later")
 
@@ -33,6 +30,12 @@ proc send*(
   let deliveryTask = DeliveryTask.new(requestId, envelope, self.waku.brokerCtx).valueOr:
     return err("MessagingClient.send: Failed to create delivery task: " & error)
 
-  asyncSpawn self.sendService.send(deliveryTask)
+  return self.sendService.enqueue(deliveryTask)
 
-  return ok(requestId)
+proc send*(
+    self: MessagingClient, envelope: MessageEnvelope
+): Future[Result[RequestId, string]] {.async.} =
+  ## Subscribes to the content topic, queues the message and returns its
+  ## request id. It never suspends, so the caller gets the id before any event
+  ## of the request, also over the FFI.
+  return self.enqueueSend(envelope)

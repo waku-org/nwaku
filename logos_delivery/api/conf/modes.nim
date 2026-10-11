@@ -83,4 +83,4 @@ type AnonymityLevel* {.pure.} = enum
     ## send, and after the Mix window when Mix gets no answer.
   Required
     ## Use Mix only. Never use the plain path. When Mix cannot attempt the send,
-    ## try again on the next `MixUnusableRetries` service passes, then fail.
+    ## try again on the next `MixUnusableRetries` retries, then fail.
