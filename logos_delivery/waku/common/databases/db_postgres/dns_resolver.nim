@@ -41,7 +41,7 @@ proc resolveWorker(job: ptr ResolveJob) {.thread, nimcall.} =
         job.resolved[i] = joined[i]
       job.found = joined.len > 0
       freeAddrInfo(addrInfo)
-  except CatchableError:
+  except Exception:
     discard
 
   discard job.signal.fireSync()
