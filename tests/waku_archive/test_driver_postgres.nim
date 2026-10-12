@@ -715,5 +715,17 @@ suite "Postgres connection lifecycle":
 
   asyncTest "Host names are resolved off the event loop":
     check (await resolveHostAddr("127.0.0.1")).expect("literal") == ""
-    check (await resolveHostAddr("localhost")).expect("name").len > 0
+    let addrs = (await resolveHostAddr("localhost")).expect("name").split(',')
+    check:
+      addrs.len > 0
+      addrs.deduplicate().len == addrs.len
     check (await resolveHostAddr("host.invalid")).isErr()
+
+  asyncTest "Several addresses for one host connect through the first reachable":
+    let wrapper = (
+      await DbConnWrapper.new(
+        "user=postgres host=localhost,localhost hostaddr=127.0.0.1,127.0.0.1 port=5432 dbname=postgres password=test123"
+      )
+    ).expect("connection with two addresses")
+
+    wrapper.closeDbConn().expect("close")

@@ -15,7 +15,7 @@ import ./dbconn, ./dns_resolver, ../common, ../../../waku_core/time
 type
   # Database connection pool
   PgAsyncPool* = ref object
-    connString: string
+    connStringNoHost: string
     host: string ## resolved off the event loop, see connectString
     defaultLockTimeoutMs: int64
     maxConnections: int
@@ -64,13 +64,12 @@ proc new*(
     let port = dbUrl[m.captures[3]]
     let dbName = dbUrl[m.captures[4]]
 
-    connString =
-      fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
+    connString = fmt"user={user} port={port} dbname={dbName} password={password}"
   except KeyError, ValueError:
     return err("could not parse postgres string: " & getCurrentExceptionMsg())
 
   let pool = PgAsyncPool(
-    connString: connString,
+    connStringNoHost: connString,
     host: hostName,
     defaultLockTimeoutMs: lockTimeout.milliseconds,
     maxConnections: maxConnections,
@@ -111,13 +110,16 @@ proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
 proc connectString(pool: PgAsyncPool): Future[DatabaseResult[string]] {.async.} =
   ## libpq would resolve a host name with a blocking lookup, so the address is
   ## handed over next to the name, which still serves certificate checks.
-  let hostAddr = (await resolveHostAddr(pool.host)).valueOr:
+  let hostAddrs = (await resolveHostAddr(pool.host)).valueOr:
     return err("error resolving the database host: " & $error)
 
-  if hostAddr.len == 0:
-    return ok(pool.connString)
+  if hostAddrs.len == 0:
+    return ok(pool.connStringNoHost & " host=" & pool.host)
 
-  return ok(pool.connString & " hostaddr=" & hostAddr)
+  ## libpq pairs the n-th host with the n-th address and tries them in order
+  let numAddrs = hostAddrs.count(',') + 1
+  let hosts = newSeqWith(numAddrs, pool.host).join(",")
+  return ok(pool.connStringNoHost & " host=" & hosts & " hostaddr=" & hostAddrs)
 
 proc cancelBackend(pool: PgAsyncPool, pid: int32) {.async.} =
   ## Closing the socket does not stop a command the server already runs, e.g.

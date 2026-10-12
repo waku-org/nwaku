@@ -2,14 +2,14 @@
 ## blocking getaddrinfo, which stalls every other task while the resolver is slow.
 {.push raises: [].}
 
-import std/[nativesockets, net, typedthreads]
+import std/[nativesockets, net, strutils, typedthreads]
 import chronos, chronos/threadsync, results
 
 const MaxHostLen = 256
 
 type ResolveJob = object
   host: array[MaxHostLen, char]
-  resolved: array[64, char] ## NUL terminated text form of the address
+  resolved: array[512, char] ## NUL terminated, comma separated addresses
   found: bool
   signal: ThreadSignalPtr
 
@@ -17,13 +17,29 @@ type ResolveThread = Thread[ptr ResolveJob]
 
 proc resolveWorker(job: ptr ResolveJob) {.thread, nimcall.} =
   try:
-    let addrInfo = getAddrInfo($cast[cstring](addr job.host[0]), Port(0), AF_UNSPEC)
+    let addrInfo = getAddrInfo(
+      $cast[cstring](addr job.host[0]), Port(0), AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP
+    )
     if not addrInfo.isNil():
-      let text = getAddrString(addrInfo.ai_addr)
-      if text.len > 0 and text.len < job.resolved.len:
-        for i in 0 ..< text.len:
-          job.resolved[i] = text[i]
-        job.found = true
+      ## Every address is kept, in the resolver's order, so that libpq still
+      ## falls back from one to the next as it does when it resolves itself.
+      var joined = ""
+      var node = addrInfo
+      while not node.isNil():
+        let text = getAddrString(node.ai_addr)
+        let candidate =
+          if joined.len == 0:
+            text
+          else:
+            joined & "," & text
+        if text.len > 0 and text notin joined.split(',') and
+            candidate.len < job.resolved.len:
+          joined = candidate
+        node = node.ai_next
+
+      for i in 0 ..< joined.len:
+        job.resolved[i] = joined[i]
+      job.found = joined.len > 0
       freeAddrInfo(addrInfo)
   except CatchableError:
     discard
@@ -57,8 +73,8 @@ proc reapResolver(
     res.complete(outcome)
 
 proc resolveHostAddr*(host: string): Future[Result[string, string]] {.async.} =
-  ## The IP address of `host` as text, or "" when libpq needs no lookup: an IP
-  ## literal or a unix socket directory.
+  ## The comma separated IP addresses of `host`, or "" when libpq needs no
+  ## lookup: an IP literal or a unix socket directory.
   if host.len == 0 or host[0] == '/' or host.isIpAddress():
     return ok("")
 
