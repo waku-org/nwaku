@@ -135,17 +135,28 @@ const SelectCursorByHashDef = """SELECT timestamp FROM messages_lookup
 const
   DefaultMaxNumConns = 50
   MaxHashesPerQuery = 100
+  DefaultReadStatementTimeout* = chronos.minutes(5)
+  DefaultReadLockTimeout* = chronos.seconds(30)
 
 proc new*(
     T: type PostgresDriver,
     dbUrl: string,
     maxConnections = DefaultMaxNumConns,
     onFatalErrorAction: OnFatalErrorHandler = nil,
+    readStatementTimeout = DefaultReadStatementTimeout,
+    readLockTimeout = DefaultReadLockTimeout,
 ): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
 
-  let readConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
+  ## Only the read pool gets server-side timeouts: the write pool also runs
+  ## migrations, partition DDL and ANALYZE, which can legitimately take long.
+  let readConnPool = PgAsyncPool.new(
+    dbUrl,
+    maxNumConnOnEachPool,
+    statementTimeout = readStatementTimeout,
+    lockTimeout = readLockTimeout,
+  ).valueOr:
     return err("error creating read conn pool PgAsyncPool")
 
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:

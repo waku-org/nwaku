@@ -22,10 +22,24 @@ type
     numConnecting: int ## slots reserved by connections still being opened
     busySignal: ThreadSignalPtr ## signal to wait while the pool is busy
 
+func serverTimeoutsOption(statementTimeout, lockTimeout: Duration): string =
+  ## Zero leaves the server default, i.e. no timeout
+  var settings = newSeq[string](0)
+  if statementTimeout > ZeroDuration:
+    settings.add("-c statement_timeout=" & $statementTimeout.milliseconds)
+  if lockTimeout > ZeroDuration:
+    settings.add("-c lock_timeout=" & $lockTimeout.milliseconds)
+
+  if settings.len == 0:
+    return ""
+  return " options='" & settings.join(" ") & "'"
+
 proc new*(
     T: type PgAsyncPool,
     dbUrl: string,
     maxConnections: int,
+    statementTimeout = ZeroDuration,
+    lockTimeout = ZeroDuration,
     connectTimeout = DefaultConnectTimeout,
 ): DatabaseResult[T] =
   var connString: string
@@ -44,7 +58,8 @@ proc new*(
     let dbName = dbUrl[m.captures[4]]
 
     connString =
-      fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
+      fmt"user={user} host={host} port={port} dbname={dbName} password={password}" &
+      serverTimeoutsOption(statementTimeout, lockTimeout)
   except KeyError, ValueError:
     return err("could not parse postgres string: " & getCurrentExceptionMsg())
 

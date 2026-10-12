@@ -644,3 +644,17 @@ suite "Postgres connection lifecycle":
 
     (await pool.close()).expect("pool close")
     await silentServer.closeWait()
+
+  asyncTest "A pool with a statement timeout cancels long queries server-side":
+    let pool = PgAsyncPool
+      .new(storeMessageDbUrl, 1, statementTimeout = 200.milliseconds)
+      .expect("pool")
+
+    let sleepRes = await pool.pgQuery("SELECT pg_sleep(2)")
+    check:
+      sleepRes.isErr()
+      sleepRes.error.contains("statement timeout")
+
+    (await pool.pgQuery("SELECT 1")).expect("query after the timeout")
+
+    (await pool.close()).expect("pool close")
