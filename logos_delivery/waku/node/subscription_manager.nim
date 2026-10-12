@@ -255,17 +255,49 @@ proc unsubscribe*(
     ContentTopicUnsubscribedEvent.emit(self.node.brokerCtx, shard, contentTopic)
   return ok()
 
+proc hasContentTopic(
+    self: SubscriptionManager, shard: PubsubTopic, contentTopic: ContentTopic
+): bool =
+  self.shards.withValue(shard, entry):
+    return contentTopic in entry.contentTopics
+  return false
+
+proc topicShards(self: SubscriptionManager, shard: PubsubTopic): seq[PubsubTopic] =
+  result = @[shard]
+  for listenShard in self.extraListenShards:
+    if listenShard != shard:
+      result.add(listenShard)
+
 proc subscribe*(self: SubscriptionManager, topic: ContentTopic): Result[void, string] =
-  ## Subscribes to a content topic, resolving its shard via autosharding.
+  ## Subscribes to a content topic, resolving its shard via autosharding, and
+  ## on every extra listen shard. On failure, drops the subscriptions it added.
   let shard = ?self.getShardForContentTopic(topic)
-  return self.subscribe(shard, topic)
+  var added: seq[PubsubTopic]
+  for target in self.topicShards(shard):
+    let isNew = not self.hasContentTopic(target, topic)
+    self.subscribe(target, topic).isOkOr:
+      for prev in added:
+        discard self.unsubscribe(prev, topic)
+      return err(error)
+    if isNew:
+      added.add(target)
+  return ok()
 
 proc unsubscribe*(
     self: SubscriptionManager, topic: ContentTopic
 ): Result[void, string] =
-  ## Unsubscribes from a content topic, resolving its shard via autosharding.
+  ## Unsubscribes from a content topic, resolving its shard via autosharding,
+  ## and from every extra listen shard. A failure on one shard does not stop
+  ## the others; the first error is returned.
   let shard = ?self.getShardForContentTopic(topic)
-  return self.unsubscribe(shard, topic)
+  var firstError = Opt.none(string)
+  for target in self.topicShards(shard):
+    self.unsubscribe(target, topic).isOkOr:
+      if firstError.isNone():
+        firstError = Opt.some(error)
+  if firstError.isSome():
+    return err(firstError.get())
+  return ok()
 
 proc unsubscribeAll*(
     self: SubscriptionManager, shard: PubsubTopic
