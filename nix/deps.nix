@@ -271,8 +271,8 @@
 
   nimcrypto = pkgs.fetchgit {
     url = "https://github.com/cheatfate/nimcrypto";
-    rev = "721fb99ee099b632eb86dfad1f0d96ee87583774";
-    sha256 = "178vzb3q8wzjq295ik2pd25rrqf32w381ck76hm5x2d8qnzfmkkc";
+    rev = "b3dbc9c4d08e58c5b7bfad6dc7ef2ee52f2f4c08";
+    sha256 = "1v4rz42lwcazs6isi3kmjylkisr84mh0kgmlqycx4i885dn3g0l4";
     fetchSubmodules = true;
   };
 
