@@ -113,6 +113,16 @@ proc containsMoment*(partition: Partition, time: int64): bool =
 
   return false
 
+func overlapsTracked*(self: PartitionManager, beginning, `end`: int64): bool =
+  ## Returns true if any tracked partition intersects the range
+  ## [beginning, end), 'false' otherwise.
+  ## beginning, end - seconds since Epoch
+  for partition in self.partitions:
+    if partition.timeRange.beginning < `end` and beginning < partition.timeRange.`end`:
+      return true
+
+  return false
+
 proc calcEndPartitionTime*(startTime: Timestamp): Timestamp =
   ## Each partition has an "startTime" and "end" time. This proc calculates the "end" time so that
   ## it precisely matches the next o'clock time.
@@ -142,6 +152,14 @@ proc calcEndPartitionTime*(startTime: Timestamp): Timestamp =
   )
 
   return Timestamp(endDateTimeOClock.toTime().toUnix())
+
+func floorToHour*(momentSec: int64): int64 =
+  ## Start of the hour that contains `momentSec`, e.g. 14:37:12 -> 14:00:00.
+  ## Partition edges sit on the o'clock, so this is the start of the hour slot
+  ## a moment belongs to.
+  ##
+  ## momentSec - seconds since Epoch
+  return momentSec - (momentSec mod 3600)
 
 proc getName*(partition: Partition): string =
   return partition.name

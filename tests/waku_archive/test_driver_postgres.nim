@@ -464,6 +464,73 @@ suite "Postgres driver":
 
     (await ourInstance.close()).expect("close the second driver")
 
+  ## The startup pass creates the partitions for the current hour and the two
+  ## before it, so that the messages store sync pushes back after a downtime, or
+  ## into a brand new node, have a partition to land in. The checks below look
+  ## at the slots relative to the hour they run in: should an o'clock have
+  ## passed since the setup, those slots still exist, created one slot earlier.
+  asyncTest "A fresh database gets the current hour and the two before it":
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+
+    check:
+      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+
+  asyncTest "A message up to two hours old is storable right after start":
+    let timeOrigin = now()
+    let recentEnough = fakeWakuMessage(ts = ts(-90 * 60, timeOrigin))
+    let tooOld = fakeWakuMessage(ts = ts(-200 * 60, timeOrigin))
+
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, recentEnough),
+        DefaultPubsubTopic,
+        recentEnough,
+      )
+    ).expect("put a message 90 minutes old")
+
+    ## Three hours and twenty minutes back is before the oldest startup slot
+    ## whatever the current minute, so there is no partition for it.
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, tooOld), DefaultPubsubTopic, tooOld
+      )
+    ).isErr()
+
+  asyncTest "A restart after a downtime fills the hours before now":
+    ## Leave the database with only a partition from long ago, like a node that
+    ## was stopped for a long time, then start a second instance the way the
+    ## builder does. The old partition is created through that instance so that
+    ## it tracks everything and can clean up; the suite's driver tracks nothing
+    ## after its reset, so the teardown has nothing stale to drop.
+    (await driver.reset()).expect("reset")
+
+    var fatalError = ""
+    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
+      fatalError = errMsg
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    (await restarted.addPartition(partitionStart)).expect("addPartition")
+
+    await restarted.startPartitionFactory(onFatal)
+    checkUntilTimeout:
+      restarted.arePartitionsProvisioned()
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+    let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+    check:
+      fatalError == ""
+      partitionName in partitions
+      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+
+    (await restarted.reset()).expect("reset the second driver")
+    (await restarted.close()).expect("close the second driver")
+
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
   ## maintained the same partitions. Every one of them means "another instance

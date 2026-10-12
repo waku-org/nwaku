@@ -59,6 +59,7 @@ With store sync enabled (`--store-sync=true`), the node reconciles the messages 
 * If the `time` retention is shorter than `--store-sync-range` plus `--store-sync-relay-jitter`, the node reduces the sync range to the retention minus the jitter and logs a warning with both values. To avoid the warning, set `--store-sync-range` to at most that value, or raise the time retention; e.g. `time:3620` keeps the default range of `3600`.
 * A `capacity` retention is not adjusted: if more messages than the capacity arrive within the sync range, the oldest of them are deleted while still inside the sync window.
 * A `size` retention deletes messages inside the sync range only when the size limit is reached.
+* On Postgres, the node creates at startup the partitions for the current hour and the two hours before it, so that the messages store sync pushes back after a downtime, or into a new node, have a table to land in. A `--store-sync-range` above about two hours is not covered: messages older than that cannot be stored.
 
 ### How much resources should I allocate?
 

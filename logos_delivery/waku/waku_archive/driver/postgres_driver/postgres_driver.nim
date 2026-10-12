@@ -1549,6 +1549,32 @@ const MaxConsecutivePartitionMaintenanceFailures = 6
 
 const MaxPartitionCheckJitterSecs = 120
 
+const StartupLookbackSlots = 2
+  ## Hour slots created before the current one when the factory starts from an
+  ## empty database or after a downtime, so that the messages store sync pushes
+  ## back have a partition to land in. Two slots cover the default
+  ## store-sync-range (3600 s) plus store-sync-relay-jitter (20 s) from any
+  ## moment of the current hour.
+
+proc addStartupPartitions(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the partition for the hour containing `nowSec` and the
+  ## `StartupLookbackSlots` hours before it, oldest first, so that the newest
+  ## tracked partition ends up being the one containing `nowSec`. A slot that an
+  ## existing partition already overlaps is skipped: attaching an overlapping
+  ## partition is a genuine error, and a version that started its partitions at
+  ## an arbitrary minute may have left one.
+  let currentSlot = floorToHour(nowSec)
+  for i in countdown(StartupLookbackSlots, 0):
+    let slotStart = currentSlot - int64(i) * 3600
+    if self.partitionMngr.overlapsTracked(slotStart, slotStart + 3600):
+      continue
+
+    ?await self.addPartition(Timestamp(slotStart))
+
+  return ok()
+
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1573,7 +1599,7 @@ proc runPartitionMaintenance(
 
   if self.partitionMngr.isEmpty():
     debug "Adding partition because now there aren't more partitions"
-    (await self.addPartition(now)).isOkOr:
+    (await self.addStartupPartitions(now)).isOkOr:
       return err("error when creating a new partition from empty state: " & $error)
   else:
     let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
@@ -1583,8 +1609,9 @@ proc runPartitionMaintenance(
       debug "Creating a new partition to contain current messages"
       ## There is no partition to contain the current time.
       ## This happens if the node has been stopped for quite a long time.
-      ## Then, let's create the needed partition to contain 'now'.
-      (await self.addPartition(now)).isOkOr:
+      ## Then, let's create the needed partition to contain 'now', plus the
+      ## hours before it that store sync fills back.
+      (await self.addStartupPartitions(now)).isOkOr:
         return err("could not add the next partition: " & $error)
 
   ## Also right after creating the partition for 'now' above: it ends at the next
