@@ -207,8 +207,8 @@ proc initProtocolHandler(w: WakuRelay) =
   w.codec = WakuRelayCodec
 
 let RelayMsgInfoLogs =
-  getEnv("WAKU_RELAY_MSG_INFO_LOGS").toLowerAscii() in ["1", "true"]
-  ## Opt-in at runtime (`WAKU_RELAY_MSG_INFO_LOGS=1`), e.g. for DST nodes.
+  getEnv("RELAY_MSG_INFO_LOGS").toLowerAscii() in ["1", "true"]
+  ## Opt-in at runtime (`RELAY_MSG_INFO_LOGS=1`), e.g. for DST nodes.
   ## Off by default so production logs are not flooded.
 
 template relayMsgLog(args: varargs[untyped]): untyped =
