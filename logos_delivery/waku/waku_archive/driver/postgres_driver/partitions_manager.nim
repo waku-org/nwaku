@@ -151,3 +151,15 @@ proc getTimeRange*(partition: Partition): TimeRange =
 
 func `==`*(a, b: Partition): bool {.inline.} =
   return a.name == b.name
+
+func floorToHour*(t: int64): int64 =
+  ## Start of the UTC hour containing `t` (seconds since epoch)
+  return t - t mod 3600
+
+proc overlapsTracked*(self: PartitionManager, beginning, `end`: int64): bool =
+  ## Whether a tracked partition shares any moment with [beginning, end)
+  for partition in self.partitions:
+    if partition.timeRange.beginning < `end` and beginning < partition.timeRange.`end`:
+      return true
+
+  return false

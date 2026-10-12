@@ -88,20 +88,20 @@ proc new*(
 
       ## This should be started once we make sure the 'messages' table exists
       ## Hence, this should be run after the migration is completed.
-      asyncSpawn driver.startPartitionFactory(onFatalErrorAction)
+      driver.startPartitionFactory()
 
       driver.startAnalyzeTableLoop()
 
-      ## Waiting for the whole pass, not just its first partition, so that the
-      ## messages stamped past the next o'clock have a partition too.
+      ## Bounded and never fatal: a partition DDL that has to wait for a lock
+      ## does not make the database unusable, and the factory keeps retrying.
       debug "Waiting for the partitions to be created"
       for i in 0 ..< 100:
         if driver.arePartitionsProvisioned():
           break
         await sleepAsync(chronos.milliseconds(100))
 
-      if not driver.containsAnyPartition():
-        onFatalErrorAction("a partition could not be created")
+      if not driver.arePartitionsProvisioned():
+        warn "partitions for the current and next hour not ready yet, retrying in the background"
 
       return ok(driver)
     else:

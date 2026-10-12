@@ -6,6 +6,7 @@ import
   logos_delivery/waku/[
     waku_archive,
     waku_archive/archive_metrics,
+    waku_archive/driver/builder,
     waku_archive/driver/postgres_driver,
     waku_core,
     waku_core/message/digest,
@@ -400,6 +401,43 @@ suite "Postgres driver":
   const futurePartition = "messages_4102444800_4102448400"
   const futureLookup = "lookup_4102444800_4102448400"
 
+  proc currentPartition(d: PostgresDriver): Future[string] {.async.} =
+    let nowSec = getNowInNanosecondTime() div 1_000_000_000
+    for name in (await d.getPartitionsList()).expect("partitions list"):
+      let bounds = name.replace("messages_", "").split("_")
+      if parseBiggestInt(bounds[0]) <= nowSec and nowSec < parseBiggestInt(bounds[1]):
+        return name
+    return ""
+
+  proc putNow(d: PostgresDriver): Future[ArchiveDriverResult[bool]] =
+    let msg = fakeWakuMessage(ts = getNowInNanosecondTime())
+    return d.put(computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg)
+
+  asyncTest "Recreate a missing current-hour partition next to a stray lookup":
+    ## An instance froze midway: the lookup sibling exists, the messages
+    ## partition for the current hour does not.
+    let current = await driver.currentPartition()
+    let rawPool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("raw pool")
+    (
+      await rawPool.pgQuery(
+        "ALTER TABLE messages DETACH PARTITION " & current & "; DROP TABLE " & current
+      )
+    ).expect("drop the current partition")
+    (await rawPool.close()).expect("close raw pool")
+
+    let failedPut = await driver.putNow()
+    check failedPut.isErr()
+    check failedPut.error.contains("no partition of relation")
+
+    var putRes = failedPut
+    for _ in 0 ..< 30:
+      await sleepAsync(1.seconds)
+      putRes = await driver.putNow()
+      if putRes.isOk():
+        break
+
+    check putRes.isOk()
+
   asyncTest "Partition DDL does not queue behind a long reader":
     let reader = PgAsyncPool.new(storeMessageDbUrl, 1).expect("reader pool")
     (await reader.pgQuery("BEGIN; SELECT count(*) FROM messages_lookup;")).expect(
@@ -440,6 +478,65 @@ suite "Postgres driver":
     check futurePartition in (await driver.getPartitionsList()).expect("list")
     check futureLookup in
       (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+
+  asyncTest "Start even if no partition can be created right away":
+    (await driver.reset()).expect("drop every partition")
+
+    let holder = PgAsyncPool.new(storeMessageDbUrl, 1).expect("holder pool")
+    (
+      await holder.pgQuery(
+        "BEGIN; LOCK TABLE messages_lookup IN SHARE UPDATE EXCLUSIVE MODE;"
+      )
+    ).expect("take the lock")
+
+    var fatalError = ""
+    proc onFatal(msg: string) {.gcsafe, closure, raises: [].} =
+      fatalError = msg
+
+    let starting = ArchiveDriver.new(storeMessageDbUrl, false, true, 4, onFatal)
+    check await starting.withTimeout(20.seconds)
+    let otherNode = PostgresDriver(starting.read().expect("driver despite the lock"))
+    check fatalError == ""
+
+    (await holder.pgQuery("COMMIT")).expect("release the lock")
+    (await holder.close()).expect("close holder pool")
+
+    var current = ""
+    for _ in 0 ..< 30:
+      await sleepAsync(1.seconds)
+      current = await driver.currentPartition()
+      if current != "":
+        break
+
+    check current != ""
+    check fatalError == ""
+    (await otherNode.close()).expect("close the other node")
+
+  asyncTest "Start while a stray lookup cannot be dropped behind a reader":
+    let reader = PgAsyncPool.new(storeMessageDbUrl, 1).expect("reader pool")
+    (
+      await reader.pgQuery(
+        "CREATE TABLE " & futureLookup &
+          " PARTITION OF messages_lookup FOR VALUES FROM (4102444800000000000) TO (4102448400000000000);"
+      )
+    ).expect("create the stray")
+    (await reader.pgQuery("BEGIN; SELECT count(*) FROM messages_lookup;")).expect(
+      "open a long read"
+    )
+
+    var fatalError = ""
+    proc onFatal(msg: string) {.gcsafe, closure, raises: [].} =
+      fatalError = msg
+
+    let starting = ArchiveDriver.new(storeMessageDbUrl, false, true, 4, onFatal)
+    check await starting.withTimeout(12.seconds)
+    check fatalError == ""
+    let otherNode = PostgresDriver(starting.read().expect("driver despite the reader"))
+    check otherNode.arePartitionsProvisioned()
+
+    (await reader.pgQuery("COMMIT")).expect("end the long read")
+    (await reader.close()).expect("close reader pool")
+    (await otherNode.close()).expect("close the other node")
 
   asyncTest "Two instances create the same partitions concurrently":
     let otherNode =

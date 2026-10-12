@@ -1560,11 +1560,10 @@ suite "Postgres driver - queries":
         )
       ).isOk()
 
-    ## just keep the second resolution.
-    ## Notice that the oldest timestamps considers the minimum partition timestamp, which
-    ## is expressed in seconds.
+    ## The oldest timestamp considers the oldest partition, which starts on the
+    ## o'clock of the hour the driver started in.
     let oldestPartitionTimestamp =
-      Timestamp(float(oldestTime) / 1_000_000_000) * 1_000_000_000
+      floorToHour(oldestTime div 1_000_000_000) * 1_000_000_000
 
     var res = await driver.getOldestMessageTimestamp()
     assert res.isOk(), res.error

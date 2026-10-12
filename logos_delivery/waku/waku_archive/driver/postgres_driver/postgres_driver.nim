@@ -34,8 +34,14 @@ type PostgresDriver* = ref object of ArchiveDriver
   ## Partition container
   partitionMngr: PartitionManager
   futLoopPartitionFactory: Future[void]
-  ## Set once a partition factory pass has provisioned the current and next hour
+  ## Whether the last partition factory pass found the current and next hour covered
   partitionsProvisioned: bool
+  ## Hours past the current one that the factory keeps a partition ready for
+  partitionsAheadHours: int
+  ## Fired when an insert finds no partition, so the factory does not wait its interval
+  partitionMaintenanceWanted: AsyncEvent
+  ## Cancelling a pass mid-query leaves its pool connection busy, and close hangs
+  partitionPassRunning: bool
 
   futLoopAnalyzeTable: Future[void]
 
@@ -135,12 +141,14 @@ const SelectCursorByHashDef = """SELECT timestamp FROM messages_lookup
 const
   DefaultMaxNumConns = 50
   MaxHashesPerQuery = 100
+  DefaultPartitionsAheadHours* = 6
 
 proc new*(
     T: type PostgresDriver,
     dbUrl: string,
     maxConnections = DefaultMaxNumConns,
     onFatalErrorAction: OnFatalErrorHandler = nil,
+    partitionsAheadHours = DefaultPartitionsAheadHours,
 ): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
@@ -161,6 +169,8 @@ proc new*(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
+    partitionsAheadHours: partitionsAheadHours,
+    partitionMaintenanceWanted: newAsyncEvent(),
   )
   return ok(driver)
 
@@ -291,6 +301,12 @@ proc rowCallbackImpl(
 
     outRows.add((msgHash, pubSubTopic, wakuMessage))
 
+proc wantMaintenanceOnMissingPartition(s: PostgresDriver, error: string) =
+  ## Have the factory create the missing partition now rather than at its next
+  ## interval; the factory itself bounds how often it runs.
+  if error.contains("no partition of relation"):
+    s.partitionMaintenanceWanted.fire()
+
 method put*(
     s: PostgresDriver,
     messageHash: WakuMessageHash,
@@ -339,6 +355,7 @@ method put*(
       insertCallback,
     )
   ).isOkOr:
+    s.wantMaintenanceOnMissingPartition($error)
     return err("could not put msg in messages table: " & $error)
 
   ## Now add the row to messages_lookup
@@ -351,6 +368,7 @@ method put*(
       @[int32(0), int32(0)],
     )
   ).isOkOr:
+    s.wantMaintenanceOnMissingPartition($error)
     return err("could not put msg in messages_lookup table: " & $error)
 
   logos_delivery_postgres_payload_size_bytes.set(message.payload.len)
@@ -1069,8 +1087,10 @@ method deleteOldestMessagesNotWithinLimit*(
   return ok()
 
 method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Cancel the partition factory loop
+  ## Cancel the partition factory loop, between two passes
   if not s.futLoopPartitionFactory.isNil():
+    while s.partitionPassRunning:
+      await sleepAsync(chronos.milliseconds(100))
     s.futLoopPartitionFactory.cancelSoon()
 
   ## Cancel analyze table loop
@@ -1461,78 +1481,74 @@ proc ensureLookupPartitions*(
 
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
 
-const MaxConsecutivePartitionMaintenanceFailures = 6
+const PartitionRetryInterval = timer.seconds(10)
+  ## Retry delay while the current or next hour lacks a partition, and the
+  ## minimum time between two passes, however many inserts ask for one
 
 const MaxPartitionCheckJitterSecs = 120
+
+const PartitionDurationSecs = 3600
 
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  ## One pass of the partition factory: cleanup of what previous passes left
-  ## behind, refresh of the tracked partitions and, when needed, creation of the
-  ## partition that will hold the messages to come.
-
-  ## Must precede the partition checks (see dropStrayLookupPartitions).
-  (await self.dropStrayLookupPartitions()).isOkOr:
-    error "failed to drop stray lookup partitions", error = $error
-
-  (await self.dropOrphanPartitions()).isOkOr:
-    return err("error when dropping orphan partitions: " & $error)
-
-  trace "Check if a new partition is needed"
-
-  ## Let's make the 'partition_manager' aware of the current partitions
+  ## One pass of the partition factory. Every DDL here may be deferred because a
+  ## lock is busy; that never hides the partitions that already exist, since
+  ## they are loaded first, nor fails the pass.
   (await self.refreshPartitionsInfo()).isOkOr:
     return err("issue refreshing the partitions info: " & $error)
 
+  (await self.dropOrphanPartitions()).isOkOr:
+    error "failed to drop orphan partitions", error = $error
+
+  ## Hours ahead, so that a few failed or deferred passes never leave the
+  ## messages to come without a partition.
   let now = times.now().toTime().toUnix()
+  let currentHour = floorToHour(now)
+  var passError = ""
+  for i in 0 .. self.partitionsAheadHours:
+    let slot = currentHour + i * PartitionDurationSecs
+    if self.partitionMngr.overlapsTracked(slot, slot + PartitionDurationSecs):
+      continue
 
-  if self.partitionMngr.isEmpty():
-    debug "Adding partition because now there aren't more partitions"
-    (await self.addPartition(now)).isOkOr:
-      return err("error when creating a new partition from empty state: " & $error)
-  else:
-    let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
-      return err("could not get newest partition: " & $error)
+    (await self.addPartition(slot)).isOkOr:
+      passError = "could not add partition starting at: " & $slot & ": " & $error
+      break
 
-    if now >= newestPartition.getLastMoment():
-      debug "Creating a new partition to contain current messages"
-      ## There is no partition to contain the current time.
-      ## This happens if the node has been stopped for quite a long time.
-      ## Then, let's create the needed partition to contain 'now'.
-      (await self.addPartition(now)).isOkOr:
-        return err("could not add the next partition: " & $error)
+    if not self.partitionMngr.overlapsTracked(slot, slot + PartitionDurationSecs):
+      break ## deferred, the next pass carries on from here
 
-  ## Also right after creating the partition for 'now' above: it ends at the next
-  ## o'clock, possibly within seconds, while the next pass is ten minutes away.
-  ## No partition tracked means that creation was deferred to another instance.
-  let newestPartition = self.partitionMngr.getNewestPartition()
-  if newestPartition.isOk() and newestPartition.get().containsMoment(now):
-    debug "Creating a new partition for the future"
-    (await self.addPartition(newestPartition.get().getLastMoment())).isOkOr:
-      return err("could not add the next partition for 'now': " & $error)
+  (await self.refreshPartitionsInfo()).isOkOr:
+    return err("issue refreshing the partitions info after creation: " & $error)
 
-  self.partitionsProvisioned = true
+  self.partitionsProvisioned =
+    self.partitionMngr.overlapsTracked(now, now + 1) and
+    self.partitionMngr.overlapsTracked(
+      currentHour + PartitionDurationSecs, currentHour + 2 * PartitionDurationSecs
+    )
 
-  ## After the partition checks, so a long backfill never gates builder.nim's
-  ## startup partition wait; non-fatal, the next pass retries.
+  ## After the creation, which then adopts a stray of the same range rather than
+  ## dropping it; a stray of another range makes that creation fail until here.
+  (await self.dropStrayLookupPartitions()).isOkOr:
+    error "failed to drop stray lookup partitions", error = $error
+
   (await self.ensureLookupPartitions()).isOkOr:
     error "failed to ensure lookup partitions", error = $error
 
+  if passError != "":
+    return err(passError)
+
   return ok()
 
-proc loopPartitionFactory(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
-) {.async.} =
+proc loopPartitionFactory(self: PostgresDriver) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is mostly handled by the retention policy modules.
   ## This loop only removes orphan partitions which were detached but not properly removed by the
   ## retention policy module due to some error. However, the main task of this loop is to create
-  ## new partitions when needed.
+  ## new partitions when needed. It never brings the node down: a pass that
+  ## failed is retried, and losing the database is the health check's call.
 
   debug "Starting loopPartitionFactory"
-
-  var consecutiveFailures = 0
 
   ## The instances sharing a database are typically (re)started together, and a
   ## fixed interval then keeps their maintenance passes locked to the very same
@@ -1541,35 +1557,24 @@ proc loopPartitionFactory(
 
   while true:
     trace "loopPartitionFactory iteration started"
+    self.partitionMaintenanceWanted.clear()
 
+    self.partitionPassRunning = true
     let passRes = await self.runPartitionMaintenance()
-    if passRes.isOk():
-      consecutiveFailures = 0
-    else:
-      ## Partitions are created an hour ahead of time and this loop runs every
-      ## ten minutes, so about six passes can fail before the messages arriving
-      ## have nowhere to land. A single failed pass is usually a race with the
-      ## other instances maintaining the same database, which is transient by
-      ## nature; only a persistent failure is worth bringing the node down for.
-      consecutiveFailures.inc()
-      error "partition maintenance pass failed, will retry",
-        error = passRes.error, consecutiveFailures
+    self.partitionPassRunning = false
+    passRes.isOkOr:
+      error "partition maintenance pass failed, will retry", error = error
 
-      if consecutiveFailures >= MaxConsecutivePartitionMaintenanceFailures:
-        onFatalError(
-          "partition maintenance failed " & $consecutiveFailures & " consecutive times: " &
-            passRes.error
-        )
+    await sleepAsync(PartitionRetryInterval)
 
-    await sleepAsync(
-      DefaultDatabasePartitionCheckTimeInterval +
-        timer.seconds(rng.rand(MaxPartitionCheckJitterSecs))
-    )
+    if self.partitionsProvisioned:
+      discard await self.partitionMaintenanceWanted.wait().withTimeout(
+        DefaultDatabasePartitionCheckTimeInterval +
+          timer.seconds(rng.rand(MaxPartitionCheckJitterSecs))
+      )
 
-proc startPartitionFactory*(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
-) {.async.} =
-  self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
+proc startPartitionFactory*(self: PostgresDriver) =
+  self.futLoopPartitionFactory = self.loopPartitionFactory()
 
 proc getTableSize*(
     self: PostgresDriver, tableName: string
