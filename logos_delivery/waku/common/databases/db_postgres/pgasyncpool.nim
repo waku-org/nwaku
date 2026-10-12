@@ -49,9 +49,6 @@ proc new*(T: type PgAsyncPool, dbUrl: string, maxConnections: int): DatabaseResu
 
   return ok(pool)
 
-func isBusy(pool: PgAsyncPool): bool =
-  return pool.conns.mapIt(it.isPgDbConnBusy()).allIt(it)
-
 proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
   ## Gracefully wait and close all openned connections
   # wait for the connections to be released and close them, without
@@ -78,35 +75,36 @@ proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
 
   return ok()
 
-proc getFirstFreeConnIndex(pool: PgAsyncPool): DatabaseResult[int] =
-  for index in 0 ..< pool.conns.len:
-    if pool.conns[index].isPgDbConnBusy():
-      continue
+proc acquireConn(pool: PgAsyncPool): Future[DatabaseResult[DbConnWrapper]] {.async.} =
+  ## Waits for a free connection or opens one if the limit allows it. The
+  ## connection is marked busy before returning: with several waiters woken by
+  ## the same release, marking it later let two queries share one connection.
+  while true:
+    for conn in pool.conns:
+      if not conn.isPgDbConnBusy():
+        conn.markBusy()
+        return ok(conn)
 
-    ## Pick up the first free connection and set it busy
-    return ok(index)
+    if pool.conns.len < pool.maxConnections:
+      let conn = DbConnWrapper.new(pool.connString).valueOr:
+        return err("error creating DbConnWrapper: " & $error)
 
-proc getConnIndex(pool: PgAsyncPool): Future[DatabaseResult[int]] {.async.} =
-  ## Waits for a free connection or create if max connections limits have not been reached.
-  ## Returns the index of the free connection
+      conn.markBusy()
+      pool.conns.add(conn)
+      return ok(conn)
 
-  if not pool.isBusy():
-    return pool.getFirstFreeConnIndex()
+    discard await race(pool.conns.mapIt(FutureBase(it.futBecomeFree)))
 
-  ## Pool is busy then
-  if pool.conns.len == pool.maxConnections:
-    ## Can't create more connections. Wait for a free connection without blocking the async runtime.
-    let busyFuts = pool.conns.mapIt(it.futBecomeFree)
-    discard await one(busyFuts)
+proc releaseConn(pool: PgAsyncPool, conn: DbConnWrapper) =
+  ## A connection whose command is still in flight in libpq, e.g. because the
+  ## query was cancelled, or whose backend is gone is dropped instead of being
+  ## handed out again, which failed with "another command is already in progress".
+  if not conn.isReusable():
+    conn.closeDbConn().isOkOr:
+      error "failed to close a connection that cannot be reused", error = $error
+    pool.conns.keepItIf(it != conn)
 
-    return pool.getFirstFreeConnIndex()
-  elif pool.conns.len < pool.maxConnections:
-    ## stablish a new connection
-    let dbConn = DbConnWrapper.new(pool.connString).valueOr:
-      return err("error creating DbConnWrapper: " & $error)
-
-    pool.conns.add(dbConn)
-    return ok(pool.conns.len - 1)
+  conn.markFree()
 
 proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
   ## Forces closing the connection pool.
@@ -127,11 +125,12 @@ proc pgQuery*(
     rowCallback: DataProc = nil,
     requestId: string = "",
 ): Future[DatabaseResult[void]] {.async.} =
-  let connIndex = (await pool.getConnIndex()).valueOr:
+  let dbConnWrapper = (await pool.acquireConn()).valueOr:
     return err("connRes.isErr in query: " & $error)
+  defer:
+    pool.releaseConn(dbConnWrapper)
 
   let queryStartTime = getNowInNanosecondTime()
-  let dbConnWrapper = pool.conns[connIndex]
   defer:
     let queryDuration = getNowInNanosecondTime() - queryStartTime
     if queryDuration > SlowQueryThreshold.nanos:
@@ -160,10 +159,11 @@ proc runStmt*(
   ## rowCallback != nil when it is expected to retrieve info from the database.
   ## rowCallback == nil for queries that change the database state.
 
-  let connIndex = (await pool.getConnIndex()).valueOr:
+  let dbConnWrapper = (await pool.acquireConn()).valueOr:
     return err("Error in runStmt: " & $error)
+  defer:
+    pool.releaseConn(dbConnWrapper)
 
-  let dbConnWrapper = pool.conns[connIndex]
   let queryStartTime = getNowInNanosecondTime()
 
   defer:
@@ -174,7 +174,7 @@ proc runStmt*(
         query = stmtDefinition,
         requestId
 
-  if not pool.conns[connIndex].containsPreparedStmt(stmtName):
+  if not dbConnWrapper.containsPreparedStmt(stmtName):
     # The connection doesn't have that statement yet. Let's create it.
     # Each session/connection has its own prepared statements.
     let res = catch:
@@ -184,7 +184,7 @@ proc runStmt*(
     res.isOkOr:
       return err("failed prepare in runStmt: " & error.msg)
 
-    pool.conns[connIndex].inclPreparedStmt(stmtName)
+    dbConnWrapper.inclPreparedStmt(stmtName)
 
   (
     await dbConnWrapper.dbConnQueryPrepared(

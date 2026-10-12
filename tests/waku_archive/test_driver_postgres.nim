@@ -583,3 +583,29 @@ suite "Postgres connection lifecycle":
 
     await healthFut.cancelAndWait()
     (await pool.close()).expect("pool close")
+
+  asyncTest "Queries waiting for the only connection never share it":
+    ## Every waiter woken by the same release used to pick that connection,
+    ## which libpq answered with "another command is already in progress".
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    var queries = newSeq[Future[Result[void, string]]](0)
+    for _ in 0 ..< 5:
+      queries.add(pool.pgQuery("SELECT pg_sleep(0.05)"))
+
+    for queryFut in queries:
+      (await queryFut).expect("queued query")
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "A cancelled query does not leave its connection unusable":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    let slowFut = pool.pgQuery("SELECT pg_sleep(1)")
+    await sleepAsync(100.milliseconds)
+    await slowFut.cancelAndWait()
+
+    let nextRes = await pool.pgQuery("SELECT 1").wait(5.seconds)
+    check nextRes.isOk()
+
+    (await pool.close()).expect("pool close")

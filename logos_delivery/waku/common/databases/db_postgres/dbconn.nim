@@ -44,6 +44,21 @@ proc isPgDbConnBusy*(dbConnWrapper: DbConnWrapper): bool =
 proc isPgDbConnOpen*(dbConnWrapper: DbConnWrapper): bool =
   return dbConnWrapper.open
 
+proc markBusy*(dbConnWrapper: DbConnWrapper) =
+  dbConnWrapper.futBecomeFree = newFuture[void]("DbConnWrapper.futBecomeFree")
+
+proc markFree*(dbConnWrapper: DbConnWrapper) =
+  if not dbConnWrapper.futBecomeFree.isNil() and
+      not dbConnWrapper.futBecomeFree.finished():
+    dbConnWrapper.futBecomeFree.complete()
+
+proc isReusable*(dbConnWrapper: DbConnWrapper): bool =
+  ## False while libpq still has a command in flight, e.g. after the awaiting
+  ## query was cancelled, or once the backend is gone.
+  return
+    dbConnWrapper.open and dbConnWrapper.dbConn.status == CONNECTION_OK and
+    dbConnWrapper.dbConn.pqtransactionStatus() notin {PQTRANS_ACTIVE, PQTRANS_UNKNOWN}
+
 const MaxDbErrorLen = 512
   ## libpq can answer with very long messages -- the DETAIL and CONTEXT lines
   ## carry row data -- and this string reaches both the logs and the error chain,
@@ -216,7 +231,6 @@ proc waitForData(
         futDataAvailable.complete()
 
     asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
-      dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
       return err("failed to add event reader in waitForData: " & $error)
 
     defer:
@@ -245,11 +259,7 @@ proc waitQueryToFinish(
 
     if pqResult == nil:
       dbConnWrapper.dbConn.check().isOkOr:
-        if not dbConnWrapper.futBecomeFree.failed():
-          dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
         return err("error in query: " & $error)
-
-      dbConnWrapper.futBecomeFree.complete()
       return ok() # reached the end of the results. The query is completed
 
     if not rowCallback.isNil():
@@ -299,8 +309,6 @@ proc dbConnQuery*(
   if not requestId.isSecureString():
     return err("the passed request id is not secure: " & requestId)
 
-  dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQuery")
-
   let metricLabel = convertQueryToMetricLabel($query)
 
   var queryStartTime = getTime().toUnixFloat()
@@ -308,7 +316,6 @@ proc dbConnQuery*(
   let reqIdAndQuery = "/* requestId=" & requestId & " */ " & $query
   (await dbConnWrapper.sendQuery(SqlQuery(reqIdAndQuery), args)).isOkOr:
     error "error in dbConnQuery", error = $error
-    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
@@ -344,11 +351,9 @@ proc dbConnQueryPrepared*(
     rowCallback: DataProc,
     requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
-  dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQueryPrepared")
   var queryStartTime = getTime().toUnixFloat()
 
   dbConnWrapper.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
-    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
     error "error in dbConnQueryPrepared", error = $error
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
