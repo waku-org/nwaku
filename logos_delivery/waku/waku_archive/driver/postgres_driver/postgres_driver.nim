@@ -39,6 +39,9 @@ type PostgresDriver* = ref object of ArchiveDriver
 
   futLoopAnalyzeTable: Future[void]
 
+  ## Kept to be cancelled on close: a closed pool reopens connections on demand
+  futHealthChecks: seq[Future[void]]
+
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
@@ -162,17 +165,18 @@ proc new*(
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
-
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
-
   let driver = PostgresDriver(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
   )
+
+  if not isNil(onFatalErrorAction):
+    driver.futHealthChecks = @[
+      checkConnectivity(readConnPool, onFatalErrorAction),
+      checkConnectivity(writeConnPool, onFatalErrorAction),
+    ]
+
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1087,6 +1091,9 @@ method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Cancel analyze table loop
   if not s.futLoopAnalyzeTable.isNil():
     s.futLoopAnalyzeTable.cancelSoon()
+
+  for fut in s.futHealthChecks:
+    fut.cancelSoon()
 
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
