@@ -15,6 +15,7 @@ import
     waku_core,
     waku_relay/protocol,
     node/waku_node/filter,
+    node/peer_manager,
     node/subscription_manager,
     waku_filter_v2/subscriptions,
   ]
@@ -891,3 +892,109 @@ suite "Messaging API, SubscriptionManager":
     check:
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)
       edgePeerId notin subscriptions.findSubscribedPeers(shard, removedTopic)
+
+  asyncTest "Subscription API, edge node subscribes through a static node that is up at its start":
+    # TODO: logos-delivery#4510
+    let shards = @[PubsubTopic("/waku/2/rs/3/0")]
+
+    proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+      discard
+
+    var staticNode: WakuNode
+    lockNewGlobalBrokerContext:
+      staticNode = newTestWakuNode(generateSecp256k1Key())
+      staticNode.mountMetadata(TestClusterId, @[0'u16]).expect(
+        "Failed to mount metadata on staticNode"
+      )
+      (await staticNode.mountRelay()).expect("Failed to mount relay on staticNode")
+      await staticNode.mountFilter()
+      await staticNode.mountLibp2pPing()
+      await staticNode.start()
+    defer:
+      await staticNode.stop()
+
+    for shard in shards:
+      staticNode.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
+        "Failed to sub staticNode"
+      )
+
+    let staticPeerInfo = staticNode.peerInfo.toRemotePeerInfo()
+
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.staticnodes =
+      @[$staticPeerInfo.addrs[0] & "/p2p/" & $staticPeerInfo.peerId]
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+
+    let testTopic = ContentTopic("/waku/2/static-node-up/proto")
+    (await subscriber.messagingClient.subscribe(testTopic)).expect(
+      "Failed to subscribe"
+    )
+
+    let shard = subscriber.waku.node.getRelayShard(testTopic)
+    let edgePeerId = subscriber.waku.node.peerInfo.peerId
+    checkUntilTimeout:
+      edgePeerId in
+        staticNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
+
+  asyncTest "Subscription API, edge node never subscribes through a static node that was down at its start":
+    # TODO: logos-delivery#4510
+    let shards = @[PubsubTopic("/waku/2/rs/3/0")]
+
+    proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+      discard
+
+    var staticNode: WakuNode
+    lockNewGlobalBrokerContext:
+      staticNode = newTestWakuNode(generateSecp256k1Key())
+      staticNode.mountMetadata(TestClusterId, @[0'u16]).expect(
+        "Failed to mount metadata on staticNode"
+      )
+      (await staticNode.mountRelay()).expect("Failed to mount relay on staticNode")
+      await staticNode.mountFilter()
+      await staticNode.mountLibp2pPing()
+      await staticNode.start()
+    defer:
+      await staticNode.stop()
+
+    let staticPeerInfo = staticNode.peerInfo.toRemotePeerInfo()
+    let staticAddr = $staticPeerInfo.addrs[0] & "/p2p/" & $staticPeerInfo.peerId
+    await staticNode.stop()
+
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.staticnodes = @[staticAddr]
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+    subscriber.waku.node.peerManager.initialBackoffInSec = 1
+
+    await staticNode.start()
+    for shard in shards:
+      staticNode.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
+        "Failed to sub staticNode"
+      )
+
+    let testTopic = ContentTopic("/waku/2/static-node-down/proto")
+    (await subscriber.messagingClient.subscribe(testTopic)).expect(
+      "Failed to subscribe"
+    )
+
+    let shard = subscriber.waku.node.getRelayShard(testTopic)
+    let edgePeerId = subscriber.waku.node.peerInfo.peerId
+    let peerStore = subscriber.waku.node.peerManager.switch.peerStore
+    checkUntilTimeout:
+      shard in subscriber.waku.node.subscriptionManager.edgeFilterSubStates
+
+    # With the static node up and the backoff over, nothing on the edge dials it.
+    await sleepAsync(NegativeTestTimeout)
+    check:
+      peerStore.connectedness(staticPeerInfo.peerId) == CannotConnect
+      subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) == 0
+      edgePeerId notin
+        staticNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
+
+    await subscriber.waku.node.connectToNodes(@[staticAddr])
+    checkUntilTimeout:
+      edgePeerId in
+        staticNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
