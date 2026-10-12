@@ -396,6 +396,74 @@ suite "Postgres driver":
 
     (await ourInstance.close()).expect("close the second driver")
 
+  const futureSlot = Timestamp(4_102_444_800) ## 2100-01-01 00:00:00 UTC
+  const futurePartition = "messages_4102444800_4102448400"
+  const futureLookup = "lookup_4102444800_4102448400"
+
+  asyncTest "Partition DDL does not queue behind a long reader":
+    let reader = PgAsyncPool.new(storeMessageDbUrl, 1).expect("reader pool")
+    (await reader.pgQuery("BEGIN; SELECT count(*) FROM messages_lookup;")).expect(
+      "open a long read"
+    )
+
+    let ddl = driver.addPartition(futureSlot)
+    check await ddl.withTimeout(8.seconds)
+    let read = driver.performWriteQuery("SELECT 1 FROM messages_lookup LIMIT 1")
+    check await read.withTimeout(2.seconds)
+
+    (await reader.pgQuery("COMMIT")).expect("end the long read")
+    (await reader.close()).expect("close reader pool")
+
+    check futureLookup in
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+
+  asyncTest "Partition DDL gives up quickly on a lock conflict and is retried":
+    ## SHARE UPDATE EXCLUSIVE is what a running ANALYZE holds
+    let holder = PgAsyncPool.new(storeMessageDbUrl, 1).expect("holder pool")
+    (
+      await holder.pgQuery(
+        "BEGIN; LOCK TABLE messages_lookup IN SHARE UPDATE EXCLUSIVE MODE;"
+      )
+    ).expect("take the lock")
+
+    let ddl = driver.addPartition(futureSlot)
+    check await ddl.withTimeout(8.seconds)
+    let reader = driver.performWriteQuery("SELECT 1 FROM messages_lookup LIMIT 1")
+    check await reader.withTimeout(2.seconds)
+
+    check futurePartition notin (await driver.getPartitionsList()).expect("list")
+
+    (await holder.pgQuery("COMMIT")).expect("release the lock")
+    (await holder.close()).expect("close holder pool")
+
+    (await driver.addPartition(futureSlot)).expect("retried addPartition")
+    check futurePartition in (await driver.getPartitionsList()).expect("list")
+    check futureLookup in
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+
+  asyncTest "Two instances create the same partitions concurrently":
+    let otherNode =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+
+    var futs: seq[Future[ArchiveDriverResult[void]]]
+    for hour in 0 ..< 3:
+      let slot = futureSlot + hour * 3600
+      futs.add(driver.addPartition(slot))
+      futs.add(otherNode.addPartition(slot))
+
+    for fut in futs:
+      (await fut).expect("concurrent addPartition")
+
+    for hour in 0 ..< 3:
+      (await otherNode.addPartition(futureSlot + hour * 3600)).expect("addPartition")
+
+    let partitions = (await driver.getPartitionsList()).expect("list")
+    let lookups = (await driver.getPartitionsList("messages_lookup")).expect("list")
+    check partitions.filterIt(it.startsWith("messages_41024")).len == 3
+    check lookups.filterIt(it.startsWith("lookup_41024")).len == 3
+
+    (await otherNode.close()).expect("close the second driver")
+
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
   ## maintained the same partitions. Every one of them means "another instance
