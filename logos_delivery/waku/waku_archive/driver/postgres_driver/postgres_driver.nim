@@ -1814,10 +1814,14 @@ method deleteMessagesOlderThanTimestamp*(
 const AnalyzeQuery = "ANALYZE messages"
 const AnalyzeTableLockId = 111111 ## An arbitrary and different lock id
 const RunAnalyzeInterval = timer.days(1)
+const AnalyzeStartupDelay = timer.minutes(30)
+  ## ANALYZE messages can take minutes and conflicts with ATTACH PARTITION, so
+  ## it stays out of the way of the startup partition provisioning
 
 proc analyzeTableLoop(self: PostgresDriver) {.async.} =
   ## The database stats should be calculated regularly so that the planner
   ## picks up the proper indexes and we have better query performance.
+  await sleepAsync(AnalyzeStartupDelay)
   while true:
     debug "analyzeTableLoop lock db"
     (await self.acquireDatabaseLock(AnalyzeTableLockId)).isOkOr:
