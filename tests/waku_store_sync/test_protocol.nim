@@ -1596,6 +1596,8 @@ suite "Waku Sync: transfer":
       conn = await clientSwitch.dial(
         serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
       )
+    defer:
+      await conn.close()
 
     await conn.writeLp(specPayload.buffer)
     await conn.writeLp(nodePayload.buffer)
@@ -1610,8 +1612,6 @@ suite "Waku Sync: transfer":
       transferCount(TransferDirection.Received) - messagesBefore == 1.0
       transferBytes(Receiving) - bytesBefore ==
         float64(specPayload.buffer.len + nodePayload.buffer.len)
-
-    await conn.close()
 
   ## Disabled until we impl. DOS protection again
   #[ asyncTest "Check the exact missing messages are received":

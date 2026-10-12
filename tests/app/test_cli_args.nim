@@ -207,7 +207,6 @@ suite "Waku external config - apply preset":
       wakuConf.maxMessageSizeBytes == DefaultMaxWakuMessageSize
 
   test "status.prod preset with --max-msg-size set to 1024KiB runs 1024KiB":
-    # TODO: logos-delivery#4482
     ## Given
     var conf = WakuNodeConf.load(
       version = "", cmdLine = @["--preset=status.prod", "--max-msg-size=1024KiB"]

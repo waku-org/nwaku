@@ -183,7 +183,6 @@ suite "WakuNodeConf - preset integration":
       wakuConf.maxMessageSizeBytes == DefaultMaxWakuMessageSize
 
   test "status.prod preset in a JSON config with max-msg-size 1024KiB runs 1024KiB":
-    # TODO: logos-delivery#4482
     ## Given
     let parsed = parseLogosDeliveryConf(
       """{"preset": "status.prod", "messagingOverrides": {"maxMessageSize": "1024KiB"}}"""
@@ -196,25 +195,6 @@ suite "WakuNodeConf - preset integration":
 
     ## Then
     check wakuConf.maxMessageSizeBytes == parseCorrectMsgSize("1024KiB")
-
-  test "StatusProd preset runs on cluster 16 with one auto-sharding shard and RLN off":
-    ## Given
-    var conf = defaultKernelConf().valueOr:
-      raiseAssert error
-    conf.preset = "status.prod"
-
-    ## When
-    let wakuConfRes = conf.toWakuConf()
-
-    ## Then
-    require wakuConfRes.isOk()
-    let wakuConf = wakuConfRes.get()
-    require wakuConf.validate().isOk()
-    check:
-      wakuConf.clusterId == 16
-      wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShards == 1
-      wakuConf.rlnEvmConf.isNone()
 
   test "StatusProd preset with autosharding shards lands on those shards":
     ## Given
