@@ -22,7 +22,7 @@ suite "Autosharding":
 
   suite "getGenZeroShard":
     test "Generate Gen0 Shard":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
 
       # Given two valid topics
       let
@@ -65,7 +65,7 @@ suite "Autosharding":
 
     test "Generate Gen0 Shard with explicit shards":
       # Given a sharding over explicit shard ids
-      let sharding = Sharding.new(ClusterId, @[10'u16, 11, 12, 13, 14, 15, 16, 17])
+      let sharding = Sharding.init(ClusterId, @[10'u16, 11, 12, 13, 14, 15, 16, 17])
 
       let
         nsContentTopic1 = NsContentTopic.parse(contentTopicShort).value()
@@ -88,7 +88,7 @@ suite "Autosharding":
         shard9 == RelayShard(clusterId: ClusterId, shardId: 17)
 
     test "A single-shard cluster lands on its shard":
-      let sharding = Sharding.new(16, @[32'u16])
+      let sharding = Sharding.init(16, @[32'u16])
 
       check:
         sharding.getShard(contentTopicShort).value() ==
@@ -96,7 +96,7 @@ suite "Autosharding":
 
   suite "getShard from NsContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
 
       # When we get a shard from a topic without generation
       let shard = sharding.getShard(NsContentTopic.parse(contentTopicShort).value())
@@ -106,7 +106,7 @@ suite "Autosharding":
         shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from a gen0 topic
       let shard = sharding.getShard(NsContentTopic.parse(contentTopicFull).value())
 
@@ -115,7 +115,7 @@ suite "Autosharding":
         shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from ain invalid content topic
       let shard = sharding.getShard(NsContentTopic.parse(contentTopicInvalid).value())
 
@@ -125,7 +125,7 @@ suite "Autosharding":
 
   suite "getShard from ContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from it
       let shard = sharding.getShard(contentTopicShort)
 
@@ -134,7 +134,7 @@ suite "Autosharding":
         shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from it
       let shard = sharding.getShard(contentTopicFull)
 
@@ -143,7 +143,7 @@ suite "Autosharding":
         shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from it
       let shard = sharding.getShard(contentTopicInvalid)
 
@@ -152,7 +152,7 @@ suite "Autosharding":
         shard.error() == "Generation > 0 are not supported yet"
 
     test "Generate Gen0 Shard invalid topic":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When we get a shard from it
       let shard = sharding.getShard("invalid")
 
@@ -162,7 +162,7 @@ suite "Autosharding":
 
   suite "getShardsFromContentTopics":
     test "contentTopics is ContentTopic":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When calling with contentTopic as string
       let topicMap = sharding.getShardsFromContentTopics(contentTopicShort)
 
@@ -171,7 +171,7 @@ suite "Autosharding":
         topicMap.value() == {pubsubTopic13: @[contentTopicShort]}
 
     test "contentTopics is seq[ContentTopic]":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When calling with contentTopic as string seq
       let topicMap =
         sharding.getShardsFromContentTopics(@[contentTopicShort, contentTopicShort3])
@@ -181,7 +181,7 @@ suite "Autosharding":
         topicMap.value() == {pubsubTopic13: @[contentTopicShort, contentTopicShort3]}
 
     test "content parse error":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When calling with an invalid content topic
       let topicMap = sharding.getShardsFromContentTopics("invalid")
 
@@ -191,7 +191,7 @@ suite "Autosharding":
           "Cannot parse content topic: invalid format: content-topic 'invalid' must start with slash"
 
     test "shard deduction error":
-      let sharding = Sharding.new(ClusterId, GenerationZeroShardsCount)
+      let sharding = Sharding.init(ClusterId, GenerationZeroShardsCount)
       # When calling with a content topic that cannot be autosharded
       let topicMap = sharding.getShardsFromContentTopics(contentTopicInvalid)
 

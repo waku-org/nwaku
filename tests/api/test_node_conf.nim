@@ -92,7 +92,7 @@ suite "WakuNodeConf - preset integration":
       wakuConf.validate().isOk()
       wakuConf.clusterId == 2
       wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShardsInCluster == 8
+      wakuConf.shardingConf.numShards == 8
       wakuConf.staticNodes == NetworkPresetConf.LogosDevConf().entryNodes
 
   test "StatusProd preset applies StatusProdConf":
@@ -111,7 +111,7 @@ suite "WakuNodeConf - preset integration":
     check:
       wakuConf.clusterId == 16
       wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShardsInCluster == 1
+      wakuConf.shardingConf.numShards == 1
       wakuConf.rlnEvmConf.isNone()
 
   test "Invalid preset returns error":
@@ -130,7 +130,7 @@ suite "WakuNodeConf - preset integration":
     check:
       wakuConf.clusterId == 16
       wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShardsInCluster == 1
+      wakuConf.shardingConf.numShards == 1
       wakuConf.rlnEvmConf.isNone()
 
   test "StatusProd preset with autosharding shards lands on those shards":
@@ -166,7 +166,7 @@ suite "WakuNodeConf - preset integration":
     let wakuConf = wakuConfRes.get()
     require wakuConf.validate().isOk()
     check:
-      wakuConf.shardingConf.numShardsInCluster == 2
+      wakuConf.shardingConf.numShards == 2
       wakuConf.subscribeShards == @[32'u16, 64]
 
   test "Autosharding shards must match num-shards-in-network":

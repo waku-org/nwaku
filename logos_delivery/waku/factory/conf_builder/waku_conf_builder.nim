@@ -369,7 +369,7 @@ proc buildShardingConf(
         let shards = bAutoshardingShards.get()
         if bNumShardsInCluster.isSome() and bNumShardsInCluster.get().int != shards.len:
           return err(
-            "autosharding-shards must hold num-shards-in-network (" &
+            "autosharding-shards must hold num-shards-in-network: (" &
               $bNumShardsInCluster.get() & ") values, got: " & $shards.len
           )
         ShardingConf.autoSharding(shards)
@@ -389,7 +389,7 @@ proc resolveSubscribeShards(
   if shardingConf.kind != AutoSharding or shardingConf.shards.len == 0:
     return ok(confShards)
 
-  let autoSharding = Sharding.new(clusterId, shardingConf.shards)
+  let autoSharding = Sharding.init(clusterId, shardingConf.shards)
   var shards = confShards
   for contentTopic in contentTopics:
     let shard = autoSharding.getShard(contentTopic).valueOr:
@@ -489,7 +489,7 @@ proc applyNetworkPresetConf(builder: var WakuConfBuilder) =
   of AutoSharding:
     if builder.autoshardingShards.isNone():
       checkSetPresetValueToField(
-        builder.numShardsInCluster, networkPresetConf.shardingConf.numShardsInCluster,
+        builder.numShardsInCluster, networkPresetConf.shardingConf.numShards,
         "Num Shards In Cluster overrides network conf preset",
       )
   of StaticSharding:

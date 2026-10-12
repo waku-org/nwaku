@@ -16,15 +16,15 @@ type Sharding* = object
     ## Generation-zero shard ids: a content topic that hashes to index `i`
     ## lands on `shards[i]`.
 
-proc new*(T: type Sharding, clusterId: uint16, shards: seq[uint16]): T =
+proc init*(T: typedesc[Sharding], clusterId: uint16, shards: seq[uint16]): T =
   return Sharding(clusterId: clusterId, shards: shards)
 
-proc new*(T: type Sharding, clusterId: uint16, shardCount: uint32): T =
+proc init*(T: typedesc[Sharding], clusterId: uint16, shardCount: uint32): T =
   ## Auto-sharding over the shards `[0..shardCount-1]`.
   var shards = newSeqOfCap[uint16](shardCount)
   for i in 0'u32 ..< shardCount:
     shards.add(uint16(i))
-  return Sharding.new(clusterId, shards)
+  return Sharding.init(clusterId, shards)
 
 proc getGenZeroShard*(s: Sharding, topic: NsContentTopic): RelayShard =
   let bytes = toBytes(topic.application) & toBytes(topic.version)
