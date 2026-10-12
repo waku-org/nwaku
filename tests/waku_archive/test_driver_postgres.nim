@@ -1,7 +1,11 @@
 {.used.}
 
 import
-  results, std/[sequtils, strutils], testutils/unittests, chronos, db_connector/postgres
+  results,
+  std/[algorithm, sequtils, strutils],
+  testutils/unittests,
+  chronos,
+  db_connector/postgres
 import
   logos_delivery/waku/[
     waku_archive,
@@ -238,6 +242,69 @@ suite "Postgres driver":
     check:
       rows.len == chunk
       rows.allIt(it[0] in asked)
+
+  asyncTest "A hash query only plans the messages partitions holding the hashes":
+    ## Hashes carry no time bound: a query joining both partitioned tables
+    ## plans every partition of both, which took production nodes down.
+    const numPartitions = 300
+    const firstHour = 1_599_998_400'i64 ## 2020-09-13 12:00 UTC, an hour start
+
+    proc forEachPartition(stmt: string): string =
+      ## %1$s and %2$s are the partition bounds in seconds
+      return
+        "DO $$ DECLARE s BIGINT; BEGIN FOR i IN 0.." & $(numPartitions - 1) &
+        " LOOP s := " & $firstHour & " + i * 3600; EXECUTE format('" & stmt &
+        "', s, s + 3600); END LOOP; END $$;"
+
+    let rawPool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("raw pool")
+    for stmt in [
+      "CREATE TABLE messages_%1$s_%2$s PARTITION OF messages" &
+        " FOR VALUES FROM (%1$s000000000) TO (%2$s000000000)",
+      "CREATE TABLE lookup_%1$s_%2$s PARTITION OF messages_lookup" &
+        " FOR VALUES FROM (%1$s000000000) TO (%2$s000000000)",
+    ]:
+      (await rawPool.pgQuery(forEachPartition(stmt))).expect("create partitions")
+
+    var hashes: seq[WakuMessageHash]
+    var timestamps: seq[Timestamp]
+    var partitions: seq[string]
+    for hour in [0'i64, numPartitions div 2, numPartitions - 1]:
+      let start = firstHour + hour * 3600
+      let msg = fakeWakuMessage(payload = "msg-" & $hour, ts = start * 1_000_000_000)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      require (await driver.put(hash, DefaultPubsubTopic, msg)).isOk()
+      hashes.add(hash)
+      timestamps.add(msg.timestamp)
+      partitions.add("messages_" & $start & "_" & $(start + 3600))
+
+    let missing = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage(ts = 1))
+    let rows =
+      (await driver.getMessages(hashes = hashes & missing)).expect("hash query")
+    check rows.mapIt(it[0]) == reversed(hashes)
+
+    var plan: seq[string]
+    proc planCallback(pqResult: ptr PGresult) =
+      for iRow in 0 ..< pqResult.pqNtuples():
+        plan.add($(pqgetvalue(pqResult, iRow, 0)))
+
+    let hexHashes = "'" & hashes.mapIt(toHex(it).toLowerAscii()).join("','") & "'"
+    let explain = "EXPLAIN " & messagesAtTimestampsQuery(hexHashes, timestamps, 20)
+    (await rawPool.pgQuery(explain, @[], planCallback)).expect("explain")
+    ## only the partitions holding the hashes, out of the 300 just created
+    var scanned: seq[string]
+    for partition in partitions:
+      if plan.anyIt(it.contains(" on " & partition)):
+        scanned.add(partition)
+    check:
+      scanned == partitions
+      plan.countIt(it.contains(" on messages_")) <= 2 * partitions.len
+
+    (
+      await rawPool.pgQuery(
+        forEachPartition("DROP TABLE messages_%1$s_%2$s, lookup_%1$s_%2$s")
+      )
+    ).expect("drop partitions")
+    (await rawPool.close()).expect("close raw pool")
 
   asyncTest "dropStrayLookupPartitions removes attached and detached strays":
     ## Crash leftovers: lookup tables with no messages sibling, attached or
