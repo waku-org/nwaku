@@ -212,12 +212,12 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   await cmb.nodev2.start()
 
   # Always mount relay for bridge
-  # `triggerSelf` is false on a `bridge` to avoid duplicates
+  # `triggerOwnHandlers` is false on a `bridge` to avoid duplicates
   (await cmb.nodev2.mountRelay()).isOkOr:
     error "failed to mount relay", error = error
     return
 
-  cmb.nodev2.wakuRelay.triggerSelf = false
+  cmb.nodev2.wakuRelay.triggerOwnHandlers = false
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge

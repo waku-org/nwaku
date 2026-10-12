@@ -2008,8 +2008,7 @@ suite "Waku v2 Rest API - Relay":
       publishResponse.status == 200
       received.mapIt(it.payload) == @[message.payload]
 
-  asyncTest "A message posted again after it is read is returned again by the publisher and not by its relay peer - POST /relay/v1/messages/{topic}":
-    # TODO: logos-delivery#4453
+  asyncTest "A message posted again after it is read is not returned again by the publisher nor by its relay peer - POST /relay/v1/messages/{topic}":
     # Given two relay nodes, each behind its own REST server
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
@@ -2067,9 +2066,8 @@ suite "Waku v2 Rest API - Relay":
     let againResponse =
       await publisherClient.relayPostMessagesV1(DefaultPubsubTopic, message)
 
-    # Then the publisher returns it again, and does not send it to its relay peer
-    let againOnPublisher =
-      await publisherClient.waitForRelayMessages(DefaultPubsubTopic, 1)
+    # Then neither the publisher nor its relay peer returns it again
+    let againOnPublisher = await publisherClient.relayGetMessagesV1(DefaultPubsubTopic)
     let againOnReceiver = await receiverClient.relayGetMessagesV1(DefaultPubsubTopic)
     check:
       firstResponse.status == 200
@@ -2077,13 +2075,13 @@ suite "Waku v2 Rest API - Relay":
       firstOnReceiver.mapIt(it.payload) == @[message.payload]
       sentAfterFirst > sentBefore
       againResponse.status == 200
-      againOnPublisher.mapIt(it.payload) == @[message.payload]
+      againOnPublisher.status == 200
+      againOnPublisher.data.len == 0
       relayNetworkBytes(netOut) == sentAfterFirst
       againOnReceiver.status == 200
       againOnReceiver.data.len == 0
 
-  asyncTest "A message posted twice is counted twice as received and as incoming traffic - POST /relay/v1/messages/{topic}":
-    # TODO: logos-delivery#4453
+  asyncTest "A message posted twice is counted once as received and as incoming traffic - POST /relay/v1/messages/{topic}":
     # Given a relay node subscribed over REST to the pubsub topic
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
@@ -2115,18 +2113,17 @@ suite "Waku v2 Rest API - Relay":
       bytesAfterFirst = relayNetworkBytes(netIn)
     let secondResponse = await client.relayPostMessagesV1(DefaultPubsubTopic, message)
 
-    # Then each post is counted as a received message and as the same incoming traffic
+    # Then the second post is not counted as a received message nor as incoming traffic
     check:
       subscribeResponse.status == 200
       firstResponse.status == 200
       secondResponse.status == 200
       receivedAfterFirst == receivedBefore + 1
-      nodeMessagesCount(["relay"]) == receivedBefore + 2
+      nodeMessagesCount(["relay"]) == receivedBefore + 1
       bytesAfterFirst > bytesBefore
-      relayNetworkBytes(netIn) - bytesAfterFirst == bytesAfterFirst - bytesBefore
+      relayNetworkBytes(netIn) == bytesAfterFirst
 
-  asyncTest "A message posted again with a relay peer in the mesh is answered 200 on the static route and 400 NoPeersToPublish on the auto route - POST /relay/v1/messages/{topic}, POST /relay/v1/auto/messages":
-    # TODO: logos-delivery#4453
+  asyncTest "A message posted again with a relay peer in the mesh is answered 200 on the static route and 400 DuplicateMessage on the auto route - POST /relay/v1/messages/{topic}, POST /relay/v1/auto/messages":
     # Given two relay nodes with autosharding over 8 shards, each behind its own REST server
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
@@ -2184,12 +2181,12 @@ suite "Waku v2 Rest API - Relay":
     let staticAgain = await publisherClient.relayPostMessagesV1(shard, message)
     let autoAgain = await publisherClient.relayPostAutoMessagesV1(message)
 
-    # Then the static route answers 200 and the auto route 400 NoPeersToPublish, with the receiver still in the mesh
+    # Then the static route answers 200 and the auto route 400 DuplicateMessage, with the receiver still in the mesh
     check:
       firstResponse.status == 200
       received.mapIt(it.payload) == @[message.payload]
       staticAgain.status == 200
       staticAgain.data == "OK"
       autoAgain.status == 400
-      autoAgain.data == "Failed to publish: publish failed in relay: NoPeersToPublish"
+      autoAgain.data == "Failed to publish: publish failed in relay: DuplicateMessage"
       publisher.hasMeshPeer(shard, receiver.peerInfo.peerId)
