@@ -59,8 +59,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -101,8 +100,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -133,8 +131,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -162,8 +159,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == shards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -324,7 +320,7 @@ suite "Waku Conf - build with cluster conf":
 
     # Sanity check
     check networkPresetConf.shardingConf.kind == AutoSharding
-    check networkPresetConf.shardingConf.numShardsInCluster > 1
+    check networkPresetConf.shardingConf.numShards > 1
 
     ## Given: preset says >1 shards but user explicitly sets 1
     builder.withNetworkPresetConf(networkPresetConf)
@@ -337,7 +333,7 @@ suite "Waku Conf - build with cluster conf":
     ## Then: user value wins, not preset
     conf.validate().expect("conf should validate")
     check conf.shardingConf.kind == AutoSharding
-    check conf.shardingConf.numShardsInCluster == 1
+    check conf.shardingConf.numShards == 1
 
   test "num-shards-in-network == 0 does not override preset":
     ## Passing an AutoSharding preset and trying to override with
@@ -358,8 +354,7 @@ suite "Waku Conf - build with cluster conf":
     ## Then: preset wins and StaticSharding user intent is lost
     conf.validate().expect("conf should validate")
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
 
 suite "Waku Conf - node key":
   test "Node key is generated":
@@ -750,12 +745,12 @@ suite "Waku Conf - the Mix capability follows the mount":
 
 suite "Waku Conf - shard count limit":
   test "accepts up to MaxAllowedSubscribedShard shards":
-    let conf = ShardingConf(kind: AutoSharding, numShardsInCluster: 64)
+    let conf = ShardingConf.autoSharding(numShards = 64)
     let shards = toSeq(0'u16 ..< uint16(MaxAllowedSubscribedShard))
     check conf.validateShards(shards).isOk()
 
   test "rejects more than MaxAllowedSubscribedShard shards":
-    let conf = ShardingConf(kind: AutoSharding, numShardsInCluster: 64)
+    let conf = ShardingConf.autoSharding(numShards = 64)
     let shards = toSeq(0'u16 ..< uint16(MaxAllowedSubscribedShard + 1))
     let res = conf.validateShards(shards)
     check:

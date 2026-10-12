@@ -125,7 +125,7 @@ suite "MessagingClientConf - preset resolution":
       raiseAssert error
     check:
       wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShardsInCluster == 1
+      wakuConf.shardingConf.numShards == 1
 
 suite "MessagingClientConf - merge (override wins)":
   test "a set override field wins; unset keeps the base":

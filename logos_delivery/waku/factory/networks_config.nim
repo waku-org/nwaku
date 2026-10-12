@@ -14,7 +14,8 @@ type
   ShardingConf* = object
     case kind*: ShardingConfKind
     of AutoSharding:
-      numShardsInCluster*: uint16
+      shards*: seq[uint16]
+        ## Shard ids a content topic can hash to, `[0..n-1]` by default.
     of StaticSharding:
       discard
 
@@ -42,6 +43,19 @@ type NetworkPresetConf* = object
   p2pReliability*: bool
   maxPureLibp2pPeers*: int
 
+proc autoSharding*(T: type ShardingConf, shards: seq[uint16]): T =
+  ShardingConf(kind: AutoSharding, shards: shards)
+
+proc autoSharding*(T: type ShardingConf, numShards: uint16): T =
+  ## Auto-sharding over the shards `[0..numShards-1]`.
+  var shards = newSeqOfCap[uint16](numShards)
+  for i in 0'u16 ..< numShards:
+    shards.add(i)
+  ShardingConf.autoSharding(shards)
+
+proc numShards*(shardingConf: ShardingConf): uint16 =
+  uint16(shardingConf.shards.len)
+
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration
@@ -56,7 +70,7 @@ proc TheWakuNetworkConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: false,
     kadBootstrapNodes: @[],
     mix: false,
@@ -84,7 +98,7 @@ proc LogosDevConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: true,
     mix: true,
     mixnodes: @[
@@ -122,7 +136,7 @@ proc LogosTestConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: true,
     mix: true,
     mixnodes: @[
@@ -150,7 +164,7 @@ proc LogosTestConf*(T: type NetworkPresetConf): NetworkPresetConf =
 # cluster-id=16 (Status Production Network)
 # Cluster configuration for the `status.prod` network that Status runs on.
 # RLN is disabled. Starting from the logos-delivery integration, status.prod
-# defaults to auto-sharding with a single shard (numShardsInCluster = 1).
+# defaults to auto-sharding with a single shard (numShards = 1).
 # Bootstrap is done through the status.prod DNS discovery enrtree plus the
 # fleet boot nodes.
 # Source: https://fleets.waku.org/ and each host's `/config.toml`.
@@ -165,7 +179,7 @@ proc StatusProdConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 1),
+    shardingConf: ShardingConf.autoSharding(numShards = 1),
     enableKadDiscovery: false,
     kadBootstrapNodes: @[],
     mix: false,
@@ -196,12 +210,11 @@ proc validateShards*(
   of StaticSharding:
     return ok()
   of AutoSharding:
-    let numShardsInCluster = shardingConf.numShardsInCluster
     for shard in shards:
-      if shard >= numShardsInCluster:
+      if shard notin shardingConf.shards:
         let msg =
-          "validateShards invalid shard: " & $shard & " when numShardsInCluster: " &
-          $numShardsInCluster
+          "validateShards invalid shard: " & $shard & " when valid shards are: " &
+          $shardingConf.shards
         error "validateShards failed", error = msg
         return err(msg)
 

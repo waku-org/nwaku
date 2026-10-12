@@ -120,8 +120,7 @@ suite "Waku external config - apply preset":
       check rlnEvmConf.epochSizeSec == expectedConf.rlnEpochSizeSec
       check rlnEvmConf.userMessageLimit == expectedConf.rlnRelayUserMessageLimit
       check conf.shardingConf.kind == expectedConf.shardingConf.kind
-      check conf.shardingConf.numShardsInCluster ==
-        expectedConf.shardingConf.numShardsInCluster
+      check conf.shardingConf.numShards == expectedConf.shardingConf.numShards
     check conf.discv5Conf.isSome() == expectedConf.discv5Discovery
     if conf.discv5Conf.isSome():
       let discv5Conf = conf.discv5Conf.get()
@@ -141,7 +140,7 @@ suite "Waku external config - apply preset":
 
     ## Then
     let conf = res.get()
-    check conf.subscribeShards.len == expectedConf.shardingConf.numShardsInCluster.int
+    check conf.subscribeShards.len == expectedConf.shardingConf.numShards.int
 
   test "Subscribes to some valid shards in twn":
     ## Setup

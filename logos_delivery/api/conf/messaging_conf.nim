@@ -16,6 +16,9 @@ type MessagingClientConf* = object
   clusterId* {.name: "cluster-id".}: Opt[uint16] ## Network cluster id.
   numShardsInCluster* {.name: "num-shards-in-network".}: Opt[uint16]
     ## Number of shards in the cluster.
+  autoshardingShards* {.name: "autosharding-shards".}: Opt[seq[uint16]]
+    ## Shard ids auto-sharding uses instead of `[0..num-shards-in-network-1]`.
+    ## Order matters: a content topic hashing to index `i` lands on the `i`-th.
   p2pTcpPort* {.name: "tcp-port".}: Opt[Port] ## TCP listening port.
   discv5UdpPort* {.name: "discv5-udp-port".}: Opt[Port] ## discv5 UDP port.
   websocketSupport* {.name: "websocket-support".}: Opt[bool]
@@ -127,6 +130,8 @@ proc toWakuNodeConf*(
     conf.clusterId = self.clusterId
   if self.numShardsInCluster.isSome():
     conf.numShardsInNetwork = self.numShardsInCluster.get()
+  if self.autoshardingShards.isSome():
+    conf.autoshardingShards = self.autoshardingShards.get()
   if self.listenIpv4.isSome():
     conf.listenAddress = self.listenIpv4.get()
   if self.nat.isSome():
