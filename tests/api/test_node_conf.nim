@@ -169,6 +169,19 @@ suite "WakuNodeConf - preset integration":
       wakuConf.shardingConf.numShards == 2
       wakuConf.subscribeShards == @[32'u16, 64]
 
+  test "Autosharding shards must not repeat a shard":
+    ## Given
+    var conf = defaultKernelConf().valueOr:
+      raiseAssert error
+    conf.preset = "status.prod"
+    conf.autoshardingShards = @[32'u16, 32]
+
+    ## When
+    let wakuConfRes = conf.toWakuConf()
+
+    ## Then
+    check wakuConfRes.isErr()
+
   test "Autosharding shards must match num-shards-in-network":
     ## Given
     var conf = defaultKernelConf().valueOr:

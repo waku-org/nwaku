@@ -87,6 +87,11 @@ suite "Autosharding":
         shard3 == RelayShard(clusterId: ClusterId, shardId: 16)
         shard9 == RelayShard(clusterId: ClusterId, shardId: 17)
 
+    test "No shards is an error, not a crash":
+      let sharding = Sharding.init(16, newSeq[uint16]())
+
+      check sharding.getShard(contentTopicShort).isErr()
+
     test "A single-shard cluster lands on its shard":
       let sharding = Sharding.init(16, @[32'u16])
 

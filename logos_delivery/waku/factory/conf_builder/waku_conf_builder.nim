@@ -372,6 +372,8 @@ proc buildShardingConf(
             "autosharding-shards must hold num-shards-in-network: (" &
               $bNumShardsInCluster.get() & ") values, got: " & $shards.len
           )
+        if shards.deduplicate().len != shards.len:
+          return err("autosharding-shards must not repeat a shard: " & $shards)
         ShardingConf.autoSharding(shards)
       else:
         ShardingConf.autoSharding(bNumShardsInCluster.get(DefaultNumShardsInCluster))
@@ -492,6 +494,10 @@ proc applyNetworkPresetConf(builder: var WakuConfBuilder) =
         builder.numShardsInCluster, networkPresetConf.shardingConf.numShards,
         "Num Shards In Cluster overrides network conf preset",
       )
+    else:
+      notice "autosharding-shards replaces the network preset's shards",
+        preset = networkPresetConf.shardingConf.shards,
+        used = builder.autoshardingShards.get()
   of StaticSharding:
     discard
 

@@ -18,6 +18,7 @@ type MessagingClientConf* = object
     ## Number of shards in the cluster.
   autoshardingShards* {.name: "autosharding-shards".}: Opt[seq[uint16]]
     ## Shard ids auto-sharding uses instead of `[0..num-shards-in-network-1]`.
+    ## Order matters: a content topic hashing to index `i` lands on the `i`-th.
   p2pTcpPort* {.name: "tcp-port".}: Opt[Port] ## TCP listening port.
   discv5UdpPort* {.name: "discv5-udp-port".}: Opt[Port] ## discv5 UDP port.
   websocketSupport* {.name: "websocket-support".}: Opt[bool]

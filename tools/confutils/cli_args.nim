@@ -374,7 +374,7 @@ hence would have reachability issues.""",
 
   autoshardingShards* {.
     desc:
-      "Shard ids auto-sharding uses instead of [0..NUM_SHARDS_IN_NETWORK-1]: a content topic that hashes to index i lands on the i-th value. Sets the number of shards when NUM_SHARDS_IN_NETWORK is not given. Argument may be repeated.",
+      "Shard ids auto-sharding uses instead of [0..NUM_SHARDS_IN_NETWORK-1]: a content topic that hashes to index i lands on the i-th value, so the order matters and must match the rest of the network. Sets the number of shards when NUM_SHARDS_IN_NETWORK is not given. Argument may be repeated.",
     name: "autosharding-shards"
   .}: seq[uint16]
 
