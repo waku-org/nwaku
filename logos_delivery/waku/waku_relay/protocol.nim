@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sets],
+  std/[os, strformat, strutils, sets],
   stew/byteutils,
   results,
   sequtils,
@@ -206,12 +206,13 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-const RelayMsgInfoLogs = defined(wakuRelayMsgInfoLogs)
-  ## Opt-in at compile time (`-d:wakuRelayMsgInfoLogs`), e.g. for DST images.
+let RelayMsgInfoLogs =
+  getEnv("WAKU_RELAY_MSG_INFO_LOGS").toLowerAscii() in ["1", "true"]
+  ## Opt-in at runtime (`WAKU_RELAY_MSG_INFO_LOGS=1`), e.g. for DST nodes.
   ## Off by default so production logs are not flooded.
 
 template relayMsgLog(args: varargs[untyped]): untyped =
-  when RelayMsgInfoLogs:
+  if RelayMsgInfoLogs:
     info args
   else:
     trace args
