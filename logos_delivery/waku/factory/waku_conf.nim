@@ -300,9 +300,26 @@ proc validateExtMultiAddrsOnly(wakuConf: WakuConf): Result[void, string] =
       return err("ext-multiaddr-only requires concrete ports, got: " & $ma)
   return ok()
 
+proc validateExtraListenShards(wakuConf: WakuConf): Result[void, string] =
+  if wakuConf.extraListenShards.len == 0:
+    return ok()
+  if wakuConf.shardingConf.kind != AutoSharding:
+    return err("extra-listen-shard needs auto-sharding")
+  var shards = wakuConf.subscribeShards
+  for shard in wakuConf.extraListenShards:
+    if shard notin shards:
+      shards.add(shard)
+  if shards.len > MaxAllowedSubscribedShard:
+    return err(
+      "too many shards with extra-listen-shard: " & $shards.len &
+        ", the maximum supported is " & $MaxAllowedSubscribedShard
+    )
+  return ok()
+
 proc validate*(wakuConf: WakuConf): Result[void, string] =
   ?wakuConf.validateNodeKey()
   ?wakuConf.shardingConf.validateShards(wakuConf.subscribeShards)
+  ?wakuConf.validateExtraListenShards()
   ?wakuConf.validateNoEmptyStrings()
   ?wakuConf.validateExtMultiAddrsOnly()
   return ok()
