@@ -347,6 +347,11 @@ proc connectPeer*(
   if not peerStore.peerExists(peerId):
     pm.addPeer(peer)
 
+  # A connect to a connected peer is a no-op in the switch, not a dial.
+  if pm.switch.isConnected(peerId):
+    peerStore[ConnectionBook][peerId] = Connected
+    return true
+
   let failedAttempts = peerStore[NumberFailedConnBook][peerId]
   trace "Connecting to peer",
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
@@ -372,10 +377,18 @@ proc connectPeer*(
       logos_delivery_node_conns_initiated.inc(labelValues = [source])
 
       peerStore[NumberFailedConnBook][peerId] = 0
+      peerStore[ConnectionBook][peerId] = Connected
 
       return true
 
-  # Dial failed
+  logos_delivery_peers_dials.inc(labelValues = [reasonFailed])
+
+  # The peer connected in while our dial was in flight, so it is reachable.
+  if pm.switch.isConnected(peerId):
+    trace "Dial failed but peer is connected", peerId = peerId, reason = reasonFailed
+    peerStore[ConnectionBook][peerId] = Connected
+    return true
+
   peerStore[NumberFailedConnBook][peerId] = peerStore[NumberFailedConnBook][peerId] + 1
   peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   peerStore[ConnectionBook][peerId] = CannotConnect
@@ -384,7 +397,6 @@ proc connectPeer*(
     peerId = peerId,
     reason = reasonFailed,
     failedAttempts = peerStore[NumberFailedConnBook][peerId]
-  logos_delivery_peers_dials.inc(labelValues = [reasonFailed])
 
   return false
 
