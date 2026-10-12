@@ -21,6 +21,8 @@ proc pqsendPrepare(
 ): int32 {.cdecl, dynlib: libpqName, importc: "PQsendPrepare".}
   ## db_connector only binds the blocking PQprepare
 
+const DefaultConnectTimeout* = chronos.seconds(10)
+
 type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 
 type DbConnWrapper* = ref object
@@ -97,32 +99,114 @@ proc errorText(db: DbConn): string =
     return error
   return "unknown reason"
 
-proc openDbConn(connString: string): Result[DbConnWrapper, string] =
-  ## Opens a new connection.
-  var conn: DbConn = nil
-  try:
-    conn = open("", "", "", connString) ## included from db_postgres module
-  except DbError:
-    return err("exception opening new connection: " & getCurrentExceptionMsg())
+proc waitForSocket(
+    asyncFd: asyncengine.AsyncFD, forWrite: bool, timeout = InfiniteDuration
+): Future[Result[void, string]] {.async.} =
+  ## Waits until the socket is ready and gives the reader or writer back
+  ## before returning. The caller must not touch libpq while it is installed:
+  ## libpq closes the socket as soon as it notices the backend is gone, and
+  ## removing a reader from an already closed descriptor fails, leaving the
+  ## selector entry behind forever.
 
-  if conn.status != CONNECTION_OK:
-    conn.check().isOkOr:
-      return err("failed to connect to database: " & error)
+  when defined(windows):
+    return err("Postgres not supported on Windows")
+  else:
+    let futReady = newFuture[void]("waitForSocket")
 
-    return err("unknown reason")
+    proc onReady(udata: pointer) {.gcsafe, raises: [].} =
+      if not futReady.finished():
+        futReady.complete()
+
+    if forWrite:
+      asyncengine.addWriter2(asyncFd, onReady).isOkOr:
+        return err("failed to add event writer: " & $error)
+    else:
+      asyncengine.addReader2(asyncFd, onReady).isOkOr:
+        return err("failed to add event reader: " & $error)
+
+    defer:
+      let removeRes =
+        if forWrite:
+          asyncengine.removeWriter2(asyncFd)
+        else:
+          asyncengine.removeReader2(asyncFd)
+      removeRes.isOkOr:
+        error "failed to remove event handler in waitForSocket", error = $error
+
+    if timeout == InfiniteDuration:
+      await futReady
+    elif not (await futReady.withTimeout(timeout)):
+      return err("timed out after: " & $timeout)
+
+    return ok()
+
+proc pollConnection(
+    conn: DbConn, timeout: chronos.Duration
+): Future[Result[void, string]] {.async.} =
+  ## Drives PQconnectPoll from chronos so that neither the TCP handshake nor the
+  ## authentication can stall the event loop. libpq may switch sockets while
+  ## connecting, so each wait registers the current one only for its duration.
+  let deadline = Moment.now() + timeout
+  var pollStatus = PGRES_POLLING_WRITING
+  while true:
+    case pollStatus
+    of PGRES_POLLING_OK:
+      return ok()
+    of PGRES_POLLING_FAILED:
+      return err("connection polling failed: " & conn.errorText())
+    of PGRES_POLLING_READING, PGRES_POLLING_WRITING:
+      let remaining = deadline - Moment.now()
+      if remaining <= ZeroDuration:
+        return err("timed out connecting after: " & $timeout)
+
+      let asyncFd = cast[asyncengine.AsyncFD](pqsocket(conn))
+      asyncengine.register2(asyncFd).isOkOr:
+        return err("failed to register the connecting socket: " & $error)
+      let waitRes =
+        try:
+          await waitForSocket(asyncFd, pollStatus == PGRES_POLLING_WRITING, remaining)
+        finally:
+          asyncengine.unregister2(asyncFd).isOkOr:
+            error "failed to unregister the connecting socket", error = $error
+      waitRes.isOkOr:
+        return err("failed waiting for the connecting socket: " & $error)
+    of PGRES_POLLING_ACTIVE:
+      discard
+
+    pollStatus = pqconnectPoll(conn)
+
+proc openDbConn(
+    connString: string, timeout: chronos.Duration
+): Future[Result[DbConnWrapper, string]] {.async.} =
+  let conn: DbConn = pqconnectStart(cstring(connString))
+  if conn.isNil():
+    return err("failed to allocate a connection: out of memory")
+
+  var connected = false
+  defer:
+    if not connected:
+      pqfinish(conn)
+
+  if conn.status == CONNECTION_BAD:
+    return err("failed to start connecting: " & conn.errorText())
+
+  (await conn.pollConnection(timeout)).isOkOr:
+    return err("failed to connect to database: " & $error)
 
   ## registering the socket fd in chronos for better wait for data.
   ## The wrapper is built here so that the registered descriptor and the
   ## remembered one cannot drift apart.
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(conn))
   asyncengine.register2(asyncFd).isOkOr:
-    conn.close()
     return err("failed to register the connection socket: " & $error)
 
+  connected = true
   return ok(DbConnWrapper(dbConn: conn, registeredFd: Opt.some(asyncFd), open: true))
 
-proc new*(T: type DbConnWrapper, connString: string): Result[T, string] =
-  let dbConnWrapper = openDbConn(connString).valueOr:
+proc new*(
+    T: type DbConnWrapper, connString: string, connectTimeout = DefaultConnectTimeout
+): Future[Result[T, string]] {.async.} =
+  let dbConnWrapper = (await openDbConn(connString, connectTimeout)).valueOr:
     return err("failed to establish a new connection: " & $error)
 
   return ok(dbConnWrapper)
@@ -229,35 +313,6 @@ proc sendQueryPrepared(
 
   return ok()
 
-proc waitForData(
-    dbConnWrapper: DbConnWrapper, asyncFd: asyncengine.AsyncFD
-): Future[Result[void, string]] {.async.} =
-  ## Waits until the socket has something to read and gives the reader back
-  ## before returning. The caller must not touch libpq while the reader is
-  ## installed: libpq closes the socket as soon as it notices the backend is
-  ## gone, and removing a reader from an already closed descriptor fails,
-  ## leaving the selector entry behind forever.
-
-  when defined(windows):
-    return err("Postgres not supported on Windows")
-  else:
-    let futDataAvailable = newFuture[void]("futDataAvailable")
-
-    proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
-      if not futDataAvailable.completed():
-        futDataAvailable.complete()
-
-    asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
-      return err("failed to add event reader in waitForData: " & $error)
-
-    defer:
-      asyncengine.removeReader2(asyncFd).isOkOr:
-        error "failed to remove event reader in waitForData", error = $error
-
-    await futDataAvailable
-
-    return ok()
-
 proc waitQueryToFinish(
     dbConnWrapper: DbConnWrapper, rowCallback: DataProc = nil
 ): Future[Result[void, string]] {.async.} =
@@ -275,7 +330,7 @@ proc waitQueryToFinish(
       return err("failed to read the query result: " & conn.errorText())
 
     if pqisBusy(conn) == 1:
-      (await dbConnWrapper.waitForData(asyncFd)).isOkOr:
+      (await waitForSocket(asyncFd, forWrite = false)).isOkOr:
         return err("failed waiting for the query result: " & $error)
       continue
 

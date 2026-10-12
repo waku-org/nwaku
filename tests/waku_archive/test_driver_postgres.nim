@@ -465,7 +465,7 @@ suite "Postgres connection lifecycle":
     return ok(alive)
 
   asyncTest "A connection whose backend died gives its selector entry back":
-    let wrapper = DbConnWrapper.new(RawConnString).expect("new connection")
+    let wrapper = (await DbConnWrapper.new(RawConnString)).expect("new connection")
 
     let asyncFd = wrapper.getRegisteredFd().expect("registered fd")
     check asyncFd in getThreadDispatcher()
@@ -609,3 +609,38 @@ suite "Postgres connection lifecycle":
     check nextRes.isOk()
 
     (await pool.close()).expect("pool close")
+
+  asyncTest "Connecting to an unresponsive server times out without blocking":
+    ## Listening without accepting: the handshake completes in the kernel, but
+    ## the server never answers the startup packet
+    let silentServer = createStreamServer(initTAddress("127.0.0.1:0"))
+    let port = silentServer.localAddress().port
+    let pool = PgAsyncPool
+      .new(
+        "postgres://postgres:test123@127.0.0.1:" & $port & "/postgres",
+        1,
+        connectTimeout = 1.seconds,
+      )
+      .expect("pool")
+
+    var maxGap = ZeroDuration
+    var probing = true
+    proc probe() {.async.} =
+      var last = Moment.now()
+      while probing:
+        await sleepAsync(50.milliseconds)
+        maxGap = max(maxGap, Moment.now() - last)
+        last = Moment.now()
+
+    let probeFut = probe()
+    let queryRes = await pool.pgQuery("SELECT 1")
+    probing = false
+    await probeFut
+
+    check:
+      queryRes.isErr()
+      queryRes.error.contains("timed out")
+      maxGap < 500.milliseconds
+
+    (await pool.close()).expect("pool close")
+    await silentServer.closeWait()

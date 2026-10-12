@@ -17,10 +17,17 @@ type
   PgAsyncPool* = ref object
     connString: string
     maxConnections: int
+    connectTimeout: Duration
     conns: seq[DbConnWrapper]
+    numConnecting: int ## slots reserved by connections still being opened
     busySignal: ThreadSignalPtr ## signal to wait while the pool is busy
 
-proc new*(T: type PgAsyncPool, dbUrl: string, maxConnections: int): DatabaseResult[T] =
+proc new*(
+    T: type PgAsyncPool,
+    dbUrl: string,
+    maxConnections: int,
+    connectTimeout = DefaultConnectTimeout,
+): DatabaseResult[T] =
   var connString: string
 
   try:
@@ -44,6 +51,7 @@ proc new*(T: type PgAsyncPool, dbUrl: string, maxConnections: int): DatabaseResu
   let pool = PgAsyncPool(
     connString: connString,
     maxConnections: maxConnections,
+    connectTimeout: connectTimeout,
     conns: newSeq[DbConnWrapper](0),
   )
 
@@ -85,15 +93,27 @@ proc acquireConn(pool: PgAsyncPool): Future[DatabaseResult[DbConnWrapper]] {.asy
         conn.markBusy()
         return ok(conn)
 
-    if pool.conns.len < pool.maxConnections:
-      let conn = DbConnWrapper.new(pool.connString).valueOr:
+    if pool.conns.len + pool.numConnecting < pool.maxConnections:
+      pool.numConnecting.inc()
+      let connRes =
+        try:
+          await DbConnWrapper.new(pool.connString, pool.connectTimeout)
+        finally:
+          pool.numConnecting.dec()
+
+      let conn = connRes.valueOr:
         return err("error creating DbConnWrapper: " & $error)
 
       conn.markBusy()
       pool.conns.add(conn)
       return ok(conn)
 
-    discard await race(pool.conns.mapIt(FutureBase(it.futBecomeFree)))
+    let busyFuts = pool.conns.mapIt(FutureBase(it.futBecomeFree))
+    if busyFuts.len == 0:
+      ## every slot is still connecting
+      await sleepAsync(10.milliseconds)
+    else:
+      discard await race(busyFuts)
 
 proc releaseConn(pool: PgAsyncPool, conn: DbConnWrapper) =
   ## A connection whose command is still in flight in libpq, e.g. because the
