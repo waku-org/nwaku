@@ -18,21 +18,24 @@ type
     connString: string
     maxConnections: int
     connectTimeout: Duration
+    sessionSettings: string
+      ## SET statements run on every new connection. A startup `options`
+      ## parameter would be rejected by connection poolers like PgBouncer.
+    generation: int
+      ## bumped by close() so that a connect in flight at that moment is dropped
     conns: seq[DbConnWrapper]
     numConnecting: int ## slots reserved by connections still being opened
     busySignal: ThreadSignalPtr ## signal to wait while the pool is busy
 
-func serverTimeoutsOption(statementTimeout, lockTimeout: Duration): string =
+func serverTimeoutsSettings(statementTimeout, lockTimeout: Duration): string =
   ## Zero leaves the server default, i.e. no timeout
   var settings = newSeq[string](0)
   if statementTimeout > ZeroDuration:
-    settings.add("-c statement_timeout=" & $statementTimeout.milliseconds)
+    settings.add("SET statement_timeout = " & $statementTimeout.milliseconds)
   if lockTimeout > ZeroDuration:
-    settings.add("-c lock_timeout=" & $lockTimeout.milliseconds)
+    settings.add("SET lock_timeout = " & $lockTimeout.milliseconds)
 
-  if settings.len == 0:
-    return ""
-  return " options='" & settings.join(" ") & "'"
+  return settings.join("; ")
 
 proc new*(
     T: type PgAsyncPool,
@@ -58,8 +61,7 @@ proc new*(
     let dbName = dbUrl[m.captures[4]]
 
     connString =
-      fmt"user={user} host={host} port={port} dbname={dbName} password={password}" &
-      serverTimeoutsOption(statementTimeout, lockTimeout)
+      fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
   except KeyError, ValueError:
     return err("could not parse postgres string: " & getCurrentExceptionMsg())
 
@@ -67,6 +69,7 @@ proc new*(
     connString: connString,
     maxConnections: maxConnections,
     connectTimeout: connectTimeout,
+    sessionSettings: serverTimeoutsSettings(statementTimeout, lockTimeout),
     conns: newSeq[DbConnWrapper](0),
   )
 
@@ -78,6 +81,7 @@ proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
   # blocking the async runtime
 
   debug "close PgAsyncPool"
+  pool.generation.inc()
   ## a connection that never ran a query has no futBecomeFree to wait for
   await allFutures(
     pool.conns.filterIt(not it.futBecomeFree.isNil()).mapIt(it.futBecomeFree)
@@ -110,6 +114,7 @@ proc acquireConn(pool: PgAsyncPool): Future[DatabaseResult[DbConnWrapper]] {.asy
 
     if pool.conns.len + pool.numConnecting < pool.maxConnections:
       pool.numConnecting.inc()
+      let generation = pool.generation
       let connRes =
         try:
           await DbConnWrapper.new(pool.connString, pool.connectTimeout)
@@ -118,6 +123,22 @@ proc acquireConn(pool: PgAsyncPool): Future[DatabaseResult[DbConnWrapper]] {.asy
 
       let conn = connRes.valueOr:
         return err("error creating DbConnWrapper: " & $error)
+
+      if pool.sessionSettings.len > 0:
+        (
+          await conn.dbConnQuery(
+            sql(pool.sessionSettings), newSeq[string](0), nil, requestId = ""
+          )
+        ).isOkOr:
+          conn.closeDbConn().isOkOr:
+            error "failed to close a connection after failed setup", error = $error
+          return err("could not apply the session settings: " & $error)
+
+      if generation != pool.generation:
+        ## close() ran meanwhile, so this connection would never be closed
+        conn.closeDbConn().isOkOr:
+          error "failed to close a connection opened during close", error = $error
+        return err("the pool was closed while connecting")
 
       conn.markBusy()
       pool.conns.add(conn)

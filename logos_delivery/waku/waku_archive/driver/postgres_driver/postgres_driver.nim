@@ -172,10 +172,14 @@ proc new*(
   )
 
   if not isNil(onFatalErrorAction):
-    driver.futHealthChecks = @[
-      checkConnectivity(readConnPool, onFatalErrorAction),
-      checkConnectivity(writeConnPool, onFatalErrorAction),
-    ]
+    for pool in [readConnPool, writeConnPool]:
+      let fut = checkConnectivity(pool, onFatalErrorAction)
+      fut.addCallback(
+        proc(udata: pointer) {.gcsafe, raises: [].} =
+          if fut.failed():
+            error "postgres health check loop failed", error = fut.error.msg
+      )
+      driver.futHealthChecks.add(fut)
 
   return ok(driver)
 
@@ -1093,7 +1097,7 @@ method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
     s.futLoopAnalyzeTable.cancelSoon()
 
   for fut in s.futHealthChecks:
-    fut.cancelSoon()
+    await fut.cancelAndWait()
 
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
