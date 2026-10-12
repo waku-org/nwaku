@@ -46,8 +46,8 @@ requires "nim == 2.2.6",
   # v0.4.1: libp2p 2.4.0 requires websock >= 0.4.1 and locks this version.
   "https://github.com/status-im/nim-websock#0432dc445c500b20963ef4b76e585c1a3943c254",
   # Cryptography
-  "nimcrypto",
-  "secp256k1",
+  "nimcrypto >= 0.7.3",
+  "secp256k1 >= 0.8.0.8.0",
   "bearssl",
   # RPC & APIs
   "json_rpc == 0.6.1",
