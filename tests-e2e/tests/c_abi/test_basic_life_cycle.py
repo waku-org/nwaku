@@ -29,7 +29,7 @@ class TestLogosDeliveryLifecycle:
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
 
     def test_restart_node_with_rest(self, node_config):
-        # TODO: restart-with-rest
+        # TODO: logos-delivery#4522
         node_config.update({"numShardsInNetwork": 1, "rest": True})
         with self._create_start_node(node_config) as node:
             rest_port = get_node_bound_ports(node)["rest"]
@@ -52,7 +52,7 @@ class TestLogosDeliveryLifecycle:
                 assert not wait_for_mesh(peer_collector), "peer meshed with the node whose restart failed"
 
     def test_restart_node_with_rest_after_failed_start(self, node_config):
-        # TODO: restart-with-rest
+        # TODO: logos-delivery#4522
         node_config.update({"rest": True})
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("", 0))
@@ -72,7 +72,7 @@ class TestLogosDeliveryLifecycle:
             assert "Address already in use" in start_result.err(), start_result.err()
 
     def test_restart_node_with_metrics_server(self, node_config):
-        # TODO: restart-with-rest
+        # TODO: logos-delivery#4522
         # The restart fails but the node keeps running, and stop_node cannot stop it.
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node({**node_config, "metricsServer": True, "metricsServerPort": 0}) as node:
@@ -116,7 +116,7 @@ class TestLogosDeliveryLifecycle:
                 assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
 
     def test_listener_receives_events_after_restart(self, node_config):
-        # TODO: library-readme-listeners
+        # TODO: logos-delivery#4523
         # The binding registers event_cb only when it creates the node.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
@@ -141,7 +141,7 @@ class TestLogosDeliveryLifecycle:
         assert stop_result.is_ok(), f"Failed to stop and destroy node: {stop_result.err()}"
 
     def test_recreate_node_with_rest_after_destroy(self, node_config):
-        # TODO: restart-with-rest
+        # TODO: logos-delivery#4522
         node_config.update({"rest": True})
         node = self._create_start_node(node_config)
         rest_port = get_node_bound_ports(node)["rest"]

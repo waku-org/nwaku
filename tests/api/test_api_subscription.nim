@@ -1001,7 +1001,7 @@ suite "Messaging API, SubscriptionManager":
         staticNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
 
   asyncTest "Subscription API, edge node never subscribes through its filternode":
-    # TODO: edge-filternode
+    # TODO: logos-delivery#4521
     let shards = @[PubsubTopic("/waku/2/rs/3/0")]
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
