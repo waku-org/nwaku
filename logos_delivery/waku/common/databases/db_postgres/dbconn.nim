@@ -34,6 +34,7 @@ type DbConnWrapper* = ref object
   preparedStmts: HashSet[string] ## [stmtName's]
   futBecomeFree*: Future[void]
     ## to notify the pgasyncpool that this conn is free, i.e. not busy
+  lockTimeoutMs*: int64 ## lock_timeout currently set in the session, 0 meaning none
 
 ## Connection management
 
@@ -83,6 +84,15 @@ proc isReusable*(dbConnWrapper: DbConnWrapper): bool =
     dbConnWrapper.open and dbConnWrapper.dbConn.status == CONNECTION_OK and
     dbConnWrapper.dbConn.pqtransactionStatus() notin {PQTRANS_ACTIVE, PQTRANS_UNKNOWN}
 
+proc isCommandInFlight*(dbConnWrapper: DbConnWrapper): bool =
+  ## True when libpq sent a command whose results were not fully read
+  return
+    dbConnWrapper.open and dbConnWrapper.dbConn.status == CONNECTION_OK and
+    dbConnWrapper.dbConn.pqtransactionStatus() == PQTRANS_ACTIVE
+
+proc backendPid*(dbConnWrapper: DbConnWrapper): int32 =
+  return dbConnWrapper.dbConn.pqbackendPID()
+
 const MaxDbErrorLen = 512
   ## libpq can answer with very long messages -- the DETAIL and CONTEXT lines
   ## carry row data -- and this string reaches both the logs and the error chain,
@@ -110,10 +120,13 @@ proc errorText(db: DbConn): string =
   return "unknown reason"
 
 proc waitForSocket(
-    asyncFd: asyncengine.AsyncFD, forWrite: bool, timeout = InfiniteDuration
+    asyncFd: asyncengine.AsyncFD,
+    forRead: bool,
+    forWrite: bool,
+    timeout = InfiniteDuration,
 ): Future[Result[void, string]] {.async.} =
-  ## Waits until the socket is ready and gives the reader or writer back
-  ## before returning. The caller must not touch libpq while it is installed:
+  ## Waits until the socket is ready and gives the reader and writer back
+  ## before returning. The caller must not touch libpq while they are installed:
   ## libpq closes the socket as soon as it notices the backend is gone, and
   ## removing a reader from an already closed descriptor fails, leaving the
   ## selector entry behind forever.
@@ -127,21 +140,24 @@ proc waitForSocket(
       if not futReady.finished():
         futReady.complete()
 
+    var readerAdded = false
+    var writerAdded = false
+    defer:
+      if readerAdded:
+        asyncengine.removeReader2(asyncFd).isOkOr:
+          error "failed to remove event reader in waitForSocket", error = $error
+      if writerAdded:
+        asyncengine.removeWriter2(asyncFd).isOkOr:
+          error "failed to remove event writer in waitForSocket", error = $error
+
+    if forRead:
+      asyncengine.addReader2(asyncFd, onReady).isOkOr:
+        return err("failed to add event reader: " & $error)
+      readerAdded = true
     if forWrite:
       asyncengine.addWriter2(asyncFd, onReady).isOkOr:
         return err("failed to add event writer: " & $error)
-    else:
-      asyncengine.addReader2(asyncFd, onReady).isOkOr:
-        return err("failed to add event reader: " & $error)
-
-    defer:
-      let removeRes =
-        if forWrite:
-          asyncengine.removeWriter2(asyncFd)
-        else:
-          asyncengine.removeReader2(asyncFd)
-      removeRes.isOkOr:
-        error "failed to remove event handler in waitForSocket", error = $error
+      writerAdded = true
 
     if timeout == InfiniteDuration:
       await futReady
@@ -174,7 +190,12 @@ proc pollConnection(
         return err("failed to register the connecting socket: " & $error)
       let waitRes =
         try:
-          await waitForSocket(asyncFd, pollStatus == PGRES_POLLING_WRITING, remaining)
+          await waitForSocket(
+            asyncFd,
+            forRead = pollStatus == PGRES_POLLING_READING,
+            forWrite = pollStatus == PGRES_POLLING_WRITING,
+            timeout = remaining,
+          )
         finally:
           unregisterFd(asyncFd).isOkOr:
             error "failed to unregister the connecting socket", error = error
@@ -202,6 +223,11 @@ proc openDbConn(
 
   (await conn.pollConnection(timeout)).isOkOr:
     return err("failed to connect to database: " & $error)
+
+  ## Sends only queue their data when the connection is nonblocking, and
+  ## flushSend drives the rest, so a full socket buffer cannot stall the loop.
+  if pqsetnonblocking(conn, 1) != 0:
+    return err("failed to set the connection nonblocking: " & conn.errorText())
 
   ## registering the socket fd in chronos for better wait for data.
   ## The wrapper is built here so that the registered descriptor and the
@@ -247,6 +273,27 @@ proc closeDbConn*(dbConnWrapper: DbConnWrapper): Result[void, string] {.raises: 
 proc `$`(self: SqlQuery): string =
   return cast[string](self)
 
+proc flushSend(dbConnWrapper: DbConnWrapper): Future[Result[void, string]] {.async.} =
+  ## The connection is nonblocking, so a send can leave data queued in libpq.
+  let asyncFd = dbConnWrapper.registeredFd.valueOr:
+    return err("the connection socket is not registered in flushSend")
+
+  let conn = dbConnWrapper.dbConn
+  while true:
+    case pqflush(conn)
+    of 0:
+      return ok()
+    of 1:
+      ## The server may be waiting for us to read before it accepts more, so
+      ## both directions are watched.
+      (await waitForSocket(asyncFd, forRead = true, forWrite = true)).isOkOr:
+        return err("failed waiting to flush the query: " & $error)
+
+      if pqconsumeInput(conn) != 1:
+        return err("failed to read while flushing the query: " & conn.errorText())
+    else:
+      return err("failed to flush the query: " & conn.errorText())
+
 proc sendQuery(
     dbConnWrapper: DbConnWrapper, query: SqlQuery, args: seq[string]
 ): Future[Result[void, string]] {.async.} =
@@ -269,6 +316,9 @@ proc sendQuery(
     dbConnWrapper.dbConn.check().isOkOr:
       return err("failed pqsendQuery: " & $error)
     return err("failed pqsendQuery: unknown reason")
+
+  (await dbConnWrapper.flushSend()).isOkOr:
+    return err("failed flushing pqsendQuery: " & $error)
 
   return ok()
 
@@ -334,7 +384,7 @@ proc waitQueryToFinish(
       return err("failed to read the query result: " & conn.errorText())
 
     if pqisBusy(conn) == 1:
-      (await waitForSocket(asyncFd, forWrite = false)).isOkOr:
+      (await waitForSocket(asyncFd, forRead = true, forWrite = false)).isOkOr:
         return err("failed waiting for the query result: " & $error)
       continue
 
@@ -362,6 +412,9 @@ proc dbConnPrepare*(
     nil,
   ) != 1:
     return err("failed pqsendPrepare: " & dbConnWrapper.dbConn.errorText())
+
+  (await dbConnWrapper.flushSend()).isOkOr:
+    return err("failed flushing pqsendPrepare: " & $error)
 
   (await dbConnWrapper.waitQueryToFinish()).isOkOr:
     return err("failed preparing statement: " & stmtName & ": " & $error)
@@ -457,6 +510,9 @@ proc dbConnQueryPrepared*(
   dbConnWrapper.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
     error "error in dbConnQueryPrepared", error = $error
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
+
+  (await dbConnWrapper.flushSend()).isOkOr:
+    return err("error in dbConnQueryPrepared calling flushSend: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
   logos_delivery_query_time_secs.set(sendDuration, [stmtName, "sendToDBQuery"])

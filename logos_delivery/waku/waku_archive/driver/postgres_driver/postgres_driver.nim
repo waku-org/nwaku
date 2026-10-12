@@ -42,6 +42,10 @@ type PostgresDriver* = ref object of ArchiveDriver
   ## Kept to be cancelled on close: a closed pool reopens connections on demand
   futHealthChecks: seq[Future[void]]
 
+  ## Bounds the inserts only: the write pool also runs partition DDL, which can
+  ## legitimately wait on readers
+  writeLockTimeout: chronos.Duration
+
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
@@ -140,6 +144,7 @@ const
   MaxHashesPerQuery = 100
   DefaultReadStatementTimeout* = chronos.minutes(5)
   DefaultReadLockTimeout* = chronos.seconds(30)
+  DefaultWriteLockTimeout* = chronos.seconds(30)
 
 proc new*(
     T: type PostgresDriver,
@@ -148,6 +153,7 @@ proc new*(
     onFatalErrorAction: OnFatalErrorHandler = nil,
     readStatementTimeout = DefaultReadStatementTimeout,
     readLockTimeout = DefaultReadLockTimeout,
+    writeLockTimeout = DefaultWriteLockTimeout,
 ): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
@@ -169,6 +175,7 @@ proc new*(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
+    writeLockTimeout: writeLockTimeout,
   )
 
   if not isNil(onFatalErrorAction):
@@ -356,6 +363,7 @@ method put*(
       ],
       @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
       insertCallback,
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages table: " & $error)
@@ -368,6 +376,7 @@ method put*(
       @[messageHash, timestamp],
       @[int32(messageHash.len), int32(timestamp.len)],
       @[int32(0), int32(0)],
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages_lookup table: " & $error)
