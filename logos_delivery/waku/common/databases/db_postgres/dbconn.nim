@@ -37,6 +37,16 @@ type DbConnWrapper* = ref object
 
 ## Connection management
 
+proc unregisterFd(asyncFd: asyncengine.AsyncFD): Result[void, string] =
+  ## chronos exposes no Result-returning unregister on Windows, where
+  ## unregistering only drops the handle from the dispatcher and cannot fail
+  when defined(windows):
+    asyncengine.unregister(asyncFd)
+  else:
+    asyncengine.unregister2(asyncFd).isOkOr:
+      return err($error)
+  return ok()
+
 proc containsPreparedStmt*(dbConnWrapper: DbConnWrapper, preparedStmt: string): bool =
   return dbConnWrapper.preparedStmts.contains(preparedStmt)
 
@@ -166,8 +176,8 @@ proc pollConnection(
         try:
           await waitForSocket(asyncFd, pollStatus == PGRES_POLLING_WRITING, remaining)
         finally:
-          asyncengine.unregister2(asyncFd).isOkOr:
-            error "failed to unregister the connecting socket", error = $error
+          unregisterFd(asyncFd).isOkOr:
+            error "failed to unregister the connecting socket", error = error
       waitRes.isOkOr:
         return err("failed waiting for the connecting socket: " & $error)
     of PGRES_POLLING_ACTIVE:
@@ -223,14 +233,8 @@ proc closeDbConn*(dbConnWrapper: DbConnWrapper): Result[void, string] {.raises: 
     let asyncFd = dbConnWrapper.registeredFd.get()
     ## unregister2 asserts when the descriptor is unknown to the dispatcher
     if asyncFd in asyncengine.getThreadDispatcher():
-      when defined(windows):
-        ## chronos exposes no Result-returning unregister on Windows, where
-        ## unregistering only drops the handle from the dispatcher and cannot
-        ## fail
-        asyncengine.unregister(asyncFd)
-      else:
-        asyncengine.unregister2(asyncFd).isOkOr:
-          unregisterError = "failed to unregister the connection socket: " & $error
+      unregisterFd(asyncFd).isOkOr:
+        unregisterError = "failed to unregister the connection socket: " & error
 
   dbConnWrapper.dbConn.close()
   dbConnWrapper.open = false
