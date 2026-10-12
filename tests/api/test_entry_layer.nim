@@ -338,8 +338,7 @@ suite "LogosDelivery - configured shards":
       node.waku.node.wakuRelay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
-  asyncTest "under static sharding without REST the relay is on no shard, while the ENR and metadata report the configured shard":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the relay is on the configured shard, which the ENR and metadata report":
     var conf = nodeConf(EntryLayer.kernel)
     conf.kernel.numShardsInNetwork = 0
     conf.kernel.shards = @[1'u16]
@@ -373,14 +372,14 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.wakuRelay.subscribedTopics() ==
+        @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
       toSeq(0'u16 ..< 8'u16).filterIt(
         node.waku.node.enr.containsShard(TestClusterId, it)
       ) == @[1'u16]
       metadata.shards == @[1'u32]
 
-  asyncTest "under static sharding without REST the node is no relay peer on the configured shard, and a peer's message there is neither archived nor pushed to a filter subscriber":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the node is a relay peer on the configured shard, and a peer's message there is archived and pushed to a filter subscriber":
     let
       configuredShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
       contentTopic = ContentTopic("/toychat/2/huilong/proto")
@@ -479,12 +478,11 @@ suite "LogosDelivery - configured shards":
       raiseAssert $error
     check:
       filterSubscribe.isOk()
-      not publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
-      stored.messages.len == 0
-      pushed.len == 0
+      publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
+      stored.messages.len == 1
+      pushed.len == 1
 
-  asyncTest "under static sharding without REST the messaging entry layer leaves the relay on no shard":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the messaging entry layer puts the relay on the configured shard":
     var conf = nodeConf(EntryLayer.messaging)
     conf.kernel.numShardsInNetwork = 0
     conf.kernel.shards = @[1'u16]
@@ -500,7 +498,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.wakuRelay.subscribedTopics() ==
+        @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
 
   asyncTest "an unsigned message on a protected shard outside the configured shards is not received":
     let
