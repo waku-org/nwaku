@@ -817,38 +817,51 @@ proc getMessageHashesPreparedStmt(
 
   return ok(rows)
 
+func messagesAtTimestampsQuery*(
+    hashes: string, timestamps: openArray[Timestamp], maxPageSize: uint
+): string =
+  ## Constant timestamps let the planner prune messages down to the
+  ## partitions that hold them.
+  return
+    fmt"""
+  SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
+  FROM messages
+  WHERE timestamp IN ({timestamps.join(",")}) AND messagehash IN ({hashes})
+  ORDER BY timestamp DESC, messagehash DESC
+  LIMIT {maxPageSize};
+  """
+
 proc getMessagesByMessageHashes(
     s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieves information only filtering by a given messageHashes list.
-  ## This proc levarages on the messages_lookup table to have better query performance
-  ## and only query the desired partitions in the partitioned messages table
-  var query =
-    fmt"""
-  WITH min_timestamp AS (
-    SELECT MIN(timestamp) AS min_ts
-    FROM messages_lookup
-    WHERE messagehash IN (
-      {hashes}
+  ## Both tables are partitioned by time and a hash carries no time bound, so a
+  ## single statement joining them makes the planner open every partition of
+  ## both: tens of seconds and GBs of memory with thousands of partitions.
+  ## Resolving the timestamps first keeps the second statement pruned.
+  var timestamps: seq[Timestamp]
+  proc timestampsCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      let rawTimestamp = $(pqgetvalue(pqResult, iRow, 0))
+      let catchable = catch:
+        parseBiggestInt(rawTimestamp)
+      let timestamp = catchable.valueOr:
+        error "could not parse lookup timestamp", rawTimestamp, error = error.msg
+        continue
+      timestamps.add(Timestamp(timestamp))
+
+  (
+    await s.readConnPool.pgQuery(
+      query =
+        fmt"SELECT DISTINCT timestamp FROM messages_lookup WHERE messagehash IN ({hashes});",
+      rowCallback = timestampsCallback,
+      requestId = requestId,
     )
-  )
-  SELECT m.messageHash, pubsubTopic, contentTopic, payload, version, m.timestamp, meta
-  FROM messages m
-  INNER JOIN
-    messages_lookup l
-  ON
-    m.timestamp = l.timestamp
-    AND m.messagehash = l.messagehash
-  WHERE
-    l.timestamp >= (SELECT min_ts FROM min_timestamp)
-    AND l.messagehash IN (
-      {hashes}
-    )
-  ORDER BY
-    m.timestamp DESC,
-    m.messagehash DESC
-  LIMIT {maxPageSize};
-  """
+  ).isOkOr:
+    return err("failed to look up message timestamps: " & $error)
+
+  if timestamps.len == 0:
+    return ok(newSeq[ArchiveRow]())
 
   var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
   proc rowCallback(pqResult: ptr PGresult) =
@@ -856,10 +869,12 @@ proc getMessagesByMessageHashes(
 
   (
     await s.readConnPool.pgQuery(
-      query = query, rowCallback = rowCallback, requestId = requestId
+      query = messagesAtTimestampsQuery(hashes, timestamps, maxPageSize),
+      rowCallback = rowCallback,
+      requestId = requestId,
     )
   ).isOkOr:
-    return err("failed to run query: " & $error)
+    return err("failed to query messages by hash: " & $error)
 
   return ok(rows)
 
