@@ -471,19 +471,16 @@ suite "Messaging API, SubscriptionManager":
 
     await verifyNetworkState(activeSubs)
 
-  asyncTest "Subscription API, relay node configured with one shard is subscribed to every shard":
+  asyncTest "Subscription API, relay node configured with one shard is subscribed to that shard only":
     var conf = defaultTestNodeConf(numShards = 8)
     conf.kernel.shards = @[1'u16]
     let node = await setupSubscriberNode(conf)
     defer:
       (await node.stop()).expect("Failed to stop node")
 
-    let allShards =
-      toSeq(0'u16 ..< 8'u16).mapIt($RelayShard(clusterId: TestClusterId, shardId: it))
-
-    # The configured shards do not limit the relay subscription under autosharding.
     check:
-      node.waku.node.wakuRelay.subscribedTopics().toHashSet() == allShards.toHashSet()
+      node.waku.node.wakuRelay.subscribedTopics().toHashSet() ==
+        [$RelayShard(clusterId: TestClusterId, shardId: 1)].toHashSet()
 
   asyncTest "Subscription API, edge node subscribe and receive message":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
