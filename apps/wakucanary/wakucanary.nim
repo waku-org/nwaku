@@ -21,7 +21,6 @@ import
 
 # protocols and their tag
 const ProtocolsTable = {
-  "store": "/vac/waku/store/",
   "storev3": "/vac/waku/store-query/3",
   "relay": "/vac/waku/relay/",
   "lightpush": "/vac/waku/lightpush/",
@@ -59,7 +58,7 @@ type WakuCanaryConf* = object
 
   protocols* {.
     desc:
-      "Protocol required to be supported: store,storev3,relay,lightpush,filter,peer-exchange,store-sync,mix,... (can be used multiple times)",
+      "Protocol required to be supported: storev3,relay,lightpush,filter,peer-exchange,store-sync,mix,... (can be used multiple times)",
     name: "protocol",
     abbr: "p"
   .}: seq[string]
