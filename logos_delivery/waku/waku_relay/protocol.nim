@@ -13,8 +13,8 @@ import
   chronicles,
   metrics,
   libp2p/multihash,
-  libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/messages,
+  libp2p/protocols/pubsub/[floodsub, gossipsub, timedcache],
+  libp2p/protocols/pubsub/rpc/[messages, protobuf],
   libp2p/stream/connection,
   libp2p/switch,
   libp2p/utils/opt,
@@ -179,6 +179,10 @@ type
     topicHealthCheckAll: bool
       # true if all topics need to have their health status refreshed in the update event
     msgMetricsPerShard*: Table[string, ShardMetrics]
+    triggerOwnHandlers*: bool
+    selfHandled: TimedCache[MessageId]
+      # messages already handed to our own handlers, so a message published again
+      # is not handled twice
 
 # predefinition for more detailed results from publishing new message
 type PublishOutcome* {.pure.} = enum
@@ -386,7 +390,7 @@ proc new*(
       anonymize = true,
       verifySignature = false,
       sign = false,
-      triggerSelf = true,
+      triggerSelf = false,
       msgIdProvider = defaultMessageIdProvider,
       maxMessageSize = maxMessageSize,
       rng = switch.rng,
@@ -395,6 +399,10 @@ proc new*(
     w.brokerCtx = globalBrokerContext()
 
     procCall GossipSub(w).initPubSub()
+    w.triggerOwnHandlers = true
+    w.selfHandled = TimedCache[MessageId].init(
+      GossipsubParameters.seenTTL, maxSize = GossipsubParameters.seenMaxSize
+    )
     w.topicsHealth = initTable[string, TopicHealth]()
     w.topicHealthUpdateEvent = newAsyncEvent()
     w.topicHealthDirty = initHashSet[string]()
@@ -627,7 +635,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data).valueOr:
-      # fine if triggerSelf enabled, since validators are bypassed
+      # fine if triggerOwnHandlers enabled, since validators are bypassed
       debug "Failed to decode WakuMessage, validator passed a wrong message",
         pubsubTopic = pubsubTopic, error = error
       let fut = newFuture[void]()
@@ -718,6 +726,17 @@ proc publish*(
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
   trace "Start publish Waku message",
     msg_hash = msgHash, pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
+
+  let pubsubMessage = Message(data: data, topic: pubsubTopic)
+  let msgId = w.msgIdProvider(pubsubMessage).valueOr:
+    return err(CannotGenerateMessageId)
+
+  if w.hasSeen(w.salt(msgId)):
+    return err(DuplicateMessage)
+
+  let fitsMaxSize = RPCMsg.withMessages(pubsubMessage).encodedSize() <= w.maxMessageSize
+  if w.triggerOwnHandlers and fitsMaxSize and not w.selfHandled.put(msgId):
+    await procCall PubSub(w).handleData(pubsubTopic, data)
 
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
