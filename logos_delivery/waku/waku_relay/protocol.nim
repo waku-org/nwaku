@@ -206,6 +206,16 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
+const RelayMsgInfoLogs = defined(wakuRelayMsgInfoLogs)
+  ## Opt-in at compile time (`-d:wakuRelayMsgInfoLogs`), e.g. for DST images.
+  ## Off by default so production logs are not flooded.
+
+template relayMsgLog(args: varargs[untyped]): untyped =
+  when RelayMsgInfoLogs:
+    info args
+  else:
+    trace args
+
 proc logMessageInfo*(
     w: WakuRelay,
     remotePeerId: string,
@@ -218,7 +228,7 @@ proc logMessageInfo*(
   let payloadSize = float64(msg.payload.len)
 
   if onRecv:
-    trace "Received relay message",
+    relayMsgLog "Received relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
@@ -228,7 +238,7 @@ proc logMessageInfo*(
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
   else:
-    trace "Sent relay message",
+    relayMsgLog "Sent relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
