@@ -9,6 +9,18 @@ import ./query_metrics
 
 include db_connector/db_postgres
 
+when defined(windows):
+  const libpqName = "libpq.dll"
+elif defined(macosx):
+  const libpqName = "libpq.dylib"
+else:
+  const libpqName = "libpq.so(.5|)"
+
+proc pqsendPrepare(
+  conn: PPGconn, stmtName, query: cstring, nParams: int32, paramTypes: POid
+): int32 {.cdecl, dynlib: libpqName, importc: "PQsendPrepare".}
+  ## db_connector only binds the blocking PQprepare
+
 type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 
 type DbConnWrapper* = ref object
@@ -79,6 +91,11 @@ proc check(db: DbConn): Result[void, string] =
     return err(truncatedErr)
 
   return ok()
+
+proc errorText(db: DbConn): string =
+  db.check().isOkOr:
+    return error
+  return "unknown reason"
 
 proc openDbConn(connString: string): Result[DbConnWrapper, string] =
   ## Opens a new connection.
@@ -246,19 +263,25 @@ proc waitQueryToFinish(
 ): Future[Result[void, string]] {.async.} =
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
+  ## pqgetResult blocks while a result is only partly received, so it is only
+  ## called once pqisBusy says the whole result is buffered.
 
   let asyncFd = dbConnWrapper.registeredFd.valueOr:
     return err("the connection socket is not registered in waitQueryToFinish")
 
-  (await dbConnWrapper.waitForData(asyncFd)).isOkOr:
-    return err($error)
-
-  ## Now retrieve the result from the database
+  let conn = dbConnWrapper.dbConn
   while true:
-    let pqResult = dbConnWrapper.dbConn.pqgetResult()
+    if pqconsumeInput(conn) != 1:
+      return err("failed to read the query result: " & conn.errorText())
 
+    if pqisBusy(conn) == 1:
+      (await dbConnWrapper.waitForData(asyncFd)).isOkOr:
+        return err("failed waiting for the query result: " & $error)
+      continue
+
+    let pqResult = pqgetResult(conn)
     if pqResult == nil:
-      dbConnWrapper.dbConn.check().isOkOr:
+      conn.check().isOkOr:
         return err("error in query: " & $error)
       return ok() # reached the end of the results. The query is completed
 
@@ -266,6 +289,25 @@ proc waitQueryToFinish(
       rowCallback(pqResult)
 
     pqclear(pqResult)
+
+proc dbConnPrepare*(
+    dbConnWrapper: DbConnWrapper, stmtName: string, stmtDefinition: string, nParams: int
+): Future[Result[void, string]] {.async.} =
+  ## The prepare can wait on table locks server-side, so it has to be awaited
+  ## like any other query instead of using the blocking PQprepare.
+  if pqsendPrepare(
+    dbConnWrapper.dbConn,
+    cstring(stmtName),
+    cstring(stmtDefinition),
+    int32(nParams),
+    nil,
+  ) != 1:
+    return err("failed pqsendPrepare: " & dbConnWrapper.dbConn.errorText())
+
+  (await dbConnWrapper.waitQueryToFinish()).isOkOr:
+    return err("failed preparing statement: " & stmtName & ": " & $error)
+
+  return ok()
 
 proc containsRiskyPatterns(input: string): bool =
   let riskyPatterns = @[
