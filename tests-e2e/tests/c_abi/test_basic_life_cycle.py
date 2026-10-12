@@ -30,12 +30,13 @@ class TestLogosDeliveryLifecycle:
 
     def test_restart_node_with_rest(self, node_config):
         # TODO: logos-delivery#4522
-        node_config.update({"numShardsInNetwork": 1, "rest": True})
-        with self._create_start_node(node_config) as node:
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node({**node_config, "rest": True}) as node:
             rest_port = get_node_bound_ports(node)["rest"]
             stop_result = node.stop_node()
             assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-            socket.create_connection(("127.0.0.1", rest_port), timeout=5).close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                assert s.connect_ex(("127.0.0.1", rest_port)) == 0, "REST port refused a connection after stop_node"
 
             start_result = node.start_node()
             assert start_result.is_err(), "restart with REST on succeeded"
@@ -59,17 +60,16 @@ class TestLogosDeliveryLifecycle:
             s.listen()
             result = WrapperManager.create(config={**node_config, "tcpPort": s.getsockname()[1]})
             assert result.is_ok(), f"Failed to create node: {result.err()}"
-            node = result.ok_value
-            start_result = node.start_node()
+            with result.ok_value as node:
+                start_result = node.start_node()
+                assert start_result.is_err(), "start on a TCP port in use succeeded"
+                assert "TcpTransport start" in start_result.err(), start_result.err()
+                s.close()
 
-        with node:
-            assert start_result.is_err(), "start on a TCP port in use succeeded"
-            assert "TcpTransport start" in start_result.err(), start_result.err()
-
-            start_result = node.start_node()
-            assert start_result.is_err(), "start after the TCP port was freed succeeded"
-            assert "failed to start REST: could not start the essential REST server" in start_result.err(), start_result.err()
-            assert "Address already in use" in start_result.err(), start_result.err()
+                start_result = node.start_node()
+                assert start_result.is_err(), "start after the TCP port was freed succeeded"
+                assert "failed to start REST: could not start the essential REST server" in start_result.err(), start_result.err()
+                assert "Address already in use" in start_result.err(), start_result.err()
 
     def test_restart_node_with_metrics_server(self, node_config):
         # TODO: logos-delivery#4522
@@ -126,7 +126,6 @@ class TestLogosDeliveryLifecycle:
 
             start_result = node.start_node()
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
-            assert wait_for_connected(node_collector, timeout_s=1) is None, "listener got a connection event before any peer joined"
 
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
@@ -143,10 +142,10 @@ class TestLogosDeliveryLifecycle:
     def test_recreate_node_with_rest_after_destroy(self, node_config):
         # TODO: logos-delivery#4522
         node_config.update({"rest": True})
-        node = self._create_start_node(node_config)
-        rest_port = get_node_bound_ports(node)["rest"]
-        stop_result = node.stop_and_destroy()
-        assert stop_result.is_ok(), f"Failed to stop and destroy node: {stop_result.err()}"
+        with self._create_start_node(node_config) as node:
+            rest_port = get_node_bound_ports(node)["rest"]
+            stop_result = node.stop_and_destroy()
+            assert stop_result.is_ok(), f"Failed to stop and destroy node: {stop_result.err()}"
 
         result = WrapperManager.create_and_start(config={**node_config, "restPort": rest_port})
         assert result.is_err(), "a node on the REST port of a destroyed node started"

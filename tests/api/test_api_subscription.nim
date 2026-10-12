@@ -17,7 +17,6 @@ import
     node/waku_node/filter,
     node/peer_manager,
     node/subscription_manager,
-    waku_filter_v2/common,
     waku_filter_v2/subscriptions,
   ]
 import logos_delivery/waku/factory/waku_conf
@@ -1050,7 +1049,7 @@ suite "Messaging API, SubscriptionManager":
     await sleepAsync(NegativeTestTimeout)
     check:
       subscriber.waku.node.peerManager.serviceSlots.getOrDefault(
-        WakuFilterSubscribeCodec
+        WakuFilterSubscribeCodec, RemotePeerInfo()
       ).peerId == filterPeerInfo.peerId
       peerStore.connectedness(filterPeerInfo.peerId) == NotConnected
       subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) == 0
