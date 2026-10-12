@@ -528,46 +528,37 @@ procSuite "Peer Manager":
 
     check logos_delivery_total_unique_peers.value() == baseline + 2
 
-  asyncTest "Shards of two clusters leave the connected peers per shard metric unset":
-    # TODO: logos-delivery#4457
-    let
-      node = newTestWakuNode(generateSecp256k1Key())
-      control = newTestWakuNode(generateSecp256k1Key())
+  asyncTest "A shard of another cluster is refused and the connected peers per shard metric is set":
+    let node = newTestWakuNode(generateSecp256k1Key())
 
     node.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
-    control.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    (await control.mountRelay()).isOkOr:
-      assert false, "Failed to mount relay"
-    await allFutures(node.start(), control.start())
+    await node.start()
 
     proc simpleHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       await sleepAsync(0.millis)
 
-    # Given a node whose relay is on shard 517 of its cluster and on shard 0 of cluster 199
-    node.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
-    node.wakuRelay.subscribe("/waku/2/rs/199/0", simpleHandler)
+    # Given a node whose relay is on shard 517 of its cluster
+    check node
+      .subscribe((kind: PubsubSub, topic: "/waku/2/rs/0/517"), simpleHandler)
+      .isOk()
+
+    # When it subscribes to a shard of another cluster
+    let otherClusterRes =
+      node.subscribe((kind: PubsubSub, topic: "/waku/2/rs/199/0"), simpleHandler)
+
+    # Then it is refused
+    check otherClusterRes.isErr()
 
     # When its peer manager runs
     node.peerManager.start()
 
-    # Then no peer count is set for shard 517
-    check connectedPeersPerShard(517) == Opt.none(float64)
-
-    # Given a node whose relay is on shard 517 of its cluster only
-    control.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
-
-    # When its peer manager runs
-    control.peerManager.start()
-
     # Then the peer count of shard 517 is set
     checkUntilTimeout:
       connectedPeersPerShard(517) == Opt.some(0.0)
-
-    await allFutures(node.stop(), control.stop())
 
   asyncTest "Peer manager keeps track of connections":
     # Create 2 nodes

@@ -113,70 +113,15 @@ procSuite "Waku Metadata Protocol":
 
     await allFutures([node1.stop(), node2.stop()])
 
-  asyncTest "Metadata reports configured shards once the relay holds a shard of another cluster":
-    # TODO: logos-delivery#4457
+  asyncTest "A shard of another cluster is refused and metadata keeps reporting the relay's shards":
     let clusterId = 10.uint16
     let
       node1 = newTestWakuNode(
         generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[uint16(0)]
       )
       node2 = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
-      node3 = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
 
     discard node1.mountMetadata(clusterId, @[uint16(0)])
-    discard node2.mountMetadata(clusterId, @[])
-    discard node3.mountMetadata(clusterId, @[])
-    discard await node1.mountRelay()
-
-    await allFutures([node1.start(), node2.start(), node3.start()])
-
-    let noOpHandler: WakuRelayHandler = proc(
-        pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[void] {.async.} =
-      discard
-
-    ## Given: Node1's relay on shards 0 and 1 of its cluster
-    node1.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/10/1", noOpHandler)
-
-    ## When: Node2 connects to it
-    let node2Connected =
-      await node2.peerManager.connectPeer(node1.switch.peerInfo.toRemotePeerInfo())
-
-    ## Then: Node2 learns both shards
-    check node2Connected
-    checkUntilTimeout:
-      node2.peerManager.switch.peerStore
-        .getPeer(node1.switch.peerInfo.peerId).shards
-        .sorted() == @[uint16(0), uint16(1)]
-
-    ## Given: Node1's relay also on shard 0 of cluster 199
-    node1.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
-
-    ## When: Node3 connects to it
-    let node3Connected =
-      await node3.peerManager.connectPeer(node1.switch.peerInfo.toRemotePeerInfo())
-
-    ## Then: Node3 learns only the configured shard, though node1's relay is still on shard 1
-    check:
-      node3Connected
-      node1.wakuRelay.isSubscribed("/waku/2/rs/10/1")
-    checkUntilTimeout:
-      node3.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
-        @[uint16(0)]
-
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
-
-  asyncTest "Metadata reports a shard of another cluster as a shard of the node's own cluster":
-    # TODO: logos-delivery#4457
-    let clusterId = 10.uint16
-    let
-      node1 = newTestWakuNode(
-        generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[]
-      )
-      node2 = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
-
-    discard node1.mountMetadata(clusterId, @[])
     discard node2.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
@@ -187,25 +132,34 @@ procSuite "Waku Metadata Protocol":
     ): Future[void] {.async.} =
       discard
 
-    ## Given: Node1's relay only on shard 3 of cluster 199
-    node1.wakuRelay.subscribe("/waku/2/rs/199/3", noOpHandler)
+    ## Given: Node1's relay on shards 0 and 1 of its cluster
+    check:
+      node1.subscribe((kind: PubsubSub, topic: "/waku/2/rs/10/0"), noOpHandler).isOk()
+      node1.subscribe((kind: PubsubSub, topic: "/waku/2/rs/10/1"), noOpHandler).isOk()
 
-    ## When: Node2, of cluster 10, connects to it
+    ## When: Node1 subscribes to a shard of another cluster
+    let otherClusterRes =
+      node1.subscribe((kind: PubsubSub, topic: "/waku/2/rs/199/0"), noOpHandler)
+
+    ## Then: It is refused
+    check:
+      otherClusterRes.isErr()
+      not node1.wakuRelay.isSubscribed("/waku/2/rs/199/0")
+
+    ## When: Node2 connects to it
     let connected =
       await node2.peerManager.connectPeer(node1.switch.peerInfo.toRemotePeerInfo())
 
-    ## Then: Node2 records node1 on shard 3, which node1's relay is not on
-    check:
-      connected
-      not node1.wakuRelay.isSubscribed("/waku/2/rs/10/3")
+    ## Then: Node2 learns both shards of the relay
+    check connected
     checkUntilTimeout:
-      node2.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
-        @[uint16(3)]
+      node2.peerManager.switch.peerStore
+        .getPeer(node1.switch.peerInfo.peerId).shards
+        .sorted() == @[uint16(0), uint16(1)]
 
     await allFutures([node1.stop(), node2.stop()])
 
-  asyncTest "A peer of another cluster is disconnected although the relay holds a shard of that cluster":
-    # TODO: logos-delivery#4457
+  asyncTest "A peer of another cluster is disconnected":
     let
       node1 = newTestWakuNode(
         generateSecp256k1Key(), clusterId = 10, subscribeShards = @[uint16(0)]
@@ -220,16 +174,6 @@ procSuite "Waku Metadata Protocol":
     discard await node2.mountRelay()
 
     await allFutures([node1.start(), node2.start()])
-
-    let noOpHandler: WakuRelayHandler = proc(
-        pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[void] {.async.} =
-      discard
-
-    ## Given: Both relays on shard 0 of cluster 199, node1 also on shard 0 of cluster 10
-    node1.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
-    node2.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
 
     ## When: Node1 connects to node2
     let connected =

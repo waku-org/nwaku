@@ -1893,6 +1893,9 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe and unsubscribe with an empty list, a repeated topic, an invalid topic and a shard of another cluster - POST and DELETE /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
+    node.mountMetadata(DefaultClusterId, @[DefaultShardId]).expect(
+      "Mounted Waku Metadata"
+    )
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await node.start()
@@ -1945,33 +1948,17 @@ suite "Waku v2 Rest API - Relay":
       node.wakuRelay.isSubscribed(DefaultPubsubTopic)
       cache.isPubsubSubscribed(DefaultPubsubTopic)
 
-    # TODO: logos-delivery#4457
     # When subscribing to a shard of another cluster
     let otherClusterShard = $RelayShard(clusterId: 199, shardId: 0)
     let otherClusterPost = await client.relayPostSubscriptionsV1(@[otherClusterShard])
 
-    # Then it is subscribed although the node is on cluster 0
+    # Then the request is refused and the relay is not on it
     check:
-      otherClusterPost.status == 200
-      node.wakuRelay.isSubscribed(otherClusterShard)
-      cache.isPubsubSubscribed(otherClusterShard)
+      otherClusterPost.status == 400
+      not node.wakuRelay.isSubscribed(otherClusterShard)
+      not cache.isPubsubSubscribed(otherClusterShard)
 
-    # When publishing on that shard
-    let otherClusterMessage = RelayWakuMessage(
-      payload: base64.encode("TEST-PAYLOAD"),
-      contentTopic: Opt.some(DefaultContentTopic),
-    )
-    let otherClusterPublish =
-      await client.relayPostMessagesV1(otherClusterShard, otherClusterMessage)
-
-    # Then the message is published and read back
-    let otherClusterReceived = await client.waitForRelayMessages(otherClusterShard, 1)
-    check:
-      otherClusterPublish.status == 200
-      otherClusterReceived.mapIt(it.payload) == @[otherClusterMessage.payload]
-
-  asyncTest "A shard beyond the autosharding shard count is subscribed and carries messages - POST /relay/v1/subscriptions, POST /relay/v1/messages/{topic}, GET /relay/v1/messages/{topic}":
-    # TODO: logos-delivery#4457
+  asyncTest "A shard beyond the autosharding shard count is refused - POST /relay/v1/subscriptions":
     # Given a node with autosharding over 8 shards
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
@@ -1983,30 +1970,29 @@ suite "Waku v2 Rest API - Relay":
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
-    installRelayApiHandlers(restServer.router, node, MessageCache.init())
+    let cache = MessageCache.init()
+    installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
     defer:
       await restServer.stop()
       await restServer.closeWait()
 
     let client = newRestHttpClient(restServer.localAddress())
-    let beyondShard = $RelayShard(clusterId: DefaultClusterId, shardId: 8)
+    let
+      beyondShard = $RelayShard(clusterId: DefaultClusterId, shardId: 8)
+      lastShard = $RelayShard(clusterId: DefaultClusterId, shardId: 7)
 
-    # When subscribing to shard 8 and publishing on it
-    let subscribeResponse = await client.relayPostSubscriptionsV1(@[beyondShard])
-    let message = RelayWakuMessage(
-      payload: base64.encode("TEST-PAYLOAD"),
-      contentTopic: Opt.some(DefaultContentTopic),
-    )
-    let publishResponse = await client.relayPostMessagesV1(beyondShard, message)
+    # When subscribing to shard 8 and to shard 7
+    let beyondResponse = await client.relayPostSubscriptionsV1(@[beyondShard])
+    let lastResponse = await client.relayPostSubscriptionsV1(@[lastShard])
 
-    # Then the relay is on shard 8 and the message is read back
-    let received = await client.waitForRelayMessages(beyondShard, 1)
+    # Then shard 8 is refused and shard 7 is subscribed
     check:
-      subscribeResponse.status == 200
-      node.wakuRelay.isSubscribed(beyondShard)
-      publishResponse.status == 200
-      received.mapIt(it.payload) == @[message.payload]
+      beyondResponse.status == 400
+      not node.wakuRelay.isSubscribed(beyondShard)
+      not cache.isPubsubSubscribed(beyondShard)
+      lastResponse.status == 200
+      node.wakuRelay.isSubscribed(lastShard)
 
   asyncTest "A message posted again after it is read is returned again by the publisher and not by its relay peer - POST /relay/v1/messages/{topic}":
     # TODO: logos-delivery#4453

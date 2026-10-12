@@ -61,6 +61,32 @@ proc getTopicOfSubscriptionEvent(
   else:
     return err("Unsupported subscription type in relay getTopicOfSubscriptionEvent")
 
+proc validateShardOfNode*(
+    node: WakuNode, pubsubTopic: PubsubTopic
+): Result[void, string] =
+  ## A node stays on its own cluster and, under autosharding, on the cluster's shards.
+  let shard = RelayShard.parseStaticSharding(pubsubTopic).valueOr:
+    return err("invalid pubsub topic: " & $error)
+
+  if node.wakuAutoSharding.isSome():
+    let sharding = node.wakuAutoSharding.get()
+    if uint32(shard.clusterId) != uint32(sharding.clusterId):
+      return err(
+        "shard of another cluster: " & $shard.clusterId & " vs " & $sharding.clusterId
+      )
+    if shard.shardId notin sharding.shards:
+      return err(
+        "shard outside the cluster shards: " & $shard.shardId & " vs " & $sharding.shards
+      )
+  elif not node.wakuMetadata.isNil():
+    if uint32(shard.clusterId) != node.wakuMetadata.clusterId:
+      return err(
+        "shard of another cluster: " & $shard.clusterId & " vs " &
+          $node.wakuMetadata.clusterId
+      )
+
+  return ok()
+
 proc subscribe*(
     node: WakuNode, subscription: SubscriptionEvent, handler: WakuRelayHandler
 ): Result[void, string] =
@@ -77,6 +103,9 @@ proc subscribe*(
   let (pubsubTopic, _) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
     debug "Failed to decode subscription event", error = error
     return err("Failed to decode subscription event: " & error)
+
+  node.validateShardOfNode(pubsubTopic).isOkOr:
+    return err("could not subscribe to: " & pubsubTopic & ": " & error)
 
   # strict version
   #if contentTopicOp.isSome():
