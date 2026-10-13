@@ -12,7 +12,7 @@ The following options are available:
 
  -a, --address        Multiaddress of the peer node to attempt to dial.
  -t, --timeout        Timeout to consider that the connection failed [=chronos.seconds(10)].
- -p, --protocol       Protocol required to be supported: storev3,relay,lightpush,filter,
+ -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter,
                       peer-exchange,store-sync,mix,... (can be used multiple times).
  -l, --log-level      Sets the log level [=LogLevel.DEBUG].
  -np, --node-port     Listening port for waku node [=60000].
@@ -29,7 +29,7 @@ advertises (via identify) a protocol id starting with the given prefix.
 | `--protocol`    | Protocol id prefix               |
 | --------------- | -------------------------------- |
 | `relay`         | `/vac/waku/relay/`               |
-| `storev3`       | `/vac/waku/store-query/3`        |
+| `store`         | `/vac/waku/store-query/3`        |
 | `store-sync`    | `/vac/waku/reconciliation/`      |
 | `lightpush`     | `/vac/waku/lightpush/`           |
 | `filter`        | `/vac/waku/filter-subscribe/2`   |
@@ -52,12 +52,12 @@ The tool can be built as:
 $ make wakucanary
 ```
 
-And used as follows. A reachable node that supports both `storev3` and `filter` protocols.
+And used as follows. A reachable node that supports both `store` and `filter` protocols.
 
 ```console
 $ ./build/wakucanary \
   --address=/dns4/store-01.do-ams3.status.staging.status.im/tcp/30303/p2p/16Uiu2HAm3xVDaz6SRJ6kErwC21zBJEZjavVXg7VSkoWzaV1aMA3F \
-  --protocol=storev3 \
+  --protocol=store \
   --protocol=filter \
   --cluster-id=16 \
   --shard=64
@@ -82,7 +82,7 @@ A node that can't be reached.
 ```console
 $ ./build/wakucanary \
   --address=/dns4/store-01.do-ams3.status.staging.status.im/tcp/1000/p2p/16Uiu2HAm3xVDaz6SRJ6kErwC21zBJEZjavVXg7VSkoWzaV1aMA3F \
-  --protocol=storev3 \
+  --protocol=store \
   --protocol=filter \
   --cluster-id=16 \
   --shard=64
