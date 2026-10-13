@@ -467,6 +467,9 @@ jobs:
           "${NPH}" examples logos_delivery rest tests tools apps *.@(nim|nims|nimble)
           git diff --exit-code
 
+      - name: Check metric labels are bounded
+        run: scripts/check_metric_labels.py
+
   # The single required check for this workflow. A matrix or reusable-workflow
   # job skipped at job level reports under its raw name (e.g.
   # `build-${{ matrix.os }}`), so requiring the per-job names blocks forever.
