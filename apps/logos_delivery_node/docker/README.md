@@ -51,7 +51,7 @@ Key `.env` values:
 
 | Variable                    | Default   | Meaning                                             |
 | --------------------------- | --------- | --------------------------------------------------- |
-| `PRESET`                    | `logos.dev` | Network preset: `logos.dev`, `logos.test`, `twn`, `status.prod`. Empty = no preset (set cluster/shards via `EXTRA_ARGS`) |
+| `PRESET`                    | `logos.dev` | Network preset: `logos.dev`, `logos.test`, `twn`, `status.prod`, `status.staging`. Empty = no preset (set cluster/shards via `EXTRA_ARGS`) |
 | `ENTRY_LAYER`               | `kernel`  | Top API layer: `kernel` (transport only), `messaging`, or `channels` |
 | `LOGOS_IMAGE`               | *(build)* | Prebuilt image; empty builds locally               |
 | `POSTGRES_USER` / `_PASSWORD` | postgres / test123 | Store DB credentials                     |

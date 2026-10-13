@@ -493,17 +493,22 @@ proc applyNetworkPresetConf(builder: var WakuConfBuilder) =
   )
   case networkPresetConf.shardingConf.kind
   of AutoSharding:
-    if builder.autoshardingShards.isNone():
+    if builder.autoshardingShards.isSome():
+      notice "autosharding-shards replaces the network preset's shards",
+        preset = networkPresetConf.shardingConf.shards,
+        used = builder.autoshardingShards.get()
+    elif builder.numShardsInCluster.isSome():
       checkSetPresetValueToField(
         builder.numShardsInCluster, networkPresetConf.shardingConf.numShards,
         "Num Shards In Cluster overrides network conf preset",
       )
     else:
-      notice "autosharding-shards replaces the network preset's shards",
-        preset = networkPresetConf.shardingConf.shards,
-        used = builder.autoshardingShards.get()
+      builder.autoshardingShards = Opt.some(networkPresetConf.shardingConf.shards)
   of StaticSharding:
     discard
+
+  if builder.extraListenShards.isNone() and networkPresetConf.extraListenShards.len > 0:
+    builder.extraListenShards = Opt.some(networkPresetConf.extraListenShards)
 
   checkSetPresetValueToField(
     builder.discv5Conf.enabled, networkPresetConf.discv5Discovery,

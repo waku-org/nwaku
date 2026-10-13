@@ -4,13 +4,13 @@ A node started with `--entry-layer=messaging` runs the Messaging API. With `--re
 
 ## Network
 
-- Set a network preset (`--preset=twn`, `--preset=logos.dev`, `--preset=logos.test` or `--preset=status.prod`), or set `--cluster-id` and `--num-shards-in-network`.
+- Set a network preset (`--preset=twn`, `--preset=logos.dev`, `--preset=logos.test`, `--preset=status.prod` or `--preset=status.staging`), or set `--cluster-id` and `--num-shards-in-network`.
 
 ## Messaging API flags
 
 | Flag | What it sets | Default |
 |---|---|---|
-| `--reliability` | Confirm each send with a Store node | on, off for the `twn` and `status.prod` presets |
+| `--reliability` | Confirm each send with a Store node | on, off for the `twn`, `status.prod` and `status.staging` presets |
 | `--anonymity-level` | Mix anonymity level: `None`, `Preferred` or `Required`. A level above `None` mounts mix. | `None` |
 
 ## Store nodes
