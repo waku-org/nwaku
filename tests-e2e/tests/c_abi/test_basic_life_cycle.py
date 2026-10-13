@@ -1,6 +1,24 @@
+import re
 import socket
 from src.node.wrappers_manager import WrapperManager
-from src.node.wrapper_helpers import EventCollector, get_node_bound_ports, get_node_multiaddr, wait_for_connected, wait_for_mesh
+from src.node.wrapper_helpers import (
+    EventCollector,
+    create_message_bindings,
+    get_node_bound_ports,
+    get_node_multiaddr,
+    wait_for_connected,
+    wait_for_connection_change,
+    wait_for_mesh,
+    wait_for_topic_health,
+)
+from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_message_received
+
+NO_PROVIDER_REGISTERED_RE = re.compile(
+    r"Send failed: MessagingClient\.send: Failed to create delivery task: Failed create DeliveryTask: "
+    r"RequestBroker\(RequestRelayShard\): no provider registered for broker context (\w+)"
+)
+STOPPED_SEND_CONTENT_TOPIC = "/test/1/stopped-send/proto"
+OTHER_CONTENT_TOPIC = "/test/1/stopped-send-other/proto"
 
 
 class TestLogosDeliveryLifecycle:
@@ -27,6 +45,66 @@ class TestLogosDeliveryLifecycle:
 
             start_result = node.start_node()
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+    def test_send_on_node_never_started(self, node_config):
+        # TODO: send-while-stopped-error
+        # Each node names its own broker context in the error.
+        node_config.update({"numShardsInNetwork": 1})
+        result = WrapperManager.create(config=node_config)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            send_result = node.send_message(create_message_bindings())
+            assert send_result.is_err(), "send on a node never started succeeded"
+            match = NO_PROVIDER_REGISTERED_RE.search(send_result.err())
+            assert match, send_result.err()
+
+            other_result = WrapperManager.create(config=node_config)
+            assert other_result.is_ok(), f"Failed to create node: {other_result.err()}"
+            with other_result.ok_value as other_node:
+                other_send_result = other_node.send_message(create_message_bindings())
+                assert other_send_result.is_err(), "send on a node never started succeeded"
+                other_match = NO_PROVIDER_REGISTERED_RE.search(other_send_result.err())
+                assert other_match, other_send_result.err()
+                assert other_match.group(1) != match.group(1), f"two nodes named the same broker context {match.group(1)}"
+
+    def test_send_after_stop_node(self, node_config):
+        # TODO: send-while-stopped-error
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node(node_config) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            send_result = node.send_message(create_message_bindings())
+            assert send_result.is_err(), "send after stop_node succeeded"
+            assert NO_PROVIDER_REGISTERED_RE.search(send_result.err()), send_result.err()
+
+    def test_failed_send_after_stop_node_subscribes_content_topic(self, node_config):
+        # TODO: send-while-stopped-error
+        # A send after stop_node fails but still subscribes its content topic, so the restarted node delivers messages on it.
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            send_result = node.send_message(create_message_bindings(contentTopic=STOPPED_SEND_CONTENT_TOPIC))
+            assert send_result.is_err(), "send after stop_node succeeded"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback) as peer:
+                assert wait_for_mesh(node_collector), "node never meshed with the peer"
+                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
+
+                other_send_result = peer.send_message(create_message_bindings(contentTopic=OTHER_CONTENT_TOPIC))
+                assert other_send_result.is_ok(), f"peer send failed: {other_send_result.err()}"
+                peer_send_result = peer.send_message(create_message_bindings(contentTopic=STOPPED_SEND_CONTENT_TOPIC))
+                assert peer_send_result.is_ok(), f"peer send failed: {peer_send_result.err()}"
+
+                assert wait_for_message_received(node_collector, STOPPED_SEND_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic of its failed send"
+                assert wait_for_message_received(node_collector, OTHER_CONTENT_TOPIC, timeout_s=NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a message on a content topic it never sent to"
 
     def test_restart_node_with_rest(self, node_config):
         # TODO: logos-delivery#4522
@@ -129,6 +207,52 @@ class TestLogosDeliveryLifecycle:
 
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
+
+    def test_topic_health_unhealthy_when_mesh_peer_leaves(self, node_config):
+        # TODO: topic-health-after-restart
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
+                assert wait_for_mesh(node_collector), "node never meshed with the peer"
+
+            assert wait_for_topic_health(node_collector, ("UnHealthy",)), "node reported no UnHealthy after its only mesh peer left"
+
+    def test_topic_health_never_unhealthy_after_restart(self, node_config):
+        # TODO: topic-health-after-restart
+        # The restarted node reports no UnHealthy after its only mesh peer leaves.
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
+                assert wait_for_mesh(node_collector), "node never meshed with the peer"
+
+            assert wait_for_connection_change(node_collector, "EventDisconnected"), "restarted node never saw the peer leave"
+            assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=2), "restarted node reported UnHealthy"
+
+    def test_topic_health_unchanged_at_stop_node(self, node_config):
+        # TODO: topic-health-after-restart
+        # The stopped node reports no UnHealthy, while its peer does for the same mesh.
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
+                assert wait_for_mesh(node_collector), "node never meshed with the peer"
+                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
+
+                stop_result = node.stop_node()
+                assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+                assert wait_for_topic_health(peer_collector, ("UnHealthy",)), "peer reported no UnHealthy after the node stopped"
+                assert wait_for_connection_change(node_collector, "EventDisconnected"), "stopped node never saw the peer leave"
+                assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=0), "stopped node reported UnHealthy"
 
     def test_recreate_node_after_destroy(self, node_config):
         node = self._create_start_node(node_config)
