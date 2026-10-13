@@ -22,6 +22,11 @@ import
   ../testlib/postgres,
   ./archive_utils
 
+proc noopFatalHandler(errMsg: string) {.gcsafe, raises: [].} =
+  ## For the second driver instances the tests start: the factory only calls it
+  ## after six failed passes, about an hour, so it is out of reach within a test.
+  discard
+
 suite "Postgres driver":
   ## Unique driver instance
   var driver {.threadvar.}: PostgresDriver
@@ -468,15 +473,34 @@ suite "Postgres driver":
   ## before it, so that the messages store sync pushes back after a downtime, or
   ## into a brand new node, have a partition to land in. The checks below look
   ## at the slots relative to the hour they run in: should an o'clock have
-  ## passed since the setup, those slots still exist, created one slot earlier.
+  ## passed since the pass, those slots still exist, created one slot earlier.
   asyncTest "A fresh database gets the current hour and the two before it":
-    let currentSlot = floorToHour(now() div 1_000_000_000)
-    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    ## The suite's driver may have found partitions left by an earlier test, so
+    ## empty the database and let a second instance start on it: its first
+    ## pass takes the empty-state branch.
+    (await driver.reset()).expect("reset")
+    let leftovers =
+      (await driver.getPartitionsList()).expect("partitions list") &
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    for table in leftovers:
+      (await driver.performWriteQuery("DROP TABLE " & table)).expect("drop " & table)
 
-    check:
-      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
-      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
-      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    let fresh =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      await fresh.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        fresh.arePartitionsProvisioned()
+
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await fresh.getPartitionsList()).expect("partitions list")
+      check:
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await fresh.reset()).expect("reset the second driver")
+      (await fresh.close()).expect("close the second driver")
 
   asyncTest "A message up to two hours old is storable right after start":
     let timeOrigin = now()
@@ -503,33 +527,29 @@ suite "Postgres driver":
     ## Leave the database with only a partition from long ago, like a node that
     ## was stopped for a long time, then start a second instance the way the
     ## builder does. The old partition is created through that instance so that
-    ## it tracks everything and can clean up; the suite's driver tracks nothing
+    ## it tracks everything and cleans up; the suite's driver tracks nothing
     ## after its reset, so the teardown has nothing stale to drop.
     (await driver.reset()).expect("reset")
 
-    var fatalError = ""
-    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
-      fatalError = errMsg
-
     let restarted =
       PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
-    (await restarted.addPartition(partitionStart)).expect("addPartition")
+    try:
+      (await restarted.addPartition(partitionStart)).expect("addPartition")
 
-    await restarted.startPartitionFactory(onFatal)
-    checkUntilTimeout:
-      restarted.arePartitionsProvisioned()
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
 
-    let currentSlot = floorToHour(now() div 1_000_000_000)
-    let partitions = (await restarted.getPartitionsList()).expect("partitions list")
-    check:
-      fatalError == ""
-      partitionName in partitions
-      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
-      partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
-      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
-
-    (await restarted.reset()).expect("reset the second driver")
-    (await restarted.close()).expect("close the second driver")
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        partitionName in partitions
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
 
   asyncTest "Add a partition with an explicit end":
     ## Half an hour inside the 2023 fixture window, so it collides with nothing.
@@ -556,29 +576,25 @@ suite "Postgres driver":
     let legacyStart = currentSlot - 3600 + 1680 # 28 minutes into the hour before
     let legacyEnd = currentSlot
 
-    var fatalError = ""
-    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
-      fatalError = errMsg
-
     let restarted =
       PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
-    (await restarted.addPartition(Timestamp(legacyStart), Timestamp(legacyEnd))).expect(
-      "legacy partition"
-    )
+    try:
+      (await restarted.addPartition(Timestamp(legacyStart), Timestamp(legacyEnd))).expect(
+        "legacy partition"
+      )
 
-    await restarted.startPartitionFactory(onFatal)
-    checkUntilTimeout:
-      restarted.arePartitionsProvisioned()
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
 
-    let partitions = (await restarted.getPartitionsList()).expect("partitions list")
-    check:
-      fatalError == ""
-      ("messages_" & $(currentSlot - 3600) & "_" & $legacyStart) in partitions
-      ("messages_" & $legacyStart & "_" & $legacyEnd) in partitions
-      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
-
-    (await restarted.reset()).expect("reset the second driver")
-    (await restarted.close()).expect("close the second driver")
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        ("messages_" & $(currentSlot - 3600) & "_" & $legacyStart) in partitions
+        ("messages_" & $legacyStart & "_" & $legacyEnd) in partitions
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
 
   asyncTest "The tracked partitions are in time order after the lookback":
     ## With only the hour before the current one in place, the lookback adds the
@@ -589,34 +605,29 @@ suite "Postgres driver":
 
     let currentSlot = floorToHour(now() div 1_000_000_000)
 
-    var fatalError = ""
-    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
-      fatalError = errMsg
-
     let restarted =
       PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
-    (await restarted.addPartition(Timestamp(currentSlot - 3600))).expect(
-      "previous hour"
-    )
-
-    await restarted.startPartitionFactory(onFatal)
-    checkUntilTimeout:
-      restarted.arePartitionsProvisioned()
-
-    let msg = fakeWakuMessage()
-    check (
-      await restarted.put(
-        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
+    try:
+      (await restarted.addPartition(Timestamp(currentSlot - 3600))).expect(
+        "previous hour"
       )
-    ).expect("put a message stamped now")
 
-    check:
-      fatalError == ""
-      (await restarted.getOldestMessageTimestamp()).expect("oldest timestamp") ==
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let msg = fakeWakuMessage()
+      check (
+        await restarted.put(
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
+        )
+      ).expect("put a message stamped now")
+
+      check (await restarted.getOldestMessageTimestamp()).expect("oldest timestamp") ==
         Timestamp(currentSlot - 7200) * 1_000_000_000
-
-    (await restarted.reset()).expect("reset the second driver")
-    (await restarted.close()).expect("close the second driver")
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
 
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
