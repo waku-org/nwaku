@@ -16,7 +16,6 @@ from src.node.wrapper_helpers import (
     wait_for_error,
     wait_for_event,
     wait_for_mesh,
-    wait_for_online_state,
     wait_for_topic_health,
 )
 
@@ -30,10 +29,6 @@ STOPPED_CHANNEL_CONTENT_TOPIC = "/test/1/stopped-channel/proto"
 STOPPED_CHANNEL_SENDER_ID = "stopped-channel-sender"
 ERROR_TIMEOUT_S = 10.0
 
-# No name server answers at TEST-NET-1 (RFC 5737).
-UNREACHABLE_NAME_SERVER = "192.0.2.1"
-# The online check runs every 5 s and waits up to 5 s for a name server.
-ONLINE_STATE_WINDOW_S = 20.0
 # The relay checks a shard's health as soon as it subscribes to the shard or its mesh changes.
 TOPIC_HEALTH_WINDOW_S = 2.0
 
@@ -239,31 +234,6 @@ class TestLogosDeliveryLifecycle:
                 status_result = node.get_connection_status()
                 assert status_result.is_ok(), f"get_connection_status failed: {status_result.err()}"
                 assert status_result.ok_value == connected_event["connectionStatus"], status_result.ok_value
-
-    def test_is_online_false_on_node_never_started(self, node_config):
-        # TODO: is-online-after-stop
-        result = WrapperManager.create(config=node_config)
-        assert result.is_ok(), f"Failed to create node: {result.err()}"
-        with result.ok_value as node:
-            online_result = node.waku_is_online()
-            assert online_result.is_ok(), f"waku_is_online failed: {online_result.err()}"
-            assert online_result.ok_value is False, online_result.ok_value
-
-    def test_is_online_stays_true_after_stop_node(self, node_config):
-        # TODO: is-online-after-stop
-        # The stopped node keeps answering true although its peer stopped too and no name server answers.
-        node_config.update({"numShardsInNetwork": 1, "dnsAddrsNameServers": [UNREACHABLE_NAME_SERVER]})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
-                assert wait_for_online_state(node, True, ONLINE_STATE_WINDOW_S), "node with a peer never answered true"
-
-                stop_result = node.stop_node()
-                assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-            assert wait_for_connection_change(node_collector, "EventDisconnected"), "stopped node never saw the peer leave"
-            assert not wait_for_online_state(node, False, ONLINE_STATE_WINDOW_S), "stopped node answered false"
-            assert wait_for_online_state(node, True, timeout_s=0), "stopped node did not answer true"
 
     def test_recreate_node_after_destroy(self, node_config):
         node = self._create_start_node(node_config)

@@ -157,23 +157,6 @@ def wait_for_mesh(
     return False
 
 
-def wait_for_online_state(
-    node,
-    online: bool,
-    timeout_s: float = 10.0,
-    poll_interval_s: float = 0.3,
-) -> bool:
-    """Wait until waku_is_online answers `online`."""
-    deadline = time.monotonic() + timeout_s
-    while True:
-        result = node.waku_is_online()
-        if result.is_ok() and result.ok_value == online:
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(poll_interval_s)
-
-
 TERMINAL_EVENT_TYPES = {EVENT_PROPAGATED, EVENT_SENT, EVENT_ERROR}
 
 

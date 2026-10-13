@@ -9,8 +9,6 @@ if str(_BINDINGS_PATH) not in sys.path:
 from wrapper import NodeWrapper as _NodeWrapper, ffi, lib  # type: ignore[import]
 from wrapper import _event_callback, _global_set, _new_handle  # type: ignore[import]
 
-ffi.cdef("int waku_is_online(void *ctx, FFICallback callback, void *userData, const uint8_t *reqCbor, size_t reqCborLen);")
-
 """"
 thin manager/wrapper layer around NodeWrapper from the bindings.
 It simplifies  create, start, and interaction with a Waku node while returning consistent Result objects (Ok / Err).
@@ -114,9 +112,6 @@ class WrapperManager:
 
     def get_available_configs(self, *, timeout_s: float = 20.0) -> Result[dict, str]:
         return self._node.get_available_configs(timeout_s=timeout_s)
-
-    def waku_is_online(self, *, timeout_s: float = 20.0) -> Result[bool, str]:
-        return self._node._request(lib.waku_is_online, "waku_is_online", {}, timeout_s).map(lambda text: text == "true")
 
     def get_connection_status(self, *, timeout_s: float = 20.0) -> Result[str, str]:
         return self._node.get_connection_status(timeout_s=timeout_s)
