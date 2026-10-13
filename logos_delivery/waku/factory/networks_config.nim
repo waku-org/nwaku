@@ -57,6 +57,11 @@ proc autoSharding*(T: type ShardingConf, numShards: uint16): T =
     shards.add(i)
   ShardingConf.autoSharding(shards)
 
+proc autoSharding*(T: type ShardingConf, numShards: uint16, shards: seq[uint16]): T =
+  ## Auto-sharding over `numShards` shards with the given ids.
+  doAssert shards.len == numShards.int, "shards must hold numShards ids"
+  ShardingConf.autoSharding(shards)
+
 proc numShards*(shardingConf: ShardingConf): uint16 =
   uint16(shardingConf.shards.len)
 
@@ -180,7 +185,7 @@ proc statusNetworkConf(entryNodes: seq[string]): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf.autoSharding(shards = @[32'u16]),
+    shardingConf: ShardingConf.autoSharding(numShards = 1, shards = @[32'u16]),
     extraListenShards: @[64'u16],
     enableKadDiscovery: false,
     kadBootstrapNodes: @[],
