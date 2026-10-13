@@ -178,7 +178,8 @@ proc publishMessages(
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
       logos_delivery_lpt_publisher_failed_messages_count.inc(
-        labelValues = [wlpRes.error]
+        labelValues =
+          [if wlpRes.error.toLower().contains("dial"): "dial_failure" else: "publish_failure"]
       )
       if not wlpRes.error.toLower().contains("dial"):
         # retry sending after shorter wait
