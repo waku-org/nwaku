@@ -13,6 +13,7 @@ import
     waku_core,
     waku_core/message/digest,
     common/databases/db_postgres/dbconn,
+    common/databases/db_postgres/dns_resolver,
     common/databases/db_postgres/pgasyncpool,
   ],
   ../testlib/wakucore,
@@ -495,7 +496,7 @@ suite "Postgres connection lifecycle":
     return ok(alive)
 
   asyncTest "A connection whose backend died gives its selector entry back":
-    let wrapper = DbConnWrapper.new(RawConnString).expect("new connection")
+    let wrapper = (await DbConnWrapper.new(RawConnString)).expect("new connection")
 
     let asyncFd = wrapper.getRegisteredFd().expect("registered fd")
     check asyncFd in getThreadDispatcher()
@@ -613,3 +614,148 @@ suite "Postgres connection lifecycle":
 
     await healthFut.cancelAndWait()
     (await pool.close()).expect("pool close")
+
+  asyncTest "Queries waiting for the only connection never share it":
+    ## Every waiter woken by the same release used to pick that connection,
+    ## which libpq answered with "another command is already in progress".
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    var queries = newSeq[Future[Result[void, string]]](0)
+    for _ in 0 ..< 5:
+      queries.add(pool.pgQuery("SELECT pg_sleep(0.05)"))
+
+    for queryFut in queries:
+      (await queryFut).expect("queued query")
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "A cancelled query does not leave its connection unusable":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    let slowFut = pool.pgQuery("SELECT pg_sleep(1)")
+    await sleepAsync(100.milliseconds)
+    await slowFut.cancelAndWait()
+
+    let nextRes = await pool.pgQuery("SELECT 1").wait(5.seconds)
+    check nextRes.isOk()
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "Connecting to an unresponsive server times out without blocking":
+    ## Listening without accepting: the handshake completes in the kernel, but
+    ## the server never answers the startup packet
+    let silentServer = createStreamServer(initTAddress("127.0.0.1:0"))
+    let port = silentServer.localAddress().port
+    let pool = PgAsyncPool
+      .new(
+        "postgres://postgres:test123@127.0.0.1:" & $port & "/postgres",
+        1,
+        connectTimeout = 1.seconds,
+      )
+      .expect("pool")
+
+    var maxGap = ZeroDuration
+    var probing = true
+    proc probe() {.async.} =
+      var last = Moment.now()
+      while probing:
+        await sleepAsync(50.milliseconds)
+        maxGap = max(maxGap, Moment.now() - last)
+        last = Moment.now()
+
+    let probeFut = probe()
+    let queryRes = await pool.pgQuery("SELECT 1")
+    probing = false
+    await probeFut
+
+    check:
+      queryRes.isErr()
+      queryRes.error.contains("timed out")
+      maxGap < 500.milliseconds
+
+    (await pool.close()).expect("pool close")
+    await silentServer.closeWait()
+
+  asyncTest "A pool with a statement timeout cancels long queries server-side":
+    let pool = PgAsyncPool
+      .new(storeMessageDbUrl, 1, statementTimeout = 200.milliseconds)
+      .expect("pool")
+
+    let sleepRes = await pool.pgQuery("SELECT pg_sleep(2)")
+    check:
+      sleepRes.isErr()
+      sleepRes.error.contains("statement timeout")
+
+    (await pool.pgQuery("SELECT 1")).expect("query after the timeout")
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "A cancelled query is also cancelled in the server":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+    let observer = PgAsyncPool.new(storeMessageDbUrl, 1).expect("observer pool")
+
+    let slowFut = pool.pgQuery("SELECT pg_sleep(30) /* cancelled_sleep_marker */")
+    await sleepAsync(200.milliseconds)
+    await slowFut.cancelAndWait()
+
+    var running = 1
+    proc onRow(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        try:
+          running = parseInt($pqgetvalue(res, 0, 0))
+        except ValueError:
+          discard
+
+    for _ in 0 ..< 50:
+      (
+        await observer.pgQuery(
+          "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND query LIKE '%cancelled_sleep_marker%' AND query NOT LIKE '%pg_stat_activity%'",
+          @[],
+          onRow,
+        )
+      ).expect("observer query")
+      if running == 0:
+        break
+      await sleepAsync(100.milliseconds)
+
+    check running == 0
+
+    (await pool.close()).expect("pool close")
+    (await observer.close()).expect("observer close")
+
+  asyncTest "A lock timeout asked for one call does not stay on the connection":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    var shown = ""
+    proc onRow(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        shown = $pqgetvalue(res, 0, 0)
+
+    (
+      await pool.pgQuery(
+        "SHOW lock_timeout", @[], onRow, lockTimeout = Opt.some(1.seconds)
+      )
+    ).expect("query with a lock timeout")
+    check shown == "1s"
+
+    (await pool.pgQuery("SHOW lock_timeout", @[], onRow)).expect("default query")
+    check shown == "0"
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "Host names are resolved off the event loop":
+    check (await resolveHostAddr("127.0.0.1")).expect("literal") == ""
+    let addrs = (await resolveHostAddr("localhost")).expect("name").split(',')
+    check:
+      addrs.len > 0
+      addrs.deduplicate().len == addrs.len
+    check (await resolveHostAddr("host.invalid")).isErr()
+
+  asyncTest "Several addresses for one host connect through the first reachable":
+    let wrapper = (
+      await DbConnWrapper.new(
+        "user=postgres host=localhost,localhost hostaddr=127.0.0.1,127.0.0.1 port=5432 dbname=postgres password=test123"
+      )
+    ).expect("connection with two addresses")
+
+    wrapper.closeDbConn().expect("close")
