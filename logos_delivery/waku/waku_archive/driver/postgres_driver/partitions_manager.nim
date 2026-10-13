@@ -5,7 +5,7 @@
 ##
 
 import std/[deques, times]
-import chronos, chronicles
+import results, chronos, chronicles
 import ../../../waku_core/time
 
 logScope:
@@ -113,15 +113,22 @@ proc containsMoment*(partition: Partition, time: int64): bool =
 
   return false
 
-func overlapsTracked*(self: PartitionManager, beginning, `end`: int64): bool =
-  ## Returns true if any tracked partition intersects the range
-  ## [beginning, end), 'false' otherwise.
+func uncoveredPrefix*(self: PartitionManager, beginning, `end`: int64): Opt[TimeRange] =
+  ## The part of [beginning, end) before the earliest tracked partition that
+  ## overlaps it: the whole range when none does, none when a tracked partition
+  ## starts at or before `beginning`. Every partition ends on the o'clock
+  ## (calcEndPartitionTime), so this is the only gap an hour slot can have.
   ## beginning, end - seconds since Epoch
+  var firstOverlapStart = `end`
   for partition in self.partitions:
     if partition.timeRange.beginning < `end` and beginning < partition.timeRange.`end`:
-      return true
+      firstOverlapStart = min(firstOverlapStart, partition.timeRange.beginning)
 
-  return false
+  if firstOverlapStart <= beginning:
+    return Opt.none(TimeRange)
+
+  let prefix: TimeRange = (beginning, firstOverlapStart)
+  return Opt.some(prefix)
 
 proc calcEndPartitionTime*(startTime: Timestamp): Timestamp =
   ## Each partition has an "startTime" and "end" time. This proc calculates the "end" time so that

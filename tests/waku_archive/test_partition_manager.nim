@@ -1,6 +1,6 @@
 {.used.}
 
-import testutils/unittests, chronos
+import testutils/unittests, chronos, results
 import
   logos_delivery/waku/waku_archive/driver/postgres_driver/partitions_manager,
   logos_delivery/waku/waku_core/time
@@ -48,21 +48,25 @@ suite "Partition Manager":
     # 1717369200 == Sun Jun 02 2024 23:00:00 GMT+0000
     check 1717369200 == floorToHour(1717372799)
 
-  test "A slot overlaps the tracked partitions":
+  test "The uncovered start of an hour slot":
     let manager = PartitionManager.new()
+    let slot: TimeRange = (1717372800, 1717376400) # [00:00, 01:00)
+    let before: TimeRange = (1717369200, 1717372800) # [23:00, 00:00)
+    let after: TimeRange = (1717376400, 1717380000) # [01:00, 02:00)
 
-    ## Nothing tracked, nothing overlaps
-    check not manager.overlapsTracked(1717372800, 1717376400)
+    ## Nothing tracked: the whole slot is uncovered
+    check manager.uncoveredPrefix(slot.beginning, slot.`end`) == Opt.some(slot)
 
-    # [00:00, 01:00) tracked
+    # [00:00, 01:00) tracked: nothing left in that slot, the neighbours untouched
     manager.addPartitionInfo("messages_1717372800_1717376400", 1717372800, 1717376400)
     check:
-      manager.overlapsTracked(1717372800, 1717376400) # the same slot
-      not manager.overlapsTracked(1717376400, 1717380000)
-        # [01:00, 02:00), adjacent after
-      not manager.overlapsTracked(1717369200, 1717372800)
-        # [23:00, 00:00), adjacent before
+      manager.uncoveredPrefix(slot.beginning, slot.`end`).isNone()
+      manager.uncoveredPrefix(after.beginning, after.`end`) == Opt.some(after)
+      manager.uncoveredPrefix(before.beginning, before.`end`) == Opt.some(before)
 
-    # A legacy partition that starts within the hour, [23:28, 00:00)
+    # A legacy partition that starts within the hour, [23:28, 00:00): only the
+    # part of the slot before it is uncovered
     manager.addPartitionInfo("messages_1717370880_1717372800", 1717370880, 1717372800)
-    check manager.overlapsTracked(1717369200, 1717372800) # the [23:00, 00:00) slot
+    let legacyPrefix: TimeRange = (1717369200, 1717370880) # [23:00, 23:28)
+    check manager.uncoveredPrefix(before.beginning, before.`end`) ==
+      Opt.some(legacyPrefix)

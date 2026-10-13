@@ -531,6 +531,93 @@ suite "Postgres driver":
     (await restarted.reset()).expect("reset the second driver")
     (await restarted.close()).expect("close the second driver")
 
+  asyncTest "Add a partition with an explicit end":
+    ## Half an hour inside the 2023 fixture window, so it collides with nothing.
+    let explicitEnd = Timestamp(1_700_001_800)
+    (await driver.addPartition(partitionStart, explicitEnd)).expect("addPartition")
+
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let lookups =
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    check:
+      "messages_1700000000_1700001800" in partitions
+      "lookup_1700000000_1700001800" in lookups
+
+    ## An empty range is refused before any statement runs
+    check (await driver.addPartition(partitionStart, partitionStart)).isErr()
+
+  asyncTest "A legacy partition starting mid-hour gets the start of its hour filled":
+    ## The previous version started its first partition at the moment the node
+    ## came up, e.g. [10:28, 11:00). The start of that hour has no partition, and
+    ## the lookback must create exactly [10:00, 10:28), never the whole hour.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+    let legacyStart = currentSlot - 3600 + 1680 # 28 minutes into the hour before
+    let legacyEnd = currentSlot
+
+    var fatalError = ""
+    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
+      fatalError = errMsg
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    (await restarted.addPartition(Timestamp(legacyStart), Timestamp(legacyEnd))).expect(
+      "legacy partition"
+    )
+
+    await restarted.startPartitionFactory(onFatal)
+    checkUntilTimeout:
+      restarted.arePartitionsProvisioned()
+
+    let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+    check:
+      fatalError == ""
+      ("messages_" & $(currentSlot - 3600) & "_" & $legacyStart) in partitions
+      ("messages_" & $legacyStart & "_" & $legacyEnd) in partitions
+      partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+
+    (await restarted.reset()).expect("reset the second driver")
+    (await restarted.close()).expect("close the second driver")
+
+  asyncTest "The tracked partitions are in time order after the lookback":
+    ## With only the hour before the current one in place, the lookback adds the
+    ## hour before that, older than everything tracked so far. The oldest
+    ## tracked partition drives retention; here it is what reports the oldest
+    ## timestamp, once a row exists so that the row minimum is not the answer.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+
+    var fatalError = ""
+    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
+      fatalError = errMsg
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    (await restarted.addPartition(Timestamp(currentSlot - 3600))).expect(
+      "previous hour"
+    )
+
+    await restarted.startPartitionFactory(onFatal)
+    checkUntilTimeout:
+      restarted.arePartitionsProvisioned()
+
+    let msg = fakeWakuMessage()
+    check (
+      await restarted.put(
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
+      )
+    ).expect("put a message stamped now")
+
+    check:
+      fatalError == ""
+      (await restarted.getOldestMessageTimestamp()).expect("oldest timestamp") ==
+        Timestamp(currentSlot - 7200) * 1_000_000_000
+
+    (await restarted.reset()).expect("reset the second driver")
+    (await restarted.close()).expect("close the second driver")
+
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
   ## maintained the same partitions. Every one of them means "another instance
