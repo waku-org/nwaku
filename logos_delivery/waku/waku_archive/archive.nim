@@ -124,7 +124,7 @@ proc handleMessage*(
     msgTimestamp = msg.timestamp
 
   self.validator(msg).isOkOr:
-    logos_delivery_archive_errors.inc(labelValues = [error])
+    logos_delivery_archive_errors.inc(labelValues = [validationFailure])
     trace "invalid message",
       msg_hash = msgHashHex,
       pubsubTopic = pubsubTopic,
