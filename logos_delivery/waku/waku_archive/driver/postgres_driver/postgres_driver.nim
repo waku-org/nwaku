@@ -39,6 +39,13 @@ type PostgresDriver* = ref object of ArchiveDriver
 
   futLoopAnalyzeTable: Future[void]
 
+  ## Kept to be cancelled on close: a closed pool reopens connections on demand
+  futHealthChecks: seq[Future[void]]
+
+  ## Bounds the inserts only: the write pool also runs partition DDL, which can
+  ## legitimately wait on readers
+  writeLockTimeout: chronos.Duration
+
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
@@ -135,33 +142,52 @@ const SelectCursorByHashDef = """SELECT timestamp FROM messages_lookup
 const
   DefaultMaxNumConns = 50
   MaxHashesPerQuery = 100
+  DefaultReadStatementTimeout* = chronos.minutes(5)
+  DefaultReadLockTimeout* = chronos.seconds(30)
+  DefaultWriteLockTimeout* = chronos.seconds(30)
 
 proc new*(
     T: type PostgresDriver,
     dbUrl: string,
     maxConnections = DefaultMaxNumConns,
     onFatalErrorAction: OnFatalErrorHandler = nil,
+    readStatementTimeout = DefaultReadStatementTimeout,
+    readLockTimeout = DefaultReadLockTimeout,
+    writeLockTimeout = DefaultWriteLockTimeout,
 ): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
 
-  let readConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
+  ## Only the read pool gets server-side timeouts: the write pool also runs
+  ## migrations, partition DDL and ANALYZE, which can legitimately take long.
+  let readConnPool = PgAsyncPool.new(
+    dbUrl,
+    maxNumConnOnEachPool,
+    statementTimeout = readStatementTimeout,
+    lockTimeout = readLockTimeout,
+  ).valueOr:
     return err("error creating read conn pool PgAsyncPool")
 
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
-
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
-
   let driver = PostgresDriver(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
+    writeLockTimeout: writeLockTimeout,
   )
+
+  if not isNil(onFatalErrorAction):
+    for pool in [readConnPool, writeConnPool]:
+      let fut = checkConnectivity(pool, onFatalErrorAction)
+      fut.addCallback(
+        proc(udata: pointer) {.gcsafe, raises: [].} =
+          if fut.failed():
+            error "postgres health check loop failed", error = fut.error.msg
+      )
+      driver.futHealthChecks.add(fut)
+
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -337,6 +363,7 @@ method put*(
       ],
       @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
       insertCallback,
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages table: " & $error)
@@ -349,6 +376,7 @@ method put*(
       @[messageHash, timestamp],
       @[int32(messageHash.len), int32(timestamp.len)],
       @[int32(0), int32(0)],
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages_lookup table: " & $error)
@@ -1091,6 +1119,9 @@ method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Cancel analyze table loop
   if not s.futLoopAnalyzeTable.isNil():
     s.futLoopAnalyzeTable.cancelSoon()
+
+  for fut in s.futHealthChecks:
+    await fut.cancelAndWait()
 
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
