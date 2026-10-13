@@ -158,40 +158,47 @@ proc acquireConn(pool: PgAsyncPool): Future[DatabaseResult[DbConnWrapper]] {.asy
         return ok(conn)
 
     if pool.conns.len + pool.numConnecting < pool.maxConnections:
+      ## The slot stays reserved until the connection is in pool.conns: the
+      ## session setup awaits, and a released slot would let concurrent
+      ## callers open more than maxConnections.
       pool.numConnecting.inc()
       let generation = pool.generation
-      let connRes =
-        try:
-          let connString = (await pool.connectString()).valueOr:
-            return err("error building the connection string: " & $error)
-          await DbConnWrapper.new(connString, pool.connectTimeout)
-        finally:
-          pool.numConnecting.dec()
+      var conn: DbConnWrapper = nil
+      try:
+        let connString = (await pool.connectString()).valueOr:
+          return err("error building the connection string: " & $error)
+        conn = (await DbConnWrapper.new(connString, pool.connectTimeout)).valueOr:
+          return err("error creating DbConnWrapper: " & $error)
 
-      let conn = connRes.valueOr:
-        return err("error creating DbConnWrapper: " & $error)
+        if pool.sessionSettings.len > 0:
+          (
+            await conn.dbConnQuery(
+              sql(pool.sessionSettings), newSeq[string](0), nil, requestId = ""
+            )
+          ).isOkOr:
+            conn.closeDbConn().isOkOr:
+              error "failed to close a connection after failed setup", error = $error
+            return err("could not apply the session settings: " & $error)
 
-      if pool.sessionSettings.len > 0:
-        (
-          await conn.dbConnQuery(
-            sql(pool.sessionSettings), newSeq[string](0), nil, requestId = ""
-          )
-        ).isOkOr:
+        conn.lockTimeoutMs = pool.defaultLockTimeoutMs
+
+        if generation != pool.generation:
+          ## close() ran meanwhile, so this connection would never be closed
           conn.closeDbConn().isOkOr:
-            error "failed to close a connection after failed setup", error = $error
-          return err("could not apply the session settings: " & $error)
+            error "failed to close a connection opened during close", error = $error
+          return err("the pool was closed while connecting")
 
-      conn.lockTimeoutMs = pool.defaultLockTimeoutMs
-
-      if generation != pool.generation:
-        ## close() ran meanwhile, so this connection would never be closed
-        conn.closeDbConn().isOkOr:
-          error "failed to close a connection opened during close", error = $error
-        return err("the pool was closed while connecting")
-
-      conn.markBusy()
-      pool.conns.add(conn)
-      return ok(conn)
+        conn.markBusy()
+        pool.conns.add(conn)
+        return ok(conn)
+      except CancelledError as exc:
+        ## Not in pool.conns yet, so nothing else would ever close it
+        if not conn.isNil():
+          conn.closeDbConn().isOkOr:
+            error "failed to close a connection after cancelled setup", error = $error
+        raise exc
+      finally:
+        pool.numConnecting.dec()
 
     let busyFuts = pool.conns.mapIt(FutureBase(it.futBecomeFree))
     if busyFuts.len == 0:
