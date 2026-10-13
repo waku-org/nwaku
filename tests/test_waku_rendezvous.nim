@@ -22,6 +22,18 @@ import
   logos_delivery/waku/common/protobuf,
   ./testlib/[protobuf_errors, wakucore, wakunode]
 
+proc addRendezvousPeer(node: WakuNode, listener: StreamServer) =
+  ## A rendezvous peer at `listener`'s address in `node`'s peer store.
+  node.peerManager.addPeer(
+    RemotePeerInfo.init(
+      PeerId.init(generateSecp256k1Key()).tryGet(),
+      @[
+        MultiAddress.init("/ip4/127.0.0.1/tcp/" & $listener.localAddress().port).tryGet()
+      ],
+      protocols = @[WakuRendezVousCodec],
+    )
+  )
+
 suite "mixPubKeyFromHex":
   test "wrong decoded length returns none":
     check:
@@ -170,3 +182,74 @@ procSuite "Waku Rendezvous":
       lightClient.wakuRendezvous != nil
 
     await lightClient.stop()
+
+  asyncTest "A node stopped while its rendezvous registration dials a peer that never answers does not complete its stop":
+    # TODO: stop-after-peer-left
+    let
+      clusterId = 10.uint16
+      node = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
+    await node.mountRendezvous(clusterId)
+    await node.start()
+    var nodeStopped = false
+    defer:
+      if not nodeStopped:
+        discard await node.stop().withTimeout(5.seconds)
+
+    let accepted = newAsyncEvent()
+    var held: seq[StreamTransport]
+    proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
+      held.add(client)
+      accepted.fire()
+
+    let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
+    listener.start()
+    defer:
+      for client in held:
+        await client.closeWait()
+      listener.stop()
+      await listener.closeWait()
+
+    node.addRendezvousPeer(listener)
+    check await accepted.wait().withTimeout(DefaultRegistrationInterval + 5.seconds)
+
+    let stopping = node.stop()
+    check not await stopping.join().withTimeout(3.seconds)
+
+    # A second cancel reaches periodicRegistration, which now waits for its next registration.
+    await node.wakuRendezvous.stop()
+    nodeStopped = await stopping.join().withTimeout(5.seconds)
+    check nodeStopped
+
+  asyncTest "A node stopped before its first rendezvous registration completes its stop":
+    # TODO: stop-after-peer-left
+    let
+      clusterId = 10.uint16
+      node = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
+    await node.mountRendezvous(clusterId)
+    await node.start()
+    var nodeStopped = false
+    defer:
+      if not nodeStopped:
+        discard await node.stop().withTimeout(5.seconds)
+
+    let accepted = newAsyncEvent()
+    var held: seq[StreamTransport]
+    proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
+      held.add(client)
+      accepted.fire()
+
+    let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
+    listener.start()
+    defer:
+      for client in held:
+        await client.closeWait()
+      listener.stop()
+      await listener.closeWait()
+
+    node.addRendezvousPeer(listener)
+
+    let stopping = node.stop()
+    nodeStopped = await stopping.join().withTimeout(3.seconds)
+    check:
+      nodeStopped
+      not accepted.isSet()

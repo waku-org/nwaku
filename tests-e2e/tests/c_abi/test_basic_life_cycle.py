@@ -1,5 +1,7 @@
 import re
 import socket
+from src.libs.common import to_base64
+from src.node.subprocess_node import ChannelSenderProcess
 from src.node.wrappers_manager import WrapperManager
 from src.node.wrapper_helpers import (
     EVENT_TOPIC_HEALTH_CHANGE,
@@ -18,6 +20,7 @@ from src.node.wrapper_helpers import (
     wait_for_mesh,
     wait_for_topic_health,
 )
+from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_channel_received, wait_for_message_received
 
 NODE_NOT_STARTED_MSG = "node is not started"
 STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
@@ -27,6 +30,7 @@ SEGMENTS_FAILED_MSG = "one or more segments failed"
 STOPPED_CHANNEL_PREFIX = "stopped-channel"
 STOPPED_CHANNEL_CONTENT_TOPIC = "/test/1/stopped-channel/proto"
 STOPPED_CHANNEL_SENDER_ID = "stopped-channel-sender"
+STOPPED_CHANNEL_PEER_SENDER_ID = "stopped-channel-peer-sender"
 ERROR_TIMEOUT_S = 10.0
 
 # The relay checks a shard's health as soon as it subscribes to the shard or its mesh changes.
@@ -120,6 +124,67 @@ class TestLogosDeliveryLifecycle:
             send_result = node.channel_send(channel_id, create_message_bindings())
             assert send_result.is_ok(), f"channel_send after stop_node failed: {send_result.err()}"
             self._assert_channel_send_errors(node_collector, send_result.ok_value, channel_id)
+
+    def test_channel_send_after_restart_on_channel_created_before_stop(self, node_config):
+        # TODO: channels-after-stop
+        # stop_node drops the channel, so creating it again under the same id succeeds.
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node(node_config) as node:
+            channel_id = unique_channel_id(STOPPED_CHANNEL_PREFIX)
+            create_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert create_result.is_ok(), f"channel_create failed: {create_result.err()}"
+
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            stopped_send_result = node.channel_send(channel_id, create_message_bindings())
+            assert stopped_send_result.is_err(), "channel_send after stop_node on a channel created before the stop succeeded"
+            assert f"ChannelSend failed: unknown channel: {channel_id}" in stopped_send_result.err(), stopped_send_result.err()
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            send_result = node.channel_send(channel_id, create_message_bindings())
+            assert send_result.is_err(), "channel_send after restart on a channel created before stop_node succeeded"
+            assert f"ChannelSend failed: unknown channel: {channel_id}" in send_result.err(), send_result.err()
+
+            close_result = node.channel_close(channel_id)
+            assert close_result.is_err(), "channel_close after restart on a channel created before stop_node succeeded"
+            assert f"ChannelClose failed: unknown channel: {channel_id}" in close_result.err(), close_result.err()
+
+            recreate_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert recreate_result.is_ok(), f"channel_create after restart failed: {recreate_result.err()}"
+            assert recreate_result.ok_value == channel_id, recreate_result.ok_value
+
+    def test_restart_drops_channel_but_keeps_its_content_topic_subscribed(self, node_config):
+        # TODO: channels-after-stop
+        # After the restart a peer's message on the channel reaches message_received but not channel_message_received.
+        node_config.update({"relay": True, "store": False, "reliabilityEnabled": False, "numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            channel_id = unique_channel_id(STOPPED_CHANNEL_PREFIX)
+            create_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert create_result.is_ok(), f"channel_create failed: {create_result.err()}"
+
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            with ChannelSenderProcess(
+                {**node_config, "staticnodes": [get_node_multiaddr(node)]},
+                content_topic=STOPPED_CHANNEL_CONTENT_TOPIC,
+                channel_id=channel_id,
+                sender_id=STOPPED_CHANNEL_PEER_SENDER_ID,
+                payload_b64=to_base64("sent after the restart"),
+            ):
+                assert wait_for_message_received(node_collector, STOPPED_CHANNEL_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic of its channel"
+                assert wait_for_channel_received(node_collector, channel_id, NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a channel message on the channel it created before stop_node"
+
+                # TODO: stop-after-peer-left
+                stop_result = node.stop_node()
+                assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
 
     def test_restart_node_with_rest(self, node_config):
         node_config.update({"numShardsInNetwork": 1})
