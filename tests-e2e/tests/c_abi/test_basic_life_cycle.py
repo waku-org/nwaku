@@ -14,11 +14,12 @@ from src.node.wrapper_helpers import (
 from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_message_received
 
 NO_PROVIDER_REGISTERED_RE = re.compile(
-    r"Send failed: MessagingClient\.send: Failed to create delivery task: Failed create DeliveryTask: "
+    r"send_message: callback failed \(ret=1\): Send failed: MessagingClient\.send: Failed to create delivery task: Failed create DeliveryTask: "
     r"RequestBroker\(RequestRelayShard\): no provider registered for broker context (\w+)"
 )
 STOPPED_SEND_CONTENT_TOPIC = "/test/1/stopped-send/proto"
 OTHER_CONTENT_TOPIC = "/test/1/stopped-send-other/proto"
+STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
 
 
 class TestLogosDeliveryLifecycle:
@@ -105,6 +106,58 @@ class TestLogosDeliveryLifecycle:
 
                 assert wait_for_message_received(node_collector, STOPPED_SEND_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic of its failed send"
                 assert wait_for_message_received(node_collector, OTHER_CONTENT_TOPIC, timeout_s=NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a message on a content topic it never sent to"
+
+    def test_subscribe_and_unsubscribe_on_node_never_started(self, node_config):
+        # TODO: logos-delivery#4540
+        node_config.update({"numShardsInNetwork": 1})
+        result = WrapperManager.create(config=node_config)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert subscribe_result.is_ok(), f"subscribe on a node never started failed: {subscribe_result.err()}"
+
+            unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert unsubscribe_result.is_ok(), f"unsubscribe on a node never started failed: {unsubscribe_result.err()}"
+
+    def test_subscribe_and_unsubscribe_after_stop_node(self, node_config):
+        # TODO: logos-delivery#4540
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node(node_config) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert subscribe_result.is_ok(), f"subscribe after stop_node failed: {subscribe_result.err()}"
+
+            unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert unsubscribe_result.is_ok(), f"unsubscribe after stop_node failed: {unsubscribe_result.err()}"
+
+    def test_subscribe_on_node_never_started_subscribes_content_topic(self, node_config):
+        # TODO: logos-delivery#4540
+        # A subscribe on a node never started takes effect once the node starts.
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        result = WrapperManager.create(config=node_config, event_cb=node_collector.event_callback)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert subscribe_result.is_ok(), f"subscribe on a node never started failed: {subscribe_result.err()}"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to start node: {start_result.err()}"
+
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback) as peer:
+                assert wait_for_mesh(node_collector), "node never meshed with the peer"
+                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
+
+                other_send_result = peer.send_message(create_message_bindings(contentTopic=OTHER_CONTENT_TOPIC))
+                assert other_send_result.is_ok(), f"peer send failed: {other_send_result.err()}"
+                peer_send_result = peer.send_message(create_message_bindings(contentTopic=STOPPED_SUBSCRIBE_CONTENT_TOPIC))
+                assert peer_send_result.is_ok(), f"peer send failed: {peer_send_result.err()}"
+
+                assert wait_for_message_received(node_collector, STOPPED_SUBSCRIBE_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic it subscribed to before start_node"
+                assert wait_for_message_received(node_collector, OTHER_CONTENT_TOPIC, timeout_s=NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a message on a content topic it never subscribed to"
 
     def test_restart_node_with_rest(self, node_config):
         # TODO: logos-delivery#4522
