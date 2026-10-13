@@ -224,9 +224,13 @@ proc setupProtocols(
 
       (
         await node.mountStoreSync(
-          conf.clusterId, conf.subscribeShards, conf.contentTopics,
-          confStoreSync.rangeSec, confStoreSync.intervalSec,
+          conf.clusterId,
+          conf.subscribeShards,
+          conf.contentTopics,
+          confStoreSync.rangeSec,
+          confStoreSync.intervalSec,
           confStoreSync.relayJitterSec,
+          int(conf.maxMessageSizeBytes),
         )
       ).isOkOr:
         return err("failed to mount waku store sync protocol: " & $error)

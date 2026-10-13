@@ -47,6 +47,9 @@ type SyncTransfer* = ref object of LPProtocol
   remoteNeedsRxFut: Future[void]
   outSessions: Table[PeerId, Connection]
 
+  # Largest encoded WakuMessageAndTopic the handler reads from a peer
+  maxRpcSize: int
+
 proc sendMessage(
     conn: Connection, payload: WakuMessageAndTopic
 ): Future[Result[void, string]] {.async.} =
@@ -151,10 +154,17 @@ proc initProtocolHandler(self: SyncTransfer) =
         break ]#
 
       let readRes = catch:
-        await conn.readLp(int64(DefaultMaxWakuMessageSize))
+        await conn.readLp(self.maxRpcSize)
 
       let buffer: seq[byte] = readRes.valueOr:
-        # connection closed normally
+        if error of MaxSizeError:
+          # Only the length prefix was read. A reset makes the sender's write
+          # fail instead of blocking on the bytes left unread (#4485).
+          debug "Transfer message too large",
+            remote_peer_id = conn.peerId, max_rpc_size = self.maxRpcSize
+          logos_delivery_transfer_messages_refused.inc(labelValues = ["too_large"])
+          await conn.reset()
+        # otherwise the connection closed normally
         break
 
       logos_delivery_total_bytes_exchanged.inc(
@@ -205,6 +215,7 @@ proc new*(
     idsTx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     localWantsRx: AsyncQueue[PeerId],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
+    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
 ): T =
   var transfer = SyncTransfer(
     peerManager: peerManager,
@@ -212,6 +223,7 @@ proc new*(
     idsTx: idsTx,
     localWantsRx: localWantsRx,
     remoteNeedsRx: remoteNeedsRx,
+    maxRpcSize: maxMessageSize + DefaultSafetyBufferProtocolOverhead,
   )
 
   transfer.initProtocolHandler()
