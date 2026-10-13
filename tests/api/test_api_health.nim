@@ -231,7 +231,7 @@ suite "LM API health checking":
     check event.topic == DefaultShard
 
   asyncTest "EventShardTopicHealthChange, detect health degradation":
-    # TODO: topic-health-after-restart
+    # TODO: logos-delivery#4541
     client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]
@@ -248,7 +248,7 @@ suite "LM API health checking":
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
 
   asyncTest "EventShardTopicHealthChange, no health degradation after a restart":
-    # TODO: topic-health-after-restart
+    # TODO: logos-delivery#4541
     (await client.stop()).isOkOr:
       raiseAssert error
     (await client.start()).isOkOr:
@@ -281,7 +281,7 @@ suite "LM API health checking":
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
 
   asyncTest "EventShardTopicHealthChange, no health degradation at stop":
-    # TODO: topic-health-after-restart
+    # TODO: logos-delivery#4541
     client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]

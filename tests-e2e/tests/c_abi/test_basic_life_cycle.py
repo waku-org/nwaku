@@ -47,7 +47,7 @@ class TestLogosDeliveryLifecycle:
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
 
     def test_send_on_node_never_started(self, node_config):
-        # TODO: send-while-stopped-error
+        # TODO: logos-delivery#4540
         # Each node names its own broker context in the error.
         node_config.update({"numShardsInNetwork": 1})
         result = WrapperManager.create(config=node_config)
@@ -68,7 +68,7 @@ class TestLogosDeliveryLifecycle:
                 assert other_match.group(1) != match.group(1), f"two nodes named the same broker context {match.group(1)}"
 
     def test_send_after_stop_node(self, node_config):
-        # TODO: send-while-stopped-error
+        # TODO: logos-delivery#4540
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node(node_config) as node:
             stop_result = node.stop_node()
@@ -79,7 +79,7 @@ class TestLogosDeliveryLifecycle:
             assert NO_PROVIDER_REGISTERED_RE.search(send_result.err()), send_result.err()
 
     def test_failed_send_after_stop_node_subscribes_content_topic(self, node_config):
-        # TODO: send-while-stopped-error
+        # TODO: logos-delivery#4540
         # A send after stop_node fails but still subscribes its content topic, so the restarted node delivers messages on it.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
@@ -209,7 +209,7 @@ class TestLogosDeliveryLifecycle:
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
 
     def test_topic_health_unhealthy_when_mesh_peer_leaves(self, node_config):
-        # TODO: topic-health-after-restart
+        # TODO: logos-delivery#4541
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
         with self._create_start_node(node_config, node_collector.event_callback) as node:
@@ -219,7 +219,7 @@ class TestLogosDeliveryLifecycle:
             assert wait_for_topic_health(node_collector, ("UnHealthy",)), "node reported no UnHealthy after its only mesh peer left"
 
     def test_topic_health_never_unhealthy_after_restart(self, node_config):
-        # TODO: topic-health-after-restart
+        # TODO: logos-delivery#4541
         # The restarted node reports no UnHealthy after its only mesh peer leaves.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
@@ -237,7 +237,7 @@ class TestLogosDeliveryLifecycle:
             assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=2), "restarted node reported UnHealthy"
 
     def test_topic_health_unchanged_at_stop_node(self, node_config):
-        # TODO: topic-health-after-restart
+        # TODO: logos-delivery#4541
         # The stopped node reports no UnHealthy, while its peer does for the same mesh.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()

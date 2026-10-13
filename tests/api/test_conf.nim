@@ -341,7 +341,7 @@ suite "parseLogosDeliveryConf - JSON parsing":
       kc.tcpPort == Port(1234)
 
   test "the anonymity-level switch name is rejected as an override key":
-    # TODO: messaging-overrides-keys
+    # TODO: logos-delivery#4539
     check parseLogosDeliveryConf(
       """{"messagingOverrides": {"anonymity-level": "Required"}}"""
     )
