@@ -21,6 +21,10 @@ const TestTimeout = chronos.seconds(10)
 const NegativeTestTimeout = chronos.seconds(1)
 const DefaultShard = PubsubTopic("/waku/2/rs/3/0")
 const TestContentTopic = ContentTopic("/waku/2/default-content/proto")
+# No name server answers at TEST-NET-1 (RFC 5737).
+const UnreachableNameServer = "192.0.2.1"
+# The online check runs every 5 s and waits up to 5 s for a name server.
+const OnlineCheckTimeout = chronos.seconds(20)
 
 proc dummyHandler(
     topic: PubsubTopic, msg: WakuMessage
@@ -206,6 +210,54 @@ suite "LM API health checking":
     check (await client.getConnectionStatus()).get() ==
       ConnectionStatus.PartiallyConnected
 
+  asyncTest "isOnline, false before the first start":
+    # TODO: is-online-after-stop
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+
+    check (await node.isOnline()) == Result[bool, string].ok(false)
+
+  asyncTest "isOnline, keeps the last answer after stop":
+    # TODO: is-online-after-stop
+    var peer: LogosDelivery
+    lockNewGlobalBrokerContext:
+      var conf = defaultTestNodeConf()
+      conf.kernel.dnsAddrsNameServers = @[parseIpAddress(UnreachableNameServer)]
+      peer = (await LogosDelivery.new(conf)).valueOr:
+        raiseAssert error
+      (await peer.start()).isOkOr:
+        raiseAssert error
+    defer:
+      if peer.isRunning():
+        discard await peer.stop()
+
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      var conf = defaultTestNodeConf()
+      conf.kernel.dnsAddrsNameServers = @[parseIpAddress(UnreachableNameServer)]
+      node = (await LogosDelivery.new(conf)).valueOr:
+        raiseAssert error
+      (await node.start()).isOkOr:
+        raiseAssert error
+    defer:
+      if node.isRunning():
+        discard await node.stop()
+
+    await node.waku.node.connectToNodes(@[peer.waku.node.peerInfo.toRemotePeerInfo()])
+    checkUntilTimeoutCustom(OnlineCheckTimeout, chronos.milliseconds(100)):
+      (await node.isOnline()) == Result[bool, string].ok(true)
+
+    (await node.stop()).isOkOr:
+      raiseAssert error
+    (await peer.stop()).isOkOr:
+      raiseAssert error
+
+    # The stopped node keeps answering true although its peer stopped too and no name server answers.
+    await sleepAsync(OnlineCheckTimeout)
+    check (await node.isOnline()) == Result[bool, string].ok(true)
+
   asyncTest "EventConnectionStatusChange, detect connect and disconnect":
     let connectFuture = waitForConnectionStatus(
       client.waku.brokerCtx, ConnectionStatus.PartiallyConnected
@@ -260,6 +312,26 @@ suite "LM API health checking":
     check:
       client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
+
+  asyncTest "EventShardTopicHealthChange, no health reported before a peer meshes":
+    # TODO: topic-health-first-event
+    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+
+    # The node reports no UNHEALTHY although its mesh is empty.
+    await sleepAsync(NegativeTestTimeout)
+    check:
+      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)
+      healths[].len == 0
+
+    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
 
   asyncTest "RequestHealthReport, check aggregate report":
     let req = await RequestHealthReport.request(client.waku.brokerCtx)

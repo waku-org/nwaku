@@ -6,7 +6,10 @@ _BINDINGS_PATH = Path(__file__).resolve().parents[2] / "vendor" / "logos-deliver
 if str(_BINDINGS_PATH) not in sys.path:
     sys.path.insert(0, str(_BINDINGS_PATH))
 
-from wrapper import NodeWrapper as _NodeWrapper  # type: ignore[import]
+from wrapper import NodeWrapper as _NodeWrapper, ffi, lib  # type: ignore[import]
+from wrapper import _event_callback, _global_set, _new_handle  # type: ignore[import]
+
+ffi.cdef("int waku_is_online(void *ctx, FFICallback callback, void *userData, const uint8_t *reqCbor, size_t reqCborLen);")
 
 """"
 thin manager/wrapper layer around NodeWrapper from the bindings.
@@ -17,6 +20,7 @@ It simplifies  create, start, and interaction with a Waku node while returning c
 class WrapperManager:
     def __init__(self, node: _NodeWrapper):
         self._node = node
+        self._event_cb_handlers = []
 
     @classmethod
     def create(
@@ -57,10 +61,21 @@ class WrapperManager:
         return self._node.stop_node(timeout_s=timeout_s)
 
     def destroy(self, *, timeout_s: float = 20.0) -> Result[int, str]:
-        return self._node.destroy(timeout_s=timeout_s)
+        result = self._node.destroy(timeout_s=timeout_s)
+        self._release_event_cb_handlers()
+        return result
 
     def stop_and_destroy(self, *, timeout_s: float = 20.0) -> Result[int, str]:
-        return self._node.stop_and_destroy(timeout_s=timeout_s)
+        result = self._node.stop_and_destroy(timeout_s=timeout_s)
+        self._release_event_cb_handlers()
+        return result
+
+    def _release_event_cb_handlers(self) -> None:
+        # The library calls back with these handlers until it destroys the node.
+        if self._node.ctx == ffi.NULL:
+            for handler in self._event_cb_handlers:
+                _global_set.discard(handler)
+            self._event_cb_handlers = []
 
     def destroy_keep_ctx(self, *, timeout_s: float = 20.0) -> Result[int, str]:
         """Pass-through for NodeWrapper.destroy_keep_ctx — see that method."""
@@ -99,3 +114,20 @@ class WrapperManager:
 
     def get_available_configs(self, *, timeout_s: float = 20.0) -> Result[dict, str]:
         return self._node.get_available_configs(timeout_s=timeout_s)
+
+    def waku_is_online(self, *, timeout_s: float = 20.0) -> Result[bool, str]:
+        return self._node._request(lib.waku_is_online, "waku_is_online", {}, timeout_s).map(lambda text: text == "true")
+
+    def get_connection_status(self, *, timeout_s: float = 20.0) -> Result[str, str]:
+        return self._node.get_connection_status(timeout_s=timeout_s)
+
+    def add_event_listener(self, event_name: str, event_cb) -> int:
+        """Registers event_cb for event_name after create; destroy removes it with the listeners added at create."""
+        handler = _new_handle(event_cb)
+        listener_id = lib.logosdelivery_add_event_listener(self._node.ctx, event_name.encode("utf-8"), _event_callback, handler)
+        if listener_id == 0:
+            _global_set.discard(handler)
+            return 0
+        self._node._listener_ids += (listener_id,)
+        self._event_cb_handlers.append(handler)
+        return listener_id

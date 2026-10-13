@@ -17,6 +17,7 @@ EVENT_PROPAGATED = "message_propagated"
 EVENT_SENT = "message_sent"
 EVENT_ERROR = "message_error"
 EVENT_CHANNEL_RECEIVED = "channel_message_received"
+EVENT_CHANNEL_ERROR = "channel_message_error"
 EVENT_TOPIC_HEALTH_CHANGE = "relay_topic_health_change"
 # Topic health a node reports once its relay mesh on the shard has at least one peer.
 MESH_TOPIC_HEALTH = ("MinimallyHealthy", "SufficientlyHealthy")
@@ -77,6 +78,10 @@ def is_sent_event(event: dict) -> bool:
 
 def is_error_event(event: dict) -> bool:
     return event.get("eventType") == EVENT_ERROR
+
+
+def is_channel_error_event(event: dict) -> bool:
+    return event.get("eventType") == EVENT_CHANNEL_ERROR
 
 
 def wait_for_event(
@@ -150,6 +155,23 @@ def wait_for_mesh(
             return True
         time.sleep(poll_interval_s)
     return False
+
+
+def wait_for_online_state(
+    node,
+    online: bool,
+    timeout_s: float = 10.0,
+    poll_interval_s: float = 0.3,
+) -> bool:
+    """Wait until waku_is_online answers `online`."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        result = node.waku_is_online()
+        if result.is_ok() and result.ok_value == online:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval_s)
 
 
 TERMINAL_EVENT_TYPES = {EVENT_PROPAGATED, EVENT_SENT, EVENT_ERROR}
