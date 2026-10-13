@@ -321,6 +321,55 @@ suite "Waku Sync: reconciliation":
     for hash in diffs:
       check remoteNeeds.contains((serverPeerInfo.peerId, hash))
 
+  asyncTest "preProcessPayload splits a crossing item set range and drops its older elements":
+    let now = getNowInNanosecondTime()
+    (server, client) = await newNarrowServerAndClient(now)
+
+    let lowerBound = calculateTimeRange(now, narrowRelayJitter, narrowSyncRange).a
+    var h1, h2, h3: WakuMessageHash
+    h1[0] = 1
+    h2[0] = 2
+    h3[0] = 3
+
+    # Two ranges end before the bound, one Fingerprint and one ItemSet, so the
+    # crossing range's item set is only at index 0 once theirs are removed.
+    let
+      split = SyncID(time: lowerBound, hash: EmptyFingerprint)
+      farStart = SyncID(time: lowerBound - 3000.seconds.nanos, hash: EmptyFingerprint)
+      farEnd = SyncID(time: lowerBound - 2000.seconds.nanos, hash: EmptyFingerprint)
+      nearEnd = SyncID(time: lowerBound - 1000.seconds.nanos, hash: EmptyFingerprint)
+      rangeEnd = SyncID(time: lowerBound + 1000.seconds.nanos, hash: EmptyFingerprint)
+      elements = @[
+        SyncID(time: lowerBound - 1, hash: h1),
+        SyncID(time: lowerBound, hash: h2),
+        SyncID(time: lowerBound + 1, hash: h3),
+      ]
+      payload = RangesData(
+        ranges: @[
+          (farStart .. farEnd, RangeType.Fingerprint),
+          (farEnd .. nearEnd, RangeType.ItemSet),
+          (nearEnd .. rangeEnd, RangeType.ItemSet),
+        ],
+        fingerprints: @[FullFingerprint],
+        itemSets: @[
+          ItemSet(elements: @[SyncID(time: farEnd.time, hash: h1)], reconciled: true),
+          ItemSet(elements: elements, reconciled: false),
+        ],
+      )
+
+    let processed = server.preProcessPayload(payload, lowerBound).get()
+
+    check:
+      processed.ranges ==
+        @[
+          (farStart .. farEnd, RangeType.Skip),
+          (farEnd .. nearEnd, RangeType.Skip),
+          (nearEnd .. split, RangeType.Skip),
+          (split .. rangeEnd, RangeType.ItemSet),
+        ]
+      processed.fingerprints.len == 0
+      processed.itemSets == @[ItemSet(elements: elements[1 .. 2], reconciled: false)]
+
   asyncTest "sync 2 nodes different hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds

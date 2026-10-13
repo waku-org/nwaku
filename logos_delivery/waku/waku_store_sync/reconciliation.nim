@@ -109,7 +109,7 @@ proc messageIngress*(
     error "failed to insert new message",
       msg_hash = byteutils.toHex(id.hash), error = $error
 
-proc preProcessPayload(
+proc preProcessPayload*(
     self: SyncReconciliation, payload: RangesData, lowerBound: Timestamp
 ): Opt[RangesData] =
   ## Check the received payload for topics and/or time mismatch.
