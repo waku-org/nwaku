@@ -201,24 +201,29 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.len == 1
       remoteNeeds.contains((clientPeerInfo.peerId, inRangeHash)) == true
 
-  asyncTest "a peer with a longer range only pushes messages inside the server's window":
-    let now = getNowInNanosecondTime()
+  const
+    narrowSyncRange = 1780.seconds
+    narrowRelayJitter = 20.seconds
+
+  proc newNarrowServerAndClient(
+      now: Timestamp
+  ): Future[(SyncReconciliation, SyncReconciliation)] {.async.} =
+    ## A server whose time range is [now - 1800 s, now - 20 s] and a client with
+    ## the default range, [now - 3600 s, now], both on a clock fixed at `now`.
     let clock = proc(): Timestamp {.gcsafe, raises: [].} =
       now
-
-    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
-    server = await newTestWakuRecon(
+    let server = await newTestWakuRecon(
       serverSwitch,
       @[],
       @[],
-      1780.seconds,
+      narrowSyncRange,
       idsChannel,
       localWants,
       remoteNeeds,
-      relayJitter = 20.seconds,
+      relayJitter = narrowRelayJitter,
       clock = clock,
     )
-    client = await newTestWakuRecon(
+    let client = await newTestWakuRecon(
       clientSwitch,
       @[],
       @[],
@@ -228,6 +233,11 @@ suite "Waku Sync: reconciliation":
       remoteNeeds,
       clock = clock,
     )
+    return (server, client)
+
+  asyncTest "a peer with a longer range only pushes messages inside the server's window":
+    let now = getNowInNanosecondTime()
+    (server, client) = await newNarrowServerAndClient(now)
 
     let
       oldMsg = fakeWakuMessage(
@@ -252,31 +262,7 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "a server does not offer messages older than its window":
     let now = getNowInNanosecondTime()
-    let clock = proc(): Timestamp {.gcsafe, raises: [].} =
-      now
-
-    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
-    server = await newTestWakuRecon(
-      serverSwitch,
-      @[],
-      @[],
-      1780.seconds,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-      relayJitter = 20.seconds,
-      clock = clock,
-    )
-    client = await newTestWakuRecon(
-      clientSwitch,
-      @[],
-      @[],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-      clock = clock,
-    )
+    (server, client) = await newNarrowServerAndClient(now)
 
     let
       oldMsg = fakeWakuMessage(
@@ -300,31 +286,7 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "partitioned ranges stay inside the server's window":
     let now = getNowInNanosecondTime()
-    let clock = proc(): Timestamp {.gcsafe, raises: [].} =
-      now
-
-    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
-    server = await newTestWakuRecon(
-      serverSwitch,
-      @[],
-      @[],
-      1780.seconds,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-      relayJitter = 20.seconds,
-      clock = clock,
-    )
-    client = await newTestWakuRecon(
-      clientSwitch,
-      @[],
-      @[],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
-      clock = clock,
-    )
+    (server, client) = await newNarrowServerAndClient(now)
 
     const
       msgCount = 1000
@@ -333,7 +295,7 @@ suite "Waku Sync: reconciliation":
     # The client holds 1000 messages spread over its window. The server holds
     # the ones inside its own window except three, so that it answers with
     # partitions of the part of the client's range it processes.
-    let windowStart = now - 1800.seconds.nanos
+    let windowStart = calculateTimeRange(now, narrowRelayJitter, narrowSyncRange).a
     let timeSlice = calculateTimeRange(now, 0.seconds, DefaultSyncRange)
     let step = (timeSlice.b - timeSlice.a) div msgCount
 
