@@ -134,8 +134,49 @@ def tainted_binding(text, pos, ident):
     return bool(BOUND_RHS_TAINT.search(rhs))
 
 
+WHY = {
+    "tainted": (
+        "This label value carries free-form text (an error, message, peer id, "
+        "address, ...). Every distinct value becomes a new Prometheus time series, "
+        "so it grows without bound.",
+        "Replace it with a fixed set of values (a const or a literal, e.g. "
+        '"dial_failure") and log the detail instead. If it is provably bounded, '
+        "add `# bounded-label: <why>` on the call line or the line above it.",
+    ),
+    "unbounded": (
+        "This label value is not a string literal or a `const`, so the linter "
+        "cannot prove it takes a bounded set of values.",
+        "Use a literal/const. If it is bounded (e.g. an enum), add "
+        "`# bounded-label: <why>` on the call line or the line above it; "
+        "`scripts/check_metric_labels.py --update` is only for existing code.",
+    ),
+    "arity": (
+        "The number of label values differs from the labels the metric declares.",
+        "Pass exactly one value per declared label.",
+    ),
+    "name": (
+        "A declared label name suggests an unbounded dimension.",
+        "Use a bounded dimension, or drop the label.",
+    ),
+    "stale": (
+        "scripts/metric_labels_allowlist.txt lists an expression that no longer "
+        "offends (it was fixed or removed).",
+        "Delete the entry, or run `scripts/check_metric_labels.py --update`.",
+    ),
+}
+ORDER = ["tainted", "unbounded", "arity", "name", "stale"]
+TITLE = {
+    "tainted": "free-form text used as a metric label",
+    "unbounded": "metric label not provably bounded",
+    "arity": "metric label count mismatch",
+    "name": "suspicious metric label name",
+    "stale": "stale allowlist entries",
+}
+
+
 def analyse(texts, consts, decls):
-    unbounded, tainted, arity = set(), [], []
+    """Returns findings as (kind, location, detail, allowlist_key|None)."""
+    out = []
     for rel, text in texts.items():
         lines = text.splitlines()
         for m in CALL_RE.finditer(text):
@@ -150,12 +191,17 @@ def analyse(texts, consts, decls):
             labels = label_list(args)
             if labels is None:
                 continue
-            line_no = text.count("\n", 0, m.start()) + 1
+            loc = f"{rel}:{call_line + 1}"
             name = m.group(1)
             if name in decls and len(decls[name][1]) != len(labels) and not waived:
-                arity.append(
-                    f"{rel}:{line_no}: {name} declares {len(decls[name][1])} "
-                    f"label(s), got {len(labels)}"
+                out.append(
+                    (
+                        "arity",
+                        loc,
+                        f"`{name}` declares {len(decls[name][1])} label(s) "
+                        f"{decls[name][1]}, call passes {len(labels)}",
+                        None,
+                    )
                 )
             for expr in labels:
                 if LITERAL_RE.match(expr) or (IDENT_RE.match(expr) and expr in consts):
@@ -165,11 +211,11 @@ def analyse(texts, consts, decls):
                 bad = TAINT_RE.search(expr) or (
                     IDENT_RE.match(expr) and tainted_binding(text, m.start(), expr)
                 )
-                if bad:
-                    tainted.append(f"{rel}:{line_no}: {name}: {expr}")
-                else:
-                    unbounded.add(f"{rel}::{expr}")
-    return unbounded, tainted, arity
+                kind = "tainted" if bad else "unbounded"
+                out.append(
+                    (kind, loc, f"`{name}` label value `{expr}`", f"{rel}::{expr}")
+                )
+    return out
 
 
 def main():
@@ -178,41 +224,40 @@ def main():
     }
     consts = string_consts(texts)
     decls = declarations(texts)
-    unbounded, tainted, arity = analyse(texts, consts, decls)
-    badnames = [
-        f"{rel}: {m}: label name `{n}` looks unbounded"
-        for m, (rel, names) in sorted(decls.items())
-        for n in names
-        if BAD_LABEL_NAME.search(n)
-    ]
+    found = analyse(texts, consts, decls)
+    for m, (rel, names) in sorted(decls.items()):
+        for n in names:
+            if BAD_LABEL_NAME.search(n):
+                found.append(("name", rel, f"`{m}` declares label `{n}`", None))
 
+    keys = {k for kind, _, _, k in found if kind == "unbounded"}
     if "--update" in sys.argv:
-        ALLOWLIST.write_text("".join(f"{e}\n" for e in sorted(unbounded)))
+        ALLOWLIST.write_text("".join(f"{e}\n" for e in sorted(keys)))
     allowed = (
         {l.strip() for l in ALLOWLIST.read_text().splitlines() if l.strip()}
         if ALLOWLIST.exists()
         else set()
     )
-    new, stale = sorted(unbounded - allowed), sorted(allowed - unbounded)
-    for e in tainted:
-        print(f"tainted metric label: {e}")
-    for e in arity:
-        print(f"label arity mismatch: {e}")
-    for e in badnames:
-        print(f"suspicious label name: {e}")
-    for e in new:
-        print(f"unbounded metric label: {e}")
-    for e in stale:
-        print(f"stale allowlist entry (remove it): {e}")
-    failed = bool(tainted or arity or badnames or new or stale)
-    if failed:
-        print(
-            "\nMetric label values must be string literals or consts: every "
-            "distinct value becomes a new time series.\nMap free-form values "
-            "(errors, peer ids, addresses) to a fixed set and log them instead; "
-            "waive a proven-bounded use with `# bounded-label: <why>`."
-        )
-    return 1 if failed else 0
+    # allowlisted `unbounded` findings are accepted; tainted ones never are
+    findings = [f for f in found if not (f[0] == "unbounded" and f[3] in allowed)]
+    for e in sorted(allowed - keys):
+        findings.append(("stale", "scripts/metric_labels_allowlist.txt", e, None))
+
+    if not findings:
+        print("metric labels: all label values are bounded")
+        return 0
+    for kind in ORDER:
+        group = [f for f in findings if f[0] == kind]
+        if not group:
+            continue
+        why, fix = WHY[kind]
+        print(f"\n== {TITLE[kind]} ({len(group)})")
+        print(f"   why: {why}")
+        print(f"   fix: {fix}")
+        for _, loc, detail, _k in sorted(set((f[0], f[1], f[2], f[3]) for f in group)):
+            print(f"  {loc}: {detail}")
+    print(f"\nmetric labels: {len(findings)} problem(s) found")
+    return 1
 
 
 if __name__ == "__main__":
