@@ -1550,21 +1550,17 @@ const MaxConsecutivePartitionMaintenanceFailures = 6
 const MaxPartitionCheckJitterSecs = 120
 
 const StartupLookbackSlots = 2
-  ## Hour slots created before the current one when the factory starts from an
-  ## empty database or after a downtime, so that the messages store sync pushes
-  ## back have a partition to land in. Two slots cover the default
-  ## store-sync-range (3600 s) plus store-sync-relay-jitter (20 s) from any
-  ## moment of the current hour.
+  ## Partitions created before the current hour when the factory starts from an
+  ## empty database or after a downtime. Two cover the default store-sync-range
+  ## (3600 s) plus store-sync-relay-jitter (20 s) from any moment of the hour.
 
 proc addStartupPartitions(
     self: PostgresDriver, nowSec: int64
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates the partition for the hour containing `nowSec` and the
   ## `StartupLookbackSlots` hours before it, oldest first, so that the newest
-  ## tracked partition ends up being the one containing `nowSec`. A slot that an
-  ## existing partition already overlaps is skipped: attaching an overlapping
-  ## partition is a genuine error, and a version that started its partitions at
-  ## an arbitrary minute may have left one.
+  ## tracked partition is the one containing `nowSec`. Slots that an existing
+  ## partition overlaps are skipped: attaching an overlapping partition fails.
   let currentSlot = floorToHour(nowSec)
   for i in countdown(StartupLookbackSlots, 0):
     let slotStart = currentSlot - int64(i) * 3600
