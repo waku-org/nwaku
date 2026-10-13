@@ -291,7 +291,9 @@ proc lightpushPublishHandler(
         let conn = node.wakuMix.toConnection(
           MixDestination.exitNode(peer.peerId),
           WakuLightPushCodec,
-          MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(MixLightpushSurbs)),
+          MixParameters(
+            expectReply: Opt.some(true), numSurbs: Opt.some(MixLightpushSurbs)
+          ),
             # indicating we only want a single path to be used for reply hence numSurbs = 1
         ).valueOr:
           debug "Could not create mix connection"

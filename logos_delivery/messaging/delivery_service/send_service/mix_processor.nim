@@ -129,7 +129,6 @@ proc decideTooLarge(self: MixSendProcessor, task: DeliveryTask, size, limit: int
     task.errorDesc =
       MixTooLargeReason & ": the request has " & $size & " bytes, the limit is " & $limit &
       " bytes"
-    task.deliveryTime = Moment.now()
     return
   debug "Message too large for mix, handing it to the plain send path",
     requestId = task.requestId, msgHash = task.msgHash.to0xHex(), size, limit

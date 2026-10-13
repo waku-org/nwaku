@@ -23,7 +23,7 @@ import
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, delivery_task, mix_processor],
-  ../testlib/[futures, testasync, wakucore, wakumix, wakunodeconf]
+  ../testlib/[futures, testasync, wakucore, mix_size_network, wakunodeconf]
 
 proc senderConf(): WakuConf =
   var nodeConf = defaultTestWakuNodeConf()
@@ -32,12 +32,12 @@ proc senderConf(): WakuConf =
     raiseAssert error
 
 proc newService(waku: Waku, level: AnonymityLevel): SendService =
-  ## The loop runs one pass at start, then the tests drive the sends.
+  ## Each accepted task runs through the scheduler.
   let manager =
     RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
   let chain = setupSendProcessorChain(waku, level).expect("chain")
   let service = SendService
-    .new(false, waku, manager, chain, level, serviceLoopInterval = chronos.hours(1))
+    .new(false, waku, manager, chain, level, retryInterval = chronos.hours(1))
     .expect("SendService.new")
   service.startSendService()
   return service
@@ -67,11 +67,7 @@ suite "Waku Mix - the size of a mix send":
     lockNewGlobalBrokerContext:
       waku = (await Waku.new(senderConf())).expect("Waku.new")
       let keys = generateKeyPair().expect("mix key pair")
-      (
-        await waku.node.mountMix(
-          DefaultClusterId, keys.privateKey, net.infos, defaultAddressPolicy
-        )
-      ).isOkOr:
+      (await waku.node.mountMix(DefaultClusterId, keys.privateKey, net.infos)).isOkOr:
         raiseAssert "mountMix: " & $error
       (await waku.start()).expect("start")
     defer:
@@ -101,7 +97,9 @@ suite "Waku Mix - the size of a mix send":
     let limit = mixLightpushSize(DefaultPubsubTopic, fakeWakuMessage()).limit
 
     let tooLarge = sizedTask("one-byte-too-many", limit + 1)
-    check await service.send(tooLarge).withTimeout(FUTURE_TIMEOUT)
+    check service.enqueue(tooLarge).isOk()
+    checkUntilTimeout:
+      tooLarge.state == DeliveryState.FailedToDeliver
     check:
       tooLarge.state == DeliveryState.FailedToDeliver
       tooLarge.errorDesc.startsWith(MixTooLargeReason)
@@ -111,7 +109,9 @@ suite "Waku Mix - the size of a mix send":
     check errors == @[tooLarge.errorDesc]
 
     let fits = sizedTask("largest-that-fits", limit)
-    check await service.send(fits).withTimeout(FUTURE_TIMEOUT_LONG)
+    check service.enqueue(fits).isOk()
+    checkUntilTimeout:
+      fits.state == DeliveryState.SuccessfullyPropagated
     check:
       fits.state == DeliveryState.SuccessfullyPropagated
       fits.propagatedAnonymously
