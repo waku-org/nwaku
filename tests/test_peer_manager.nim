@@ -685,6 +685,64 @@ procSuite "Peer Manager":
 
     await allFutures(nodes.mapIt(it.stop()))
 
+  asyncTest "connectPeer() failing after the peer connected in keeps it Connected":
+    ## The node's dial stalls on an address that never answers the handshake,
+    ## and the peer connects in before that dial times out.
+    let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
+    await allFutures(nodes.mapIt(it.start()))
+
+    var held: seq[StreamTransport]
+    proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
+      held.add(client)
+
+    let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
+    listener.start()
+
+    let peerId = nodes[1].peerInfo.peerId
+    let stalledPeer = RemotePeerInfo.init(
+      peerId,
+      @[
+        MultiAddress.init("/ip4/127.0.0.1/tcp/" & $listener.localAddress().port).tryGet()
+      ],
+    )
+    let dial =
+      nodes[0].peerManager.connectPeer(stalledPeer, dialTimeout = chronos.seconds(2))
+    check await nodes[1].peerManager.connectPeer(nodes[0].peerInfo.toRemotePeerInfo())
+
+    let peerStore = nodes[0].peerManager.switch.peerStore
+    let connOk = await dial
+    check:
+      nodes[0].switch.isConnected(peerId)
+      connOk
+      peerStore[ConnectionBook][peerId] == Connected
+      peerStore[NumberFailedConnBook][peerId] == 0
+
+    for client in held:
+      await client.closeWait()
+    listener.stop()
+    await listener.closeWait()
+    await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "connectPeer() on a connected peer neither dials nor counts a connection":
+    let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
+    await allFutures(nodes.mapIt(it.start()))
+
+    let peer = nodes[1].peerInfo.toRemotePeerInfo()
+    check await nodes[0].peerManager.connectPeer(peer)
+
+    let peerStore = nodes[0].peerManager.switch.peerStore
+    # The state a dial that lost the race to an inbound connection left behind.
+    peerStore[ConnectionBook][peer.peerId] = CannotConnect
+
+    let initiatedBefore = logos_delivery_node_conns_initiated.value(["api"])
+    check await nodes[0].peerManager.connectPeer(peer)
+    check:
+      logos_delivery_node_conns_initiated.value(["api"]) == initiatedBefore
+      peerStore[ConnectionBook][peer.peerId] == Connected
+      nodes[0].switch.connManager.getConnections().getOrDefault(peer.peerId).len == 1
+
+    await allFutures(nodes.mapIt(it.stop()))
+
   asyncTest "reconnectPeers only reconnects persisted (Cache) peers":
     ## Regression: freshly discovered relay peers were wrongly swept into the
     ## reconnect backoff path. reconnectPeers must act only on peers loaded from
