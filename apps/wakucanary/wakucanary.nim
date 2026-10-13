@@ -321,8 +321,9 @@ proc main(rng: Rng): Future[int] {.async.} =
       error "Not all protocols are supported",
         expected = conf.protocols, supported = nodeProtocols
       return 1
-  elif conStatus == CannotConnect:
-    error "Could not connect", peerId = peer.peerId
+  else:
+    ## Any other status means the protocols were never checked
+    error "Could not connect", peerId = peer.peerId, conStatus = $conStatus
     return 1
   return 0
 
