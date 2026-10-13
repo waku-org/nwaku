@@ -201,6 +201,164 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.len == 1
       remoteNeeds.contains((clientPeerInfo.peerId, inRangeHash)) == true
 
+  asyncTest "a peer with a longer range only pushes messages inside the server's window":
+    let now = getNowInNanosecondTime()
+    let clock = proc(): Timestamp {.gcsafe, raises: [].} =
+      now
+
+    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      @[],
+      1780.seconds,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      relayJitter = 20.seconds,
+      clock = clock,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      clock = clock,
+    )
+
+    let
+      oldMsg = fakeWakuMessage(
+        ts = now - 2000.seconds.nanos, contentTopic = DefaultContentTopic
+      )
+      recentMsg = fakeWakuMessage(
+        ts = now - 100.seconds.nanos, contentTopic = DefaultContentTopic
+      )
+      oldHash = computeMessageHash(DefaultPubsubTopic, oldMsg)
+      recentHash = computeMessageHash(DefaultPubsubTopic, recentMsg)
+
+    client.messageIngress(oldHash, DefaultPubsubTopic, oldMsg)
+    client.messageIngress(recentHash, DefaultPubsubTopic, recentMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isOk()
+      remoteNeeds.len == 1
+      remoteNeeds.contains((serverPeerInfo.peerId, recentHash)) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, oldHash)) == false
+
+  asyncTest "a server does not offer messages older than its window":
+    let now = getNowInNanosecondTime()
+    let clock = proc(): Timestamp {.gcsafe, raises: [].} =
+      now
+
+    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      @[],
+      1780.seconds,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      relayJitter = 20.seconds,
+      clock = clock,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      clock = clock,
+    )
+
+    let
+      oldMsg = fakeWakuMessage(
+        ts = now - 2000.seconds.nanos, contentTopic = DefaultContentTopic
+      )
+      recentMsg = fakeWakuMessage(
+        ts = now - 100.seconds.nanos, contentTopic = DefaultContentTopic
+      )
+      oldHash = computeMessageHash(DefaultPubsubTopic, oldMsg)
+      recentHash = computeMessageHash(DefaultPubsubTopic, recentMsg)
+
+    server.messageIngress(oldHash, DefaultPubsubTopic, oldMsg)
+    server.messageIngress(recentHash, DefaultPubsubTopic, recentMsg)
+    client.messageIngress(recentHash, DefaultPubsubTopic, recentMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isOk()
+      remoteNeeds.len == 0
+
+  asyncTest "partitioned ranges stay inside the server's window":
+    let now = getNowInNanosecondTime()
+    let clock = proc(): Timestamp {.gcsafe, raises: [].} =
+      now
+
+    # The server's time range is [now - 1800 s, now - 20 s], the client's is [now - 3600 s, now].
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      @[],
+      1780.seconds,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      relayJitter = 20.seconds,
+      clock = clock,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      clock = clock,
+    )
+
+    const
+      msgCount = 1000
+      diffIndexes = [501, 750, 998]
+
+    # The client holds 1000 messages spread over its window. The server holds
+    # the ones inside its own window except three, so that it answers with
+    # partitions of the part of the client's range it processes.
+    let windowStart = now - 1800.seconds.nanos
+    let timeSlice = calculateTimeRange(now, 0.seconds, DefaultSyncRange)
+    let step = (timeSlice.b - timeSlice.a) div msgCount
+
+    var diffs: HashSet[WakuMessageHash]
+    var timestamp = timeSlice.a
+    for i in 0 ..< msgCount:
+      let msg = fakeWakuMessage(ts = timestamp, contentTopic = DefaultContentTopic)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+
+      client.messageIngress(hash, DefaultPubsubTopic, msg)
+
+      if i in diffIndexes:
+        diffs.incl(hash)
+      elif timestamp >= windowStart:
+        server.messageIngress(hash, DefaultPubsubTopic, msg)
+
+      timestamp += step
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+    assert res.isOk(), $res.error
+
+    check remoteNeeds.len == diffs.len
+    for hash in diffs:
+      check remoteNeeds.contains((serverPeerInfo.peerId, hash))
+
   asyncTest "sync 2 nodes different hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds

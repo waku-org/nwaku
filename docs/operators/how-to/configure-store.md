@@ -54,7 +54,7 @@ logosdeliverynode \
 
 ### Retention policy and store sync
 
-With store sync enabled (`--store-sync=true`), the node reconciles the messages of the last `--store-sync-range` seconds (default `3600`), excluding the most recent `--store-sync-relay-jitter` seconds (default `20`). Peers push any message in that window that the node is missing. If the retention policy deletes messages that are still inside that window, the node downloads them again after a restart, and while running it advertises messages it can no longer serve.
+With store sync enabled (`--store-sync=true`), the node reconciles the messages of the last `--store-sync-range` seconds (default `3600`), excluding the most recent `--store-sync-relay-jitter` seconds (default `20`). Peers push any message in that window that the node is missing. A peer with a longer `--store-sync-range` only reconciles the part of its window that overlaps this node's, so it does not push messages this node's retention has already dropped. If the retention policy deletes messages that are still inside that window, the node downloads them again after a restart, and while running it advertises messages it can no longer serve.
 
 * If the `time` retention is shorter than `--store-sync-range` plus `--store-sync-relay-jitter`, the node reduces the sync range to the retention minus the jitter and logs a warning with both values. To avoid the warning, set `--store-sync-range` to at most that value, or raise the time retention; e.g. `time:3620` keeps the default range of `3600`.
 * A `capacity` retention is not adjusted: if more messages than the capacity arrive within the sync range, the oldest of them are deleted while still inside the sync window.
