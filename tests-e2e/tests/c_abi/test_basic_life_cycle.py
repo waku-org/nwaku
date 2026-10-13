@@ -91,7 +91,7 @@ class TestLogosDeliveryLifecycle:
             assert f"Unsubscribe failed: {NODE_NOT_STARTED_MSG}" in unsubscribe_result.err(), unsubscribe_result.err()
 
     def test_channel_send_on_node_never_started(self, node_config):
-        # TODO: calls-while-stopped
+        # TODO: logos-delivery#4543
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
         result = WrapperManager.create(config=node_config, event_cb=node_collector.event_callback)
@@ -106,7 +106,7 @@ class TestLogosDeliveryLifecycle:
             self._assert_channel_send_errors(node_collector, send_result.ok_value, channel_id)
 
     def test_channel_send_after_stop_node(self, node_config):
-        # TODO: calls-while-stopped
+        # TODO: logos-delivery#4543
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
         with self._create_start_node(node_config, node_collector.event_callback) as node:
@@ -203,7 +203,7 @@ class TestLogosDeliveryLifecycle:
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
 
     def test_topic_health_no_event_before_mesh(self, node_config):
-        # TODO: topic-health-first-event
+        # TODO: logos-delivery#4544
         # A node whose shard has no peer reports no topic health until a peer meshes.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
@@ -216,7 +216,7 @@ class TestLogosDeliveryLifecycle:
                 assert topic_healths == ["MinimallyHealthy"], topic_healths
 
     def test_topic_health_no_event_for_listener_added_after_mesh(self, node_config):
-        # TODO: topic-health-first-event
+        # TODO: logos-delivery#4544
         # A listener added after the shard meshed gets no topic health.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
@@ -229,7 +229,7 @@ class TestLogosDeliveryLifecycle:
                 late_collector = EventCollector()
                 listener_id = node.add_event_listener("onTopicHealthChange", late_collector.event_callback)
                 assert listener_id != 0, "add_event_listener failed"
-                assert not wait_for_topic_health(late_collector, ("UnHealthy",) + MESH_TOPIC_HEALTH, timeout_s=TOPIC_HEALTH_WINDOW_S), "listener added after the mesh formed got a topic health event"
+                assert not wait_for_topic_health(late_collector, ("UnHealthy", "NotSubscribed") + MESH_TOPIC_HEALTH, timeout_s=TOPIC_HEALTH_WINDOW_S), "listener added after the mesh formed got a topic health event"
 
                 status_result = node.get_connection_status()
                 assert status_result.is_ok(), f"get_connection_status failed: {status_result.err()}"

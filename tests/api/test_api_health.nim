@@ -262,7 +262,7 @@ suite "LM API health checking":
         Result[int, string].ok(0)
 
   asyncTest "EventShardTopicHealthChange, no health reported before a peer meshes":
-    # TODO: topic-health-first-event
+    # TODO: logos-delivery#4544
     client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]
