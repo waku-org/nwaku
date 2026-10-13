@@ -323,7 +323,7 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
     peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs, service = proto
   logos_delivery_service_peers.set(1, labelValues = [$proto])
 
-    # Set peer for service slot
+  # Set peer for service slot
   pm.serviceSlots[proto] = remotePeerInfo
 
   pm.addPeer(remotePeerInfo)
@@ -1029,7 +1029,8 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
         agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
     for agent, count in agentCounts:
       logos_delivery_connected_peers_per_agent.set(
-        count.float64, labelValues = [agent] # bounded-label: agentLabel() yields KnownAgents or other
+        count.float64,
+        labelValues = [agent], # bounded-label: agentLabel() yields KnownAgents or other
       )
 
     for shard in pm.getShards().items:

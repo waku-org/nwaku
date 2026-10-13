@@ -13,7 +13,8 @@ Checks:
   2. tainted:    value that visibly carries free-form text (`error`, `.msg`,
                  `getCurrentExceptionMsg`, peer ids, addresses, ...) or an
                  identifier bound to such text (`let x = "..." & y`). Never
-                 allowlistable; waive one line with `# bounded-label: <why>`.
+                 allowlistable; waive one use with `# bounded-label: <why>` on
+                 the call line, inside the call or on the line above.
   3. arity:      number of values differs from the declared label names.
   4. declared:   label names that look unbounded (`peer_id`, `addr`, ...).
 
@@ -139,9 +140,12 @@ def analyse(texts, consts, decls):
         lines = text.splitlines()
         for m in CALL_RE.finditer(text):
             raw = balanced(text, m.end())
-            waived = WAIVER in raw or WAIVER in lines[
-                text.count("\n", 0, m.start())
-            ]
+            call_line = text.count("\n", 0, m.start())
+            waived = (
+                WAIVER in raw
+                or WAIVER in lines[call_line]
+                or (call_line > 0 and WAIVER in lines[call_line - 1])
+            )
             args = re.sub(r"[ \t]#[^\n\"]*(?=\n|$)", "", raw)
             labels = label_list(args)
             if labels is None:
