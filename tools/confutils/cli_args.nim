@@ -133,7 +133,7 @@ type WakuNodeConf* = object
   .}: string
 
   rlnRelayEthPrivateKey* {.
-    obsolete: "ignored, set it on the rlnkeystore tool instead",
+    obsolete: "ignored, set it on the rlnkeystore tool instead; removed in v0.42.0",
     desc: "Deprecated and ignored. Only the rlnkeystore tool uses it.",
     defaultValue: "",
     name: "rln-relay-eth-private-key"
@@ -175,7 +175,7 @@ type WakuNodeConf* = object
   ## General node config
   preset* {.
     desc:
-      "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1). 'logos.dev' is the Logos Dev Network (cluster 3). 'logos.test' is the Logos Test Network (cluster 2). 'status.prod' is the Status Production Network (cluster 16, RLN off, auto-sharding with 1 shard). Overrides other values.",
+      "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1). 'logos.dev' is the Logos Dev Network (cluster 3). 'logos.test' is the Logos Test Network (cluster 2). 'status.prod' and 'status.staging' are the Status networks (cluster 16, RLN off, auto-sharding on shard 32, also receiving on 64). Overrides other values.",
     defaultValue: "",
     name: "preset"
   .}: string
@@ -191,6 +191,7 @@ type WakuNodeConf* = object
   .}: Opt[uint16]
 
   agentString* {.
+    obsolete: "unused; removed in v0.42.0",
     defaultValue: DefaultAgentString,
     desc: "Node agent string which is used as identifier in network",
     name: "agent-string"
@@ -208,7 +209,10 @@ type WakuNodeConf* = object
   tcpPort* {.desc: "TCP listening port.", defaultValue: 60000, name: "tcp-port".}: Port
 
   portsShift* {.
-    desc: "Add a shift to all port numbers.", defaultValue: 0, name: "ports-shift"
+    obsolete: "set each port to 0 to auto-assign; removed in v0.42.0",
+    desc: "Deprecated. Add a shift to all port numbers.",
+    defaultValue: 0,
+    name: "ports-shift"
   .}: uint16
 
   nat* {.
@@ -220,6 +224,7 @@ type WakuNodeConf* = object
   .}: string
 
   natDiscoveryTimeoutMs* {.
+    obsolete: "unused; removed in v0.42.0",
     desc: "Time limit in milliseconds for NAT gateway discovery.",
     defaultValue: defaultNatDiscoveryTimeoutMs(),
     name: "nat-discovery-timeout-ms"
@@ -232,7 +237,8 @@ type WakuNodeConf* = object
   .}: seq[string]
 
   extMultiAddrsOnly* {.
-    desc: "Only announce external multiaddresses setup with --ext-multiaddr",
+    obsolete: "unused; removed in v0.42.0",
+    desc: "Deprecated. Only announce external multiaddresses setup with --ext-multiaddr",
     defaultValue: false,
     name: "ext-multiaddr-only"
   .}: bool
@@ -267,7 +273,9 @@ type WakuNodeConf* = object
   .}: Opt[int]
 
   peerStoreCapacity* {.
-    desc: "Maximum stored peers in the peerstore.", name: "peer-store-capacity"
+    obsolete: "unused; removed in v0.42.0",
+    desc: "Deprecated. Maximum stored peers in the peerstore.",
+    name: "peer-store-capacity"
   .}: Opt[int]
 
   peerPersistence* {.
@@ -292,10 +300,17 @@ type WakuNodeConf* = object
   .}: string
 
   ## Circuit-relay config
-  isRelayClient* {.
-    desc: """Set the node as a relay-client.
+  circuitRelayClient* {.
+    desc: """Set the node as a circuit-relay client.
 Set it to true for nodes that run behind a NAT or firewall and
 hence would have reachability issues.""",
+    defaultValue: false,
+    name: "circuit-relay-client"
+  .}: bool
+
+  isRelayClient* {.
+    obsolete: "use --circuit-relay-client; removed in v0.42.0",
+    desc: "Deprecated. Use --circuit-relay-client instead.",
     defaultValue: false,
     name: "relay-client"
   .}: bool
@@ -308,6 +323,7 @@ hence would have reachability issues.""",
   .}: Opt[bool]
 
   relayPeerExchange* {.
+    obsolete: "unused; removed in v0.42.0",
     desc: "Enable gossipsub peer exchange in relay protocol: true|false",
     defaultValue: false,
     name: "relay-peer-exchange"
@@ -334,7 +350,7 @@ hence would have reachability issues.""",
   .}: Opt[uint]
 
   rlnRelayDynamic* {.
-    obsolete: "not needed, on-chain RLN is the only mode",
+    obsolete: "not needed, on-chain RLN is the only mode; removed in v0.42.0",
     desc: "Deprecated. On-chain dynamic group management is the only RLN mode.",
     defaultValue: Opt.none(bool),
     name: "rln-relay-dynamic"
@@ -355,7 +371,8 @@ hence would have reachability issues.""",
   .}: seq[string]
 
   staticnodes* {.
-    desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
+    obsolete: "use --entry-node; removed in v0.42.0",
+    desc: "Deprecated. Use --entry-node, which accepts multiaddrs too.",
     name: "staticnode"
   .}: seq[string]
 
@@ -370,6 +387,18 @@ hence would have reachability issues.""",
     desc:
       "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated. Subscribes to all shards by default in auto-sharding, no shard for static sharding",
     name: "shard"
+  .}: seq[uint16]
+
+  autoshardingShards* {.
+    desc:
+      "Shard ids auto-sharding uses instead of [0..NUM_SHARDS_IN_NETWORK-1]: a content topic that hashes to index i lands on the i-th value, so the order matters and must match the rest of the network. Sets the number of shards when NUM_SHARDS_IN_NETWORK is not given. Argument may be repeated.",
+    name: "autosharding-shards"
+  .}: seq[uint16]
+
+  extraListenShards* {.
+    desc:
+      "Deprecated, removed once Status's shard migration ends (https://github.com/status-im/status-go/issues/7498). Shard to also receive every subscribed content topic on, without publishing there. Argument may be repeated.",
+    name: "extra-listen-shard"
   .}: seq[uint16]
 
   contentTopics* {.
@@ -409,6 +438,7 @@ hence would have reachability issues.""",
   .}: bool
 
   storeMessageDbMigration* {.
+    obsolete: "migrations always run; removed in v0.42.0",
     desc: "Enable database migration at start. (requires --store)",
     defaultValue: true,
     name: "store-message-db-migration"
@@ -421,6 +451,7 @@ hence would have reachability issues.""",
   .}: int
 
   storeResume* {.
+    obsolete: "use --store-sync; removed in v0.42.0",
     desc: "Enable store resume functionality (requires --store)",
     defaultValue: false,
     name: "store-resume"
@@ -467,6 +498,7 @@ hence would have reachability issues.""",
   .}: string
 
   filterSubscriptionTimeout* {.
+    obsolete: "unused, the default is kept; removed in v0.42.0",
     desc:
       "Timeout in seconds for a filter subscription that is not pinged or refreshed. (requires --filter)",
     defaultValue: 300, # 5 minutes
@@ -474,12 +506,14 @@ hence would have reachability issues.""",
   .}: uint16
 
   filterMaxPeersToServe* {.
+    obsolete: "unused, the default is kept; removed in v0.42.0",
     desc: "Maximum number of filter peers to serve at a time. (requires --filter)",
     defaultValue: 1000,
     name: "filter-max-peers-to-serve"
   .}: uint32
 
   filterMaxCriteria* {.
+    obsolete: "unused, the default is kept; removed in v0.42.0",
     desc:
       "Maximum number of pubsub and content topic combinations per peer at a time. (requires --filter)",
     defaultValue: 1000,
@@ -564,14 +598,15 @@ hence would have reachability issues.""",
   .}: uint16
 
   metricsLogging* {.
-    desc: "Enable metrics logging: true|false",
+    obsolete: "the metrics server covers it; removed in v0.42.0",
+    desc: "Deprecated. Enable metrics logging: true|false",
     defaultValue: true,
     name: "metrics-logging"
   .}: bool
 
   ## DNS discovery config
   dnsDiscovery* {.
-    obsolete: "ignored, use --dns-discovery-url",
+    obsolete: "ignored, use --dns-discovery-url; removed in v0.42.0",
     desc: "Deprecated and ignored. Set --dns-discovery-url instead.",
     defaultValue: false,
     name: "dns-discovery"
@@ -598,6 +633,7 @@ hence would have reachability issues.""",
   .}: Port
 
   discv5BootstrapNodes* {.
+    obsolete: "use --entry-node; removed in v0.42.0",
     desc:
       "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated. (requires --discv5-discovery)",
     name: "discv5-bootstrap-node"
@@ -613,7 +649,7 @@ hence would have reachability issues.""",
   .}: bool
 
   discv5TableIpLimit* {.
-    hidden,
+    obsolete: "tuning knob; removed in v0.42.0",
     desc:
       "Maximum amount of nodes with the same IP in discv5 routing tables (requires --discv5-discovery)",
     defaultValue: 10,
@@ -621,7 +657,7 @@ hence would have reachability issues.""",
   .}: uint
 
   discv5BucketIpLimit* {.
-    hidden,
+    obsolete: "tuning knob; removed in v0.42.0",
     desc:
       "Maximum amount of nodes with the same IP in discv5 routing table buckets (requires --discv5-discovery)",
     defaultValue: 2,
@@ -629,7 +665,7 @@ hence would have reachability issues.""",
   .}: uint
 
   discv5BitsPerHop* {.
-    hidden,
+    obsolete: "tuning knob; removed in v0.42.0",
     desc:
       "Kademlia's b variable, increase for less hops per lookup (requires --discv5-discovery)",
     defaultValue: 1,
@@ -1116,6 +1152,8 @@ proc toNetworkPresetConf*(
     ok(Opt.some(NetworkPresetConf.LogosTestConf()))
   of "status.prod", "statusprod":
     ok(Opt.some(NetworkPresetConf.StatusProdConf()))
+  of "status.staging", "statusstaging":
+    ok(Opt.some(NetworkPresetConf.StatusStagingConf()))
   else:
     err("Invalid --preset value passed: " & lcPreset)
 
@@ -1324,7 +1362,7 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
   b.withPeerPersistence(n.peerPersistence)
   b.withDnsAddrsNameServers(n.dnsAddrsNameServers)
   b.withDns4DomainName(n.dns4DomainName)
-  b.withCircuitRelayClient(n.isRelayClient)
+  b.withCircuitRelayClient(n.circuitRelayClient or n.isRelayClient)
   if n.relay.isSome():
     b.withRelay(n.relay.get())
   b.withRelayPeerExchange(n.relayPeerExchange)
@@ -1351,10 +1389,18 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     if staticNodesFromEntry.len > 0:
       b.withStaticNodes(staticNodesFromEntry)
 
+  # It is not possible to pass an empty sequence on the CLI, so empty means unset.
+  if n.autoshardingShards.len != 0:
+    b.withAutoshardingShards(n.autoshardingShards)
+    b.withShardingConf(AutoSharding)
+
+  if n.extraListenShards.len != 0:
+    b.withExtraListenShards(n.extraListenShards)
+
   if n.numShardsInNetwork != 0:
     b.withNumShardsInCluster(n.numShardsInNetwork)
     b.withShardingConf(AutoSharding)
-  elif networkPresetConf.isNone():
+  elif networkPresetConf.isNone() and n.autoshardingShards.len == 0:
     b.withShardingConf(StaticSharding)
 
   # It is not possible to pass an empty sequence on the CLI

@@ -12,7 +12,7 @@ The following options are available:
 
  -a, --address        Multiaddress of the peer node to attempt to dial.
  -t, --timeout        Timeout to consider that the connection failed [=chronos.seconds(10)].
- -p, --protocol       Protocol required to be supported: store,storev3,relay,lightpush,filter,
+ -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter,
                       peer-exchange,store-sync,mix,... (can be used multiple times).
  -l, --log-level      Sets the log level [=LogLevel.DEBUG].
  -np, --node-port     Listening port for waku node [=60000].
@@ -29,8 +29,7 @@ advertises (via identify) a protocol id starting with the given prefix.
 | `--protocol`    | Protocol id prefix               |
 | --------------- | -------------------------------- |
 | `relay`         | `/vac/waku/relay/`               |
-| `store`         | `/vac/waku/store/`               |
-| `storev3`       | `/vac/waku/store-query/3`        |
+| `store`         | `/vac/waku/store-query/3`        |
 | `store-sync`    | `/vac/waku/reconciliation/`      |
 | `lightpush`     | `/vac/waku/lightpush/`           |
 | `filter`        | `/vac/waku/filter-subscribe/2`   |

@@ -16,7 +16,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message,
   libp2p/peerid
-from metrics import value
+from metrics import value, valueByName
 import
   logos_delivery/waku/[
     common/databases/db_sqlite,
@@ -66,6 +66,17 @@ proc hasRelayPeers(node: WakuNode, peers: openArray[WakuNode]): bool =
     peerStore.isConnected(it.switch.peerInfo.peerId) and
       peerStore.hasPeer(it.switch.peerInfo.peerId, WakuRelayCodec)
   )
+
+proc connectedPeersPerShard(shard: uint16): Opt[float64] =
+  ## The peer count the peer manager last set for `shard`, none if it set none.
+  try:
+    return Opt.some(
+      logos_delivery_connected_peers_per_shard.valueByName(
+        "logos_delivery_connected_peers_per_shard", [$shard]
+      )
+    )
+  except ValueError:
+    return Opt.none(float64)
 
 procSuite "Peer Manager":
   asyncTest "connectPeer() works":
@@ -517,6 +528,47 @@ procSuite "Peer Manager":
 
     check logos_delivery_total_unique_peers.value() == baseline + 2
 
+  asyncTest "Shards of two clusters leave the connected peers per shard metric unset":
+    # TODO: logos-delivery#4457
+    let
+      node = newTestWakuNode(generateSecp256k1Key())
+      control = newTestWakuNode(generateSecp256k1Key())
+
+    node.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
+    control.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
+    (await node.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    (await control.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    await allFutures(node.start(), control.start())
+
+    proc simpleHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.millis)
+
+    # Given a node whose relay is on shard 517 of its cluster and on shard 0 of cluster 199
+    node.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
+    node.wakuRelay.subscribe("/waku/2/rs/199/0", simpleHandler)
+
+    # When its peer manager runs
+    node.peerManager.start()
+
+    # Then no peer count is set for shard 517
+    check connectedPeersPerShard(517) == Opt.none(float64)
+
+    # Given a node whose relay is on shard 517 of its cluster only
+    control.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
+
+    # When its peer manager runs
+    control.peerManager.start()
+
+    # Then the peer count of shard 517 is set
+    checkUntilTimeout:
+      connectedPeersPerShard(517) == Opt.some(0.0)
+
+    await allFutures(node.stop(), control.stop())
+
   asyncTest "Peer manager keeps track of connections":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
@@ -629,6 +681,64 @@ procSuite "Peer Manager":
       nodes[0].peerManager.switch.peerStore[NumberFailedConnBook][
         nodes[1].peerInfo.peerId
       ] == 0
+
+    await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "connectPeer() failing after the peer connected in keeps it Connected":
+    ## The node's dial stalls on an address that never answers the handshake,
+    ## and the peer connects in before that dial times out.
+    let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
+    await allFutures(nodes.mapIt(it.start()))
+
+    var held: seq[StreamTransport]
+    proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
+      held.add(client)
+
+    let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
+    listener.start()
+
+    let peerId = nodes[1].peerInfo.peerId
+    let stalledPeer = RemotePeerInfo.init(
+      peerId,
+      @[
+        MultiAddress.init("/ip4/127.0.0.1/tcp/" & $listener.localAddress().port).tryGet()
+      ],
+    )
+    let dial =
+      nodes[0].peerManager.connectPeer(stalledPeer, dialTimeout = chronos.seconds(2))
+    check await nodes[1].peerManager.connectPeer(nodes[0].peerInfo.toRemotePeerInfo())
+
+    let peerStore = nodes[0].peerManager.switch.peerStore
+    let connOk = await dial
+    check:
+      nodes[0].switch.isConnected(peerId)
+      connOk
+      peerStore[ConnectionBook][peerId] == Connected
+      peerStore[NumberFailedConnBook][peerId] == 0
+
+    for client in held:
+      await client.closeWait()
+    listener.stop()
+    await listener.closeWait()
+    await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "connectPeer() on a connected peer neither dials nor counts a connection":
+    let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
+    await allFutures(nodes.mapIt(it.start()))
+
+    let peer = nodes[1].peerInfo.toRemotePeerInfo()
+    check await nodes[0].peerManager.connectPeer(peer)
+
+    let peerStore = nodes[0].peerManager.switch.peerStore
+    # The state a dial that lost the race to an inbound connection left behind.
+    peerStore[ConnectionBook][peer.peerId] = CannotConnect
+
+    let initiatedBefore = logos_delivery_node_conns_initiated.value(["api"])
+    check await nodes[0].peerManager.connectPeer(peer)
+    check:
+      logos_delivery_node_conns_initiated.value(["api"]) == initiatedBefore
+      peerStore[ConnectionBook][peer.peerId] == Connected
+      nodes[0].switch.connManager.getConnections().getOrDefault(peer.peerId).len == 1
 
     await allFutures(nodes.mapIt(it.stop()))
 

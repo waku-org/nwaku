@@ -17,7 +17,8 @@ import
   logos_delivery/waku/waku_mix,
   logos_delivery/waku/waku_enr/capabilities,
   logos_delivery/waku/common/rate_limit/setting,
-  logos_delivery/waku/common/utils/parse_size_units
+  logos_delivery/waku/common/utils/parse_size_units,
+  logos_delivery/waku/waku_core/message/default_values
 
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":
@@ -59,8 +60,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -101,8 +101,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -133,8 +132,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == expectedShards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -162,8 +160,7 @@ suite "Waku Conf - build with cluster conf":
     assert resValidate.isOk(), $resValidate.error
     check conf.clusterId == networkPresetConf.clusterId
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
     check conf.subscribeShards == shards
     check conf.maxMessageSizeBytes ==
       uint64(parseCorrectMsgSize(networkPresetConf.maxMessageSize))
@@ -324,7 +321,7 @@ suite "Waku Conf - build with cluster conf":
 
     # Sanity check
     check networkPresetConf.shardingConf.kind == AutoSharding
-    check networkPresetConf.shardingConf.numShardsInCluster > 1
+    check networkPresetConf.shardingConf.numShards > 1
 
     ## Given: preset says >1 shards but user explicitly sets 1
     builder.withNetworkPresetConf(networkPresetConf)
@@ -337,7 +334,7 @@ suite "Waku Conf - build with cluster conf":
     ## Then: user value wins, not preset
     conf.validate().expect("conf should validate")
     check conf.shardingConf.kind == AutoSharding
-    check conf.shardingConf.numShardsInCluster == 1
+    check conf.shardingConf.numShards == 1
 
   test "num-shards-in-network == 0 does not override preset":
     ## Passing an AutoSharding preset and trying to override with
@@ -358,8 +355,7 @@ suite "Waku Conf - build with cluster conf":
     ## Then: preset wins and StaticSharding user intent is lost
     conf.validate().expect("conf should validate")
     check conf.shardingConf.kind == networkPresetConf.shardingConf.kind
-    check conf.shardingConf.numShardsInCluster ==
-      networkPresetConf.shardingConf.numShardsInCluster
+    check conf.shardingConf.numShards == networkPresetConf.shardingConf.numShards
 
 suite "Waku Conf - node key":
   test "Node key is generated":
@@ -568,7 +564,9 @@ suite "Waku Conf - mix nodes from a network preset":
 
   test "the presets that do not enable mix ship no mix nodes":
     for preset in [
-      NetworkPresetConf.TheWakuNetworkConf(), NetworkPresetConf.StatusProdConf()
+      NetworkPresetConf.TheWakuNetworkConf(),
+      NetworkPresetConf.StatusProdConf(),
+      NetworkPresetConf.StatusStagingConf(),
     ]:
       check:
         not preset.mix
@@ -750,14 +748,42 @@ suite "Waku Conf - the Mix capability follows the mount":
 
 suite "Waku Conf - shard count limit":
   test "accepts up to MaxAllowedSubscribedShard shards":
-    let conf = ShardingConf(kind: AutoSharding, numShardsInCluster: 64)
+    let conf = ShardingConf.autoSharding(numShards = 64)
     let shards = toSeq(0'u16 ..< uint16(MaxAllowedSubscribedShard))
     check conf.validateShards(shards).isOk()
 
   test "rejects more than MaxAllowedSubscribedShard shards":
-    let conf = ShardingConf(kind: AutoSharding, numShardsInCluster: 64)
+    let conf = ShardingConf.autoSharding(numShards = 64)
     let shards = toSeq(0'u16 ..< uint16(MaxAllowedSubscribedShard + 1))
     let res = conf.validateShards(shards)
     check:
       res.isErr()
       "too many shards" in res.error
+
+suite "Waku Conf - max message size range":
+  # Protocols read up to the max message size plus DefaultSafetyBufferProtocolOverhead
+  # as an int, so that sum must not overflow.
+  test "a max message size whose read limit would overflow an int fails the build":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize(uint64.high)
+    let res = builder.build()
+    check:
+      res.isErr()
+      "max message size out of range" in res.error
+
+  test "the largest max message size whose read limit fits an int builds":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize(uint64(int.high - DefaultSafetyBufferProtocolOverhead))
+    let res = builder.build()
+    check res.isOk()
+
+  test "a huge max message size given as a string fails the build":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize("99999999999999999999999 B")
+    let res = builder.build()
+    check:
+      res.isErr()
+      "too large" in res.error

@@ -31,16 +31,18 @@ import
     waku_filter_v2,
     common/rate_limit/setting,
   ],
+  logos_delivery/waku/node/subscription_manager,
   logos_delivery/waku/factory/[
     node_factory,
     internal_config,
+    networks_config,
     conf_builder/conf_builder,
     conf_builder/web_socket_conf_builder,
   ]
 
-proc servicePeerGauge(codec, address: string): float64 =
+proc servicePeerGauge(codec: string): float64 =
   try:
-    return logos_delivery_service_peers.value([codec, address])
+    return logos_delivery_service_peers.value([codec])
   except KeyError:
     return 0.0
 
@@ -248,7 +250,7 @@ suite "Node Factory":
     # Then that peer holds the store service slot
     check:
       node.peerManager.serviceSlots[WakuStoreCodec].peerId == storePeerId
-      servicePeerGauge(WakuStoreCodec, storeAddress) == 1
+      servicePeerGauge(WakuStoreCodec) == 1
 
   asynctest "The storenode command line option fills the store sync service slots":
     # Given the configuration of a binary started with --store, --store-sync and --storenode
@@ -289,7 +291,7 @@ suite "Node Factory":
     # Then that peer holds the filter service slot
     check:
       node.peerManager.serviceSlots[WakuFilterSubscribeCodec].peerId == filterPeerId
-      servicePeerGauge(WakuFilterSubscribeCodec, filterAddress) == 1
+      servicePeerGauge(WakuFilterSubscribeCodec) == 1
 
   asynctest "The lightpushnode command line option fills the lightpush service slot":
     # Given the configuration of a binary started with --lightpushnode
@@ -308,7 +310,7 @@ suite "Node Factory":
     # Then that peer holds the lightpush service slot
     check:
       node.peerManager.serviceSlots[WakuLightPushCodec].peerId == lightPushPeerId
-      servicePeerGauge(WakuLightPushCodec, lightPushAddress) == 1
+      servicePeerGauge(WakuLightPushCodec) == 1
 
   asynctest "The peer-exchange-node command line option fills the peer exchange service slot and fetches its peers at start":
     # Given a peer exchange responder that discovered a peer via Discv5
@@ -384,6 +386,34 @@ suite "Node Factory":
     check:
       enrShards.shardIds == @[0'u16, 3'u16]
       metadata.shards == @[0'u32, 3'u32]
+
+  asynctest "Extra listen shards reach the node and its content-topic subscriptions":
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.withAutoshardingShards(@[32'u16])
+    confBuilder.withSubscribeShards(@[32'u16])
+    confBuilder.withExtraListenShards(@[64'u16])
+    let conf = confBuilder.build().valueOr:
+      raiseAssert error
+
+    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+      raiseAssert error
+    let listenShard = $RelayShard(clusterId: conf.clusterId, shardId: 64)
+
+    check node.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
+
+    node.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
+      raiseAssert error
+    check:
+      PubsubTopic($RelayShard(clusterId: conf.clusterId, shardId: 32)) in
+        node.subscriptionManager.shards
+      PubsubTopic(listenShard) in node.subscriptionManager.shards
+
+  test "Extra listen shards need auto-sharding":
+    var confBuilder = defaultTestWakuConfBuilder()
+    confBuilder.withShardingConf(StaticSharding)
+    confBuilder.withExtraListenShards(@[64'u16])
+
+    check confBuilder.build().isErr()
 
   test "ENR configuration trims multiaddrs until record fits":
     var conf = defaultTestWakuConf()

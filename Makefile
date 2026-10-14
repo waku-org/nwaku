@@ -441,6 +441,10 @@ nph/%: | build-nph
 print-nph-path:
 	@command -v nph
 
+.PHONY: lint
+lint: | build-nph
+	scripts/lint.sh
+
 clean:
 
 ###################

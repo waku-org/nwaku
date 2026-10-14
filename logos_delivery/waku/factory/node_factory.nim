@@ -224,9 +224,13 @@ proc setupProtocols(
 
       (
         await node.mountStoreSync(
-          conf.clusterId, conf.subscribeShards, conf.contentTopics,
-          confStoreSync.rangeSec, confStoreSync.intervalSec,
+          conf.clusterId,
+          conf.subscribeShards,
+          conf.contentTopics,
+          confStoreSync.rangeSec,
+          confStoreSync.intervalSec,
           confStoreSync.relayJitterSec,
+          int(conf.maxMessageSizeBytes),
         )
       ).isOkOr:
         return err("failed to mount waku store sync protocol: " & $error)
@@ -248,10 +252,15 @@ proc setupProtocols(
     node.setupStoreResume()
 
   if conf.shardingConf.kind == AutoSharding:
-    node.mountAutoSharding(conf.clusterId, conf.shardingConf.numShardsInCluster).isOkOr:
+    node.mountAutoSharding(conf.clusterId, conf.shardingConf.shards).isOkOr:
       return err("failed to mount waku auto sharding: " & error)
   else:
     info "Auto sharding is disabled"
+
+  for shardId in conf.extraListenShards:
+    node.subscriptionManager.extraListenShards.add(
+      $RelayShard(clusterId: conf.clusterId, shardId: shardId)
+    )
 
   # Mount relay on all nodes
   var peerExchangeHandler = Opt.none(RoutingRecordsHandler)

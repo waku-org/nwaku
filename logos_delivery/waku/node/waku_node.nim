@@ -182,6 +182,10 @@ type
   SubscriptionManager* = ref object of RootObj
     node*: WakuNode
     shards*: Table[PubsubTopic, ShardSubscription]
+    extraListenShards*: seq[PubsubTopic]
+      ## Shards every content topic is also subscribed on, receive-only.
+      ## Deprecated: removed once Status's shard migration ends, see
+      ## https://github.com/status-im/status-go/issues/7498.
     edgeFilterSubStates*: Table[PubsubTopic, EdgeFilterSubState]
     edgeFilterWakeup*: AsyncEvent
     edgeFilterSubLoopFut*: Future[void]
@@ -463,13 +467,17 @@ proc mountMetadata*(
 
 ## Waku AutoSharding
 proc mountAutoSharding*(
-    node: WakuNode, clusterId: uint16, shardCount: uint32
+    node: WakuNode, clusterId: uint16, shards: seq[uint16]
 ): Result[void, string] =
-  info "Mounting auto sharding", clusterId = clusterId, shardCount = shardCount
-  node.wakuAutoSharding =
-    Opt.some(Sharding(clusterId: clusterId, shardCountGenZero: shardCount))
+  info "Mounting auto sharding", clusterId = clusterId, shards = shards
+  node.wakuAutoSharding = Opt.some(Sharding.init(clusterId, shards))
 
   return ok()
+
+proc mountAutoSharding*(
+    node: WakuNode, clusterId: uint16, shardCount: uint32
+): Result[void, string] =
+  node.mountAutoSharding(clusterId, Sharding.init(clusterId, shardCount).shards)
 
 proc getMixNodePoolSize*(node: WakuNode): int =
   ## The number of mix pool members a path can use; zero when mix is not mounted.
@@ -666,6 +674,7 @@ proc mountStoreSync*(
     storeSyncRange: uint32,
     storeSyncInterval: uint32,
     storeSyncRelayJitter: uint32,
+    maxMessageSize: int,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](0)
   let wantsChannel = newAsyncQueue[(PeerId)](0)
@@ -689,7 +698,8 @@ proc mountStoreSync*(
     return err(error.msg)
 
   let transfer = SyncTransfer.new(
-    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
+    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel,
+    maxMessageSize,
   )
 
   node.wakuStoreTransfer = transfer

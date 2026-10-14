@@ -4,7 +4,7 @@ import os
 mode = ScriptMode.Verbose
 
 ### Package
-version = "0.39.1"
+version = "0.39.2"
 author = "Status Research & Development GmbH"
 description = "Logos-delivery, Private P2P Messaging for Resource-Restricted Devices"
 license = "MIT or Apache License 2.0"
@@ -12,6 +12,8 @@ skipDirs = @["tests", "examples", "apps", "simulations", "metrics"]
 
 # Nimble installs only the namesake directory; dependents need these too.
 installDirs = @["library", "migrations", "rest", "tools"]
+# A dependent's `nimble liblogosdelivery` needs the same build configuration.
+installFiles = @["config.nims"]
 
 const RequiredNimblePin = "0.26.0"
   ## The Nimble release the build installs.
@@ -45,8 +47,8 @@ requires "nim == 2.2.6",
   # v0.4.1: libp2p 2.4.0 requires websock >= 0.4.1 and locks this version.
   "https://github.com/status-im/nim-websock#0432dc445c500b20963ef4b76e585c1a3943c254",
   # Cryptography
-  "nimcrypto == 0.6.4", # 0.6.4 used in libp2p. Version 0.7.3 makes test to crash on Ubuntu.
-  "secp256k1 == 0.8.0.8.0",
+  "nimcrypto >= 0.7.3",
+  "secp256k1 >= 0.8.0.8.0",
   "bearssl",
   # RPC & APIs
   "json_rpc == 0.6.1",
@@ -98,7 +100,7 @@ requires "https://github.com/vacp2p/nim-jwt.git#057ec95eb5af0eea9c49bfe9025b3312
 
 # Pin the Mix and shared RLN adapter integration revisions.
 requires "https://github.com/logos-co/nim-libp2p-mix#3f256aa03d2d36fea0b5206b41a6328da4f5c412"
-requires "https://github.com/logos-co/mix-rln-spam-protection-plugin#d52775ceb11eee45d9d5e164b42e47741c5d4ee3"
+requires "https://github.com/logos-co/mix-rln-spam-protection-plugin#7b5c7cfafbffe4e47aeb46838633645afacdb73c"
 
 proc getMyCPU(): string =
   ## Need to set cpu more explicit manner to avoid arch issues between dependencies
@@ -212,9 +214,67 @@ proc buildLibStaticMac(libName: string, folderName: string) =
     archFlags & " -d:chronicles_line_numbers --warning:Deprecated:off --warning:UnusedImport:on -d:chronicles_log_level=TRACE",
     "static", libName & ".nim", libname
 
+### Mobile
+
+proc nimblePkgPath(pkg: string): string =
+  ## Package root from nimble.paths, the `--path` entries in NIM_PARAMS, or
+  ## `nimble path`. The last mixes Info and lock-validation noise into stdout, so
+  ## only a line holding the package's nimble file counts.
+  var lines: seq[string]
+  if fileExists("nimble.paths"):
+    lines = readFile("nimble.paths").splitLines()
+  else:
+    lines = getNimParams().split(' ')
+  for rawLine in lines:
+    let line = rawLine.strip().replace("\"", "")
+    if line.startsWith("--path:") and ("/pkgs2/" & pkg & "-") in line:
+      return line[7 .. ^1]
+  for line in gorgeEx("nimble path " & pkg).output.splitLines():
+    let candidate = line.strip()
+    if candidate.isAbsolute() and fileExists(candidate / (pkg & ".nimble")):
+      return candidate
+  quit "Package " & pkg & " not found in nimble.paths, NIM_PARAMS or nimble path"
+
 ### Mobile Android
 
+proc androidToolchain() =
+  ## Fills in the ANDROID_* toolchain variables from ANDROID_NDK_ROOT (or
+  ## ANDROID_NDK_HOME) and CPU, unless the Makefile already set them.
+  if getEnv("ANDROID_TOOLCHAIN_DIR").len > 0:
+    return
+  let ndk = getEnv("ANDROID_NDK_ROOT", getEnv("ANDROID_NDK_HOME"))
+  if ndk.len == 0:
+    quit "Error: set ANDROID_NDK_ROOT or ANDROID_NDK_HOME"
+  let hostTag = when defined(macosx): "darwin-x86_64" else: "linux-x86_64"
+  let arch =
+    case getEnv("CPU")
+    of "arm64": "aarch64-linux-android"
+    of "amd64": "x86_64-linux-android"
+    of "i386": "i686-linux-android"
+    of "arm": "armv7a-linux-androideabi"
+    else: quit "Error: CPU must be one of arm64, amd64, i386, arm"
+  putEnv("ANDROID_TOOLCHAIN_DIR", ndk / "toolchains/llvm/prebuilt" / hostTag)
+  putEnv("ANDROID_ARCH", arch)
+  putEnv("ANDROID_COMPILER", arch & getEnv("ANDROID_TARGET", "30") & "-clang")
+
+proc rebuildNatLibs(cc: string) =
+  ## Same as Nat.mk's rebuild-nat-libs-nimbledeps, for builds without the
+  ## Makefile: nat_traversal links archives its install hook built for the host.
+  let natDir = nimblePkgPath("nat_traversal")
+  let stamp = natDir / ".nat-libs-cc"
+  if fileExists(stamp) and readFile(stamp).strip() == cc:
+    return
+  exec "find \"" & natDir & "/vendor\" \\( -name '*.o' -o -name '*.a' \\) -delete"
+  exec "make -C \"" & natDir & "/vendor/miniupnp/miniupnpc\" CC=\"" & cc &
+    "\" CFLAGS=\"-Os -fPIC\" build/libminiupnpc.a"
+  exec "make -C \"" & natDir & "/vendor/libnatpmp-upstream\" CC=\"" & cc &
+    "\" CFLAGS=\"-Wall -Wno-cpp -Os -fPIC -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4\" libnatpmp.a"
+  writeFile(stamp, cc & "\n")
+
 proc buildMobileAndroid(srcDir = ".", params = "") =
+  androidToolchain()
+  rebuildNatLibs(getEnv("ANDROID_TOOLCHAIN_DIR") / "bin" / getEnv("ANDROID_COMPILER"))
+
   let cpu = getEnv("CPU")
   let abiDir = getEnv("ABIDIR")
 
@@ -222,9 +282,31 @@ proc buildMobileAndroid(srcDir = ".", params = "") =
   if not dirExists outDir:
     mkDir outDir
 
+  # cmake runs on the build host, so left alone it hands Leopard-RS the host's
+  # compiler. Point it at the NDK clang, and define ANDROID so Leopard-RS takes
+  # its LEO_TARGET_MOBILE path instead of including <tmmintrin.h>. OpenMP is off:
+  # the NDK's libomp.so would have to ship with the library. Leopard-RS is C++,
+  # and the NDK's C driver links no C++ runtime by itself, so link it statically.
+  let toolchainDir = getEnv("ANDROID_TOOLCHAIN_DIR")
+  let compiler = getEnv("ANDROID_COMPILER")
+  let ndkClang = toolchainDir / "bin" / compiler
+  let sysroot = toolchainDir / "sysroot"
+  let toolchainParams =
+    " --clang.path:\"" & toolchainDir / "bin" & "\"" &
+    " --clang.exe:" & compiler & " --clang.linkerexe:" & compiler &
+    " --passC:--sysroot=" & sysroot & " --passL:--sysroot=" & sysroot &
+    " --cincludes:" & sysroot & "/usr/include/" &
+    " -d:\"LeopardCmakeFlags=-DCMAKE_BUILD_TYPE=Release -DENABLE_OPENMP=off" &
+    " -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCOMPILER_SUPPORTS_MARCH_NATIVE=FALSE" &
+    " -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_C_COMPILER=" & ndkClang &
+    " -DCMAKE_CXX_COMPILER=" & ndkClang & "++ -DCMAKE_CXX_FLAGS=-DANDROID\"" &
+    " -d:LeopardExtraCompilerFlags=-fno-openmp -d:LeopardExtraLinkerFlags=-fno-openmp" &
+    " --passL:-lc++_static --passL:-lc++abi"
+
+  let rln = if "disable_rln" in getNimParams(): "" else: " --passL:-lrln"
   selfExec "c" & " --out:" & outDir &
     "/liblogosdelivery.so --threads:on --app:lib --opt:speed --noMain --mm:refc -d:chronicles_sinks=textlines[dynamic] --header -d:chronosEventEngine=epoll -d:discv5_protocol_id=d5waku --passL:-L" &
-    outdir & " --passL:-lrln --passL:-llog --cpu:" & cpu & " --nimMainPrefix:liblogosdelivery --os:android -d:androidNDK " & params &
+    outdir & rln & " --passL:-llog --cpu:" & cpu & " --nimcache:" & outDir & "/nimcache --nimMainPrefix:liblogosdelivery --os:android -d:androidNDK -d:metrics" & toolchainParams & libFeatureFlags & params &
     getNimParams() & " " & srcDir & "/liblogosdelivery.nim"
 
 task libLogosDeliveryAndroid, "Build the mobile bindings for Android":
@@ -245,15 +327,6 @@ proc buildMobileIOS(srcDir = ".", params = "") =
 
   if sdkPath.len == 0:
     quit "Error: IOS_SDK_PATH not set. Set it to the path of the iOS SDK"
-
-  # Package roots from nimble.paths — `nimble path` is unusable inside a
-  # task (it mixes Info and lock-validation noise into stdout).
-  proc nimblePkgPath(pkg: string): string =
-    for rawLine in readFile("nimble.paths").splitLines():
-      let line = rawLine.strip()
-      if line.startsWith("--path:\"") and ("/pkgs2/" & pkg & "-") in line:
-        return line[8 ..< line.high]
-    quit "Package " & pkg & " not found in nimble.paths — run 'make build-deps' first"
 
   let natTraversalPath = nimblePkgPath("nat_traversal")
 
@@ -282,7 +355,7 @@ proc buildMobileIOS(srcDir = ".", params = "") =
       " --app:staticlib --out:" & nimLib &
       " --noMain --mm:refc" &
       " --threads:on --opt:size --header" &
-      " -d:metrics -d:discv5_protocol_id=d5waku" &
+      " -d:metrics -d:discv5_protocol_id=d5waku" & libFeatureFlags &
       " --nimMainPrefix:liblogosdelivery --skipParentCfg:off" &
       " --cc:clang" &
       " --passC:\"" & targetFlags & "\" --passL:\"" & targetFlags & "\"" &

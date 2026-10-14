@@ -14,7 +14,8 @@ type
   ShardingConf* = object
     case kind*: ShardingConfKind
     of AutoSharding:
-      numShardsInCluster*: uint16
+      shards*: seq[uint16]
+        ## Shard ids a content topic can hash to, `[0..n-1]` by default.
     of StaticSharding:
       discard
 
@@ -41,6 +42,28 @@ type NetworkPresetConf* = object
     ## the node resolves them in the background after the mount.
   p2pReliability*: bool
   maxPureLibp2pPeers*: int
+  extraListenShards*: seq[uint16]
+    ## Shards every subscribed content topic is also received on. Deprecated:
+    ## removed once Status's shard migration ends,
+    ## https://github.com/status-im/status-go/issues/7498.
+
+proc autoSharding*(T: type ShardingConf, shards: seq[uint16]): T =
+  ShardingConf(kind: AutoSharding, shards: shards)
+
+proc autoSharding*(T: type ShardingConf, numShards: uint16): T =
+  ## Auto-sharding over the shards `[0..numShards-1]`.
+  var shards = newSeqOfCap[uint16](numShards)
+  for i in 0'u16 ..< numShards:
+    shards.add(i)
+  ShardingConf.autoSharding(shards)
+
+proc autoSharding*(T: type ShardingConf, numShards: uint16, shards: seq[uint16]): T =
+  ## Auto-sharding over `numShards` shards with the given ids.
+  doAssert shards.len == numShards.int, "shards must hold numShards ids"
+  ShardingConf.autoSharding(shards)
+
+proc numShards*(shardingConf: ShardingConf): uint16 =
+  uint16(shardingConf.shards.len)
 
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
@@ -56,7 +79,7 @@ proc TheWakuNetworkConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: RelayChainId,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: false,
     kadBootstrapNodes: @[],
     mix: false,
@@ -84,7 +107,7 @@ proc LogosDevConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: true,
     mix: true,
     mixnodes: @[
@@ -122,7 +145,7 @@ proc LogosTestConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 8),
+    shardingConf: ShardingConf.autoSharding(numShards = 8),
     enableKadDiscovery: true,
     mix: true,
     mixnodes: @[
@@ -147,14 +170,11 @@ proc LogosTestConf*(T: type NetworkPresetConf): NetworkPresetConf =
     ],
   )
 
-# cluster-id=16 (Status Production Network)
-# Cluster configuration for the `status.prod` network that Status runs on.
-# RLN is disabled. Starting from the logos-delivery integration, status.prod
-# defaults to auto-sharding with a single shard (numShardsInCluster = 1).
-# Bootstrap is done through the status.prod DNS discovery enrtree plus the
-# fleet boot nodes.
-# Source: https://fleets.waku.org/ and each host's `/config.toml`.
-proc StatusProdConf*(T: type NetworkPresetConf): NetworkPresetConf =
+# cluster-id=16 (Status networks)
+# The `status.prod` and `status.staging` networks Status runs on. RLN is
+# disabled. Auto-sharding uses the single shard 32, which Status publishes on;
+# during its shard migration nodes also receive on shard 64.
+proc statusNetworkConf(entryNodes: seq[string]): NetworkPresetConf =
   const ZeroChainId = 0'u256
   return NetworkPresetConf(
     maxMessageSize: "1024KiB",
@@ -165,19 +185,39 @@ proc StatusProdConf*(T: type NetworkPresetConf): NetworkPresetConf =
     rlnRelayChainId: ZeroChainId,
     rlnEpochSizeSec: 0,
     rlnRelayUserMessageLimit: 0,
-    shardingConf: ShardingConf(kind: AutoSharding, numShardsInCluster: 1),
+    shardingConf: ShardingConf.autoSharding(numShards = 1, shards = @[32'u16]),
+    extraListenShards: @[64'u16],
     enableKadDiscovery: false,
     kadBootstrapNodes: @[],
     mix: false,
     p2pReliability: false,
     discv5Discovery: true,
     discv5BootstrapNodes: @[],
-    entryNodes: @[
+    entryNodes: entryNodes,
+  )
+
+# Bootstrap is done through the status.prod DNS discovery enrtree plus the
+# fleet boot nodes.
+# Source: https://fleets.waku.org/ and each host's `/config.toml`.
+proc StatusProdConf*(T: type NetworkPresetConf): NetworkPresetConf =
+  statusNetworkConf(
+    @[
       "enrtree://AMOJVZX4V6EXP7NTJPMAYJYST2QP6AJXYW76IU6VGJS7UVSNDYZG4@boot.prod.status.nodes.status.im",
       "/dns4/boot-01.do-ams3.status.prod.status.im/tcp/30303/p2p/16Uiu2HAmAR24Mbb6VuzoyUiGx42UenDkshENVDj4qnmmbabLvo31",
       "/dns4/boot-01.gc-us-central1-a.status.prod.status.im/tcp/30303/p2p/16Uiu2HAm8mUZ18tBWPXDQsaF7PbCKYA35z7WB2xNZH2EVq1qS8LJ",
       "/dns4/boot-01.ac-cn-hongkong-c.status.prod.status.im/tcp/30303/p2p/16Uiu2HAmGwcE8v7gmJNEWFtZtojYpPMTHy2jBLL6xRk33qgDxFWX",
-    ],
+    ]
+  )
+
+# Bootstrap is done through the status.staging DNS discovery enrtree plus the
+# fleet boot node that resolves and accepts connections.
+# Source: https://fleets.waku.org/.
+proc StatusStagingConf*(T: type NetworkPresetConf): NetworkPresetConf =
+  statusNetworkConf(
+    @[
+      "enrtree://AI4W5N5IFEUIHF5LESUAOSMV6TKWF2MB6GU2YK7PU4TYUGUNOCEPW@boot.staging.status.nodes.status.im",
+      "/dns4/boot-01.do-ams3.status.staging.status.im/tcp/30303/p2p/16Uiu2HAmQE7FXQc6iZHdBzYfw3qCSDa9dLc1wsBJKoP4aZvztq2d",
+    ]
   )
 
 const MaxAllowedSubscribedShard* = 60
@@ -196,12 +236,11 @@ proc validateShards*(
   of StaticSharding:
     return ok()
   of AutoSharding:
-    let numShardsInCluster = shardingConf.numShardsInCluster
     for shard in shards:
-      if shard >= numShardsInCluster:
+      if shard notin shardingConf.shards:
         let msg =
-          "validateShards invalid shard: " & $shard & " when numShardsInCluster: " &
-          $numShardsInCluster
+          "validateShards invalid shard: " & $shard & " when valid shards are: " &
+          $shardingConf.shards
         error "validateShards failed", error = msg
         return err(msg)
 

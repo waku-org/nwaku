@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sets],
+  std/[os, strformat, strutils, sets],
   stew/byteutils,
   results,
   sequtils,
@@ -45,7 +45,7 @@ declareCounter logos_delivery_relay_network_bytes,
   labels = ["topic", "type", "direction"]
 
 declarePublicCounter logos_delivery_relay_invalid_messages,
-  "messages that the WakuMessage decoder refuses, per path", labels = ["path"]
+  "messages that the WakuMessage decoder refuses, per stage", labels = ["stage"]
 
 declarePublicGauge(
   logos_delivery_relay_total_msg_bytes_per_shard,
@@ -210,6 +210,16 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
+let RelayMsgInfoLogs = getEnv("RELAY_MSG_INFO_LOGS").toLowerAscii() in ["1", "true"]
+  ## Opt-in at runtime (`RELAY_MSG_INFO_LOGS=1`), e.g. for DST nodes.
+  ## Off by default so production logs are not flooded.
+
+template relayMsgLog(args: varargs[untyped]): untyped =
+  if RelayMsgInfoLogs:
+    info args
+  else:
+    trace args
+
 proc logMessageInfo*(
     w: WakuRelay,
     remotePeerId: string,
@@ -222,7 +232,7 @@ proc logMessageInfo*(
   let payloadSize = float64(msg.payload.len)
 
   if onRecv:
-    trace "Received relay message",
+    relayMsgLog "Received relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
@@ -232,7 +242,7 @@ proc logMessageInfo*(
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
   else:
-    trace "Sent relay message",
+    relayMsgLog "Sent relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,

@@ -543,15 +543,15 @@
       }
     },
     "nimcrypto": {
-      "version": "0.6.4",
-      "vcsRevision": "721fb99ee099b632eb86dfad1f0d96ee87583774",
+      "version": "0.7.3",
+      "vcsRevision": "b3dbc9c4d08e58c5b7bfad6dc7ef2ee52f2f4c08",
       "url": "https://github.com/cheatfate/nimcrypto",
       "downloadMethod": "git",
       "dependencies": [
         "nim"
       ],
       "checksums": {
-        "sha1": "f9ab24fa940ed03d0fb09729a7303feb50b7eaec"
+        "sha1": "f72b90fe3f4da09efa482de4f8729e7ee4abea2f"
       }
     },
     "websock": {
@@ -769,8 +769,8 @@
       }
     },
     "mix_rln_spam_protection": {
-      "version": "#d52775ceb11eee45d9d5e164b42e47741c5d4ee3",
-      "vcsRevision": "d52775ceb11eee45d9d5e164b42e47741c5d4ee3",
+      "version": "#7b5c7cfafbffe4e47aeb46838633645afacdb73c",
+      "vcsRevision": "7b5c7cfafbffe4e47aeb46838633645afacdb73c",
       "url": "https://github.com/logos-co/mix-rln-spam-protection-plugin",
       "downloadMethod": "git",
       "dependencies": [
@@ -787,7 +787,7 @@
         "metrics"
       ],
       "checksums": {
-        "sha1": "354fb8bad5be283f9736ba50993e51e50154eed9"
+        "sha1": "95f93240ff590b87bda3aab8b695bf66c189a910"
       }
     },
     "nim": {
