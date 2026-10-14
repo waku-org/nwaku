@@ -79,6 +79,7 @@ proc handleRequest*(
     let desc = decodeRpcFailure & ": " & $error
     debug "Failed to decode Lightpush request", error = desc
     let errorCode = LightPushErrorCode.BAD_REQUEST
+    # bounded-label: LightPushErrorCode enum
     logos_delivery_lightpush_v3_errors.inc(labelValues = [$errorCode])
     return LightPushResponse(
       requestId: UnknownRequestId, # due to decode failure we don't know requestId
@@ -88,6 +89,7 @@ proc handleRequest*(
 
   let relayPeerCount = (await wl.handleRequest(peerId, request)).valueOr:
     let desc = error.desc
+    # bounded-label: LightPushErrorCode enum
     logos_delivery_lightpush_v3_errors.inc(labelValues = [$error.code])
     debug "Failed to push message", error = desc.get("")
     return LightPushResponse(
@@ -167,7 +169,7 @@ proc new*(
     pushHandler: PushMessageHandler,
     autoSharding: Opt[Sharding],
     rateLimitSetting: Opt[RateLimitSetting] = Opt.none(RateLimitSetting),
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): T =
   let wl = WakuLightPush(
     rng: rng,

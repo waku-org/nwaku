@@ -39,6 +39,13 @@ type PostgresDriver* = ref object of ArchiveDriver
 
   futLoopAnalyzeTable: Future[void]
 
+  ## Kept to be cancelled on close: a closed pool reopens connections on demand
+  futHealthChecks: seq[Future[void]]
+
+  ## Bounds the inserts only: the write pool also runs partition DDL, which can
+  ## legitimately wait on readers
+  writeLockTimeout: chronos.Duration
+
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
@@ -135,33 +142,52 @@ const SelectCursorByHashDef = """SELECT timestamp FROM messages_lookup
 const
   DefaultMaxNumConns = 50
   MaxHashesPerQuery = 100
+  DefaultReadStatementTimeout* = chronos.minutes(5)
+  DefaultReadLockTimeout* = chronos.seconds(30)
+  DefaultWriteLockTimeout* = chronos.seconds(30)
 
 proc new*(
     T: type PostgresDriver,
     dbUrl: string,
     maxConnections = DefaultMaxNumConns,
     onFatalErrorAction: OnFatalErrorHandler = nil,
+    readStatementTimeout = DefaultReadStatementTimeout,
+    readLockTimeout = DefaultReadLockTimeout,
+    writeLockTimeout = DefaultWriteLockTimeout,
 ): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
 
-  let readConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
+  ## Only the read pool gets server-side timeouts: the write pool also runs
+  ## migrations, partition DDL and ANALYZE, which can legitimately take long.
+  let readConnPool = PgAsyncPool.new(
+    dbUrl,
+    maxNumConnOnEachPool,
+    statementTimeout = readStatementTimeout,
+    lockTimeout = readLockTimeout,
+  ).valueOr:
     return err("error creating read conn pool PgAsyncPool")
 
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
-
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
-
   let driver = PostgresDriver(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
+    writeLockTimeout: writeLockTimeout,
   )
+
+  if not isNil(onFatalErrorAction):
+    for pool in [readConnPool, writeConnPool]:
+      let fut = checkConnectivity(pool, onFatalErrorAction)
+      fut.addCallback(
+        proc(udata: pointer) {.gcsafe, raises: [].} =
+          if fut.failed():
+            error "postgres health check loop failed", error = fut.error.msg
+      )
+      driver.futHealthChecks.add(fut)
+
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -337,6 +363,7 @@ method put*(
       ],
       @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
       insertCallback,
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages table: " & $error)
@@ -349,6 +376,7 @@ method put*(
       @[messageHash, timestamp],
       @[int32(messageHash.len), int32(timestamp.len)],
       @[int32(0), int32(0)],
+      lockTimeout = Opt.some(s.writeLockTimeout),
     )
   ).isOkOr:
     return err("could not put msg in messages_lookup table: " & $error)
@@ -817,38 +845,51 @@ proc getMessageHashesPreparedStmt(
 
   return ok(rows)
 
+func messagesAtTimestampsQuery*(
+    hashes: string, timestamps: openArray[Timestamp], maxPageSize: uint
+): string =
+  ## Constant timestamps let the planner prune messages down to the
+  ## partitions that hold them.
+  return
+    fmt"""
+  SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
+  FROM messages
+  WHERE timestamp IN ({timestamps.join(",")}) AND messagehash IN ({hashes})
+  ORDER BY timestamp DESC, messagehash DESC
+  LIMIT {maxPageSize};
+  """
+
 proc getMessagesByMessageHashes(
     s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieves information only filtering by a given messageHashes list.
-  ## This proc levarages on the messages_lookup table to have better query performance
-  ## and only query the desired partitions in the partitioned messages table
-  var query =
-    fmt"""
-  WITH min_timestamp AS (
-    SELECT MIN(timestamp) AS min_ts
-    FROM messages_lookup
-    WHERE messagehash IN (
-      {hashes}
+  ## Both tables are partitioned by time and a hash carries no time bound, so a
+  ## single statement joining them makes the planner open every partition of
+  ## both: tens of seconds and GBs of memory with thousands of partitions.
+  ## Resolving the timestamps first keeps the second statement pruned.
+  var timestamps: seq[Timestamp]
+  proc timestampsCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      let rawTimestamp = $(pqgetvalue(pqResult, iRow, 0))
+      let catchable = catch:
+        parseBiggestInt(rawTimestamp)
+      let timestamp = catchable.valueOr:
+        error "could not parse lookup timestamp", rawTimestamp, error = error.msg
+        continue
+      timestamps.add(Timestamp(timestamp))
+
+  (
+    await s.readConnPool.pgQuery(
+      query =
+        fmt"SELECT DISTINCT timestamp FROM messages_lookup WHERE messagehash IN ({hashes});",
+      rowCallback = timestampsCallback,
+      requestId = requestId,
     )
-  )
-  SELECT m.messageHash, pubsubTopic, contentTopic, payload, version, m.timestamp, meta
-  FROM messages m
-  INNER JOIN
-    messages_lookup l
-  ON
-    m.timestamp = l.timestamp
-    AND m.messagehash = l.messagehash
-  WHERE
-    l.timestamp >= (SELECT min_ts FROM min_timestamp)
-    AND l.messagehash IN (
-      {hashes}
-    )
-  ORDER BY
-    m.timestamp DESC,
-    m.messagehash DESC
-  LIMIT {maxPageSize};
-  """
+  ).isOkOr:
+    return err("failed to look up message timestamps: " & $error)
+
+  if timestamps.len == 0:
+    return ok(newSeq[ArchiveRow]())
 
   var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
   proc rowCallback(pqResult: ptr PGresult) =
@@ -856,10 +897,12 @@ proc getMessagesByMessageHashes(
 
   (
     await s.readConnPool.pgQuery(
-      query = query, rowCallback = rowCallback, requestId = requestId
+      query = messagesAtTimestampsQuery(hashes, timestamps, maxPageSize),
+      rowCallback = rowCallback,
+      requestId = requestId,
     )
   ).isOkOr:
-    return err("failed to run query: " & $error)
+    return err("failed to query messages by hash: " & $error)
 
   return ok(rows)
 
@@ -1077,6 +1120,9 @@ method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   if not s.futLoopAnalyzeTable.isNil():
     s.futLoopAnalyzeTable.cancelSoon()
 
+  for fut in s.futHealthChecks:
+    await fut.cancelAndWait()
+
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
   let readCloseRes = await s.readConnPool.close()
@@ -1266,13 +1312,12 @@ proc performPartitionDdlSteps(
   return ok(true)
 
 proc addPartition*(
-    self: PostgresDriver, startTime: Timestamp
+    self: PostgresDriver, beginning, `end`: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
-  ## `startTime` <= timestamp < `startTime + duration`.
-  ## `startTime` is measured in seconds since epoch
-  let beginning = startTime
-  let `end` = partitions_manager.calcEndPartitionTime(startTime)
+  ## `beginning` <= timestamp < `end`, both measured in seconds since epoch.
+  if `end` <= beginning:
+    return err("addPartition: the end must be after the beginning")
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -1335,6 +1380,13 @@ proc addPartition*(
 
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
+
+proc addPartition*(
+    self: PostgresDriver, startTime: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the partition from `startTime` (seconds since epoch) to the next
+  ## o'clock.
+  return await self.addPartition(startTime, calcEndPartitionTime(startTime))
 
 proc refreshPartitionsInfo(
     self: PostgresDriver
@@ -1503,6 +1555,38 @@ const MaxConsecutivePartitionMaintenanceFailures = 6
 
 const MaxPartitionCheckJitterSecs = 120
 
+const StartupLookbackSlots = 2
+  ## Partitions created before the current hour when the factory starts from an
+  ## empty database or after a downtime. Two cover the default store-sync-range
+  ## (3600 s) plus store-sync-relay-jitter (20 s) from any moment of the hour.
+
+proc addLookbackPartitions(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the uncovered start of each of the `StartupLookbackSlots` hour
+  ## slots before the one containing `nowSec`, oldest first. A slot that fails
+  ## is logged and skipped: the current hour must never depend on these. The
+  ## tracked partitions are refreshed afterwards, because the new ones are
+  ## older than those already tracked and the oldest has to stay first.
+  let currentSlot = floorToHour(nowSec)
+  var createdAny = false
+  for i in countdown(StartupLookbackSlots, 1):
+    let slotStart = currentSlot - int64(i) * 3600
+    let prefix = self.partitionMngr.uncoveredPrefix(slotStart, slotStart + 3600).valueOr:
+      continue
+
+    (await self.addPartition(Timestamp(prefix.beginning), Timestamp(prefix.`end`))).isOkOr:
+      error "could not create a partition for an hour before start",
+        slotStart = prefix.beginning, slotEnd = prefix.`end`, error = $error
+      continue
+
+    createdAny = true
+
+  if createdAny:
+    ?await self.refreshPartitionsInfo()
+
+  return ok()
+
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1525,10 +1609,15 @@ proc runPartitionMaintenance(
 
   let now = times.now().toTime().toUnix()
 
+  ## Set when no partition contains 'now': the hours before it get partitions
+  ## too, after the current and the next one (see addLookbackPartitions).
+  var startingUp = false
+
   if self.partitionMngr.isEmpty():
     debug "Adding partition because now there aren't more partitions"
-    (await self.addPartition(now)).isOkOr:
+    (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
       return err("error when creating a new partition from empty state: " & $error)
+    startingUp = true
   else:
     let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
       return err("could not get newest partition: " & $error)
@@ -1538,8 +1627,9 @@ proc runPartitionMaintenance(
       ## There is no partition to contain the current time.
       ## This happens if the node has been stopped for quite a long time.
       ## Then, let's create the needed partition to contain 'now'.
-      (await self.addPartition(now)).isOkOr:
+      (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
         return err("could not add the next partition: " & $error)
+      startingUp = true
 
   ## Also right after creating the partition for 'now' above: it ends at the next
   ## o'clock, possibly within seconds, while the next pass is ten minutes away.
@@ -1549,6 +1639,11 @@ proc runPartitionMaintenance(
     debug "Creating a new partition for the future"
     (await self.addPartition(newestPartition.get().getLastMoment())).isOkOr:
       return err("could not add the next partition for 'now': " & $error)
+
+  ## Last, and never failing the pass: the hours store sync fills back.
+  if startingUp:
+    (await self.addLookbackPartitions(now)).isOkOr:
+      error "could not refresh the partitions after the lookback", error = $error
 
   self.partitionsProvisioned = true
 

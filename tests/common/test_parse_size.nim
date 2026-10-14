@@ -1,6 +1,6 @@
 {.used.}
 
-import testutils/unittests, results
+import std/strutils, testutils/unittests, results
 import logos_delivery/waku/common/utils/parse_size_units
 
 suite "Size serialization test":
@@ -102,3 +102,10 @@ suite "Size serialization test":
 
     sizeInBytesRes = parseMsgSize("15..0 KiB")
     assert sizeInBytesRes.isErr(), "The size should be considered incorrect"
+
+  test "a size that does not fit a uint64 is an error, not 0":
+    let res = parseMsgSize("99999999999999999999999 B")
+    check:
+      res.isErr()
+      "too large" in res.error
+    check parseMsgSize("18446744073709551616 B").isErr() # 2^64

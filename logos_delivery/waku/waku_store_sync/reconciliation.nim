@@ -109,7 +109,9 @@ proc messageIngress*(
     error "failed to insert new message",
       msg_hash = byteutils.toHex(id.hash), error = $error
 
-proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[RangesData] =
+proc preProcessPayload*(
+    self: SyncReconciliation, payload: RangesData, lowerBound: Timestamp
+): Opt[RangesData] =
   ## Check the received payload for topics and/or time mismatch.
 
   var payload = payload
@@ -136,18 +138,19 @@ proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[Range
   elif self.contentTopics.len > 0:
     payload.contentTopics = self.contentTopics.toSeq()
 
-  let timeRange = calculateTimeRange(self.clock(), self.relayJitter, self.syncRange)
-  let selfLowerBound = timeRange.a
-
   # for non skip ranges check if they happen before any of our ranges
-  # convert to skip range before processing
+  # convert to skip range before processing.
+  # The range that crosses our lower bound is split into a skip part and the
+  # part we process, which keeps the peer's fingerprint or item set. That
+  # fingerprint also covers the peer's elements before our bound, so a
+  # mismatch there costs one more round trip, never a false match.
   for i in 0 ..< payload.ranges.len:
     let rangeType = payload.ranges[i][1]
     if rangeType == RangeType.Skip:
       continue
 
     let upperBound = payload.ranges[i][0].b.time
-    if selfLowerBound > upperBound:
+    if lowerBound > upperBound:
       payload.ranges[i][1] = RangeType.Skip
 
       if rangeType == RangeType.Fingerprint:
@@ -155,6 +158,15 @@ proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[Range
       elif rangeType == RangeType.ItemSet:
         payload.itemSets.delete(0)
     else:
+      let bounds = payload.ranges[i][0]
+      if bounds.a.time < lowerBound:
+        let split = SyncID(time: lowerBound, hash: EmptyFingerprint)
+        payload.ranges[i] = (split .. bounds.b, rangeType)
+        payload.ranges.insert((bounds.a .. split, RangeType.Skip), i)
+
+        if rangeType == RangeType.ItemSet:
+          payload.itemSets[0].elements.keepItIf(not (it < split))
+
       break
 
   return Opt.some(payload)
@@ -169,13 +181,17 @@ proc processRequest(
   # Signal to transfer protocol that this reconciliation is starting
   await self.localWantsTx.addLast(conn.peerId)
 
-  while true:
-    let readRes = catch:
-      await conn.readLp(int.high)
+  # Fixed for the session, so that a range the peer sends back in a later
+  # round never crosses a bound that moved by the round-trip time.
+  let lowerBound = calculateTimeRange(self.clock(), self.relayJitter, self.syncRange).a
 
-    let buffer: seq[byte] = readRes.valueOr:
-      await conn.close()
-      return err("remote " & $conn.peerId & " connection read error: " & error.msg)
+  while true:
+    let buffer =
+      try:
+        await conn.readLp(int.high)
+      except LPStreamError as exc:
+        await conn.close()
+        return err("remote " & $conn.peerId & " connection read error: " & exc.msg)
 
     logos_delivery_total_bytes_exchanged.inc(
       buffer.len, labelValues = [Reconciliation, Receiving]
@@ -201,7 +217,7 @@ proc processRequest(
       sendPayload: RangesData
       rawPayload: seq[byte]
 
-    let preProcessedPayloadRes = self.preProcessPayload(recvPayload)
+    let preProcessedPayloadRes = self.preProcessPayload(recvPayload, lowerBound)
     if preProcessedPayloadRes.isSome():
       let preProcessedPayload = preProcessedPayloadRes.get()
 
@@ -232,12 +248,11 @@ proc processRequest(
       rawPayload.len, labelValues = [Reconciliation, Sending]
     )
 
-    let writeRes = catch:
+    try:
       await conn.writeLP(rawPayload)
-
-    writeRes.isOkOr:
+    except LPStreamError as exc:
       await conn.close()
-      return err("remote " & $conn.peerId & " connection write error: " & error.msg)
+      return err("remote " & $conn.peerId & " connection write error: " & exc.msg)
 
     trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
@@ -289,12 +304,11 @@ proc initiate(
     sendPayload.len, labelValues = [Reconciliation, Sending]
   )
 
-  let writeRes = catch:
+  try:
     await connection.writeLP(sendPayload)
-
-  writeRes.isOkOr:
+  except LPStreamError as exc:
     await connection.close()
-    return err("remote " & $connection.peerId & " connection write error: " & error.msg)
+    return err("remote " & $connection.peerId & " connection write error: " & exc.msg)
 
   trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
@@ -398,7 +412,21 @@ proc new*(
     remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
     clock: proc(): Timestamp {.gcsafe, raises: [].} = getNowInNanosecondTime,
 ): Future[Result[T, string]] {.async.} =
-  let res = await initFillStorage(syncRange, wakuArchive, clock())
+  let timeRetention =
+    if wakuArchive.isNil():
+      Opt.none(Duration)
+    else:
+      wakuArchive.getShortestTimeRetention()
+  let effectiveRange = clampSyncRange(syncRange, relayJitter, timeRetention)
+  if effectiveRange != syncRange:
+    warn "Store sync range reduced to fit the message time retention",
+      requested_sync_range = syncRange,
+      relay_jitter = relayJitter,
+      time_retention = timeRetention.get(),
+      effective_sync_range = effectiveRange,
+      fix = "lower --store-sync-range or raise the time retention"
+
+  let res = await initFillStorage(effectiveRange, wakuArchive, clock())
   let storage =
     if res.isErr():
       warn "will not sync messages before this point in time", error = res.error
@@ -411,7 +439,7 @@ proc new*(
     contentTopics: contentTopics.toHashSet(),
     peerManager: peerManager,
     storage: storage,
-    syncRange: syncRange,
+    syncRange: effectiveRange,
     syncInterval: syncInterval,
     relayJitter: relayJitter,
     clock: clock,
@@ -424,6 +452,8 @@ proc new*(
     try:
       (await sync.processRequest(conn)).isOkOr:
         debug "Request processing error", error = error
+    except CancelledError as exc:
+      raise exc
     except CatchableError:
       error "exception in reconciliation handler", error = getCurrentExceptionMsg()
 
@@ -431,9 +461,15 @@ proc new*(
   sync.codec = WakuReconciliationCodec
 
   info "Store Reconciliation protocol initialized",
-    sync_range = syncRange, sync_interval = syncInterval, relay_jitter = relayJitter
+    sync_range = effectiveRange,
+    sync_interval = syncInterval,
+    relay_jitter = relayJitter
 
   return ok(sync)
+
+func getEffectiveSyncRange*(self: SyncReconciliation): Duration =
+  ## The sync range in use, after clamping to the archive's time retention.
+  self.syncRange
 
 proc periodicSync(self: SyncReconciliation) {.async.} =
   debug "Periodic sync initialized", interval = $self.syncInterval
