@@ -37,11 +37,11 @@ proc collectDiffs*(
     received.incl sid.hash
   result = received
 
-proc refusedCount(reason: string): float64 =
+proc failureCount(reason: string): float64 =
   ## Counters are registered with the '_total' suffix; see archive_utils.insertCount.
   try:
-    return logos_delivery_transfer_messages_refused.valueByName(
-      "logos_delivery_transfer_messages_refused_total", [reason]
+    return logos_delivery_transfer_receive_failures.valueByName(
+      "logos_delivery_transfer_receive_failures_total", [reason]
     )
   except ValueError:
     return 0.0
@@ -1238,7 +1238,7 @@ suite "Waku Sync: transfer":
       smallMsg = fakeWakuMessage()
       smallHash = computeMessageHash(DefaultPubsubTopic, smallMsg)
     serverDriver = await serverDriver.put(DefaultPubsubTopic, bigMsgs & @[smallMsg])
-    let refusedBefore = refusedCount("too_large")
+    let refusedBefore = failureCount("too_large")
 
     # When the server sends the big messages back to back, then the small one
     for hash in bigHashes:
@@ -1251,9 +1251,49 @@ suite "Waku Sync: transfer":
     # depends on timing.
     checkUntilTimeout:
       await smallArchive.holdsMessages(@[smallHash])
-    check refusedCount("too_large") >= refusedBefore + 1
+    check failureCount("too_large") >= refusedBefore + 1
     for hash in bigHashes:
       check not await smallArchive.holdsMessages(@[hash])
+
+  asyncTest "a malformed length prefix is counted as a read error and the next session works":
+    let
+      msg = fakeWakuMessage()
+      hash = computeMessageHash(DefaultPubsubTopic, msg)
+    clientDriver = await clientDriver.put(DefaultPubsubTopic, @[msg])
+    let readErrorsBefore = failureCount("read_error")
+
+    # When a stream to the server starts with ten varint continuation bytes
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
+    )
+    var junk = newSeq[byte](10)
+    for b in junk.mitems:
+      b = 0xFF
+    await conn.write(junk)
+
+    # Then the server counts a read error
+    checkUntilTimeout:
+      failureCount("read_error") == readErrorsBefore + 1
+    await conn.close()
+
+    # and still receives a message in a new session
+    await clientRemoteNeeds.put((serverPeerInfo.peerId, hash))
+    checkUntilTimeout:
+      await serverArchive.holdsMessages(@[hash])
+
+  asyncTest "an undecodable payload is counted as a decode error":
+    let decodeErrorsBefore = failureCount("decode_error")
+
+    # When a stream to the server carries a framed payload that is not a WakuMessageAndTopic
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
+    )
+    await conn.writeLp(@[byte 0xFF, 0xFF, 0xFF])
+
+    # Then the server counts a decode error
+    checkUntilTimeout:
+      failureCount("decode_error") == decodeErrorsBefore + 1
+    await conn.close()
 
   ## Disabled until we impl. DOS protection again
   #[ asyncTest "Check the exact missing messages are received":
