@@ -13,10 +13,18 @@ import
 
 randomize()
 
-proc transferCount*(direction: string): float64 =
+type TransferDirection* {.pure.} = enum
+  Sent
+  Received
+
+proc transferCount*(direction: TransferDirection): float64 =
+  let label =
+    case direction
+    of TransferDirection.Sent: Sending
+    of TransferDirection.Received: Receiving
   try:
     return logos_delivery_total_transfer_messages_exchanged.valueByName(
-      "logos_delivery_total_transfer_messages_exchanged_total", [direction]
+      "logos_delivery_total_transfer_messages_exchanged_total", [label]
     )
   except ValueError:
     return 0.0

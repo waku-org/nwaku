@@ -16,7 +16,6 @@ import
     waku_archive/archive_metrics,
     waku_archive/retention_policy/retention_policy_time,
     waku_store_sync,
-    waku_store_sync/protocols_metrics,
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
@@ -311,19 +310,19 @@ suite "Waku Store Sync - End to End":
       )
     )
 
-    let sentBefore = transferCount(Sending)
+    let sentBefore = transferCount(TransferDirection.Sent)
 
     # When the peer syncs with it, and the node is stopped once its transfer has sent a message
     let res = await nodeB.syncWith(nodeA)
     check res.isOk()
     checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
-      transferCount(Sending) > sentBefore
+      transferCount(TransferDirection.Sent) > sentBefore
     let stopping = nodeA.stop()
 
     # Then the stop completes before the node sent every message
     check:
       await stopping.join().withTimeout(3.seconds)
-      transferCount(Sending) < sentBefore + float64(msgs.len)
+      transferCount(TransferDirection.Sent) < sentBefore + float64(msgs.len)
     nodes = @[nodeB]
 
   asyncTest "A node stopped while its store sync transfer writes to a peer over QUIC completes its stop":
@@ -342,17 +341,17 @@ suite "Waku Store Sync - End to End":
       )
     )
 
-    let sentBefore = transferCount(Sending)
+    let sentBefore = transferCount(TransferDirection.Sent)
 
     # When the peer syncs with it, and the node is stopped once its transfer has sent a message
     let res = await nodeB.syncWith(nodeA)
     check res.isOk()
     checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
-      transferCount(Sending) > sentBefore
+      transferCount(TransferDirection.Sent) > sentBefore
     let stopping = nodeA.stop()
 
     # Then the stop completes before the node sent every message
     check:
       await stopping.join().withTimeout(3.seconds)
-      transferCount(Sending) < sentBefore + float64(msgs.len)
+      transferCount(TransferDirection.Sent) < sentBefore + float64(msgs.len)
     nodes = @[nodeB]
