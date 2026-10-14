@@ -45,7 +45,7 @@ declareCounter logos_delivery_relay_network_bytes,
   labels = ["topic", "type", "direction"]
 
 declarePublicCounter logos_delivery_relay_invalid_messages,
-  "messages that the WakuMessage decoder refuses, per path", labels = ["path"]
+  "messages that the WakuMessage decoder refuses, per stage", labels = ["stage"]
 
 declarePublicGauge(
   logos_delivery_relay_total_msg_bytes_per_shard,

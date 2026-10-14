@@ -22,11 +22,11 @@ import
   ./utils,
   ../resources/payloads
 
-proc invalidMessages(path: string): float64 =
-  ## The count of `logos_delivery_relay_invalid_messages` for `path`, 0 before
+proc invalidMessages(stage: string): float64 =
+  ## The count of `logos_delivery_relay_invalid_messages` for `stage`, 0 before
   ## its first increment.
   try:
-    logos_delivery_relay_invalid_messages.value([path])
+    logos_delivery_relay_invalid_messages.value([stage])
   except KeyError:
     0.0
 
