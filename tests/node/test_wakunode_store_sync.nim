@@ -24,9 +24,13 @@ proc newStoreSyncNode(
     driver: ArchiveDriver,
     retentionPolicies: seq[RetentionPolicy] = @[],
     storeSyncRelayJitter: uint32 = 0,
+    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    quicEnabled = true,
 ): Future[WakuNode] {.async.} =
   ## A store node whose sync interval is long enough that only the test starts sessions.
-  let node = newTestWakuNode(generateSecp256k1Key(), listenIp, listenPort)
+  let node = newTestWakuNode(
+    generateSecp256k1Key(), listenIp, listenPort, quicEnabled = quicEnabled
+  )
   node.mountArchive(driver, retentionPolicies).isOkOr:
     raiseAssert error
   (
@@ -37,6 +41,7 @@ proc newStoreSyncNode(
       storeSyncRange = 3600,
       storeSyncInterval = 300,
       storeSyncRelayJitter = storeSyncRelayJitter,
+      maxMessageSize = maxMessageSize,
     )
   ).isOkOr:
     raiseAssert error
@@ -215,3 +220,69 @@ suite "Waku Store Sync - End to End":
     check:
       not await node.wakuArchive.holdsMessages(@[oldHash])
       insertCount(syncIngress) == syncInsertsBefore + 1
+
+  asyncTest "Nodes with a raised max message size sync a message above the default read limit":
+    # Given two nodes with a 200 KiB max message size, one holding a message that is
+    # above the default read limit (150 KiB + 64 KiB) but within theirs, and three small ones
+    let
+      bigMsg = fakeWakuMessage(newSeq[byte](230_000), ts = now() - 4.seconds.nanos)
+      smallMsgs = @[
+        fakeWakuMessage(@[byte 0], ts = now() - 3.seconds.nanos),
+        fakeWakuMessage(@[byte 1], ts = now() - 2.seconds.nanos),
+        fakeWakuMessage(@[byte 2], ts = now() - 1.seconds.nanos),
+      ]
+      msgs = @[bigMsg] & smallMsgs
+      hashes = msgs.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, msgs),
+        maxMessageSize = 200 * 1024,
+      )
+      nodeB =
+        await newStoreSyncNode(newSqliteArchiveDriver(), maxMessageSize = 200 * 1024)
+    nodes = @[nodeA, nodeB]
+    await allFutures(nodes.mapIt(it.start()))
+
+    # When B syncs with A
+    let res = await nodeB.syncWith(nodeA)
+
+    # Then B's archive holds all four messages
+    check res.isOk()
+    checkUntilTimeout:
+      await nodeB.wakuArchive.holdsMessages(hashes)
+
+  asyncTest "Over TCP, a peer with the default limit refuses the large messages and a third peer still gets everything":
+    # Given a 200 KiB node holding two messages above the default read limit and a small
+    # one, an empty peer at the default limit and an empty 200 KiB peer, all over TCP
+    let
+      bigMsgs = @[
+        fakeWakuMessage(newSeq[byte](230_000), ts = now() - 3.seconds.nanos),
+        fakeWakuMessage(newSeq[byte](230_000), ts = now() - 2.seconds.nanos),
+      ]
+      smallMsg = fakeWakuMessage(@[byte 0], ts = now() - 1.seconds.nanos)
+      bigHashes = bigMsgs.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+      smallHash = computeMessageHash(DefaultPubsubTopic, smallMsg)
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, bigMsgs & @[smallMsg]),
+        maxMessageSize = 200 * 1024,
+        quicEnabled = false,
+      )
+      nodeB = await newStoreSyncNode(newSqliteArchiveDriver(), quicEnabled = false)
+      nodeC = await newStoreSyncNode(
+        newSqliteArchiveDriver(), maxMessageSize = 200 * 1024, quicEnabled = false
+      )
+    nodes = @[nodeA, nodeB, nodeC]
+    await allFutures(nodes.mapIt(it.start()))
+
+    # When B syncs with A, then C syncs with A
+    let resB = await nodeB.syncWith(nodeA)
+    let resC = await nodeC.syncWith(nodeA)
+
+    # Then B holds the small message only and C holds all three
+    check:
+      resB.isOk()
+      resC.isOk()
+    checkUntilTimeout:
+      await nodeB.wakuArchive.holdsMessages(@[smallHash])
+      await nodeC.wakuArchive.holdsMessages(bigHashes & @[smallHash])
+    for hash in bigHashes:
+      check not await nodeB.wakuArchive.holdsMessages(@[hash])
