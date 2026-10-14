@@ -563,7 +563,9 @@ suite "Waku Conf - mix nodes from a network preset":
 
   test "the presets that do not enable mix ship no mix nodes":
     for preset in [
-      NetworkPresetConf.TheWakuNetworkConf(), NetworkPresetConf.StatusProdConf()
+      NetworkPresetConf.TheWakuNetworkConf(),
+      NetworkPresetConf.StatusProdConf(),
+      NetworkPresetConf.StatusStagingConf(),
     ]:
       check:
         not preset.mix

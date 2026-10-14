@@ -131,8 +131,44 @@ suite "WakuNodeConf - preset integration":
     check:
       wakuConf.clusterId == 16
       wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShards == 1
+      wakuConf.shardingConf.shards == @[32'u16]
+      wakuConf.subscribeShards == @[32'u16]
+      wakuConf.extraListenShards == @[64'u16]
       wakuConf.rlnEvmConf.isNone()
+
+  test "StatusStaging preset applies StatusStagingConf":
+    ## Given
+    var conf = defaultKernelConf().valueOr:
+      raiseAssert error
+    conf.preset = "status.staging"
+
+    ## When
+    let wakuConfRes = conf.toWakuConf()
+
+    ## Then
+    require wakuConfRes.isOk()
+    let wakuConf = wakuConfRes.get()
+    require wakuConf.validate().isOk()
+    check:
+      wakuConf.clusterId == 16
+      wakuConf.shardingConf.shards == @[32'u16]
+      wakuConf.subscribeShards == @[32'u16]
+      wakuConf.extraListenShards == @[64'u16]
+      wakuConf.rlnEvmConf.isNone()
+
+  test "num-shards-in-network replaces a preset's shards":
+    ## Given
+    var conf = defaultKernelConf().valueOr:
+      raiseAssert error
+    conf.preset = "status.prod"
+    conf.numShardsInNetwork = 2
+
+    ## When
+    let wakuConfRes = conf.toWakuConf()
+
+    ## Then
+    require wakuConfRes.isOk()
+    check wakuConfRes.get().shardingConf.shards == @[0'u16, 1]
 
   test "Invalid preset returns error":
     ## Given
