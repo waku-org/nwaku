@@ -256,6 +256,60 @@ suite "SendService - mix completion":
       task.propagatedEventEmitted
     check not await sent.waitCount(1).withTimeout(FUTURE_TIMEOUT_SHORT)
 
+suite "SendService - Store validation window":
+  var waku {.threadvar.}: Waku
+  var log {.threadvar.}: SendEventLog
+
+  asyncSetup:
+    waku = (await Waku.new(testConf())).expect("Waku.new")
+    log = newSendEventLog(waku.brokerCtx)
+
+  asyncTeardown:
+    await log.teardown()
+    discard await waku.stop()
+
+  asyncTest "the time while the service is stopped does not count against the window":
+    ## The task propagates, then the service stops for longer than the window.
+    ## After the restart the task still waits for its Store confirmation.
+    let window = chronos.milliseconds(500)
+    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let task = newTask("restart")
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    check await log.waitEvent(SendEvent.Propagated, task)
+    await service.stopSendService()
+    check:
+      task.storeAnswer.isNil()
+      task.storeValidationWaited < window
+    await sleepAsync(window * 2)
+
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check not await log.waitEvent(SendEvent.Failed, task, chronos.milliseconds(100))
+    checkUntilTimeout:
+      not task.storeAnswer.isNil()
+    task.storeAnswer.complete()
+    check await log.waitEvent(SendEvent.Sent, task)
+    check:
+      task.state == DeliveryState.SuccessfullyValidated
+      log.ids[SendEvent.Failed].len == 0
+
+  asyncTest "the waits of a task add up to the window":
+    ## A task that already waited most of the window fails soon after a restart.
+    let window = chronos.milliseconds(500)
+    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let task = newTask("adds-up")
+    task.storeValidationWaited = window - chronos.milliseconds(50)
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check await log.waitEvent(SendEvent.Failed, task)
+    check:
+      task.state == DeliveryState.FailedToDeliver
+      task.storeValidationWaited >= window
+
 suite "SendService - Store validation batches":
   var waku {.threadvar.}: Waku
   var service {.threadvar.}: SendService

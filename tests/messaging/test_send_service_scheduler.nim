@@ -542,8 +542,8 @@ suite "SendService - rate-limit scheduling":
 
     let expired = buildTask("validation-expired", "one")
     let fresh = buildTask("validation-fresh", "two")
-    # The fake processor keeps a propagation time that is set.
-    expired.firstPropagatedTime = Opt.some(Moment.now() - chronos.seconds(60))
+    # The task already waited for a Store confirmation longer than the window.
+    expired.storeValidationWaited = chronos.seconds(60)
     await service.sendNow(expired)
     await service.sendNow(fresh)
     check:

@@ -24,7 +24,8 @@ type DeliveryTask* = ref object
   state*: DeliveryState
   firstPropagatedTime*: Opt[Moment]
     ## Set once on the first successful propagation; never reset on re-publish.
-    ## Anchors the store-validation time cap (see propagationAge).
+    ## Anchors the archive wait before the first Store query (see
+    ## `nextStoreValidationBatch`).
   firstAdmittedTime*: Opt[Moment]
     ## Set when the task first passes rate-limit admission; `none` while parked
     ## waiting for epoch budget. Guards re-admission on retry and anchors the
@@ -44,6 +45,9 @@ type DeliveryTask* = ref object
     ## it: the query would name the message from this node's own address.
   lastStoreQueryTime*: Opt[Moment]
     ## When a Store peer was last asked about this task, none before the first query.
+  storeValidationWaited*: timer.Duration
+    ## The time that `deliver` waited for a Store confirmation of this task. A
+    ## stop keeps it, so the validation window continues after a restart.
   deliverHandle*: Future[void]
     ## The `deliver` of the send service for this task. Nil or finished while
     ## it does not run.

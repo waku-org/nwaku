@@ -90,8 +90,8 @@ type SendService* = ref object of RootObj
   maxParkedAge*: timer.Duration
     ## How old a never-admitted (parked) task may get before it is failed.
   maxValidationAge*: timer.Duration
-    ## How long after its first propagation a task may wait for store
-    ## confirmation before it is failed.
+    ## How long a task may wait for a Store confirmation before it fails. The
+    ## time while the service is stopped does not count.
   archiveTime*: timer.Duration
     ## A task is asked about in Store only once its propagation and its last
     ## Store query are older than this, giving a Store node time to archive it.
@@ -487,9 +487,10 @@ proc sendUntilPropagated(
 proc waitForStoreValidation(
     self: SendService, task: DeliveryTask
 ) {.async: (raises: [CancelledError]).} =
-  ## Waits for a Store node to report the message, until `maxValidationAge`
-  ## after its first propagation.
-  let left = self.maxValidationAge - task.propagationAge()
+  ## Waits for a Store node to report the message, until the waits of the task
+  ## add up to `maxValidationAge`.
+  let left = self.maxValidationAge - task.storeValidationWaited
+  let started = Moment.now()
   task.storeAnswer = newFuture[void]("store confirmation")
   try:
     if left > ZeroDuration and await task.storeAnswer.withTimeout(left):
@@ -504,13 +505,14 @@ proc waitForStoreValidation(
       debug "Message propagated but not validated by a store node within time window; stop trying.",
         requestId = task.requestId,
         msgHash = task.msgHash.to0xHex(),
-        propagationAge = task.propagationAge()
+        waited = task.storeValidationWaited + (Moment.now() - started)
       recordStoreValidationTimeout()
       self.fail(
         task,
         "Propagated but not confirmed by a store node within the store validation window",
       )
   finally:
+    task.storeValidationWaited = task.storeValidationWaited + (Moment.now() - started)
     task.storeAnswer = nil
 
 proc deliver(
