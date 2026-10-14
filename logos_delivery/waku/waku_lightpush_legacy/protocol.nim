@@ -138,7 +138,7 @@ proc new*(
     rng: crypto.Rng,
     pushHandler: PushMessageHandler,
     rateLimitSetting: Opt[RateLimitSetting] = Opt.none(RateLimitSetting),
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): T =
   let wl = WakuLegacyLightPush(
     rng: rng,
