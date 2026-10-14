@@ -36,7 +36,7 @@ proc parseMsgSize*(input: string): Result[uint64, string] =
 
   value = value * multiplier
 
-  # Nim converts an out-of-range float to uint64 as 0, without raising.
+  # uint64(float) is unchecked; float(uint64.high) rounds to 2^64, the first value that doesn't fit.
   if value >= float(uint64.high):
     return err("size too large: " & input)
 
