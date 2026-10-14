@@ -15,11 +15,11 @@ proc enqueueSend(
   ## The body of `send`. It is not async, so it cannot suspend.
   ?self.checkApiAvailability()
   # A full send queue gets no subscribe. `enqueue` refuses the send.
-  if not self.sendService.isFull():
+  if not self.sendService.isFull() and self.sendService.subscribesOnSend():
     let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
     if not isSubbed:
       debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
-      self.waku.subscribe(envelope.contentTopic).isOkOr:
+      self.waku.subscribe(envelope.contentTopic, weak = true).isOkOr:
         error "Failed to auto-subscribe", error = error
         return err("Failed to auto-subscribe before sending: " & error)
 
@@ -33,7 +33,8 @@ proc enqueueSend(
 proc send*(
     self: MessagingClient, envelope: MessageEnvelope
 ): Future[Result[RequestId, string]] {.async.} =
-  ## Subscribes to the content topic, queues the message and returns its
+  ## At the `None` level, adds a weak interest in the content topic (see
+  ## `SubscriptionManager.subscribe`). Queues the message and returns its
   ## request id. It never suspends, so the caller gets the id before any event
   ## of the request, also over the FFI.
   return self.enqueueSend(envelope)
