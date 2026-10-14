@@ -93,7 +93,7 @@ suite "Node app - Waku initialization":
       node.protocols.wakuArchive.isNil()
       node.protocols.wakuStore.isNil()
       not node.protocols.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      not node.discovery.wakuRendezvous.isNil()
 
     ## Cleanup
     (waitFor waku.stop()).isOkOr:
@@ -177,7 +177,7 @@ suite "Node app - Waku initialization":
       node.protocols.wakuArchive.isNil()
       node.protocols.wakuStore.isNil()
       not node.protocols.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      not node.discovery.wakuRendezvous.isNil()
 
       # DS structures are updated with dynamic ports
       typedNodeEnr.get().tcp.get() != 0

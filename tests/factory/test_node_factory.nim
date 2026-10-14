@@ -59,7 +59,7 @@ suite "Node Factory":
       node.protocols.wakuStore.isNil()
       node.protocols.wakuFilter.isNil()
       not node.protocols.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      not node.discovery.wakuRendezvous.isNil()
 
   asynctest "The store client reads a full page of the configured message size":
     var conf = defaultTestWakuConf()
@@ -97,7 +97,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -119,7 +119,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -141,7 +141,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -163,7 +163,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))

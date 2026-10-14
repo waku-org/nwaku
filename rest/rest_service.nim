@@ -302,7 +302,7 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
   installKernelRoutes(
     self.server,
     waku.node,
-    waku.wakuDiscv5,
+    waku.node.discovery.wakuDiscv5,
     conf.restServerConf.get(),
     conf.relay,
     conf.lightPush,

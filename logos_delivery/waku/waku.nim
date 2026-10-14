@@ -81,16 +81,6 @@ type Waku* = ref object ## Implements `KernelApi` (ops in `waku/api/*`).
 
   key: crypto.PrivateKey
 
-  wakuDiscv5*: WakuDiscoveryV5
-    ## Set by discv5Discovery on start; kept for direct consumers
-    ## (REST builder, ENR/address updates, FFI ops).
-  discv5Discovery*: Discv5PeerDiscovery
-  externalDiscovery*: ExternalServiceDiscovery
-    ## Present when discovery is delegated to an external provider; the
-    ## library layer installs its host transport.
-  dynamicBootstrapNodes*: seq[RemotePeerInfo]
-  dnsRetryLoopHandle: Future[void]
-  networkConnLoopHandle: Future[void]
   enrReconcileLoopHandle*: Future[void]
   enrReconcileInterval*: Duration = DefaultEnrReconcileInterval
   enrReachable: bool = true
@@ -201,7 +191,7 @@ proc provideNodeState(waku: Waku) =
   discard GetNodePeerInfo.reprovideIt(waku.brokerCtx):
     ok(waku.node.switch.peerInfo)
   discard GetDynamicBootstrapNodes.reprovideIt(waku.brokerCtx):
-    ok(waku.dynamicBootstrapNodes)
+    ok(waku.node.discovery.dynamicBootstrapNodes)
 
 proc clearNodeState(waku: Waku) =
   GetNodeSwitch.clearProvider(waku.brokerCtx)
@@ -248,17 +238,17 @@ proc new*(
   waku.node.setupSwitchServices(wakuConf, relay, rng)
 
   if wakuConf.discv5Conf.isSome():
-    waku.discv5Discovery = Discv5PeerDiscovery.create(
+    waku.node.discovery.discv5Discovery = Discv5PeerDiscovery.create(
       wakuConf.discv5Conf.get(), wakuConf.endpointConf.p2pListenAddress, rng
     )
-    node.attachDiscovery(waku.discv5Discovery)
+    node.attachDiscovery(waku.node.discovery.discv5Discovery)
 
   if wakuConf.externalDiscoveryConf.isSome():
     let extConf = wakuConf.externalDiscoveryConf.get()
-    waku.externalDiscovery = ExternalServiceDiscovery.create(
+    waku.node.discovery.externalDiscovery = ExternalServiceDiscovery.create(
       extConf.serviceLookupInterval, extConf.randomLookupInterval
     )
-    node.attachDiscovery(waku.externalDiscovery)
+    node.attachDiscovery(waku.node.discovery.externalDiscovery)
 
   waku.provideNodeState()
 
@@ -314,8 +304,8 @@ proc updateEnr(waku: Waku): Future[Result[void, string]] {.async.} =
   ## discv5 bumped the seed record it was given, and a peer that cached the
   ## higher number ignores a lower one.
   var seqNum = waku.node.enr.seqNum
-  if not waku.wakuDiscv5.isNil():
-    seqNum = max(seqNum, waku.wakuDiscv5.protocol.localNode.record.seqNum)
+  if not waku.node.discovery.wakuDiscv5.isNil():
+    seqNum = max(seqNum, waku.node.discovery.wakuDiscv5.protocol.localNode.record.seqNum)
 
   let record = enrConfiguration(waku.conf, netConf, seqNum + 1).valueOr:
     return err("ENR setup failed: " & error)
@@ -401,7 +391,7 @@ proc logEnrReachability(waku: Waku) =
 proc enrReconcileLoop(waku: Waku): Future[void] {.async.} =
   while true:
     await sleepAsync(waku.enrReconcileInterval)
-    let written = reconcileEnrAddrs(waku.node, waku.key, waku.wakuDiscv5).valueOr:
+    let written = reconcileEnrAddrs(waku.node, waku.key, waku.node.discovery.wakuDiscv5).valueOr:
       error "failed to reconcile the ENR with the discv5 record", error = error
       continue
     if written:
@@ -412,16 +402,16 @@ proc updateWaku(waku: Waku): Future[Result[void, string]] {.async.} =
   (await updateEnr(waku)).isOkOr:
     return err("error calling updateEnr: " & $error)
 
-  if not waku.wakuDiscv5.isNil():
+  if not waku.node.discovery.wakuDiscv5.isNil():
     ## Copy the startup ENR into the live discv5 record once. Shard updates
     ## and multiaddr refreshes then update that record in place. The seed
     ## also gave discv5 its own address; the rebuild replaces that too.
-    waku.wakuDiscv5.protocol.localNode.record = waku.node.enr
-    waku.wakuDiscv5.protocol.localNode.address = Opt.none(discv5_node.Address)
+    waku.node.discovery.wakuDiscv5.protocol.localNode.record = waku.node.enr
+    waku.node.discovery.wakuDiscv5.protocol.localNode.address = Opt.none(discv5_node.Address)
     ## Seeding is not learning: from here on, a record that moved is discv5's.
     waku.node.enrLearnedEndpoint = Opt.none(DiscoveryEndpoint)
 
-  ?refreshEnrAddrs(waku.node, waku.key, waku.wakuDiscv5)
+  ?refreshEnrAddrs(waku.node, waku.key, waku.node.discovery.wakuDiscv5)
 
   return ok()
 
@@ -430,7 +420,7 @@ proc startDnsDiscoveryRetryLoop(waku: Waku): Future[void] {.async.} =
     await sleepAsync(30.seconds)
     if waku.conf.dnsDiscoveryConf.isSome():
       let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
-      waku.dynamicBootstrapNodes = (
+      waku.node.discovery.dynamicBootstrapNodes = (
         await waku_dnsdisc.retrieveDynamicBootstrapNodes(
           dnsDiscoveryConf.enrTreeUrl, waku.conf.dnsAddrsNameServers
         )
@@ -438,21 +428,21 @@ proc startDnsDiscoveryRetryLoop(waku: Waku): Future[void] {.async.} =
         debug "Retrieving dynamic bootstrap nodes failed", error = error
         continue
 
-    if not waku.wakuDiscv5.isNil():
+    if not waku.node.discovery.wakuDiscv5.isNil():
       let dynamicBootstrapEnrs =
-        waku.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
+        waku.node.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in dynamicBootstrapEnrs:
         addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
-      waku.wakuDiscv5.updateBootstrapRecords(
-        waku.wakuDiscv5.protocol.bootstrapRecords & discv5BootstrapEnrs
+      waku.node.discovery.wakuDiscv5.updateBootstrapRecords(
+        waku.node.discovery.wakuDiscv5.protocol.bootstrapRecords & discv5BootstrapEnrs
       )
 
     info "Connecting to dynamic bootstrap peers"
     try:
-      await connectToNodes(waku.node, waku.dynamicBootstrapNodes, "dynamic bootstrap")
+      await connectToNodes(waku.node, waku.node.discovery.dynamicBootstrapNodes, "dynamic bootstrap")
     except CatchableError:
       debug "Failed to connect to dynamic bootstrap nodes",
         error = getCurrentExceptionMsg()
@@ -507,9 +497,9 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
     if dynamicBootstrapNodesRes.isErr():
       info "Retrieving dynamic bootstrap nodes failed, starting retry loop",
         error = dynamicBootstrapNodesRes.error
-      waku.dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
+      waku.node.discovery.dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
     else:
-      waku.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+      waku.node.discovery.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
   if not waku.node.protocols.wakuMixRln.isNil():
     try:
@@ -517,7 +507,7 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
         return err(error)
     except CancelledError:
       return err("Mix RLN startup cancelled")
-  (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+  (await startNode(waku.node, waku.conf, waku.node.discovery.dynamicBootstrapNodes)).isOkOr:
     return err("error while calling startNode: " & $error)
 
   let bound = getPorts(waku.node.switch.peerInfo.listenAddrs).valueOr:
@@ -527,16 +517,16 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   waku.node.ports.quic = bound.quicPort.get(Port(0)).uint16
 
   ## Discv5
-  if not waku.discv5Discovery.isNil():
+  if not waku.node.discovery.discv5Discovery.isNil():
     ## Normally already started by node.start() through the attached
     ## discovery backends; startDiscovery is idempotent and surfaces a
     ## start failure that the node start path only logged.
-    (await waku.discv5Discovery.startDiscovery()).isOkOr:
+    (await waku.node.discovery.discv5Discovery.startDiscovery()).isOkOr:
       return err("failed to start waku discovery v5: " & error)
 
-    waku.wakuDiscv5 = waku.discv5Discovery.inner
+    waku.node.discovery.wakuDiscv5 = waku.node.discovery.discv5Discovery.inner
 
-    let discoveryInfo = (await waku.discv5Discovery.backendInfo()).valueOr:
+    let discoveryInfo = (await waku.node.discovery.discv5Discovery.backendInfo()).valueOr:
       return err("failed to read discv5 backend info: " & error)
     if discoveryInfo.boundPorts.len > 0:
       waku.node.ports.discv5Udp = discoveryInfo.boundPorts[0]
@@ -545,19 +535,19 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   ## Set the callback before the explicit refresh in updateWaku,
   ## so a commit in between reaches the ENR.
   waku.node.onCommittedAddresses = proc() {.gcsafe, raises: [].} =
-    refreshEnrAddrs(waku.node, waku.key, waku.wakuDiscv5).isOkOr:
+    refreshEnrAddrs(waku.node, waku.key, waku.node.discovery.wakuDiscv5).isOkOr:
       error "failed to refresh ENR multiaddrs", error = $error
       return
     waku.logEnrReachability()
 
   ## External service discovery
-  if not waku.externalDiscovery.isNil():
+  if not waku.node.discovery.externalDiscovery.isNil():
     ## Configured means required. The plugin is registered at runtime, so a
     ## node can reach start with none installed -- and it would then run
     ## believing it has discovery while having none at all. Same idempotent
     ## re-call as discv5 above, to turn the node start path's logged failure
     ## into a hard one.
-    (await waku.externalDiscovery.startDiscovery()).isOkOr:
+    (await waku.node.discovery.externalDiscovery.startDiscovery()).isOkOr:
       return err("failed to start external service discovery: " & error)
 
   ## Update waku data that is set dynamically on node start
@@ -572,18 +562,18 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
 
   waku.logEnrReachability()
 
-  if not waku.wakuDiscv5.isNil():
+  if not waku.node.discovery.wakuDiscv5.isNil():
     waku.enrReconcileLoopHandle = waku.enrReconcileLoop()
 
   ## Announce ourselves on the delivery network. After the shard subscriptions,
   ## not before: an advertisement is only useful if the shards it claims are
   ## the ones we are actually on.
   await advertiseSelf(
-    waku.node.discoveries,
+    waku.node.discovery.discoveries,
     waku.conf,
     waku.node.getShardsGetter(waku.conf.subscribeShards)(),
   )
-  await advertiseMix(waku.node.discoveries, waku.conf)
+  await advertiseMix(waku.node.discovery.discoveries, waku.conf)
 
   ## Health Monitor
   waku.healthMonitor.startHealthMonitor().isOkOr:
@@ -669,8 +659,8 @@ proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
       await waku.node.stopMixRln()
       await waku.node.stop()
 
-    if not waku.dnsRetryLoopHandle.isNil():
-      await waku.dnsRetryLoopHandle.cancelAndWait()
+    if not waku.node.discovery.dnsRetryLoopHandle.isNil():
+      await waku.node.discovery.dnsRetryLoopHandle.cancelAndWait()
 
     if not waku.enrReconcileLoopHandle.isNil():
       await waku.enrReconcileLoopHandle.cancelAndWait()

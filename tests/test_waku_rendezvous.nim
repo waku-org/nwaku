@@ -92,7 +92,7 @@ procSuite "Waku Rendezvous":
     node2.peerManager.addPeer(peerInfo3)
     node3.peerManager.addPeer(peerInfo2)
 
-    let res = await node1.wakuRendezvous.advertiseAll()
+    let res = await node1.discovery.wakuRendezvous.advertiseAll()
     assert res.isOk(), $res.error
     # Rendezvous Request API requires dialing first
     let connOpt =
@@ -103,7 +103,7 @@ procSuite "Waku Rendezvous":
     var records: seq[WakuPeerRecord]
     try:
       records = await rendezvous.request[WakuPeerRecord](
-        node3.wakuRendezvous,
+        node3.discovery.wakuRendezvous,
         Opt.some(computeMixNamespace(clusterId)),
         Opt.some(1),
         Opt.some(@[peerInfo2.peerId]),
@@ -132,7 +132,7 @@ procSuite "Waku Rendezvous":
 
     ## Then: The rendezvous protocol should be mounted successfully
     check:
-      node.wakuRendezvous != nil
+      node.discovery.wakuRendezvous != nil
 
     # Verify that the protocol is running without errors
     # (shards are used internally by the getShardsGetter closure)
@@ -159,7 +159,7 @@ procSuite "Waku Rendezvous":
 
     ## Then: Rendezvous should be mounted successfully without relay
     check:
-      lightClient.wakuRendezvous != nil
+      lightClient.discovery.wakuRendezvous != nil
       lightClient.protocols.relay == nil # Verify relay is not mounted
 
     # Verify the protocol is working (doesn't fail immediately)
@@ -167,6 +167,6 @@ procSuite "Waku Rendezvous":
     await sleepAsync(100.milliseconds)
 
     check:
-      lightClient.wakuRendezvous != nil
+      lightClient.discovery.wakuRendezvous != nil
 
     await lightClient.stop()

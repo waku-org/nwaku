@@ -31,6 +31,9 @@ import
 
 import
   logos_delivery/waku/[
+    discovery/waku_discv5,
+    discovery/discv5_peer_discovery,
+    discovery/external_service_discovery,
     waku_core,
     waku_core/topics/sharding,
     waku_relay,
@@ -112,14 +115,10 @@ type
   Kernel* = ref object
     peerManager*: PeerManager
     switch*: Switch
-    wakuPeerExchange*: WakuPeerExchange
-    wakuPeerExchangeClient*: WakuPeerExchangeClient
     wakuAutoSharding*: Opt[Sharding]
     enr*: enr.Record
     rng*: crypto.Rng
     brokerCtx*: BrokerContext
-    wakuRendezvous*: WakuRendezVous
-    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
     announcedAddresses*: seq[MultiAddress]
       ## Copy of peerInfo.addrs. Holds the configured addresses until the first start.
     configuredAnnounced: seq[MultiAddress]
@@ -146,12 +145,29 @@ type
       ## waku.nim uses it to refresh the ENR.
     started*: bool # Indicates that node has started listening
     rateLimitSettings*: ProtocolRateLimitSettings
+    ports*: BoundPorts
+    protocols*: Protocols
+    discovery*: Discovery
+
+  Discovery* = object
+    ## Peer discovery mechanisms mounted on the node.
+    wakuPeerExchange*: WakuPeerExchange
+    wakuPeerExchangeClient*: WakuPeerExchangeClient
+    wakuRendezvous*: WakuRendezVous
+    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
     wakuKademlia*: WakuKademlia
     discoveries*: seq[IPeerDiscovery]
       ## Attached IPeerDiscovery backends; started after the node is up,
       ## stopped on node teardown.
-    ports*: BoundPorts
-    protocols*: Protocols
+    wakuDiscv5*: WakuDiscoveryV5
+      ## Set by discv5Discovery on start; kept for direct consumers
+      ## (REST builder, ENR/address updates, FFI ops).
+    discv5Discovery*: Discv5PeerDiscovery
+    externalDiscovery*: ExternalServiceDiscovery
+      ## Present when discovery is delegated to an external provider; the
+      ## library layer installs its host transport.
+    dynamicBootstrapNodes*: seq[RemotePeerInfo]
+    dnsRetryLoopHandle*: Future[void]
 
   Protocols* = object
     ## The libp2p protocols mounted on the node, apart from discovery.
@@ -643,7 +659,7 @@ proc mountMix*(
 proc mountKademlia*(
     node: Kernel, config: KademliaDiscoveryConf
 ): Result[void, string] =
-  if not node.wakuKademlia.isNil():
+  if not node.discovery.wakuKademlia.isNil():
     return err("WakuKademlia already mounted, skipping")
 
   let wk = WakuKademlia.new(
@@ -654,7 +670,7 @@ proc mountKademlia*(
   ).valueOr:
     return err("failed to create service discovery: " & error)
 
-  node.wakuKademlia = wk
+  node.discovery.wakuKademlia = wk
 
   let mountRes = catch:
     node.switch.mount(wk.protocol)
@@ -666,7 +682,7 @@ proc mountKademlia*(
 proc attachDiscovery*(node: Kernel, discovery: IPeerDiscovery) =
   ## Attach an IPeerDiscovery backend: started after the node is up
   ## (node.start or explicitly by the owner), stopped in node.stop.
-  node.discoveries.add(discovery)
+  node.discovery.discoveries.add(discovery)
 
 ## Waku Sync
 
@@ -734,14 +750,14 @@ proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
 proc mountRendezvousClient*(node: Kernel, clusterId: uint16) {.async: (raises: []).} =
   info "Mounting rendezvous client"
 
-  node.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
+  node.discovery.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
     node.switch, node.peerManager, clusterId
   ).valueOr:
     error "Initializing waku rendezvous client failed", error = error
     return
 
   if node.started:
-    await node.wakuRendezvousClient.start()
+    await node.discovery.wakuRendezvousClient.start()
 
 proc mountRendezvous*(
     node: Kernel, clusterId: uint16, shards: seq[RelayShard] = @[]
@@ -750,7 +766,7 @@ proc mountRendezvous*(
 
   let configuredShards = shards.mapIt(it.shardId)
 
-  node.wakuRendezvous = WakuRendezVous.new(
+  node.discovery.wakuRendezvous = WakuRendezVous.new(
     node.switch,
     node.peerManager,
     clusterId,
@@ -763,12 +779,12 @@ proc mountRendezvous*(
 
   if node.started:
     try:
-      await node.wakuRendezvous.start()
+      await node.discovery.wakuRendezvous.start()
     except CancelledError as exc:
       error "Failed to start wakuRendezvous", error = exc.msg
 
   try:
-    node.switch.mount(node.wakuRendezvous, protocolMatcher(WakuRendezVousCodec))
+    node.switch.mount(node.discovery.wakuRendezvous, protocolMatcher(WakuRendezVousCodec))
   except LPError:
     error "Failed to mount wakuRendezvous", error = getCurrentExceptionMsg()
 
@@ -843,11 +859,11 @@ proc startProvidersAndListeners*(node: Kernel) =
   ).isOkOr:
     error "Can't set provider for RequestContentTopicsHealth", error = error
 
-  if not node.wakuKademlia.isNil():
+  if not node.discovery.wakuKademlia.isNil():
     ServicePeersRequest.setProvider(
       node.brokerCtx,
       proc(serviceId: string): Future[Result[ServicePeersRequest, string]] {.async.} =
-        let peers = (await node.wakuKademlia.lookupServicePeers(serviceId)).valueOr:
+        let peers = (await node.discovery.wakuKademlia.lookupServicePeers(serviceId)).valueOr:
           return err("failed call to lookupServicePeers: " & error)
         return ok(ServicePeersRequest(serviceId: serviceId, peers: peers)),
     ).isOkOr:
@@ -869,8 +885,8 @@ proc start*(node: Kernel) {.async.} =
   if not node.protocols.wakuStoreResume.isNil():
     await node.protocols.wakuStoreResume.start()
 
-  if not node.wakuRendezvousClient.isNil():
-    await node.wakuRendezvousClient.start()
+  if not node.discovery.wakuRendezvousClient.isNil():
+    await node.discovery.wakuRendezvousClient.start()
 
   node.switch.resumeDials()
 
@@ -896,7 +912,7 @@ proc start*(node: Kernel) {.async.} =
 
   node.started = true
 
-  for discovery in node.discoveries:
+  for discovery in node.discovery.discoveries:
     (await discovery.startDiscovery()).isOkOr:
       error "failed to start discovery backend", error = error
 
@@ -928,7 +944,7 @@ proc stop*(node: Kernel) {.async.} =
 
   node.stopProvidersAndListeners()
 
-  for discovery in node.discoveries:
+  for discovery in node.discovery.discoveries:
     (await discovery.stopDiscovery()).isOkOr:
       error "failed to stop discovery backend", error = error
 
@@ -950,12 +966,12 @@ proc stop*(node: Kernel) {.async.} =
   if not node.protocols.wakuStoreResume.isNil():
     await node.protocols.wakuStoreResume.stopWait()
 
-  if not node.wakuPeerExchangeClient.isNil() and
-      not node.wakuPeerExchangeClient.pxLoopHandle.isNil():
-    await node.wakuPeerExchangeClient.pxLoopHandle.cancelAndWait()
+  if not node.discovery.wakuPeerExchangeClient.isNil() and
+      not node.discovery.wakuPeerExchangeClient.pxLoopHandle.isNil():
+    await node.discovery.wakuPeerExchangeClient.pxLoopHandle.cancelAndWait()
 
-  if not node.wakuRendezvousClient.isNil():
-    await node.wakuRendezvousClient.stopWait()
+  if not node.discovery.wakuRendezvousClient.isNil():
+    await node.discovery.wakuRendezvousClient.stopWait()
 
   node.started = false
   node.baseAnnounced = Opt.none(seq[MultiAddress])
