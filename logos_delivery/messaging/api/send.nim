@@ -14,16 +14,14 @@ proc enqueueSend(
 ): Result[RequestId, string] =
   ## The body of `send`. It is not async, so it cannot suspend.
   ?self.checkApiAvailability()
-  # Refuse a full send queue before the subscribe.
-  if self.sendService.isFull():
-    return err("Send queue full, retry later")
-
-  let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
-  if not isSubbed:
-    debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
-    self.waku.subscribe(envelope.contentTopic).isOkOr:
-      error "Failed to auto-subscribe", error = error
-      return err("Failed to auto-subscribe before sending: " & error)
+  # A full send queue gets no subscribe. `enqueue` refuses the send.
+  if not self.sendService.isFull():
+    let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
+    if not isSubbed:
+      debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
+      self.waku.subscribe(envelope.contentTopic).isOkOr:
+        error "Failed to auto-subscribe", error = error
+        return err("Failed to auto-subscribe before sending: " & error)
 
   let requestId = RequestId.new(self.waku.rng)
 

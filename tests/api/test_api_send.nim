@@ -26,6 +26,7 @@ import
   rest/client,
   rest/kernel_api/relay/client as relay_rest_client
 import logos_delivery/waku/factory/waku_conf
+import logos_delivery/waku/api/subscriptions
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
@@ -876,6 +877,14 @@ suite "Messaging API - the request id comes before the events":
       client.sendService.isFull()
       (await client.send(MessageEnvelope.init(OrderTopic, "over"))).errorOr("accepted") ==
         "Send queue full, retry later"
+
+    # A refused send leaves no subscription behind.
+    const RefusedTopic = ContentTopic("/test/1/send-order-refused/proto")
+    check:
+      (await client.send(MessageEnvelope.init(RefusedTopic, "refused"))).errorOr(
+        "accepted"
+      ) == "Send queue full, retry later"
+      not node.waku.isSubscribed(RefusedTopic).valueOr(true)
 
   asyncTest "no event comes before its request id, durable and ephemeral":
     let node = await noBudgetNode(capacity = 100)
