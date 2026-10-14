@@ -124,7 +124,7 @@ type EndpointConf* = object
 ## In this object. A convenient `validate` method enables doing
 ## sanity checks beyond type enforcement.
 ## If `Opt` is `some` it means the related protocol is enabled.
-type WakuConf* {.requiresInit.} = ref object
+type WakuConf* = ref object
   # ref because `getRunningNetConfig` modifies it
   nodeKey*: crypto.PrivateKey
 

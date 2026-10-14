@@ -303,7 +303,7 @@ suite "Waku API - Send":
       duplicateCount(relayIngress) >= duplicatesBefore + 2
 
     let stored = (
-      await node.waku.node.protocols.wakuArchive.findMessages(
+      await node.waku.protocols.wakuArchive.findMessages(
         ArchiveQuery(contentTopics: @[contentTopic])
       )
     ).valueOr:
@@ -322,7 +322,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(
+      await node.waku.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
@@ -358,7 +358,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(
+      await node.waku.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
@@ -406,7 +406,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(@[relayNode1PeerInfo])
+      await node.waku.connectToNodes(@[relayNode1PeerInfo])
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -437,7 +437,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
+      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -476,9 +476,9 @@ suite "Waku API - Send":
 
       # Edge node has no relay; its only path to the network is the
       # lightpush peer it is connected to.
-      await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
+      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
 
-    check node.waku.node.protocols.relay.isNil()
+    check node.waku.protocols.relay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -515,7 +515,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
       # No connectToNodes: the sender has no reachable peer at T0.
 
-    check node.waku.node.protocols.relay.isNil()
+    check node.waku.protocols.relay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -534,7 +534,7 @@ suite "Waku API - Send":
     check eventManager.propagatedCount == 0
 
     # The lightpush peer appears; a later retry must now deliver.
-    await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
+    await node.waku.connectToNodes(@[lightpushNodePeerInfo])
 
     const eventTimeout = 10.seconds
     discard await eventManager.waitForEvents(eventTimeout)
@@ -553,7 +553,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
+      await node.waku.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -611,7 +611,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(@[fakeLightpushNodePeerInfo])
+      await node.waku.connectToNodes(@[fakeLightpushNodePeerInfo])
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
@@ -649,7 +649,7 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
+      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
     defer:
       (await node.stop()).expect("Failed to stop node")
 
@@ -782,7 +782,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
 
       # Propagate via relayNode1; store queries can only reach the isolated store node.
-      await node.waku.node.connectToNodes(
+      await node.waku.connectToNodes(
         @[relayNode1PeerInfo, isolatedStoreNodePeerInfo]
       )
 

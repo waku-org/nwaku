@@ -49,13 +49,13 @@ proc propagatedAt(id: string, time: Moment): DeliveryTask =
   return task
 
 suite "SendService - store validation and mix":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc service(reliability: bool): SendService =
     ## The policy under test never sends, so the plain chain is enough.
@@ -127,7 +127,7 @@ const FastLoop = chronos.milliseconds(10)
   ## The loop interval of a test service. It keeps each wait for a loop short.
 
 proc reliableService(
-    waku: Waku, processor: BaseSendProcessor, maxValidationAge = DeliveryWindow
+    waku: Kernel, processor: BaseSendProcessor, maxValidationAge = DeliveryWindow
 ): SendService =
   ## A service with Store-based reliability on and fast loops.
   let manager =
@@ -198,13 +198,13 @@ proc waitEvent(
       return task.requestId in log.ids[event]
 
 suite "SendService - mix completion":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc countSent(counter: EventCounter): MessageSentEventListener =
     return MessageSentEvent
@@ -257,16 +257,16 @@ suite "SendService - mix completion":
     check not await sent.waitCount(1).withTimeout(FUTURE_TIMEOUT_SHORT)
 
 suite "SendService - Store validation window":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
   var log {.threadvar.}: SendEventLog
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
     log = newSendEventLog(waku.brokerCtx)
 
   asyncTeardown:
     await log.teardown()
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   asyncTest "the time while the service is stopped does not count against the window":
     ## The task propagates, then the service stops for longer than the window.
@@ -311,15 +311,15 @@ suite "SendService - Store validation window":
       task.storeValidationWaited >= window
 
 suite "SendService - Store validation batches":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
   var service {.threadvar.}: SendService
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
     service = reliableService(waku, ScriptedProc())
 
   asyncTeardown:
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   asyncTest "a batch holds one Store page, and the tasks that waited longest come first":
     let now = Moment.now()
@@ -358,7 +358,7 @@ suite "SendService - Store validation batches":
 suite "SendService - Store validation loop":
   ## The Store node answers only after `allowAnswer` completes, with the hashes listed in
   ## `storedHashes`. It mounts metadata so the peer manager accepts its cluster.
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
   var storeNode {.threadvar.}: Kernel
   var allowAnswer {.threadvar.}: Future[void]
   var queryStarted {.threadvar.}: Future[void]
@@ -382,8 +382,8 @@ suite "SendService - Store validation loop":
     return ok(resp)
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    (await waku.start()).isOkOr:
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    (await waku.startKernel()).isOkOr:
       raiseAssert "waku.start: " & error
     allowAnswer = newFuture[void]("allow-answer")
     queryStarted = newFuture[void]("query started")
@@ -395,7 +395,7 @@ suite "SendService - Store validation loop":
       raiseAssert "mountMetadata: " & error
     discard await newTestWakuStore(storeNode.switch, delayedStoreHandler)
     await storeNode.start()
-    waku.node.peerManager.addServicePeer(
+    waku.peerManager.addServicePeer(
       storeNode.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
@@ -404,7 +404,7 @@ suite "SendService - Store validation loop":
       allowAnswer.complete()
     await log.teardown()
     await storeNode.stop()
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc startedService(processor: BaseSendProcessor = ScriptedProc()): SendService =
     let service = reliableService(waku, processor)
@@ -442,7 +442,7 @@ suite "SendService - Store validation loop":
     check:
       service.enqueue(taskB).isOk()
       await log.waitEvent(SendEvent.Propagated, taskB)
-      waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
+      waku.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
       processor.calls == 3
 
     allowAnswer.complete()
@@ -479,7 +479,7 @@ suite "SendService - Store validation loop":
     let stopping = service.stopSendService()
     check:
       await stopping.join().withTimeout(chronos.seconds(3))
-      not waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
+      not waku.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
 
   asyncTest "a restart during the Store wait sends nothing again, and the Store confirms the send":
     let processor = ScriptedProc()

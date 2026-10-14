@@ -92,7 +92,7 @@ type BackfillState* = object
 
 type RecvService* = ref object of RootObj
   brokerCtx: BrokerContext
-  waku: Waku
+  waku: Kernel
   seenMsgListener: MessageSeenEventListener
   protocolHealthListener: EventProtocolHealthChangeListener
   shardHealthListener: EventShardTopicHealthChangeListener
@@ -518,7 +518,7 @@ proc init*(T: type BackfillState, conf: MessagingClientConf): Result[T, string] 
     )
   )
 
-proc new*(T: typedesc[RecvService], waku: Waku, backfill: BackfillState): T =
+proc new*(T: typedesc[RecvService], waku: Kernel, backfill: BackfillState): T =
   return RecvService(waku: waku, brokerCtx: waku.brokerCtx, backfill: backfill)
 
 proc loopPruneOldMessages(self: RecvService) {.async.} =

@@ -297,14 +297,9 @@ suite "Health Monitor - events":
       nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
       await nodeA.start()
 
-    # MessagingClient now depends on the Waku kernel, not the raw node. Only
-    # `waku.node` is read on the messaging path; `conf`/`stateInfo` are supplied
-    # solely to satisfy Waku's {.requiresInit.} fields.
-    let waku = Waku(
-      node: nodeA,
-      conf: defaultTestWakuConf(),
-      stateInfo: WakuStateInfo.init(nodeA, defaultTestWakuConf()),
-    )
+    # MessagingClient reads `conf` from the kernel; the raw test node has none.
+    nodeA.conf = defaultTestWakuConf()
+    let waku = nodeA
     let ds = MessagingClient
       .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
       .expect("Failed to create MessagingClient")
@@ -410,14 +405,9 @@ suite "Health Monitor - events":
       nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
       await nodeA.start()
 
-    # MessagingClient now depends on the Waku kernel, not the raw node. Only
-    # `waku.node` is read on the messaging path; `conf`/`stateInfo` are supplied
-    # solely to satisfy Waku's {.requiresInit.} fields.
-    let waku = Waku(
-      node: nodeA,
-      conf: defaultTestWakuConf(),
-      stateInfo: WakuStateInfo.init(nodeA, defaultTestWakuConf()),
-    )
+    # MessagingClient reads `conf` from the kernel; the raw test node has none.
+    nodeA.conf = defaultTestWakuConf()
+    let waku = nodeA
     let ds = MessagingClient
       .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
       .expect("Failed to create MessagingClient")

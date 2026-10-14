@@ -9,7 +9,7 @@ import logos_delivery/waku/waku
 import logos_delivery/waku/[waku_core, node/waku_node, node/waku_node/ping]
 
 proc pingPeer*(
-    self: Waku, peerAddr: string, timeoutMs: int
+    self: Kernel, peerAddr: string, timeoutMs: int
 ): Future[Result[int64, string]] {.async.} =
   ## Pings the peer; `timeoutMs <= 0` means no timeout. Returns RTT in nanos.
   ## `peerAddr` is one fully qualified multiaddress, or several for the same
@@ -21,10 +21,10 @@ proc pingPeer*(
     proc doPing(): Future[Result[Duration, string]] {.async.} =
       try:
         let conn =
-          await self.node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
+          await self.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
         defer:
           await conn.close()
-        let rtt = await self.node.protocols.libp2pPing.ping(conn)
+        let rtt = await self.protocols.libp2pPing.ping(conn)
         if rtt == 0.nanos:
           return err("could not ping peer: rtt-0")
         return ok(rtt)

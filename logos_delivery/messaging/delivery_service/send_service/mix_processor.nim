@@ -32,7 +32,7 @@ type
     NoExit
 
   MixSendProcessor* = ref object of BaseSendProcessor
-    waku: Waku
+    waku: Kernel
     fallbackAllowed: bool
     mixWindow: timer.Duration
     fellBackReason: MixUnusable
@@ -54,7 +54,7 @@ proc fellBackFor*(self: MixSendProcessor): MixUnusable =
 
 proc new*(
     T: typedesc[MixSendProcessor],
-    waku: Waku,
+    waku: Kernel,
     brokerCtx: BrokerContext,
     anonymityLevel: AnonymityLevel,
     mixWindow: timer.Duration,

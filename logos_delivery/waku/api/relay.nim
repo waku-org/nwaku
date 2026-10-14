@@ -17,14 +17,14 @@ import
   ]
 
 proc relayPublish*(
-    self: Waku, pubsubTopic: PubsubTopic, message: WakuMessage, timeoutMs: uint32
+    self: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage, timeoutMs: uint32
 ): Future[Result[string, string]] {.async.} =
   ## Publishes `message` and returns its message hash (0x-hex).
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayPublish: WakuRelay not mounted")
 
-    (await self.node.protocols.relay.publish(pubsubTopic, message)).isOkOr:
+    (await self.protocols.relay.publish(pubsubTopic, message)).isOkOr:
       return err($error)
 
     return ok(computeMessageHash(pubsubTopic, message).to0xHex)
@@ -32,17 +32,17 @@ proc relayPublish*(
     return err(e.msg)
 
 proc relaySubscribe*(
-    self: Waku,
+    self: Kernel,
     pubsubTopic: PubsubTopic,
     handler: WakuRelayHandler = WakuRelayHandler(nil),
 ): Future[Result[bool, string]] {.async.} =
   ## Subscribes to `pubsubTopic`. `handler` (optional) is invoked per message;
   ## pass nil to subscribe without a message callback.
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relaySubscribe: WakuRelay not mounted")
 
-    self.node.subscribe((kind: SubscriptionKind.PubsubSub, topic: pubsubTopic), handler).isOkOr:
+    self.subscribe((kind: SubscriptionKind.PubsubSub, topic: pubsubTopic), handler).isOkOr:
       return err($error)
 
     return ok(true)
@@ -50,13 +50,13 @@ proc relaySubscribe*(
     return err(e.msg)
 
 proc relayUnsubscribe*(
-    self: Waku, pubsubTopic: PubsubTopic
+    self: Kernel, pubsubTopic: PubsubTopic
 ): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayUnsubscribe: WakuRelay not mounted")
 
-    self.node.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: pubsubTopic)).isOkOr:
+    self.unsubscribe((kind: SubscriptionKind.PubsubSub, topic: pubsubTopic)).isOkOr:
       return err($error)
 
     return ok(true)
@@ -64,29 +64,29 @@ proc relayUnsubscribe*(
     return err(e.msg)
 
 proc relayAddProtectedShard*(
-    self: Waku, clusterId: uint16, shardId: uint16, publicKey: string
+    self: Kernel, clusterId: uint16, shardId: uint16, publicKey: string
 ): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayAddProtectedShard: WakuRelay not mounted")
 
     let pubKey = SkPublicKey.fromHex(publicKey).valueOr:
       return err("relayAddProtectedShard: invalid public key: " & $error)
 
     let protectedShard = ProtectedShard(shard: shardId, key: pubKey)
-    self.node.protocols.relay.addSignedShardsValidator(@[protectedShard], clusterId)
+    self.protocols.relay.addSignedShardsValidator(@[protectedShard], clusterId)
     return ok(true)
   except CatchableError as e:
     return err(e.msg)
 
 proc relayConnectedPeers*(
-    self: Waku, pubsubTopic: PubsubTopic
+    self: Kernel, pubsubTopic: PubsubTopic
 ): Future[Result[seq[string], string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayConnectedPeers: WakuRelay not mounted")
 
-    let connPeers = self.node.protocols.relay.getConnectedPeers(pubsubTopic).valueOr:
+    let connPeers = self.protocols.relay.getConnectedPeers(pubsubTopic).valueOr:
       return err($error)
 
     return ok(connPeers.mapIt($it))
@@ -94,13 +94,13 @@ proc relayConnectedPeers*(
     return err(e.msg)
 
 proc relayPeersInMesh*(
-    self: Waku, pubsubTopic: PubsubTopic
+    self: Kernel, pubsubTopic: PubsubTopic
 ): Future[Result[seq[string], string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayPeersInMesh: WakuRelay not mounted")
 
-    let meshPeers = self.node.protocols.relay.getPeersInMesh(pubsubTopic).valueOr:
+    let meshPeers = self.protocols.relay.getPeersInMesh(pubsubTopic).valueOr:
       return err($error)
 
     return ok(meshPeers.mapIt($it))
@@ -108,24 +108,24 @@ proc relayPeersInMesh*(
     return err(e.msg)
 
 proc relayNumPeersInMesh*(
-    self: Waku, pubsubTopic: PubsubTopic
+    self: Kernel, pubsubTopic: PubsubTopic
 ): Future[Result[int, string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayNumPeersInMesh: WakuRelay not mounted")
-    let n = self.node.protocols.relay.getNumPeersInMesh(pubsubTopic).valueOr:
+    let n = self.protocols.relay.getNumPeersInMesh(pubsubTopic).valueOr:
       return err($error)
     return ok(n)
   except CatchableError as e:
     return err(e.msg)
 
 proc relayNumConnectedPeers*(
-    self: Waku, pubsubTopic: PubsubTopic
+    self: Kernel, pubsubTopic: PubsubTopic
 ): Future[Result[int, string]] {.async.} =
   try:
-    if self.node.protocols.relay.isNil():
+    if self.protocols.relay.isNil():
       return err("relayNumConnectedPeers: WakuRelay not mounted")
-    let n = self.node.protocols.relay.getNumConnectedPeers(pubsubTopic).valueOr:
+    let n = self.protocols.relay.getNumConnectedPeers(pubsubTopic).valueOr:
       return err($error)
     return ok(n)
   except CatchableError as e:

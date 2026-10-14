@@ -119,18 +119,18 @@ when isMainModule:
     error "Issue converting toWakuConf", error = $error
     quit(QuitFailure)
 
-  var waku = (waitFor Waku.new(wakuConf)).valueOr:
+  var waku = (waitFor Kernel.new(wakuConf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  (waitFor waku.start()).isOkOr:
+  (waitFor waku.startKernel()).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
   info "Setting up shutdown hooks"
 
-  proc asyncStopper(waku: Waku) {.async: (raises: []).} =
-    (await waku.stop()).isOkOr:
+  proc asyncStopper(waku: Kernel) {.async: (raises: []).} =
+    (await waku.stopKernel()).isOkOr:
       error "Waku shutdown failed", error = error
     quit(QuitSuccess)
 
@@ -161,7 +161,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      (waitFor waku.stop()).isOkOr:
+      (waitFor waku.stopKernel()).isOkOr:
         error "Waku shutdown failed", error = error
       quit(QuitFailure)
 
@@ -181,7 +181,7 @@ when isMainModule:
   if conf.serviceNode.len == 0:
     if conf.bootstrapNode.len > 0:
       info "Bootstrapping with PeerExchange to gather random service node"
-      let futForServiceNode = pxLookupServiceNode(waku.node, conf)
+      let futForServiceNode = pxLookupServiceNode(waku, conf)
       if not (waitFor futForServiceNode.withTimeout(20.minutes)):
         error "Service node not found in time via PX"
         quit(QuitFailure)
@@ -191,7 +191,7 @@ when isMainModule:
         quit(QuitFailure)
 
       serviceNodePeerInfo = selectRandomServicePeer(
-        waku.node.peerManager, Opt.none(RemotePeerInfo), codec
+        waku.peerManager, Opt.none(RemotePeerInfo), codec
       ).valueOr:
         error "Service node selection failed"
         quit(QuitFailure)
@@ -206,11 +206,11 @@ when isMainModule:
 
   info "Service node to be used", serviceNode = $serviceNodePeerInfo
 
-  logSelfPeers(waku.node.peerManager)
+  logSelfPeers(waku.peerManager)
 
   if conf.testFunc == TesterFunctionality.SENDER:
-    setupAndPublish(waku.node, conf, serviceNodePeerInfo)
+    setupAndPublish(waku, conf, serviceNodePeerInfo)
   else:
-    setupAndListen(waku.node, conf, serviceNodePeerInfo)
+    setupAndListen(waku, conf, serviceNodePeerInfo)
 
   runForever()

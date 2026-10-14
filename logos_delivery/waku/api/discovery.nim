@@ -15,7 +15,7 @@ import
   ]
 
 proc dnsDiscovery*(
-    self: Waku, enrTreeUrl: string, nameServer: string, timeoutMs: int
+    self: Kernel, enrTreeUrl: string, nameServer: string, timeoutMs: int
 ): Future[Result[seq[string], string]] {.async.} =
   try:
     let dnsNameServers = @[parseIpAddress(nameServer)]
@@ -34,42 +34,42 @@ proc dnsDiscovery*(
     return err(e.msg)
 
 proc discv5UpdateBootnodes*(
-    self: Waku, bootnodes: string
+    self: Kernel, bootnodes: string
 ): Future[Result[bool, string]] {.async.} =
   ## `bootnodes` is a JSON array of ENRs, e.g. `["enr:...", "enr:..."]`.
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.discovery.wakuDiscv5.isNil():
       return err("discv5 not started")
-    self.node.discovery.wakuDiscv5.updateBootstrapRecords(bootnodes).isOkOr:
+    self.discovery.wakuDiscv5.updateBootstrapRecords(bootnodes).isOkOr:
       return err("error in discv5UpdateBootnodes: " & $error)
     return ok(true)
   except CatchableError as e:
     return err(e.msg)
 
-proc startDiscv5*(self: Waku): Future[Result[bool, string]] {.async.} =
+proc startDiscv5*(self: Kernel): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.discovery.wakuDiscv5.isNil():
       return err("discv5 not started")
-    (await self.node.discovery.wakuDiscv5.start()).isOkOr:
+    (await self.discovery.wakuDiscv5.start()).isOkOr:
       return err("error starting discv5: " & $error)
     return ok(true)
   except CatchableError as e:
     return err(e.msg)
 
-proc stopDiscv5*(self: Waku): Future[Result[bool, string]] {.async.} =
+proc stopDiscv5*(self: Kernel): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.discovery.wakuDiscv5.isNil():
       return err("discv5 not started")
-    await self.node.discovery.wakuDiscv5.stop()
+    await self.discovery.wakuDiscv5.stop()
     return ok(true)
   except CatchableError as e:
     return err(e.msg)
 
 proc peerExchangeRequest*(
-    self: Waku, numPeers: uint64
+    self: Kernel, numPeers: uint64
 ): Future[Result[int, string]] {.async.} =
   try:
-    let numPeersRecv = (await self.node.fetchPeerExchangePeers(numPeers)).valueOr:
+    let numPeersRecv = (await self.fetchPeerExchangePeers(numPeers)).valueOr:
       return err("failed peer exchange: " & $error)
     return ok(numPeersRecv)
   except CatchableError as e:

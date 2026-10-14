@@ -81,7 +81,7 @@ type SendService* = ref object of RootObj
     ## Charges first transmissions against the per-epoch budget; re-publishes
     ## are free.
 
-  waku: Waku
+  waku: Kernel
   checkStoreForMessages: bool
   storeValidationHandle: Future[void]
     ## The Store validation loop. Nil when Store-based reliability is off.
@@ -100,7 +100,7 @@ type SendService* = ref object of RootObj
   retryInterval: timer.Duration
 
 proc setupSendProcessorChain*(
-    waku: Waku, anonymityLevel: AnonymityLevel
+    waku: Kernel, anonymityLevel: AnonymityLevel
 ): Result[BaseSendProcessor, string] =
   let brokerCtx = waku.brokerCtx
   let isRelayAvail = waku.hasRelay()
@@ -144,7 +144,7 @@ proc setupSendProcessorChain*(
 proc new*(
     T: typedesc[SendService],
     preferP2PReliability: bool,
-    waku: Waku,
+    waku: Kernel,
     rateLimitManager: RateLimitManager,
     sendProcessor: BaseSendProcessor,
     anonymityLevel: AnonymityLevel = AnonymityLevel.None,

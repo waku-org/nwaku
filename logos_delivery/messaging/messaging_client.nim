@@ -17,7 +17,7 @@ export messaging_client_api, messaging_conf
 
 type MessagingClient* = ref object
   brokerCtx*: BrokerContext
-  waku*: Waku ## The Waku kernel this layer drives; read by `messaging/api/*`.
+  waku*: Kernel ## The Waku kernel this layer drives; read by `messaging/api/*`.
   sendService*: SendService
   recvService*: RecvService
   persistencyJob*: persistency.Job
@@ -27,7 +27,7 @@ const
   MaxParkedAgeSecLimit = 7'u * 24 * 3600
   SendQueueCapacityLimit = 1_000_000'u
 
-proc rlnQuotaProvider(waku: Waku): QuotaProvider =
+proc rlnQuotaProvider(waku: Kernel): QuotaProvider =
   ## Sources the rate limit manager's epoch budget from RLN. The closure
   ## queries `waku` on each admission, so a node whose RLN mounts after
   ## construction upgrades from the local fallback automatically.
@@ -50,7 +50,7 @@ proc requireMixReady*(
   return ConnectionStatus.Disconnected
 
 proc new*(
-    T: type MessagingClient, conf: MessagingClientConf, waku: Waku
+    T: type MessagingClient, conf: MessagingClientConf, waku: Kernel
 ): Result[T, string] =
   ## The messaging layer chains onto Waku: it drives the underlying Waku kernel
   ## for transport while exposing its own send/recv API.

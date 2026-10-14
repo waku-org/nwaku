@@ -354,25 +354,25 @@ suite "Waku Mix - end to end transport":
     nodeConf.clusterId = Opt.some(DefaultClusterId)
     let conf = nodeConf.toWakuConf().valueOr:
       raiseAssert error
-    let waku = (await Waku.new(conf)).expect("Waku.new")
+    let waku = (await Kernel.new(conf)).expect("Kernel.new")
     defer:
-      discard await waku.stop()
+      discard await waku.stopKernel()
     let kp = generateKeyPair().expect("mix key pair")
     (
-      await waku.node.mountMix(
+      await waku.mountMix(
         DefaultClusterId, kp.privateKey, mixnet.pubInfos[0 ..< NumCore]
       )
     ).isOkOr:
       raiseAssert "mountMix sender: " & $error
-    (await waku.start()).expect("start")
-    await waku.node.connectToNodes(
+    (await waku.startKernel()).expect("start")
+    await waku.connectToNodes(
       (0 ..< NumCore).toSeq().mapIt(mixnet.nodes[it].peerInfo.toRemotePeerInfo())
     )
     # Identify fills this from waku-metadata too; set it here so the exit scan
     # does not wait for that round trip.
     let shardInfo = RelayShard.parse(shard).expect("shard")
     for i in 0 ..< NumCore:
-      waku.node.peerManager.switch.peerStore.setShardInfo(
+      waku.peerManager.switch.peerStore.setShardInfo(
         mixnet.nodes[i].peerInfo.peerId, @[shardInfo.shardId]
       )
     # Identify fills the lightpush codec on connect; wait for the exit scan.

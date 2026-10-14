@@ -8,7 +8,7 @@ proc logosdelivery_get_available_node_info_ids(
   ## Returns, as a JSON array of strings, all available node info item ids that
   ## can be queried with `get_node_info`.
   var ids = newJArray()
-  for id in self.waku.stateInfo.getAllPossibleInfoItemIds():
+  for id in self.waku.getAllPossibleInfoItemIds():
     ids.add(%($id))
 
   return ok($ids)
@@ -25,7 +25,7 @@ proc logosdelivery_get_node_info(
     except ValueError:
       return err("Invalid node info id: " & nodeInfoId)
 
-  return ok(self.waku.stateInfo.getNodeInfoItem(infoItemIdEnum))
+  return ok(self.waku.getNodeInfoItem(infoItemIdEnum))
 
 proc logosdelivery_get_available_configs(
     self: LogosDelivery

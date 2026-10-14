@@ -183,7 +183,7 @@ suite "Channel encryption - egress":
       check not wire[0].containsRun(oneSegment(appPayload))
       check not wire[0].containsRun(string(channelId).toBytes())
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "a failing encrypt aborts the send with nothing on the wire":
     ## Fail closed: this is the property the whole design exists to hold.
@@ -219,7 +219,7 @@ suite "Channel encryption - egress":
       check "no key today" in res.error
     check sendCalls == 0
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "an unregistered channel sends its payload unchanged":
     ## Back-compat with the removed noop providers.
@@ -242,7 +242,7 @@ suite "Channel encryption - egress":
       await sleepAsync(5.milliseconds)
     check plainWire.len == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Channel encryption - ingress":
   asyncTest "receive decrypts the whole SDS message":
@@ -284,7 +284,7 @@ suite "Channel encryption - ingress":
     check await received.withTimeout(TestTimeout)
     check received.read().payload == appPayload
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "a message that does not decrypt is dropped without an event":
     ## On a shared topic, failing to decrypt is how a channel recognises
@@ -342,7 +342,7 @@ suite "Channel encryption - ingress":
 
     check events.len == 0
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "channels sharing a topic tell their traffic apart by decrypting":
     ## The SDS channelId is sealed, so each channel trial-decrypts and only
@@ -406,4 +406,4 @@ suite "Channel encryption - ingress":
     check deliveredTo == @[channelA]
     check bRejected == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")

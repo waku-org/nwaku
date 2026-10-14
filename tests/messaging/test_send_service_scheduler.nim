@@ -51,18 +51,18 @@ proc fixedEpochQuota(
       Opt.some(EpochQuota(epochIndex: epoch[], rateLimit: rateLimit, remaining: left))
 
 suite "SendService - rate-limit scheduling":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
   var started {.threadvar.}: seq[SendService]
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
     started = @[]
 
   asyncTeardown:
     for service in started:
       await service.stopSendService()
     ## The node is never started, so stop is best-effort cleanup.
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc buildTask(
       id, payload: string,
