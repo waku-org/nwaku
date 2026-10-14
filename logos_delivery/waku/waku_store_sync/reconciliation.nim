@@ -186,12 +186,12 @@ proc processRequest(
   let lowerBound = calculateTimeRange(self.clock(), self.relayJitter, self.syncRange).a
 
   while true:
-    let readRes = catch:
-      await conn.readLp(int.high)
-
-    let buffer: seq[byte] = readRes.valueOr:
-      await conn.close()
-      return err("remote " & $conn.peerId & " connection read error: " & error.msg)
+    let buffer =
+      try:
+        await conn.readLp(int.high)
+      except LPStreamError as exc:
+        await conn.close()
+        return err("remote " & $conn.peerId & " connection read error: " & exc.msg)
 
     logos_delivery_total_bytes_exchanged.inc(
       buffer.len, labelValues = [Reconciliation, Receiving]
@@ -248,12 +248,11 @@ proc processRequest(
       rawPayload.len, labelValues = [Reconciliation, Sending]
     )
 
-    let writeRes = catch:
+    try:
       await conn.writeLP(rawPayload)
-
-    writeRes.isOkOr:
+    except LPStreamError as exc:
       await conn.close()
-      return err("remote " & $conn.peerId & " connection write error: " & error.msg)
+      return err("remote " & $conn.peerId & " connection write error: " & exc.msg)
 
     trace "sync payload sent",
       local = self.peerManager.switch.peerInfo.peerId,
@@ -305,12 +304,11 @@ proc initiate(
     sendPayload.len, labelValues = [Reconciliation, Sending]
   )
 
-  let writeRes = catch:
+  try:
     await connection.writeLP(sendPayload)
-
-  writeRes.isOkOr:
+  except LPStreamError as exc:
     await connection.close()
-    return err("remote " & $connection.peerId & " connection write error: " & error.msg)
+    return err("remote " & $connection.peerId & " connection write error: " & exc.msg)
 
   trace "sync payload sent",
     local = self.peerManager.switch.peerInfo.peerId,
@@ -454,6 +452,8 @@ proc new*(
     try:
       (await sync.processRequest(conn)).isOkOr:
         debug "Request processing error", error = error
+    except CancelledError as exc:
+      raise exc
     except CatchableError:
       error "exception in reconciliation handler", error = getCurrentExceptionMsg()
 

@@ -6,7 +6,11 @@ import
   testutils/unittests,
   chronos,
   metrics,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  libp2p/protocols/protocol,
+  libp2p/stream/bufferstream,
+  libp2p/stream/connection,
+  libp2p/varint
 from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
 import nimcrypto
@@ -17,10 +21,10 @@ import
     waku_core/message,
     waku_core/message/digest,
     waku_store_sync/common,
+    waku_store_sync/codec,
     waku_store_sync/storage/range_processing,
     waku_store_sync/reconciliation,
     waku_store_sync/transfer,
-    waku_store_sync/codec,
     waku_store_sync/protocols_metrics,
     waku_archive/archive,
     waku_archive/driver,
@@ -70,6 +74,20 @@ proc newLimitedReceiver(
 
 proc encodedLen(msg: WakuMessage): int =
   WakuMessageAndTopic(pubsub: DefaultPubsubTopic, message: msg).encode().buffer.len
+
+type HeldPutDriver = ref object of ArchiveDriver
+  putStarted: Future[void]
+  release: Future[void]
+
+method put(
+    driver: HeldPutDriver,
+    messageHash: WakuMessageHash,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+): Future[ArchiveDriverResult[bool]] {.async.} =
+  driver.putStarted.complete()
+  await driver.release
+  return ok(true)
 
 suite "Waku Sync: reconciliation":
   var serverSwitch {.threadvar.}: Switch
@@ -1080,6 +1098,83 @@ suite "Waku Sync: reconciliation":
     assert res.isOk(), $res.error
 
     check needsQ.len == 0
+
+suite "Waku Sync: reconciliation stop":
+  asyncTest "a periodic sync stopped while it waits for its peer completes its stop":
+    # Given a peer that reads the first sync payload and never answers
+    let
+      stalledSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+      payloadRead = newFuture[void]("stalled peer read the first payload")
+    await allFutures(stalledSwitch.start(), clientSwitch.start())
+
+    proc stalledHandler(
+        conn: Connection, proto: string
+    ) {.async: (raises: [CancelledError]).} =
+      try:
+        discard await conn.readLp(-1)
+        if not payloadRead.finished():
+          payloadRead.complete()
+        while true:
+          discard await conn.readLp(-1)
+      except LPStreamError:
+        discard
+
+    let stalled = LPProtocol.new(@[WakuReconciliationCodec], stalledHandler)
+    await stalled.start()
+    stalledSwitch.mount(stalled)
+    PeerManager.new(clientSwitch).addPeer(stalledSwitch.peerInfo.toRemotePeerInfo())
+
+    # When a node syncs with it periodically and is stopped during a round
+    let client = await newTestWakuRecon(
+      clientSwitch,
+      idsRx = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](),
+      wantsTx = newAsyncQueue[PeerId](),
+      needsTx = newAsyncQueue[(PeerId, WakuMessageHash)](),
+      syncInterval = 100.milliseconds,
+    )
+    check await payloadRead.withTimeout(5.seconds)
+    let stopping = client.stop()
+
+    # Then the stop completes
+    check await stopping.join().withTimeout(3.seconds)
+
+    await stalledSwitch.stop()
+    await clientSwitch.stop()
+
+suite "Waku Sync: transfer handler cancellation":
+  asyncTest "a transfer handler cancelled while it archives a message ends cancelled":
+    # Given a receiver whose archive insert waits
+    let
+      driver = HeldPutDriver(
+        putStarted: newFuture[void]("put started"),
+        release: newFuture[void]("release put"),
+      )
+      receiver = SyncTransfer.new(
+        peerManager = PeerManager.new(newTestSwitch()),
+        wakuArchive = newWakuArchive(driver),
+        idsTx = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](),
+        localWantsRx = newAsyncQueue[PeerId](),
+        remoteNeedsRx = newAsyncQueue[(PeerId, WakuMessageHash)](),
+        maxMessageSize = int(DefaultMaxWakuMessageSize),
+      )
+      stream = BufferStream.new()
+      payload = WakuMessageAndTopic(
+        pubsub: DefaultPubsubTopic, message: fakeWakuMessage()
+      ).encode().buffer
+
+    # When its handler reads a message and is cancelled during the insert
+    let handling = receiver.handler(stream, WakuTransferCodec)
+    await stream.pushData(@(PB.toBytes(uint64(payload.len)).toOpenArray()) & payload)
+    check await driver.putStarted.withTimeout(5.seconds)
+    handling.cancelSoon()
+
+    # Then the handler ends cancelled
+    check:
+      await handling.join().withTimeout(1.seconds)
+      handling.cancelled()
+
+    await stream.close()
 
 suite "Waku Sync: transfer":
   var
