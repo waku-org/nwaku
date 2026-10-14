@@ -183,7 +183,7 @@ procSuite "Waku Rendezvous":
 
     await lightClient.stop()
 
-  asyncTest "A node stopped while its rendezvous registration dials a peer that never answers does not complete its stop":
+  asyncTest "Stop hangs during a rendezvous dial that never answers":
     # TODO: stop-after-peer-left
     let
       clusterId = 10.uint16
@@ -220,7 +220,7 @@ procSuite "Waku Rendezvous":
     nodeStopped = await stopping.join().withTimeout(5.seconds)
     check nodeStopped
 
-  asyncTest "A node stopped before its first rendezvous registration completes its stop":
+  asyncTest "Stop completes before the first rendezvous registration":
     # TODO: stop-after-peer-left
     let
       clusterId = 10.uint16

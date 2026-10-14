@@ -161,6 +161,13 @@ suite "MessagingClientConf - rate-limit config":
       rl.epochPeriodSec == DefaultRateLimitConfig.epochPeriodSec
       rl.messagesPerEpoch == DefaultRateLimitConfig.messagesPerEpoch
 
+proc warningsOf(lc: LogosDeliveryConf): seq[string] =
+  let conf = WakuNodeConf(lc.kernelConf)
+  let defaults = defaultKernelConf(ModeProtocolFlags()).get()
+  let wakuConf = conf.toWakuConf().valueOr:
+    raiseAssert error
+  return ignoredFlagWarnings(conf, defaults, wakuConf)
+
 suite "parseLogosDeliveryConf - JSON parsing":
   test "empty object resolves to a full Core node conf":
     let lc = parseLogosDeliveryConf("{}").valueOr:
@@ -459,6 +466,40 @@ suite "parseLogosDeliveryConf - JSON parsing":
     # surface as an unknown key.
     check parseLogosDeliveryConf("""{"mode": "core", "kernelConf": {}}""").isErr()
 
+  test "a status.prod preset warns about the websocket port":
+    # TODO: websocket-port-warn
+    let lc = parseLogosDeliveryConf("""{"preset": "status.prod"}""").valueOr:
+      raiseAssert error
+    check warningsOf(lc) ==
+      @["--websocket-port is ignored: --websocket-support is not enabled"]
+
+  test "an empty config warns about the websocket port":
+    # TODO: websocket-port-warn
+    let lc = parseLogosDeliveryConf("{}").valueOr:
+      raiseAssert error
+    check warningsOf(lc) ==
+      @["--websocket-port is ignored: --websocket-support is not enabled"]
+
+  test "discv5Discovery false warns about the discv5 udp port too":
+    # TODO: websocket-port-warn
+    let lc = parseLogosDeliveryConf(
+      """{"messagingOverrides": {"discv5Discovery": false}}"""
+    ).valueOr:
+      raiseAssert error
+    check warningsOf(lc) ==
+      @[
+        "--discv5-udp-port is ignored: --discv5-discovery is not enabled",
+        "--websocket-port is ignored: --websocket-support is not enabled",
+      ]
+
+  test "a status.prod preset in kernelConf gives no warning":
+    # TODO: websocket-port-warn
+    let lc = parseLogosDeliveryConf(
+      """{"entryLayer": "kernel", "kernelConf": {"preset": "status.prod"}}"""
+    ).valueOr:
+      raiseAssert error
+    check warningsOf(lc).len == 0
+
 suite "LogosDelivery.new - construction (the app-dev entry)":
   asyncTest "builds the full messaging stack from mode + overrides":
     var node: LogosDelivery
@@ -653,6 +694,12 @@ suite "parseLogosDeliveryConf - flat WakuNodeConf shape (interop compatibility)"
     # not flip to flat; the leftover bare field (relay) then has no structured home and
     # is rejected. Guards against the discriminator silently splitting a mixed object.
     check parseLogosDeliveryConf("""{"messagingOverrides": {}, "relay": true}""").isErr()
+
+  test "a status.prod preset in a flat blob gives no warning":
+    # TODO: websocket-port-warn
+    let lc = parseLogosDeliveryConf("""{"preset": "status.prod", "relay": true}""").valueOr:
+      raiseAssert error
+    check warningsOf(lc).len == 0
 
 suite "MessagingClientConf - pure-libp2p peers budget":
   test "unset stays unset through mode expansion":
