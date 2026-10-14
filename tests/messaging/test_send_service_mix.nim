@@ -219,9 +219,10 @@ suite "SendService - anonymity level with a mounted mix":
     )
     waku.node.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
 
-  asyncTest "a Required task tries three times while the pool is short, then fails":
+  asyncTest "a Required task waits for a short pool during its grace, then fails":
     ## A short pool is a reason mix cannot attempt the task. A `Required` task
-    ## waits `MixUnusableRetries` more retries, then fails with that reason.
+    ## waits while its admission is within `MixUnusableGrace`, then fails with
+    ## that reason.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60100 + i, lightpush = true)
     check not waku.mixReady()
@@ -229,12 +230,13 @@ suite "SendService - anonymity level with a mounted mix":
     let mix = MixSendProcessor.new(
       waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
-    let task = buildTask("short-pool", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check:
-        task.state == DeliveryState.NextRoundRetry
-        task.errorDesc == MixUnavailableReason # written while it waits
+    let task = buildTask("short-pool", ZeroDuration)
+    await mix.process(task)
+    check:
+      task.state == DeliveryState.NextRoundRetry
+      task.errorDesc == MixUnavailableReason # written while it waits
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       task.state == DeliveryState.FailedToDeliver
@@ -244,9 +246,8 @@ suite "SendService - anonymity level with a mounted mix":
     addMixPeer(60103, lightpush = true)
     check waku.mixReady()
 
-  asyncTest "a Required task starts its tries over once mix can attempt it":
-    ## `mixGraceRetriesUsed` counts the retries a task waited. An attempt resets it, so a
-    ## later stretch without mix gets its full `MixUnusableRetries` again.
+  asyncTest "a Required task past its grace is attempted once mix can attempt it":
+    ## The grace bounds only the wait for a mix that cannot attempt the task.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60210 + i, lightpush = true)
     check not waku.mixReady()
@@ -254,21 +255,19 @@ suite "SendService - anonymity level with a mounted mix":
     let mix = MixSendProcessor.new(
       waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
-    let task = buildTask("held-then-usable", chronos.seconds(5))
+    let task = buildTask("held-then-usable", ZeroDuration)
     await mix.process(task)
-    check:
-      task.state == DeliveryState.NextRoundRetry
-      task.mixGraceRetriesUsed == 1
+    check task.state == DeliveryState.NextRoundRetry
 
     addMixPeer(60210 + MinMixPoolSize - 1, lightpush = true)
     check waku.mixReady()
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     let fut = mix.process(task)
-    check:
-      task.tryCount == 1 # mix attempts it
-      task.mixGraceRetriesUsed == 0 # ... and the count starts over
+    check task.tryCount == 1 # mix attempts it
     await fut.cancelAndWait()
 
-  asyncTest "a Required task tries three times with no exit on the shard, then fails":
+  asyncTest "a Required task waits with no exit on the shard during its grace, then fails":
     ## A full pool with no lightpush member on the shard has no exit, as in a
     ## seeded pool before identify and waku-metadata fill its books.
     for i in 0 ..< MinMixPoolSize:
@@ -283,10 +282,11 @@ suite "SendService - anonymity level with a mounted mix":
     )
     mix.chain(plain)
 
-    let task = buildTask("no-exit", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check task.state == DeliveryState.NextRoundRetry
+    let task = buildTask("no-exit", ZeroDuration)
+    await mix.process(task)
+    check task.state == DeliveryState.NextRoundRetry
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       plain.calls == 0
@@ -479,7 +479,7 @@ suite "SendService - anonymity level with a mounted mix":
       plain.calls == 1
       spent.state == DeliveryState.SuccessfullyPropagated
 
-  asyncTest "a Required task tries three times when mix cannot encode its own hop, then fails":
+  asyncTest "a Required task waits during its grace when mix cannot encode its own hop, then fails":
     ## The pool is usable and the self hop is not, so no reply path can be built.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60160 + i, lightpush = true)
@@ -498,10 +498,11 @@ suite "SendService - anonymity level with a mounted mix":
     )
     mix.chain(plain)
 
-    let task = buildTask("self-hop", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check task.state == DeliveryState.NextRoundRetry
+    let task = buildTask("self-hop", ZeroDuration)
+    await mix.process(task)
+    check task.state == DeliveryState.NextRoundRetry
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       plain.calls == 0

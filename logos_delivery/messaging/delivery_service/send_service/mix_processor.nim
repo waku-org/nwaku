@@ -18,9 +18,9 @@ const MixSelfHopReason* = "own address cannot carry mix replies"
 const MixNoExitReason* = "no mix exit serves the shard"
   ## No pool member serves lightpush on the message's shard.
 
-const MixUnusableRetries* = 2
-  ## Retries a `Required` task waits for a mounted mix before it fails. Retries
-  ## come `RetryInterval` apart.
+const MixUnusableGrace* = chronos.seconds(3)
+  ## How long after its admission a `Required` task waits for a mounted mix that
+  ## cannot attempt it. Retries come `RetryInterval` apart.
 
 type
   MixUnusable* {.pure.} = enum
@@ -89,10 +89,10 @@ proc decideWithoutMix(
     self: MixSendProcessor, task: DeliveryTask, unusable: MixUnusable
 ) =
   ## Hands a `Preferred` task to the plain path at once. Fails a `Required` task
-  ## with the reason, after `MixUnusableRetries` more retries while mix is mounted.
+  ## with the reason, once its admission is older than `MixUnusableGrace` while
+  ## mix is mounted.
   if not self.fallbackAllowed:
-    if self.waku.mixMounted() and task.mixGraceRetriesUsed < MixUnusableRetries:
-      task.mixGraceRetriesUsed.inc()
+    if self.waku.mixMounted() and task.admissionAge() <= MixUnusableGrace:
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
@@ -142,7 +142,6 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
   task.anonymized = true
 
   task.errorDesc = "" # the attempt reports its own outcome
-  task.mixGraceRetriesUsed = 0
   task.tryCount.inc()
   debug "Trying message delivery via Mix",
     requestId = task.requestId,

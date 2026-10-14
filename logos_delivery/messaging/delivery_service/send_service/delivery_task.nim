@@ -21,9 +21,6 @@ type DeliveryTask* = ref object
   msg*: WakuMessage
   msgHash*: WakuMessageHash
   tryCount*: int
-  mixGraceRetriesUsed*: int
-    ## The retries in which mix could not attempt a `Required` task. A mix attempt
-    ## resets it, and `MixUnusableRetries` is its limit.
   state*: DeliveryState
   firstPropagatedTime*: Opt[Moment]
     ## Set once on the first successful propagation; never reset on re-publish.
