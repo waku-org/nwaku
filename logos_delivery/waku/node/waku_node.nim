@@ -34,6 +34,7 @@ import
     discovery/waku_discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
+    discovery/discovery,
     waku_core,
     waku_core/topics/sharding,
     waku_relay,
@@ -148,26 +149,6 @@ type
     ports*: BoundPorts
     protocols*: Protocols
     discovery*: Discovery
-
-  Discovery* = object
-    ## Peer discovery mechanisms mounted on the node.
-    wakuPeerExchange*: WakuPeerExchange
-    wakuPeerExchangeClient*: WakuPeerExchangeClient
-    wakuRendezvous*: WakuRendezVous
-    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
-    wakuKademlia*: WakuKademlia
-    discoveries*: seq[IPeerDiscovery]
-      ## Attached IPeerDiscovery backends; started after the node is up,
-      ## stopped on node teardown.
-    wakuDiscv5*: WakuDiscoveryV5
-      ## Set by discv5Discovery on start; kept for direct consumers
-      ## (REST builder, ENR/address updates, FFI ops).
-    discv5Discovery*: Discv5PeerDiscovery
-    externalDiscovery*: ExternalServiceDiscovery
-      ## Present when discovery is delegated to an external provider; the
-      ## library layer installs its host transport.
-    dynamicBootstrapNodes*: seq[RemotePeerInfo]
-    dnsRetryLoopHandle*: Future[void]
 
   Protocols* = object
     ## The libp2p protocols mounted on the node, apart from discovery.
