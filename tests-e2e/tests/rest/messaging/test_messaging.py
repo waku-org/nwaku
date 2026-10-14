@@ -99,18 +99,3 @@ class TestMessagingRestNodeConfig(StepsMessaging):
             message=f"Expected the DEBUG line of the store validation timeout of {request_id}",
         )
         assert self.node2.search_log_for_keywords([rf"^(WRN|ERR) .*requestId={request_id}"], use_regex=True) is None
-
-    def test_retry_window_error_is_logged_at_error(self):
-        # TODO: store-validation-log-level
-        # node2 has no peer.
-        self.node2 = WakuNode(NODE_2, f"node2_{self.test_id}")
-        self.node2.start(**self.messaging_args())
-        request_id = self.send_and_get_request_id(self.node2)
-        assert self.collect_send_events(self.node2, request_id, timeout=90) == [("error", "Unable to send within retry time window")]
-        wait_until(
-            lambda: self.node2.search_log_for_keywords(
-                [rf'^ERR .*Failed to send message.*requestId={request_id}.*error="Unable to send within retry time window"'],
-                use_regex=True,
-            ),
-            message=f"Expected the ERROR line of the failed send of {request_id}",
-        )

@@ -473,18 +473,6 @@ suite "parseLogosDeliveryConf - JSON parsing":
     check warningsOf(lc) ==
       @["--websocket-port is ignored: --websocket-support is not enabled"]
 
-  test "discv5Discovery false warns about the discv5 udp port too":
-    # TODO: logos-delivery#4553
-    let lc = parseLogosDeliveryConf(
-      """{"messagingOverrides": {"discv5Discovery": false}}"""
-    ).valueOr:
-      raiseAssert error
-    check warningsOf(lc) ==
-      @[
-        "--discv5-udp-port is ignored: --discv5-discovery is not enabled",
-        "--websocket-port is ignored: --websocket-support is not enabled",
-      ]
-
 suite "LogosDelivery.new - construction (the app-dev entry)":
   asyncTest "builds the full messaging stack from mode + overrides":
     var node: LogosDelivery

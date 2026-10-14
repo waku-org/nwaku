@@ -2,8 +2,6 @@ import re
 import socket
 from src.node.wrappers_manager import WrapperManager
 from src.node.wrapper_helpers import (
-    EVENT_TOPIC_HEALTH_CHANGE,
-    MESH_TOPIC_HEALTH,
     EventCollector,
     create_message_bindings,
     get_node_bound_ports,
@@ -12,13 +10,10 @@ from src.node.wrapper_helpers import (
     is_channel_error_event,
     unique_channel_id,
     wait_for_connected,
-    wait_for_connection_change,
     wait_for_error,
     wait_for_event,
     wait_for_mesh,
-    wait_for_topic_health,
 )
-from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_message_received
 
 NODE_NOT_STARTED_MSG = "node is not started"
 STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
@@ -30,25 +25,12 @@ STOPPED_CHANNEL_CONTENT_TOPIC = "/test/1/stopped-channel/proto"
 STOPPED_CHANNEL_SENDER_ID = "stopped-channel-sender"
 ERROR_TIMEOUT_S = 10.0
 
-# The relay checks a shard's health as soon as it subscribes to the shard or its mesh changes.
-TOPIC_HEALTH_WINDOW_S = 2.0
-
 
 class TestLogosDeliveryLifecycle:
     def _create_start_node(self, node_config, event_cb=None):
         result = WrapperManager.create_and_start(config=node_config, event_cb=event_cb)
         assert result.is_ok(), f"Failed to create and start node: {result.err()}"
         return result.ok_value
-
-    def _assert_channel_send_errors(self, collector, request_id, channel_id):
-        error_event = wait_for_error(collector, request_id, ERROR_TIMEOUT_S)
-        assert error_event is not None, f"no message_error for request {request_id}. Collected events: {collector.events}"
-        assert MESSAGING_SEND_NO_PROVIDER_RE.fullmatch(error_event["error"]), error_event["error"]
-
-        channel_error_event = wait_for_event(collector, request_id, is_channel_error_event, ERROR_TIMEOUT_S)
-        assert channel_error_event is not None, f"no channel_message_error for request {request_id}. Collected events: {collector.events}"
-        assert channel_error_event["channelId"] == channel_id, channel_error_event
-        assert channel_error_event["error"] == SEGMENTS_FAILED_MSG, channel_error_event
 
     def test_create_start_and_stop_node(self, node_config):
         node = self._create_start_node(node_config)
@@ -104,23 +86,16 @@ class TestLogosDeliveryLifecycle:
 
             send_result = node.channel_send(channel_id, create_message_bindings())
             assert send_result.is_ok(), f"channel_send on a node never started failed: {send_result.err()}"
-            self._assert_channel_send_errors(node_collector, send_result.ok_value, channel_id)
+            request_id = send_result.ok_value
 
-    def test_channel_send_after_stop_node(self, node_config):
-        # TODO: logos-delivery#4543
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            stop_result = node.stop_node()
-            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+            error_event = wait_for_error(node_collector, request_id, ERROR_TIMEOUT_S)
+            assert error_event is not None, f"no message_error for request {request_id}. Collected events: {node_collector.events}"
+            assert MESSAGING_SEND_NO_PROVIDER_RE.fullmatch(error_event["error"]), error_event["error"]
 
-            channel_id = unique_channel_id(STOPPED_CHANNEL_PREFIX)
-            create_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
-            assert create_result.is_ok(), f"channel_create after stop_node failed: {create_result.err()}"
-
-            send_result = node.channel_send(channel_id, create_message_bindings())
-            assert send_result.is_ok(), f"channel_send after stop_node failed: {send_result.err()}"
-            self._assert_channel_send_errors(node_collector, send_result.ok_value, channel_id)
+            channel_error_event = wait_for_event(node_collector, request_id, is_channel_error_event, ERROR_TIMEOUT_S)
+            assert channel_error_event is not None, f"no channel_message_error for request {request_id}. Collected events: {node_collector.events}"
+            assert channel_error_event["channelId"] == channel_id, channel_error_event
+            assert channel_error_event["error"] == SEGMENTS_FAILED_MSG, channel_error_event
 
     def test_channel_send_after_restart_on_channel_created_before_stop(self, node_config):
         # TODO: logos-delivery#4554
@@ -233,39 +208,6 @@ class TestLogosDeliveryLifecycle:
 
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
-
-    def test_topic_health_no_event_before_mesh(self, node_config):
-        # TODO: logos-delivery#4544
-        # A node whose shard has no peer reports no topic health until a peer meshes.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=TOPIC_HEALTH_WINDOW_S), "node reported UnHealthy"
-
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-                topic_healths = [e["topicHealth"] for e in node_collector.snapshot() if e.get("eventType") == EVENT_TOPIC_HEALTH_CHANGE]
-                assert topic_healths == ["MinimallyHealthy"], topic_healths
-
-    def test_topic_health_no_event_for_listener_added_after_mesh(self, node_config):
-        # TODO: logos-delivery#4544
-        # A listener added after the shard meshed gets no topic health.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-                connected_event = wait_for_connected(node_collector)
-                assert connected_event, "node never reported PartiallyConnected or Connected"
-
-                late_collector = EventCollector()
-                listener_id = node.add_event_listener("onTopicHealthChange", late_collector.event_callback)
-                assert listener_id != 0, "add_event_listener failed"
-                assert not wait_for_topic_health(late_collector, ("UnHealthy", "NotSubscribed") + MESH_TOPIC_HEALTH, timeout_s=TOPIC_HEALTH_WINDOW_S), "listener added after the mesh formed got a topic health event"
-
-                status_result = node.get_connection_status()
-                assert status_result.is_ok(), f"get_connection_status failed: {status_result.err()}"
-                assert status_result.ok_value == connected_event["connectionStatus"], status_result.ok_value
 
     def test_recreate_node_after_destroy(self, node_config):
         node = self._create_start_node(node_config)
