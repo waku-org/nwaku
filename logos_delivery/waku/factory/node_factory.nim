@@ -258,7 +258,7 @@ proc setupProtocols(
     info "Auto sharding is disabled"
 
   for shardId in conf.extraListenShards:
-    node.protocols.subscriptionManager.extraListenShards.add(
+    node.subscriptionManager.extraListenShards.add(
       $RelayShard(clusterId: conf.clusterId, shardId: shardId)
     )
 

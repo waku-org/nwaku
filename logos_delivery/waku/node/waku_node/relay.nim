@@ -81,8 +81,8 @@ proc subscribe*(
   # strict version
   #if contentTopicOp.isSome():
   #  return
-  #    node.protocols.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
-  return node.protocols.subscriptionManager.subscribeShard(pubsubTopic, handler)
+  #    node.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
+  return node.subscriptionManager.subscribeShard(pubsubTopic, handler)
 
 proc unsubscribe*(
     node: Kernel, subscription: SubscriptionEvent
@@ -101,8 +101,8 @@ proc unsubscribe*(
 
   # strict version
   #if contentTopicOp.isSome():
-  #  return node.protocols.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
-  return node.protocols.subscriptionManager.unsubscribeAll(pubsubTopic)
+  #  return node.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
+  return node.subscriptionManager.unsubscribeAll(pubsubTopic)
 
 proc isSubscribed*(
     node: Kernel, subscription: SubscriptionEvent

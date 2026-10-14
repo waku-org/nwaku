@@ -75,7 +75,7 @@ proc startMixRln*(
     await plugin.stop()
     return err(error)
   node.protocols.wakuMixRlnListener = Opt.some(listener)
-  node.protocols.subscriptionManager.subscribe(plugin.config.metadataTopic).isOkOr:
+  node.subscriptionManager.subscribe(plugin.config.metadataTopic).isOkOr:
     await node.stopMixRln()
     return err(error)
   return ok()

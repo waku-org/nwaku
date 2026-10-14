@@ -162,7 +162,7 @@ proc waitForMesh(node: Kernel, shard: PubsubTopic) {.async.} =
 proc waitForEdgeSubs(w: LogosDelivery, shard: PubsubTopic) {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) > 0:
+    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) > 0:
       return
     await sleepAsync(100.milliseconds)
   raise newException(ValueError, "Edge filter subscription failed on " & shard)
@@ -172,7 +172,7 @@ proc edgePeersReached(
 ): Future[bool] {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) >= n:
+    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) >= n:
       return true
     await sleepAsync(100.milliseconds)
   return false
@@ -182,7 +182,7 @@ proc edgePeersDroppedBelow(
 ): Future[bool] {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) < n:
+    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) < n:
       return true
     await sleepAsync(100.milliseconds)
   return false
@@ -715,7 +715,7 @@ suite "Messaging API, SubscriptionManager":
 
     # Wait for the dead peer to be pruned
     check await edgePeersDroppedBelow(subscriber, shard, 2)
-    check subscriber.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) >= 1
+    check subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) >= 1
 
     # Verify messages still arrive through the surviving filter server (publisher)
     eventManager = newReceiveEventListenerManager(subscriber.waku.brokerCtx, 1)
@@ -826,7 +826,7 @@ suite "Messaging API, SubscriptionManager":
 
     # Wait for 2 confirmed peers (HealthyThreshold). The 3rd is available but not dialed.
     check await edgePeersReached(subscriber, shard, 2)
-    require subscriber.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) == 2
+    require subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) == 2
 
     await subscriber.waku.node.disconnectNode(meshBuddyPeerInfo)
 

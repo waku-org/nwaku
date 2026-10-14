@@ -422,7 +422,7 @@ suite "Health Monitor - events":
       .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
       .expect("Failed to create MessagingClient")
     ds.start().expect("Failed to start MessagingClient")
-    let subMgr = nodeA.protocols.subscriptionManager
+    let subMgr = nodeA.subscriptionManager
 
     var nodeB: Kernel
     lockNewGlobalBrokerContext:
@@ -503,7 +503,7 @@ suite "Health Monitor - events":
     await EventShardTopicHealthChange.dropListener(nodeA.brokerCtx, shardHealthLis)
 
     check shardHealthOk == true
-    check nodeA.protocols.subscriptionManager.edgeFilterSubStates.len > 0
+    check nodeA.subscriptionManager.edgeFilterSubStates.len > 0
 
     healthSignal.clear()
     deadline = Moment.now() + TestConnectivityTimeLimit
