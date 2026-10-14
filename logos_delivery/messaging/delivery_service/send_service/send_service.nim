@@ -51,6 +51,10 @@ const StoreValidationQueryTimeout = chronos.seconds(15)
   ## Bounds one Store validation query with its dials. It exceeds one
   ## `DefaultDialTimeout`, so a dead Store peer leaves time for another.
 
+const MaxSendsInFlight* = 50
+  ## The number of sends that run at the same time. It bounds the open streams
+  ## of this node independent of `sendQueueCapacity`.
+
 type SendService* = ref object of RootObj
   brokerCtx: BrokerContext
   deliveryTasks: OrderedTable[WakuMessageHash, DeliveryTask]
@@ -61,6 +65,9 @@ type SendService* = ref object of RootObj
     ## task until `startSendService`.
   admissionLock: AsyncLock
     ## One task at a time runs `admitAndProve` (see `runAdmission`).
+  sendSlots: AsyncSemaphore
+    ## One slot for each send that runs. `process` runs with a slot held, so at
+    ## most `maxSendsInFlight` sends run at the same time.
   retryTick: AsyncEvent
     ## `retryNow` fires it, and each task that waits on it starts its next attempt.
     ## Chronos wakes the waiters in the order that they started to wait, so the
@@ -145,11 +152,14 @@ proc new*(
     sendQueueCapacity: int = DefaultSendQueueCapacity,
     maxValidationAge: timer.Duration = DeliveryWindow,
     retryInterval: timer.Duration = RetryInterval,
+    maxSendsInFlight: int = MaxSendsInFlight,
 ): Result[T, string] =
   # With zero, `retryLoop` ticks at each turn of the event loop, and the waiting
   # tasks retry with no pause.
   if retryInterval <= ZeroDuration:
     return err("retryInterval must be positive")
+  if maxSendsInFlight <= 0:
+    return err("maxSendsInFlight must be positive")
 
   let checkStoreForMessages = preferP2PReliability and waku.isStoreMounted()
 
@@ -157,6 +167,7 @@ proc new*(
     brokerCtx: waku.brokerCtx,
     deliveryTasks: initOrderedTable[WakuMessageHash, DeliveryTask](),
     admissionLock: newAsyncLock(),
+    sendSlots: newAsyncSemaphore(maxSendsInFlight),
     retryTick: newAsyncEvent(),
     sendProcessor: sendProcessor,
     rateLimitManager: rateLimitManager,
@@ -441,6 +452,7 @@ proc sendUntilPropagated(
   ## `retryLoop`, until the task propagates. Returns false when the task failed.
   while true:
     if not self.needsAdmission(task) or await self.runAdmission(task):
+      await self.sendSlots.acquire()
       try:
         await self.sendProcessor.process(task)
       except CancelledError as exc:
@@ -450,6 +462,8 @@ proc sendUntilPropagated(
         # fault.
         error "Exception in a send attempt",
           requestId = task.requestId, msgHash = task.loggedHash(), error = exc.msg
+      finally:
+        self.sendSlots.release2()
     self.attempts.inc()
     case task.state
     of DeliveryState.SuccessfullyPropagated:

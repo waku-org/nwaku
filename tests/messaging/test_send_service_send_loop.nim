@@ -330,8 +330,10 @@ suite "SendService - deliver":
       log.propagated == @[fast.requestId]
       processor.running == 1 # the retry of `slow` still waits for its reply
 
-  asyncTest "all due retries and a new send run at the same time":
-    let ids = names("r", 8)
+  asyncTest "at most MaxSendsInFlight sends run at the same time":
+    ## The retries of all tasks are due at the same tick. `MaxSendsInFlight` of
+    ## them run, and a slot that a send frees goes to the next send.
+    let ids = names("r", MaxSendsInFlight + 2)
     let processor = newScripted(stalled = ids)
     let service = newService(processor)
     for id in ids:
@@ -340,13 +342,47 @@ suite "SendService - deliver":
     service.startSendService()
     defer:
       await service.stopSendService()
-    for id in ids:
-      check await processor.retryStarted(id).withTimeout(FUTURE_TIMEOUT_MEDIUM)
-
-    check service.enqueue(buildTask("fresh")).isOk()
     checkUntilTimeoutCustom(FUTURE_TIMEOUT_MEDIUM, PollInterval):
-      "fresh" in processor.seen
-    check processor.running == ids.len # the retries still run
+      processor.running == MaxSendsInFlight
+    check not await processor.retryStarted(ids[^1]).withTimeout(FUTURE_TIMEOUT_SHORT)
+    check:
+      processor.running == MaxSendsInFlight
+      ids.filterIt(processor.startedEvent(it).isSet()).len == MaxSendsInFlight
+
+    # A new send waits for a slot too.
+    check service.enqueue(buildTask("fresh")).isOk()
+    check not await processor.retryStarted("fresh").withTimeout(FUTURE_TIMEOUT_SHORT)
+    check "fresh" notin processor.seen
+
+    let first = ids.filterIt(processor.startedEvent(it).isSet())[0]
+    processor.replies[first].complete()
+    checkUntilTimeoutCustom(FUTURE_TIMEOUT_MEDIUM, PollInterval):
+      ids.filterIt(processor.startedEvent(it).isSet()).len == MaxSendsInFlight + 1
+    check processor.running == MaxSendsInFlight
+
+  asyncTest "a send queue of one slot runs one send at a time":
+    let processor = newScripted(stalled = @["a", "b"])
+    let service = SendService
+      .new(
+        false,
+        waku,
+        RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new"),
+        processor,
+        retryInterval = FastRetryInterval,
+        maxSendsInFlight = 1,
+      )
+      .expect("SendService.new")
+    check:
+      service.enqueue(buildTask("a")).isOk()
+      service.enqueue(buildTask("b")).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check await processor.retryStarted("a").withTimeout(FUTURE_TIMEOUT_MEDIUM)
+    check not await processor.retryStarted("b").withTimeout(FUTURE_TIMEOUT_SHORT)
+    processor.replies["a"].complete()
+    check await processor.retryStarted("b").withTimeout(FUTURE_TIMEOUT_MEDIUM)
+    check await log.waitPropagated(1).withTimeout(FUTURE_TIMEOUT_MEDIUM)
 
   asyncTest "a retry with its charge and its proof sends while a new task waits in admission":
     ## The proof of the new task waits for `reply`. The retry already has its
