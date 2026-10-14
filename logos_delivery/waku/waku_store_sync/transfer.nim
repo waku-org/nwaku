@@ -52,18 +52,18 @@ type SyncTransfer* = ref object of LPProtocol
 
 proc sendMessage(
     conn: Connection, payload: WakuMessageAndTopic
-): Future[Result[void, string]] {.async.} =
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   let rawPayload = payload.encode().buffer
 
   logos_delivery_total_bytes_exchanged.inc(
     rawPayload.len, labelValues = [Transfer, Sending]
   )
 
-  let writeRes = catch:
+  # SyncTransfer.stop waits for the loop that awaits this write.
+  try:
     await conn.writeLP(rawPayload)
-
-  writeRes.isOkOr:
-    return err("remote [" & $conn.peerId & "] connection write error: " & error.msg)
+  except LPStreamError as exc:
+    return err("remote [" & $conn.peerId & "] connection write error: " & exc.msg)
 
   logos_delivery_total_transfer_messages_exchanged.inc(labelValues = [Sending])
 
@@ -195,6 +195,8 @@ proc initProtocolHandler(self: SyncTransfer) =
         (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
           error "failed to archive message", error = $error
           continue
+      except CancelledError as exc:
+        raise exc
       except CatchableError:
         error "syncMessageIngress failed",
           remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()

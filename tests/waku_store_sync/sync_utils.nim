@@ -1,4 +1,4 @@
-import std/random, chronos, chronicles
+import std/random, chronos, chronicles, metrics
 
 import
   logos_delivery/waku/[
@@ -7,10 +7,27 @@ import
     waku_store_sync/common,
     waku_store_sync/reconciliation,
     waku_store_sync/transfer,
+    waku_store_sync/protocols_metrics,
   ],
   ../testlib/wakucore
 
 randomize()
+
+type TransferDirection* {.pure.} = enum
+  Sent
+  Received
+
+proc transferCount*(direction: TransferDirection): float64 =
+  let label =
+    case direction
+    of TransferDirection.Sent: Sending
+    of TransferDirection.Received: Receiving
+  try:
+    return logos_delivery_total_transfer_messages_exchanged.valueByName(
+      "logos_delivery_total_transfer_messages_exchanged_total", [label]
+    )
+  except ValueError:
+    return 0.0
 
 proc randomHash*(rng: var Rand): WakuMessageHash =
   var hash = EmptyWakuMessageHash
@@ -29,6 +46,7 @@ proc newTestWakuRecon*(
     wantsTx: AsyncQueue[PeerId],
     needsTx: AsyncQueue[(PeerId, WakuMessageHash)],
     relayJitter: timer.Duration = 0.seconds,
+    syncInterval: timer.Duration = DefaultSyncInterval,
     clock: proc(): Timestamp {.gcsafe, raises: [].} = getNowInNanosecondTime,
 ): Future[SyncReconciliation] {.async.} =
   let peerManager = PeerManager.new(switch)
@@ -39,6 +57,7 @@ proc newTestWakuRecon*(
     peerManager = peerManager,
     wakuArchive = nil,
     syncRange = syncRange,
+    syncInterval = syncInterval,
     relayJitter = relayJitter,
     idsRx = idsRx,
     localWantsTx = wantsTx,
