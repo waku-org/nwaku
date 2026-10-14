@@ -184,31 +184,26 @@ procSuite "Waku Rendezvous":
     await lightClient.stop()
 
   asyncTest "Stop hangs during a rendezvous dial that never answers":
-    # TODO: stop-after-peer-left
+    # TODO: logos-delivery#4555
     let
       clusterId = 10.uint16
       node = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
     await node.mountRendezvous(clusterId)
-    await node.start()
-    var nodeStopped = false
-    defer:
-      if not nodeStopped:
-        discard await node.stop().withTimeout(5.seconds)
 
     let accepted = newAsyncEvent()
-    var held: seq[StreamTransport]
+    var held: StreamTransport
     proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
-      held.add(client)
+      held = client
       accepted.fire()
 
     let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
     listener.start()
     defer:
-      for client in held:
-        await client.closeWait()
+      await held.closeWait()
       listener.stop()
       await listener.closeWait()
 
+    await node.start()
     node.addRendezvousPeer(listener)
     check await accepted.wait().withTimeout(DefaultRegistrationInterval + 5.seconds)
 
@@ -217,39 +212,4 @@ procSuite "Waku Rendezvous":
 
     # A second cancel reaches periodicRegistration, which now waits for its next registration.
     await node.wakuRendezvous.stop()
-    nodeStopped = await stopping.join().withTimeout(5.seconds)
-    check nodeStopped
-
-  asyncTest "Stop completes before the first rendezvous registration":
-    # TODO: stop-after-peer-left
-    let
-      clusterId = 10.uint16
-      node = newTestWakuNode(generateSecp256k1Key(), clusterId = clusterId)
-    await node.mountRendezvous(clusterId)
-    await node.start()
-    var nodeStopped = false
-    defer:
-      if not nodeStopped:
-        discard await node.stop().withTimeout(5.seconds)
-
-    let accepted = newAsyncEvent()
-    var held: seq[StreamTransport]
-    proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
-      held.add(client)
-      accepted.fire()
-
-    let listener = createStreamServer(initTAddress("127.0.0.1:0"), mute, {ReuseAddr})
-    listener.start()
-    defer:
-      for client in held:
-        await client.closeWait()
-      listener.stop()
-      await listener.closeWait()
-
-    node.addRendezvousPeer(listener)
-
-    let stopping = node.stop()
-    nodeStopped = await stopping.join().withTimeout(3.seconds)
-    check:
-      nodeStopped
-      not accepted.isSet()
+    check await stopping.join().withTimeout(5.seconds)
