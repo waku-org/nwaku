@@ -775,6 +775,8 @@ suite "SendService - deliver":
       service.isFull()
       service.enqueue(buildTask("third")).errorOr("accepted") ==
         "Send queue full, retry later"
+      service.enqueue(copy).valueOr(RequestId("refused")) == first.requestId
+        # a queued message gets its request id also when the send queue is full
 
     service.startSendService()
     check await log.waitPropagated(2).withTimeout(FUTURE_TIMEOUT_MEDIUM)
