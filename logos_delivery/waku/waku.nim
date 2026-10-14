@@ -567,7 +567,7 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   except CatchableError:
     return err("Caught exception in start: " & getCurrentExceptionMsg())
 
-  waku.node.protocols.subscriptionManager.subscribeAllAutoshards().isOkOr:
+  waku.node.subscriptionManager.subscribeAllAutoshards().isOkOr:
     return err("failed to auto-subscribe autosharding shards: " & $error)
 
   waku.logEnrReachability()

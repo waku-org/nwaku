@@ -399,14 +399,14 @@ suite "Node Factory":
       raiseAssert error
     let listenShard = $RelayShard(clusterId: conf.clusterId, shardId: 64)
 
-    check node.protocols.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
+    check node.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
 
-    node.protocols.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
+    node.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
       raiseAssert error
     check:
       PubsubTopic($RelayShard(clusterId: conf.clusterId, shardId: 32)) in
-        node.protocols.subscriptionManager.shards
-      PubsubTopic(listenShard) in node.protocols.subscriptionManager.shards
+        node.subscriptionManager.shards
+      PubsubTopic(listenShard) in node.subscriptionManager.shards
 
   test "Extra listen shards need auto-sharding":
     var confBuilder = defaultTestWakuConfBuilder()

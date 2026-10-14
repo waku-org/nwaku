@@ -885,7 +885,7 @@ suite "Messaging API, Receive Service (backfill)":
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
-    net.subscriber.waku.node.protocols.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
+    net.subscriber.waku.node.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
     await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
       net.subscriber.waku.node.switch.peerInfo.peerId

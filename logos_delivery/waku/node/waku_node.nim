@@ -31,6 +31,7 @@ import
 
 import
   logos_delivery/waku/[
+    node/protocols,
     waku_core,
     waku_core/topics/sharding,
     waku_relay,
@@ -100,8 +101,6 @@ const MixNodeResolveTimeout = chronos.seconds(10)
   ## default, so one name can take 10 s.
 
 type
-  MixNodeName* = tuple[entry: MixNodePubInfo, address: MultiAddress]
-
   # TODO: Move to application instance (e.g., the node app)
   WakuInfo* = object # NOTE One for simplicity, can extend later as needed
     listenAddresses*: seq[string]
@@ -152,36 +151,7 @@ type
       ## stopped on node teardown.
     ports*: BoundPorts
     protocols*: Protocols
-
-  Protocols* = object
-    ## The libp2p protocols mounted on the node, apart from discovery.
-    relay*: WakuRelay
-    wakuArchive*: waku_archive.WakuArchive
-    wakuStore*: store.WakuStore
-    wakuStoreClient*: store_client.WakuStoreClient
-    wakuStoreResume*: StoreResume
-    wakuStoreReconciliation*: SyncReconciliation
-    wakuStoreTransfer*: SyncTransfer
-    wakuFilter*: waku_filter_v2.WakuFilter
-    wakuFilterClient*: filter_client.WakuFilterClient
-    rlnPlugin*: Opt[RlnPlugin]
-    wakuLegacyLightPush*: WakuLegacyLightPush
-    wakuLegacyLightpushClient*: WakuLegacyLightPushClient
-    wakuLightPush*: WakuLightPush
-    wakuLightpushClient*: WakuLightPushClient
-    wakuMetadata*: WakuMetadata
-    libp2pPing*: Ping
-    legacyAppHandlers*: Table[PubsubTopic, WakuRelayHandler]
-      ## Kernel API Relay appHandlers (if any)
     subscriptionManager*: SubscriptionManager
-    wakuMixRln*: ModuleRlnProtection
-    wakuMixRlnListener*: Opt[MessageSeenEventListener]
-    wakuMix*: WakuMix
-    mixNodeResolution*: Future[void].Raising([CancelledError])
-      ## The background lookup of the `dns4` mix node names; `nil` when none.
-    mixNodeNames*: seq[MixNodeName]
-      ## The names without an answer yet; `start` resumes them after a stop.
-    relayReconnectFut*: Future[void]
 
   SubscriptionManager* = ref object of RootObj
     node*: Kernel
@@ -412,7 +382,7 @@ proc new*(
 
   peerManager.setShardGetter(node.getShardsGetter(@[]))
 
-  node.protocols.subscriptionManager = SubscriptionManager.new(node)
+  node.subscriptionManager = SubscriptionManager.new(node)
 
   return node
 
@@ -908,7 +878,7 @@ proc start*(node: Kernel) {.async.} =
 
   node.startProvidersAndListeners()
 
-  node.protocols.subscriptionManager.start().isOkOr:
+  node.subscriptionManager.start().isOkOr:
     error "failed to start subscription manager", error = error
 
   info "Node started successfully"
@@ -924,7 +894,7 @@ proc stop*(node: Kernel) {.async.} =
   if not node.protocols.mixNodeResolution.isNil():
     await node.protocols.mixNodeResolution.cancelAndWait()
 
-  await node.protocols.subscriptionManager.stop()
+  await node.subscriptionManager.stop()
 
   node.stopProvidersAndListeners()
 
