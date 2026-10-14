@@ -51,16 +51,14 @@ const StoreValidationQueryTimeout = chronos.seconds(15)
   ## Bounds one Store validation query with its dials. It exceeds one
   ## `DefaultDialTimeout`, so a dead Store peer leaves time for another.
 
-type ServiceState {.pure.} = enum
-  Stopped ## `enqueue` keeps each task until `startSendService`.
-  Running ## Each task has its `deliver`.
-
 type SendService* = ref object of RootObj
   brokerCtx: BrokerContext
   deliveryTasks: OrderedTable[WakuMessageHash, DeliveryTask]
     ## Each task that did not get its last event, by message hash, in queue order.
     ## A restart starts the tasks in this order.
-  state: ServiceState
+  running: bool
+    ## True while each task has its `deliver`. While false, `enqueue` keeps each
+    ## task until `startSendService`.
   admissionLock: AsyncLock
     ## One task at a time runs `admitAndProve` (see `runAdmission`).
   retryTick: AsyncEvent
@@ -158,7 +156,6 @@ proc new*(
   let sendService = SendService(
     brokerCtx: waku.brokerCtx,
     deliveryTasks: initOrderedTable[WakuMessageHash, DeliveryTask](),
-    state: ServiceState.Stopped,
     admissionLock: newAsyncLock(),
     retryTick: newAsyncEvent(),
     sendProcessor: sendProcessor,
@@ -531,8 +528,7 @@ proc startDeliverSoon(self: SendService, task: DeliveryTask) =
   ## then. The caller of `enqueue` gets its result before any event of the task.
   callSoon(
     proc(udata: pointer) {.gcsafe, raises: [].} =
-      if self.state == ServiceState.Running and not task.isRunning() and
-          self.isQueued(task):
+      if self.running and not task.isRunning() and self.isQueued(task):
         task.deliverHandle = self.deliver(task)
   )
 
@@ -558,7 +554,7 @@ proc enqueue*(self: SendService, task: DeliveryTask): Result[RequestId, string] 
 
 proc startSendService*(self: SendService) =
   ## Starts each task. Call it after `stopSendService` ends.
-  self.state = ServiceState.Running
+  self.running = true
   for task in self.deliveryTasks.values:
     self.startDeliverSoon(task)
   self.retryLoopHandle = self.retryLoop()
@@ -569,14 +565,14 @@ proc stopSendService*(self: SendService) {.async: (raises: []).} =
   ## Cancels each `deliver`, `retryLoop` and the Store validation loop. The tasks
   ## stay in the send queue with no event, and `startSendService` starts them
   ## again.
-  self.state = ServiceState.Stopped
-  var running: seq[Future[void]]
+  self.running = false
+  var handles: seq[Future[void]]
   for handle in [self.retryLoopHandle, self.storeValidationHandle]:
     if not handle.isNil():
-      running.add(handle)
+      handles.add(handle)
   self.retryLoopHandle = nil
   self.storeValidationHandle = nil
   for task in self.deliveryTasks.values:
     if task.isRunning():
-      running.add(task.deliverHandle)
-  await cancelAndWait(running)
+      handles.add(task.deliverHandle)
+  await cancelAndWait(handles)
