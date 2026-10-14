@@ -50,7 +50,7 @@ proc sendSubscribeRequest(
   except CatchableError:
     let errMsg = "failed to dialPeer: " & getCurrentExceptionMsg()
     trace "failed to dialPeer", error = getCurrentExceptionMsg()
-    logos_delivery_filter_errors.inc(labelValues = [errMsg])
+    logos_delivery_filter_errors.inc(labelValues = [dialFailure])
     return err(FilterSubscribeError.badResponse(errMsg))
 
   let connection = connOpt.get()
@@ -59,12 +59,12 @@ proc sendSubscribeRequest(
     await connection.closeWithEOF()
 
   try:
-    await connection.writeLP(filterSubscribeRequest.encode().buffer)
+    await connection.writeLP(filterSubscribeRequest.encode())
   except CatchableError:
     let errMsg =
       "exception in waku_filter_v2 client writeLP: " & getCurrentExceptionMsg()
     trace "exception in waku_filter_v2 client writeLP", error = getCurrentExceptionMsg()
-    logos_delivery_filter_errors.inc(labelValues = [errMsg])
+    logos_delivery_filter_errors.inc(labelValues = [writeFailure])
     return err(FilterSubscribeError.badResponse(errMsg))
 
   var respBuf: seq[byte]
@@ -74,7 +74,7 @@ proc sendSubscribeRequest(
     let errMsg =
       "exception in waku_filter_v2 client readLp: " & getCurrentExceptionMsg()
     trace "exception in waku_filter_v2 client readLp", error = getCurrentExceptionMsg()
-    logos_delivery_filter_errors.inc(labelValues = [errMsg])
+    logos_delivery_filter_errors.inc(labelValues = [readFailure])
     return err(FilterSubscribeError.badResponse(errMsg))
 
   let response = FilterSubscribeResponse.decode(respBuf).valueOr:

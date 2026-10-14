@@ -1,3 +1,13 @@
+## v0.39.2 (2026-10-13)
+
+### Changes
+
+Patch release for the status.prod store incident ([#4526](https://github.com/logos-messaging/logos-delivery/issues/4526)).
+
+- Store: stop hash queries from planning every partition ([#4532](https://github.com/logos-messaging/logos-delivery/pull/4532))
+- Postgres: never block the event loop on database calls ([#4531](https://github.com/logos-messaging/logos-delivery/pull/4531))
+- chat2: drop nested waitFor in async procs, fixing the release builds ([#4452](https://github.com/logos-messaging/logos-delivery/pull/4452))
+
 ## v0.39.1 (2026-10-06)
 
 ### Changes

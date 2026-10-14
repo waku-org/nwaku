@@ -54,11 +54,12 @@ logosdeliverynode \
 
 ### Retention policy and store sync
 
-With store sync enabled (`--store-sync=true`), the node reconciles the messages of the last `--store-sync-range` seconds (default `3600`), excluding the most recent `--store-sync-relay-jitter` seconds (default `20`). Peers push any message in that window that the node is missing. If the retention policy deletes messages that are still inside that window, the node downloads them again after a restart, and while running it advertises messages it can no longer serve.
+With store sync enabled (`--store-sync=true`), the node reconciles the messages of the last `--store-sync-range` seconds (default `3600`), excluding the most recent `--store-sync-relay-jitter` seconds (default `20`). Peers push any message in that window that the node is missing. A peer with a longer `--store-sync-range` reconciles only the part of its window that overlaps this node's: whatever the retention policy, this node never asks for messages older than its own sync window. With `--store-sync-range=600`, for example, nothing older than 620 s is reconciled even under a 7-day retention. If the retention policy deletes messages that are still inside that window, the node downloads them again after a restart, and while running it advertises messages it can no longer serve.
 
 * If the `time` retention is shorter than `--store-sync-range` plus `--store-sync-relay-jitter`, the node reduces the sync range to the retention minus the jitter and logs a warning with both values. To avoid the warning, set `--store-sync-range` to at most that value, or raise the time retention; e.g. `time:3620` keeps the default range of `3600`.
 * A `capacity` retention is not adjusted: if more messages than the capacity arrive within the sync range, the oldest of them are deleted while still inside the sync window.
 * A `size` retention deletes messages inside the sync range only when the size limit is reached.
+* On Postgres, when the node starts without a partition for the current hour, on a first start or after a downtime longer than the hour created ahead, it creates the partitions for the current hour and the two hours before it, so that the messages store sync pushes back have a table to land in. A `--store-sync-range` above about two hours is not covered: messages older than that cannot be stored.
 
 ### How much resources should I allocate?
 

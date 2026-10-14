@@ -175,7 +175,7 @@ type WakuNodeConf* = object
   ## General node config
   preset* {.
     desc:
-      "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1). 'logos.dev' is the Logos Dev Network (cluster 3). 'logos.test' is the Logos Test Network (cluster 2). 'status.prod' is the Status Production Network (cluster 16, RLN off, auto-sharding with 1 shard). Overrides other values.",
+      "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1). 'logos.dev' is the Logos Dev Network (cluster 3). 'logos.test' is the Logos Test Network (cluster 2). 'status.prod' and 'status.staging' are the Status networks (cluster 16, RLN off, auto-sharding on shard 32, also receiving on 64). Overrides other values.",
     defaultValue: "",
     name: "preset"
   .}: string
@@ -387,6 +387,18 @@ hence would have reachability issues.""",
     desc:
       "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated. Subscribes to all shards by default in auto-sharding, no shard for static sharding",
     name: "shard"
+  .}: seq[uint16]
+
+  autoshardingShards* {.
+    desc:
+      "Shard ids auto-sharding uses instead of [0..NUM_SHARDS_IN_NETWORK-1]: a content topic that hashes to index i lands on the i-th value, so the order matters and must match the rest of the network. Sets the number of shards when NUM_SHARDS_IN_NETWORK is not given. Argument may be repeated.",
+    name: "autosharding-shards"
+  .}: seq[uint16]
+
+  extraListenShards* {.
+    desc:
+      "Deprecated, removed once Status's shard migration ends (https://github.com/status-im/status-go/issues/7498). Shard to also receive every subscribed content topic on, without publishing there. Argument may be repeated.",
+    name: "extra-listen-shard"
   .}: seq[uint16]
 
   contentTopics* {.
@@ -1140,6 +1152,8 @@ proc toNetworkPresetConf*(
     ok(Opt.some(NetworkPresetConf.LogosTestConf()))
   of "status.prod", "statusprod":
     ok(Opt.some(NetworkPresetConf.StatusProdConf()))
+  of "status.staging", "statusstaging":
+    ok(Opt.some(NetworkPresetConf.StatusStagingConf()))
   else:
     err("Invalid --preset value passed: " & lcPreset)
 
@@ -1375,10 +1389,18 @@ proc toWakuConf*(n: WakuNodeConf): ConfResult[WakuConf] =
     if staticNodesFromEntry.len > 0:
       b.withStaticNodes(staticNodesFromEntry)
 
+  # It is not possible to pass an empty sequence on the CLI, so empty means unset.
+  if n.autoshardingShards.len != 0:
+    b.withAutoshardingShards(n.autoshardingShards)
+    b.withShardingConf(AutoSharding)
+
+  if n.extraListenShards.len != 0:
+    b.withExtraListenShards(n.extraListenShards)
+
   if n.numShardsInNetwork != 0:
     b.withNumShardsInCluster(n.numShardsInNetwork)
     b.withShardingConf(AutoSharding)
-  elif networkPresetConf.isNone():
+  elif networkPresetConf.isNone() and n.autoshardingShards.len == 0:
     b.withShardingConf(StaticSharding)
 
   # It is not possible to pass an empty sequence on the CLI

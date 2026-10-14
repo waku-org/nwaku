@@ -1,7 +1,11 @@
 {.used.}
 
 import
-  results, std/[sequtils, strutils], testutils/unittests, chronos, db_connector/postgres
+  results,
+  std/[algorithm, sequtils, strutils],
+  testutils/unittests,
+  chronos,
+  db_connector/postgres
 import
   logos_delivery/waku/[
     waku_archive,
@@ -10,12 +14,18 @@ import
     waku_core,
     waku_core/message/digest,
     common/databases/db_postgres/dbconn,
+    common/databases/db_postgres/dns_resolver,
     common/databases/db_postgres/pgasyncpool,
   ],
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres,
   ./archive_utils
+
+proc noopFatalHandler(errMsg: string) {.gcsafe, raises: [].} =
+  ## For the second driver instances the tests start: the factory only calls it
+  ## after six failed passes, about an hour, so it is out of reach within a test.
+  discard
 
 suite "Postgres driver":
   ## Unique driver instance
@@ -276,6 +286,69 @@ suite "Postgres driver":
       rows.len == chunk
       rows.allIt(it[0] in asked)
 
+  asyncTest "A hash query only plans the messages partitions holding the hashes":
+    ## Hashes carry no time bound: a query joining both partitioned tables
+    ## plans every partition of both, which took production nodes down.
+    const numPartitions = 300
+    const firstHour = 1_599_998_400'i64 ## 2020-09-13 12:00 UTC, an hour start
+
+    proc forEachPartition(stmt: string): string =
+      ## %1$s and %2$s are the partition bounds in seconds
+      return
+        "DO $$ DECLARE s BIGINT; BEGIN FOR i IN 0.." & $(numPartitions - 1) &
+        " LOOP s := " & $firstHour & " + i * 3600; EXECUTE format('" & stmt &
+        "', s, s + 3600); END LOOP; END $$;"
+
+    let rawPool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("raw pool")
+    for stmt in [
+      "CREATE TABLE messages_%1$s_%2$s PARTITION OF messages" &
+        " FOR VALUES FROM (%1$s000000000) TO (%2$s000000000)",
+      "CREATE TABLE lookup_%1$s_%2$s PARTITION OF messages_lookup" &
+        " FOR VALUES FROM (%1$s000000000) TO (%2$s000000000)",
+    ]:
+      (await rawPool.pgQuery(forEachPartition(stmt))).expect("create partitions")
+
+    var hashes: seq[WakuMessageHash]
+    var timestamps: seq[Timestamp]
+    var partitions: seq[string]
+    for hour in [0'i64, numPartitions div 2, numPartitions - 1]:
+      let start = firstHour + hour * 3600
+      let msg = fakeWakuMessage(payload = "msg-" & $hour, ts = start * 1_000_000_000)
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      require (await driver.put(hash, DefaultPubsubTopic, msg)).isOk()
+      hashes.add(hash)
+      timestamps.add(msg.timestamp)
+      partitions.add("messages_" & $start & "_" & $(start + 3600))
+
+    let missing = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage(ts = 1))
+    let rows =
+      (await driver.getMessages(hashes = hashes & missing)).expect("hash query")
+    check rows.mapIt(it[0]) == reversed(hashes)
+
+    var plan: seq[string]
+    proc planCallback(pqResult: ptr PGresult) =
+      for iRow in 0 ..< pqResult.pqNtuples():
+        plan.add($(pqgetvalue(pqResult, iRow, 0)))
+
+    let hexHashes = "'" & hashes.mapIt(toHex(it).toLowerAscii()).join("','") & "'"
+    let explain = "EXPLAIN " & messagesAtTimestampsQuery(hexHashes, timestamps, 20)
+    (await rawPool.pgQuery(explain, @[], planCallback)).expect("explain")
+    ## only the partitions holding the hashes, out of the 300 just created
+    var scanned: seq[string]
+    for partition in partitions:
+      if plan.anyIt(it.contains(" on " & partition)):
+        scanned.add(partition)
+    check:
+      scanned == partitions
+      plan.countIt(it.contains(" on messages_")) <= 2 * partitions.len
+
+    (
+      await rawPool.pgQuery(
+        forEachPartition("DROP TABLE messages_%1$s_%2$s, lookup_%1$s_%2$s")
+      )
+    ).expect("drop partitions")
+    (await rawPool.close()).expect("close raw pool")
+
   asyncTest "dropStrayLookupPartitions removes attached and detached strays":
     ## Crash leftovers: lookup tables with no messages sibling, attached or
     ## detached — the cleanup must drop both kinds.
@@ -396,6 +469,166 @@ suite "Postgres driver":
 
     (await ourInstance.close()).expect("close the second driver")
 
+  ## The startup pass creates the partitions for the current hour and the two
+  ## before it, so that the messages store sync pushes back after a downtime, or
+  ## into a brand new node, have a partition to land in. The checks below look
+  ## at the slots relative to the hour they run in: should an o'clock have
+  ## passed since the pass, those slots still exist, created one slot earlier.
+  asyncTest "A fresh database gets the current hour and the two before it":
+    ## The suite's driver may have found partitions left by an earlier test, so
+    ## empty the database and let a second instance start on it: its first
+    ## pass takes the empty-state branch.
+    (await driver.reset()).expect("reset")
+    let leftovers =
+      (await driver.getPartitionsList()).expect("partitions list") &
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    for table in leftovers:
+      (await driver.performWriteQuery("DROP TABLE " & table)).expect("drop " & table)
+
+    let fresh =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      await fresh.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        fresh.arePartitionsProvisioned()
+
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await fresh.getPartitionsList()).expect("partitions list")
+      check:
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await fresh.reset()).expect("reset the second driver")
+      (await fresh.close()).expect("close the second driver")
+
+  asyncTest "A message up to two hours old is storable right after start":
+    let timeOrigin = now()
+    let recentEnough = fakeWakuMessage(ts = ts(-90 * 60, timeOrigin))
+    let tooOld = fakeWakuMessage(ts = ts(-200 * 60, timeOrigin))
+
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, recentEnough),
+        DefaultPubsubTopic,
+        recentEnough,
+      )
+    ).expect("put a message 90 minutes old")
+
+    ## Three hours and twenty minutes back is before the oldest startup slot
+    ## whatever the current minute, so there is no partition for it.
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, tooOld), DefaultPubsubTopic, tooOld
+      )
+    ).isErr()
+
+  asyncTest "A restart after a downtime fills the hours before now":
+    ## Leave the database with only a partition from long ago, like a node that
+    ## was stopped for a long time, then start a second instance the way the
+    ## builder does. The old partition is created through that instance so that
+    ## it tracks everything and cleans up; the suite's driver tracks nothing
+    ## after its reset, so the teardown has nothing stale to drop.
+    (await driver.reset()).expect("reset")
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(partitionStart)).expect("addPartition")
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        partitionName in partitions
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
+
+  asyncTest "Add a partition with an explicit end":
+    ## Half an hour inside the 2023 fixture window, so it collides with nothing.
+    let explicitEnd = Timestamp(1_700_001_800)
+    (await driver.addPartition(partitionStart, explicitEnd)).expect("addPartition")
+
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let lookups =
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    check:
+      "messages_1700000000_1700001800" in partitions
+      "lookup_1700000000_1700001800" in lookups
+
+    ## An empty range is refused before any statement runs
+    check (await driver.addPartition(partitionStart, partitionStart)).isErr()
+
+  asyncTest "A legacy partition starting mid-hour gets the start of its hour filled":
+    ## The previous version started its first partition at the moment the node
+    ## came up, e.g. [10:28, 11:00). The start of that hour has no partition, and
+    ## the lookback must create exactly [10:00, 10:28), never the whole hour.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+    let legacyStart = currentSlot - 3600 + 1680 # 28 minutes into the hour before
+    let legacyEnd = currentSlot
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(Timestamp(legacyStart), Timestamp(legacyEnd))).expect(
+        "legacy partition"
+      )
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        ("messages_" & $(currentSlot - 3600) & "_" & $legacyStart) in partitions
+        ("messages_" & $legacyStart & "_" & $legacyEnd) in partitions
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
+
+  asyncTest "The tracked partitions are in time order after the lookback":
+    ## With only the hour before the current one in place, the lookback adds the
+    ## hour before that, older than everything tracked so far. The oldest
+    ## tracked partition drives retention; here it is what reports the oldest
+    ## timestamp, once a row exists so that the row minimum is not the answer.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(Timestamp(currentSlot - 3600))).expect(
+        "previous hour"
+      )
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let msg = fakeWakuMessage()
+      check (
+        await restarted.put(
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
+        )
+      ).expect("put a message stamped now")
+
+      check (await restarted.getOldestMessageTimestamp()).expect("oldest timestamp") ==
+        Timestamp(currentSlot - 7200) * 1_000_000_000
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
+
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
   ## maintained the same partitions. Every one of them means "another instance
@@ -465,7 +698,7 @@ suite "Postgres connection lifecycle":
     return ok(alive)
 
   asyncTest "A connection whose backend died gives its selector entry back":
-    let wrapper = DbConnWrapper.new(RawConnString).expect("new connection")
+    let wrapper = (await DbConnWrapper.new(RawConnString)).expect("new connection")
 
     let asyncFd = wrapper.getRegisteredFd().expect("registered fd")
     check asyncFd in getThreadDispatcher()
@@ -583,3 +816,148 @@ suite "Postgres connection lifecycle":
 
     await healthFut.cancelAndWait()
     (await pool.close()).expect("pool close")
+
+  asyncTest "Queries waiting for the only connection never share it":
+    ## Every waiter woken by the same release used to pick that connection,
+    ## which libpq answered with "another command is already in progress".
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    var queries = newSeq[Future[Result[void, string]]](0)
+    for _ in 0 ..< 5:
+      queries.add(pool.pgQuery("SELECT pg_sleep(0.05)"))
+
+    for queryFut in queries:
+      (await queryFut).expect("queued query")
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "A cancelled query does not leave its connection unusable":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    let slowFut = pool.pgQuery("SELECT pg_sleep(1)")
+    await sleepAsync(100.milliseconds)
+    await slowFut.cancelAndWait()
+
+    let nextRes = await pool.pgQuery("SELECT 1").wait(5.seconds)
+    check nextRes.isOk()
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "Connecting to an unresponsive server times out without blocking":
+    ## Listening without accepting: the handshake completes in the kernel, but
+    ## the server never answers the startup packet
+    let silentServer = createStreamServer(initTAddress("127.0.0.1:0"))
+    let port = silentServer.localAddress().port
+    let pool = PgAsyncPool
+      .new(
+        "postgres://postgres:test123@127.0.0.1:" & $port & "/postgres",
+        1,
+        connectTimeout = 1.seconds,
+      )
+      .expect("pool")
+
+    var maxGap = ZeroDuration
+    var probing = true
+    proc probe() {.async.} =
+      var last = Moment.now()
+      while probing:
+        await sleepAsync(50.milliseconds)
+        maxGap = max(maxGap, Moment.now() - last)
+        last = Moment.now()
+
+    let probeFut = probe()
+    let queryRes = await pool.pgQuery("SELECT 1")
+    probing = false
+    await probeFut
+
+    check:
+      queryRes.isErr()
+      queryRes.error.contains("timed out")
+      maxGap < 500.milliseconds
+
+    (await pool.close()).expect("pool close")
+    await silentServer.closeWait()
+
+  asyncTest "A pool with a statement timeout cancels long queries server-side":
+    let pool = PgAsyncPool
+      .new(storeMessageDbUrl, 1, statementTimeout = 200.milliseconds)
+      .expect("pool")
+
+    let sleepRes = await pool.pgQuery("SELECT pg_sleep(2)")
+    check:
+      sleepRes.isErr()
+      sleepRes.error.contains("statement timeout")
+
+    (await pool.pgQuery("SELECT 1")).expect("query after the timeout")
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "A cancelled query is also cancelled in the server":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+    let observer = PgAsyncPool.new(storeMessageDbUrl, 1).expect("observer pool")
+
+    let slowFut = pool.pgQuery("SELECT pg_sleep(30) /* cancelled_sleep_marker */")
+    await sleepAsync(200.milliseconds)
+    await slowFut.cancelAndWait()
+
+    var running = 1
+    proc onRow(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        try:
+          running = parseInt($pqgetvalue(res, 0, 0))
+        except ValueError:
+          discard
+
+    for _ in 0 ..< 50:
+      (
+        await observer.pgQuery(
+          "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND query LIKE '%cancelled_sleep_marker%' AND query NOT LIKE '%pg_stat_activity%'",
+          @[],
+          onRow,
+        )
+      ).expect("observer query")
+      if running == 0:
+        break
+      await sleepAsync(100.milliseconds)
+
+    check running == 0
+
+    (await pool.close()).expect("pool close")
+    (await observer.close()).expect("observer close")
+
+  asyncTest "A lock timeout asked for one call does not stay on the connection":
+    let pool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("pool")
+
+    var shown = ""
+    proc onRow(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        shown = $pqgetvalue(res, 0, 0)
+
+    (
+      await pool.pgQuery(
+        "SHOW lock_timeout", @[], onRow, lockTimeout = Opt.some(1.seconds)
+      )
+    ).expect("query with a lock timeout")
+    check shown == "1s"
+
+    (await pool.pgQuery("SHOW lock_timeout", @[], onRow)).expect("default query")
+    check shown == "0"
+
+    (await pool.close()).expect("pool close")
+
+  asyncTest "Host names are resolved off the event loop":
+    check (await resolveHostAddr("127.0.0.1")).expect("literal") == ""
+    let addrs = (await resolveHostAddr("localhost")).expect("name").split(',')
+    check:
+      addrs.len > 0
+      addrs.deduplicate().len == addrs.len
+    check (await resolveHostAddr("host.invalid")).isErr()
+
+  asyncTest "Several addresses for one host connect through the first reachable":
+    let wrapper = (
+      await DbConnWrapper.new(
+        "user=postgres host=localhost,localhost hostaddr=127.0.0.1,127.0.0.1 port=5432 dbname=postgres password=test123"
+      )
+    ).expect("connection with two addresses")
+
+    wrapper.closeDbConn().expect("close")

@@ -455,17 +455,8 @@ jobs:
       - name: Install nimble deps
         uses: ./.github/actions/nimble-deps
 
-      - name: Build nph
-        run: |
-          make build-nph
-
-      - name: Check nph formatting
-        run: |
-          shopt -s extglob  # Enable extended globbing
-          NPH=$(make print-nph-path)
-          echo "using nph at ${NPH}"
-          "${NPH}" examples logos_delivery rest tests tools apps *.@(nim|nims|nimble)
-          git diff --exit-code
+      - name: Lint (nph formatting, metric labels)
+        run: make lint
 
   # The single required check for this workflow. A matrix or reusable-workflow
   # job skipped at job level reports under its raw name (e.g.

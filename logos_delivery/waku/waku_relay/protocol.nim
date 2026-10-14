@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sets],
+  std/[os, strformat, strutils, sets],
   stew/byteutils,
   results,
   sequtils,
@@ -43,6 +43,9 @@ logScope:
 declareCounter logos_delivery_relay_network_bytes,
   "total traffic per topic, distinct gross/net and direction",
   labels = ["topic", "type", "direction"]
+
+declarePublicCounter logos_delivery_relay_invalid_messages,
+  "messages that the WakuMessage decoder refuses, per stage", labels = ["stage"]
 
 declarePublicGauge(
   logos_delivery_relay_total_msg_bytes_per_shard,
@@ -183,6 +186,7 @@ type PublishOutcome* {.pure.} = enum
   DuplicateMessage
   NoPeersToPublish
   CannotGenerateMessageId
+  InvalidMessage ## The `WakuMessage` decoder refuses the message.
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
@@ -206,6 +210,16 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
+let RelayMsgInfoLogs = getEnv("RELAY_MSG_INFO_LOGS").toLowerAscii() in ["1", "true"]
+  ## Opt-in at runtime (`RELAY_MSG_INFO_LOGS=1`), e.g. for DST nodes.
+  ## Off by default so production logs are not flooded.
+
+template relayMsgLog(args: varargs[untyped]): untyped =
+  if RelayMsgInfoLogs:
+    info args
+  else:
+    trace args
+
 proc logMessageInfo*(
     w: WakuRelay,
     remotePeerId: string,
@@ -218,7 +232,7 @@ proc logMessageInfo*(
   let payloadSize = float64(msg.payload.len)
 
   if onRecv:
-    trace "Received relay message",
+    relayMsgLog "Received relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
@@ -228,7 +242,7 @@ proc logMessageInfo*(
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = payloadSize
   else:
-    trace "Sent relay message",
+    relayMsgLog "Sent relay message",
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
@@ -574,8 +588,13 @@ proc generateOrderedValidator(w: WakuRelay): ValidatorHandler {.gcsafe.} =
 proc validateMessage*(
     w: WakuRelay, pubsubTopic: string, msg: WakuMessage
 ): Future[Result[void, string]] {.async.} =
-  let messageSizeBytes = msg.encode().buffer.len
+  let messageSizeBytes = msg.encode().len
   let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
+
+  validateWakuMessageFields(msg).isOkOr:
+    logos_delivery_relay_invalid_messages.inc(labelValues = ["validate"])
+    debug "Waku message that the decoder refuses", msg_hash = msgHash, error = $error
+    return err($error)
 
   if messageSizeBytes > w.maxMessageSize:
     let message = fmt"Message size exceeded maximum of {w.maxMessageSize} bytes"
@@ -684,11 +703,17 @@ proc publish*(
   if pubsubTopic.isEmptyOrWhitespace():
     return err(NoTopicSpecified)
 
+  validateWakuMessageFields(wakuMessage).isOkOr:
+    logos_delivery_relay_invalid_messages.inc(labelValues = ["publish"])
+    debug "Not publishing a message that the decoder refuses",
+      pubsubTopic = pubsubTopic, error = $error
+    return err(InvalidMessage)
+
   var message = wakuMessage
   if message.timestamp == 0:
     message.timestamp = getNowInNanosecondTime()
 
-  let data = message.encode().buffer
+  let data = message.encode()
 
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
   trace "Start publish Waku message",

@@ -33,6 +33,19 @@ import
 
 export waku_peer_store, peer_storage, peers
 
+const KnownAgents = [
+  "nwaku", "logos-delivery", "go-waku", "js-waku", "nim-libp2p", "go-libp2p",
+  "rust-libp2p", "js-libp2p",
+]
+
+func agentLabel(agent: string): string =
+  ## Remote peers choose their agent string freely: keep the label set bounded.
+  let lowered = agent.toLowerAscii()
+  for known in KnownAgents:
+    if known in lowered:
+      return known
+  return "other"
+
 declareCounter logos_delivery_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
 declarePublicCounter logos_delivery_node_conns_initiated,
@@ -51,7 +64,7 @@ declarePublicGauge logos_delivery_streams_peers,
 declarePublicGauge logos_delivery_peer_store_size,
   "Number of peers managed by the peer store"
 declarePublicGauge logos_delivery_service_peers,
-  "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
+  "Number of service peers per protocol", labels = ["protocol"]
 declarePublicGauge logos_delivery_total_unique_peers, "total number of unique peers"
 declarePublicGauge logos_delivery_pure_libp2p_peers,
   "connected pure-libp2p peers: offer a protocol we consume, are not waku members"
@@ -308,14 +321,9 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
 
   debug "Adding peer to service slots",
     peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs, service = proto
-  let firstAddr =
-    if remotePeerInfo.addrs.len > 0:
-      $remotePeerInfo.addrs[0]
-    else:
-      ""
-  logos_delivery_service_peers.set(1, labelValues = [$proto, firstAddr])
+  logos_delivery_service_peers.set(1, labelValues = [$proto])
 
-    # Set peer for service slot
+  # Set peer for service slot
   pm.serviceSlots[proto] = remotePeerInfo
 
   pm.addPeer(remotePeerInfo)
@@ -347,6 +355,11 @@ proc connectPeer*(
   if not peerStore.peerExists(peerId):
     pm.addPeer(peer)
 
+  # A connect to a connected peer is a no-op in the switch, not a dial.
+  if pm.switch.isConnected(peerId):
+    peerStore[ConnectionBook][peerId] = Connected
+    return true
+
   let failedAttempts = peerStore[NumberFailedConnBook][peerId]
   trace "Connecting to peer",
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
@@ -358,8 +371,9 @@ proc connectPeer*(
   let res = catch:
     await workfut or deadline
 
+  let timedOut = not workfut.finished()
   let reasonFailed =
-    if not workfut.finished():
+    if timedOut:
       await workfut.cancelAndWait()
       "timed out"
     elif res.isErr():
@@ -372,10 +386,21 @@ proc connectPeer*(
       logos_delivery_node_conns_initiated.inc(labelValues = [source])
 
       peerStore[NumberFailedConnBook][peerId] = 0
+      peerStore[ConnectionBook][peerId] = Connected
 
       return true
 
-  # Dial failed
+  # The free-form reason goes to the trace above: labels must stay bounded.
+  logos_delivery_peers_dials.inc(
+    labelValues = [if timedOut: "timed_out" else: "failed"]
+  )
+
+  # The peer connected in while our dial was in flight, so it is reachable.
+  if pm.switch.isConnected(peerId):
+    trace "Dial failed but peer is connected", peerId = peerId, reason = reasonFailed
+    peerStore[ConnectionBook][peerId] = Connected
+    return true
+
   peerStore[NumberFailedConnBook][peerId] = peerStore[NumberFailedConnBook][peerId] + 1
   peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   peerStore[ConnectionBook][peerId] = CannotConnect
@@ -384,7 +409,6 @@ proc connectPeer*(
     peerId = peerId,
     reason = reasonFailed,
     failedAttempts = peerStore[NumberFailedConnBook][peerId]
-  logos_delivery_peers_dials.inc(labelValues = [reasonFailed])
 
   return false
 
@@ -1001,11 +1025,12 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     for peerId, muxers in connections:
       connectedPeerIds.incl(peerId)
       if peerStore[AgentBook].contains(peerId):
-        let agent = peerStore[AgentBook][peerId]
+        let agent = agentLabel(peerStore[AgentBook][peerId])
         agentCounts[agent] = agentCounts.getOrDefault(agent, 0) + 1
     for agent, count in agentCounts:
       logos_delivery_connected_peers_per_agent.set(
-        count.float64, labelValues = [$agent]
+        count.float64,
+        labelValues = [agent], # bounded-label: agentLabel() yields KnownAgents or other
       )
 
     for shard in pm.getShards().items:

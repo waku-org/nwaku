@@ -28,7 +28,7 @@ proc handleRequest*(
   var
     isSuccess = false
     pushResponseInfo = ""
-    requestId = ""
+    requestId = "N/A" # replaced by the id of a request that decodes
 
   if reqDecodeRes.isErr():
     pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
@@ -61,7 +61,7 @@ proc handleRequest*(
     pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
   if not isSuccess:
-    logos_delivery_lightpush_errors.inc(labelValues = [pushResponseInfo])
+    logos_delivery_lightpush_errors.inc(labelValues = [messagePushFailure])
     debug "Failed to push message", error = pushResponseInfo
   let response = PushResponse(isSuccess: isSuccess, info: Opt.some(pushResponseInfo))
   let rpc = PushRPC(requestId: requestId, response: Opt.some(response))
@@ -122,7 +122,7 @@ proc initProtocolHandler(wl: WakuLegacyLightPush) =
       )
 
     try:
-      await conn.writeLp(rpc.encode().buffer)
+      await conn.writeLp(rpc.encode())
     except LPStreamError:
       debug "Lightpush legacy write stream failed", error = getCurrentExceptionMsg()
 
@@ -138,7 +138,7 @@ proc new*(
     rng: crypto.Rng,
     pushHandler: PushMessageHandler,
     rateLimitSetting: Opt[RateLimitSetting] = Opt.none(RateLimitSetting),
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): T =
   let wl = WakuLegacyLightPush(
     rng: rng,

@@ -47,20 +47,23 @@ type SyncTransfer* = ref object of LPProtocol
   remoteNeedsRxFut: Future[void]
   outSessions: Table[PeerId, Connection]
 
+  # Largest encoded WakuMessageAndTopic the handler reads from a peer
+  maxRpcSize: int
+
 proc sendMessage(
     conn: Connection, payload: WakuMessageAndTopic
-): Future[Result[void, string]] {.async.} =
-  let rawPayload = payload.encode().buffer
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  let rawPayload = payload.encode()
 
   logos_delivery_total_bytes_exchanged.inc(
     rawPayload.len, labelValues = [Transfer, Sending]
   )
 
-  let writeRes = catch:
+  # SyncTransfer.stop waits for the loop that awaits this write.
+  try:
     await conn.writeLP(rawPayload)
-
-  writeRes.isOkOr:
-    return err("remote [" & $conn.peerId & "] connection write error: " & error.msg)
+  except LPStreamError as exc:
+    return err("remote [" & $conn.peerId & "] connection write error: " & exc.msg)
 
   logos_delivery_total_transfer_messages_exchanged.inc(labelValues = [Sending])
 
@@ -144,6 +147,7 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
 
 proc initProtocolHandler(self: SyncTransfer) =
   proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+    var endReason = ""
     while true:
       ## removed DOS prototection until we can design something better
       #[ if not self.inSessions.contains(conn.peerId):
@@ -151,10 +155,23 @@ proc initProtocolHandler(self: SyncTransfer) =
         break ]#
 
       let readRes = catch:
-        await conn.readLp(int64(DefaultMaxWakuMessageSize))
+        await conn.readLp(self.maxRpcSize)
 
       let buffer: seq[byte] = readRes.valueOr:
-        # connection closed normally
+        endReason = error.msg
+        if error of MaxSizeError:
+          # Only the length prefix was read. A reset makes the sender's write
+          # fail instead of blocking on the bytes left unread (#4485).
+          debug "Transfer message too large",
+            remote_peer_id = conn.peerId, max_rpc_size = self.maxRpcSize
+          logos_delivery_transfer_receive_failures.inc(labelValues = ["too_large"])
+          await conn.reset()
+        elif not (error of LPStreamEOFError or error of CancelledError):
+          # Every session ends with an EOF, so only the other errors are failures.
+          # The stream can no longer be framed, so it is reset like an oversized one.
+          debug "Transfer read failed", remote_peer_id = conn.peerId, error = error.msg
+          logos_delivery_transfer_receive_failures.inc(labelValues = ["read_error"])
+          await conn.reset()
         break
 
       logos_delivery_total_bytes_exchanged.inc(
@@ -163,6 +180,7 @@ proc initProtocolHandler(self: SyncTransfer) =
 
       let payload = WakuMessageAndTopic.decode(buffer).valueOr:
         debug "Decoding error", error = $error
+        logos_delivery_transfer_receive_failures.inc(labelValues = ["decode_error"])
         continue
 
       logos_delivery_total_transfer_messages_exchanged.inc(labelValues = [Receiving])
@@ -177,6 +195,8 @@ proc initProtocolHandler(self: SyncTransfer) =
         (await self.wakuArchive.syncMessageIngress(hash, pubsub, msg)).isOkOr:
           error "failed to archive message", error = $error
           continue
+      except CancelledError as exc:
+        raise exc
       except CatchableError:
         error "syncMessageIngress failed",
           remote_peer_id = conn.peerId, error = getCurrentExceptionMsg()
@@ -191,7 +211,9 @@ proc initProtocolHandler(self: SyncTransfer) =
     await conn.close()
 
     debug "Transfer session ended",
-      local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
+      local = self.peerManager.switch.peerInfo.peerId,
+      remote = conn.peerId,
+      reason = endReason
 
     return
 
@@ -205,6 +227,7 @@ proc new*(
     idsTx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     localWantsRx: AsyncQueue[PeerId],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
+    maxMessageSize: int,
 ): T =
   var transfer = SyncTransfer(
     peerManager: peerManager,
@@ -212,6 +235,7 @@ proc new*(
     idsTx: idsTx,
     localWantsRx: localWantsRx,
     remoteNeedsRx: remoteNeedsRx,
+    maxRpcSize: maxMessageSize + DefaultSafetyBufferProtocolOverhead,
   )
 
   transfer.initProtocolHandler()

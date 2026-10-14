@@ -1,6 +1,11 @@
 {.used.}
 
-import std/[net, sequtils], results, testutils/unittests, chronos, libp2p/crypto/crypto
+import
+  std/[net, sequtils, strutils],
+  results,
+  testutils/unittests,
+  chronos,
+  libp2p/crypto/crypto
 
 import
   logos_delivery/waku/[
@@ -14,16 +19,25 @@ import
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
+  ../waku_store_sync/sync_utils,
   ../testlib/[wakucore, wakunode, testasync]
 
 const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
 
-proc newStoreSyncNode(driver: ArchiveDriver): Future[WakuNode] {.async.} =
+proc newStoreSyncNode(
+    driver: ArchiveDriver,
+    retentionPolicies: seq[RetentionPolicy] = @[],
+    storeSyncRelayJitter: uint32 = 0,
+    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    quicEnabled = true,
+): Future[WakuNode] {.async.} =
   ## A store node whose sync interval is long enough that only the test starts sessions.
-  let node = newTestWakuNode(generateSecp256k1Key(), listenIp, listenPort)
-  node.mountArchive(driver).isOkOr:
+  let node = newTestWakuNode(
+    generateSecp256k1Key(), listenIp, listenPort, quicEnabled = quicEnabled
+  )
+  node.mountArchive(driver, retentionPolicies).isOkOr:
     raiseAssert error
   (
     await node.mountStoreSync(
@@ -32,7 +46,8 @@ proc newStoreSyncNode(driver: ArchiveDriver): Future[WakuNode] {.async.} =
       @[],
       storeSyncRange = 3600,
       storeSyncInterval = 300,
-      storeSyncRelayJitter = 0,
+      storeSyncRelayJitter = storeSyncRelayJitter,
+      maxMessageSize = maxMessageSize,
     )
   ).isOkOr:
     raiseAssert error
@@ -165,6 +180,7 @@ suite "Waku Store Sync - End to End":
         storeSyncRange = 3600,
         storeSyncInterval = 300,
         storeSyncRelayJitter = 20,
+        maxMessageSize = int(DefaultMaxWakuMessageSize),
       )
     ).isOkOr:
       raiseAssert error
@@ -179,3 +195,163 @@ suite "Waku Store Sync - End to End":
     await node.start()
 
     check node.wakuStoreReconciliation.getEffectiveSyncRange() == 3600.seconds
+
+  asyncTest "A peer with a longer sync range does not push messages older than the node's window":
+    # Given a node whose window is [now - 1800 s, now - 20 s], and a peer with the
+    # default 3600 s range holding a message older than that window and one inside it
+    let
+      oldMsg = fakeWakuMessage(@[byte 0], ts = now() - 2000.seconds.nanos)
+      recentMsg = fakeWakuMessage(@[byte 1], ts = now() - 100.seconds.nanos)
+      oldHash = computeMessageHash(DefaultPubsubTopic, oldMsg)
+      recentHash = computeMessageHash(DefaultPubsubTopic, recentMsg)
+      node = await newStoreSyncNode(
+        newSqliteArchiveDriver(),
+        @[RetentionPolicy(TimeRetentionPolicy.new(1800))],
+        storeSyncRelayJitter = 20,
+      )
+      peer = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, @[oldMsg, recentMsg])
+      )
+    nodes = @[node, peer]
+    await allFutures(nodes.mapIt(it.start()))
+
+    let syncInsertsBefore = insertCount(syncIngress)
+
+    # When the peer starts a session with the node
+    let res = await peer.syncWith(node)
+
+    # Then the node's archive gets the recent message only
+    check res.isOk()
+    checkUntilTimeout:
+      await node.wakuArchive.holdsMessages(@[recentHash])
+    check:
+      not await node.wakuArchive.holdsMessages(@[oldHash])
+      insertCount(syncIngress) == syncInsertsBefore + 1
+
+  asyncTest "Nodes with a raised max message size sync a message above the default read limit":
+    # Given two nodes with a 200 KiB max message size, one holding a message that is
+    # above the default read limit (150 KiB + 64 KiB) but within theirs, and three small ones
+    let
+      bigMsg = fakeWakuMessage(newSeq[byte](230_000), ts = now() - 4.seconds.nanos)
+      smallMsgs = @[
+        fakeWakuMessage(@[byte 0], ts = now() - 3.seconds.nanos),
+        fakeWakuMessage(@[byte 1], ts = now() - 2.seconds.nanos),
+        fakeWakuMessage(@[byte 2], ts = now() - 1.seconds.nanos),
+      ]
+      msgs = @[bigMsg] & smallMsgs
+      hashes = msgs.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, msgs),
+        maxMessageSize = 200 * 1024,
+      )
+      nodeB =
+        await newStoreSyncNode(newSqliteArchiveDriver(), maxMessageSize = 200 * 1024)
+    nodes = @[nodeA, nodeB]
+    await allFutures(nodes.mapIt(it.start()))
+
+    # When B syncs with A
+    let res = await nodeB.syncWith(nodeA)
+
+    # Then B's archive holds all four messages
+    check res.isOk()
+    checkUntilTimeout:
+      await nodeB.wakuArchive.holdsMessages(hashes)
+
+  asyncTest "Over TCP, a peer with the default limit refuses the large messages and a third peer still gets everything":
+    # Given a 200 KiB node holding two messages above the default read limit and a small
+    # one, an empty peer at the default limit and an empty 200 KiB peer, all over TCP
+    let
+      bigMsgs = @[
+        fakeWakuMessage(newSeq[byte](230_000), ts = now() - 3.seconds.nanos),
+        fakeWakuMessage(newSeq[byte](230_000), ts = now() - 2.seconds.nanos),
+      ]
+      smallMsg = fakeWakuMessage(@[byte 0], ts = now() - 1.seconds.nanos)
+      bigHashes = bigMsgs.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+      smallHash = computeMessageHash(DefaultPubsubTopic, smallMsg)
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, bigMsgs & @[smallMsg]),
+        maxMessageSize = 200 * 1024,
+        quicEnabled = false,
+      )
+      nodeB = await newStoreSyncNode(newSqliteArchiveDriver(), quicEnabled = false)
+      nodeC = await newStoreSyncNode(
+        newSqliteArchiveDriver(), maxMessageSize = 200 * 1024, quicEnabled = false
+      )
+    nodes = @[nodeA, nodeB, nodeC]
+    await allFutures(nodes.mapIt(it.start()))
+
+    # When B syncs with A, then C syncs with A
+    let resB = await nodeB.syncWith(nodeA)
+    let resC = await nodeC.syncWith(nodeA)
+
+    # Then B holds the small message only and C holds all three
+    check:
+      resB.isOk()
+      resC.isOk()
+    checkUntilTimeout:
+      await nodeB.wakuArchive.holdsMessages(@[smallHash])
+      await nodeC.wakuArchive.holdsMessages(bigHashes & @[smallHash])
+    for hash in bigHashes:
+      check not await nodeB.wakuArchive.holdsMessages(@[hash])
+
+  asyncTest "A node stopped while its store sync transfer writes to a peer over TCP completes its stop":
+    # Given a node that archived three hundred 100 KB messages, and a peer connected to it over TCP
+    let
+      msgs = toSeq(0 ..< 300).mapIt(fakeWakuMessage(newSeq[byte](100_000)))
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, msgs)
+      )
+      nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
+    nodes = @[nodeA, nodeB]
+    await allFutures(nodes.mapIt(it.start()))
+    check await nodeB.peerManager.connectPeer(
+      RemotePeerInfo.init(
+        nodeA.peerInfo.peerId, nodeA.peerInfo.addrs.filterIt("/quic-v1" notin $it)
+      )
+    )
+
+    let sentBefore = transferCount(TransferDirection.Sent)
+
+    # When the peer syncs with it, and the node is stopped once its transfer has sent a message
+    let res = await nodeB.syncWith(nodeA)
+    check res.isOk()
+    checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
+      transferCount(TransferDirection.Sent) > sentBefore
+    let stopping = nodeA.stop()
+
+    # Then the stop completes before the node sent every message
+    check:
+      await stopping.join().withTimeout(3.seconds)
+      transferCount(TransferDirection.Sent) < sentBefore + float64(msgs.len)
+    nodes = @[nodeB]
+
+  asyncTest "A node stopped while its store sync transfer writes to a peer over QUIC completes its stop":
+    # Given a node that archived three hundred 100 KB messages, and a peer connected to it over QUIC
+    let
+      msgs = toSeq(0 ..< 300).mapIt(fakeWakuMessage(newSeq[byte](100_000)))
+      nodeA = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, msgs)
+      )
+      nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
+    nodes = @[nodeA, nodeB]
+    await allFutures(nodes.mapIt(it.start()))
+    check await nodeB.peerManager.connectPeer(
+      RemotePeerInfo.init(
+        nodeA.peerInfo.peerId, nodeA.peerInfo.addrs.filterIt("/quic-v1" in $it)
+      )
+    )
+
+    let sentBefore = transferCount(TransferDirection.Sent)
+
+    # When the peer syncs with it, and the node is stopped once its transfer has sent a message
+    let res = await nodeB.syncWith(nodeA)
+    check res.isOk()
+    checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
+      transferCount(TransferDirection.Sent) > sentBefore
+    let stopping = nodeA.stop()
+
+    # Then the stop completes before the node sent every message
+    check:
+      await stopping.join().withTimeout(3.seconds)
+      transferCount(TransferDirection.Sent) < sentBefore + float64(msgs.len)
+    nodes = @[nodeB]

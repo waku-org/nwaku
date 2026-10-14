@@ -38,12 +38,12 @@ proc sendPushRequest(
     await connection.closeWithEOF()
 
   let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: Opt.some(req))
-  await connection.writeLP(rpc.encode().buffer)
+  await connection.writeLP(rpc.encode())
 
   var buffer: seq[byte]
   try:
-    buffer = await connection.readLp(DefaultMaxRpcSize.int)
-  except LPStreamRemoteClosedError:
+    buffer = await connection.readLp(DefaultMaxPushResponseSize)
+  except LPStreamError:
     return err("Exception reading: " & getCurrentExceptionMsg())
 
   let pushResponseRes = PushRPC.decode(buffer).valueOr:
