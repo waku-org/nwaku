@@ -67,6 +67,7 @@ proc newTestWakuTransfer*(
     idsTx = idsTx,
     localWantsRx = wantsRx,
     remoteNeedsRx = needsRx,
+    maxMessageSize = int(DefaultMaxWakuMessageSize),
   )
 
   await proto.start()

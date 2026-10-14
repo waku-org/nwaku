@@ -672,7 +672,7 @@ proc mountStoreSync*(
     storeSyncRange: uint32,
     storeSyncInterval: uint32,
     storeSyncRelayJitter: uint32,
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](0)
   let wantsChannel = newAsyncQueue[(PeerId)](0)

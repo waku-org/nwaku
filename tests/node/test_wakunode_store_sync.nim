@@ -174,6 +174,7 @@ suite "Waku Store Sync - End to End":
         storeSyncRange = 3600,
         storeSyncInterval = 300,
         storeSyncRelayJitter = 20,
+        maxMessageSize = int(DefaultMaxWakuMessageSize),
       )
     ).isOkOr:
       raiseAssert error

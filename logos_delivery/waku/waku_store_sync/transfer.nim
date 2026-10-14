@@ -215,7 +215,7 @@ proc new*(
     idsTx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     localWantsRx: AsyncQueue[PeerId],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): T =
   var transfer = SyncTransfer(
     peerManager: peerManager,

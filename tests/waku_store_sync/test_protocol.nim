@@ -1110,6 +1110,7 @@ suite "Waku Sync: transfer":
       idsTx = serverIds,
       localWantsRx = serverLocalWants,
       remoteNeedsRx = serverRemoteNeeds,
+      maxMessageSize = int(DefaultMaxWakuMessageSize),
     )
 
     clientIds = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)]()
@@ -1122,6 +1123,7 @@ suite "Waku Sync: transfer":
       idsTx = clientIds,
       localWantsRx = clientLocalWants,
       remoteNeedsRx = clientRemoteNeeds,
+      maxMessageSize = int(DefaultMaxWakuMessageSize),
     )
 
     await server.start()
