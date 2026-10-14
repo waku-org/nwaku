@@ -2,7 +2,7 @@ import chronos, results
 import logos_delivery/waku/[waku_node, waku_core]
 
 type PublisherBase* = ref object of RootObj
-  wakuNode*: WakuNode
+  kernel*: Kernel
 
 method send*(
     self: PublisherBase,

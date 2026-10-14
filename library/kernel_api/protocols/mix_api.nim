@@ -9,7 +9,7 @@ import library/declare_lib
 proc waku_mix_get_peer_record(
     self: LogosDelivery
 ): Future[Result[string, string]] {.ffi.} =
-  let mix = self.waku.node.wakuMix
+  let mix = self.waku.node.protocols.wakuMix
   if mix.isNil():
     return err("Mix is not enabled")
   let info = mix.localMixPubInfo()
@@ -28,7 +28,7 @@ proc waku_mix_get_peer_record(
 proc waku_mix_add_peer(
     self: LogosDelivery, recordJson: string
 ): Future[Result[string, string]] {.ffi.} =
-  let mix = self.waku.node.wakuMix
+  let mix = self.waku.node.protocols.wakuMix
   if mix.isNil():
     return err("Mix is not enabled")
   try:

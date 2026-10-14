@@ -198,7 +198,7 @@ suite "LogosDelivery - relay REST API":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
@@ -262,7 +262,7 @@ suite "LogosDelivery - relay REST API":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
@@ -348,7 +348,7 @@ suite "LogosDelivery - configured shards":
       otherShard, toRelayWakuMessage(fakeWakuMessage("published over REST"))
     )
     check:
-      node.waku.node.wakuRelay.subscribedTopics() == @[configuredShard]
+      node.waku.node.protocols.relay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
   asyncTest "under static sharding without REST the relay is on no shard, while the ENR and metadata report the configured shard":
@@ -367,7 +367,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var peer: WakuNode
+    var peer: Kernel
     lockNewGlobalBrokerContext:
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
@@ -382,11 +382,11 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
       raiseAssert error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.protocols.relay.subscribedTopics().len == 0
       toSeq(0'u16 ..< 8'u16).filterIt(
         node.waku.node.enr.containsShard(TestClusterId, it)
       ) == @[1'u16]
@@ -414,7 +414,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, @[1'u16]).isOkOr:
@@ -426,7 +426,7 @@ suite "LogosDelivery - configured shards":
     defer:
       await publisher.stop()
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = newTestWakuNode(generateSecp256k1Key())
       receiver.mountMetadata(TestClusterId, @[1'u16]).isOkOr:
@@ -437,7 +437,7 @@ suite "LogosDelivery - configured shards":
     defer:
       await receiver.stop()
 
-    var subscriber: WakuNode
+    var subscriber: Kernel
     lockNewGlobalBrokerContext:
       subscriber = newTestWakuNode(generateSecp256k1Key())
       subscriber.mountMetadata(TestClusterId, @[]).isOkOr:
@@ -464,7 +464,7 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
     receiver.subscribe((kind: PubsubSub, topic: configuredShard), receiverHandler).isOkOr:
       raiseAssert error
-    subscriber.wakuFilterClient.registerPushHandler(pushHandler)
+    subscriber.protocols.wakuFilterClient.registerPushHandler(pushHandler)
     let filterSubscribe = await subscriber.filterSubscribe(
       Opt.some(configuredShard),
       @[contentTopic],
@@ -513,7 +513,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.protocols.relay.subscribedTopics().len == 0
 
   asyncTest "an unsigned message on a protected shard outside the configured shards is archived":
     # TODO: logos-delivery#4455
@@ -542,7 +542,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
@@ -604,7 +604,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
@@ -667,7 +667,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var peer: WakuNode
+    var peer: Kernel
     lockNewGlobalBrokerContext:
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
@@ -682,7 +682,7 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
       raiseAssert error
 
     check:

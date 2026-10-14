@@ -24,7 +24,7 @@ suite "Waku Peer Exchange":
     bindIp: IPAddress = parseIpAddress("0.0.0.0")
     bindPort: Port = Port(0)
 
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
 
   suite "mountPeerExchange":
     asyncSetup:
@@ -61,8 +61,8 @@ suite "Waku Peer Exchange":
         node.wakuPeerExchange.started == false
 
   suite "fetchPeerExchangePeers":
-    var node2 {.threadvar.}: WakuNode
-    var node3 {.threadvar.}: WakuNode
+    var node2 {.threadvar.}: Kernel
+    var node3 {.threadvar.}: Kernel
 
     asyncSetup:
       node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
@@ -148,7 +148,7 @@ suite "Waku Peer Exchange":
         node2Store[AddressBook][rpInfo.peerId].len > 0
 
   suite "setPeerExchangePeer":
-    var node2 {.threadvar.}: WakuNode
+    var node2 {.threadvar.}: Kernel
 
     asyncSetup:
       node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)

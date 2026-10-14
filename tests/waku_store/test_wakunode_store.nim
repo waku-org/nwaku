@@ -30,7 +30,7 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-procSuite "WakuNode - Store":
+procSuite "Kernel - Store":
   ## Fixtures
   let timeOrigin = now()
   let msgListA = @[
@@ -247,17 +247,17 @@ procSuite "WakuNode - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.wakuArchive.handleMessage(pubsubTopic, msg)
+      await server.protocols.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
-    server.wakuFilterClient.registerPushHandler(filterHandler)
+    server.protocols.wakuFilterClient.registerPushHandler(filterHandler)
     let resp = waitFor server.filterSubscribe(
       Opt.some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
     )
 
     waitFor sleepAsync(100.millis)
 
-    waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    waitFor filterSource.protocols.wakuFilter.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)

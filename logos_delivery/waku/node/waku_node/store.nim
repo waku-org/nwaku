@@ -32,16 +32,16 @@ logScope:
 
 ## Waku archive
 proc mountArchive*(
-    node: WakuNode,
+    node: Kernel,
     driver: waku_archive.ArchiveDriver,
     retentionPolicies = newSeq[waku_archive.RetentionPolicy](),
 ): Result[void, string] =
-  node.wakuArchive = waku_archive.WakuArchive.new(
+  node.protocols.wakuArchive = waku_archive.WakuArchive.new(
     driver = driver, retentionPolicies = retentionPolicies
   ).valueOr:
     return err("error in mountArchive: " & error)
 
-  node.wakuArchive.start()
+  node.protocols.wakuArchive.start()
 
   return ok()
 
@@ -92,9 +92,9 @@ proc toStoreResult(res: waku_archive.ArchiveResult): StoreQueryResult =
   return ok(res)
 
 proc mountStore*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    node: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
-  if node.wakuArchive.isNil():
+  if node.protocols.wakuArchive.isNil():
     error "failed to mount waku store protocol", error = "waku archive not set"
     return
 
@@ -104,38 +104,38 @@ proc mountStore*(
       request: StoreQueryRequest
   ): Future[StoreQueryResult] {.async.} =
     let request = request.toArchiveQuery()
-    let response = await node.wakuArchive.findMessages(request)
+    let response = await node.protocols.wakuArchive.findMessages(request)
 
     return response.toStoreResult()
 
-  node.wakuStore =
+  node.protocols.wakuStore =
     store.WakuStore.new(node.peerManager, node.rng, requestHandler, Opt.some(rateLimit))
 
   if node.started:
-    await node.wakuStore.start()
+    await node.protocols.wakuStore.start()
 
-  node.switch.mount(node.wakuStore, protocolMatcher(store_common.WakuStoreCodec))
+  node.switch.mount(node.protocols.wakuStore, protocolMatcher(store_common.WakuStoreCodec))
 
 proc mountStoreClient*(
-    node: WakuNode, maxMessageSize = int(DefaultMaxWakuMessageSize)
+    node: Kernel, maxMessageSize = int(DefaultMaxWakuMessageSize)
 ) =
   ## `maxMessageSize` sets the largest store response that the client reads.
   info "mounting store client"
 
-  node.wakuStoreClient = store_client.WakuStoreClient.new(
+  node.protocols.wakuStoreClient = store_client.WakuStoreClient.new(
     node.peerManager, node.rng, maxQueryResponseSize(maxMessageSize)
   )
 
 proc query*(
-    node: WakuNode, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
+    node: Kernel, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
 ): Future[store_common.WakuStoreResult[store_common.StoreQueryResponse]] {.
     async, gcsafe
 .} =
   ## Queries known nodes for historical messages
-  if node.wakuStoreClient.isNil():
+  if node.protocols.wakuStoreClient.isNil():
     return err("waku store v3 client is nil")
 
-  let response = (await node.wakuStoreClient.query(request, peer)).valueOr:
+  let response = (await node.protocols.wakuStoreClient.query(request, peer)).valueOr:
     var res = StoreQueryResponse()
     res.statusCode = uint32(error.kind)
     res.statusDesc = $error
@@ -144,9 +144,9 @@ proc query*(
 
   return ok(response)
 
-proc setupStoreResume*(node: WakuNode) =
-  node.wakuStoreResume = StoreResume.new(
-    node.peerManager, node.wakuArchive, node.wakuStoreClient
+proc setupStoreResume*(node: Kernel) =
+  node.protocols.wakuStoreResume = StoreResume.new(
+    node.peerManager, node.protocols.wakuArchive, node.protocols.wakuStoreClient
   ).valueOr:
     error "Failed to setup Store Resume", error = $error
     return

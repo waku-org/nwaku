@@ -53,7 +53,7 @@ proc setup*(): Waku =
     quit(QuitFailure)
 
   # set triggerSelf to false, we don't want to process our own stealthCommitments
-  waku.node.wakuRelay.triggerSelf = false
+  waku.node.protocols.relay.triggerSelf = false
 
   info "Node setup complete"
   return waku

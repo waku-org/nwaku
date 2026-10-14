@@ -38,10 +38,10 @@ const
     ## reply: the gossipsub hop only, with room for a loaded CI host.
 
 type MixNet = object
-  nodes: seq[WakuNode] # 0 ..< NumCore are core, NumCore is the sender
+  nodes: seq[Kernel] # 0 ..< NumCore are core, NumCore is the sender
   pubInfos: seq[MixNodePubInfo]
 
-proc sender(mixnet: MixNet): WakuNode =
+proc sender(mixnet: MixNet): Kernel =
   mixnet.nodes[NumCore]
 
 type HopCounts = object
@@ -263,7 +263,7 @@ suite "Waku Mix - end to end transport":
     let after = hopCounts()
     check:
       arrivals.len == BatchSize
-      mixnet.sender().wakuMix.surbCredsLen() == 0
+      mixnet.sender().protocols.wakuMix.surbCredsLen() == 0
       # Four packets crossed the exit: the four open sends never crossed.
       after.exited - before.exited >= float64(BatchSize)
       # These fail only if the node's 5 s deadline stops preempting the library's
@@ -311,7 +311,7 @@ suite "Waku Mix - end to end transport":
 
     check:
       mixnet.sender().announcedAddresses.allIt("/dns4/" in $it)
-      $mixnet.sender().wakuMix.localMixPubInfo().multiAddr ==
+      $mixnet.sender().protocols.wakuMix.localMixPubInfo().multiAddr ==
         "/ip4/127.0.0.1/tcp/" & $(23890 + NumCore)
 
     let shard = DefaultPubsubTopic
@@ -331,7 +331,7 @@ suite "Waku Mix - end to end transport":
       Opt.some(shard), msg, Opt.some(dest), mixify = true
     )
     check res.isOk()
-    check mixnet.sender().wakuMix.surbCredsLen() == 0
+    check mixnet.sender().protocols.wakuMix.surbCredsLen() == 0
     # The packet went through mix, and the SURB build did not reject the hop.
     let after = hopCounts()
     check:

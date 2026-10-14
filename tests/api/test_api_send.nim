@@ -147,19 +147,19 @@ proc validate(
 
 suite "Waku API - Send":
   var
-    relayNode1 {.threadvar.}: WakuNode
+    relayNode1 {.threadvar.}: Kernel
     relayNode1PeerInfo {.threadvar.}: RemotePeerInfo
     relayNode1PeerId {.threadvar.}: PeerId
 
-    relayNode2 {.threadvar.}: WakuNode
+    relayNode2 {.threadvar.}: Kernel
     relayNode2PeerInfo {.threadvar.}: RemotePeerInfo
     relayNode2PeerId {.threadvar.}: PeerId
 
-    lightpushNode {.threadvar.}: WakuNode
+    lightpushNode {.threadvar.}: Kernel
     lightpushNodePeerInfo {.threadvar.}: RemotePeerInfo
     lightpushNodePeerId {.threadvar.}: PeerId
 
-    storeNode {.threadvar.}: WakuNode
+    storeNode {.threadvar.}: Kernel
     storeNodePeerInfo {.threadvar.}: RemotePeerInfo
     storeNodePeerId {.threadvar.}: PeerId
 
@@ -303,7 +303,7 @@ suite "Waku API - Send":
       duplicateCount(relayIngress) >= duplicatesBefore + 2
 
     let stored = (
-      await node.waku.node.wakuArchive.findMessages(
+      await node.waku.node.protocols.wakuArchive.findMessages(
         ArchiveQuery(contentTopics: @[contentTopic])
       )
     ).valueOr:
@@ -478,7 +478,7 @@ suite "Waku API - Send":
       # lightpush peer it is connected to.
       await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
 
-    check node.waku.node.wakuRelay.isNil()
+    check node.waku.node.protocols.relay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -515,7 +515,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
       # No connectToNodes: the sender has no reachable peer at T0.
 
-    check node.waku.node.wakuRelay.isNil()
+    check node.waku.node.protocols.relay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -577,7 +577,7 @@ suite "Waku API - Send":
       raiseAssert "Failed to stop node: " & error
 
   asyncTest "Send fails with event":
-    var fakeLightpushNode: WakuNode
+    var fakeLightpushNode: Kernel
     lockNewGlobalBrokerContext:
       fakeLightpushNode = newTestWakuNode(generateSecp256k1Key())
       fakeLightpushNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
@@ -756,7 +756,7 @@ suite "Waku API - Send":
     ## The message propagates, but the only reachable store node is outside the
     ## relay mesh and never holds it. Once the validation window elapses the send
     ## reports Propagated, then Error, and never Sent.
-    var isolatedStoreNode: WakuNode
+    var isolatedStoreNode: Kernel
     lockNewGlobalBrokerContext:
       isolatedStoreNode = newTestWakuNode(generateSecp256k1Key())
       isolatedStoreNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:

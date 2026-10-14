@@ -66,8 +66,8 @@ proc waitForEvents(
   return await manager.receivedEvent.wait().withTimeout(timeout)
 
 type TestNetwork = ref object
-  publisher: WakuNode # Relay node that publishes messages in tests.
-  meshBuddy: WakuNode # Extra relay peer for publisher's mesh (Edge tests only).
+  publisher: Kernel # Relay node that publishes messages in tests.
+  meshBuddy: Kernel # Extra relay peer for publisher's mesh (Edge tests only).
   subscriber: LogosDelivery
     # The receiver node in tests. Edge node in edge tests, Core node in relay tests.
   publisherPeerInfo: RemotePeerInfo
@@ -146,15 +146,15 @@ proc teardown(net: TestNetwork) {.async.} =
     await net.publisher.stop()
     net.publisher = nil
 
-proc getRelayShard(node: WakuNode, contentTopic: ContentTopic): PubsubTopic =
+proc getRelayShard(node: Kernel, contentTopic: ContentTopic): PubsubTopic =
   let autoSharding = node.wakuAutoSharding.get()
   let shardObj = autoSharding.getShard(contentTopic).expect("Failed to get shard")
   return PubsubTopic($shardObj)
 
-proc waitForMesh(node: WakuNode, shard: PubsubTopic) {.async.} =
+proc waitForMesh(node: Kernel, shard: PubsubTopic) {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if node.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
+    if node.protocols.relay.getNumPeersInMesh(shard).valueOr(0) > 0:
       return
     await sleepAsync(100.milliseconds)
   raise newException(ValueError, "GossipSub Mesh failed to stabilize on " & shard)
@@ -483,7 +483,7 @@ suite "Messaging API, SubscriptionManager":
 
     # The configured shards do not limit the relay subscription under autosharding.
     check:
-      node.waku.node.wakuRelay.subscribedTopics().toHashSet() == allShards.toHashSet()
+      node.waku.node.protocols.relay.subscribedTopics().toHashSet() == allShards.toHashSet()
 
   asyncTest "Subscription API, edge node subscribe and receive message":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
@@ -632,7 +632,7 @@ suite "Messaging API, SubscriptionManager":
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -650,7 +650,7 @@ suite "Messaging API, SubscriptionManager":
 
     let publisherPeerInfo = publisher.peerInfo.toRemotePeerInfo()
 
-    var meshBuddy: WakuNode
+    var meshBuddy: Kernel
     lockNewGlobalBrokerContext:
       meshBuddy = newTestWakuNode(generateSecp256k1Key())
       meshBuddy.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -745,7 +745,7 @@ suite "Messaging API, SubscriptionManager":
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -763,7 +763,7 @@ suite "Messaging API, SubscriptionManager":
 
     let publisherPeerInfo = publisher.peerInfo.toRemotePeerInfo()
 
-    var meshBuddy: WakuNode
+    var meshBuddy: Kernel
     lockNewGlobalBrokerContext:
       meshBuddy = newTestWakuNode(generateSecp256k1Key())
       meshBuddy.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -781,7 +781,7 @@ suite "Messaging API, SubscriptionManager":
 
     let meshBuddyPeerInfo = meshBuddy.peerInfo.toRemotePeerInfo()
 
-    var sparePeer: WakuNode
+    var sparePeer: Kernel
     lockNewGlobalBrokerContext:
       sparePeer = newTestWakuNode(generateSecp256k1Key())
       sparePeer.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -868,7 +868,7 @@ suite "Messaging API, SubscriptionManager":
 
     let shard = net.subscriber.waku.node.getRelayShard(keptTopic)
     let edgePeerId = net.subscriber.waku.node.peerInfo.peerId
-    let subscriptions = net.publisher.wakuFilter.subscriptions
+    let subscriptions = net.publisher.protocols.wakuFilter.subscriptions
 
     checkUntilTimeout:
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)

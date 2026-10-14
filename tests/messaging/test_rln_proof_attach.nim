@@ -65,7 +65,7 @@ proc mountFailingRln(waku: Waku, failWith: RlnErrorKind): FailingProofBackend =
     backend.attempts.inc()
     return err(RlnError.init(backend.failWith, "scripted attach failure"))
 
-  waku.node.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
+  waku.node.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
   return backend
 
 type CountingProcessor = ref object of BaseSendProcessor
@@ -114,7 +114,7 @@ suite "SendService RLN proof attach":
     check logosdelivery_rln_set_plugin(addr lezPlugin, nil) == 0
     defer:
       discard logosdelivery_rln_set_plugin(nil, nil)
-    waku.node.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
+    waku.node.protocols.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
 
     let quota = (await waku.rlnEpochQuota(nowSec())).valueOr:
       raiseAssert $error

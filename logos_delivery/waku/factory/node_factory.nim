@@ -70,7 +70,7 @@ proc initNode(
     peerStore: Opt[WakuPeerStorage],
     relay: Relay,
     dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[],
-): Result[WakuNode, string] =
+): Result[Kernel, string] =
   ## Setup a basic Waku v2 node based on a supplied configuration
   ## file. Optionally include persistent peer storage.
   ## No protocols are mounted yet.
@@ -156,7 +156,7 @@ proc initNode(
 ## Mount protocols
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuConf
+    node: Kernel, conf: WakuConf
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -176,9 +176,9 @@ proc setupProtocols(
     let mixConf = conf.mixConf.get()
     var protection = Opt.none(SpamProtection)
     if mixConf.mixRlnConfig.isSome():
-      node.wakuMixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
+      node.protocols.wakuMixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
         return err("failed to create Mix RLN adapter: " & error)
-      protection = Opt.some(SpamProtection(node.wakuMixRln))
+      protection = Opt.some(SpamProtection(node.protocols.wakuMixRln))
     (await node.mountMix(conf.clusterId, mixConf.mixKey, mixConf.mixnodes, protection)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
 
@@ -193,8 +193,8 @@ proc setupProtocols(
       return err("failed to setup service discovery: " & error)
 
     node.attachDiscovery(ServicePeerDiscovery.create(node.wakuKademlia))
-    # The ServicePeersRequest provider is set by WakuNode.start and cleared by
-    # WakuNode.stop (startProvidersAndListeners / stopProvidersAndListeners).
+    # The ServicePeersRequest provider is set by Kernel.start and cleared by
+    # Kernel.stop (startProvidersAndListeners / stopProvidersAndListeners).
 
   if conf.storeServiceConf.isSome():
     let storeServiceConf = conf.storeServiceConf.get()
@@ -307,7 +307,7 @@ proc setupProtocols(
       subscribedProtectedShards.add(shardKey)
       notice "routing only signed traffic",
         protectedShard = shardKey.shard, publicKey = shardKey.key
-    node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
+    node.protocols.relay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
   if conf.rendezvous:
     await node.mountRendezvous(conf.clusterId, shards)
@@ -413,7 +413,7 @@ proc setupProtocols(
 ## Start node
 
 proc startNode*(
-    node: WakuNode, conf: WakuConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
+    node: Kernel, conf: WakuConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start keep-alive.
@@ -428,9 +428,9 @@ proc startNode*(
   # Backend work that needs a running node, such as the external backend's
   # membership check, its first call to the host. The backend handles its own
   # failures, so the node starts regardless; only cancellation stops startup.
-  if node.rlnPlugin.isSome() and not node.rlnPlugin.get().onNodeStarted.isNil():
+  if node.protocols.rlnPlugin.isSome() and not node.protocols.rlnPlugin.get().onNodeStarted.isNil():
     try:
-      await node.rlnPlugin.get().onNodeStarted()
+      await node.protocols.rlnPlugin.get().onNodeStarted()
     except CancelledError:
       return err("cancelled during the RLN backend start hook")
 
@@ -452,8 +452,8 @@ proc startNode*(
   # retrieve px peers and add the to the peer store
   if conf.remotePeerExchangeNode.isSome():
     var desiredOutDegree = DefaultPXNumPeersReq
-    if not node.wakuRelay.isNil() and node.wakuRelay.parameters.d.uint64() > 0:
-      desiredOutDegree = node.wakuRelay.parameters.d.uint64()
+    if not node.protocols.relay.isNil() and node.protocols.relay.parameters.d.uint64() > 0:
+      desiredOutDegree = node.protocols.relay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       debug "error while fetching peers from peer exchange", error = error
 
@@ -472,7 +472,7 @@ proc startNode*(
 
 proc setupNode*(
     wakuConf: WakuConf, rng: crypto.Rng = crypto.newRng(), relay: Relay
-): Future[Result[WakuNode, string]] {.async.} =
+): Future[Result[Kernel, string]] {.async.} =
   ## Libplum resolves an any strategy when the NAT service starts.
   wakuConf.endpointConf.natStrategy =
     await resolveNatStrategy(wakuConf.endpointConf.natStrategy)

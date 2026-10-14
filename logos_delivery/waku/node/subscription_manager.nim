@@ -28,14 +28,14 @@ import logos_delivery/api/events/kernel_events
 {.push raises: [].}
 
 proc registerRelayHandler(
-    node: WakuNode, shard: PubsubTopic, appHandler: WakuRelayHandler = nil
+    node: Kernel, shard: PubsubTopic, appHandler: WakuRelayHandler = nil
 ): bool =
   ## Returns true iff we did a new (and only) subscription for this shard in GossipSub.
-  let alreadySubscribed = node.wakuRelay.isSubscribed(shard)
+  let alreadySubscribed = node.protocols.relay.isSubscribed(shard)
 
   if not appHandler.isNil():
-    if not alreadySubscribed or not node.legacyAppHandlers.hasKey(shard):
-      node.legacyAppHandlers[shard] = appHandler
+    if not alreadySubscribed or not node.protocols.legacyAppHandlers.hasKey(shard):
+      node.protocols.legacyAppHandlers[shard] = appHandler
     else:
       debug "Legacy appHandler already exists for active shard, ignoring new handler",
         shard
@@ -50,22 +50,22 @@ proc registerRelayHandler(
     logos_delivery_histogram_message_size.observe(msgSizeKB)
 
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.wakuFilter.isNil():
+    if node.protocols.wakuFilter.isNil():
       return
 
-    await node.wakuFilter.handleMessage(topic, msg)
+    await node.protocols.wakuFilter.handleMessage(topic, msg)
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.wakuArchive.isNil():
+    if node.protocols.wakuArchive.isNil():
       return
 
-    await node.wakuArchive.handleMessage(topic, msg)
+    await node.protocols.wakuArchive.handleMessage(topic, msg)
 
   proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.wakuStoreReconciliation.isNil():
+    if node.protocols.wakuStoreReconciliation.isNil():
       return
 
-    node.wakuStoreReconciliation.messageIngress(topic, msg)
+    node.protocols.wakuStoreReconciliation.messageIngress(topic, msg)
 
   proc internalHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     MessageSeenEvent.emit(node.brokerCtx, topic, msg)
@@ -79,24 +79,24 @@ proc registerRelayHandler(
     await syncHandler(topic, msg)
     await internalHandler(topic, msg)
 
-    if node.legacyAppHandlers.hasKey(topic) and not node.legacyAppHandlers[topic].isNil():
-      await node.legacyAppHandlers[topic](topic, msg)
+    if node.protocols.legacyAppHandlers.hasKey(topic) and not node.protocols.legacyAppHandlers[topic].isNil():
+      await node.protocols.legacyAppHandlers[topic](topic, msg)
 
-  node.wakuRelay.subscribe(shard, uniqueTopicHandler)
+  node.protocols.relay.subscribe(shard, uniqueTopicHandler)
   return true
 
-proc unregisterRelayHandler(node: WakuNode, shard: PubsubTopic): bool =
+proc unregisterRelayHandler(node: Kernel, shard: PubsubTopic): bool =
   ## Returns true iff we had a subscription for this shard in GossipSub and it was removed.
-  if node.legacyAppHandlers.hasKey(shard):
-    node.legacyAppHandlers.del(shard)
+  if node.protocols.legacyAppHandlers.hasKey(shard):
+    node.protocols.legacyAppHandlers.del(shard)
 
-  if node.wakuRelay.isSubscribed(shard):
-    node.wakuRelay.unsubscribe(shard)
+  if node.protocols.relay.isSubscribed(shard):
+    node.protocols.relay.unsubscribe(shard)
     return true
   return false
 
 proc doRelaySubscribe(
-    node: WakuNode, shard: PubsubTopic, appHandler: WakuRelayHandler = nil
+    node: Kernel, shard: PubsubTopic, appHandler: WakuRelayHandler = nil
 ): bool =
   ## Subscribes the node to a shard.
   ## Returns true if we actually subscribed (transitioned from unsubscribed to subscribed).
@@ -106,7 +106,7 @@ proc doRelaySubscribe(
     ShardSubscribedEvent.emit(node.brokerCtx, ShardSubscribedEvent(topic: shard))
   return installed
 
-proc doRelayUnsubscribe(node: WakuNode, shard: PubsubTopic): bool =
+proc doRelayUnsubscribe(node: Kernel, shard: PubsubTopic): bool =
   ## Unsubscribes the node from a shard.
   ## Returns true if we actually unsubscribed (transitioned from subscribed to unsubscribed).
   ## Emit the shard unsubscription event if we actually unsubscribed.
@@ -120,7 +120,7 @@ const EdgeFilterLoopInterval = chronos.seconds(30)
 const EdgeFilterSubLoopDebounce = chronos.seconds(1)
   ## Debounce delay to coalesce rapid-fire wakeups into a single reconciliation pass.
 
-proc new*(T: type SubscriptionManager, node: WakuNode): T =
+proc new*(T: type SubscriptionManager, node: Kernel): T =
   T(
     node: node,
     shards: initTable[PubsubTopic, ShardSubscription](),
@@ -187,7 +187,7 @@ proc subscribeShard*(
     added = true
   if added:
     self.edgeFilterWakeup.fire()
-  if not isNil(self.node.wakuRelay):
+  if not isNil(self.node.protocols.relay):
     discard self.node.doRelaySubscribe(shard, handler)
   return ok()
 
@@ -206,7 +206,7 @@ proc unsubscribeShard*(
     self.edgeFilterWakeup.fire()
     if shardEmpty:
       self.shards.del(shard)
-      if not isNil(self.node.wakuRelay):
+      if not isNil(self.node.protocols.relay):
         discard self.node.doRelayUnsubscribe(shard)
   return ok()
 
@@ -229,7 +229,7 @@ proc subscribe*(
     added = true
   if added:
     self.edgeFilterWakeup.fire()
-  if not isNil(self.node.wakuRelay):
+  if not isNil(self.node.protocols.relay):
     discard self.node.doRelaySubscribe(shard, handler)
   if added:
     ContentTopicSubscribedEvent.emit(self.node.brokerCtx, shard, contentTopic)
@@ -250,7 +250,7 @@ proc unsubscribe*(
     self.edgeFilterWakeup.fire()
     if shardEmpty:
       self.shards.del(shard)
-      if not isNil(self.node.wakuRelay):
+      if not isNil(self.node.protocols.relay):
         discard self.node.doRelayUnsubscribe(shard)
     ContentTopicUnsubscribedEvent.emit(self.node.brokerCtx, shard, contentTopic)
   return ok()
@@ -318,7 +318,7 @@ proc isSubscribed*(
 
 proc subscribeAllAutoshards*(self: SubscriptionManager): Result[void, string] =
   ## Subscribes the relay to every shard in the configured autosharding cluster.
-  if self.node.wakuRelay.isNil() or self.node.wakuAutoSharding.isNone():
+  if self.node.protocols.relay.isNil() or self.node.wakuAutoSharding.isNone():
     return ok()
 
   let autoSharding = self.node.wakuAutoSharding.get()
@@ -369,12 +369,12 @@ proc removePeer(self: SubscriptionManager, shard: PubsubTopic, peerId: PeerId) =
     self.updateShardHealth(shard, state[])
     self.edgeFilterWakeup.fire()
 
-    if not self.node.wakuFilterClient.isNil():
+    if not self.node.protocols.wakuFilterClient.isNil():
       self.shards.withValue(shard, sub):
         let ct = toSeq(sub.contentTopics)
         if ct.len > 0:
           proc doUnsubscribe() {.async.} =
-            discard await self.node.wakuFilterClient.unsubscribe(peer, shard, ct)
+            discard await self.node.protocols.wakuFilterClient.unsubscribe(peer, shard, ct)
 
           asyncSpawn doUnsubscribe()
 
@@ -399,9 +399,9 @@ proc sendChunkedFilterRpc(
       let fut =
         case kind
         of FilterSubscribe:
-          self.node.wakuFilterClient.subscribe(peer, shard, chunk)
+          self.node.protocols.wakuFilterClient.subscribe(peer, shard, chunk)
         of FilterUnsubscribe:
-          self.node.wakuFilterClient.unsubscribe(peer, shard, chunk)
+          self.node.protocols.wakuFilterClient.unsubscribe(peer, shard, chunk)
       if not (await fut.withTimeout(EdgeFilterSubscribeTimeout)) or fut.read().isErr():
         trace "sendChunkedFilterRpc: chunk failed",
           op = kind, shard = shard, peer = peer.peerId
@@ -468,7 +468,7 @@ proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
   while true:
     await sleepAsync(self.edgeFilterLoopInterval)
 
-    if self.node.wakuFilterClient.isNil():
+    if self.node.protocols.wakuFilterClient.isNil():
       debug "filter client is nil within edge filter connection loop"
       continue
 
@@ -484,7 +484,7 @@ proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
       var pingTasks: seq[(PeerId, Future[FilterSubscribeResult])]
       for peer in connected.values:
         pingTasks.add(
-          (peer.peerId, self.node.wakuFilterClient.ping(peer, EdgeFilterPingTimeout))
+          (peer.peerId, self.node.protocols.wakuFilterClient.ping(peer, EdgeFilterPingTimeout))
         )
 
       await allFutures(pingTasks.mapIt(it[1]))
@@ -547,7 +547,7 @@ proc edgeFilterSubLoop(self: SubscriptionManager) {.async.} =
     self.edgeFilterWakeup.clear()
     trace "edgeFilterSubLoop: woke up"
 
-    if isNil(self.node.wakuFilterClient):
+    if isNil(self.node.protocols.wakuFilterClient):
       trace "edgeFilterSubLoop: wakuFilterClient is nil, skipping"
       continue
 
@@ -728,14 +728,14 @@ proc start*(self: SubscriptionManager): Result[void, string] =
   # Start Edge workers only when we are in Edge mode (relay not mounted)
   # AND the filter client is mounted (otherwise the loops have nothing
   # to talk to and just spam "filter client is nil" warnings).
-  if self.node.wakuRelay.isNil() and not self.node.wakuFilterClient.isNil():
+  if self.node.protocols.relay.isNil() and not self.node.protocols.wakuFilterClient.isNil():
     return self.startEdgeFilterLoops()
 
   return ok()
 
 proc stop*(self: SubscriptionManager) {.async: (raises: []).} =
   # Stop Edge workers if we started them in `start` (Edge mode + filter client).
-  if self.node.wakuRelay.isNil() and not self.node.wakuFilterClient.isNil():
+  if self.node.protocols.relay.isNil() and not self.node.protocols.wakuFilterClient.isNil():
     await self.stopEdgeFilterLoops()
 
   # Only clear providers we actually registered: another SubscriptionManager

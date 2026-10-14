@@ -143,7 +143,7 @@ proc setupAndPublish(rng: crypto.Rng, conf: LightPushMixConf) {.async.} =
         return
       conn = connOpt.get()
     else:
-      conn = node.wakuMix.toConnection(
+      conn = node.protocols.wakuMix.toConnection(
         MixDestination.exitNode(dPeerId), # destination lightpush peer
         WakuLightPushCodec, # protocol codec which will be used over the mix connection
         MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
@@ -164,14 +164,14 @@ proc setupAndPublish(rng: crypto.Rng, conf: LightPushMixConf) {.async.} =
       timestamp: getNowInNanosecondTime(),
     ) # current timestamp
 
-    let res = await node.wakuLightpushClient.publish(
+    let res = await node.protocols.wakuLightpushClient.publish(
       Opt.some(LightpushPubsubTopic), message, conn
     )
 
     let startTime = getNowInNanosecondTime()
 
     (
-      await node.wakuLightpushClient.publishWithConn(
+      await node.protocols.wakuLightpushClient.publishWithConn(
         LightpushPubsubTopic, message, conn, dPeerId
       )
     ).isOkOr:

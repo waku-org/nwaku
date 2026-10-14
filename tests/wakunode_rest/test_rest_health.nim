@@ -29,7 +29,7 @@ import
   ../testlib/wakunode,
   ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")

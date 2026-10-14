@@ -43,8 +43,8 @@ suite "Store Resume":
     assert getTs == ts, "wrong timestamp"
 
 suite "Store Resume - End to End":
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverDriver {.threadvar.}: ArchiveDriver
   var clientDriver {.threadvar.}: ArchiveDriver
@@ -112,8 +112,8 @@ suite "Store Resume - End to End":
       countRes.get() == 10
 
 suite "Store Resume - pages":
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
   var serverDriver {.threadvar.}: ArchiveDriver
   var clientDriver {.threadvar.}: ArchiveDriver
 

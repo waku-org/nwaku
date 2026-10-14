@@ -22,7 +22,7 @@ type
     IsRunning
 
   WakuStateInfo* {.requiresInit.} = object
-    node: WakuNode
+    node: Kernel
     conf: WakuConf
 
 proc getAllPossibleInfoItemIds*(self: WakuStateInfo): seq[NodeInfoId] =
@@ -53,9 +53,9 @@ proc getNodeInfoItem*(self: WakuStateInfo, infoItemId: NodeInfoId): string =
     return $self.node.ports
   of NodeInfoId.MyMixPubKey:
     ## Empty when the mix protocol is not mounted on this node.
-    if self.node.wakuMix.isNil():
+    if self.node.protocols.wakuMix.isNil():
       return ""
-    return self.node.wakuMix.pubKey.to0xHex()
+    return self.node.protocols.wakuMix.pubKey.to0xHex()
   of NodeInfoId.MaxMessageSize:
     ## Configured max message size (in bytes) for this node.
     return $self.conf.maxMessageSizeBytes
@@ -65,5 +65,5 @@ proc getNodeInfoItem*(self: WakuStateInfo, infoItemId: NodeInfoId): string =
   else:
     return "unknown info item id"
 
-proc init*(T: typedesc[WakuStateInfo], node: WakuNode, conf: WakuConf): T =
+proc init*(T: typedesc[WakuStateInfo], node: Kernel, conf: WakuConf): T =
   return WakuStateInfo(node: node, conf: conf)

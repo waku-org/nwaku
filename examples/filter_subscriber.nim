@@ -81,19 +81,19 @@ proc setupAndSubscribe(rng: crypto.Rng) {.async.} =
 
   node.peerManager.start()
 
-  node.wakuFilterClient.registerPushHandler(messagePushHandler)
+  node.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
 
   let filterPeer = parsePeerInfo(FilterPeer).get()
 
   while true:
     notice "maintaining subscription"
     # First use filter-ping to check if we have an active subscription
-    if (await node.wakuFilterClient.ping(filterPeer)).isErr():
+    if (await node.protocols.wakuFilterClient.ping(filterPeer)).isErr():
       # No subscription found. Let's subscribe.
       notice "no subscription found. Sending subscribe request"
 
       (
-        await node.wakuFilterClient.subscribe(
+        await node.protocols.wakuFilterClient.subscribe(
           filterPeer, FilterPubsubTopic, @[FilterContentTopic]
         )
       ).isOkOr:

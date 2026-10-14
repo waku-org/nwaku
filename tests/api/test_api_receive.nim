@@ -99,10 +99,10 @@ proc nodeConf(kernel: WakuNodeConf, messaging: MessagingClientConf): LogosDelive
   )
 
 type TestNetwork = ref object
-  storeNode: WakuNode
+  storeNode: Kernel
   archiveDriver: ArchiveDriver
     ## the store node's archive, for rows the archive would reject
-  publisher: WakuNode
+  publisher: Kernel
   subscriber: LogosDelivery
   storeNodePeerInfo: RemotePeerInfo
   subscribedAt: Timestamp ## just before the subscribe of `testTopic`
@@ -142,7 +142,7 @@ proc setupNetwork(
     discard
 
   # store node: archive + store + relay, subscribed to the shard
-  var storeNode: WakuNode
+  var storeNode: Kernel
   var archiveDriver: ArchiveDriver
   lockNewGlobalBrokerContext:
     storeNode = newTestWakuNode(generateSecp256k1Key())
@@ -169,7 +169,7 @@ proc setupNetwork(
   let storeNodePeerInfo = storeNode.peerInfo.toRemotePeerInfo()
 
   # publisher: relay, connected to the store so its messages get archived
-  var publisher: WakuNode
+  var publisher: Kernel
   lockNewGlobalBrokerContext:
     publisher = newTestWakuNode(generateSecp256k1Key())
     publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< numShards)).expect(
@@ -186,7 +186,7 @@ proc setupNetwork(
 
   var meshFormed = false
   for _ in 0 ..< 50:
-    if publisher.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
+    if publisher.protocols.relay.getNumPeersInMesh(shard).valueOr(0) > 0:
       meshFormed = true
       break
     await sleepAsync(100.milliseconds)
@@ -334,7 +334,7 @@ proc waitForArchived(net: TestNetwork, topic: ContentTopic, count: int) {.async.
     let query = archive_common.ArchiveQuery(
       includeData: false, contentTopics: @[topic], pubsubTopic: Opt.some(TestShard)
     )
-    let res = await net.storeNode.wakuArchive.findMessages(query)
+    let res = await net.storeNode.protocols.wakuArchive.findMessages(query)
     if res.isOk() and res.get().hashes.len >= count:
       return
     await sleepAsync(100.milliseconds)
@@ -366,13 +366,13 @@ proc knowStorePeer(net: TestNetwork) =
     net.storeNodePeerInfo, WakuStoreCodec
   )
 
-proc joinMesh(node: WakuNode, peer: RemotePeerInfo) {.async.} =
+proc joinMesh(node: Kernel, peer: RemotePeerInfo) {.async.} =
   ## Connects `node` to `peer` and waits until it has a relay mesh, so a
   ## message that one relays reaches the other live. Polls the mesh, because
   ## the Store dial can connect them before this.
   await node.connectToNodes(@[peer])
   for _ in 0 ..< 100:
-    if node.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) > 0:
+    if node.protocols.relay.getNumPeersInMesh(TestShard).valueOr(0) > 0:
       return
     await sleepAsync(100.milliseconds)
   raiseAssert "the node did not join the relay mesh in time"
@@ -396,14 +396,14 @@ proc archiveInOutage(
   await offline
   let msg =
     WakuMessage(payload: OutagePayload.toBytes(), contentTopic: topic, timestamp: now())
-  await net.storeNode.wakuArchive.handleMessage(TestShard, msg)
+  await net.storeNode.protocols.wakuArchive.handleMessage(TestShard, msg)
   await net.waitForArchived(topic, 2)
   return msg
 
 proc publishLive(net: TestNetwork, topic: ContentTopic, text: string) {.async.} =
   ## A message the subscriber receives live, through the relay mesh. The
   ## publish waits for the mesh of the publisher when it has no peer yet.
-  if net.publisher.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) == 0:
+  if net.publisher.protocols.relay.getNumPeersInMesh(TestShard).valueOr(0) == 0:
     # The mesh with the store node can drop between phases. Form it again.
     await net.publisher.joinMesh(net.storeNodePeerInfo)
   let msg = WakuMessage(payload: text.toBytes(), contentTopic: topic, timestamp: now())
@@ -446,10 +446,10 @@ proc waitForProtocolHealth(
 proc noopRelayHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
   discard
 
-proc newFilterServiceNode(shardId: uint16): Future[WakuNode] {.async.} =
+proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
   ## A started relay and filter service node that advertises shard `shardId` only.
   let shard = PubsubTopic("/waku/2/rs/" & $TestClusterId & "/" & $shardId)
-  var node: WakuNode
+  var node: Kernel
   lockNewGlobalBrokerContext:
     node = newTestWakuNode(generateSecp256k1Key())
     node.mountMetadata(TestClusterId, @[shardId]).expect("mount metadata")
@@ -887,7 +887,7 @@ suite "Messaging API, Receive Service (backfill)":
     check await events.nothingMore(0)
     net.subscriber.waku.node.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
-    await net.storeNode.wakuFilter.subscriptions.removePeer(
+    await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
       net.subscriber.waku.node.switch.peerInfo.peerId
     )
     await offline

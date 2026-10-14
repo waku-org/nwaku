@@ -94,7 +94,7 @@ proc verifyMembership*(
   return ok(state.status)
 
 proc toRlnPlugin*(lez: RlnLez): RlnPlugin =
-  ## The node's handle on this backend (`node.rlnPlugin`). The host owns the
+  ## The node's handle on this backend (`node.protocols.rlnPlugin`). The host owns the
   ## backend's lifecycle, health and proof refresh, so those closures stay nil.
   proc validate(
       message: WakuMessage

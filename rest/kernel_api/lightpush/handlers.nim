@@ -33,8 +33,8 @@ const FutTimeoutForPushRequestProcessing* = 5.seconds
 const NoPeerNoDiscoError = "No suitable service peer & no discovery method"
 const NoPeerNoneFoundError = "No suitable service peer & none discovered"
 
-proc useSelfHostedLightPush(node: WakuNode): bool =
-  return not node.wakuLightPush.isNil()
+proc useSelfHostedLightPush(node: Kernel): bool =
+  return not node.protocols.wakuLightPush.isNil()
 
 proc convertErrorKindToHttpStatus(statusCode: LightPushStatusCode): HttpCode =
   ## Other lightpush codes reach HTTP unchanged for compatibility, although some
@@ -67,7 +67,7 @@ const ROUTE_LIGHTPUSH = "/lightpush/v3/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   router.api(MethodPost, ROUTE_LIGHTPUSH) do(

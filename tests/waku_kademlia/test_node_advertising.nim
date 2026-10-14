@@ -13,12 +13,12 @@ import
 ## The default deployment binds 0.0.0.0. switch.start resolves peerInfo.addrs
 ## before it starts ServiceDiscovery. The node advertises its services after.
 
-proc isAdvertised(node: WakuNode, service: ServiceInfo): bool =
+proc isAdvertised(node: Kernel, service: ServiceInfo): bool =
   let disco = node.wakuKademlia.protocol
   service in disco.services and
     disco.advertiser.providedAdverts.hasKey(service.id.hashServiceId())
 
-proc publishedRecord(node: WakuNode): Opt[ExtendedPeerRecord] =
+proc publishedRecord(node: Kernel): Opt[ExtendedPeerRecord] =
   ## The self record the protocol stored in its own table.
   let disco = node.wakuKademlia.protocol
   let entry = disco.dataTable.get(node.switch.peerInfo.peerId.toKey()).valueOr:
@@ -27,19 +27,19 @@ proc publishedRecord(node: WakuNode): Opt[ExtendedPeerRecord] =
     return Opt.none(ExtendedPeerRecord)
   Opt.some(record.data)
 
-proc publishedServices(node: WakuNode): seq[ServiceInfo] =
+proc publishedServices(node: Kernel): seq[ServiceInfo] =
   let record = node.publishedRecord().valueOr:
     return @[]
   record.services
 
-proc publishedAddresses(node: WakuNode): seq[MultiAddress] =
+proc publishedAddresses(node: Kernel): seq[MultiAddress] =
   let record = node.publishedRecord().valueOr:
     return @[]
   record.addresses.mapIt(it.address)
 
 proc newAdvertisingNode(
     bindIp: IpAddress, service: ServiceInfo, extMultiAddrs: seq[MultiAddress] = @[]
-): WakuNode =
+): Kernel =
   ## The helper rewrites 0.0.0.0 to loopback when quic is on, so quic is off.
   let node = newTestWakuNode(
     generateSecp256k1Key(),

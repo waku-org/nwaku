@@ -36,7 +36,7 @@ logScope:
 ## Waku filter
 
 proc mountFilter*(
-    node: WakuNode,
+    node: Kernel,
     subscriptionTimeout: Duration =
       filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
@@ -47,7 +47,7 @@ proc mountFilter*(
   ## Mounting filter v2 protocol
 
   info "mounting filter protocol"
-  node.wakuFilter = WakuFilter.new(
+  node.protocols.wakuFilter = WakuFilter.new(
     node.peerManager,
     subscriptionTimeout,
     maxFilterPeers,
@@ -57,54 +57,54 @@ proc mountFilter*(
   )
 
   try:
-    await node.wakuFilter.start()
+    await node.protocols.wakuFilter.start()
   except CatchableError:
     error "failed to start wakuFilter", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
+    node.switch.mount(node.protocols.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
   except LPError:
     error "failed to mount wakuFilter", error = getCurrentExceptionMsg()
 
 proc filterHandleMessage*(
-    node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage
+    node: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage
 ) {.async.} =
-  if node.wakuFilter.isNil():
+  if node.protocols.wakuFilter.isNil():
     debug "Cannot handle filter message", error = "waku filter is required"
     return
 
-  await node.wakuFilter.handleMessage(pubsubTopic, message)
+  await node.protocols.wakuFilter.handleMessage(pubsubTopic, message)
 
-proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
+proc mountFilterClient*(node: Kernel) {.async: (raises: []).} =
   ## Mounting both filter
   ## Giving option for application level to choose btw own push message handling or
   ## rely on node provided cache. - This only applies for v2 filter client
   info "mounting filter client"
 
-  if not node.wakuFilterClient.isNil():
+  if not node.protocols.wakuFilterClient.isNil():
     trace "Filter client already mounted."
     return
 
-  node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
+  node.protocols.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
 
   try:
-    await node.wakuFilterClient.start()
+    await node.protocols.wakuFilterClient.start()
   except CatchableError:
     error "failed to start wakuFilterClient", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
+    node.switch.mount(node.protocols.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
   except LPError:
     error "failed to mount wakuFilterClient", error = getCurrentExceptionMsg()
 
 proc filterSubscribe*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
-  if node.wakuFilterClient.isNil():
+  if node.protocols.wakuFilterClient.isNil():
     debug "Cannot register filter subscription to topic",
       error = "waku filter client is not set up"
     return err(FilterSubscribeError.serviceUnavailable())
@@ -121,7 +121,7 @@ proc filterSubscribe*(
 
     when (contentTopics is ContentTopic):
       let contentTopics = @[contentTopics]
-    let subRes = await node.wakuFilterClient.subscribe(
+    let subRes = await node.protocols.wakuFilterClient.subscribe(
       remotePeer, pubsubTopic.get(), contentTopics
     )
     if subRes.isOk():
@@ -159,7 +159,7 @@ proc filterSubscribe*(
         debug "Registering filter subscription to content",
           shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.subscribe(remotePeer, $shard, content)
+        node.protocols.wakuFilterClient.subscribe(remotePeer, $shard, content)
 
     var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -189,7 +189,7 @@ proc filterSubscribe*(
     return subRes
 
 proc filterUnsubscribe*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
@@ -206,7 +206,7 @@ proc filterUnsubscribe*(
       contentTopics = contentTopics,
       peer = remotePeer.peerId
 
-    let unsubRes = await node.wakuFilterClient.unsubscribe(
+    let unsubRes = await node.protocols.wakuFilterClient.unsubscribe(
       remotePeer, pubsubTopic.get(), contentTopics
     )
     if unsubRes.isOk():
@@ -242,7 +242,7 @@ proc filterUnsubscribe*(
         debug "Deregistering filter subscription to content",
           shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.wakuFilterClient.unsubscribe(remotePeer, $shard, content)
+        node.protocols.wakuFilterClient.unsubscribe(remotePeer, $shard, content)
 
     var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -274,7 +274,7 @@ proc filterUnsubscribe*(
     return unsubRes
 
 proc filterUnsubscribeAll*(
-    node: WakuNode, peer: RemotePeerInfo | string
+    node: Kernel, peer: RemotePeerInfo | string
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
@@ -284,7 +284,7 @@ proc filterUnsubscribeAll*(
 
   debug "Deregistering all filter subscription to content", peer = remotePeer.peerId
 
-  let unsubRes = await node.wakuFilterClient.unsubscribeAll(remotePeer)
+  let unsubRes = await node.protocols.wakuFilterClient.unsubscribeAll(remotePeer)
   if unsubRes.isOk():
     debug "Unsubscribed from all content-topic", peerId = remotePeer.peerId
   else:

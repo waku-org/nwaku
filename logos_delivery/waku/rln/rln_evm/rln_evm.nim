@@ -252,7 +252,7 @@ proc isReady*(rlnEvm: RlnEvm): Future[bool] {.async: (raises: [CancelledError]).
     return false
 
 proc toRlnPlugin*(rlnEvm: RlnEvm): RlnPlugin =
-  ## The node's handle on this backend (`node.rlnPlugin`). The closures
+  ## The node's handle on this backend (`node.protocols.rlnPlugin`). The closures
   ## capture this instance, so each node reaches only its own backend.
   proc stopBackend(): Future[void] {.async.} =
     try:
@@ -363,7 +363,7 @@ proc new*(
   ## Mounts the rln-relay protocol on the node.
   ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
   ## Returns an error if the rln-relay protocol could not be mounted.
-  ## `brokerCtx` is the node's context (`WakuNode.brokerCtx`), which proof
+  ## `brokerCtx` is the node's context (`Kernel.brokerCtx`), which proof
   ## generation needs; a backend mounted without one can only validate proofs.
   try:
     return await mount(conf, brokerCtx, registrationHandler)

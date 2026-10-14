@@ -23,12 +23,12 @@ import
   ../waku_filter_v2/waku_filter_utils
 
 proc waitForTopicPeer(
-    node: WakuNode, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
+    node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
 ) {.async.} =
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in node.wakuRelay.gossipsub.getOrDefault(topic):
+    for p in node.protocols.relay.gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
@@ -54,10 +54,10 @@ proc createRequest(
   )
 
 suite "Waku Filter - End to End":
-  var client {.threadvar.}: WakuNode
+  var client {.threadvar.}: Kernel
   var clientPeerId {.threadvar.}: PeerId
-  var clientClone {.threadvar.}: WakuNode
-  var server {.threadvar.}: WakuNode
+  var clientClone {.threadvar.}: Kernel
+  var server {.threadvar.}: Kernel
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic
@@ -90,13 +90,13 @@ suite "Waku Filter - End to End":
     await server.mountFilter()
     await client.mountFilterClient()
 
-    client.wakuFilterClient.registerPushHandler(messagePushHandler)
+    client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
 
     # Prepare the clone but do not start it
     await clientClone.mountFilterClient()
-    clientClone.wakuFilterClient.registerPushHandler(messagePushHandler)
+    clientClone.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
 
   asyncTeardown:
     await allFutures(client.stop(), clientClone.stop(), server.stop())
@@ -110,8 +110,8 @@ suite "Waku Filter - End to End":
     # Then the subscription is successful
     check:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
-      server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
     # When sending a message to the subscribed content topic
     let msg1 = fakeWakuMessage(contentTopic = contentTopic)
@@ -132,7 +132,7 @@ suite "Waku Filter - End to End":
     # Then the unsubscription is successful
     check:
       unsubscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 0
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 0
 
     # When sending a message to the previously subscribed content topic
     pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -154,7 +154,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # When a server node gets a Relay message
     let msg1 = fakeWakuMessage(contentTopic = contentTopic)
@@ -193,7 +193,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     await publisher.connectToNodes(@[serverRemotePeerInfo])
     await publisher.waitForTopicPeer(pubsubTopic, serverRemotePeerInfo.peerId)
@@ -242,7 +242,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
     await client.stop()
@@ -254,7 +254,7 @@ suite "Waku Filter - End to End":
 
     # pushHandlerFuture = newFuture[(string, WakuMessage)]()
     await client.mountFilterClient()
-    client.wakuFilterClient.registerPushHandler(messagePushHandler)
+    client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
 
     ## connect both switches
     await client.switch.connect(
@@ -267,7 +267,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # When a message is sent to the subscribed content topic, via Filter; without refreshing the subscription
     let msg = fakeWakuMessage(contentTopic = contentTopic)
@@ -290,7 +290,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
     await client.stop()
@@ -309,7 +309,7 @@ suite "Waku Filter - End to End":
     )
     check:
       subscribeResponse2.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # When a message is sent to the subscribed content topic, via Relay
     pushHandlerFuture = newPushHandlerFuture()
@@ -322,7 +322,7 @@ suite "Waku Filter - End to End":
   asyncTest "ping subscriber":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       pingRequest =
@@ -363,7 +363,7 @@ suite "Waku Filter - End to End":
   asyncTest "simple subscribe and unsubscribe request":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       filterSubscribeRequest = createRequest(
@@ -407,7 +407,7 @@ suite "Waku Filter - End to End":
   asyncTest "simple subscribe and unsubscribe all for multiple content topics":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
@@ -453,7 +453,7 @@ suite "Waku Filter - End to End":
   asyncTest "subscribe and unsubscribe to multiple content topics":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
@@ -546,7 +546,7 @@ suite "Waku Filter - End to End":
 
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       peerManager = server.peerManager
@@ -641,7 +641,7 @@ suite "Waku Filter - End to End":
     await wakuFilter.subscriptions.removePeer(clientPeerId)
     wakuFilter.subscriptions.cleanUp()
 
-    var peers = newSeq[WakuNode](MaxFilterPeers)
+    var peers = newSeq[Kernel](MaxFilterPeers)
 
     for index in 0 ..< MaxFilterPeers:
       peers[index] = newTestWakuNode(generateSecp256k1Key())
@@ -691,7 +691,7 @@ suite "Waku Filter - End to End":
 
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.wakuFilter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
 
@@ -788,7 +788,7 @@ suite "Waku Filter - End to End":
     asyncTest "simple maintenance":
       # Given
       let
-        wakuFilter = server.wakuFilter
+        wakuFilter = server.protocols.wakuFilter
         clientPeerId = client.switch.peerInfo.peerId
         serverPeerId = server.switch.peerInfo.peerId
         peerManager = server.peerManager

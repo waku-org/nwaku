@@ -26,7 +26,7 @@ import
   ../testlib/[futures, wakucore, assertions]
 
 proc startDiscv5WithAutoPort*(
-    node: WakuNode,
+    node: Kernel,
     key: keys.PrivateKey,
     bindIp: IpAddress,
     bootstrapRecords: seq[enr.Record] = @[],
@@ -54,7 +54,7 @@ proc startDiscv5WithAutoPort*(
   return await tryWithAutoPort[WakuDiscoveryV5](Port(0), attempt)
 
 proc dialForPeerExchange*(
-    client: WakuNode,
+    client: Kernel,
     peerInfo: RemotePeerInfo,
     requestedPeers: uint64 = 1,
     minimumPeers: uint64 = 0,

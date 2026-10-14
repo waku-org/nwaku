@@ -52,7 +52,7 @@ const DeduplQSize = 20 # Maximum number of seen messages to keep in deduplicatio
 type
   Chat2MatterBridge* = ref object of RootObj
     mbClient*: MatterbridgeClient
-    nodev2*: WakuNode
+    nodev2*: Kernel
     running: bool
     pollPeriod: chronos.Duration
     seen: seq[Hash] #FIFO queue
@@ -217,7 +217,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     error "failed to mount relay", error = error
     return
 
-  cmb.nodev2.wakuRelay.triggerSelf = false
+  cmb.nodev2.protocols.relay.triggerSelf = false
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge

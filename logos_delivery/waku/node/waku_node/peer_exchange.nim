@@ -30,7 +30,7 @@ logScope:
 ## Waku peer-exchange
 
 proc mountPeerExchange*(
-    node: WakuNode,
+    node: Kernel,
     cluster: Opt[uint16] = Opt.none(uint16),
     rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
 ) {.async: (raises: []).} =
@@ -50,13 +50,13 @@ proc mountPeerExchange*(
   except LPError:
     error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
 
-proc mountPeerExchangeClient*(node: WakuNode) {.async: (raises: []).} =
+proc mountPeerExchangeClient*(node: Kernel) {.async: (raises: []).} =
   info "mounting waku peer exchange client"
   if node.wakuPeerExchangeClient.isNil():
     node.wakuPeerExchangeClient = WakuPeerExchangeClient.new(node.peerManager)
 
 proc fetchPeerExchangePeers*(
-    node: Wakunode, amount = DefaultPXNumPeersReq
+    node: Kernel, amount = DefaultPXNumPeersReq
 ): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
   if node.wakuPeerExchangeClient.isNil():
     debug "Could not get peers from px, waku peer-exchange-client is nil"
@@ -89,7 +89,7 @@ proc fetchPeerExchangePeers*(
       error = pxPeersRes.error
     return err(pxPeersRes.error)
 
-proc peerExchangeLoop(node: WakuNode) {.async.} =
+proc peerExchangeLoop(node: Kernel) {.async.} =
   while true:
     if not node.started:
       await sleepAsync(5.seconds)
@@ -98,7 +98,7 @@ proc peerExchangeLoop(node: WakuNode) {.async.} =
       debug "Cannot fetch peers from peer exchange", cause = error
     await sleepAsync(1.minutes)
 
-proc startPeerExchangeLoop*(node: WakuNode) =
+proc startPeerExchangeLoop*(node: Kernel) =
   if node.wakuPeerExchangeClient.isNil():
     debug "startPeerExchangeLoop: Peer Exchange is not mounted"
     return
@@ -107,7 +107,7 @@ proc startPeerExchangeLoop*(node: WakuNode) =
 
 # TODO: Move to application module (e.g., logosdeliverynode.nim)
 proc setPeerExchangePeer*(
-    node: WakuNode, peer: RemotePeerInfo | MultiAddress | string
+    node: Kernel, peer: RemotePeerInfo | MultiAddress | string
 ) =
   if node.wakuPeerExchange.isNil():
     debug "Could not set peer, waku peer-exchange is nil"

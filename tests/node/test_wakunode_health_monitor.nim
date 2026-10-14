@@ -204,7 +204,7 @@ suite "Health Monitor - health state calculation":
 
 suite "Health Monitor - events":
   asyncTest "Core (relay) health update":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       let nodeAKey = generateSecp256k1Key()
       nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -225,7 +225,7 @@ suite "Health Monitor - events":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       let nodeBKey = generateSecp256k1Key()
       nodeB = newTestWakuNode(nodeBKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -286,7 +286,7 @@ suite "Health Monitor - events":
     await nodeA.stop()
 
   asyncTest "Edge (light client) health update":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       let nodeAKey = generateSecp256k1Key()
       nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -324,7 +324,7 @@ suite "Health Monitor - events":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       let nodeBKey = generateSecp256k1Key()
       nodeB = newTestWakuNode(nodeBKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -399,7 +399,7 @@ suite "Health Monitor - events":
     await nodeA.stop()
 
   asyncTest "Edge health driven by confirmed filter subscriptions":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       let nodeAKey = generateSecp256k1Key()
       nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -424,7 +424,7 @@ suite "Health Monitor - events":
     ds.start().expect("Failed to start MessagingClient")
     let subMgr = nodeA.subscriptionManager
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       let nodeBKey = generateSecp256k1Key()
       nodeB = newTestWakuNode(nodeBKey, parseIpAddress("127.0.0.1"), Port(0))
@@ -523,7 +523,7 @@ suite "Health Monitor - events":
   asyncTest "protocol health changes are published, identify included":
     ## The Store client is READY once the peer's identify lists Store. libp2p
     ## completes identify after the connection event.
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -560,7 +560,7 @@ suite "Health Monitor - events":
     defer:
       await monitorA.stopHealthMonitor()
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -631,18 +631,18 @@ proc mixPeerInfo(port: int, lightpush = false): RemotePeerInfo =
     mixPubKey = Opt.some(keyPair.publicKey),
   )
 
-proc addMixPeer(node: WakuNode, port: int, lightpush = false) =
+proc addMixPeer(node: Kernel, port: int, lightpush = false) =
   ## The mix pool counts a peer with a mix key, an address that mix routes and a
   ## known secp256k1 key.
   node.peerManager.addPeer(mixPeerInfo(port, lightpush))
 
-proc mountTestMix(node: WakuNode) {.async.} =
+proc mountTestMix(node: Kernel) {.async.} =
   let (mixPrivKey, _) = generateKeyPair().expect("mix key pair")
   (await node.mountMix(DefaultClusterId, mixPrivKey, @[])).expect("failed to mount mix")
 
 suite "Health Monitor - mix readiness":
   asyncTest "Mix health follows the pool size":
-    var node: WakuNode
+    var node: Kernel
     lockNewGlobalBrokerContext:
       node =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -668,7 +668,7 @@ suite "Health Monitor - mix readiness":
     check monitor.getSyncProtocolHealthInfo(MixProtocol).health == HealthStatus.READY
 
   asyncTest "Mix health accepts the slotted lightpush peer as exit":
-    var node: WakuNode
+    var node: Kernel
     lockNewGlobalBrokerContext:
       node =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -683,7 +683,7 @@ suite "Health Monitor - mix readiness":
     check monitor.getSyncProtocolHealthInfo(MixProtocol).health == HealthStatus.READY
 
   asyncTest "Required mix keeps the status Disconnected while the pool is short":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -704,7 +704,7 @@ suite "Health Monitor - mix readiness":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -738,7 +738,7 @@ suite "Health Monitor - mix readiness":
     await nodeA.stop()
 
   asyncTest "Required mix status follows the pool as it fills and drains":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -759,7 +759,7 @@ suite "Health Monitor - mix readiness":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -803,7 +803,7 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     # Pruning a single mix peer takes the pool below the minimum again.
-    nodeA.peerManager.switch.peerStore.delete(nodeA.wakuMix.nodePool.peerIds()[0])
+    nodeA.peerManager.switch.peerStore.delete(nodeA.protocols.wakuMix.nodePool.peerIds()[0])
     check await waitForStatus(ConnectionStatus.Disconnected)
 
     await monitorA.stopHealthMonitor()
@@ -813,7 +813,7 @@ suite "Health Monitor - mix readiness":
   asyncTest "Required mix stays Disconnected while the pool's fourth member is unroutable":
     ## The health gate reads the routable count: a fourth peer whose address mix
     ## cannot route leaves the status at `Disconnected`.
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -834,7 +834,7 @@ suite "Health Monitor - mix readiness":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -895,7 +895,7 @@ suite "Health Monitor - mix readiness":
     await nodeA.stop()
 
   asyncTest "Required mix recovers when discovery learns a pool peer serves lightpush":
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -922,7 +922,7 @@ suite "Health Monitor - mix readiness":
 
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
 
-    var nodeB: WakuNode
+    var nodeB: Kernel
     lockNewGlobalBrokerContext:
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
@@ -982,7 +982,7 @@ suite "Health Monitor - mix readiness":
     ## After the mount, the health loop is the gauge's only writer; the other
     ## gauge cases publish the count themselves. `mix_pool_size` is global to the
     ## process, so the test sets a sentinel and waits for the pass to replace it.
-    var nodeA: WakuNode
+    var nodeA: Kernel
     lockNewGlobalBrokerContext:
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))

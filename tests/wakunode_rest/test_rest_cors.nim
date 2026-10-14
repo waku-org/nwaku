@@ -17,7 +17,7 @@ import
 
 const OriginHeader = "Origin"
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")

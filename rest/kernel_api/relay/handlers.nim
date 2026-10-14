@@ -107,7 +107,7 @@ proc attachRlnProofAndValidate(
   )
 
 proc installRelayApiHandlers*(
-    router: var RestRouter, node: WakuNode, cache: MessageCache
+    router: var RestRouter, node: Kernel, cache: MessageCache
 ) =
   router.api(MethodOptions, ROUTE_RELAY_SUBSCRIPTIONSV1) do() -> RestApiResponse:
     return RestApiResponse.ok()
@@ -204,7 +204,7 @@ proc installRelayApiHandlers*(
 
     # ensure the node is subscribed to the topic. otherwise it risks publishing
     # to a topic with no connected peers
-    if pubSubTopic notin node.wakuRelay.subscribedTopics():
+    if pubSubTopic notin node.protocols.relay.subscribedTopics():
       return RestApiResponse.badRequest(
         "Failed to publish: Node not subscribed to topic: " & pubsubTopic
       )
@@ -221,11 +221,11 @@ proc installRelayApiHandlers*(
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest($error)
 
-    let rlnPlugin = node.rlnPlugin
+    let rlnPlugin = node.protocols.rlnPlugin
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -236,14 +236,14 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic = pubSubTopic, rln = node.rlnPlugin.isSome()
+    debug "Publishing message", pubSubTopic = pubSubTopic, rln = node.protocols.rlnPlugin.isSome()
     if not (await node.publish(Opt.some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic = pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
@@ -354,11 +354,11 @@ proc installRelayApiHandlers*(
         error "publish error", err = msg
         return RestApiResponse.badRequest("Failed to publish. " & msg)
 
-    let rlnPlugin = node.rlnPlugin
+    let rlnPlugin = node.protocols.rlnPlugin
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -369,15 +369,15 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
-      contentTopic = message.contentTopic, rln = node.rlnPlugin.isSome()
+      contentTopic = message.contentTopic, rln = node.protocols.rlnPlugin.isSome()
 
     var publishFut = node.publish(Opt.some($pubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):

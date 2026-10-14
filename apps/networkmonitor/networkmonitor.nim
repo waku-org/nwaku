@@ -77,7 +77,7 @@ proc setDiscoveredPeersCluster(routingTableNodes: seq[Node]) =
 proc analyzePeer(
     customPeerInfo: CustomPeerInfoRef,
     peerInfo: RemotePeerInfo,
-    node: WakuNode,
+    node: Kernel,
     timeout: chronos.Duration,
 ): Future[Result[string, string]] {.async.} =
   var pingDelay: chronos.Duration
@@ -85,7 +85,7 @@ proc analyzePeer(
   proc ping(): Future[Result[void, string]] {.async, gcsafe.} =
     try:
       let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-      pingDelay = await node.libp2pPing.ping(conn)
+      pingDelay = await node.protocols.libp2pPing.ping(conn)
       return ok()
     except CatchableError:
       var msg = getCurrentExceptionMsg()
@@ -137,7 +137,7 @@ proc shouldReconnect(customPeerInfo: CustomPeerInfoRef): bool =
 # TODO: Split in discover, connect
 proc setConnectedPeersMetrics(
     discoveredNodes: seq[waku_enr.Record],
-    node: WakuNode,
+    node: Kernel,
     timeout: chronos.Duration,
     restClient: RestClientRef,
     allPeers: CustomPeersTableRef,
@@ -311,7 +311,7 @@ proc populateInfoFromIp(
 # crawls the network discovering peers and trying to connect to them
 # metrics are processed and exposed
 proc crawlNetwork(
-    node: WakuNode,
+    node: Kernel,
     wakuDiscv5: WakuDiscoveryV5,
     restClient: RestClientRef,
     conf: NetworkMonitorConf,
@@ -415,7 +415,7 @@ proc getBootstrapFromDiscDns(
 
 proc initAndStartApp(
     conf: NetworkMonitorConf
-): Future[Result[(WakuNode, WakuDiscoveryV5), string]] {.async.} =
+): Future[Result[(Kernel, WakuDiscoveryV5), string]] {.async.} =
   let bindIp =
     try:
       parseIpAddress("0.0.0.0")
@@ -523,7 +523,7 @@ proc startRestApiServer(
 # handles rx of messages over a topic (see subscribe)
 # counts the number of messages per content topic
 proc subscribeAndHandleMessages(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: PubsubTopic,
     msgPerContentTopic: ContentTopicMessageTableRef,
 ) =

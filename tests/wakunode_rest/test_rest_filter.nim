@@ -38,7 +38,7 @@ import
   ../testlib/futures,
   ../testlib/rest_requests
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -48,8 +48,8 @@ proc testWakuNode(): WakuNode =
   return newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
 type RestFilterTest = object
-  serviceNode: WakuNode
-  subscriberNode: WakuNode
+  serviceNode: Kernel
+  subscriberNode: Kernel
   restServer: WakuRestServerRef
   restServerForService: WakuRestServerRef
   messageCache: MessageCache
@@ -155,16 +155,16 @@ suite "Waku v2 Rest API - Filter V2":
     )
     let response = await restFilterTest.client.filterPostSubscriptions(requestBody)
 
-    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer1 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, DefaultContentTopic
     )
-    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer2 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "2"
     )
-    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer3 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "3"
     )
-    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer4 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "4"
     )
 
@@ -224,16 +224,16 @@ suite "Waku v2 Rest API - Filter V2":
     let response =
       await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsub)
 
-    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer1 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, DefaultContentTopic
     )
-    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer2 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "2"
     )
-    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer3 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "3"
     )
-    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer4 = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "4"
     )
 
@@ -254,7 +254,7 @@ suite "Waku v2 Rest API - Filter V2":
     let responseUnsubAll =
       await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
 
-    let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, "4"
     )
 
@@ -384,7 +384,7 @@ suite "Waku v2 Rest API - Filter V2":
     let response = await restFilterTest.client.filterPostSubscriptions(requestBody)
 
     # subscribe fiter service
-    let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, DefaultContentTopic
     )
 
@@ -463,7 +463,7 @@ suite "Waku v2 Rest API - Filter V2":
     let response = await restFilterTest.client.filterPostSubscriptions(requestBody)
 
     # subscribe fiter service
-    let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+    let subscribedPeer = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
       DefaultPubsubTopic, DefaultContentTopic
     )
 
@@ -584,7 +584,7 @@ suite "Waku v2 Rest API - Filter V2":
 
     let
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-      subscriptions = restFilterTest.serviceNode.wakuFilter.subscriptions
+      subscriptions = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions
       derivedShard = restFilterTest.subscriberNode.wakuAutoSharding
         .get()
         .getShard(DefaultContentTopic).valueOr:
@@ -644,7 +644,7 @@ suite "Waku v2 Rest API - Filter V2":
       subscribeResponse.status == 400
       subscribeResponse.data.statusDesc ==
         "pubsubTopic must be specified when static sharding is enabled"
-      restFilterTest.serviceNode.wakuFilter.subscriptions
+      restFilterTest.serviceNode.protocols.wakuFilter.subscriptions
         .findSubscribedPeers(DefaultPubsubTopic, DefaultContentTopic)
         .len() == 0
 
@@ -693,7 +693,7 @@ suite "Waku v2 Rest API - Filter V2":
       emptyTopicPutResponse.status == 400
       emptyTopicPutResponse.data.statusDesc ==
         "pubsubTopic must be specified when static sharding is enabled"
-      restFilterTest.serviceNode.wakuFilter.subscriptions.subscribedPeerCount() == 0
+      restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 0
 
     # When it unsubscribes without a pubsubTopic
     let unsubscribeResponse = await restFilterTest.client.filterDeleteSubscriptions(
@@ -752,7 +752,7 @@ suite "Waku v2 Rest API - Filter V2":
       unsubscribeWithoutTopicResponse.data.statusDesc ==
         "pubsubTopic must be specified when static sharding is enabled"
       subPeerId in
-        restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+        restFilterTest.serviceNode.protocols.wakuFilter.subscriptions.findSubscribedPeers(
           DefaultPubsubTopic, DefaultContentTopic
         )
 
@@ -867,7 +867,7 @@ suite "Waku v2 Rest API - Filter V2":
 
     let
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-      subscriptions = restFilterTest.serviceNode.wakuFilter.subscriptions
+      subscriptions = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions
 
     let postResponse = await restFilterTest.client.filterPostSubscriptions(
       FilterSubscribeRequest(
@@ -907,7 +907,7 @@ suite "Waku v2 Rest API - Filter V2":
 
     let
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-      subscriptions = restFilterTest.serviceNode.wakuFilter.subscriptions
+      subscriptions = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions
 
     let postResponse = await restFilterTest.client.filterPostSubscriptions(
       FilterSubscribeRequest(
@@ -1078,7 +1078,7 @@ suite "Waku v2 Rest API - Filter V2":
 
     let
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
-      subscriptions = restFilterTest.serviceNode.wakuFilter.subscriptions
+      subscriptions = restFilterTest.serviceNode.protocols.wakuFilter.subscriptions
 
     # Given a subscription to one content topic
     let onlyPostResponse = await restFilterTest.client.filterPostSubscriptions(

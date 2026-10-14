@@ -4,11 +4,11 @@ import publisher_base
 
 type V3Publisher* = ref object of PublisherBase
 
-proc new*(T: type V3Publisher, wakuNode: WakuNode): T =
-  if isNil(wakuNode.wakuLightpushClient):
-    wakuNode.mountLightPushClient()
+proc new*(T: type V3Publisher, kernel: Kernel): T =
+  if isNil(kernel.protocols.wakuLightpushClient):
+    kernel.mountLightPushClient()
 
-  return V3Publisher(wakuNode: wakuNode)
+  return V3Publisher(kernel: kernel)
 
 method send*(
     self: V3Publisher,
@@ -18,7 +18,7 @@ method send*(
 ): Future[Result[void, string]] {.async.} =
   # when error it must return original error desc due the text is used for distinction between error types in metrics.
   discard (
-    await self.wakuNode.lightpushPublish(
+    await self.kernel.lightpushPublish(
       Opt.some(topic), message, Opt.some(servicePeer)
     )
   ).valueOr:

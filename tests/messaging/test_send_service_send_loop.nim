@@ -394,7 +394,7 @@ suite "SendService - deliver":
       await reply
       return ok(@[4'u8, 5, 6])
 
-    waku.node.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
+    waku.node.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
     let processor = newScripted()
     let service = newService(processor)
     let proven = processor.admitted(buildTask("proven-retry"))

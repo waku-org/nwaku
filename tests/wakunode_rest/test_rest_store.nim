@@ -45,8 +45,8 @@ proc put(
 
   store.put(msgHash, pubsubTopic, message)
 
-# Creates a new WakuNode
-proc testWakuNode(): WakuNode =
+# Creates a new Kernel
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -56,7 +56,7 @@ proc testWakuNode(): WakuNode =
   return newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
 type RestStoreTest = object
-  node: WakuNode
+  node: Kernel
   driver: ArchiveDriver
   restServer: WakuRestServerRef
   client: RestClientRef
@@ -163,7 +163,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     await sleepAsync(1.seconds())
 
@@ -240,7 +240,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -310,7 +310,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let timeOrigin = wakucore.now()
@@ -405,7 +405,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -478,7 +478,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -567,7 +567,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -800,7 +800,7 @@ procSuite "Waku Rest API - Store v3":
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.wakuStore)
+    peerSwitch.mount(node.protocols.wakuStore)
 
     # Now prime it with some history before tests
     let timeOrigin = wakucore.now()
@@ -1254,7 +1254,7 @@ procSuite "Waku Rest API - Store v3":
     await peerSwitch.start()
     defer:
       await peerSwitch.stop()
-    peerSwitch.mount(t.node.wakuStore)
+    peerSwitch.mount(t.node.protocols.wakuStore)
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
     let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
@@ -1291,7 +1291,7 @@ procSuite "Waku Rest API - Store v3":
     await peerSwitch.start()
     defer:
       await peerSwitch.stop()
-    peerSwitch.mount(t.node.wakuStore)
+    peerSwitch.mount(t.node.protocols.wakuStore)
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
     let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId

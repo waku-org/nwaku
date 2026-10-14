@@ -359,7 +359,7 @@ suite "SendService - Store validation loop":
   ## The Store node answers only after `allowAnswer` completes, with the hashes listed in
   ## `storedHashes`. It mounts metadata so the peer manager accepts its cluster.
   var waku {.threadvar.}: Waku
-  var storeNode {.threadvar.}: WakuNode
+  var storeNode {.threadvar.}: Kernel
   var allowAnswer {.threadvar.}: Future[void]
   var queryStarted {.threadvar.}: Future[void]
   var answered {.threadvar.}: AsyncEvent

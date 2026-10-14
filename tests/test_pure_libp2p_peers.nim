@@ -38,7 +38,7 @@ proc newMixSwitch(): Switch =
   switch.mount(mix)
   switch
 
-proc newMemberNode(mountMeta = true): Future[WakuNode] {.async.} =
+proc newMemberNode(mountMeta = true): Future[Kernel] {.async.} =
   let node = newTestWakuNode(generateSecp256k1Key(), clusterId = ClusterId)
   if mountMeta:
     discard node.mountMetadata(ClusterId, @[])
@@ -48,7 +48,7 @@ proc newMemberNode(mountMeta = true): Future[WakuNode] {.async.} =
 # identify, classification, and an asyncSpawned disconnect all have to land
 const Settle = 1.seconds
 
-proc connectExpectingDrop(peer: Switch, node: WakuNode) {.async.} =
+proc connectExpectingDrop(peer: Switch, node: Kernel) {.async.} =
   ## A rejected peer may be cut off while its own upgrade is still running, in
   ## which case its `connect` raises rather than returns. Either is a drop.
   try:
@@ -56,7 +56,7 @@ proc connectExpectingDrop(peer: Switch, node: WakuNode) {.async.} =
   except DialFailedError:
     discard
 
-proc isDisconnected(node: WakuNode, peer: Switch): bool =
+proc isDisconnected(node: Kernel, peer: Switch): bool =
   ## Neither side holds a connection to the other.
   return
     not node.switch.isConnected(peer.peerInfo.peerId) and

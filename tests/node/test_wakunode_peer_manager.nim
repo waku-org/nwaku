@@ -41,9 +41,9 @@ suite "Peer Manager":
     contentTopic {.threadvar.}: ContentTopic
 
   var
-    server {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
     serverPeerStore {.threadvar.}: PeerStore
-    client {.threadvar.}: WakuNode
+    client {.threadvar.}: Kernel
     clientPeerStore {.threadvar.}: PeerStore
 
   var
@@ -794,7 +794,7 @@ suite "Persistence Check":
 
 suite "Mount Order":
   var
-    client {.threadvar.}: WakuNode
+    client {.threadvar.}: Kernel
     clientRemotePeerInfo {.threadvar.}: RemotePeerInfo
     clientPeerStore {.threadvar.}: PeerStore
 

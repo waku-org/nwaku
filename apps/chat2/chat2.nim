@@ -63,7 +63,7 @@ const Help = """
 # Could poll connection pool or something here, I suppose
 # TODO Ensure connected turns true on incoming connections, or get rid of it
 type Chat = ref object
-  node: WakuNode # waku node for publishing, subscribing, etc
+  node: Kernel # waku node for publishing, subscribing, etc
   transp: StreamTransport # transport streams between read & write file descriptor
   subscribed: bool # indicates if a node is subscribed or not to a topic
   connected: bool # if the node is connected to another peer
@@ -197,7 +197,7 @@ proc publish(c: Chat, line: string) {.async.} =
       c.rln.lastEpoch = proof.epoch
 
     try:
-      if not c.node.wakuLegacyLightPush.isNil():
+      if not c.node.protocols.wakuLegacyLightPush.isNil():
         # Attempt lightpush
         (await c.node.legacyLightpushPublish(Opt.some(DefaultPubsubTopic), message)).isOkOr:
           error "failed to publish lightpush message", error = error
