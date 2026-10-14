@@ -192,7 +192,7 @@ proc setupProtocols(
     node.mountKademlia(kadConf).isOkOr:
       return err("failed to setup service discovery: " & error)
 
-    node.attachDiscovery(ServicePeerDiscovery.create(node.wakuKademlia))
+    node.attachDiscovery(ServicePeerDiscovery.create(node.discovery.wakuKademlia))
     # The ServicePeersRequest provider is set by Kernel.start and cleared by
     # Kernel.stop (startProvidersAndListeners / stopProvidersAndListeners).
 

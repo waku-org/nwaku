@@ -34,15 +34,15 @@ suite "Waku Peer Exchange":
       # Given a started node without peer exchange mounted
       await node.start()
       check:
-        node.wakuPeerExchange == nil
+        node.discovery.wakuPeerExchange == nil
 
       # When mounting peer exchange
       await node.mountPeerExchange()
 
       # Then peer exchange is mounted
       check:
-        node.wakuPeerExchange != nil
-        node.wakuPeerExchange.started == true
+        node.discovery.wakuPeerExchange != nil
+        node.discovery.wakuPeerExchange.started == true
 
       # Cleanup
       await node.stop()
@@ -50,15 +50,15 @@ suite "Waku Peer Exchange":
     asyncTest "Stopped node mounts peer exchange":
       # Given a stopped node without peer exchange mounted
       check:
-        node.wakuPeerExchange == nil
+        node.discovery.wakuPeerExchange == nil
 
       # When mounting peer exchange
       await node.mountPeerExchange()
 
       # Then peer exchange is mounted
       check:
-        node.wakuPeerExchange != nil
-        node.wakuPeerExchange.started == false
+        node.discovery.wakuPeerExchange != nil
+        node.discovery.wakuPeerExchange.started == false
 
   suite "fetchPeerExchangePeers":
     var node2 {.threadvar.}: Kernel
@@ -176,7 +176,7 @@ suite "Waku Peer Exchange":
 
     asyncTest "peer exchange not mounted":
       # Given a node without peer exchange mounted
-      check node.wakuPeerExchange == nil
+      check node.discovery.wakuPeerExchange == nil
       let initialPeers = node.peerManager.switch.peerStore.peers.len
 
       # And a valid peer info
