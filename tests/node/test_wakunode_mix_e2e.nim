@@ -28,7 +28,7 @@ import
   logos_delivery/api/conf/modes,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/[send_service, delivery_task],
-  ../testlib/[wakucore, wakunode, wakunodeconf]
+  ../testlib/[testasync, wakucore, wakunode, wakunodeconf]
 
 const
   NumCore = 4
@@ -212,7 +212,8 @@ suite "Waku Mix - end to end transport":
 
   asyncTest "four mixed sends in flight at once all get their own reply":
     ## Four mixed sends from one node at once each complete on their own reply
-    ## and release their own credentials. The batched send pass relies on this.
+    ## and release their own credentials. The send service relies on this when
+    ## retries and first attempts run at the same time.
     let mixnet = await setupMixNet(23900)
     defer:
       await teardownMixNet(mixnet)
@@ -404,7 +405,12 @@ suite "Waku Mix - end to end transport":
       firstAdmittedTime: Opt.some(Moment.now()), # admitted: no budget, no proof
     )
     let before = hopCounts()
-    await service.send(task)
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    checkUntilTimeout:
+      task.propagatedEventEmitted
     let after = hopCounts()
     check:
       task.state == DeliveryState.SuccessfullyPropagated

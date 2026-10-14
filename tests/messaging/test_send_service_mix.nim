@@ -1,6 +1,6 @@
 {.used.}
 
-import std/sets
+import std/[sequtils, sets]
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
@@ -28,7 +28,7 @@ import
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, send_processor, mix_processor, delivery_task]
-import ../testlib/[testasync, wakucore, wakunodeconf]
+import ../testlib/[futures, testasync, wakucore, wakunodeconf]
 
 ## Tests for the anonymity levels of the send path. The first suite mounts no
 ## mix, so the level decides at once; the second mounts mix and fills the pool
@@ -46,7 +46,7 @@ method sendImpl(self: PlainSendProcessor, task: DeliveryTask): Future[void] {.as
   task.firstPropagatedTime = Opt.some(Moment.now())
 
 type RetryingProcessor = ref object of BaseSendProcessor
-  ## Leaves every task for the next round, with `reason` in `errorDesc`.
+  ## Leaves every task for a retry, with `reason` in `errorDesc`.
   reason: string
 
 method isValidProcessor(self: RetryingProcessor, task: DeliveryTask): bool {.gcsafe.} =
@@ -61,11 +61,11 @@ proc testConf(): WakuConf =
     raiseAssert error
 
 proc buildTask(id: string, admittedAgo: Duration): DeliveryTask =
-  ## An admitted task, so `admitAndProve` skips admission and, with no RLN, does
-  ## not suspend.
+  ## An admitted task with no RLN, so `sendUntilPropagated` does not call
+  ## `admitAndProve`. The id is the payload, so two tasks never have one hash.
   let msg = WakuMessage(
     contentTopic: "/test/1/anonymity/proto",
-    payload: "hi".toBytes(),
+    payload: id.toBytes(),
     timestamp: 1_700_000_000_000_000_000,
   )
   let pubsubTopic = PubsubTopic("/waku/2/rs/3/0")
@@ -150,21 +150,19 @@ suite "SendService - anonymity level":
     let bestEffortService = serviceFor(AnonymityLevel.Preferred)
 
     check:
-      plainService.maxDeliveryTime == MaxTimeInCache
-      mixOnlyService.maxDeliveryTime == MaxTimeInCache
-      bestEffortService.maxDeliveryTime == MaxTimeInCache + MaxTimeInCache
+      plainService.maxDeliveryTime == DeliveryWindow
+      mixOnlyService.maxDeliveryTime == DeliveryWindow
+      bestEffortService.maxDeliveryTime == DeliveryWindow + DeliveryWindow
 
-  asyncTest "a terminal outcome is not emitted before send() yields to its caller":
-    ## The messaging API returns the request id when `send` yields, and a
-    ## `Required` fail-fast needs no other suspension, so the error must come
-    ## after that yield.
-    var errors = 0
+  asyncTest "enqueue emits no event, and the service emits the outcome later":
+    ## A `Required` task that mix cannot attempt fails with no network call.
+    ## `enqueue` makes no attempt, so the error comes once, later.
+    let errors = EventCounter()
     let listener = MessageErrorEvent
       .listen(
         waku.brokerCtx,
         proc(e: MessageErrorEvent) {.async: (raises: []).} =
-          inc errors
-        ,
+          errors.inc(),
       )
       .expect("listen")
     defer:
@@ -178,29 +176,18 @@ suite "SendService - anonymity level":
       .new(false, waku, manager, chain, AnonymityLevel.Required)
       .expect("SendService.new")
 
-    let fut = service.send(buildTask("failfast", chronos.seconds(1)))
-    check errors == 0 # no event before the yield
-    await fut
-    await sleepAsync(chronos.milliseconds(10))
-    check errors == 1 # ... and exactly once after the yield
-
-  asyncTest "a send counts toward the cap before it yields":
-    ## The messaging API checks `isFull()` and then spawns `send`, which runs to
-    ## its first suspension at once. Counting before the yield makes a burst in
-    ## one loop turn fill the cap, so the API rejects the rest itself.
-    let manager =
-      RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let chain = setupSendProcessorChain(waku, AnonymityLevel.Required).expect(
-        "send processor chain"
-      )
-    let service = SendService
-      .new(false, waku, manager, chain, AnonymityLevel.Required, maxTaskCacheSize = 1)
-      .expect("SendService.new")
-    check not service.isFull()
-
-    let fut = service.send(buildTask("first-of-burst", chronos.seconds(1)))
-    check service.isFull() # counted, and still suspended at the yield
-    await fut
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    let task = buildTask("failfast", chronos.seconds(1))
+    check:
+      service.enqueue(task).isOk()
+      errors.value == 0 # no event inside `enqueue`
+    check await errors.waitCount(1).withTimeout(FUTURE_TIMEOUT_MEDIUM)
+    check not await errors.waitCount(2).withTimeout(FUTURE_TIMEOUT_SHORT)
+    check:
+      task.state == DeliveryState.FailedToDeliver
+      errors.value == 1 # ... and exactly one later
 
 suite "SendService - anonymity level with a mounted mix":
   ## Mix is mounted before start, as the node factory does. The tests fill the
@@ -232,9 +219,10 @@ suite "SendService - anonymity level with a mounted mix":
     )
     waku.node.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
 
-  asyncTest "a Required task tries three times while the pool is short, then fails":
+  asyncTest "a Required task waits for a short pool during its grace, then fails":
     ## A short pool is a reason mix cannot attempt the task. A `Required` task
-    ## waits `MixUnusableRetries` more passes, then fails with that reason.
+    ## waits while its admission is within `MixUnusableGrace`, then fails with
+    ## that reason.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60100 + i, lightpush = true)
     check not waku.mixReady()
@@ -242,12 +230,13 @@ suite "SendService - anonymity level with a mounted mix":
     let mix = MixSendProcessor.new(
       waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
-    let task = buildTask("short-pool", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check:
-        task.state == DeliveryState.NextRoundRetry
-        task.errorDesc == MixUnavailableReason # written while it waits
+    let task = buildTask("short-pool", ZeroDuration)
+    await mix.process(task)
+    check:
+      task.state == DeliveryState.NextRoundRetry
+      task.errorDesc == MixUnavailableReason # written while it waits
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       task.state == DeliveryState.FailedToDeliver
@@ -257,9 +246,8 @@ suite "SendService - anonymity level with a mounted mix":
     addMixPeer(60103, lightpush = true)
     check waku.mixReady()
 
-  asyncTest "a Required task starts its tries over once mix can attempt it":
-    ## `heldRounds` counts the passes a task waited; an attempt resets it, so a
-    ## later stretch without mix gets its full `MixUnusableRetries` again.
+  asyncTest "a Required task past its grace is attempted once mix can attempt it":
+    ## The grace bounds only the wait for a mix that cannot attempt the task.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60210 + i, lightpush = true)
     check not waku.mixReady()
@@ -267,21 +255,19 @@ suite "SendService - anonymity level with a mounted mix":
     let mix = MixSendProcessor.new(
       waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
-    let task = buildTask("held-then-usable", chronos.seconds(5))
+    let task = buildTask("held-then-usable", ZeroDuration)
     await mix.process(task)
-    check:
-      task.state == DeliveryState.NextRoundRetry
-      task.heldRounds == 1
+    check task.state == DeliveryState.NextRoundRetry
 
     addMixPeer(60210 + MinMixPoolSize - 1, lightpush = true)
     check waku.mixReady()
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     let fut = mix.process(task)
-    check:
-      task.tryCount == 1 # mix attempts it
-      task.heldRounds == 0 # ... and the count starts over
+    check task.tryCount == 1 # mix attempts it
     await fut.cancelAndWait()
 
-  asyncTest "a Required task tries three times with no exit on the shard, then fails":
+  asyncTest "a Required task waits with no exit on the shard during its grace, then fails":
     ## A full pool with no lightpush member on the shard has no exit, as in a
     ## seeded pool before identify and waku-metadata fill its books.
     for i in 0 ..< MinMixPoolSize:
@@ -296,10 +282,11 @@ suite "SendService - anonymity level with a mounted mix":
     )
     mix.chain(plain)
 
-    let task = buildTask("no-exit", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check task.state == DeliveryState.NextRoundRetry
+    let task = buildTask("no-exit", ZeroDuration)
+    await mix.process(task)
+    check task.state == DeliveryState.NextRoundRetry
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       plain.calls == 0
@@ -362,9 +349,9 @@ suite "SendService - anonymity level with a mounted mix":
       mix.fellBackFor() == MixUnusable.None # ... and the recovery was logged
     await fut.cancelAndWait()
 
-  asyncTest "the delivery reaper reports the reason a processor left on the task":
-    ## A processor that leaves a task for the next round can write why in
-    ## `errorDesc`; the reaper reports it instead of the generic timeout text.
+  asyncTest "an expired task reports the reason a processor left on it":
+    ## A processor that leaves a task for a retry can write why in `errorDesc`.
+    ## The error event of the expired task gives it in place of the generic text.
     var errors: seq[MessageErrorEvent]
     let listener = MessageErrorEvent
       .listen(
@@ -382,15 +369,18 @@ suite "SendService - anonymity level with a mounted mix":
       .new(false, waku, manager, RetryingProcessor(reason: "scripted reason"))
       .expect("SendService.new")
 
-    # Past its delivery window, so the send's own report reaps it.
-    let task = buildTask("reaper", MaxTimeInCache + chronos.seconds(1))
-    await service.send(task)
-    await sleepAsync(chronos.milliseconds(10))
+    # Past its delivery window, so the end of its first attempt fails it.
+    let task = buildTask("reaper", DeliveryWindow + chronos.seconds(1))
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    checkUntilTimeout:
+      errors.len == 1
     check:
       task.state == DeliveryState.FailedToDeliver
-      errors.len == 1
-      errors[0].requestId == task.requestId
-      errors[0].error == "scripted reason"
+      errors.mapIt(it.requestId) == @[task.requestId]
+      errors.mapIt(it.error) == @["scripted reason"]
 
   asyncTest "a Preferred task falls back to the plain path once the window elapsed":
     ## The window ends the mix phase of a task that mix did not deliver. Only a
@@ -451,7 +441,7 @@ suite "SendService - anonymity level with a mounted mix":
   asyncTest "an RLN rejection fails the task when no backend can refresh":
     ## No RLN backend is mounted, so no refresh follows and a retry would be
     ## rejected the same way. The task fails with the rejection instead of
-    ## waiting for the next round.
+    ## waiting for a retry.
     let task = buildTask("rln-no-refresh", chronos.minutes(2))
     task.msg.proof = @[1'u8, 2, 3] # a proof the service would have rejected
 
@@ -489,7 +479,7 @@ suite "SendService - anonymity level with a mounted mix":
       plain.calls == 1
       spent.state == DeliveryState.SuccessfullyPropagated
 
-  asyncTest "a Required task tries three times when mix cannot encode its own hop, then fails":
+  asyncTest "a Required task waits during its grace when mix cannot encode its own hop, then fails":
     ## The pool is usable and the self hop is not, so no reply path can be built.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60160 + i, lightpush = true)
@@ -508,10 +498,11 @@ suite "SendService - anonymity level with a mounted mix":
     )
     mix.chain(plain)
 
-    let task = buildTask("self-hop", chronos.seconds(5))
-    for _ in 0 ..< MixUnusableRetries:
-      await mix.process(task)
-      check task.state == DeliveryState.NextRoundRetry
+    let task = buildTask("self-hop", ZeroDuration)
+    await mix.process(task)
+    check task.state == DeliveryState.NextRoundRetry
+    task.firstAdmittedTime =
+      Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     await mix.process(task)
     check:
       plain.calls == 0
@@ -787,7 +778,7 @@ suite "Mix send path - the reply budget":
 
     if not publishFut.finished():
       publishFut.cancelSoon()
-      raiseAssert "publishOverMix did not return, so the send service loop would stop"
+      raiseAssert "publishOverMix did not return, so its send would never end"
     return await publishFut
 
   asyncTest "a dropped reply is given up on instead of waited on forever":

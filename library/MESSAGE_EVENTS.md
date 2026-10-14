@@ -7,7 +7,7 @@ The liblogosdelivery library emits four types of message delivery events and one
 ## Event Types
 
 ### 1. message_sent
-Emitted when a message is successfully accepted by the send service and queued for delivery.
+Emitted when the node confirms the delivery of a message that is not ephemeral, with the `reliability` option on. For a normal send, a store node confirms the delivery. For a send over mix, the reply of the mix exit confirms it. For an ephemeral message, or with the `reliability` option off, `message_sent` does not come, and a successful send ends at `message_propagated`.
 
 **JSON Structure:**
 ```json
@@ -41,7 +41,7 @@ Emitted when a message has been successfully propagated to neighboring nodes on 
 - `messageHash`: Hash of the message that was propagated
 
 ### 3. message_error
-Emitted when a send fails: rejected, retry window elapsed, parked too long, send queue full, ephemeral dropped near the rate limit, or store validation timed out.
+Emitted when a send fails: rejected, retry window elapsed, parked too long, ephemeral dropped near the rate limit, or store validation timed out.
 
 **JSON Structure:**
 ```json
@@ -164,14 +164,21 @@ logosdelivery_ctx_start_node(ctx, on_reply, userData);
 For a typical successful message send:
 
 1. **send** → Returns request ID
-2. **message_sent** → Message accepted and queued
-3. **message_propagated** → Message delivered to peers
+2. **message_propagated** → Message delivered to peers
+3. **message_sent** → A store node or the mix exit confirms the message (only with the `reliability` option on)
 
 For a failed message send:
 
 1. **send** → Returns request ID
-2. **message_sent** → Message accepted and queued
-3. **message_error** → Delivery failed with error description
+2. **message_error** → Delivery failed with error description
+
+For a send that no store node confirms (only with the `reliability` option on):
+
+1. **send** → Returns request ID
+2. **message_propagated** → Message delivered to peers
+3. **message_error** → No store node confirmed the message within the validation window
+
+The `on_reply` callback of `logosdelivery_ctx_send` gets the request ID before the event thread gets an event of that request. When the send queue is full, `logosdelivery_ctx_send` returns an error and no request ID. A send of a message that the send queue already has gets the request ID of the queued send.
 
 ## Important Notes
 

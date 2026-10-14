@@ -16,7 +16,7 @@ import
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, send_processor, delivery_task],
   logos_delivery/api/events/messaging_client_events
-import ../testlib/[testasync, wakunodeconf, wakucore, wakunode]
+import ../testlib/[futures, testasync, wakunodeconf, wakucore, wakunode]
 import ../waku_store/store_utils
 
 ## Store-based reliability asks a store node for a propagated message's hash, in
@@ -111,7 +111,7 @@ suite "SendService - store validation and mix":
 type ScriptedProc = ref object of BaseSendProcessor
   overMix: bool
   calls: int
-  retryCalls: seq[int] ## Calls, counted from 1, that leave the task for the next round.
+  retryCalls: seq[int] ## Calls, counted from 1, that leave the task for a retry.
 
 method process(self: ScriptedProc, task: DeliveryTask): Future[void] {.async.} =
   inc self.calls
@@ -120,19 +120,27 @@ method process(self: ScriptedProc, task: DeliveryTask): Future[void] {.async.} =
     return
   task.state = DeliveryState.SuccessfullyPropagated
   task.propagatedAnonymously = self.overMix
-  task.deliveryTime = Moment.now()
   if task.firstPropagatedTime.isNone():
     task.firstPropagatedTime = Opt.some(Moment.now())
 
 const FastLoop = chronos.milliseconds(10)
   ## The loop interval of a test service. It keeps each wait for a loop short.
 
-proc reliableService(waku: Waku, processor: ScriptedProc): SendService =
+proc reliableService(
+    waku: Waku, processor: BaseSendProcessor, maxValidationAge = DeliveryWindow
+): SendService =
   ## A service with Store-based reliability on and fast loops.
   let manager =
     RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
   return SendService
-    .new(true, waku, manager, processor, serviceLoopInterval = FastLoop)
+    .new(
+      true,
+      waku,
+      manager,
+      processor,
+      maxValidationAge = maxValidationAge,
+      retryInterval = FastLoop,
+    )
     .expect("SendService.new")
 
 type SendEvent {.pure.} = enum
@@ -198,53 +206,19 @@ suite "SendService - mix completion":
   asyncTeardown:
     discard await waku.stop()
 
-  asyncTest "a mixed send that follows a prior plain propagation still emits MessageSent":
-    ## A task that emitted `MessagePropagated` on a plain attempt still emits
-    ## `MessageSent` when a mix retry succeeds.
-    var sent = 0
-    let listener = MessageSentEvent
+  proc countSent(counter: EventCounter): MessageSentEventListener =
+    return MessageSentEvent
       .listen(
         waku.brokerCtx,
         proc(e: MessageSentEvent) {.async: (raises: []).} =
-          inc sent
-        ,
+          counter.inc(),
       )
       .expect("listen")
-    defer:
-      await MessageSentEvent.dropListener(waku.brokerCtx, listener)
-    let manager =
-      RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let scripted = ScriptedProc(overMix: false) # first attempt: plain
-    let service = SendService
-      .new(true, waku, manager, scripted, AnonymityLevel.Preferred)
-      .expect("SendService.new")
-    let task = newTask("plain-then-mix")
-    await service.send(task)
-    await sleepAsync(chronos.milliseconds(10))
-    check task.propagateEventEmitted # plain propagation reported
-    check sent == 0 # ... but not a mixed completion
-    # then a mix retry of the same task succeeds
-    task.state = DeliveryState.NextRoundRetry
-    scripted.overMix = true
-    await service.trySendMessages()
-    service.startSendService()
-    await sleepAsync(chronos.milliseconds(20))
-    await service.stopSendService()
-    check sent == 1 # MessageSent must still fire
 
-  asyncTest "a mixed send reports MessageSent once, though it is reported twice":
-    ## `send()` reports the task and caches it, and the next pass reports it again
-    ## before it drops it. With reliability on, `sentEventEmitted` keeps
-    ## `MessageSent` to one event.
-    var sent = 0
-    let listener = MessageSentEvent
-      .listen(
-        waku.brokerCtx,
-        proc(e: MessageSentEvent) {.async: (raises: []).} =
-          inc sent
-        ,
-      )
-      .expect("listen")
+  asyncTest "a mixed send reports MessageSent once":
+    ## With reliability on, the exit's reply completes the send.
+    let sent = EventCounter()
+    let listener = countSent(sent)
     defer:
       await MessageSentEvent.dropListener(waku.brokerCtx, listener)
     let manager =
@@ -254,27 +228,18 @@ suite "SendService - mix completion":
       .expect("SendService.new") # reliability = on
     let task = newTask("mixed-once")
 
-    await service.send(task)
-    await sleepAsync(chronos.milliseconds(10))
-    check sent == 1 # reported by send()
-
+    check service.enqueue(task).isOk()
     service.startSendService()
-    await sleepAsync(chronos.milliseconds(50))
-    await service.stopSendService()
-    check sent == 1 # ... and not again by the pass that drops it
+    defer:
+      await service.stopSendService()
+    check await sent.waitCount(1).withTimeout(FUTURE_TIMEOUT_MEDIUM)
+    check not await sent.waitCount(2).withTimeout(FUTURE_TIMEOUT_SHORT)
 
   asyncTest "reliability off: a mixed send ends the same as a plain one (no MessageSent)":
     ## With store reliability off, a plain and a mixed send both end at
     ## `MessagePropagated`.
-    var sent = 0
-    let listener = MessageSentEvent
-      .listen(
-        waku.brokerCtx,
-        proc(e: MessageSentEvent) {.async: (raises: []).} =
-          inc sent
-        ,
-      )
-      .expect("listen")
+    let sent = EventCounter()
+    let listener = countSent(sent)
     defer:
       await MessageSentEvent.dropListener(waku.brokerCtx, listener)
     let manager =
@@ -283,11 +248,67 @@ suite "SendService - mix completion":
       .new(false, waku, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred)
       .expect("SendService.new") # reliability = false
     let task = newTask("mixed-no-reliability")
-    await service.send(task)
+    check service.enqueue(task).isOk()
     service.startSendService()
-    await sleepAsync(chronos.milliseconds(20))
+    defer:
+      await service.stopSendService()
+    checkUntilTimeout:
+      task.propagatedEventEmitted
+    check not await sent.waitCount(1).withTimeout(FUTURE_TIMEOUT_SHORT)
+
+suite "SendService - Store validation window":
+  var waku {.threadvar.}: Waku
+  var log {.threadvar.}: SendEventLog
+
+  asyncSetup:
+    waku = (await Waku.new(testConf())).expect("Waku.new")
+    log = newSendEventLog(waku.brokerCtx)
+
+  asyncTeardown:
+    await log.teardown()
+    discard await waku.stop()
+
+  asyncTest "the time while the service is stopped does not count against the window":
+    ## The task propagates, then the service stops for longer than the window.
+    ## After the restart the task still waits for its Store confirmation.
+    let window = chronos.milliseconds(500)
+    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let task = newTask("restart")
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    check await log.waitEvent(SendEvent.Propagated, task)
     await service.stopSendService()
-    check sent == 0
+    check:
+      task.storeAnswer.isNil()
+      task.storeValidationWaited < window
+    await sleepAsync(window * 2)
+
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check not await log.waitEvent(SendEvent.Failed, task, chronos.milliseconds(100))
+    checkUntilTimeout:
+      not task.storeAnswer.isNil()
+    task.storeAnswer.complete()
+    check await log.waitEvent(SendEvent.Sent, task)
+    check:
+      task.state == DeliveryState.SuccessfullyValidated
+      log.ids[SendEvent.Failed].len == 0
+
+  asyncTest "the waits of a task add up to the window":
+    ## A task that already waited most of the window fails soon after a restart.
+    let window = chronos.milliseconds(500)
+    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let task = newTask("adds-up")
+    task.storeValidationWaited = window - chronos.milliseconds(50)
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check await log.waitEvent(SendEvent.Failed, task)
+    check:
+      task.state == DeliveryState.FailedToDeliver
+      task.storeValidationWaited >= window
 
 suite "SendService - Store validation batches":
   var waku {.threadvar.}: Waku
@@ -335,22 +356,22 @@ suite "SendService - Store validation batches":
     check service.nextStoreValidationBatch(@[young, mixed, plain], now) == @[plain]
 
 suite "SendService - Store validation loop":
-  ## The Store node answers only after `gate` completes, with the hashes listed in
+  ## The Store node answers only after `allowAnswer` completes, with the hashes listed in
   ## `storedHashes`. It mounts metadata so the peer manager accepts its cluster.
   var waku {.threadvar.}: Waku
   var storeNode {.threadvar.}: WakuNode
-  var gate {.threadvar.}: Future[void]
+  var allowAnswer {.threadvar.}: Future[void]
   var queryStarted {.threadvar.}: Future[void]
   var answered {.threadvar.}: AsyncEvent
   var storedHashes {.threadvar.}: seq[WakuMessageHash]
   var log {.threadvar.}: SendEventLog
 
-  proc gatedStoreHandler(
+  proc delayedStoreHandler(
       req: StoreQueryRequest
   ): Future[StoreQueryResult] {.async, gcsafe.} =
     if not queryStarted.finished():
       queryStarted.complete()
-    await gate
+    await allowAnswer
     var resp = StoreQueryResponse(
       requestId: req.requestId, statusCode: uint32(StatusCode.SUCCESS)
     )
@@ -364,7 +385,7 @@ suite "SendService - Store validation loop":
     waku = (await Waku.new(testConf())).expect("Waku.new")
     (await waku.start()).isOkOr:
       raiseAssert "waku.start: " & error
-    gate = newFuture[void]("store gate")
+    allowAnswer = newFuture[void]("allow-answer")
     queryStarted = newFuture[void]("query started")
     answered = newAsyncEvent()
     storedHashes = @[]
@@ -372,20 +393,20 @@ suite "SendService - Store validation loop":
     storeNode = newTestWakuNode(generateSecp256k1Key())
     storeNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
       raiseAssert "mountMetadata: " & error
-    discard await newTestWakuStore(storeNode.switch, gatedStoreHandler)
+    discard await newTestWakuStore(storeNode.switch, delayedStoreHandler)
     await storeNode.start()
     waku.node.peerManager.addServicePeer(
       storeNode.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
   asyncTeardown:
-    if not gate.finished():
-      gate.complete()
+    if not allowAnswer.finished():
+      allowAnswer.complete()
     await log.teardown()
     await storeNode.stop()
     discard await waku.stop()
 
-  proc startedService(processor = ScriptedProc()): SendService =
+  proc startedService(processor: BaseSendProcessor = ScriptedProc()): SendService =
     let service = reliableService(waku, processor)
     service.startSendService()
     return service
@@ -393,16 +414,19 @@ suite "SendService - Store validation loop":
   proc sendAged(
       service: SendService, id: string, stored = true
   ): Future[DeliveryTask] {.async.} =
-    ## Sends a task and makes it old enough for the next Store query. Unless
-    ## `stored` is false, the Store lists its hash.
+    ## Sends a task, waits for the report of its propagation, and makes it old
+    ## enough for the next Store query. Unless `stored` is false, the Store lists
+    ## its hash.
     let task = newTask(id)
-    await service.send(task)
+    check:
+      service.enqueue(task).isOk()
+      await log.waitEvent(SendEvent.Propagated, task)
     if stored:
       storedHashes.add(task.msgHash)
     task.firstPropagatedTime = Opt.some(Moment.now() - chronos.seconds(10))
     return task
 
-  asyncTest "a slow Store does not delay the send loop":
+  asyncTest "a slow Store query does not delay a retry":
     ## A's Store query stays pending while B's failed send is retried.
     let processor = ScriptedProc(retryCalls: @[2])
     let service = startedService(processor)
@@ -415,39 +439,37 @@ suite "SendService - Store validation loop":
       await queryStarted.withTimeout(chronos.seconds(5))
 
     let taskB = newTask("slow-store-b")
-    await service.send(taskB)
     check:
-      taskB.state == DeliveryState.NextRoundRetry
+      service.enqueue(taskB).isOk()
       await log.waitEvent(SendEvent.Propagated, taskB)
       waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
       processor.calls == 3
 
-    gate.complete()
+    allowAnswer.complete()
     check:
       await log.waitEvent(SendEvent.Sent, taskA)
       taskA.state == DeliveryState.SuccessfullyValidated
 
-  asyncTest "an answer for a task that cleanup already failed is ignored":
-    ## A's confirmation arrives after the send loop failed A and removed it.
-    let service = startedService()
+  asyncTest "an answer for a task whose validation window ended is ignored":
+    ## A's confirmation arrives after its validation window ended and the service
+    ## failed A.
+    let service = reliableService(waku, ScriptedProc(), chronos.seconds(2))
+    service.startSendService()
     defer:
       await service.stopSendService()
 
     let taskA = await service.sendAged("expire-in-flight")
     check await queryStarted.withTimeout(chronos.seconds(5))
-
-    # Make A old enough for the next cleanup pass to fail it.
-    taskA.firstPropagatedTime =
-      Opt.some(Moment.now() - MaxTimeInCache - chronos.seconds(1))
     check await log.waitEvent(SendEvent.Failed, taskA)
 
     # C's confirmation comes from a later query, so A's answer was handled first.
-    gate.complete()
+    allowAnswer.complete()
     check await answered.wait().withTimeout(chronos.seconds(5))
     let taskC = await service.sendAged("confirmed-after")
     check:
       await log.waitEvent(SendEvent.Sent, taskC)
       taskA.state == DeliveryState.FailedToDeliver
+      taskA.requestId notin log.ids[SendEvent.Sent]
 
   asyncTest "stopping the service ends a pending Store query":
     let service = startedService()
@@ -459,12 +481,30 @@ suite "SendService - Store validation loop":
       await stopping.join().withTimeout(chronos.seconds(3))
       not waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
 
+  asyncTest "a restart during the Store wait sends nothing again, and the Store confirms the send":
+    let processor = ScriptedProc()
+    let service = startedService(processor)
+    let task = await service.sendAged("restart-in-store-wait")
+    check await queryStarted.withTimeout(chronos.seconds(5))
+
+    await service.stopSendService()
+    # Old enough for the first Store query after the restart.
+    task.lastStoreQueryTime = Opt.some(Moment.now() - chronos.seconds(10))
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    allowAnswer.complete()
+    check:
+      await log.waitEvent(SendEvent.Sent, task)
+      processor.calls == 1
+      log.ids[SendEvent.Propagated].countIt(it == task.requestId) == 1
+
   asyncTest "a message the Store does not report yet is asked again, never sent again":
     let processor = ScriptedProc()
     let service = startedService(processor)
     defer:
       await service.stopSendService()
-    gate.complete()
+    allowAnswer.complete()
 
     # The first answer does not list the hash.
     let task = await service.sendAged("not-yet-stored", stored = false)

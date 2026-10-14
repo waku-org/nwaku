@@ -32,7 +32,7 @@ type
     onProofRejected*: proc() {.gcsafe, raises: [].}
       ## Called when a publish was rejected as RLN-invalid, so the backend can
       ## refresh whatever the proof was built against. Must not block: callers
-      ## such as the send service loop do not wait for the refresh. Nil for
+      ## such as the send service do not wait for the refresh. Nil for
       ## backends without such a concept.
     validateProof*: proc(
       message: WakuMessage
@@ -90,6 +90,14 @@ proc selectRlnPlugin*(
     selected = Opt.some(descriptor)
   return ok(selected)
 
+func needsProof*(plugin: Opt[RlnPlugin], message: WakuMessage): bool =
+  ## True when the mounted backend makes a proof for `message`.
+  if message.proof.len > 0:
+    return false
+  let backend = plugin.valueOr:
+    return false
+  return not backend.generateProof.isNil()
+
 proc attachProof*(
     plugin: Opt[RlnPlugin], message: WakuMessage
 ): Future[Result[WakuMessage, RlnError]] {.async.} =
@@ -97,16 +105,11 @@ proc attachProof*(
   ## that already has one is returned untouched, so a retry neither redraws a
   ## nonce nor changes the bytes. Without a backend that generates proofs the
   ## message passes through unproven.
-  if message.proof.len > 0:
-    return ok(message)
-
-  let backend = plugin.valueOr:
-    return ok(message)
-  if backend.generateProof.isNil():
+  if not plugin.needsProof(message):
     return ok(message)
 
   var msgWithProof = message
-  msgWithProof.proof = ?(await backend.generateProof(message))
+  msgWithProof.proof = ?(await plugin.get().generateProof(message))
   return ok(msgWithProof)
 
 proc epochQuota*(

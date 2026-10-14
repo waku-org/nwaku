@@ -47,20 +47,18 @@ method sendImpl*(
       # the message is malformed, send error
       task.state = DeliveryState.FailedToDeliver
       task.errorDesc = error.desc.get($error.code)
-      task.deliveryTime = Moment.now()
     return
 
   if numLightpushServers > 0:
     debug "Message propagated via Lightpush",
       requestId = task.requestId, msgHash = task.msgHash.to0xHex()
     task.state = DeliveryState.SuccessfullyPropagated
-    task.deliveryTime = Moment.now()
     if task.firstPropagatedTime.isNone():
       task.firstPropagatedTime = Opt.some(Moment.now())
     # TODO: with a simple retry processor it might be more accurate to say `Sent`
   else:
     # Controversial state, publish says ok but no peer. It should not happen.
-    debug "Lightpush publish returned zero peers, request pushed back for next round",
+    debug "Lightpush publish returned zero peers, the task waits for a retry",
       requestId = task.requestId
     task.state = DeliveryState.NextRoundRetry
 
