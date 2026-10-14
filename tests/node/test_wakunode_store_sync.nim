@@ -20,10 +20,14 @@ const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
 
-proc newStoreSyncNode(driver: ArchiveDriver): Future[WakuNode] {.async.} =
+proc newStoreSyncNode(
+    driver: ArchiveDriver,
+    retentionPolicies: seq[RetentionPolicy] = @[],
+    storeSyncRelayJitter: uint32 = 0,
+): Future[WakuNode] {.async.} =
   ## A store node whose sync interval is long enough that only the test starts sessions.
   let node = newTestWakuNode(generateSecp256k1Key(), listenIp, listenPort)
-  node.mountArchive(driver).isOkOr:
+  node.mountArchive(driver, retentionPolicies).isOkOr:
     raiseAssert error
   (
     await node.mountStoreSync(
@@ -32,7 +36,7 @@ proc newStoreSyncNode(driver: ArchiveDriver): Future[WakuNode] {.async.} =
       @[],
       storeSyncRange = 3600,
       storeSyncInterval = 300,
-      storeSyncRelayJitter = 0,
+      storeSyncRelayJitter = storeSyncRelayJitter,
     )
   ).isOkOr:
     raiseAssert error
@@ -179,3 +183,35 @@ suite "Waku Store Sync - End to End":
     await node.start()
 
     check node.wakuStoreReconciliation.getEffectiveSyncRange() == 3600.seconds
+
+  asyncTest "A peer with a longer sync range does not push messages older than the node's window":
+    # Given a node whose window is [now - 1800 s, now - 20 s], and a peer with the
+    # default 3600 s range holding a message older than that window and one inside it
+    let
+      oldMsg = fakeWakuMessage(@[byte 0], ts = now() - 2000.seconds.nanos)
+      recentMsg = fakeWakuMessage(@[byte 1], ts = now() - 100.seconds.nanos)
+      oldHash = computeMessageHash(DefaultPubsubTopic, oldMsg)
+      recentHash = computeMessageHash(DefaultPubsubTopic, recentMsg)
+      node = await newStoreSyncNode(
+        newSqliteArchiveDriver(),
+        @[RetentionPolicy(TimeRetentionPolicy.new(1800))],
+        storeSyncRelayJitter = 20,
+      )
+      peer = await newStoreSyncNode(
+        await newArchiveDriverWithMessages(DefaultPubsubTopic, @[oldMsg, recentMsg])
+      )
+    nodes = @[node, peer]
+    await allFutures(nodes.mapIt(it.start()))
+
+    let syncInsertsBefore = insertCount(syncIngress)
+
+    # When the peer starts a session with the node
+    let res = await peer.syncWith(node)
+
+    # Then the node's archive gets the recent message only
+    check res.isOk()
+    checkUntilTimeout:
+      await node.wakuArchive.holdsMessages(@[recentHash])
+    check:
+      not await node.wakuArchive.holdsMessages(@[oldHash])
+      insertCount(syncIngress) == syncInsertsBefore + 1

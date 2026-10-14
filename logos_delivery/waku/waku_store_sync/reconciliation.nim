@@ -109,7 +109,9 @@ proc messageIngress*(
     error "failed to insert new message",
       msg_hash = byteutils.toHex(id.hash), error = $error
 
-proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[RangesData] =
+proc preProcessPayload*(
+    self: SyncReconciliation, payload: RangesData, lowerBound: Timestamp
+): Opt[RangesData] =
   ## Check the received payload for topics and/or time mismatch.
 
   var payload = payload
@@ -136,18 +138,19 @@ proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[Range
   elif self.contentTopics.len > 0:
     payload.contentTopics = self.contentTopics.toSeq()
 
-  let timeRange = calculateTimeRange(self.clock(), self.relayJitter, self.syncRange)
-  let selfLowerBound = timeRange.a
-
   # for non skip ranges check if they happen before any of our ranges
-  # convert to skip range before processing
+  # convert to skip range before processing.
+  # The range that crosses our lower bound is split into a skip part and the
+  # part we process, which keeps the peer's fingerprint or item set. That
+  # fingerprint also covers the peer's elements before our bound, so a
+  # mismatch there costs one more round trip, never a false match.
   for i in 0 ..< payload.ranges.len:
     let rangeType = payload.ranges[i][1]
     if rangeType == RangeType.Skip:
       continue
 
     let upperBound = payload.ranges[i][0].b.time
-    if selfLowerBound > upperBound:
+    if lowerBound > upperBound:
       payload.ranges[i][1] = RangeType.Skip
 
       if rangeType == RangeType.Fingerprint:
@@ -155,6 +158,15 @@ proc preProcessPayload(self: SyncReconciliation, payload: RangesData): Opt[Range
       elif rangeType == RangeType.ItemSet:
         payload.itemSets.delete(0)
     else:
+      let bounds = payload.ranges[i][0]
+      if bounds.a.time < lowerBound:
+        let split = SyncID(time: lowerBound, hash: EmptyFingerprint)
+        payload.ranges[i] = (split .. bounds.b, rangeType)
+        payload.ranges.insert((bounds.a .. split, RangeType.Skip), i)
+
+        if rangeType == RangeType.ItemSet:
+          payload.itemSets[0].elements.keepItIf(not (it < split))
+
       break
 
   return Opt.some(payload)
@@ -168,6 +180,10 @@ proc processRequest(
 
   # Signal to transfer protocol that this reconciliation is starting
   await self.localWantsTx.addLast(conn.peerId)
+
+  # Fixed for the session, so that a range the peer sends back in a later
+  # round never crosses a bound that moved by the round-trip time.
+  let lowerBound = calculateTimeRange(self.clock(), self.relayJitter, self.syncRange).a
 
   while true:
     let readRes = catch:
@@ -201,7 +217,7 @@ proc processRequest(
       sendPayload: RangesData
       rawPayload: seq[byte]
 
-    let preProcessedPayloadRes = self.preProcessPayload(recvPayload)
+    let preProcessedPayloadRes = self.preProcessPayload(recvPayload, lowerBound)
     if preProcessedPayloadRes.isSome():
       let preProcessedPayload = preProcessedPayloadRes.get()
 
