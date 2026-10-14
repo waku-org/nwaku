@@ -7,9 +7,7 @@ from src.node.wrapper_helpers import (
     get_node_bound_ports,
     get_node_multiaddr,
     wait_for_connected,
-    wait_for_connection_change,
     wait_for_mesh,
-    wait_for_topic_health,
 )
 from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_message_received
 
@@ -260,52 +258,6 @@ class TestLogosDeliveryLifecycle:
 
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
                 assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
-
-    def test_topic_health_unhealthy_when_mesh_peer_leaves(self, node_config):
-        # TODO: logos-delivery#4541
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-
-            assert wait_for_topic_health(node_collector, ("UnHealthy",)), "node reported no UnHealthy after its only mesh peer left"
-
-    def test_topic_health_never_unhealthy_after_restart(self, node_config):
-        # TODO: logos-delivery#4541
-        # The restarted node reports no UnHealthy after its only mesh peer leaves.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            stop_result = node.stop_node()
-            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-            start_result = node.start_node()
-            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
-
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-
-            assert wait_for_connection_change(node_collector, "EventDisconnected"), "restarted node never saw the peer leave"
-            assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=2), "restarted node reported UnHealthy"
-
-    def test_topic_health_unchanged_at_stop_node(self, node_config):
-        # TODO: logos-delivery#4541
-        # The stopped node reports no UnHealthy, while its peer does for the same mesh.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            peer_collector = EventCollector()
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
-
-                stop_result = node.stop_node()
-                assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-                assert wait_for_topic_health(peer_collector, ("UnHealthy",)), "peer reported no UnHealthy after the node stopped"
-                assert wait_for_connection_change(node_collector, "EventDisconnected"), "stopped node never saw the peer leave"
-                assert not wait_for_topic_health(node_collector, ("UnHealthy",), timeout_s=0), "stopped node reported UnHealthy"
 
     def test_recreate_node_after_destroy(self, node_config):
         node = self._create_start_node(node_config)

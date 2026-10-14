@@ -134,49 +134,22 @@ def wait_for_connected(
     return None
 
 
-def wait_for_connection_change(
-    collector: EventCollector,
-    peer_event: str,
-    timeout_s: float = 10.0,
-    poll_interval_s: float = 0.3,
-) -> Optional[dict]:
-    """Wait until a connection_change event with `peer_event` arrives."""
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
-        for event in collector.snapshot():
-            if event.get("eventType") == "connection_change" and event.get("peerEvent") == peer_event:
-                return event
-        time.sleep(poll_interval_s)
-    return None
-
-
-def wait_for_topic_health(
-    collector: EventCollector,
-    topic_healths: tuple[str, ...],
-    timeout_s: float = 10.0,
-    poll_interval_s: float = 0.3,
-) -> bool:
-    """Wait until the node's latest relay_topic_health_change for a shard is one of `topic_healths`."""
-    deadline = time.monotonic() + timeout_s
-    while True:
-        latest_health = {}
-        for event in collector.snapshot():
-            if event.get("eventType") == EVENT_TOPIC_HEALTH_CHANGE:
-                latest_health[event.get("pubsubTopic")] = event.get("topicHealth")
-        if any(health in topic_healths for health in latest_health.values()):
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(poll_interval_s)
-
-
 def wait_for_mesh(
     collector: EventCollector,
     timeout_s: float = 10.0,
     poll_interval_s: float = 0.3,
 ) -> bool:
     """Wait until the node's latest relay_topic_health_change for a shard says its mesh has a peer."""
-    return wait_for_topic_health(collector, MESH_TOPIC_HEALTH, timeout_s, poll_interval_s)
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        latest_health = {}
+        for event in collector.snapshot():
+            if event.get("eventType") == EVENT_TOPIC_HEALTH_CHANGE:
+                latest_health[event.get("pubsubTopic")] = event.get("topicHealth")
+        if any(health in MESH_TOPIC_HEALTH for health in latest_health.values()):
+            return True
+        time.sleep(poll_interval_s)
+    return False
 
 
 TERMINAL_EVENT_TYPES = {EVENT_PROPAGATED, EVENT_SENT, EVENT_ERROR}

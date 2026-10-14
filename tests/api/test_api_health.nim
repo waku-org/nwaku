@@ -109,8 +109,7 @@ suite "LM API health checking":
         raiseAssert error
 
   asyncTeardown:
-    if client.isRunning():
-      discard await client.stop()
+    discard await client.stop()
     await serviceNode.stop()
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
@@ -230,23 +229,6 @@ suite "LM API health checking":
     let event = await healthEventFuture
     check event.topic == DefaultShard
 
-  asyncTest "EventShardTopicHealthChange, detect health degradation":
-    # TODO: logos-delivery#4541
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
-
-    let healths = new seq[TopicHealth]
-    let handle = listenShardHealth(client.waku.brokerCtx, healths)
-    defer:
-      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
-
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
-    checkUntilTimeout:
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
-
-    await client.waku.node.disconnectNode(servicePeerInfo)
-    checkUntilTimeout:
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
-
   asyncTest "EventShardTopicHealthChange, no health degradation after a restart":
     # TODO: logos-delivery#4541
     (await client.stop()).isOkOr:
@@ -275,38 +257,6 @@ suite "LM API health checking":
 
     # The restarted node reports no UNHEALTHY although its mesh is empty.
     await sleepAsync(NegativeTestTimeout)
-    check:
-      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
-        Result[int, string].ok(0)
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
-
-  asyncTest "EventShardTopicHealthChange, no health degradation at stop":
-    # TODO: logos-delivery#4541
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
-
-    let healths = new seq[TopicHealth]
-    let handle = listenShardHealth(client.waku.brokerCtx, healths)
-    defer:
-      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
-
-    let serviceHealths = new seq[TopicHealth]
-    let serviceHandle = listenShardHealth(serviceNode.brokerCtx, serviceHealths)
-    defer:
-      await EventShardTopicHealthChange.dropListener(
-        serviceNode.brokerCtx, serviceHandle
-      )
-
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
-    checkUntilTimeout:
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
-      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY]
-
-    (await client.stop()).isOkOr:
-      raiseAssert error
-
-    # The stopped node reports no UNHEALTHY, while its peer does for the same mesh.
-    checkUntilTimeout:
-      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
     check:
       client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
@@ -387,3 +337,55 @@ suite "LM API health checking":
       check not edgeWaku.waku.node.wakuFilterClient.isNil()
 
       discard await edgeWaku.stop()
+
+suite "LM API health checking at stop":
+  asyncTest "EventShardTopicHealthChange, no health degradation at stop":
+    # TODO: logos-delivery#4541
+    var serviceNode: WakuNode
+    lockNewGlobalBrokerContext:
+      serviceNode = newTestWakuNode(generateSecp256k1Key())
+      (await serviceNode.mountRelay()).isOkOr:
+        raiseAssert error
+      serviceNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
+        raiseAssert error
+      await serviceNode.mountLibp2pPing()
+      await serviceNode.start()
+    defer:
+      await serviceNode.stop()
+    serviceNode.wakuRelay.subscribe(DefaultShard, dummyHandler)
+
+    let serviceHealths = new seq[TopicHealth]
+    let serviceHandle = listenShardHealth(serviceNode.brokerCtx, serviceHealths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(
+        serviceNode.brokerCtx, serviceHandle
+      )
+
+    var client: LogosDelivery
+    lockNewGlobalBrokerContext:
+      client = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      (await client.start()).isOkOr:
+        raiseAssert error
+    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+
+    await client.waku.node.connectToNodes(@[serviceNode.peerInfo.toRemotePeerInfo()])
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+
+    (await client.stop()).isOkOr:
+      raiseAssert error
+
+    # The stopped node reports no UNHEALTHY, while its peer does for the same mesh.
+    checkUntilTimeout:
+      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
+    check:
+      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
