@@ -214,7 +214,7 @@ proc publish(c: Chat, line: string) {.async.} =
       c.rln.lastEpoch = proof.epoch
 
     try:
-      if not c.node.wakuLegacyLightPush.isNil():
+      if not c.node.protocols.wakuLegacyLightPush.isNil():
         # Attempt lightpush
         (await c.node.legacyLightpushPublish(Opt.some(DefaultPubsubTopic), message)).isOkOr:
           error "failed to publish lightpush message", error = error

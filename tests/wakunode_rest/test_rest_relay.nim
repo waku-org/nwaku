@@ -51,7 +51,7 @@ proc rejectFirstMessageAsRlnInvalid(node: WakuNode) =
   ## Registers a relay validator that rejects the first message it sees with
   ## the RLN validator's error marker, then accepts everything.
   var rejected = false
-  node.wakuRelay.addValidator(
+  node.protocols.wakuRelay.addValidator(
     proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
     ): Future[pubsub.ValidationResult] {.async.} =
@@ -165,7 +165,7 @@ suite "Waku v2 Rest API - Relay":
       cache.isPubsubSubscribed($shard2)
 
     check:
-      toSeq(node.wakuRelay.subscribedTopics).len == shards.len
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == shards.len
 
     await restServer.stop()
     await restServer.closeWait()
@@ -224,15 +224,15 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       not cache.isPubsubSubscribed($shard0)
-      not node.wakuRelay.isSubscribed($shard0)
+      not node.protocols.wakuRelay.isSubscribed($shard0)
       not cache.isPubsubSubscribed($shard1)
-      not node.wakuRelay.isSubscribed($shard1)
+      not node.protocols.wakuRelay.isSubscribed($shard1)
       not cache.isPubsubSubscribed($shard2)
-      not node.wakuRelay.isSubscribed($shard2)
+      not node.protocols.wakuRelay.isSubscribed($shard2)
       cache.isPubsubSubscribed($shard3)
-      node.wakuRelay.isSubscribed($shard3)
+      node.protocols.wakuRelay.isSubscribed($shard3)
       not cache.isPubsubSubscribed($shard4)
-      not node.wakuRelay.isSubscribed($shard4)
+      not node.protocols.wakuRelay.isSubscribed($shard4)
 
     await restServer.stop()
     await restServer.closeWait()
@@ -361,7 +361,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to subscribe to pubsub topic"
 
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -408,7 +408,7 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    check node.wakuRelay.subscribedTopics.toSeq().len == 0
+    check node.protocols.wakuRelay.subscribedTopics.toSeq().len == 0
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -516,7 +516,7 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       # Node should be subscribed to all shards
-      node.wakuRelay.subscribedTopics ==
+      node.protocols.wakuRelay.subscribedTopics ==
         @["/waku/2/rs/1/5", "/waku/2/rs/1/7", "/waku/2/rs/1/2"]
 
     await restServer.stop()
@@ -562,7 +562,7 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
-      node.wakuRelay.subscribedTopics.toSeq().len == 1
+      node.protocols.wakuRelay.subscribedTopics.toSeq().len == 1
 
     response = await client.relayDeleteAutoSubscriptionsV1(contentTopics)
 
@@ -578,7 +578,7 @@ suite "Waku v2 Rest API - Relay":
       not cache.isContentSubscribed(contentTopics[2])
       not cache.isContentSubscribed(contentTopics[3])
       cache.isContentSubscribed("/waku/2/default-contentY/proto")
-      node.wakuRelay.subscribedTopics.toSeq().len == 0
+      node.protocols.wakuRelay.subscribedTopics.toSeq().len == 0
 
     # When unsubscribing from a content topic never subscribed
     response = await client.relayDeleteAutoSubscriptionsV1(
@@ -690,7 +690,7 @@ suite "Waku v2 Rest API - Relay":
     let getResponse = await receiverClient.relayGetAutoMessagesV1(presenceTopic)
     check:
       deleteResponse.status == 200
-      not receiver.wakuRelay.isSubscribed(shard)
+      not receiver.protocols.wakuRelay.isSubscribed(shard)
       publishResponse.status == 400
       publishResponse.data ==
         "Failed to publish: publish failed in relay: NoPeersToPublish"
@@ -704,7 +704,7 @@ suite "Waku v2 Rest API - Relay":
       )
     )
     check:
-      receiver.wakuRelay.isSubscribed(otherShard)
+      receiver.protocols.wakuRelay.isSubscribed(otherShard)
       otherAppPublish.status == 200
 
   asyncTest "Subscribing again to a content topic whose shard was dropped answers 200 without rejoining the shard - POST /relay/v1/auto/subscriptions":
@@ -776,7 +776,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       deleteResponse.status == 200
       repostResponse.status == 200
-      not receiver.wakuRelay.isSubscribed(shard)
+      not receiver.protocols.wakuRelay.isSubscribed(shard)
       publishResponse.status == 400
       publishResponse.data ==
         "Failed to publish: publish failed in relay: NoPeersToPublish"
@@ -862,7 +862,7 @@ suite "Waku v2 Rest API - Relay":
     )
     check:
       deleteResponse.status == 200
-      not receiver.wakuRelay.isSubscribed(shard)
+      not receiver.protocols.wakuRelay.isSubscribed(shard)
       publishResponse.status == 400
       publishResponse.data ==
         "Failed to publish: publish failed in relay: NoPeersToPublish"
@@ -1006,7 +1006,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: ContentSub, topic: DefaultContentTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to content topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostAutoMessagesV1(
@@ -1135,7 +1135,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -1207,7 +1207,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostAutoMessagesV1(
@@ -1279,7 +1279,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -1919,7 +1919,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       emptyPost.status == 200
       emptyDelete.status == 200
-      toSeq(node.wakuRelay.subscribedTopics).len == 0
+      toSeq(node.protocols.wakuRelay.subscribedTopics).len == 0
 
     # When subscribing to the same topic twice
     let firstPost = await client.relayPostSubscriptionsV1(@[DefaultPubsubTopic])
@@ -1929,7 +1929,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       firstPost.status == 200
       secondPost.status == 200
-      toSeq(node.wakuRelay.subscribedTopics) == @[DefaultPubsubTopic]
+      toSeq(node.protocols.wakuRelay.subscribedTopics) == @[DefaultPubsubTopic]
 
     # When unsubscribing with an invalid topic in the list
     let invalidTopic = "/test/2/this/is/a/content/topic/1"
@@ -1942,7 +1942,7 @@ suite "Waku v2 Rest API - Relay":
       $invalidDelete.contentType == $MIMETYPE_TEXT
       invalidDelete.data ==
         "Invalid pubsub topic(s): @[\"/test/2/this/is/a/content/topic/1\"]"
-      node.wakuRelay.isSubscribed(DefaultPubsubTopic)
+      node.protocols.wakuRelay.isSubscribed(DefaultPubsubTopic)
       cache.isPubsubSubscribed(DefaultPubsubTopic)
 
     # TODO: logos-delivery#4457
@@ -1953,7 +1953,7 @@ suite "Waku v2 Rest API - Relay":
     # Then it is subscribed although the node is on cluster 0
     check:
       otherClusterPost.status == 200
-      node.wakuRelay.isSubscribed(otherClusterShard)
+      node.protocols.wakuRelay.isSubscribed(otherClusterShard)
       cache.isPubsubSubscribed(otherClusterShard)
 
     # When publishing on that shard
@@ -2004,7 +2004,7 @@ suite "Waku v2 Rest API - Relay":
     let received = await client.waitForRelayMessages(beyondShard, 1)
     check:
       subscribeResponse.status == 200
-      node.wakuRelay.isSubscribed(beyondShard)
+      node.protocols.wakuRelay.isSubscribed(beyondShard)
       publishResponse.status == 200
       received.mapIt(it.payload) == @[message.payload]
 

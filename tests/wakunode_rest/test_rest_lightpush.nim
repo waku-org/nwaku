@@ -162,7 +162,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to relay: " & $error
     check:
-      toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let message: RelayWakuMessage = fakeWakuMessage(
@@ -230,7 +230,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to relay: " & $error
     check:
-      toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let badMessage1: RelayWakuMessage = fakeWakuMessage(
@@ -297,7 +297,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to relay: " & $error
     check:
-      toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
 
     # When
     let pushProc = proc() {.async.} =

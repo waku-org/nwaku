@@ -252,7 +252,7 @@ proc isReady*(rlnEvm: RlnEvm): Future[bool] {.async: (raises: [CancelledError]).
     return false
 
 proc toRlnPlugin*(rlnEvm: RlnEvm): RlnPlugin =
-  ## The node's handle on this backend (`node.rlnPlugin`). The closures
+  ## The node's handle on this backend (`node.protocols.rlnPlugin`). The closures
   ## capture this instance, so each node reaches only its own backend.
   proc stopBackend(): Future[void] {.async.} =
     try:

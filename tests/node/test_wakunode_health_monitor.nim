@@ -422,7 +422,7 @@ suite "Health Monitor - events":
       .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
       .expect("Failed to create MessagingClient")
     ds.start().expect("Failed to start MessagingClient")
-    let subMgr = nodeA.subscriptionManager
+    let subMgr = nodeA.protocols.subscriptionManager
 
     var nodeB: WakuNode
     lockNewGlobalBrokerContext:
@@ -503,7 +503,7 @@ suite "Health Monitor - events":
     await EventShardTopicHealthChange.dropListener(nodeA.brokerCtx, shardHealthLis)
 
     check shardHealthOk == true
-    check nodeA.subscriptionManager.edgeFilterSubStates.len > 0
+    check nodeA.protocols.subscriptionManager.edgeFilterSubStates.len > 0
 
     healthSignal.clear()
     deadline = Moment.now() + TestConnectivityTimeLimit
@@ -803,7 +803,7 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     # Pruning a single mix peer takes the pool below the minimum again.
-    nodeA.peerManager.switch.peerStore.delete(nodeA.wakuMix.nodePool.peerIds()[0])
+    nodeA.peerManager.switch.peerStore.delete(nodeA.protocols.wakuMix.nodePool.peerIds()[0])
     check await waitForStatus(ConnectionStatus.Disconnected)
 
     await monitorA.stopHealthMonitor()

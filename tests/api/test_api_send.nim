@@ -299,7 +299,7 @@ suite "Waku API - Send":
       duplicateCount(relayIngress) >= duplicatesBefore + 2
 
     let stored = (
-      await node.waku.node.wakuArchive.findMessages(
+      await node.waku.node.protocols.wakuArchive.findMessages(
         ArchiveQuery(contentTopics: @[contentTopic])
       )
     ).valueOr:
@@ -474,7 +474,7 @@ suite "Waku API - Send":
       # lightpush peer it is connected to.
       await node.waku.node.connectToNodes(@[lightpushNodePeerInfo])
 
-    check node.waku.node.wakuRelay.isNil()
+    check node.waku.node.protocols.wakuRelay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:
@@ -511,7 +511,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
       # No connectToNodes: the sender has no reachable peer at T0.
 
-    check node.waku.node.wakuRelay.isNil()
+    check node.waku.node.protocols.wakuRelay.isNil()
 
     let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
     defer:

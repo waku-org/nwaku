@@ -154,7 +154,7 @@ proc getRelayShard(node: WakuNode, contentTopic: ContentTopic): PubsubTopic =
 proc waitForMesh(node: WakuNode, shard: PubsubTopic) {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if node.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
+    if node.protocols.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
       return
     await sleepAsync(100.milliseconds)
   raise newException(ValueError, "GossipSub Mesh failed to stabilize on " & shard)
@@ -162,7 +162,7 @@ proc waitForMesh(node: WakuNode, shard: PubsubTopic) {.async.} =
 proc waitForEdgeSubs(w: LogosDelivery, shard: PubsubTopic) {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) > 0:
+    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) > 0:
       return
     await sleepAsync(100.milliseconds)
   raise newException(ValueError, "Edge filter subscription failed on " & shard)
@@ -172,7 +172,7 @@ proc edgePeersReached(
 ): Future[bool] {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) >= n:
+    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) >= n:
       return true
     await sleepAsync(100.milliseconds)
   return false
@@ -182,7 +182,7 @@ proc edgePeersDroppedBelow(
 ): Future[bool] {.async.} =
   let deadline = Moment.now() + EdgeWaitTimeout
   while Moment.now() < deadline:
-    if w.waku.node.subscriptionManager.edgeFilterPeerCount(shard) < n:
+    if w.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) < n:
       return true
     await sleepAsync(100.milliseconds)
   return false
@@ -483,7 +483,7 @@ suite "Messaging API, SubscriptionManager":
 
     # The configured shards do not limit the relay subscription under autosharding.
     check:
-      node.waku.node.wakuRelay.subscribedTopics().toHashSet() == allShards.toHashSet()
+      node.waku.node.protocols.wakuRelay.subscribedTopics().toHashSet() == allShards.toHashSet()
 
   asyncTest "Subscription API, edge node subscribe and receive message":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
@@ -715,7 +715,7 @@ suite "Messaging API, SubscriptionManager":
 
     # Wait for the dead peer to be pruned
     check await edgePeersDroppedBelow(subscriber, shard, 2)
-    check subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) >= 1
+    check subscriber.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) >= 1
 
     # Verify messages still arrive through the surviving filter server (publisher)
     eventManager = newReceiveEventListenerManager(subscriber.waku.brokerCtx, 1)
@@ -826,7 +826,7 @@ suite "Messaging API, SubscriptionManager":
 
     # Wait for 2 confirmed peers (HealthyThreshold). The 3rd is available but not dialed.
     check await edgePeersReached(subscriber, shard, 2)
-    require subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) == 2
+    require subscriber.waku.node.protocols.subscriptionManager.edgeFilterPeerCount(shard) == 2
 
     await subscriber.waku.node.disconnectNode(meshBuddyPeerInfo)
 
@@ -868,7 +868,7 @@ suite "Messaging API, SubscriptionManager":
 
     let shard = net.subscriber.waku.node.getRelayShard(keptTopic)
     let edgePeerId = net.subscriber.waku.node.peerInfo.peerId
-    let subscriptions = net.publisher.wakuFilter.subscriptions
+    let subscriptions = net.publisher.protocols.wakuFilter.subscriptions
 
     checkUntilTimeout:
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)

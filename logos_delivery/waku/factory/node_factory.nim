@@ -176,9 +176,9 @@ proc setupProtocols(
     let mixConf = conf.mixConf.get()
     var protection = Opt.none(SpamProtection)
     if mixConf.mixRlnConfig.isSome():
-      node.wakuMixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
+      node.protocols.wakuMixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
         return err("failed to create Mix RLN adapter: " & error)
-      protection = Opt.some(SpamProtection(node.wakuMixRln))
+      protection = Opt.some(SpamProtection(node.protocols.wakuMixRln))
     (await node.mountMix(conf.clusterId, mixConf.mixKey, mixConf.mixnodes, protection)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
 
@@ -258,7 +258,7 @@ proc setupProtocols(
     info "Auto sharding is disabled"
 
   for shardId in conf.extraListenShards:
-    node.subscriptionManager.extraListenShards.add(
+    node.protocols.subscriptionManager.extraListenShards.add(
       $RelayShard(clusterId: conf.clusterId, shardId: shardId)
     )
 
@@ -307,7 +307,7 @@ proc setupProtocols(
       subscribedProtectedShards.add(shardKey)
       notice "routing only signed traffic",
         protectedShard = shardKey.shard, publicKey = shardKey.key
-    node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
+    node.protocols.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
   if conf.rendezvous:
     await node.mountRendezvous(conf.clusterId, shards)
@@ -428,9 +428,9 @@ proc startNode*(
   # Backend work that needs a running node, such as the external backend's
   # membership check, its first call to the host. The backend handles its own
   # failures, so the node starts regardless; only cancellation stops startup.
-  if node.rlnPlugin.isSome() and not node.rlnPlugin.get().onNodeStarted.isNil():
+  if node.protocols.rlnPlugin.isSome() and not node.protocols.rlnPlugin.get().onNodeStarted.isNil():
     try:
-      await node.rlnPlugin.get().onNodeStarted()
+      await node.protocols.rlnPlugin.get().onNodeStarted()
     except CancelledError:
       return err("cancelled during the RLN backend start hook")
 
@@ -452,8 +452,8 @@ proc startNode*(
   # retrieve px peers and add the to the peer store
   if conf.remotePeerExchangeNode.isSome():
     var desiredOutDegree = DefaultPXNumPeersReq
-    if not node.wakuRelay.isNil() and node.wakuRelay.parameters.d.uint64() > 0:
-      desiredOutDegree = node.wakuRelay.parameters.d.uint64()
+    if not node.protocols.wakuRelay.isNil() and node.protocols.wakuRelay.parameters.d.uint64() > 0:
+      desiredOutDegree = node.protocols.wakuRelay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       debug "error while fetching peers from peer exchange", error = error
 

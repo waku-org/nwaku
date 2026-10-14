@@ -87,7 +87,7 @@ procSuite "Waku Rendezvous":
     check:
       records.len == 1
       records[0].peerId == peerInfo1.peerId
-      #records[0].mixPubKey == $node1.wakuMix.pubKey
+      #records[0].mixPubKey == $node1.protocols.wakuMix.pubKey
 
   asyncTest "Rendezvous advertises configured shards before relay is active":
     ## Given: A node with configured shards but no relay subscriptions yet
@@ -133,7 +133,7 @@ procSuite "Waku Rendezvous":
     ## Then: Rendezvous should be mounted successfully without relay
     check:
       lightClient.wakuRendezvous != nil
-      lightClient.wakuRelay == nil # Verify relay is not mounted
+      lightClient.protocols.wakuRelay == nil # Verify relay is not mounted
 
     # Verify the protocol is working (doesn't fail immediately)
     # advertiseAll requires peers,so we just check the protocol is initialized

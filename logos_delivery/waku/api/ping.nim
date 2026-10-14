@@ -24,7 +24,7 @@ proc pingPeer*(
           await self.node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
         defer:
           await conn.close()
-        let rtt = await self.node.libp2pPing.ping(conn)
+        let rtt = await self.node.protocols.libp2pPing.ping(conn)
         if rtt == 0.nanos:
           return err("could not ping peer: rtt-0")
         return ok(rtt)

@@ -186,7 +186,7 @@ proc setupNetwork(
 
   var meshFormed = false
   for _ in 0 ..< 50:
-    if publisher.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
+    if publisher.protocols.wakuRelay.getNumPeersInMesh(shard).valueOr(0) > 0:
       meshFormed = true
       break
     await sleepAsync(100.milliseconds)
@@ -334,7 +334,7 @@ proc waitForArchived(net: TestNetwork, topic: ContentTopic, count: int) {.async.
     let query = archive_common.ArchiveQuery(
       includeData: false, contentTopics: @[topic], pubsubTopic: Opt.some(TestShard)
     )
-    let res = await net.storeNode.wakuArchive.findMessages(query)
+    let res = await net.storeNode.protocols.wakuArchive.findMessages(query)
     if res.isOk() and res.get().hashes.len >= count:
       return
     await sleepAsync(100.milliseconds)
@@ -372,7 +372,7 @@ proc joinMesh(node: WakuNode, peer: RemotePeerInfo) {.async.} =
   ## the Store dial can connect them before this.
   await node.connectToNodes(@[peer])
   for _ in 0 ..< 100:
-    if node.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) > 0:
+    if node.protocols.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) > 0:
       return
     await sleepAsync(100.milliseconds)
   raiseAssert "the node did not join the relay mesh in time"
@@ -396,14 +396,14 @@ proc archiveInOutage(
   await offline
   let msg =
     WakuMessage(payload: OutagePayload.toBytes(), contentTopic: topic, timestamp: now())
-  await net.storeNode.wakuArchive.handleMessage(TestShard, msg)
+  await net.storeNode.protocols.wakuArchive.handleMessage(TestShard, msg)
   await net.waitForArchived(topic, 2)
   return msg
 
 proc publishLive(net: TestNetwork, topic: ContentTopic, text: string) {.async.} =
   ## A message the subscriber receives live, through the relay mesh. The
   ## publish waits for the mesh of the publisher when it has no peer yet.
-  if net.publisher.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) == 0:
+  if net.publisher.protocols.wakuRelay.getNumPeersInMesh(TestShard).valueOr(0) == 0:
     # The mesh with the store node can drop between phases. Form it again.
     await net.publisher.joinMesh(net.storeNodePeerInfo)
   let msg = WakuMessage(payload: text.toBytes(), contentTopic: topic, timestamp: now())
@@ -885,9 +885,9 @@ suite "Messaging API, Receive Service (backfill)":
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
-    net.subscriber.waku.node.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
+    net.subscriber.waku.node.protocols.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
-    await net.storeNode.wakuFilter.subscriptions.removePeer(
+    await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
       net.subscriber.waku.node.switch.peerInfo.peerId
     )
     await offline

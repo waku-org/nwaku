@@ -18,19 +18,19 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"
 
   try:
-    node.libp2pPing = Ping.new(rng = node.rng)
+    node.protocols.libp2pPing = Ping.new(rng = node.rng)
   except Exception as e:
     error "failed to create ping", error = getCurrentExceptionMsg()
 
   if node.started:
     # Node has started already. Let's start ping too.
     try:
-      await node.libp2pPing.start()
+      await node.protocols.libp2pPing.start()
     except CatchableError:
       error "failed to start libp2pPing", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.libp2pPing)
+    node.switch.mount(node.protocols.libp2pPing)
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
@@ -59,7 +59,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
           debug "Error closing ping connection", peerId = peerId, error = e.msg
 
     # Perform ping
-    let pingDuration = await node.libp2pPing.ping(stream)
+    let pingDuration = await node.protocols.libp2pPing.ping(stream)
 
     trace "Ping successful", peerId = peerId, duration = pingDuration
     return ok()

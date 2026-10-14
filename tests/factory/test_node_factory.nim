@@ -53,10 +53,10 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      node.wakuArchive.isNil()
-      node.wakuStore.isNil()
-      node.wakuFilter.isNil()
-      not node.wakuStoreClient.isNil()
+      node.protocols.wakuArchive.isNil()
+      node.protocols.wakuStore.isNil()
+      node.protocols.wakuFilter.isNil()
+      not node.protocols.wakuStoreClient.isNil()
       not node.wakuRendezvous.isNil()
 
   asynctest "Set up a node with Store enabled":
@@ -70,8 +70,8 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      not node.wakuStore.isNil()
-      not node.wakuArchive.isNil()
+      not node.protocols.wakuStore.isNil()
+      not node.protocols.wakuArchive.isNil()
 
   asynctest "The command line default rate limits reach the mounted protocols":
     # Given the configuration of a binary started without --rate-limit
@@ -84,8 +84,8 @@ suite "Node Factory":
 
     # Then each protocol is mounted with the limit the command line assigns
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
       peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -106,8 +106,8 @@ suite "Node Factory":
 
     # Then only lightpush changes, filter and peer exchange keep their defaults
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
       peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -128,8 +128,8 @@ suite "Node Factory":
 
     # Then every protocol takes the global limit
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
       peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -150,8 +150,8 @@ suite "Node Factory":
 
     # Then filter, lightpush and peer exchange keep their defaults
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
       peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -367,7 +367,7 @@ suite "Node Factory":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await client.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await client.protocols.wakuMetadata.request(conn)).valueOr:
       raiseAssert error
 
     # Then both the ENR and the metadata advertise the content topic's shard
@@ -388,14 +388,14 @@ suite "Node Factory":
       raiseAssert error
     let listenShard = $RelayShard(clusterId: conf.clusterId, shardId: 64)
 
-    check node.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
+    check node.protocols.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
 
-    node.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
+    node.protocols.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
       raiseAssert error
     check:
       PubsubTopic($RelayShard(clusterId: conf.clusterId, shardId: 32)) in
-        node.subscriptionManager.shards
-      PubsubTopic(listenShard) in node.subscriptionManager.shards
+        node.protocols.subscriptionManager.shards
+      PubsubTopic(listenShard) in node.protocols.subscriptionManager.shards
 
   test "Extra listen shards need auto-sharding":
     var confBuilder = defaultTestWakuConfBuilder()
@@ -453,7 +453,7 @@ asynctest "Set up a node with Filter enabled":
 
   check:
     not node.isNil()
-    not node.wakuFilter.isNil()
+    not node.protocols.wakuFilter.isNil()
   echo "TEST END"
 
 asynctest "Start a node based on default test configuration":

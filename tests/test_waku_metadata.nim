@@ -50,8 +50,8 @@ procSuite "Waku Metadata Protocol":
     ): Future[void] {.async.} =
       discard
 
-    node1.wakuRelay.subscribe("/waku/2/rs/10/7", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/10/6", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/7", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/6", noOpHandler)
 
     # Create connection
     let connOpt = await node2.peerManager.dialPeer(
@@ -61,7 +61,7 @@ procSuite "Waku Metadata Protocol":
       connOpt.isSome()
 
     # Request metadata
-    let response1 = await node2.wakuMetadata.request(connOpt.get())
+    let response1 = await node2.protocols.wakuMetadata.request(connOpt.get())
 
     # Check the response or dont even continue
     require:
@@ -99,7 +99,7 @@ procSuite "Waku Metadata Protocol":
     require:
       connOpt.isSome
 
-    let response = await node2.wakuMetadata.request(connOpt.get())
+    let response = await node2.protocols.wakuMetadata.request(connOpt.get())
 
     ## Then: Response contains configured shards even without relay subscriptions
     require:
@@ -134,8 +134,8 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Node1's relay on shards 0 and 1 of its cluster
-    node1.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/10/1", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/1", noOpHandler)
 
     ## When: Node2 connects to it
     let node2Connected =
@@ -149,7 +149,7 @@ procSuite "Waku Metadata Protocol":
         .sorted() == @[uint16(0), uint16(1)]
 
     ## Given: Node1's relay also on shard 0 of cluster 199
-    node1.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
 
     ## When: Node3 connects to it
     let node3Connected =
@@ -158,7 +158,7 @@ procSuite "Waku Metadata Protocol":
     ## Then: Node3 learns only the configured shard, though node1's relay is still on shard 1
     check:
       node3Connected
-      node1.wakuRelay.isSubscribed("/waku/2/rs/10/1")
+      node1.protocols.wakuRelay.isSubscribed("/waku/2/rs/10/1")
     checkUntilTimeout:
       node3.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(0)]
@@ -186,7 +186,7 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Node1's relay only on shard 3 of cluster 199
-    node1.wakuRelay.subscribe("/waku/2/rs/199/3", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/3", noOpHandler)
 
     ## When: Node2, of cluster 10, connects to it
     let connected =
@@ -195,7 +195,7 @@ procSuite "Waku Metadata Protocol":
     ## Then: Node2 records node1 on shard 3, which node1's relay is not on
     check:
       connected
-      not node1.wakuRelay.isSubscribed("/waku/2/rs/10/3")
+      not node1.protocols.wakuRelay.isSubscribed("/waku/2/rs/10/3")
     checkUntilTimeout:
       node2.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(3)]
@@ -225,9 +225,9 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Both relays on shard 0 of cluster 199, node1 also on shard 0 of cluster 10
-    node1.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
-    node2.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
+    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node2.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
 
     ## When: Node1 connects to node2
     let connected =

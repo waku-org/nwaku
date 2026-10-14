@@ -152,7 +152,7 @@ proc pingNode(
 ): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-    let pingDelay = await node.libp2pPing.ping(conn)
+    let pingDelay = await node.protocols.libp2pPing.ping(conn)
     info "Peer response time (ms)", peerId = peerInfo.peerId, ping = pingDelay.millis
     return true
   except CatchableError:
@@ -267,7 +267,7 @@ proc main(rng: Rng): Future[int] {.async.} =
     return cliShards
 
   let metadata = WakuMetadata.new(conf.clusterId, shardsGetter)
-  node.wakuMetadata = metadata
+  node.protocols.wakuMetadata = metadata
   node.peerManager.wakuMetadata = metadata
   let mountRes = catch:
     node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))

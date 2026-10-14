@@ -54,7 +54,7 @@ proc waitForTopicPeer(
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in GossipSub(node.wakuRelay).gossipsub.getOrDefault(topic):
+    for p in GossipSub(node.protocols.wakuRelay).gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
@@ -528,7 +528,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
         let
           pubsubTopic = "/waku/2/rs/0/1"
           contentTopic = "myContentTopic"
@@ -626,7 +626,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
         let
           contentTopicShort = "/toychat/2/huilong/proto"
           contentTopicFull = "/0/toychat/2/huilong/proto"
@@ -685,7 +685,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
         let
           contentTopic = "/toychat/2/huilong/proto"
           pubsubTopic = "/waku/2/rs/0/58355"
@@ -845,7 +845,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
         let
           contentTopic1 = "/toychat/2/huilong/proto"
           pubsubTopic1 = "/waku/2/rs/0/58355"
@@ -1289,8 +1289,8 @@ suite "Sharding":
         if topic2 == pubsubTopic:
           pushHandlerFuture2.complete((pubsubTopic, message))
 
-      client.wakuFilterClient.registerPushHandler(messagePushHandler1)
-      client.wakuFilterClient.registerPushHandler(messagePushHandler2)
+      client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler1)
+      client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler2)
 
       let
         subscribeResponse1 = await client.filterSubscribe(

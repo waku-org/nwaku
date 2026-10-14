@@ -549,8 +549,8 @@ procSuite "Peer Manager":
       await sleepAsync(0.millis)
 
     # Given a node whose relay is on shard 517 of its cluster and on shard 0 of cluster 199
-    node.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
-    node.wakuRelay.subscribe("/waku/2/rs/199/0", simpleHandler)
+    node.protocols.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
+    node.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", simpleHandler)
 
     # When its peer manager runs
     node.peerManager.start()
@@ -559,7 +559,7 @@ procSuite "Peer Manager":
     check connectedPeersPerShard(517) == Opt.none(float64)
 
     # Given a node whose relay is on shard 517 of its cluster only
-    control.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
+    control.protocols.wakuRelay.subscribe("/waku/2/rs/0/517", simpleHandler)
 
     # When its peer manager runs
     control.peerManager.start()
@@ -938,7 +938,7 @@ procSuite "Peer Manager":
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     # the reconnect after a restart waits out the prune backoff
-    node3.wakuRelay.parameters.pruneBackoff = ZeroDuration
+    node3.protocols.wakuRelay.parameters.pruneBackoff = ZeroDuration
 
     await node3.start()
 
@@ -1109,7 +1109,7 @@ procSuite "Peer Manager":
 
     let topic = "/waku/2/rs/0/0"
     for node in nodes:
-      node.wakuRelay.subscribe(topic, simpleHandler)
+      node.protocols.wakuRelay.subscribe(topic, simpleHandler)
 
     # Get all peer infos
     let peerInfos = collect:

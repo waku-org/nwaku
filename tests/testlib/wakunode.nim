@@ -190,7 +190,7 @@ proc hasMeshPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
   false
 
 proc hasMeshPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.wakuRelay.hasMeshPeer(topic, peer)
+  node.protocols.wakuRelay.hasMeshPeer(topic, peer)
 
 proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
   for p in relay.gossipsub.getOrDefault(topic):
@@ -199,7 +199,7 @@ proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool
   false
 
 proc hasGossipsubPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.wakuRelay.hasGossipsubPeer(topic, peer)
+  node.protocols.wakuRelay.hasGossipsubPeer(topic, peer)
 
 proc nodeMessagesCount*(labelValues: openArray[string]): float64 =
   try:

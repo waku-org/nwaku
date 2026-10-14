@@ -103,13 +103,13 @@ proc populateAdminPeerInfoForCodecs(node: WakuNode, codecs: seq[string]): WakuPe
 
 proc getRelayPeers(node: WakuNode): PeersOfShards =
   var relayPeers: PeersOfShards = @[]
-  if not node.wakuRelay.isNil():
-    for topic in node.wakuRelay.getSubscribedTopics():
+  if not node.protocols.wakuRelay.isNil():
+    for topic in node.protocols.wakuRelay.getSubscribedTopics():
       let relayShard = RelayShard.parse(topic).valueOr:
         debug "Invalid subscribed topic", error = error, topic = topic
         continue
       let pubsubPeers =
-        node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+        node.protocols.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
       relayPeers.add(
         PeersOfShard(
           shard: relayShard.shardId,
@@ -120,13 +120,13 @@ proc getRelayPeers(node: WakuNode): PeersOfShards =
 
 proc getMeshPeers(node: WakuNode): PeersOfShards =
   var meshPeers: PeersOfShards = @[]
-  if not node.wakuRelay.isNil():
-    for topic in node.wakuRelay.getSubscribedTopics():
+  if not node.protocols.wakuRelay.isNil():
+    for topic in node.protocols.wakuRelay.getSubscribedTopics():
       let relayShard = RelayShard.parse(topic).valueOr:
         debug "Invalid subscribed topic", error = error, topic = topic
         continue
       let peers =
-        node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+        node.protocols.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
       meshPeers.add(
         PeersOfShard(
           shard: relayShard.shardId,
@@ -221,7 +221,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     return resp
 
   router.api(MethodGet, ROUTE_ADMIN_V1_RELAY_PEERS) do() -> RestApiResponse:
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Relay Protocol is not mounted to the node"
       )
@@ -242,22 +242,22 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
-    if node.wakuMetadata.isNil():
+    if node.protocols.wakuMetadata.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Metadata Protocol is not mounted to the node"
       )
 
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Relay Protocol is not mounted to the node"
       )
 
     # TODO: clusterId and shards should be uint16 across all codebase and probably be defined as a type
     let topic = toPubsubTopic(
-      RelayShard(clusterId: node.wakuMetadata.clusterId.uint16, shardId: shard)
+      RelayShard(clusterId: node.protocols.wakuMetadata.clusterId.uint16, shardId: shard)
     )
     let pubsubPeers =
-      node.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+      node.protocols.wakuRelay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(
       shard: shard, peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager))
     )
@@ -271,7 +271,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     return resp
 
   router.api(MethodGet, ROUTE_ADMIN_V1_MESH_PEERS) do() -> RestApiResponse:
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Relay Protocol is not mounted to the node"
       )
@@ -292,21 +292,21 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
-    if node.wakuMetadata.isNil():
+    if node.protocols.wakuMetadata.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Metadata Protocol is not mounted to the node"
       )
 
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Relay Protocol is not mounted to the node"
       )
 
     let topic = toPubsubTopic(
-      RelayShard(clusterId: node.wakuMetadata.clusterId.uint16, shardId: shard)
+      RelayShard(clusterId: node.protocols.wakuMetadata.clusterId.uint16, shardId: shard)
     )
     let peers =
-      node.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
+      node.protocols.wakuRelay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
     let relayPeer = PeersOfShard(
       shard: shard, peers: toSeq(peers).mapIt(WakuPeer.init(it, node.peerManager))
     )
@@ -407,7 +407,7 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
 
 proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_FILTER_SUBS) do() -> RestApiResponse:
-    if node.wakuFilter.isNil():
+    if node.protocols.wakuFilter.isNil():
       return
         RestApiResponse.badRequest("Error: Filter Protocol is not mounted to the node")
 
@@ -415,8 +415,8 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
       subscriptions: seq[FilterSubscription] = @[]
       filterCriteria: seq[FilterTopic]
 
-    for peerId in node.wakuFilter.subscriptions.peersSubscribed.keys:
-      filterCriteria = node.wakuFilter.subscriptions.getPeerSubscriptions(peerId).mapIt(
+    for peerId in node.protocols.wakuFilter.subscriptions.peersSubscribed.keys:
+      filterCriteria = node.protocols.wakuFilter.subscriptions.getPeerSubscriptions(peerId).mapIt(
           FilterTopic(pubsubTopic: it[0], contentTopic: it[1])
         )
 

@@ -156,7 +156,7 @@ proc setupAppCallbacks(
     return ok()
 
   if not appCallbacks.relayHandler.isNil():
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return err("Cannot configure relayHandler callback without Relay mounted")
 
     for shardId in conf.subscribeShards.deduplicate():
@@ -165,10 +165,10 @@ proc setupAppCallbacks(
         return err(fmt"Could not subscribe {topic}: " & $error)
 
   if not appCallbacks.topicHealthChangeHandler.isNil():
-    if node.wakuRelay.isNil():
+    if node.protocols.wakuRelay.isNil():
       return
         err("Cannot configure topicHealthChangeHandler callback without Relay mounted")
-    node.wakuRelay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
+    node.protocols.wakuRelay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
 
   if not appCallbacks.connectionChangeHandler.isNil():
     if node.peerManager.isNil():
@@ -511,7 +511,7 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
     else:
       waku.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if not waku.node.wakuMixRln.isNil():
+  if not waku.node.protocols.wakuMixRln.isNil():
     try:
       (await waku.node.startMixRln()).isOkOr:
         return err(error)
@@ -567,7 +567,7 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   except CatchableError:
     return err("Caught exception in start: " & getCurrentExceptionMsg())
 
-  waku.node.subscriptionManager.subscribeAllAutoshards().isOkOr:
+  waku.node.protocols.subscriptionManager.subscribeAllAutoshards().isOkOr:
     return err("failed to auto-subscribe autosharding shards: " & $error)
 
   waku.logEnrReachability()

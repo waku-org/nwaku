@@ -85,7 +85,7 @@ proc analyzePeer(
   proc ping(): Future[Result[void, string]] {.async, gcsafe.} =
     try:
       let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-      pingDelay = await node.libp2pPing.ping(conn)
+      pingDelay = await node.protocols.libp2pPing.ping(conn)
       return ok()
     except CatchableError:
       var msg = getCurrentExceptionMsg()

@@ -39,7 +39,7 @@ suite "Shard subscription events":
     await node.stop()
 
   asyncTest "relay subscribe and unsubscribe emit shard events":
-    node.subscriptionManager.subscribeShard(TestShard).isOkOr:
+    node.protocols.subscriptionManager.subscribeShard(TestShard).isOkOr:
       raiseAssert error
     await sleepAsync(chronos.milliseconds(10))
 
@@ -47,7 +47,7 @@ suite "Shard subscription events":
       subscribed == @[TestShard]
       unsubscribed.len == 0
 
-    node.subscriptionManager.unsubscribeShard(TestShard).isOkOr:
+    node.protocols.subscriptionManager.unsubscribeShard(TestShard).isOkOr:
       raiseAssert error
     await sleepAsync(chronos.milliseconds(10))
 
@@ -55,9 +55,9 @@ suite "Shard subscription events":
       unsubscribed == @[TestShard]
 
   asyncTest "re-subscribing an already subscribed shard emits once":
-    node.subscriptionManager.subscribeShard(TestShard).isOkOr:
+    node.protocols.subscriptionManager.subscribeShard(TestShard).isOkOr:
       raiseAssert error
-    node.subscriptionManager.subscribeShard(TestShard).isOkOr:
+    node.protocols.subscriptionManager.subscribeShard(TestShard).isOkOr:
       raiseAssert error
     await sleepAsync(chronos.milliseconds(10))
 
@@ -72,7 +72,7 @@ suite "Extra listen shards":
       raiseAssert error
     node.mountAutoSharding(16, @[32'u16]).isOkOr:
       raiseAssert error
-    node.subscriptionManager.extraListenShards = @[PubsubTopic("/waku/2/rs/16/64")]
+    node.protocols.subscriptionManager.extraListenShards = @[PubsubTopic("/waku/2/rs/16/64")]
 
   asyncTeardown:
     await node.stop()
@@ -80,24 +80,24 @@ suite "Extra listen shards":
   asyncTest "a content topic is also subscribed and unsubscribed on the listen shard":
     const contentTopic = ContentTopic("/status/1/listen-shard/proto")
 
-    node.subscriptionManager.subscribe(contentTopic).isOkOr:
+    node.protocols.subscriptionManager.subscribe(contentTopic).isOkOr:
       raiseAssert error
 
     check:
-      node.subscriptionManager.isContentSubscribed(
+      node.protocols.subscriptionManager.isContentSubscribed(
         PubsubTopic("/waku/2/rs/16/32"), contentTopic
       )
-      node.subscriptionManager.isContentSubscribed(
+      node.protocols.subscriptionManager.isContentSubscribed(
         PubsubTopic("/waku/2/rs/16/64"), contentTopic
       )
 
-    node.subscriptionManager.unsubscribe(contentTopic).isOkOr:
+    node.protocols.subscriptionManager.unsubscribe(contentTopic).isOkOr:
       raiseAssert error
 
     check:
-      not node.subscriptionManager.isContentSubscribed(
+      not node.protocols.subscriptionManager.isContentSubscribed(
         PubsubTopic("/waku/2/rs/16/32"), contentTopic
       )
-      not node.subscriptionManager.isContentSubscribed(
+      not node.protocols.subscriptionManager.isContentSubscribed(
         PubsubTopic("/waku/2/rs/16/64"), contentTopic
       )

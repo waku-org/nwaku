@@ -88,7 +88,7 @@ suite "LM API health checking":
       await serviceNode.start()
 
     servicePeerInfo = serviceNode.peerInfo.toRemotePeerInfo()
-    serviceNode.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    serviceNode.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
 
     lockNewGlobalBrokerContext:
       client = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
@@ -101,7 +101,7 @@ suite "LM API health checking":
     await serviceNode.stop()
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.waku.node.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
     await client.waku.node.connectToNodes(@[servicePeerInfo])
 
     var isHealthy = false
@@ -121,7 +121,7 @@ suite "LM API health checking":
 
   asyncTest "RequestShardTopicsHealth, check disconnected PubsubTopic":
     const GhostShard = PubsubTopic("/waku/2/rs/1/666")
-    client.waku.node.wakuRelay.subscribe(GhostShard, dummyHandler)
+    client.waku.node.protocols.wakuRelay.subscribe(GhostShard, dummyHandler)
 
     let req = RequestShardTopicsHealth.request(client.waku.brokerCtx, @[GhostShard]).valueOr:
       raiseAssert "Request failed"
@@ -208,7 +208,7 @@ suite "LM API health checking":
     await disconnectFuture
 
   asyncTest "EventShardTopicHealthChange, detect health improvement":
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.waku.node.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
 
     let healthEventFuture = waitForShardHealthy(client.waku.brokerCtx)
 
@@ -249,8 +249,8 @@ suite "LM API health checking":
     check shardReq.isOk()
     let targetShard = $shardReq.get().relayShard
 
-    client.waku.node.wakuRelay.subscribe(targetShard, dummyHandler)
-    serviceNode.wakuRelay.subscribe(targetShard, dummyHandler)
+    client.waku.node.protocols.wakuRelay.subscribe(targetShard, dummyHandler)
+    serviceNode.protocols.wakuRelay.subscribe(targetShard, dummyHandler)
 
     await client.waku.node.connectToNodes(@[servicePeerInfo])
 
@@ -289,6 +289,6 @@ suite "LM API health checking":
       check relayReq.isOk()
       check relayReq.get().healthStatus.health == HealthStatus.NOT_MOUNTED
 
-      check not edgeWaku.waku.node.wakuFilterClient.isNil()
+      check not edgeWaku.waku.node.protocols.wakuFilterClient.isNil()
 
       discard await edgeWaku.stop()

@@ -816,7 +816,7 @@ procSuite "WakuNode - RLN relay":
       rlnManager.merkleProofCache = newSeq[byte](goodCache.len)
 
       let msg = fakeWakuMessage()
-      let proofResult = await node.rlnPlugin.get().generateProof(msg)
+      let proofResult = await node.protocols.rlnPlugin.get().generateProof(msg)
 
       check proofResult.isOk()
       # The force-refresh inside the generator restored the correct path
@@ -834,7 +834,7 @@ proc relayVerdict(
   ## Runs the node's relay validators in order, as gossipsub does on receipt,
   ## to observe the verdict that scores the forwarding peer.
   privateAccess(WakuRelay)
-  for (handler, _) in node.wakuRelay.wakuValidators:
+  for (handler, _) in node.protocols.wakuRelay.wakuValidators:
     let verdict = await handler(DefaultPubsubTopic, msg)
     if verdict != pubsub.ValidationResult.Accept:
       return verdict

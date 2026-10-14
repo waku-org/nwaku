@@ -348,7 +348,7 @@ suite "LogosDelivery - configured shards":
       otherShard, toRelayWakuMessage(fakeWakuMessage("published over REST"))
     )
     check:
-      node.waku.node.wakuRelay.subscribedTopics() == @[configuredShard]
+      node.waku.node.protocols.wakuRelay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
   asyncTest "under static sharding without REST the relay is on no shard, while the ENR and metadata report the configured shard":
@@ -382,11 +382,11 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
       raiseAssert error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.protocols.wakuRelay.subscribedTopics().len == 0
       toSeq(0'u16 ..< 8'u16).filterIt(
         node.waku.node.enr.containsShard(TestClusterId, it)
       ) == @[1'u16]
@@ -464,7 +464,7 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
     receiver.subscribe((kind: PubsubSub, topic: configuredShard), receiverHandler).isOkOr:
       raiseAssert error
-    subscriber.wakuFilterClient.registerPushHandler(pushHandler)
+    subscriber.protocols.wakuFilterClient.registerPushHandler(pushHandler)
     let filterSubscribe = await subscriber.filterSubscribe(
       Opt.some(configuredShard),
       @[contentTopic],
@@ -513,7 +513,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics().len == 0
+      node.waku.node.protocols.wakuRelay.subscribedTopics().len == 0
 
   asyncTest "an unsigned message on a protected shard outside the configured shards is archived":
     # TODO: logos-delivery#4455
@@ -682,7 +682,7 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
       raiseAssert error
 
     check:

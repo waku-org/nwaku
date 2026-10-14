@@ -34,24 +34,24 @@ export common, rpc
 
 proc hasRelay*(self: Waku): bool =
   ## True if relay (gossipsub publishing) is mounted.
-  return not self.node.wakuRelay.isNil()
+  return not self.node.protocols.wakuRelay.isNil()
 
 proc hasLightpush*(self: Waku): bool =
   ## True if a lightpush client is mounted.
-  return not self.node.wakuLightpushClient.isNil()
+  return not self.node.protocols.wakuLightpushClient.isNil()
 
 proc relayPushHandler*(self: Waku): PushMessageHandler =
   ## Builds the relay publish handler used by the send pipeline. Caller
   ## ensures relay is mounted. The handler validates and republishes; the
   ## proof is attached by the messaging layer via `attachRlnProof`.
-  return getRelayPushHandler(self.node.wakuRelay)
+  return getRelayPushHandler(self.node.protocols.wakuRelay)
 
 proc rlnEpochQuota*(
     self: Waku, timestamp: uint64
 ): Future[Result[EpochQuota, RlnError]] {.async.} =
   ## The mounted RLN backend's budget snapshot for the epoch derived from
   ## `timestamp` (Unix seconds). An error without a backend that keeps one.
-  return await epochQuota(self.node.rlnPlugin, timestamp)
+  return await epochQuota(self.node.protocols.rlnPlugin, timestamp)
 
 proc attachRlnProof*(
     self: Waku, message: WakuMessage
@@ -60,7 +60,7 @@ proc attachRlnProof*(
   ## returned untouched, so retrying a task neither redraws a nonce nor changes
   ## the bytes. Without RLN mounted the message passes through unproven. The
   ## error's kind tells the caller whether a retry can succeed.
-  return await attachProof(self.node.rlnPlugin, message)
+  return await attachProof(self.node.protocols.rlnPlugin, message)
 
 func isRlnRejection*(error: ErrorStatus): bool =
   ## True when a publish failure means "the RLN proof was not accepted", so the
@@ -81,7 +81,7 @@ proc onRlnProofRejected*(self: Waku): bool =
   ## Tells the mounted RLN backend its proof was rejected. True when the
   ## backend will refresh what proofs are built against; see
   ## `notifyProofRejected`.
-  return self.node.rlnPlugin.notifyProofRejected()
+  return self.node.protocols.rlnPlugin.notifyProofRejected()
 
 proc lightpushPeerAvailable*(self: Waku, shard: PubsubTopic): bool =
   ## True if a lightpush service peer is available for `shard`.
@@ -122,21 +122,21 @@ proc mixReady*(self: Waku): bool =
   ## True when mix is mounted, mix can encode this node's own hop, and the pool
   ## has enough nodes for a path. `lightpushPublishToAny` selects the exit and
   ## reports SERVICE_NOT_AVAILABLE when it finds none.
-  if self.node.wakuMix.isNil():
+  if self.node.protocols.wakuMix.isNil():
     return false
-  if not self.node.wakuMix.selfHopUsable():
+  if not self.node.protocols.wakuMix.selfHopUsable():
     return false
   return self.node.getMixNodePoolSize() >= MinMixPoolSize
 
 proc mixMounted*(self: Waku): bool =
   ## True when mix is mounted. A short pool or a missing exit can clear with
   ## time; a node without mix never sends over mix.
-  return not self.node.wakuMix.isNil()
+  return not self.node.protocols.wakuMix.isNil()
 
 proc mixSelfHopUsable*(self: Waku): bool =
   ## True when mix is mounted and can encode this node's own hop. `mixReady`
   ## also checks this; the send path reads it alone to name the reason.
-  return not self.node.wakuMix.isNil() and self.node.wakuMix.selfHopUsable()
+  return not self.node.protocols.wakuMix.isNil() and self.node.protocols.wakuMix.selfHopUsable()
 
 proc lightpushPublishToAny*(
     self: Waku, shard: PubsubTopic, message: WakuMessage, mixify: bool = false

@@ -210,7 +210,7 @@ proc publish(c: Chat, line: string) {.async.} =
   )
 
   try:
-    if not c.node.wakuLightpushClient.isNil():
+    if not c.node.protocols.wakuLightpushClient.isNil():
       # Attempt lightpush with mix
 
       (
@@ -343,7 +343,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await wakuNode.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenance)
       info "subscription is live."
       continue
@@ -617,7 +617,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       trace "Hit filter handler", contentTopic = msg.contentTopic
       chat.printReceivedMessage(msg)
 
-    node.wakuFilterClient.registerPushHandler(filterHandler)
+    node.protocols.wakuFilterClient.registerPushHandler(filterHandler)
   var servicePeerInfo: RemotePeerInfo
   if conf.serviceNode != "":
     servicePeerInfo = parsePeerInfo(conf.serviceNode).valueOr:

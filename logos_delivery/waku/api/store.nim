@@ -10,7 +10,7 @@ import
 
 proc isStoreMounted*(self: Waku): bool =
   ## True if a store client is mounted (the node can run store queries).
-  return not self.node.wakuStoreClient.isNil()
+  return not self.node.protocols.wakuStoreClient.isNil()
 
 proc hasStorePeer*(self: Waku): bool =
   ## True if at least one store service peer is available to query.
@@ -21,10 +21,10 @@ proc storeQueryToAny*(
 ): Future[Result[StoreQueryResponse, string]] {.async.} =
   ## Runs a store query against any available store peer (retries across peers).
   try:
-    if self.node.wakuStoreClient.isNil():
+    if self.node.protocols.wakuStoreClient.isNil():
       return err("wakuStoreClient is not mounted")
 
-    let queryResponse = (await self.node.wakuStoreClient.queryToAny(request)).valueOr:
+    let queryResponse = (await self.node.protocols.wakuStoreClient.queryToAny(request)).valueOr:
       return err($error)
 
     return ok(queryResponse)
@@ -39,13 +39,13 @@ proc storeQuery*(
   ## Runs a store query against one store peer. `peer` is one fully qualified
   ## multiaddress, or several for the same peer separated by commas.
   try:
-    if self.node.wakuStoreClient.isNil():
+    if self.node.protocols.wakuStoreClient.isNil():
       return err("wakuStoreClient is not mounted")
 
     let remotePeer = parsePeerAddrList(peer).valueOr:
       return err("storeQuery failed to parse peer addr: " & $error)
 
-    let queryFut = self.node.wakuStoreClient.query(request, remotePeer)
+    let queryFut = self.node.protocols.wakuStoreClient.query(request, remotePeer)
     if not await queryFut.withTimeout(timeoutMs.milliseconds):
       return err("storeQuery timed out")
 

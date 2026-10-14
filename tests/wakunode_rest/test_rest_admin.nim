@@ -212,10 +212,10 @@ suite "Waku v2 Rest API - Admin":
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
 
     let
-      subscribeResponse2 = await node2.wakuFilterClient.subscribe(
+      subscribeResponse2 = await node2.protocols.wakuFilterClient.subscribe(
         peerInfo1, pubsubTopicNode2, contentFiltersNode2
       )
-      subscribeResponse3 = await node3.wakuFilterClient.subscribe(
+      subscribeResponse3 = await node3.protocols.wakuFilterClient.subscribe(
         peerInfo1, pubsubTopicNode3, contentFiltersNode3
       )
 
@@ -435,8 +435,8 @@ suite "Waku v2 Rest API - Admin":
 
     let pubsubTopic = $RelayShard(clusterId: 1, shardId: 5)
     checkUntilTimeout:
-      node1.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
-      node1.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
+      node1.protocols.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
+      node1.protocols.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
 
     let meshPeerMultiaddrs =
       @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)].sorted()
