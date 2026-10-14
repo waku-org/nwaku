@@ -22,6 +22,11 @@ import
   ../testlib/postgres,
   ./archive_utils
 
+proc noopFatalHandler(errMsg: string) {.gcsafe, raises: [].} =
+  ## For the second driver instances the tests start: the factory only calls it
+  ## after six failed passes, about an hour, so it is out of reach within a test.
+  discard
+
 suite "Postgres driver":
   ## Unique driver instance
   var driver {.threadvar.}: PostgresDriver
@@ -463,6 +468,166 @@ suite "Postgres driver":
     check ourInstance.containsAnyPartition()
 
     (await ourInstance.close()).expect("close the second driver")
+
+  ## The startup pass creates the partitions for the current hour and the two
+  ## before it, so that the messages store sync pushes back after a downtime, or
+  ## into a brand new node, have a partition to land in. The checks below look
+  ## at the slots relative to the hour they run in: should an o'clock have
+  ## passed since the pass, those slots still exist, created one slot earlier.
+  asyncTest "A fresh database gets the current hour and the two before it":
+    ## The suite's driver may have found partitions left by an earlier test, so
+    ## empty the database and let a second instance start on it: its first
+    ## pass takes the empty-state branch.
+    (await driver.reset()).expect("reset")
+    let leftovers =
+      (await driver.getPartitionsList()).expect("partitions list") &
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    for table in leftovers:
+      (await driver.performWriteQuery("DROP TABLE " & table)).expect("drop " & table)
+
+    let fresh =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      await fresh.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        fresh.arePartitionsProvisioned()
+
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await fresh.getPartitionsList()).expect("partitions list")
+      check:
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await fresh.reset()).expect("reset the second driver")
+      (await fresh.close()).expect("close the second driver")
+
+  asyncTest "A message up to two hours old is storable right after start":
+    let timeOrigin = now()
+    let recentEnough = fakeWakuMessage(ts = ts(-90 * 60, timeOrigin))
+    let tooOld = fakeWakuMessage(ts = ts(-200 * 60, timeOrigin))
+
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, recentEnough),
+        DefaultPubsubTopic,
+        recentEnough,
+      )
+    ).expect("put a message 90 minutes old")
+
+    ## Three hours and twenty minutes back is before the oldest startup slot
+    ## whatever the current minute, so there is no partition for it.
+    check (
+      await driver.put(
+        computeMessageHash(DefaultPubsubTopic, tooOld), DefaultPubsubTopic, tooOld
+      )
+    ).isErr()
+
+  asyncTest "A restart after a downtime fills the hours before now":
+    ## Leave the database with only a partition from long ago, like a node that
+    ## was stopped for a long time, then start a second instance the way the
+    ## builder does. The old partition is created through that instance so that
+    ## it tracks everything and cleans up; the suite's driver tracks nothing
+    ## after its reset, so the teardown has nothing stale to drop.
+    (await driver.reset()).expect("reset")
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(partitionStart)).expect("addPartition")
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let currentSlot = floorToHour(now() div 1_000_000_000)
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        partitionName in partitions
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 7200) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $(currentSlot - 3600) & "_"))
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
+
+  asyncTest "Add a partition with an explicit end":
+    ## Half an hour inside the 2023 fixture window, so it collides with nothing.
+    let explicitEnd = Timestamp(1_700_001_800)
+    (await driver.addPartition(partitionStart, explicitEnd)).expect("addPartition")
+
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let lookups =
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    check:
+      "messages_1700000000_1700001800" in partitions
+      "lookup_1700000000_1700001800" in lookups
+
+    ## An empty range is refused before any statement runs
+    check (await driver.addPartition(partitionStart, partitionStart)).isErr()
+
+  asyncTest "A legacy partition starting mid-hour gets the start of its hour filled":
+    ## The previous version started its first partition at the moment the node
+    ## came up, e.g. [10:28, 11:00). The start of that hour has no partition, and
+    ## the lookback must create exactly [10:00, 10:28), never the whole hour.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+    let legacyStart = currentSlot - 3600 + 1680 # 28 minutes into the hour before
+    let legacyEnd = currentSlot
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(Timestamp(legacyStart), Timestamp(legacyEnd))).expect(
+        "legacy partition"
+      )
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let partitions = (await restarted.getPartitionsList()).expect("partitions list")
+      check:
+        ("messages_" & $(currentSlot - 3600) & "_" & $legacyStart) in partitions
+        ("messages_" & $legacyStart & "_" & $legacyEnd) in partitions
+        partitions.anyIt(it.startsWith("messages_" & $currentSlot & "_"))
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
+
+  asyncTest "The tracked partitions are in time order after the lookback":
+    ## With only the hour before the current one in place, the lookback adds the
+    ## hour before that, older than everything tracked so far. The oldest
+    ## tracked partition drives retention; here it is what reports the oldest
+    ## timestamp, once a row exists so that the row minimum is not the answer.
+    (await driver.reset()).expect("reset")
+
+    let currentSlot = floorToHour(now() div 1_000_000_000)
+
+    let restarted =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      (await restarted.addPartition(Timestamp(currentSlot - 3600))).expect(
+        "previous hour"
+      )
+
+      await restarted.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        restarted.arePartitionsProvisioned()
+
+      let msg = fakeWakuMessage()
+      check (
+        await restarted.put(
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
+        )
+      ).expect("put a message stamped now")
+
+      check (await restarted.getOldestMessageTimestamp()).expect("oldest timestamp") ==
+        Timestamp(currentSlot - 7200) * 1_000_000_000
+    finally:
+      (await restarted.reset()).expect("reset the second driver")
+      (await restarted.close()).expect("close the second driver")
 
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances

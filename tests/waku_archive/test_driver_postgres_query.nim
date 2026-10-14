@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[sequtils, strformat, random, algorithm],
+  std/[sequtils, strformat, strutils, random, algorithm],
   testutils/unittests,
   chronos,
   chronicles
@@ -1560,21 +1560,19 @@ suite "Postgres driver - queries":
         )
       ).isOk()
 
-    ## just keep the second resolution.
-    ## Notice that the oldest timestamps considers the minimum partition timestamp, which
-    ## is expressed in seconds.
-    let oldestPartitionTimestamp =
-      Timestamp(float(oldestTime) / 1_000_000_000) * 1_000_000_000
+    ## The oldest timestamp considers the start of the oldest partition, which the
+    ## factory creates two hours before the hour the driver started in, so it is
+    ## older than every message inserted above. Partition names are
+    ## messages_<startSec>_<endSec>, listed in time order.
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let oldestPartitionStartSec =
+      parseBiggestInt(partitions[0].replace("messages_", "").split("_")[0])
+    let oldestPartitionTimestamp = Timestamp(oldestPartitionStartSec) * 1_000_000_000
 
     var res = await driver.getOldestMessageTimestamp()
     assert res.isOk(), res.error
-
-    ## We give certain margin of error. The oldest timestamp is obtained from
-    ## the oldest partition timestamp and there might be at most one second of difference
-    ## between the time created in the test and the oldest-partition-timestamp created within
-    ## the driver logic.
-    assert abs(res.get() - oldestPartitionTimestamp) < (2 * 1_000_000_000),
-      fmt"Failed to retrieve the latest timestamp {res.get()} != {oldestPartitionTimestamp}"
+    assert res.get() == oldestPartitionTimestamp,
+      fmt"Failed to retrieve the oldest timestamp {res.get()} != {oldestPartitionTimestamp}"
 
     res = await driver.getNewestMessageTimestamp()
     assert res.isOk(), res.error

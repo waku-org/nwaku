@@ -1312,13 +1312,12 @@ proc performPartitionDdlSteps(
   return ok(true)
 
 proc addPartition*(
-    self: PostgresDriver, startTime: Timestamp
+    self: PostgresDriver, beginning, `end`: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
-  ## `startTime` <= timestamp < `startTime + duration`.
-  ## `startTime` is measured in seconds since epoch
-  let beginning = startTime
-  let `end` = partitions_manager.calcEndPartitionTime(startTime)
+  ## `beginning` <= timestamp < `end`, both measured in seconds since epoch.
+  if `end` <= beginning:
+    return err("addPartition: the end must be after the beginning")
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -1381,6 +1380,13 @@ proc addPartition*(
 
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
+
+proc addPartition*(
+    self: PostgresDriver, startTime: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the partition from `startTime` (seconds since epoch) to the next
+  ## o'clock.
+  return await self.addPartition(startTime, calcEndPartitionTime(startTime))
 
 proc refreshPartitionsInfo(
     self: PostgresDriver
@@ -1549,6 +1555,38 @@ const MaxConsecutivePartitionMaintenanceFailures = 6
 
 const MaxPartitionCheckJitterSecs = 120
 
+const StartupLookbackSlots = 2
+  ## Partitions created before the current hour when the factory starts from an
+  ## empty database or after a downtime. Two cover the default store-sync-range
+  ## (3600 s) plus store-sync-relay-jitter (20 s) from any moment of the hour.
+
+proc addLookbackPartitions(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the uncovered start of each of the `StartupLookbackSlots` hour
+  ## slots before the one containing `nowSec`, oldest first. A slot that fails
+  ## is logged and skipped: the current hour must never depend on these. The
+  ## tracked partitions are refreshed afterwards, because the new ones are
+  ## older than those already tracked and the oldest has to stay first.
+  let currentSlot = floorToHour(nowSec)
+  var createdAny = false
+  for i in countdown(StartupLookbackSlots, 1):
+    let slotStart = currentSlot - int64(i) * 3600
+    let prefix = self.partitionMngr.uncoveredPrefix(slotStart, slotStart + 3600).valueOr:
+      continue
+
+    (await self.addPartition(Timestamp(prefix.beginning), Timestamp(prefix.`end`))).isOkOr:
+      error "could not create a partition for an hour before start",
+        slotStart = prefix.beginning, slotEnd = prefix.`end`, error = $error
+      continue
+
+    createdAny = true
+
+  if createdAny:
+    ?await self.refreshPartitionsInfo()
+
+  return ok()
+
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1571,10 +1609,15 @@ proc runPartitionMaintenance(
 
   let now = times.now().toTime().toUnix()
 
+  ## Set when no partition contains 'now': the hours before it get partitions
+  ## too, after the current and the next one (see addLookbackPartitions).
+  var startingUp = false
+
   if self.partitionMngr.isEmpty():
     debug "Adding partition because now there aren't more partitions"
-    (await self.addPartition(now)).isOkOr:
+    (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
       return err("error when creating a new partition from empty state: " & $error)
+    startingUp = true
   else:
     let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
       return err("could not get newest partition: " & $error)
@@ -1584,8 +1627,9 @@ proc runPartitionMaintenance(
       ## There is no partition to contain the current time.
       ## This happens if the node has been stopped for quite a long time.
       ## Then, let's create the needed partition to contain 'now'.
-      (await self.addPartition(now)).isOkOr:
+      (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
         return err("could not add the next partition: " & $error)
+      startingUp = true
 
   ## Also right after creating the partition for 'now' above: it ends at the next
   ## o'clock, possibly within seconds, while the next pass is ten minutes away.
@@ -1595,6 +1639,11 @@ proc runPartitionMaintenance(
     debug "Creating a new partition for the future"
     (await self.addPartition(newestPartition.get().getLastMoment())).isOkOr:
       return err("could not add the next partition for 'now': " & $error)
+
+  ## Last, and never failing the pass: the hours store sync fills back.
+  if startingUp:
+    (await self.addLookbackPartitions(now)).isOkOr:
+      error "could not refresh the partitions after the lookback", error = $error
 
   self.partitionsProvisioned = true
 
