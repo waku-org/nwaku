@@ -61,9 +61,9 @@ proc mixLightpushSize*(
   let encoded = request.encode().len
   # `writeLp` adds the length prefix in the same write.
   let size = vsizeof(uint64(encoded)) + encoded
-  # An error means that no message fits.
-  let limit =
-    getMaxMessageSizeForCodec(WakuLightPushCodec, MixLightpushSurbs).valueOr(0)
+  let limit = getMaxMessageSizeForCodec(WakuLightPushCodec, MixLightpushSurbs).valueOr:
+    error "Could not calculate mix message capacity", error = $error
+    0
   return (size, limit)
 
 proc publishOverMix*(
@@ -375,6 +375,21 @@ proc lightpushPublish*(
   # toRLNSignal hashes the timestamp into the proof, so fix it before proof gen;
   # the downstream ensureTimestampSet then becomes a no-op.
   let message = ensureTimestampSet(message)
+
+  if mixify:
+    # A backend that cannot declare its proof size is a node defect.
+    let sizedMessage = node.rlnPlugin.messageForSizeCheck(message).valueOr:
+      return lighpushErrorResult(
+        LightPushErrorCode.INTERNAL_SERVER_ERROR,
+        "failed to determine RLN proof size: " & $error,
+      )
+    let (size, limit) = mixLightpushSize(pubsubForPublish, sizedMessage)
+    if size > limit:
+      return lighpushErrorResult(
+        LightPushErrorCode.INVALID_MESSAGE,
+        "message too large for mix: the request has " & $size & " bytes, the limit is " &
+          $limit & " bytes",
+      )
 
   # A Permanent failure comes from the message itself, such as a timestamp
   # outside the validators' bound, so it is the client's INVALID_MESSAGE, as

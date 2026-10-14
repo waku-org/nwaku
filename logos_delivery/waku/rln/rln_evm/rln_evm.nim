@@ -351,6 +351,7 @@ proc toRlnPlugin*(rlnEvm: RlnEvm): RlnPlugin =
     onProofRejected: proofRejected,
     validateProof: validate,
     generateProof: generate,
+    proofSize: Opt.some(protocol_types.RateLimitProof().encode().len),
     getEpochQuota: quota,
   )
 

@@ -59,12 +59,6 @@ proc generateProof*(
   let response = (await rlnGenerateProof(signal.toHex(), timestamp)).valueOr:
     return err(toRlnError(error))
   let blob = ?parseRlnGeneratedProof(response)
-  if blob.len != RlnProofSize:
-    return err(
-      RlnError.transient(
-        "proof_canonical is " & $blob.len & " bytes, expected " & $RlnProofSize
-      )
-    )
   # `proof` is the authoritative canonical serialization; the decoded
   # public-value view stays zeroed — the module recomputes it on verification.
   var proof = RateLimitProof()
@@ -156,6 +150,7 @@ proc toRlnPlugin*(lez: RlnLez): RlnPlugin =
     name: "external",
     validateProof: validate,
     generateProof: generate,
+    proofSize: Opt.some(RlnProofSize),
     getEpochQuota: quota,
     onNodeStarted: nodeStarted,
   )

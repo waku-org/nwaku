@@ -135,6 +135,21 @@ proc decideTooLarge(self: MixSendProcessor, task: DeliveryTask, size, limit: int
   task.errorDesc = "" # the plain path reports its own outcome
   task.state = DeliveryState.FallbackRetry
 
+method checkBeforeAdmission*(
+    self: MixSendProcessor, task: DeliveryTask
+): bool {.gcsafe, raises: [].} =
+  if self.fallbackAllowed:
+    return true
+  let message = self.waku.messageForSizeCheck(task.msg).valueOr:
+    task.state = DeliveryState.FailedToDeliver
+    task.errorDesc = "Failed to determine RLN proof size: " & $error
+    return false
+  let (size, limit) = self.waku.mixLightpushSize(task.pubsubTopic, message)
+  if size > limit:
+    self.decideTooLarge(task, size, limit)
+    return false
+  return true
+
 method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.async.} =
   # No wait can make the message fit, so check the size before the reasons that
   # a wait can clear. A task that is too large has no mix attempt, so it must not

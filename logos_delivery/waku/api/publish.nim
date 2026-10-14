@@ -67,6 +67,11 @@ func needsRlnProof*(self: Waku, message: WakuMessage): bool =
   ## message id.
   return self.node.rlnPlugin.needsProof(message)
 
+proc messageForSizeCheck*(
+    self: Waku, message: WakuMessage
+): Result[WakuMessage, RlnError] =
+  return self.node.rlnPlugin.messageForSizeCheck(message)
+
 func isRlnRejection*(error: ErrorStatus): bool =
   ## True when a publish failure means "the RLN proof was not accepted", so the
   ## message is worth retrying with a freshly generated proof rather than being

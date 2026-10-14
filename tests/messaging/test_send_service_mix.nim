@@ -21,6 +21,7 @@ import
   logos_delivery/waku/node/peer_manager/waku_peer_store,
   logos_delivery/waku/node/waku_node/lightpush,
   logos_delivery/waku/rln/rln_plugin,
+  logos_delivery/waku/rln/types as rln_types,
   logos_delivery/waku/waku_lightpush/common,
   logos_delivery/waku/waku_core,
   logos_delivery/api/types,
@@ -100,6 +101,227 @@ proc sizedTask(id: string, size: int): DeliveryTask =
 proc mixLimit(): int =
   let task = buildTask("probe", chronos.seconds(5))
   return mixLightpushSize(task.pubsubTopic, task.msg).limit
+
+proc sizedProofTask(id: string, size, proofBytes: int): DeliveryTask =
+  let task = buildTask(id, ZeroDuration)
+  task.firstAdmittedTime = Opt.none(Moment)
+  task.msg.timestamp = getNowInNanosecondTime()
+  task.msg.proof = newSeq[byte](proofBytes)
+  for n in 0 .. size:
+    task.msg.payload = newSeq[byte](n)
+    if mixLightpushSize(task.pubsubTopic, task.msg).size == size:
+      task.msg.proof = @[]
+      task.msgHash = computeMessageHash(task.pubsubTopic, task.msg)
+      return task
+  raiseAssert "no payload gives a request of " & $size & " bytes"
+
+proc countingRln(waku: Waku, proofBytes: int): ref int =
+  let draws = new int
+  proc generate(
+      message: WakuMessage
+  ): Future[Result[seq[byte], rln_types.RlnError]] {.async.} =
+    draws[].inc()
+    return ok(newSeq[byte](proofBytes))
+
+  waku.node.rlnPlugin =
+    Opt.some(RlnPlugin(generateProof: generate, proofSize: Opt.some(proofBytes)))
+  return draws
+
+suite "SendService - mix size before admission":
+  var waku {.threadvar.}: Waku
+  asyncSetup:
+    waku = (await Waku.new(testConf())).expect("Waku.new")
+    let keys = generateKeyPair().expect("mix key pair")
+    (await waku.node.mountMix(3'u16, keys.privateKey, @[])).expect("mountMix")
+  asyncTeardown:
+    discard await waku.stop()
+
+  proc newManager(): RateLimitManager =
+    RateLimitManager
+      .new(RateLimitConfig(enabled: true, epochPeriodSec: 600, messagesPerEpoch: 1))
+      .expect("RateLimitManager.new")
+
+  asyncTest "proof overhead rejects Required before admission and leaves budget for a fitting task":
+    const proofBytes = 289
+    let draws = countingRln(waku, proofBytes)
+    let manager = newManager()
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+    )
+    let service = SendService
+      .new(
+        false,
+        waku,
+        manager,
+        mix,
+        AnonymityLevel.Required,
+        retryInterval = chronos.hours(1),
+      )
+      .expect("SendService.new")
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    var errors: seq[MessageErrorEvent]
+    let listener = MessageErrorEvent
+      .listen(
+        waku.brokerCtx,
+        proc(event: MessageErrorEvent) {.async: (raises: []).} =
+          errors.add(event),
+      )
+      .expect("listen")
+    defer:
+      await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
+
+    let large = sizedProofTask("unproven-fits", mixLimit(), 0)
+    check service.enqueue(large).isOk()
+    checkUntilTimeout:
+      errors.len == 1
+    check:
+      large.state == DeliveryState.FailedToDeliver
+      large.errorDesc.startsWith(MixTooLargeReason)
+      large.firstAdmittedTime.isNone()
+      large.msg.proof.len == 0
+      large.tryCount == 0
+      not large.anonymized
+      draws[] == 0
+      manager.sentInCurrentEpoch == 0
+      not large.queuedEventEmitted
+
+    let fits = sizedProofTask("proven-fits", mixLimit(), proofBytes)
+    check service.enqueue(fits).isOk()
+    checkUntilTimeout:
+      fits.state == DeliveryState.NextRoundRetry
+    check:
+      draws[] == 1
+      manager.sentInCurrentEpoch == 1
+      fits.firstAdmittedTime.isSome()
+      fits.msg.proof.len == proofBytes
+      mixLightpushSize(fits.pubsubTopic, fits.msg).size == mixLimit()
+      fits.errorDesc == MixUnavailableReason
+      errors.len == 1
+
+  asyncTest "Required rejects one byte above the proven limit without spending budget":
+    let draws = countingRln(waku, 289)
+    let manager = newManager()
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+    )
+    let service = SendService
+      .new(false, waku, manager, mix, retryInterval = chronos.hours(1))
+      .expect("SendService.new")
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    let task = sizedProofTask("proven-too-large", mixLimit() + 1, 289)
+    check service.enqueue(task).isOk()
+    checkUntilTimeout:
+      task.state == DeliveryState.FailedToDeliver
+    check:
+      task.errorDesc.contains("the request has " & $(mixLimit() + 1) & " bytes")
+      draws[] == 0
+      manager.sentInCurrentEpoch == 0
+      task.firstAdmittedTime.isNone()
+
+  asyncTest "Preferred spends one proof and one admission for its plain fallback":
+    let draws = countingRln(waku, 289)
+    let manager = newManager()
+    let plain = PlainSendProcessor()
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+    )
+    mix.chain(plain)
+    let service = SendService
+      .new(false, waku, manager, mix, retryInterval = chronos.hours(1))
+      .expect("SendService.new")
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    let task = sizedProofTask("plain-fallback", mixLimit() + 1, 289)
+    check service.enqueue(task).isOk()
+    checkUntilTimeout:
+      task.state == DeliveryState.SuccessfullyPropagated
+    check:
+      plain.calls == 1
+      draws[] == 1
+      manager.sentInCurrentEpoch == 1
+      task.msg.proof.len == 289
+      not task.anonymized
+      task.tryCount == 0
+
+  asyncTest "a supplied proof uses its actual length before admission":
+    let draws = countingRln(waku, 400)
+    let task = sizedProofTask("supplied-proof", mixLimit(), 289)
+    task.msg.proof = newSeq[byte](289)
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+    )
+    check mix.checkBeforeAdmission(task)
+    check:
+      draws[] == 0
+      task.msg.proof.len == 289
+      mixLightpushSize(task.pubsubTopic, task.msg).size == mixLimit()
+    task.msg.proof.add(1)
+    check not mix.checkBeforeAdmission(task)
+    check draws[] == 0
+
+  asyncTest "an undeclared proof size fails Required before drawing a proof":
+    let draws = countingRln(waku, 289)
+    var plugin = waku.node.rlnPlugin.get()
+    plugin.proofSize = Opt.none(int)
+    waku.node.rlnPlugin = Opt.some(plugin)
+    let manager = newManager()
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+    )
+    let service = SendService
+      .new(false, waku, manager, mix, retryInterval = chronos.hours(1))
+      .expect("SendService.new")
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    let task = sizedProofTask("unknown-proof", mixLimit(), 0)
+    check service.enqueue(task).isOk()
+    checkUntilTimeout:
+      task.state == DeliveryState.FailedToDeliver
+    check:
+      task.errorDesc.contains("does not declare its proof size")
+      draws[] == 0
+      manager.sentInCurrentEpoch == 0
+
+  asyncTest "direct mix Lightpush rejects proof overhead without drawing a proof":
+    let draws = countingRln(waku, 289)
+    let task = sizedProofTask("direct-unproven-fits", mixLimit(), 0)
+    let publishResult = await waku.node.lightpushPublish(
+      Opt.some(task.pubsubTopic),
+      task.msg,
+      Opt.some(RemotePeerInfo.init(waku.node.peerId())),
+      mixify = true,
+    )
+    check:
+      publishResult.isErr()
+      publishResult.error.code == LightPushErrorCode.INVALID_MESSAGE
+      publishResult.error.desc.get("").startsWith(MixTooLargeReason)
+      draws[] == 0
+      task.msg.proof.len == 0
+
+  asyncTest "direct mix Lightpush fails an undeclared proof size as a node error":
+    let draws = countingRln(waku, 289)
+    var plugin = waku.node.rlnPlugin.get()
+    plugin.proofSize = Opt.none(int)
+    waku.node.rlnPlugin = Opt.some(plugin)
+    let task = sizedProofTask("direct-unknown-proof", mixLimit(), 0)
+    let publishResult = await waku.node.lightpushPublish(
+      Opt.some(task.pubsubTopic),
+      task.msg,
+      Opt.some(RemotePeerInfo.init(waku.node.peerId())),
+      mixify = true,
+    )
+    check:
+      publishResult.isErr()
+      publishResult.error.code == LightPushErrorCode.INTERNAL_SERVER_ERROR
+      publishResult.error.desc.get("").contains("does not declare its proof size")
+      draws[] == 0
+      task.msg.proof.len == 0
 
 suite "SendService - anonymity level":
   var waku {.threadvar.}: Waku
