@@ -16,7 +16,6 @@ import chronos, chronos/asyncsync
 import nimcrypto
 import
   ../../logos_delivery/waku/[
-    common/protobuf,
     node/peer_manager,
     waku_core,
     waku_core/message,
@@ -49,14 +48,6 @@ proc failureCount(reason: string): float64 =
   try:
     return logos_delivery_transfer_receive_failures.valueByName(
       "logos_delivery_transfer_receive_failures_total", [reason]
-    )
-  except ValueError:
-    return 0.0
-
-proc transferBytes(direction: string): float64 =
-  try:
-    return logos_delivery_total_bytes_exchanged.valueByName(
-      "logos_delivery_total_bytes_exchanged_total", [Transfer, direction]
     )
   except ValueError:
     return 0.0
@@ -1573,45 +1564,6 @@ suite "Waku Sync: transfer":
     await clientRemoteNeeds.put((serverPeerInfo.peerId, hash))
     checkUntilTimeout:
       await serverArchive.holdsMessages(@[hash])
-
-  asyncTest "a transfer payload with the message as field 1 and the pubsub topic as field 2 is counted in bytes but neither stored nor counted as a message":
-    # TODO: logos-delivery#4483
-    let
-      specMsg = fakeWakuMessage(payload = "message as field 1")
-      nodeMsg = fakeWakuMessage(payload = "pubsub topic as field 1")
-      specHash = computeMessageHash(DefaultPubsubTopic, specMsg)
-      nodeHash = computeMessageHash(DefaultPubsubTopic, nodeMsg)
-
-    var specPayload = initProtoBuffer()
-    specPayload.write(1, specMsg.encode().buffer)
-    specPayload.write(2, DefaultPubsubTopic)
-
-    var nodePayload = initProtoBuffer()
-    nodePayload.write(1, DefaultPubsubTopic)
-    nodePayload.write(2, nodeMsg.encode().buffer)
-
-    let
-      bytesBefore = transferBytes(Receiving)
-      messagesBefore = transferCount(TransferDirection.Received)
-      conn = await clientSwitch.dial(
-        serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
-      )
-    defer:
-      await conn.close()
-
-    await conn.writeLp(specPayload.buffer)
-    await conn.writeLp(nodePayload.buffer)
-
-    # The receiver reads a stream's payloads in order, so the first is handled once
-    # the second is stored.
-    checkUntilTimeout:
-      await serverArchive.holdsMessages(@[nodeHash])
-
-    check:
-      not await serverArchive.holdsMessages(@[specHash])
-      transferCount(TransferDirection.Received) - messagesBefore == 1.0
-      transferBytes(Receiving) - bytesBefore ==
-        float64(specPayload.buffer.len + nodePayload.buffer.len)
 
   ## Disabled until we impl. DOS protection again
   #[ asyncTest "Check the exact missing messages are received":

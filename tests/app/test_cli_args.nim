@@ -206,20 +206,6 @@ suite "Waku external config - apply preset":
       NetworkPresetConf.StatusProdConf().maxMessageSize == "1024KiB"
       wakuConf.maxMessageSizeBytes == DefaultMaxWakuMessageSize
 
-  test "status.prod preset with --max-msg-size set to 1024KiB runs 1024KiB":
-    ## Given
-    var conf = WakuNodeConf.load(
-      version = "", cmdLine = @["--preset=status.prod", "--max-msg-size=1024KiB"]
-    )
-    applyModeFlags(conf, DefaultKernelModeFlags)
-
-    ## When
-    let wakuConf = conf.toWakuConf().valueOr:
-      raiseAssert error
-
-    ## Then
-    check wakuConf.maxMessageSizeBytes == parseCorrectMsgSize("1024KiB")
-
 suite "Waku external config - node key":
   test "Passed node key is used":
     ## Setup

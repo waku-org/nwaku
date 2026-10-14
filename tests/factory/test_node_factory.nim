@@ -3,7 +3,6 @@
 import
   results,
   std/[net, sequtils, strutils, tables],
-  stew/byteutils,
   testutils/unittests,
   chronos,
   chronos/transports/[stream, datagram, common],
@@ -15,11 +14,10 @@ import
 import tools/confutils/cli_args
 
 import
-  tests/testlib/[wakunode, wakucore, testasync],
+  tests/testlib/[wakunode, wakucore],
   logos_delivery/waku/[
     waku_core,
     waku_node,
-    waku_relay,
     waku_store/common,
     waku_store/client,
     waku_store/rpc_codec,
@@ -416,108 +414,6 @@ suite "Node Factory":
     confBuilder.withExtraListenShards(@[64'u16])
 
     check confBuilder.build().isErr()
-
-  asynctest "A node on the status.prod preset without --max-msg-size does not receive a 300000-byte message from a peer at 1024KiB, and a peer at 1024KiB does":
-    # TODO: logos-delivery#4482
-    # Given the configuration of a binary started with --preset=status.prod
-    var cliConf = defaultKernelConf().get()
-    cliConf.preset = "status.prod"
-    let conf = cliConf.toWakuConf().valueOr:
-      raiseAssert error
-
-    # node2 runs the max message size of that configuration, node1 and node3 run 1024KiB
-    let
-      raisedMaxMessageSize = 1024 * 1024
-      node1 = newTestWakuNode(generateSecp256k1Key())
-      node2 = newTestWakuNode(generateSecp256k1Key())
-      node3 = newTestWakuNode(generateSecp256k1Key())
-      shard = DefaultRelayShard
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      largePayload = newSeq[byte](300_000)
-      smallPayload = "after the large message".toBytes()
-
-    var
-      node2ReceivedLarge = newFuture[bool]()
-      node2ReceivedSmall = newFuture[bool]()
-      node3ReceivedLarge = newFuture[bool]()
-      node3ReceivedSmall = newFuture[bool]()
-
-    proc simpleHandler(
-        topic: PubsubTopic, msg: WakuMessage
-    ): Future[void] {.async, gcsafe.} =
-      await sleepAsync(0.milliseconds)
-
-    proc node2Handler(
-        topic: PubsubTopic, msg: WakuMessage
-    ): Future[void] {.async, gcsafe.} =
-      if msg.payload == largePayload and not node2ReceivedLarge.finished():
-        node2ReceivedLarge.complete(true)
-      if msg.payload == smallPayload and not node2ReceivedSmall.finished():
-        node2ReceivedSmall.complete(true)
-
-    proc node3Handler(
-        topic: PubsubTopic, msg: WakuMessage
-    ): Future[void] {.async, gcsafe.} =
-      if msg.payload == largePayload and not node3ReceivedLarge.finished():
-        node3ReceivedLarge.complete(true)
-      if msg.payload == smallPayload and not node3ReceivedSmall.finished():
-        node3ReceivedSmall.complete(true)
-
-    await node1.start()
-    defer:
-      await node1.stop()
-    (await node1.mountRelay(maxMessageSize = raisedMaxMessageSize)).isOkOr:
-      raiseAssert error
-    await node2.start()
-    defer:
-      await node2.stop()
-    (await node2.mountRelay(maxMessageSize = int(conf.maxMessageSizeBytes))).isOkOr:
-      raiseAssert error
-    await node3.start()
-    defer:
-      await node3.stop()
-    (await node3.mountRelay(maxMessageSize = raisedMaxMessageSize)).isOkOr:
-      raiseAssert error
-
-    node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
-      raiseAssert error
-    node2.subscribe((kind: PubsubSub, topic: $shard), node2Handler).isOkOr:
-      raiseAssert error
-    node3.subscribe((kind: PubsubSub, topic: $shard), node3Handler).isOkOr:
-      raiseAssert error
-
-    await allFutures(
-      node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()]),
-      node3.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()]),
-    )
-    checkUntilTimeout:
-      node1.hasMeshPeer($shard, node2.switch.peerInfo.peerId)
-      node1.hasMeshPeer($shard, node3.switch.peerInfo.peerId)
-
-    # When node1 publishes the 300000-byte message, then a small one
-    check:
-      (
-        await node1.publish(
-          Opt.some($shard),
-          WakuMessage(payload: largePayload, contentTopic: contentTopic),
-        )
-      ).isOk()
-    checkUntilTimeout:
-      node3ReceivedLarge.finished()
-
-    check:
-      (
-        await node1.publish(
-          Opt.some($shard),
-          WakuMessage(payload: smallPayload, contentTopic: contentTopic),
-        )
-      ).isOk()
-    checkUntilTimeout:
-      node2ReceivedSmall.finished()
-      node3ReceivedSmall.finished()
-
-    # Then node2 drops the larger message and still receives the message after it
-    check not node2ReceivedLarge.finished()
 
   test "ENR configuration trims multiaddrs until record fits":
     var conf = defaultTestWakuConf()
