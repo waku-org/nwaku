@@ -34,7 +34,7 @@ export common, rpc
 
 proc hasRelay*(self: Waku): bool =
   ## True if relay (gossipsub publishing) is mounted.
-  return not self.node.protocols.wakuRelay.isNil()
+  return not self.node.protocols.relay.isNil()
 
 proc hasLightpush*(self: Waku): bool =
   ## True if a lightpush client is mounted.
@@ -44,7 +44,7 @@ proc relayPushHandler*(self: Waku): PushMessageHandler =
   ## Builds the relay publish handler used by the send pipeline. Caller
   ## ensures relay is mounted. The handler validates and republishes; the
   ## proof is attached by the messaging layer via `attachRlnProof`.
-  return getRelayPushHandler(self.node.protocols.wakuRelay)
+  return getRelayPushHandler(self.node.protocols.relay)
 
 proc rlnEpochQuota*(
     self: Waku, timestamp: uint64
@@ -61,6 +61,11 @@ proc attachRlnProof*(
   ## the bytes. Without RLN mounted the message passes through unproven. The
   ## error's kind tells the caller whether a retry can succeed.
   return await attachProof(self.node.protocols.rlnPlugin, message)
+
+func needsRlnProof*(self: Waku, message: WakuMessage): bool =
+  ## True when `attachRlnProof` makes a proof for `message` and reserves an RLN
+  ## message id.
+  return self.node.protocols.rlnPlugin.needsProof(message)
 
 func isRlnRejection*(error: ErrorStatus): bool =
   ## True when a publish failure means "the RLN proof was not accepted", so the
@@ -160,8 +165,8 @@ proc lightpushPublishToAny*(
     return
       await self.node.lightpushPublish(Opt.some(shard), message, Opt.some(peer), mixify)
   except CancelledError as exc:
-    # The send service cancelled this attempt during its stop. An error result
-    # here keeps the service loop alive, and the stop does not complete.
+    # The send service cancelled this attempt during its stop. Raise the cancel
+    # again, so that `deliver` ends with the cancel and counts no failed attempt.
     raise exc
   except CatchableError as e:
     return lightpushResultInternalError(e.msg)

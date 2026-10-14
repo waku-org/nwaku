@@ -824,7 +824,7 @@ proc buildRlnEvm*(
   )
 
 proc mountOnchainRln*(
-    node: WakuNode,
+    node: Kernel,
     conf: WakuRlnConfig,
     spamHandler = Opt.none(SpamHandler),
     registrationHandler = Opt.none(RegistrationHandler),

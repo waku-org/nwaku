@@ -36,7 +36,7 @@ const NoPeerNoDiscoError =
 const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
-proc useSelfHostedLightPush(node: WakuNode): bool =
+proc useSelfHostedLightPush(node: Kernel): bool =
   return node.protocols.wakuLegacyLightPush != nil and node.protocols.wakuLegacyLightpushClient == nil
 
 #### Request handlers
@@ -45,7 +45,7 @@ const ROUTE_LIGHTPUSH = "/lightpush/v1/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   router.api(MethodPost, ROUTE_LIGHTPUSH) do(

@@ -61,8 +61,8 @@ waku_<protocol>/
 └── protocol_metrics.nim  # Prometheus metrics
 ```
 
-### WakuNode Architecture
-- WakuNode (`waku/node/waku_node.nim`) is the central orchestrator
+### Kernel Architecture
+- Kernel (`waku/node/waku_node.nim`) is the central orchestrator
 - Protocols are "mounted" onto the node's switch (libp2p component)
 - PeerManager handles peer selection and connection management
 - Switch provides libp2p transport, security, and multiplexing
@@ -418,7 +418,7 @@ Miscellaneous
      # ... fields
    ```
 4. Implement request handler
-5. Mount in WakuNode (`waku/node/waku_node.nim`)
+5. Mount in Kernel (`waku/node/waku_node.nim`)
 6. Add tests in `tests/waku_myprotocol/`
 7. Export module via `waku/waku_myprotocol.nim`
 
@@ -427,7 +427,7 @@ Miscellaneous
 2. Implement endpoint following pattern:
    ```nim
    proc installMyProtocolApiHandlers*(
-       router: var RestRouter, node: WakuNode
+       router: var RestRouter, node: Kernel
    ) =
      router.api(MethodGet, "/waku/v2/myprotocol/endpoint") do () -> RestApiResponse:
        # Implementation

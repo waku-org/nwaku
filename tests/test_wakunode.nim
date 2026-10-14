@@ -25,7 +25,7 @@ import
   ./testlib/wakucore,
   ./testlib/wakunode
 
-suite "WakuNode":
+suite "Kernel":
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = generateSecp256k1Key()
@@ -42,19 +42,19 @@ suite "WakuNode":
     await node1.start()
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    node1.protocols.wakuRelay.codec = "/vac/waku/relay/2.0.0"
+    node1.protocols.relay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    node2.protocols.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
+    node2.protocols.relay.codec = "/vac/waku/relay/2.0.0-beta2"
 
     check:
       # Check that mounted codecs are actually different
-      node1.protocols.wakuRelay.codec == "/vac/waku/relay/2.0.0"
-      node2.protocols.wakuRelay.codec == "/vac/waku/relay/2.0.0-beta2"
+      node1.protocols.relay.codec == "/vac/waku/relay/2.0.0"
+      node2.protocols.relay.codec == "/vac/waku/relay/2.0.0-beta2"
 
     # Now verify that protocol matcher returns `true` and relay works
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -134,7 +134,7 @@ suite "WakuNode":
       assert false, "Failed to mount relay"
 
     # Create an array to hold the other nodes
-    var otherNodes: seq[WakuNode] = @[]
+    var otherNodes: seq[Kernel] = @[]
 
     # Create and start 20 other nodes
     for _ in 0 ..< maxConnections + 1:

@@ -82,7 +82,6 @@ method sendImpl*(self: RelaySendProcessor, task: DeliveryTask) {.async.} =
       msgHash = task.msgHash.to0xHex(),
       noOfPeers = noOfPublishedPeers
     task.state = DeliveryState.SuccessfullyPropagated
-    task.deliveryTime = Moment.now()
     if task.firstPropagatedTime.isNone():
       task.firstPropagatedTime = Opt.some(Moment.now())
   else:

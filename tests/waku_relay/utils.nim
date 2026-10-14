@@ -34,7 +34,7 @@ proc newTestWakuRelay*(switch = newTestSwitch()): Future[WakuRelay] {.async.} =
   return proto
 
 proc subscribeToContentTopicWithHandler*(
-    node: WakuNode, contentTopic: string
+    node: Kernel, contentTopic: string
 ): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
@@ -46,7 +46,7 @@ proc subscribeToContentTopicWithHandler*(
     raiseAssert "Failed to subscribe to content topic " & contentTopic & ": " & error
   return completionFut
 
-proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bool] =
+proc subscribeCompletionHandler*(node: Kernel, pubsubTopic: string): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
       topic: PubsubTopic, msg: WakuMessage

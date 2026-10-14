@@ -107,7 +107,7 @@ proc attachRlnProofAndValidate(
   )
 
 proc installRelayApiHandlers*(
-    router: var RestRouter, node: WakuNode, cache: MessageCache
+    router: var RestRouter, node: Kernel, cache: MessageCache
 ) =
   router.api(MethodOptions, ROUTE_RELAY_SUBSCRIPTIONSV1) do() -> RestApiResponse:
     return RestApiResponse.ok()
@@ -204,7 +204,7 @@ proc installRelayApiHandlers*(
 
     # ensure the node is subscribed to the topic. otherwise it risks publishing
     # to a topic with no connected peers
-    if pubSubTopic notin node.protocols.wakuRelay.subscribedTopics():
+    if pubSubTopic notin node.protocols.relay.subscribedTopics():
       return RestApiResponse.badRequest(
         "Failed to publish: Node not subscribed to topic: " & pubsubTopic
       )
@@ -225,7 +225,7 @@ proc installRelayApiHandlers*(
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.protocols.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -236,11 +236,11 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.protocols.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.protocols.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", pubSubTopic = pubSubTopic, rln = node.protocols.rlnPlugin.isSome()
@@ -358,7 +358,7 @@ proc installRelayApiHandlers*(
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.protocols.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -369,11 +369,11 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.protocols.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.protocols.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",

@@ -26,18 +26,18 @@ import
 ## commit the node sets it to the first address mix can encode: a direct address
 ## known from outside, the ENR endpoint, a relay route, then the resolved set.
 
-proc selfHop(node: WakuNode): MultiAddress =
+proc selfHop(node: Kernel): MultiAddress =
   node.protocols.wakuMix.localMixPubInfo().multiAddr
 
-proc boundTcpPort(node: WakuNode): Port =
+proc boundTcpPort(node: Kernel): Port =
   getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports").tcpPort.get()
 
-proc mountTestMix(node: WakuNode) {.async.} =
+proc mountTestMix(node: Kernel) {.async.} =
   let mixKeys = generateKeyPair().expect("mix key pair")
   (await node.mountMix(DefaultClusterId, mixKeys.privateKey, @[])).isOkOr:
     raiseAssert "Failed to mount mix: " & $error
 
-proc mixHealth(node: WakuNode): ProtocolHealth =
+proc mixHealth(node: Kernel): ProtocolHealth =
   NodeHealthMonitor.new(node).getSyncProtocolHealthInfo(WakuProtocol.MixProtocol)
 
 suite "Waku Mix - the node's own hop":
@@ -320,7 +320,7 @@ suite "Waku Mix - the node's own hop":
 ## with `updatePoolSize`, as the mount and the health pass do.
 
 suite "Waku Mix - pool size":
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
 
   asyncSetup:
     node = newTestWakuNode(generateSecp256k1Key())
@@ -503,7 +503,7 @@ suite "Waku Mix - bootstrap nodes":
 
   proc mountWith(
       bootnodes: seq[MixNodePubInfo], nameResolver: NameResolver = nil
-  ): Future[WakuNode] {.async.} =
+  ): Future[Kernel] {.async.} =
     let node = newTestWakuNode(generateSecp256k1Key(), nameResolver = nameResolver)
     let mixKeys = generateKeyPair().expect("mix key pair")
     (await node.mountMix(DefaultClusterId, mixKeys.privateKey, bootnodes)).isOkOr:

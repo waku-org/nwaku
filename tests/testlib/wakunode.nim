@@ -85,7 +85,7 @@ proc newTestWakuNode*(
     peerStoreCapacity = Opt.none(int),
     clusterId = DefaultClusterId,
     subscribeShards = @[DefaultShardId],
-): WakuNode =
+): Kernel =
   logging.setupLog(enabledLogLevel, logging.LogFormat.TEXT)
 
   # quic won't bind 0.0.0.0 wildcard, use loopback for tests
@@ -176,7 +176,7 @@ proc newTestWakuNode*(
 
   return builder.build().get()
 
-proc boundTcpPort*(node: WakuNode): Port =
+proc boundTcpPort*(node: Kernel): Port =
   let ports = getPorts(node.switch.peerInfo.listenAddrs).valueOr:
     raiseAssert "getPorts failed: " & error
   if ports.tcpPort.isNone():
@@ -189,8 +189,8 @@ proc hasMeshPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
       return true
   false
 
-proc hasMeshPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.protocols.wakuRelay.hasMeshPeer(topic, peer)
+proc hasMeshPeer*(node: Kernel, topic: PubsubTopic, peer: PeerId): bool =
+  node.protocols.relay.hasMeshPeer(topic, peer)
 
 proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
   for p in relay.gossipsub.getOrDefault(topic):
@@ -198,8 +198,8 @@ proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool
       return true
   false
 
-proc hasGossipsubPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.protocols.wakuRelay.hasGossipsubPeer(topic, peer)
+proc hasGossipsubPeer*(node: Kernel, topic: PubsubTopic, peer: PeerId): bool =
+  node.protocols.relay.hasGossipsubPeer(topic, peer)
 
 proc nodeMessagesCount*(labelValues: openArray[string]): float64 =
   try:

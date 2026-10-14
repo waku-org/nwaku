@@ -23,12 +23,12 @@ import
   ../waku_filter_v2/waku_filter_utils
 
 proc waitForTopicPeer(
-    node: WakuNode, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
+    node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
 ) {.async.} =
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in node.protocols.wakuRelay.gossipsub.getOrDefault(topic):
+    for p in node.protocols.relay.gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
@@ -54,10 +54,10 @@ proc createRequest(
   )
 
 suite "Waku Filter - End to End":
-  var client {.threadvar.}: WakuNode
+  var client {.threadvar.}: Kernel
   var clientPeerId {.threadvar.}: PeerId
-  var clientClone {.threadvar.}: WakuNode
-  var server {.threadvar.}: WakuNode
+  var clientClone {.threadvar.}: Kernel
+  var server {.threadvar.}: Kernel
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic
@@ -641,7 +641,7 @@ suite "Waku Filter - End to End":
     await wakuFilter.subscriptions.removePeer(clientPeerId)
     wakuFilter.subscriptions.cleanUp()
 
-    var peers = newSeq[WakuNode](MaxFilterPeers)
+    var peers = newSeq[Kernel](MaxFilterPeers)
 
     for index in 0 ..< MaxFilterPeers:
       peers[index] = newTestWakuNode(generateSecp256k1Key())

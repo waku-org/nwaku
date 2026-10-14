@@ -34,10 +34,10 @@ procSuite "Relay (GossipSub) Peer Exchange":
 
     # Then the relays are mounted without a handler
     check:
-      node1.protocols.wakuRelay.parameters.enablePX == false
-      node1.protocols.wakuRelay.routingRecordsHandler.len == 0
-      node2.protocols.wakuRelay.parameters.enablePX == false
-      node2.protocols.wakuRelay.routingRecordsHandler.len == 0
+      node1.protocols.relay.parameters.enablePX == false
+      node1.protocols.relay.routingRecordsHandler.len == 0
+      node2.protocols.relay.parameters.enablePX == false
+      node2.protocols.relay.routingRecordsHandler.len == 0
 
   asyncTest "Mount relay with peer exchange handler":
     ## Given three nodes
@@ -87,7 +87,7 @@ procSuite "Relay (GossipSub) Peer Exchange":
       assert false, "Failed to mount relay"
 
     # Ensure that node1 prunes all peers after the first connection
-    node1.protocols.wakuRelay.parameters.dHigh = 1
+    node1.protocols.relay.parameters.dHigh = 1
 
     await allFutures([node1.start(), node2.start(), node3.start()])
 

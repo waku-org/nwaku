@@ -159,7 +159,7 @@ const NoPeerNoneFoundError =
   FilterSubscribeError.serviceUnavailable("No suitable service peer & none discovered")
 
 proc filterPostPutSubscriptionRequestHandler(
-    node: WakuNode,
+    node: Kernel,
     contentBody: Option[ContentBody],
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
@@ -203,7 +203,7 @@ proc filterPostPutSubscriptionRequestHandler(
 
 proc installFilterPostSubscriptionsHandler(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
@@ -219,7 +219,7 @@ proc installFilterPostSubscriptionsHandler(
 
 proc installFilterPutSubscriptionsHandler(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
@@ -235,7 +235,7 @@ proc installFilterPutSubscriptionsHandler(
 
 proc installFilterDeleteSubscriptionsHandler(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
@@ -285,7 +285,7 @@ proc installFilterDeleteSubscriptionsHandler(
 
 proc installFilterDeleteAllSubscriptionsHandler(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
@@ -333,7 +333,7 @@ const ROUTE_FILTER_SUBSCRIBER_PING* = "/filter/v2/subscriptions/{requestId}"
 
 proc installFilterPingSubscriberHandler(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   router.api(MethodGet, ROUTE_FILTER_SUBSCRIBER_PING) do(
@@ -365,7 +365,7 @@ proc installFilterPingSubscriberHandler(
 const ROUTE_FILTER_MESSAGES* = "/filter/v2/messages/{contentTopic}"
 
 proc installFilterGetMessagesHandler(
-    router: var RestRouter, node: WakuNode, cache: MessageCache
+    router: var RestRouter, node: Kernel, cache: MessageCache
 ) =
   let pushHandler: FilterPushHandler = proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
@@ -399,7 +399,7 @@ proc installFilterGetMessagesHandler(
 
 proc installFilterRestApiHandlers*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =

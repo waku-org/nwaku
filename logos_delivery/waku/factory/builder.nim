@@ -166,7 +166,7 @@ proc withNatConfig*(builder: var WakuNodeBuilder, natConfig: Opt[NATConfig]) =
 
 ## Build
 
-proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
+proc build*(builder: WakuNodeBuilder): Result[Kernel, string] =
   var rng: crypto.Rng
   if builder.nodeRng.isNone():
     rng = crypto.newRng()
@@ -181,7 +181,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
 
   let netConfig = builder.netConfig.get()
   if netConfig.dnsNameServers.len == 0:
-    return err("DNS name servers are required for WakuNode")
+    return err("DNS name servers are required for Kernel")
 
   if builder.record.isNone():
     return err("node record is required")
@@ -226,9 +226,9 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     maxConnections = builder.switchMaxConnections.get(MaxConnections),
   )
 
-  var node: WakuNode
+  var node: Kernel
   try:
-    node = WakuNode.new(
+    node = Kernel.new(
       netConfig = netConfig,
       enr = builder.record.get(),
       switch = switch,
@@ -237,6 +237,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       rateLimitSettings = builder.rateLimitSettings.get(DefaultProtocolRateLimit),
     )
   except Exception:
-    return err("failed to build WakuNode instance: " & getCurrentExceptionMsg())
+    return err("failed to build Kernel instance: " & getCurrentExceptionMsg())
 
   ok(node)

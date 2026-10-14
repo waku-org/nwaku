@@ -109,7 +109,7 @@ type
     mixPubKey*: Opt[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
-  WakuNode* = ref object
+  Kernel* = ref object
     peerManager*: PeerManager
     switch*: Switch
     wakuPeerExchange*: WakuPeerExchange
@@ -155,7 +155,7 @@ type
 
   Protocols* = object
     ## The libp2p protocols mounted on the node, apart from discovery.
-    wakuRelay*: WakuRelay
+    relay*: WakuRelay
     wakuArchive*: waku_archive.WakuArchive
     wakuStore*: store.WakuStore
     wakuStoreClient*: store_client.WakuStoreClient
@@ -184,7 +184,7 @@ type
     relayReconnectFut*: Future[void]
 
   SubscriptionManager* = ref object of RootObj
-    node*: WakuNode
+    node*: Kernel
     shards*: Table[PubsubTopic, ShardSubscription]
     extraListenShards*: seq[PubsubTopic]
       ## Shards every content topic is also subscribed on, receive-only.
@@ -204,7 +204,7 @@ import ./subscription_manager
 import ../waku_mix/protocol_metrics
 
 proc deduceRelayShard(
-    node: WakuNode,
+    node: Kernel,
     contentTopic: ContentTopic,
     pubsubTopicOp: Opt[PubsubTopic] = Opt.none(PubsubTopic),
 ): Result[RelayShard, string] =
@@ -220,14 +220,14 @@ proc deduceRelayShard(
     return err("Invalid topic:" & pubsubTopic & " " & $error)
   return ok(shard)
 
-proc getShardsGetter*(node: WakuNode, configuredShards: seq[uint16]): GetShards =
+proc getShardsGetter*(node: Kernel, configuredShards: seq[uint16]): GetShards =
   return proc(): seq[uint16] {.closure, gcsafe, raises: [].} =
     # fetch pubsubTopics subscribed to relay and convert them to shards
-    if node.protocols.wakuRelay.isNil():
+    if node.protocols.relay.isNil():
       # If relay is not mounted, return configured shards
       return configuredShards
 
-    let subscribedTopics = node.protocols.wakuRelay.subscribedTopics()
+    let subscribedTopics = node.protocols.relay.subscribedTopics()
 
     # If relay hasn't subscribed to any topics yet, return configured shards
     if subscribedTopics.len == 0:
@@ -243,13 +243,13 @@ proc getShardsGetter*(node: WakuNode, configuredShards: seq[uint16]): GetShards 
       return shards
     return configuredShards
 
-proc getCapabilitiesGetter(node: WakuNode): GetCapabilities =
+proc getCapabilitiesGetter(node: Kernel): GetCapabilities =
   return proc(): seq[Capabilities] {.closure, gcsafe, raises: [].} =
-    if node.protocols.wakuRelay.isNil():
+    if node.protocols.relay.isNil():
       return @[]
     return node.enr.getCapabilities()
 
-proc getWakuPeerRecordGetter(node: WakuNode): GetWakuPeerRecord =
+proc getWakuPeerRecordGetter(node: Kernel): GetWakuPeerRecord =
   return proc(): WakuPeerRecord {.closure, gcsafe, raises: [].} =
     var mixKey: string
     if not node.protocols.wakuMix.isNil():
@@ -260,7 +260,7 @@ proc getWakuPeerRecordGetter(node: WakuNode): GetWakuPeerRecord =
       mixKey = mixKey,
     )
 
-proc onLearnedHost(node: WakuNode, ma: MultiAddress): Opt[MultiAddress] =
+proc onLearnedHost(node: Kernel, ma: MultiAddress): Opt[MultiAddress] =
   ## A stand-in for the wildcard bind host, moved onto the host discv5
   ## confirmed from outside. Each entry keeps its own transport port: the
   ## port discv5 learned is discv5's own, and the scalars already pair that
@@ -271,7 +271,7 @@ proc onLearnedHost(node: WakuNode, ma: MultiAddress): Opt[MultiAddress] =
     return Opt.none(MultiAddress)
   return ma.replaceIp(learned.ip).optValue()
 
-proc enrAddresses*(node: WakuNode): seq[MultiAddress] =
+proc enrAddresses*(node: Kernel): seq[MultiAddress] =
   ## The announced addresses known from outside: what the operator
   ## configured, what a mapper added (a NAT grant, a relay route), and, once
   ## discv5 confirms a host, the bound endpoints moved onto it. The primary
@@ -289,7 +289,7 @@ proc enrAddresses*(node: WakuNode): seq[MultiAddress] =
         addrs.add(moved)
   return addrs
 
-proc enrBaseline*(node: WakuNode): EnrBaseline =
+proc enrBaseline*(node: Kernel): EnrBaseline =
   ## What the scalars say when nothing else decides them. A configured
   ## external port stays beside its host when the local port differs.
   if node.enrPort.isSome():
@@ -303,7 +303,7 @@ proc enrBaseline*(node: WakuNode): EnrBaseline =
       Opt.none(Port)
   return (ip: node.enrHost, tcp: bound)
 
-proc updateMixSelfHop(node: WakuNode) =
+proc updateMixSelfHop(node: Kernel) =
   ## Sets mix's own hop, which closes every reply path, to the first address mix
   ## can encode, in this order: a direct address known from outside, the ENR
   ## endpoint, a relay route known from outside, then the announced set.
@@ -334,7 +334,7 @@ proc updateMixSelfHop(node: WakuNode) =
   if chosen.get() != before or wasMissing:
     info "Mix self hop set", hop = $chosen.get(), before = $before
 
-proc updateEnrConfiguredEndpoint*(node: WakuNode, netConfig: NetConfig) =
+proc updateEnrConfiguredEndpoint*(node: Kernel, netConfig: NetConfig) =
   ## A dns4 name can answer differently at start, so the scalars follow that
   ## resolution rather than the one from construction.
   node.enrHost = netConfig.enrIp
@@ -343,7 +343,7 @@ proc updateEnrConfiguredEndpoint*(node: WakuNode, netConfig: NetConfig) =
   if node.baseAnnounced.isSome():
     node.updateMixSelfHop()
 
-proc copyCommittedAddresses*(node: WakuNode) =
+proc copyCommittedAddresses*(node: Kernel) =
   ## Copy the committed peerInfo addresses into announcedAddresses, update mix's
   ## own hop, and refresh the ENR, once the base mapper has resolved the addresses.
   ## A `Waku` installs its own refresh, which also keeps the live discv5 record.
@@ -360,7 +360,7 @@ proc copyCommittedAddresses*(node: WakuNode) =
       error "failed to refresh the ENR addresses", error = error
 
 proc new*(
-    T: type WakuNode,
+    T: type Kernel,
     netConfig: NetConfig,
     enr: enr.Record,
     switch: Switch,
@@ -375,7 +375,7 @@ proc new*(
 
   let brokerCtx = globalBrokerContext()
 
-  let node = WakuNode(
+  let node = Kernel(
     peerManager: peerManager,
     switch: switch,
     rng: rng,
@@ -416,15 +416,15 @@ proc new*(
 
   return node
 
-proc peerInfo*(node: WakuNode): PeerInfo =
+proc peerInfo*(node: Kernel): PeerInfo =
   node.switch.peerInfo
 
-proc peerId*(node: WakuNode): PeerId =
+proc peerId*(node: Kernel): PeerId =
   node.peerInfo.peerId
 
 # TODO: Move to application instance (e.g., the node app)
 # TODO: Extend with more relevant info: topics, peers, memory usage, online time, etc
-proc info*(node: WakuNode): WakuInfo =
+proc info*(node: Kernel): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
 
   let peerInfo = node.switch.peerInfo
@@ -442,17 +442,17 @@ proc info*(node: WakuNode): WakuInfo =
   return wakuInfo
 
 proc connectToNodes*(
-    node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api"
+    node: Kernel, nodes: seq[RemotePeerInfo] | seq[string], source = "api"
 ) {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
-proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
+proc disconnectNode*(node: Kernel, remotePeer: RemotePeerInfo) {.async.} =
   await peer_manager.disconnectNode(node.peerManager, remotePeer)
 
 proc mountMetadata*(
-    node: WakuNode, clusterId: uint32, shards: seq[uint16]
+    node: Kernel, clusterId: uint32, shards: seq[uint16]
 ): Result[void, string] =
   if not node.protocols.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
@@ -471,7 +471,7 @@ proc mountMetadata*(
 
 ## Waku AutoSharding
 proc mountAutoSharding*(
-    node: WakuNode, clusterId: uint16, shards: seq[uint16]
+    node: Kernel, clusterId: uint16, shards: seq[uint16]
 ): Result[void, string] =
   info "Mounting auto sharding", clusterId = clusterId, shards = shards
   node.wakuAutoSharding = Opt.some(Sharding.init(clusterId, shards))
@@ -479,18 +479,18 @@ proc mountAutoSharding*(
   return ok()
 
 proc mountAutoSharding*(
-    node: WakuNode, clusterId: uint16, shardCount: uint32
+    node: Kernel, clusterId: uint16, shardCount: uint32
 ): Result[void, string] =
   node.mountAutoSharding(clusterId, Sharding.init(clusterId, shardCount).shards)
 
-proc getMixNodePoolSize*(node: WakuNode): int =
+proc getMixNodePoolSize*(node: Kernel): int =
   ## The number of mix pool members a path can use; zero when mix is not mounted.
   if node.protocols.wakuMix.isNil():
     return 0
   return node.protocols.wakuMix.poolSize()
 
 proc splitMixNodes(
-    node: WakuNode, mixnodes: seq[MixNodePubInfo]
+    node: Kernel, mixnodes: seq[MixNodePubInfo]
 ): tuple[literals: seq[MixNodePubInfo], names: seq[MixNodeName], dropped: int] =
   ## Splits a mix node list into literal entries, which the pool takes as they
   ## are, and `dns4` names to resolve. Drops a bad multiaddress, and a name when
@@ -533,7 +533,7 @@ proc literalMixNodes(
   return entries
 
 proc resolveMixNodeName(
-    node: WakuNode, name: MixNodeName
+    node: Kernel, name: MixNodeName
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Resolves one mix node name and adds the node to the pool as soon as it
   ## answers. `false` when the lookup failed or gave no literal address.
@@ -555,7 +555,7 @@ proc resolveMixNodeName(
     node.protocols.wakuMix.addBootNodes(entries)
   return true
 
-proc resolveMixNodeNames(node: WakuNode) {.async: (raises: [CancelledError]).} =
+proc resolveMixNodeNames(node: Kernel) {.async: (raises: [CancelledError]).} =
   ## Resolves `mixNodeNames` in the background. Each node joins the pool when its
   ## own name answers, and all lookups share one `MixNodeResolveTimeout`.
   let names = node.protocols.mixNodeNames
@@ -595,13 +595,13 @@ proc resolveMixNodeNames(node: WakuNode) {.async: (raises: [CancelledError]).} =
       timedOut = timedOut,
       timeout = MixNodeResolveTimeout
 
-proc mixNodesResolved*(node: WakuNode) {.async: (raises: [CancelledError]).} =
+proc mixNodesResolved*(node: Kernel) {.async: (raises: [CancelledError]).} =
   ## Waits until the background lookup of the mix node names has finished.
   if not node.protocols.mixNodeResolution.isNil():
     await node.protocols.mixNodeResolution.join()
 
 proc mountMix*(
-    node: WakuNode,
+    node: Kernel,
     clusterId: uint16,
     mixPrivKey: Curve25519Key,
     mixnodes: seq[MixNodePubInfo],
@@ -623,7 +623,9 @@ proc mountMix*(
   ).valueOr:
     return err("Waku Mix protocol initialization failed: " & error)
   #TODO: should we do the below only for exit node? Also, what if multiple protocols use mix?
-  node.protocols.wakuMix.registerDestReadBehavior(WakuLightPushCodec, readLp(int(-1)))
+  node.protocols.wakuMix.registerDestReadBehavior(
+    WakuLightPushCodec, readLp(lightpush_protocol.DefaultMaxPushResponseSize)
+  )
   let catchRes = catch:
     node.switch.mount(node.protocols.wakuMix)
   catchRes.isOkOr:
@@ -639,7 +641,7 @@ proc mountMix*(
   return ok()
 
 proc mountKademlia*(
-    node: WakuNode, config: KademliaDiscoveryConf
+    node: Kernel, config: KademliaDiscoveryConf
 ): Result[void, string] =
   if not node.wakuKademlia.isNil():
     return err("WakuKademlia already mounted, skipping")
@@ -661,7 +663,7 @@ proc mountKademlia*(
 
   return ok()
 
-proc attachDiscovery*(node: WakuNode, discovery: IPeerDiscovery) =
+proc attachDiscovery*(node: Kernel, discovery: IPeerDiscovery) =
   ## Attach an IPeerDiscovery backend: started after the node is up
   ## (node.start or explicitly by the owner), stopped in node.stop.
   node.discoveries.add(discovery)
@@ -669,7 +671,7 @@ proc attachDiscovery*(node: WakuNode, discovery: IPeerDiscovery) =
 ## Waku Sync
 
 proc mountStoreSync*(
-    node: WakuNode,
+    node: Kernel,
     cluster: uint16,
     shards: seq[uint16],
     contentTopics: seq[string],
@@ -713,15 +715,15 @@ proc mountStoreSync*(
 
   return ok()
 
-proc reconnectRelayPeers*(node: WakuNode) {.async.} =
+proc reconnectRelayPeers*(node: Kernel) {.async.} =
   ## Reconnect to previously-seen WakuRelay peers.
-  if node.protocols.wakuRelay.isNil():
+  if node.protocols.relay.isNil():
     return
   if not node.peerManager.switch.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     return
   info "Found previous WakuRelay peers. Reconnecting."
   let backoffPeriod =
-    node.protocols.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
+    node.protocols.relay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
   await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
 
 proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
@@ -729,7 +731,7 @@ proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
   shuffle(randomPeers)
   return randomPeers[0 ..< min(len(randomPeers), numRandomPeers)]
 
-proc mountRendezvousClient*(node: WakuNode, clusterId: uint16) {.async: (raises: []).} =
+proc mountRendezvousClient*(node: Kernel, clusterId: uint16) {.async: (raises: []).} =
   info "Mounting rendezvous client"
 
   node.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
@@ -742,7 +744,7 @@ proc mountRendezvousClient*(node: WakuNode, clusterId: uint16) {.async: (raises:
     await node.wakuRendezvousClient.start()
 
 proc mountRendezvous*(
-    node: WakuNode, clusterId: uint16, shards: seq[RelayShard] = @[]
+    node: Kernel, clusterId: uint16, shards: seq[RelayShard] = @[]
 ) {.async: (raises: []).} =
   info "Mounting rendezvous discovery protocol"
 
@@ -770,7 +772,7 @@ proc mountRendezvous*(
   except LPError:
     error "Failed to mount wakuRendezvous", error = getCurrentExceptionMsg()
 
-proc startProvidersAndListeners*(node: WakuNode) =
+proc startProvidersAndListeners*(node: Kernel) =
   RequestRelayShard.setProvider(
     node.brokerCtx,
     proc(
@@ -794,12 +796,12 @@ proc startProvidersAndListeners*(node: WakuNode) =
         # 3. Otherwise, ask edge filter (via broker; no-op if no provider set)
         var healthStatus = TopicHealth.NOT_SUBSCRIBED
 
-        if not node.protocols.wakuRelay.isNil:
+        if not node.protocols.relay.isNil:
           healthStatus =
-            node.protocols.wakuRelay.topicsHealth.getOrDefault(shard, TopicHealth.NOT_SUBSCRIBED)
+            node.protocols.relay.topicsHealth.getOrDefault(shard, TopicHealth.NOT_SUBSCRIBED)
 
         if healthStatus == TopicHealth.NOT_SUBSCRIBED:
-          if not node.protocols.wakuRelay.isNil and node.protocols.wakuRelay.isSubscribed(shard):
+          if not node.protocols.relay.isNil and node.protocols.relay.isSubscribed(shard):
             healthStatus = TopicHealth.UNHEALTHY
           else:
             let edgeRes = RequestEdgeShardHealth.request(node.brokerCtx, shard)
@@ -825,8 +827,8 @@ proc startProvidersAndListeners*(node: WakuNode) =
         if shardResult.isOk():
           let shardObj = shardResult.get()
           let pubsubTopic = $shardObj
-          if not isNil(node.protocols.wakuRelay):
-            topicHealth = node.protocols.wakuRelay.topicsHealth.getOrDefault(
+          if not isNil(node.protocols.relay):
+            topicHealth = node.protocols.relay.topicsHealth.getOrDefault(
               pubsubTopic, TopicHealth.NOT_SUBSCRIBED
             )
 
@@ -851,13 +853,13 @@ proc startProvidersAndListeners*(node: WakuNode) =
     ).isOkOr:
       error "Can't set provider for ServicePeersRequest", error = error
 
-proc stopProvidersAndListeners*(node: WakuNode) =
+proc stopProvidersAndListeners*(node: Kernel) =
   RequestRelayShard.clearProvider(node.brokerCtx)
   RequestContentTopicsHealth.clearProvider(node.brokerCtx)
   RequestShardTopicsHealth.clearProvider(node.brokerCtx)
   ServicePeersRequest.clearProvider(node.brokerCtx)
 
-proc start*(node: WakuNode) {.async.} =
+proc start*(node: Kernel) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
 
@@ -911,7 +913,7 @@ proc start*(node: WakuNode) {.async.} =
 
   info "Node started successfully"
 
-proc stop*(node: WakuNode) {.async.} =
+proc stop*(node: Kernel) {.async.} =
   ## By stopping the switch we are stopping all the underlying mounted protocols
 
   # Cancel the background relay reconnection (may still be in its backoff wait).
@@ -960,7 +962,7 @@ proc stop*(node: WakuNode) {.async.} =
   node.explicitAnnounced = @[]
   node.enrLearnedEndpoint = Opt.none(DiscoveryEndpoint)
 
-proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [CancelledError]).} =
+proc isReady*(node: Kernel): Future[bool] {.async: (raises: [CancelledError]).} =
   let plugin = node.protocols.rlnPlugin.valueOr:
     return true
   if plugin.isReady.isNil():

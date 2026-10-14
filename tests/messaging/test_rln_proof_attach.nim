@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[options, osproc, times]
+import std/[options, osproc, sequtils, times]
 import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/waku/[waku, waku_core, rln],
@@ -15,7 +15,7 @@ import
   logos_delivery/api/events/messaging_client_events,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
-    [send_service, send_processor, delivery_task]
+    [send_service {.all.}, send_processor, delivery_task]
 import
   ../testlib/[testasync, wakunodeconf],
   ../waku_rln_relay/utils_onchain,
@@ -54,7 +54,7 @@ proc lezGetQuota(
 var lezPlugin = LogosDeliveryRlnPlugin(get_epoch_quota: lezGetQuota)
 
 type FailingProofBackend = ref object
-  ## Fails every proof with `failWith`; the test can change it between rounds.
+  ## Fails every proof with `failWith`; the test can change it between attempts.
   failWith: RlnErrorKind
   attempts: int
 
@@ -124,7 +124,7 @@ suite "SendService RLN proof attach":
       quota.remaining == 7
 
 suite "SendService RLN proof attach - failing backend":
-  ## A Permanent attach error cannot clear on a later round, so the task fails
+  ## A Permanent attach error cannot clear on a later attempt, so the task fails
   ## with one `MessageErrorEvent` and never reaches a send processor.
   const PermanentReason =
     "Failed to attach RLN proof: Permanent: scripted attach failure"
@@ -150,63 +150,70 @@ suite "SendService RLN proof attach - failing backend":
     discard await waku.stop()
 
   proc newService(processor: BaseSendProcessor): SendService =
+    ## A service that holds one task, so `isFull` tells whether it holds the task.
+    ## It ticks each 10 minutes, so `retryNow` starts each attempt.
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    return SendService.new(false, waku, manager, processor).expect("SendService.new")
+    return SendService
+      .new(
+        false,
+        waku,
+        manager,
+        processor,
+        sendQueueCapacity = 1,
+        retryInterval = chronos.minutes(10),
+      )
+      .expect("SendService.new")
 
-  asyncTest "send() fails the task at once":
+  asyncTest "a first attempt fails the task at once, with one event":
     let backend = waku.mountFailingRln(RlnErrorKind.Permanent)
     let processor = CountingProcessor()
     let service = newService(processor)
-    let task = buildTask("permanent-in-send")
+    let task = buildTask("permanent-in-first-attempt")
 
-    await service.send(task)
-    await sleepAsync(chronos.milliseconds(10))
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    checkUntilTimeout:
+      errors.len == 1
     check:
       task.state == DeliveryState.FailedToDeliver
       processor.calls == 0
-      errors.len == 1
-      errors[0].requestId == task.requestId
-      errors[0].error == PermanentReason
-
-    # Not cached, so a later pass neither retries nor reports it again.
-    await service.trySendMessages()
-    service.evaluateAndCleanUp()
-    await sleepAsync(chronos.milliseconds(10))
-    check:
+      errors.mapIt(it.requestId) == @[task.requestId]
+      errors.mapIt(it.error) == @[PermanentReason]
       backend.attempts == 1
-      errors.len == 1
+      not service.isFull() # removed, so it is not retried or reported again
 
-  asyncTest "a service pass fails a parked task whose attach turns Permanent":
-    ## The task parks while the backend is not ready. By the next round its
+  asyncTest "a retry fails a task whose proof attach turns Permanent":
+    ## The task waits for its proof while the backend is not ready. By the retry its
     ## message epoch can be out of reach, which the backend reports as Permanent.
     let backend = waku.mountFailingRln(RlnErrorKind.NotReady)
     let processor = CountingProcessor()
     let service = newService(processor)
-    let task = buildTask("permanent-in-pass")
+    let task = buildTask("permanent-in-retry")
 
-    await service.send(task)
-    await sleepAsync(chronos.milliseconds(10))
-    check:
+    check service.enqueue(task).isOk()
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    checkUntilTimeout:
       task.state == DeliveryState.NextRoundRetry
+    check:
+      backend.attempts == 1
       errors.len == 0
 
     backend.failWith = RlnErrorKind.Permanent
-    await service.trySendMessages()
+    service.retryNow()
+    checkUntilTimeout:
+      errors.len == 1
     check:
       task.state == DeliveryState.FailedToDeliver
       processor.calls == 0
-
-    service.evaluateAndCleanUp()
-    await sleepAsync(chronos.milliseconds(10))
-    check:
-      errors.len == 1
-      errors[0].requestId == task.requestId
-      errors[0].error == PermanentReason
-
-    # Evicted, so the next pass does not draw for it again.
-    await service.trySendMessages()
-    check backend.attempts == 2
+      errors.mapIt(it.requestId) == @[task.requestId]
+      errors.mapIt(it.error) == @[PermanentReason]
+      backend.attempts == 2
+      not service.isFull() # removed, so no later attempt reserves an id for it
 
 suite "SendService RLN proof attach - RLN mounted":
   var
@@ -331,7 +338,7 @@ suite "SendService RLN proof attach - RLN mounted":
       onchainRln.nonceManager.nextId == 0'u64
 
   asyncTest "a failed proof generation returns its message id":
-    ## The send service retries a `Transient` failure on the next round. The
+    ## The send service retries a `Transient` failure on its next attempt. The
     ## failed attempt built no proof, so the retry draws the same id instead of
     ## spending a second one on a message the rate limit manager charged once.
     let gm = cast[RlnEvmGroupManager](onchainRln.groupManager)

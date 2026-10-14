@@ -10,7 +10,7 @@ import ../testlib/[wakucore, wakunode, testasync]
 const TestShard = PubsubTopic("/waku/2/rs/0/7")
 
 suite "Shard subscription events":
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
   var subscribed {.threadvar.}: seq[PubsubTopic]
   var unsubscribed {.threadvar.}: seq[PubsubTopic]
 
@@ -64,7 +64,7 @@ suite "Shard subscription events":
     check subscribed == @[TestShard]
 
 suite "Extra listen shards":
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
 
   asyncSetup:
     node = newTestWakuNode(generateSecp256k1Key())

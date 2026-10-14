@@ -25,7 +25,7 @@ method sendImpl*(
 proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Waku, errorDesc: string) =
   ## The service refused the task's proof as RLN-invalid: its proof went stale
   ## against a moved merkle root. Schedules a background merkle-path refresh and
-  ## clears the proof so the next round regenerates one against the refreshed
+  ## clears the proof so the next retry regenerates one against the refreshed
   ## path; `attachRlnProof` reuses an existing proof, so without the clear the
   ## rejected bytes would be resent. Resetting admission charges the new nonce
   ## the regenerated proof draws. Without a backend refresh hook a retry would
@@ -33,7 +33,6 @@ proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Waku, errorDesc: string) 
   if not waku.onRlnProofRejected():
     task.state = DeliveryState.FailedToDeliver
     task.errorDesc = errorDesc
-    task.deliveryTime = Moment.now()
     return
   task.msg.proof = @[]
   task.firstAdmittedTime = Opt.none(Moment)
@@ -53,7 +52,6 @@ method process*(
   # A task still in `FallbackRetry` exhausted the chain without delivering, and
   # one still in `Entry` was never attempted because no processor had a usable
   # peer yet (e.g. a lightpush peer that finishes registering right after the
-  # first send). Both must be queued for the next round so the service loop
-  # retries them; otherwise the task would sit untouched until it ages out.
+  # first send). Both must wait for the next attempt.
   if task.state == DeliveryState.FallbackRetry or task.state == DeliveryState.Entry:
     task.state = DeliveryState.NextRoundRetry

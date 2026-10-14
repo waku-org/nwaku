@@ -37,7 +37,7 @@ suite "Waku Legacy Lightpush Client":
     handler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
     ): Future[WakuLightPushResult[void]] {.async.} =
-      let msgLen = message.encode().buffer.len
+      let msgLen = message.encode().len
       if msgLen > int(DefaultMaxWakuMessageSize) + 64 * 1024:
         return err("length greater than maxMessageSize")
       handlerFuture.complete((pubsubTopic, message))
@@ -291,9 +291,11 @@ suite "Waku Legacy Lightpush Client":
       # When publishing the payload
       let publishResponse = await server.handleRequest(clientPeerId, fakeBuffer)
 
-      # Then the response is negative
+      # Then the response is negative, with the placeholder request id, and
+      # a client can decode it
       check:
-        publishResponse.requestId == ""
+        publishResponse.requestId == "N/A"
+        PushRPC.decode(publishResponse.encode()).isOk()
 
       # And the error is returned
       let response = publishResponse.response.get()
@@ -357,3 +359,39 @@ suite "Waku Legacy Lightpush Client":
 
       # Then the response is negative
       check not publishResponse.isOk()
+
+suite "Waku Legacy Lightpush Client - response size":
+  asyncTest "a response above the read limit is an error result":
+    let
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    proc reply(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+      try:
+        let buf = await conn.readLp(int(DefaultMaxWakuMessageSize) * 2)
+        let rpc = PushRPC.decode(buf).valueOr:
+          return
+        let resp = PushRPC(
+          requestId: rpc.requestId,
+          response: Opt.some(
+            PushResponse(
+              isSuccess: true,
+              info: Opt.some('x'.repeat(DefaultMaxPushResponseSize + 1)),
+            )
+          ),
+        )
+        await conn.writeLp(resp.encode())
+      except LPStreamError:
+        return
+
+    serverSwitch.mount(
+      LPProtocol.new(codecs = @[WakuLegacyLightPushCodec], handler = reply)
+    )
+    let client = newTestWakuLegacyLightpushClient(clientSwitch)
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    let res = await client.publish(
+      DefaultPubsubTopic, fakeWakuMessage(), serverSwitch.peerInfo.toRemotePeerInfo()
+    )
+    check res.isErr()
+
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())

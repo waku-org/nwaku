@@ -24,7 +24,7 @@ template sourceDir(): string =
 const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
-suite "WakuNode - Relay":
+suite "Kernel - Relay":
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = generateSecp256k1Key()
@@ -37,7 +37,7 @@ suite "WakuNode - Relay":
       assert false, "Failed to mount relay"
 
     check:
-      GossipSub(node1.protocols.wakuRelay).heartbeatFut.isNil() == false
+      GossipSub(node1.protocols.relay).heartbeatFut.isNil() == false
 
     # Relay protocol starts if mounted before node start
 
@@ -50,13 +50,13 @@ suite "WakuNode - Relay":
 
     check:
       # Relay has not yet started as node has not yet started
-      GossipSub(node2.protocols.wakuRelay).heartbeatFut.isNil()
+      GossipSub(node2.protocols.relay).heartbeatFut.isNil()
 
     await node2.start()
 
     check:
       # Relay started on node start
-      GossipSub(node2.protocols.wakuRelay).heartbeatFut.isNil() == false
+      GossipSub(node2.protocols.relay).heartbeatFut.isNil() == false
 
     await allFutures([node1.stop(), node2.stop()])
 
@@ -192,7 +192,7 @@ suite "WakuNode - Relay":
       completionFutValidatorAcc.complete(true)
       return ValidationResult.Accept
 
-    node2.protocols.wakuRelay.addValidator(validator)
+    node2.protocols.relay.addValidator(validator)
 
     var completionFut = newFuture[bool]()
     proc relayHandler(
@@ -263,14 +263,14 @@ suite "WakuNode - Relay":
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
     for i in 0 .. 4:
       discard
-        await nodes[0].protocols.wakuRelay.publish(DefaultPubsubTopic, urandom(1 * (10 ^ 2)))
+        await nodes[0].protocols.relay.publish(DefaultPubsubTopic, urandom(1 * (10 ^ 2)))
 
     # Wait for gossip
     await sleepAsync(500.millis)
 
     # Verify that node 1 has received 5 invalid messages from node 0
     # meaning that message validity is enforced to gossip messages
-    var peerStats = nodes[1].protocols.wakuRelay.peerStats
+    var peerStats = nodes[1].protocols.relay.peerStats
     check:
       peerStats[nodes[0].switch.peerInfo.peerId].topicInfos[DefaultPubsubTopic].invalidMessageDeliveries ==
         5.0
@@ -574,7 +574,7 @@ suite "WakuNode - Relay":
     # subscribe all nodes to a topic
     let topic = "topic"
     for node in nodes:
-      node.protocols.wakuRelay.subscribe(topic, simpleHandler)
+      node.protocols.relay.subscribe(topic, simpleHandler)
 
     # connect nodes in full mesh
     for i in 0 ..< 5:
@@ -597,18 +597,18 @@ suite "WakuNode - Relay":
 
     # node[0] publishes wrong messages (random bytes not decoding into WakuMessage)
     for j in 0 ..< 50:
-      discard await nodes[0].protocols.wakuRelay.publish(topic, urandom(1 * (10 ^ 3)))
+      discard await nodes[0].protocols.relay.publish(topic, urandom(1 * (10 ^ 3)))
 
     # the score is updated on the next scoring heartbeat (every decayInterval)
     let scored = nodes[1 .. 4].mapIt(newAsyncEvent())
     for i, event in scored:
-      nodes[i + 1].protocols.wakuRelay.scoringHeartbeatEvents.add(event)
+      nodes[i + 1].protocols.relay.scoringHeartbeatEvents.add(event)
     check await allFutures(scored.mapIt(it.wait())).withTimeout(FUTURE_TIMEOUT_SCORING)
 
     # all nodes lower the score of nodes[0] (will change if gossipsub params or amount of msg changes)
     for i in 1 ..< 5:
       check:
-        nodes[i].protocols.wakuRelay.peerStats[nodes[0].switch.peerInfo.peerId].score == -249999.9
+        nodes[i].protocols.relay.peerStats[nodes[0].switch.peerInfo.peerId].score == -249999.9
 
     proc badPeerIsolated(): bool =
       nodes[0].peerManager.switch.connManager.getConnections().len == 0 and
@@ -677,14 +677,14 @@ suite "WakuNode - Relay":
         "The subscription call shouldn't error even though it's already subscribed to that shard"
 
     ## The node should be subscribed to the shard
-    check node.protocols.wakuRelay.isSubscribed(shard)
+    check node.protocols.relay.isSubscribed(shard)
 
     ## Then
     node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
       assert false, "Failed to unsubscribe to topic: " & $error
 
     ## After unsubcription, the node should not be subscribed to the shard anymore
-    check not node.protocols.wakuRelay.isSubscribed(shard)
+    check not node.protocols.relay.isSubscribed(shard)
 
     ## Cleanup
     await node.stop()
@@ -709,7 +709,7 @@ suite "WakuNode - Relay":
     await node1.start()
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    node1.protocols.wakuRelay.parameters.pruneBackoff = 15.seconds
+    node1.protocols.relay.parameters.pruneBackoff = 15.seconds
 
     await node2.start()
     (await node2.mountRelay()).isOkOr:
@@ -731,7 +731,7 @@ suite "WakuNode - Relay":
 
     # A plain disconnect leaves a prune backoff for the peer.
     check:
-      node1.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     let restartedNode2 = newTestWakuNode(nodeKey2)
     await restartedNode2.start()
@@ -743,28 +743,28 @@ suite "WakuNode - Relay":
 
     # The restarted node's GRAFT inside the backoff is answered with a PRUNE and a behaviour penalty.
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      restartedNode2.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId1)
-      node1.protocols.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId1)
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
     let firstBackoff =
-      restartedNode2.protocols.wakuRelay.backingOff.getOrDefault($shard).getOrDefault(peerId1)
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(peerId1)
 
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      not node1.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      not node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     check:
       node1.hasGossipsubPeer($shard, peerId2)
       not node1.hasMeshPeer($shard, peerId2)
-      node1.protocols.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
 
     # The restarted node's next GRAFT is accepted and dropped again at the next heartbeat.
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      restartedNode2.protocols.wakuRelay.backingOff.getOrDefault($shard).getOrDefault(peerId1) >
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(peerId1) >
         firstBackoff
-      node1.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     check:
       not node1.hasMeshPeer($shard, peerId2)
-      node1.protocols.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
 
     # A message of its own is a first message delivery that brings its score back above 0.
     check:
@@ -775,7 +775,7 @@ suite "WakuNode - Relay":
         )
       ).isOk()
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      node1.protocols.wakuRelay.peerStats.getOrDefault(peerId2).score >= 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score >= 0.0
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
       node1.hasMeshPeer($shard, peerId2)
 
@@ -886,8 +886,8 @@ suite "WakuNode - Relay":
 
     # Both neighbours answer the restarted node's GRAFT with a PRUNE.
     checkUntilTimeout:
-      restartedNode3.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
-      restartedNode3.protocols.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId4)
+      restartedNode3.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      restartedNode3.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId4)
     check:
       not restartedNode3.hasMeshPeer($shard, peerId2)
       not restartedNode3.hasMeshPeer($shard, peerId4)
@@ -910,7 +910,7 @@ suite "WakuNode - Relay":
 
     # Both messages leave the restarted node's gossip window without reaching the other side.
     checkUntilTimeout:
-      restartedNode3.protocols.wakuRelay.mcache.window($shard).len == 0
+      restartedNode3.protocols.relay.mcache.window($shard).len == 0
     check:
       not node4ReceivedAfter.finished()
       not node2ReceivedFromNode4.finished()

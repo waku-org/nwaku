@@ -73,7 +73,7 @@ proc waitForShardHealthy(
 
 suite "LM API health checking":
   var
-    serviceNode {.threadvar.}: WakuNode
+    serviceNode {.threadvar.}: Kernel
     client {.threadvar.}: LogosDelivery
     servicePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -88,7 +88,7 @@ suite "LM API health checking":
       await serviceNode.start()
 
     servicePeerInfo = serviceNode.peerInfo.toRemotePeerInfo()
-    serviceNode.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    serviceNode.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     lockNewGlobalBrokerContext:
       client = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
@@ -101,7 +101,7 @@ suite "LM API health checking":
     await serviceNode.stop()
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
-    client.waku.node.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.waku.node.protocols.relay.subscribe(DefaultShard, dummyHandler)
     await client.waku.node.connectToNodes(@[servicePeerInfo])
 
     var isHealthy = false
@@ -121,7 +121,7 @@ suite "LM API health checking":
 
   asyncTest "RequestShardTopicsHealth, check disconnected PubsubTopic":
     const GhostShard = PubsubTopic("/waku/2/rs/1/666")
-    client.waku.node.protocols.wakuRelay.subscribe(GhostShard, dummyHandler)
+    client.waku.node.protocols.relay.subscribe(GhostShard, dummyHandler)
 
     let req = RequestShardTopicsHealth.request(client.waku.brokerCtx, @[GhostShard]).valueOr:
       raiseAssert "Request failed"
@@ -208,7 +208,7 @@ suite "LM API health checking":
     await disconnectFuture
 
   asyncTest "EventShardTopicHealthChange, detect health improvement":
-    client.waku.node.protocols.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.waku.node.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     let healthEventFuture = waitForShardHealthy(client.waku.brokerCtx)
 
@@ -249,8 +249,8 @@ suite "LM API health checking":
     check shardReq.isOk()
     let targetShard = $shardReq.get().relayShard
 
-    client.waku.node.protocols.wakuRelay.subscribe(targetShard, dummyHandler)
-    serviceNode.protocols.wakuRelay.subscribe(targetShard, dummyHandler)
+    client.waku.node.protocols.relay.subscribe(targetShard, dummyHandler)
+    serviceNode.protocols.relay.subscribe(targetShard, dummyHandler)
 
     await client.waku.node.connectToNodes(@[servicePeerInfo])
 

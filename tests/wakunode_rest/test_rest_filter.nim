@@ -38,7 +38,7 @@ import
   ../testlib/futures,
   ../testlib/rest_requests
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -48,8 +48,8 @@ proc testWakuNode(): WakuNode =
   return newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
 type RestFilterTest = object
-  serviceNode: WakuNode
-  subscriberNode: WakuNode
+  serviceNode: Kernel
+  subscriberNode: Kernel
   restServer: WakuRestServerRef
   restServerForService: WakuRestServerRef
   messageCache: MessageCache

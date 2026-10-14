@@ -127,7 +127,7 @@ proc startRestServerEssentials(
 
 proc installKernelRoutes(
     restServer: WakuRestServerRef,
-    node: WakuNode,
+    node: Kernel,
     wakuDiscv5: WakuDiscoveryV5,
     conf: rest_server_conf.RestServerConf,
     relayEnabled: bool,
@@ -221,7 +221,7 @@ proc installKernelRoutes(
   ## or install it to be used with self-hosted lightpush service
   ## We either get lightpushnode (lightpush service node) from config or discovered or self served
   if (node.protocols.wakuLegacyLightpushClient != nil) or
-      (lightPushEnabled and node.protocols.wakuLegacyLightPush != nil and node.protocols.wakuRelay != nil):
+      (lightPushEnabled and node.protocols.wakuLegacyLightPush != nil and node.protocols.relay != nil):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))

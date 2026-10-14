@@ -29,7 +29,7 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -39,9 +39,9 @@ proc testWakuNode(): WakuNode =
   return newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
 type RestLightPushTest = object
-  serviceNode: WakuNode
-  pushNode: WakuNode
-  consumerNode: WakuNode
+  serviceNode: Kernel
+  pushNode: Kernel
+  consumerNode: Kernel
   restServer: WakuRestServerRef
   client: RestClientRef
 
@@ -139,7 +139,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:
-      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.relay.subscribedTopics).len == 1
 
     # When
     let message: RelayWakuMessage = fakeWakuMessage(
@@ -173,7 +173,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:
-      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.relay.subscribedTopics).len == 1
 
     # When
     let badMessage1: RelayWakuMessage = fakeWakuMessage(
@@ -243,7 +243,7 @@ suite "Waku v2 Rest API - lightpush":
     ).isOkOr:
       assert false, "Failed to subscribe to topic"
     require:
-      toSeq(restLightPushTest.serviceNode.protocols.wakuRelay.subscribedTopics).len == 1
+      toSeq(restLightPushTest.serviceNode.protocols.relay.subscribedTopics).len == 1
 
     # When
     let pushProc = proc() {.async.} =

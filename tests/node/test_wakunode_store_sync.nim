@@ -32,7 +32,7 @@ proc newStoreSyncNode(
     storeSyncRelayJitter: uint32 = 0,
     maxMessageSize: int = int(DefaultMaxWakuMessageSize),
     quicEnabled = true,
-): Future[WakuNode] {.async.} =
+): Future[Kernel] {.async.} =
   ## A store node whose sync interval is long enough that only the test starts sessions.
   let node = newTestWakuNode(
     generateSecp256k1Key(), listenIp, listenPort, quicEnabled = quicEnabled
@@ -53,13 +53,13 @@ proc newStoreSyncNode(
     raiseAssert error
   return node
 
-proc syncWith(node, peer: WakuNode): Future[Result[void, string]] {.async.} =
+proc syncWith(node, peer: Kernel): Future[Result[void, string]] {.async.} =
   return await node.protocols.wakuStoreReconciliation.storeSynchronization(
     Opt.some(peer.switch.peerInfo.toRemotePeerInfo())
   )
 
 suite "Waku Store Sync - End to End":
-  var nodes {.threadvar.}: seq[WakuNode]
+  var nodes {.threadvar.}: seq[Kernel]
 
   asyncTeardown:
     await allFutures(nodes.mapIt(it.stop()))

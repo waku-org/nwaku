@@ -49,19 +49,19 @@ const
   ]
 
 proc waitForTopicPeer(
-    node: WakuNode, topic: PubsubTopic, peer: PeerId, timeout = 5.seconds
+    node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = 5.seconds
 ) {.async.} =
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in GossipSub(node.protocols.wakuRelay).gossipsub.getOrDefault(topic):
+    for p in GossipSub(node.protocols.relay).gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
   raiseAssert $peer & " never announced a subscription to " & topic
 
 proc subscribeToAllContentTopics(
-    server, client: WakuNode
+    server, client: Kernel
 ): Future[seq[Future[bool]]] {.async.} =
   ## Connects the client to the server, both subscribed to every content topic,
   ## and checks each one delivers.
@@ -85,8 +85,8 @@ proc subscribeToAllContentTopics(
 
 suite "Sharding":
   var
-    server {.threadvar.}: WakuNode
-    client {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
+    client {.threadvar.}: Kernel
 
   asyncSetup:
     let

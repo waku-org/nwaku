@@ -24,8 +24,8 @@ suite "Waku Store - End to End - Sorted Archive":
   var archiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
   var storeQuery {.threadvar.}: StoreQueryRequest
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var archiveDriver {.threadvar.}: ArchiveDriver
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
@@ -520,8 +520,8 @@ suite "Waku Store - End to End - Unsorted Archive":
   var storeQuery {.threadvar.}: StoreQueryRequest
   var unsortedArchiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -737,8 +737,8 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
   var storeQuery {.threadvar.}: StoreQueryRequest
   var unsortedArchiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -869,8 +869,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
   var originTs {.threadvar.}: proc(offset: int): Timestamp {.gcsafe, raises: [].}
   var archiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 

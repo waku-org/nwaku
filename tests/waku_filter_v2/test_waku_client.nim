@@ -2301,9 +2301,9 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.isSubscribed(stoppedClientPeerId)
 
   suite "Subscription timeout":
-    var server {.threadvar.}: WakuNode
-    var client {.threadvar.}: WakuNode
-    var client2nd {.threadvar.}: WakuNode
+    var server {.threadvar.}: Kernel
+    var client {.threadvar.}: Kernel
+    var client2nd {.threadvar.}: Kernel
     var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     var pubsubTopic {.threadvar.}: PubsubTopic
     var contentTopic {.threadvar.}: ContentTopic

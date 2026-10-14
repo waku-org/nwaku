@@ -363,7 +363,7 @@ proc new*(
   ## Mounts the rln-relay protocol on the node.
   ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
   ## Returns an error if the rln-relay protocol could not be mounted.
-  ## `brokerCtx` is the node's context (`WakuNode.brokerCtx`), which proof
+  ## `brokerCtx` is the node's context (`Kernel.brokerCtx`), which proof
   ## generation needs; a backend mounted without one can only validate proofs.
   try:
     return await mount(conf, brokerCtx, registrationHandler)

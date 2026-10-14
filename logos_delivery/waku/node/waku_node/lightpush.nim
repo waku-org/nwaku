@@ -40,11 +40,10 @@ const MountWithoutRelayError* = "cannot mount lightpush because relay is not mou
 
 const MixReplyTimeout* = chronos.seconds(5)
   ## Time limit for one mix-routed lightpush, so a broken path costs one
-  ## attempt. It is short because one unanswered reply holds the send service's
-  ## whole batch for this long.
+  ## attempt.
 
 proc publishOverMix*(
-    node: WakuNode,
+    node: Kernel,
     conn: Connection,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
@@ -70,22 +69,22 @@ proc publishOverMix*(
 
 ## Waku lightpush
 proc mountLegacyLightPush*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    node: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ): Future[Result[void, string]] {.async.} =
   info "mounting legacy light push"
 
-  if node.protocols.wakuRelay.isNil():
+  if node.protocols.relay.isNil():
     return err(MountWithoutRelayError)
 
   info "mounting legacy lightpush with relay"
-  let pushHandler = legacy_lightpush_protocol.getRelayPushHandler(node.protocols.wakuRelay)
+  let pushHandler = legacy_lightpush_protocol.getRelayPushHandler(node.protocols.relay)
 
   node.protocols.wakuLegacyLightPush = WakuLegacyLightPush.new(
     node.peerManager,
     node.rng,
     pushHandler,
     Opt.some(rateLimit),
-    node.protocols.wakuRelay.maxMessageSize,
+    node.protocols.relay.maxMessageSize,
   )
 
   if node.started:
@@ -97,7 +96,7 @@ proc mountLegacyLightPush*(
   debug "legacy lightpush mounted successfully"
   return ok()
 
-proc mountLegacyLightPushClient*(node: WakuNode) =
+proc mountLegacyLightPushClient*(node: Kernel) =
   info "mounting legacy light push client"
 
   if node.protocols.wakuLegacyLightpushClient.isNil():
@@ -105,7 +104,7 @@ proc mountLegacyLightPushClient*(node: WakuNode) =
       WakuLegacyLightPushClient.new(node.peerManager, node.rng)
 
 proc internalLegacyLightpushPublish(
-    node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage, peer: RemotePeerInfo
+    node: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage, peer: RemotePeerInfo
 ): Future[legacy_lightpush_protocol.WakuLightPushResult[string]] {.async, gcsafe.} =
   ## Dispatches to the legacy lightpush client if mounted, otherwise to the
   ## self-hosted server. Callers guarantee at least one is mounted.
@@ -126,7 +125,7 @@ proc internalLegacyLightpushPublish(
   return await node.protocols.wakuLegacyLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
 proc resolveLegacyPubsubTopic(
-    node: WakuNode, pubsubTopic: Opt[PubsubTopic], contentTopic: ContentTopic
+    node: Kernel, pubsubTopic: Opt[PubsubTopic], contentTopic: ContentTopic
 ): Result[PubsubTopic, string] =
   ## Returns the explicit pubsub topic, else derives it from `contentTopic`
   ## via autosharding. The legacy wire format requires a pubsub topic and the
@@ -142,7 +141,7 @@ proc resolveLegacyPubsubTopic(
   return ok($shard)
 
 proc legacyLightpushPublish*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     message: WakuMessage,
     peer: RemotePeerInfo,
@@ -188,7 +187,7 @@ proc legacyLightpushPublish*(
 
 # TODO: Move to application module (e.g., logosdeliverynode.nim)
 proc legacyLightpushPublish*(
-    node: WakuNode, pubsubTopic: Opt[PubsubTopic], message: WakuMessage
+    node: Kernel, pubsubTopic: Opt[PubsubTopic], message: WakuMessage
 ): Future[legacy_lightpush_protocol.WakuLightPushResult[string]] {.
     async, gcsafe, deprecated: "Use 'node.legacyLightpushPublish()' instead"
 .} =
@@ -209,15 +208,15 @@ proc legacyLightpushPublish*(
   return await node.legacyLightpushPublish(pubsubTopic, message, peer = peerOpt.get())
 
 proc mountLightPush*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    node: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ): Future[Result[void, string]] {.async.} =
   info "mounting light push"
 
-  if node.protocols.wakuRelay.isNil():
+  if node.protocols.relay.isNil():
     return err(MountWithoutRelayError)
 
   info "mounting lightpush with relay"
-  let pushHandler = lightpush_protocol.getRelayPushHandler(node.protocols.wakuRelay)
+  let pushHandler = lightpush_protocol.getRelayPushHandler(node.protocols.relay)
 
   node.protocols.wakuLightPush = WakuLightPush.new(
     node.peerManager,
@@ -225,7 +224,7 @@ proc mountLightPush*(
     pushHandler,
     node.wakuAutoSharding,
     Opt.some(rateLimit),
-    node.protocols.wakuRelay.maxMessageSize,
+    node.protocols.relay.maxMessageSize,
   )
 
   if node.started:
@@ -237,14 +236,14 @@ proc mountLightPush*(
   debug "lightpush mounted successfully"
   return ok()
 
-proc mountLightPushClient*(node: WakuNode) =
+proc mountLightPushClient*(node: Kernel) =
   info "mounting light push client"
 
   if node.protocols.wakuLightpushClient.isNil():
     node.protocols.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
 
 proc lightpushPublishHandler(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
     peer: RemotePeerInfo | PeerInfo,
@@ -302,7 +301,7 @@ proc lightpushPublishHandler(
     )
 
 proc lightpushPublish*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     message: WakuMessage,
     peerOpt: Opt[RemotePeerInfo] = Opt.none(RemotePeerInfo),

@@ -36,7 +36,7 @@ logScope:
 ## Waku filter
 
 proc mountFilter*(
-    node: WakuNode,
+    node: Kernel,
     subscriptionTimeout: Duration =
       filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
@@ -67,7 +67,7 @@ proc mountFilter*(
     error "failed to mount wakuFilter", error = getCurrentExceptionMsg()
 
 proc filterHandleMessage*(
-    node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage
+    node: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage
 ) {.async.} =
   if node.protocols.wakuFilter.isNil():
     debug "Cannot handle filter message", error = "waku filter is required"
@@ -75,7 +75,7 @@ proc filterHandleMessage*(
 
   await node.protocols.wakuFilter.handleMessage(pubsubTopic, message)
 
-proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
+proc mountFilterClient*(node: Kernel) {.async: (raises: []).} =
   ## Mounting both filter
   ## Giving option for application level to choose btw own push message handling or
   ## rely on node provided cache. - This only applies for v2 filter client
@@ -98,7 +98,7 @@ proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
     error "failed to mount wakuFilterClient", error = getCurrentExceptionMsg()
 
 proc filterSubscribe*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
@@ -189,7 +189,7 @@ proc filterSubscribe*(
     return subRes
 
 proc filterUnsubscribe*(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
@@ -274,7 +274,7 @@ proc filterUnsubscribe*(
     return unsubRes
 
 proc filterUnsubscribeAll*(
-    node: WakuNode, peer: RemotePeerInfo | string
+    node: Kernel, peer: RemotePeerInfo | string
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 

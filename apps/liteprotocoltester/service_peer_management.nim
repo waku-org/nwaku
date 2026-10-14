@@ -156,7 +156,7 @@ proc tryCallAllPxPeers*(
   return Opt.some(okPeers)
 
 proc pxLookupServiceNode*(
-    node: WakuNode, conf: LiteProtocolTesterConf
+    node: Kernel, conf: LiteProtocolTesterConf
 ): Future[Result[bool, void]] {.async.} =
   let codec: string = conf.getCodec()
 

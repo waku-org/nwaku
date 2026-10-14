@@ -8,7 +8,7 @@ import
 import ./[relay, lightpush]
 
 proc publishMetadata(
-    node: WakuNode, topic: string, data: seq[byte]
+    node: Kernel, topic: string, data: seq[byte]
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   var message = WakuMessage(
     payload: data,
@@ -27,7 +27,7 @@ proc publishMetadata(
     except CatchableError as exc:
       return err("Relay RLN proof generation failed: " & exc.msg)
   try:
-    if not node.protocols.wakuRelay.isNil():
+    if not node.protocols.relay.isNil():
       let peers = (await node.publish(Opt.none(PubsubTopic), message)).valueOr:
         return err(error)
       if peers == 0:
@@ -43,7 +43,7 @@ proc publishMetadata(
     return err("Mix coordination publish failed: " & exc.msg)
   return ok()
 
-proc stopMixRln*(node: WakuNode) {.async: (raises: []).} =
+proc stopMixRln*(node: Kernel) {.async: (raises: []).} =
   if node.protocols.wakuMixRln.isNil():
     return
   if node.protocols.wakuMixRlnListener.isSome():
@@ -52,7 +52,7 @@ proc stopMixRln*(node: WakuNode) {.async: (raises: []).} =
   await node.protocols.wakuMixRln.stop()
 
 proc startMixRln*(
-    node: WakuNode
+    node: Kernel
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   if node.protocols.wakuMixRln.isNil():
     return err("Mix RLN is not configured")

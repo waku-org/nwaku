@@ -148,7 +148,7 @@ proc areProtocolsSupported(
   return false
 
 proc pingNode(
-    node: WakuNode, peerInfo: RemotePeerInfo
+    node: Kernel, peerInfo: RemotePeerInfo
 ): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)

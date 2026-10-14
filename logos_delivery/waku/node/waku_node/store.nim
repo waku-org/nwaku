@@ -21,6 +21,7 @@ import
   ../../waku_store/protocol as store,
   ../../waku_store/client as store_client,
   ../../waku_store/common as store_common,
+  ../../waku_store/rpc_codec as store_rpc_codec,
   ../../waku_store/resume,
   ../peer_manager,
   ../../common/rate_limit/setting,
@@ -31,7 +32,7 @@ logScope:
 
 ## Waku archive
 proc mountArchive*(
-    node: WakuNode,
+    node: Kernel,
     driver: waku_archive.ArchiveDriver,
     retentionPolicies = newSeq[waku_archive.RetentionPolicy](),
 ): Result[void, string] =
@@ -91,7 +92,7 @@ proc toStoreResult(res: waku_archive.ArchiveResult): StoreQueryResult =
   return ok(res)
 
 proc mountStore*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    node: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
   if node.protocols.wakuArchive.isNil():
     error "failed to mount waku store protocol", error = "waku archive not set"
@@ -115,13 +116,18 @@ proc mountStore*(
 
   node.switch.mount(node.protocols.wakuStore, protocolMatcher(store_common.WakuStoreCodec))
 
-proc mountStoreClient*(node: WakuNode) =
+proc mountStoreClient*(
+    node: Kernel, maxMessageSize = int(DefaultMaxWakuMessageSize)
+) =
+  ## `maxMessageSize` sets the largest store response that the client reads.
   info "mounting store client"
 
-  node.protocols.wakuStoreClient = store_client.WakuStoreClient.new(node.peerManager, node.rng)
+  node.protocols.wakuStoreClient = store_client.WakuStoreClient.new(
+    node.peerManager, node.rng, maxQueryResponseSize(maxMessageSize)
+  )
 
 proc query*(
-    node: WakuNode, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
+    node: Kernel, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
 ): Future[store_common.WakuStoreResult[store_common.StoreQueryResponse]] {.
     async, gcsafe
 .} =
@@ -138,7 +144,7 @@ proc query*(
 
   return ok(response)
 
-proc setupStoreResume*(node: WakuNode) =
+proc setupStoreResume*(node: Kernel) =
   node.protocols.wakuStoreResume = StoreResume.new(
     node.peerManager, node.protocols.wakuArchive, node.protocols.wakuStoreClient
   ).valueOr:

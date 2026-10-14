@@ -26,7 +26,7 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = crypto.PrivateKey.random(Secp256k1, rng()).tryGet()
     bindIp = parseIpAddress("0.0.0.0")

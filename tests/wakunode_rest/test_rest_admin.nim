@@ -34,9 +34,9 @@ import
   ../testlib/testasync
 
 suite "Waku v2 Rest API - Admin":
-  var node1 {.threadvar.}: WakuNode
-  var node2 {.threadvar.}: WakuNode
-  var node3 {.threadvar.}: WakuNode
+  var node1 {.threadvar.}: Kernel
+  var node2 {.threadvar.}: Kernel
+  var node3 {.threadvar.}: Kernel
   var peerInfo1 {.threadvar.}: RemotePeerInfo
   var peerInfo2 {.threadvar.}: RemotePeerInfo
   var peerInfo3 {.threadvar.}: RemotePeerInfo
@@ -435,8 +435,8 @@ suite "Waku v2 Rest API - Admin":
 
     let pubsubTopic = $RelayShard(clusterId: 1, shardId: 5)
     checkUntilTimeout:
-      node1.protocols.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
-      node1.protocols.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
+      node1.protocols.relay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
+      node1.protocols.relay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
 
     let meshPeerMultiaddrs =
       @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)].sorted()

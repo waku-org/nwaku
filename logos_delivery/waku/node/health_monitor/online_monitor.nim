@@ -13,7 +13,7 @@ type
     onOnlineStateChange: OnOnlineStateChange
     dnsNameServers*: seq[IpAddress]
     onlineStateObservers: seq[OnOnlineStateChange]
-    networkConnLoopHandle: Future[void] # node: WakuNode
+    networkConnLoopHandle: Future[void] # node: Kernel
     peerStore: PeerStore
     online: bool
 

@@ -73,7 +73,7 @@ proc newLimitedReceiver(
   return (switch, transfer, archive)
 
 proc encodedLen(msg: WakuMessage): int =
-  WakuMessageAndTopic(pubsub: DefaultPubsubTopic, message: msg).encode().buffer.len
+  WakuMessageAndTopic(pubsub: DefaultPubsubTopic, message: msg).encode().len
 
 type HeldPutDriver = ref object of ArchiveDriver
   putStarted: Future[void]
@@ -1161,7 +1161,7 @@ suite "Waku Sync: transfer handler cancellation":
       stream = BufferStream.new()
       payload = WakuMessageAndTopic(
         pubsub: DefaultPubsubTopic, message: fakeWakuMessage()
-      ).encode().buffer
+      ).encode()
 
     # When its handler reads a message and is cancelled during the insert
     let handling = receiver.handler(stream, WakuTransferCodec)
@@ -1299,7 +1299,7 @@ suite "Waku Sync: transfer":
       maxSize = int(DefaultMaxWakuMessageSize)
       largeMsg = fakeWakuMessage(payload = newSeq[byte](100 * 1024))
       encodingOverhead =
-        fakeWakuMessage(payload = newSeq[byte](maxSize)).encode().buffer.len - maxSize
+        fakeWakuMessage(payload = newSeq[byte](maxSize)).encode().len - maxSize
       atLimitMsg = fakeWakuMessage(payload = newSeq[byte](maxSize - encodingOverhead))
       laterMsg = fakeWakuMessage()
       largeHash = computeMessageHash(DefaultPubsubTopic, largeMsg)
@@ -1316,7 +1316,7 @@ suite "Waku Sync: transfer":
     await serverRemoteNeeds.put((clientPeerInfo.peerId, atLimitHash))
     await serverRemoteNeeds.put((clientPeerInfo.peerId, laterHash))
 
-    check atLimitMsg.encode().buffer.len == maxSize
+    check atLimitMsg.encode().len == maxSize
     checkUntilTimeout:
       await clientArchive.holdsMessages(@[largeHash, atLimitHash, laterHash])
 

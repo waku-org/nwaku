@@ -14,7 +14,7 @@ import ../waku_node, ../peer_manager
 logScope:
   topics = "waku node ping api"
 
-proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
+proc mountLibp2pPing*(node: Kernel) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"
 
   try:
@@ -34,7 +34,7 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
-proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.async.} =
+proc pingPeer(node: Kernel, peerId: PeerId): Future[Result[void, string]] {.async.} =
   ## Ping a single peer and return the result
 
   try:
@@ -68,7 +68,7 @@ proc pingPeer(node: WakuNode, peerId: PeerId): Future[Result[void, string]] {.as
     return err("pingPeer: exception raised pinging peer: " & e.msg)
 
 # Returns the number of succesful pings performed
-proc parallelPings*(node: WakuNode, peerIds: seq[PeerId]): Future[int] {.async.} =
+proc parallelPings*(node: Kernel, peerIds: seq[PeerId]): Future[int] {.async.} =
   if len(peerIds) == 0:
     return 0
 

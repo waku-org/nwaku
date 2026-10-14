@@ -44,7 +44,7 @@ suite "Node app - Validators":
       var signedShards: seq[ProtectedShard]
       for shard, publicKey in shardsPublicKeys:
         signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
-      node.protocols.wakuRelay.addSignedShardsValidator(
+      node.protocols.relay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
 
@@ -98,7 +98,7 @@ suite "Node app - Validators":
 
     # No invalid messages were received by any peer
     for i in 0 ..< 5:
-      for k, v in nodes[i].protocols.wakuRelay.peerStats.mpairs:
+      for k, v in nodes[i].protocols.relay.peerStats.mpairs:
         check:
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
@@ -134,7 +134,7 @@ suite "Node app - Validators":
       var signedShards: seq[ProtectedShard]
       for shard, publicKey in shardsPublicKeys:
         signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
-      node.protocols.wakuRelay.addSignedShardsValidator(
+      node.protocols.relay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
 
@@ -241,7 +241,7 @@ suite "Node app - Validators":
     for i in 0 ..< 100:
       msgRejected = 0
       for i in 0 ..< 5:
-        for k, v in nodes[i].protocols.wakuRelay.peerStats.mpairs:
+        for k, v in nodes[i].protocols.relay.peerStats.mpairs:
           msgRejected += v.topicInfos[spamProtectedShard].invalidMessageDeliveries.int
 
       if msgReceived == 125 and msgRejected == 500:
@@ -294,7 +294,7 @@ suite "Node app - Validators":
       var signedShards: seq[ProtectedShard]
       for shard, publicKey in shardsPublicKeys:
         signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
-      node.protocols.wakuRelay.addSignedShardsValidator(
+      node.protocols.relay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
 
@@ -353,12 +353,12 @@ suite "Node app - Validators":
     # peer1 got invalid messages from peer0
     let p0Id = nodes[0].peerInfo.peerId
     check:
-      nodes[1].protocols.wakuRelay.peerStats[p0Id].topicInfos[spamProtectedShard].invalidMessageDeliveries ==
+      nodes[1].protocols.relay.peerStats[p0Id].topicInfos[spamProtectedShard].invalidMessageDeliveries ==
         100.0
 
     # peer1 did not gossip further, so no other node rx invalid messages
     for i in 0 ..< 5:
-      for k, v in nodes[i].protocols.wakuRelay.peerStats.mpairs:
+      for k, v in nodes[i].protocols.relay.peerStats.mpairs:
         if k == p0Id and i == 1:
           continue
         check:
@@ -407,3 +407,8 @@ suite "Node app - Validators":
     check:
       msgAppHash.toHex() == expectedMsgAppHash
       signature.toHex() == expectedSignature
+
+  test "the time window refuses the lowest timestamp":
+    check:
+      withinTimeWindow(WakuMessage(timestamp: getNowInNanosecondTime()))
+      not withinTimeWindow(WakuMessage(timestamp: Timestamp.low))

@@ -22,7 +22,7 @@ type
     IsRunning
 
   WakuStateInfo* {.requiresInit.} = object
-    node: WakuNode
+    node: Kernel
     conf: WakuConf
 
 proc getAllPossibleInfoItemIds*(self: WakuStateInfo): seq[NodeInfoId] =
@@ -65,5 +65,5 @@ proc getNodeInfoItem*(self: WakuStateInfo, infoItemId: NodeInfoId): string =
   else:
     return "unknown info item id"
 
-proc init*(T: typedesc[WakuStateInfo], node: WakuNode, conf: WakuConf): T =
+proc init*(T: typedesc[WakuStateInfo], node: Kernel, conf: WakuConf): T =
   return WakuStateInfo(node: node, conf: conf)

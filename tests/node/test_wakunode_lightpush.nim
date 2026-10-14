@@ -29,8 +29,8 @@ suite "Waku Lightpush - End To End":
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
     handler {.threadvar.}: PushMessageHandler
 
-    server {.threadvar.}: WakuNode
-    client {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
+    client {.threadvar.}: Kernel
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     pubsubTopic {.threadvar.}: PubsubTopic
@@ -104,9 +104,9 @@ suite "Waku Lightpush - End To End":
 
 suite "RLN Proofs as a Lightpush Service":
   var
-    server {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
     serverRln {.threadvar.}: RlnEvm
-    client {.threadvar.}: WakuNode
+    client {.threadvar.}: Kernel
     anvilProc {.threadvar.}: Process
     manager {.threadvar.}: RlnEvmGroupManager
     wakuRlnConfig {.threadvar.}: WakuRlnConfig
@@ -532,7 +532,7 @@ suite "Waku Lightpush mounting behavior":
       node = newTestWakuNode(key)
 
     # Do not mount Relay on purpose
-    check node.protocols.wakuRelay.isNil()
+    check node.protocols.relay.isNil()
 
     ## Then mounting Lightpush must fail
     let res = await node.mountLightPush()

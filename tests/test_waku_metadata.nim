@@ -3,6 +3,7 @@
 import
   std/[algorithm, sequtils, tables],
   testutils/unittests,
+  stew/byteutils,
   chronos,
   chronicles,
   libp2p/switch,
@@ -20,6 +21,7 @@ import
     node/peer_manager,
     discovery/waku_discv5,
     waku_metadata,
+    waku_metadata/rpc,
     waku_relay/protocol,
   ],
   ./testlib/wakucore,
@@ -50,8 +52,8 @@ procSuite "Waku Metadata Protocol":
     ): Future[void] {.async.} =
       discard
 
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/7", noOpHandler)
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/6", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/7", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/6", noOpHandler)
 
     # Create connection
     let connOpt = await node2.peerManager.dialPeer(
@@ -134,8 +136,8 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Node1's relay on shards 0 and 1 of its cluster
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/1", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/0", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/1", noOpHandler)
 
     ## When: Node2 connects to it
     let node2Connected =
@@ -149,7 +151,7 @@ procSuite "Waku Metadata Protocol":
         .sorted() == @[uint16(0), uint16(1)]
 
     ## Given: Node1's relay also on shard 0 of cluster 199
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/199/0", noOpHandler)
 
     ## When: Node3 connects to it
     let node3Connected =
@@ -158,7 +160,7 @@ procSuite "Waku Metadata Protocol":
     ## Then: Node3 learns only the configured shard, though node1's relay is still on shard 1
     check:
       node3Connected
-      node1.protocols.wakuRelay.isSubscribed("/waku/2/rs/10/1")
+      node1.protocols.relay.isSubscribed("/waku/2/rs/10/1")
     checkUntilTimeout:
       node3.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(0)]
@@ -186,7 +188,7 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Node1's relay only on shard 3 of cluster 199
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/3", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/199/3", noOpHandler)
 
     ## When: Node2, of cluster 10, connects to it
     let connected =
@@ -195,7 +197,7 @@ procSuite "Waku Metadata Protocol":
     ## Then: Node2 records node1 on shard 3, which node1's relay is not on
     check:
       connected
-      not node1.protocols.wakuRelay.isSubscribed("/waku/2/rs/10/3")
+      not node1.protocols.relay.isSubscribed("/waku/2/rs/10/3")
     checkUntilTimeout:
       node2.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(3)]
@@ -225,9 +227,9 @@ procSuite "Waku Metadata Protocol":
       discard
 
     ## Given: Both relays on shard 0 of cluster 199, node1 also on shard 0 of cluster 10
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/10/0", noOpHandler)
-    node1.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
-    node2.protocols.wakuRelay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/0", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/199/0", noOpHandler)
+    node2.protocols.relay.subscribe("/waku/2/rs/199/0", noOpHandler)
 
     ## When: Node1 connects to node2
     let connected =
@@ -240,3 +242,29 @@ procSuite "Waku Metadata Protocol":
       not node2.switch.isConnected(node1.switch.peerInfo.peerId)
 
     await allFutures([node1.stop(), node2.stop()])
+
+suite "Waku Metadata - shards on the wire":
+  test "the decoder reads the shards of each writer":
+    # Cluster 1 and shards 0 and 5, in four forms.
+    const forms = [
+      "0801100010051a020005", # master: field 2 unpacked and field 3 packed
+      "08011a020005", # go-waku: field 3 packed only
+      "080112020005", # the schema: field 2 packed only
+      "080110001005", # a node before #2511: field 2 unpacked only
+    ]
+    for hex in forms:
+      let request = WakuMetadataRequest.decode(hexToSeqByte(hex))
+      let response = WakuMetadataResponse.decode(hexToSeqByte(hex))
+      check:
+        request.isOk()
+        request.get().clusterId == Opt.some(1'u32)
+        request.get().shards == @[0'u32, 5]
+        response.isOk()
+        response.get().shards == @[0'u32, 5]
+
+  test "the encoder writes the bytes of master":
+    let request = WakuMetadataRequest(clusterId: Opt.some(1'u32), shards: @[0'u32, 5])
+    let response = WakuMetadataResponse(clusterId: Opt.some(1'u32), shards: @[0'u32, 5])
+    check:
+      request.encode() == hexToSeqByte("0801100010051a020005")
+      response.encode() == hexToSeqByte("0801100010051a020005")

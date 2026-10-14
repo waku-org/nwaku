@@ -70,7 +70,7 @@ proc storeErrorResponse(code: ErrorCode, desc: string): RestApiResponse =
 # Queries the store-node with the query parameters and
 # returns a RestApiResponse that is sent back to the api client.
 proc performStoreQuery(
-    selfNode: WakuNode, storeQuery: StoreQueryRequest, storePeer: RemotePeerInfo
+    selfNode: Kernel, storeQuery: StoreQueryRequest, storePeer: RemotePeerInfo
 ): Future[RestApiResponse] {.async.} =
   let queryFut = selfNode.query(storeQuery, storePeer)
 
@@ -195,7 +195,7 @@ proc toOpt(self: Option[Result[string, cstring]]): Opt[string] =
     return Opt.some(self.get().value)
 
 proc retrieveMsgsFromSelfNode(
-    self: WakuNode, storeQuery: StoreQueryRequest
+    self: Kernel, storeQuery: StoreQueryRequest
 ): Future[RestApiResponse] {.async.} =
   ## Performs a "store" request to the local node (self node.)
   ## Notice that this doesn't follow the regular store libp2p channel because a node
@@ -210,7 +210,7 @@ proc retrieveMsgsFromSelfNode(
 # Subscribes the rest handler to attend "/store/v1/messages" requests
 proc installStoreApiHandlers*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   # Handles the store-query request according to the passed parameters

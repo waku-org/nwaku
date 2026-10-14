@@ -6,7 +6,7 @@ import libp2p/switch
 import logos_delivery/waku/[waku_node, waku_core, node/peer_manager]
 import ../testlib/[wakucore, wakunode, testasync]
 
-suite "WakuNode - restart (#3979)":
+suite "Kernel - restart (#3979)":
   asyncTest "start -> stop -> start re-opens the listener promptly":
     ## A restart must not block on the relay-reconnect backoff.
     let

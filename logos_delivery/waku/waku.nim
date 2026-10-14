@@ -96,7 +96,7 @@ type Waku* = ref object ## Implements `KernelApi` (ops in `waku/api/*`).
   enrReachable: bool = true
     ## Whether the record last carried a host. Only a change is worth a log.
 
-  node*: WakuNode
+  node*: Kernel
 
   healthMonitor*: NodeHealthMonitor
 
@@ -108,7 +108,7 @@ type Waku* = ref object ## Implements `KernelApi` (ops in `waku/api/*`).
   persistency*: Persistency
 
 proc setupSwitchServices*(
-    node: WakuNode, conf: WakuConf, circuitRelay: Relay, rng: crypto.Rng
+    node: Kernel, conf: WakuConf, circuitRelay: Relay, rng: crypto.Rng
 ) =
   proc onReservation(addresses: seq[MultiAddress]) {.gcsafe, raises: [].} =
     ## This callback only logs the change. When a reservation drops, libp2p
@@ -146,7 +146,7 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
   return Relay.new()
 
 proc setupAppCallbacks(
-    node: WakuNode,
+    node: Kernel,
     conf: WakuConf,
     appCallbacks: AppCallbacks,
     healthMonitor: NodeHealthMonitor,
@@ -156,7 +156,7 @@ proc setupAppCallbacks(
     return ok()
 
   if not appCallbacks.relayHandler.isNil():
-    if node.protocols.wakuRelay.isNil():
+    if node.protocols.relay.isNil():
       return err("Cannot configure relayHandler callback without Relay mounted")
 
     for shardId in conf.subscribeShards.deduplicate():
@@ -165,10 +165,10 @@ proc setupAppCallbacks(
         return err(fmt"Could not subscribe {topic}: " & $error)
 
   if not appCallbacks.topicHealthChangeHandler.isNil():
-    if node.protocols.wakuRelay.isNil():
+    if node.protocols.relay.isNil():
       return
         err("Cannot configure topicHealthChangeHandler callback without Relay mounted")
-    node.protocols.wakuRelay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
+    node.protocols.relay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
 
   if not appCallbacks.connectionChangeHandler.isNil():
     if node.peerManager.isNil():
@@ -337,7 +337,7 @@ proc recordEndpoint(record: enr.Record): Opt[discv5_node.Address] =
   return
     Opt.some(discv5_node.Address(ip: ipv4(typed.ip.get()), port: Port(typed.udp.get())))
 
-proc captureLearnedEndpoint(node: WakuNode, wakuDiscv5: WakuDiscoveryV5) =
+proc captureLearnedEndpoint(node: Kernel, wakuDiscv5: WakuDiscoveryV5) =
   ## discv5 writes the host it learned into its own record and tells nobody.
   ## Every write that can replace that record reads it first, or the update
   ## is gone before the next reconcile tick can see it. A shard update also
@@ -354,7 +354,7 @@ proc captureLearnedEndpoint(node: WakuNode, wakuDiscv5: WakuDiscoveryV5) =
   )
 
 proc refreshEnrAddrs*(
-    node: WakuNode, key: crypto.PrivateKey, wakuDiscv5: WakuDiscoveryV5
+    node: Kernel, key: crypto.PrivateKey, wakuDiscv5: WakuDiscoveryV5
 ): Result[void, string] =
   ## With discv5, update its live record and copy the result back. A host
   ## discv5 learned from its peers stays the host of the record.
@@ -375,7 +375,7 @@ proc refreshEnrAddrs*(
   return ok()
 
 proc reconcileEnrAddrs*(
-    node: WakuNode, key: crypto.PrivateKey, wakuDiscv5: WakuDiscoveryV5
+    node: Kernel, key: crypto.PrivateKey, wakuDiscv5: WakuDiscoveryV5
 ): Result[bool, string] =
   ## discv5 writes the host it learned into its own record, with the `tcp`
   ## the record had, and tells nobody. Writing again pairs that host with a

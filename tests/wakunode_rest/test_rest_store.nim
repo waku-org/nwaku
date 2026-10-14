@@ -45,8 +45,8 @@ proc put(
 
   store.put(msgHash, pubsubTopic, message)
 
-# Creates a new WakuNode
-proc testWakuNode(): WakuNode =
+# Creates a new Kernel
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -56,7 +56,7 @@ proc testWakuNode(): WakuNode =
   return newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
 type RestStoreTest = object
-  node: WakuNode
+  node: Kernel
   driver: ArchiveDriver
   restServer: WakuRestServerRef
   client: RestClientRef

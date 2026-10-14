@@ -27,7 +27,6 @@ import
     peerinfo,
       # manage the information of a peer, such as peer ID and public / private key
     peerid, # Implement how peers interact
-    protobuf/minprotobuf, # message serialisation/deserialisation from and to protobufs
     protocols/kademlia/types,
     protocols/service_discovery/types as sd_types,
     nameresolving/dnsresolver,
@@ -35,6 +34,7 @@ import
 import libp2p_mix/[curve25519, mix_protocol]
 import
   logos_delivery/waku/[
+    common/protobuf,
     waku_core,
     waku_core/peers,
     waku_lightpush/common,
@@ -72,7 +72,7 @@ const Help = """
 # Could poll connection pool or something here, I suppose
 # TODO Ensure connected turns true on incoming connections, or get rid of it
 type Chat = ref object
-  node: WakuNode # waku node for publishing, subscribing, etc
+  node: Kernel # waku node for publishing, subscribing, etc
   transp: StreamTransport # transport streams between read & write file descriptor
   subscribed: bool # indicates if a node is subscribed or not to a topic
   connected: bool # if the node is connected to another peer
@@ -95,40 +95,23 @@ const MinMixNodePoolSize = 4
 type
   SelectResult*[T] = Result[T, string]
 
-  Chat2Message* = object
-    timestamp*: int64
-    nick*: string
-    payload*: seq[byte]
+  Chat2Message* {.proto3.} = object
+    timestamp* {.fieldNumber: 1, pint.}: int64
+    nick* {.fieldNumber: 2.}: string
+    payload* {.fieldNumber: 3.}: seq[byte]
 
 proc getPubsubTopic*(
-    conf: Chat2Conf, node: WakuNode, contentTopic: string
+    conf: Chat2Conf, node: Kernel, contentTopic: string
 ): PubsubTopic =
   let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
       echo "Could not parse content topic: " & error
       return "" #TODO: fix this.
   return $RelayShard(clusterId: conf.clusterId, shardId: shard.shardId)
 
-proc init*(T: type Chat2Message, buffer: seq[byte]): ProtoResult[T] =
-  var msg = Chat2Message()
-  let pb = initProtoBuffer(buffer)
+protobufCodec(Chat2Message)
 
-  var timestamp: uint64
-  discard ?pb.getField(1, timestamp)
-  msg.timestamp = int64(timestamp)
-
-  discard ?pb.getField(2, msg.nick)
-  discard ?pb.getField(3, msg.payload)
-
-  ok(msg)
-
-proc encode*(message: Chat2Message): ProtoBuffer =
-  var serialised = initProtoBuffer()
-
-  serialised.write(1, uint64(message.timestamp))
-  serialised.write(2, message.nick)
-  serialised.write(3, message.payload)
-
-  return serialised
+proc init*(T: type Chat2Message, buffer: seq[byte]): ProtobufResult[T] =
+  Chat2Message.decode(buffer)
 
 proc `$`*(message: Chat2Message): string =
   # Get message date and timestamp in local time
@@ -203,7 +186,7 @@ proc publish(c: Chat, line: string) {.async.} =
     trace "lightpush response received", response = response
 
   var message = WakuMessage(
-    payload: chat2pb.buffer,
+    payload: chat2pb,
     contentTopic: c.contentTopic,
     version: 0,
     timestamp: getNanosecondTime(time),
@@ -326,7 +309,7 @@ proc selectRandomServicePeer*(
   return ok(supportivePeers[rndPeerIndex])
 
 proc maintainSubscription(
-    wakuNode: WakuNode,
+    kernel: Kernel,
     filterPubsubTopic: PubsubTopic,
     filterContentTopic: ContentTopic,
     filterPeer: RemotePeerInfo,
@@ -343,7 +326,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await wakuNode.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await kernel.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenance)
       info "subscription is live."
       continue
@@ -353,7 +336,7 @@ proc maintainSubscription(
     trace "no subscription found. Sending subscribe request"
 
     let subscribeErr = (
-      await wakuNode.filterSubscribe(
+      await kernel.filterSubscribe(
         Opt.some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
@@ -368,7 +351,7 @@ proc maintainSubscription(
       error = subscribeErr, peer = actualFilterPeer, failCount = noFailedSubscribes
 
     # TODO: disconnet from failed actualFilterPeer
-    # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+    # asyncSpawn(kernel.peerManager.switch.disconnect(p))
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
@@ -376,7 +359,7 @@ proc maintainSubscription(
     elif not preventPeerSwitch:
       # try again with new peer without delay
       let actualFilterPeer = selectRandomServicePeer(
-        wakuNode.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
+        kernel.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
       ).valueOr:
         error "Failed to find new service peer. Exiting."
         noFailedServiceNodeSwitches += 1

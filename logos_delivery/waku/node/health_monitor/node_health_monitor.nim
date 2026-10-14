@@ -45,7 +45,7 @@ type ConnectionStatusAdjuster* = proc(
 
 type NodeHealthMonitor* = ref object
   nodeHealth: HealthStatus
-  node: WakuNode
+  node: Kernel
   onlineMonitor*: OnlineMonitor
   keepAliveFut: Future[void]
   healthLoopFut: Future[void]
@@ -105,11 +105,11 @@ proc countCapablePeers(hm: NodeHealthMonitor, codec: string): int =
 proc getRelayHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.RelayProtocol)
 
-  if isNil(hm.node.protocols.wakuRelay):
+  if isNil(hm.node.protocols.relay):
     hm.strength[WakuProtocol.RelayProtocol] = 0
     return p.notMounted()
 
-  let relayPeers = hm.node.protocols.wakuRelay.getConnectedPubSubPeers(pubsubTopic = "").valueOr:
+  let relayPeers = hm.node.protocols.relay.getConnectedPubSubPeers(pubsubTopic = "").valueOr:
     hm.strength[WakuProtocol.RelayProtocol] = 0
     return p.notMounted()
 
@@ -239,7 +239,7 @@ proc getFilterClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
     hm.strength[WakuProtocol.FilterClientProtocol] = 0
     return p.notMounted()
 
-  if isNil(hm.node.protocols.wakuRelay):
+  if isNil(hm.node.protocols.relay):
     let edgeRes = RequestEdgeFilterPeerCount.request(hm.node.brokerCtx)
     if edgeRes.isOk():
       let peerCount = edgeRes.get().peerCount
@@ -492,10 +492,10 @@ proc calculateConnectionState*(
 
 proc calculateConnectionState*(hm: NodeHealthMonitor): ConnectionStatus =
   let dLow =
-    if isNil(hm.node.protocols.wakuRelay):
+    if isNil(hm.node.protocols.relay):
       Opt.none(int)
     else:
-      Opt.some(hm.node.protocols.wakuRelay.parameters.dLow)
+      Opt.some(hm.node.protocols.relay.parameters.dLow)
   let status = calculateConnectionState(hm.cachedProtocols, hm.strength, dLow)
   if hm.adjustConnectionStatus.isNil():
     return status
@@ -603,14 +603,14 @@ proc healthLoop(hm: NodeHealthMonitor) {.async.} =
   info "Health monitor loop end"
 
 proc selectRandomPeersForKeepalive(
-    node: WakuNode, outPeers: seq[PeerId], numRandomPeers: int
+    node: Kernel, outPeers: seq[PeerId], numRandomPeers: int
 ): Future[seq[PeerId]] {.async.} =
   ## Select peers for random keepalive, prioritizing mesh peers
 
-  if isNil(node.protocols.wakuRelay):
+  if isNil(node.protocols.relay):
     return selectRandomPeers(outPeers, numRandomPeers)
 
-  let meshPeers = node.protocols.wakuRelay.getPeersInMesh().valueOr:
+  let meshPeers = node.protocols.relay.getPeersInMesh().valueOr:
     debug "Failed getting peers in mesh for ping", error = error
     # Fallback to random selection from all outgoing peers
     return selectRandomPeers(outPeers, numRandomPeers)
@@ -630,7 +630,7 @@ proc selectRandomPeersForKeepalive(
   return selectedPeers
 
 proc keepAliveLoop(
-    node: WakuNode,
+    node: Kernel,
     randomPeersKeepalive: chronos.Duration,
     allPeersKeepAlive: chronos.Duration,
     numRandomPeers = 10,
@@ -755,12 +755,12 @@ proc startHealthMonitor*(hm: NodeHealthMonitor): Result[void, string] =
   if isNil(hm.node.peerManager):
     return err("startHealthMonitor: no node peerManager to monitor")
 
-  if not isNil(hm.node.protocols.wakuRelay):
+  if not isNil(hm.node.protocols.relay):
     hm.relayObserver = PubSubObserver(
       onRecv: proc(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
         hm.onRelayMsg(peer, msgs)
     )
-    hm.node.protocols.wakuRelay.addObserver(hm.relayObserver)
+    hm.node.protocols.relay.addObserver(hm.relayObserver)
 
   hm.peerEventListener = WakuPeerEvent.listen(
     hm.node.brokerCtx,
@@ -812,12 +812,12 @@ proc stopHealthMonitor*(hm: NodeHealthMonitor) {.async.} =
     hm.node.brokerCtx, hm.shardHealthListener
   )
 
-  if not isNil(hm.node.protocols.wakuRelay) and not isNil(hm.relayObserver):
-    hm.node.protocols.wakuRelay.removeObserver(hm.relayObserver)
+  if not isNil(hm.node.protocols.relay) and not isNil(hm.relayObserver):
+    hm.node.protocols.relay.removeObserver(hm.relayObserver)
 
 proc new*(
     T: type NodeHealthMonitor,
-    node: WakuNode,
+    node: Kernel,
     dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
 ): T =
   let om = OnlineMonitor.init(dnsNameServers)

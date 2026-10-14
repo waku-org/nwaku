@@ -31,10 +31,10 @@ import
 var actualFilterPeer {.threadvar.}: RemotePeerInfo
 
 proc unsubscribe(
-    wakuNode: WakuNode, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
+    kernel: Kernel, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
 ) {.async.} =
   notice "unsubscribing from filter"
-  let unsubscribeRes = await wakuNode.protocols.wakuFilterClient.unsubscribe(
+  let unsubscribeRes = await kernel.protocols.wakuFilterClient.unsubscribe(
     actualFilterPeer, filterPubsubTopic, @[filterContentTopic]
   )
   if unsubscribeRes.isErr:
@@ -43,7 +43,7 @@ proc unsubscribe(
     notice "unsubscribe request successful"
 
 proc maintainSubscription(
-    wakuNode: WakuNode,
+    kernel: Kernel,
     filterPubsubTopic: PubsubTopic,
     filterContentTopic: ContentTopic,
     preventPeerSwitch: bool,
@@ -58,7 +58,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await wakuNode.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await kernel.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenanceMs)
       info "subscription is live."
       continue
@@ -72,7 +72,7 @@ proc maintainSubscription(
     trace "no subscription found. Sending subscribe request"
 
     let subscribeErr = (
-      await wakuNode.filterSubscribe(
+      await kernel.filterSubscribe(
         Opt.some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
@@ -90,7 +90,7 @@ proc maintainSubscription(
       err = subscribeErr, peer = actualFilterPeer, failCount = noFailedSubscribes
 
     # TODO: disconnet from failed actualFilterPeer
-    # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+    # asyncSpawn(kernel.peerManager.switch.disconnect(p))
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
@@ -98,7 +98,7 @@ proc maintainSubscription(
     elif not preventPeerSwitch:
       # try again with new peer without delay
       actualFilterPeer = selectRandomServicePeer(
-        wakuNode.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
+        kernel.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
       ).valueOr:
         error "Failed to find new service peer. Exiting."
         noFailedServiceNodeSwitches += 1
@@ -114,12 +114,12 @@ proc maintainSubscription(
       await sleepAsync(SubscriptionMaintenanceMs)
 
 proc setupAndListen*(
-    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+    kernel: Kernel, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
-  if isNil(wakuNode.protocols.wakuFilterClient):
+  if isNil(kernel.protocols.wakuFilterClient):
     # if we have not yet initialized lightpush client, then do it as the only way we can get here is
     # by having a service peer discovered.
-    waitFor wakuNode.mountFilterClient()
+    waitFor kernel.mountFilterClient()
 
   info "Start receiving messages to service node using filter",
     servicePeer = servicePeer
@@ -146,7 +146,7 @@ proc setupAndListen*(
       pubsubTopic = pubsubTopic,
       hash = msgHash
 
-  wakuNode.protocols.wakuFilterClient.registerPushHandler(pushHandler)
+  kernel.protocols.wakuFilterClient.registerPushHandler(pushHandler)
 
   let interval = millis(20000)
   var printStats: CallbackFunc
@@ -162,7 +162,7 @@ proc setupAndListen*(
 
       if conf.numMessages > 0 and
           waitFor stats.checkIfAllMessagesReceived(maxWaitForLastMessage):
-        waitFor unsubscribe(wakuNode, conf.getPubsubTopic(), conf.contentTopics[0])
+        waitFor unsubscribe(kernel, conf.getPubsubTopic(), conf.contentTopics[0])
         info "All messages received. Exiting."
 
         ## for gracefull shutdown through signal hooks
@@ -175,5 +175,5 @@ proc setupAndListen*(
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(
-    wakuNode, conf.getPubsubTopic(), conf.contentTopics[0], conf.fixedServicePeer
+    kernel, conf.getPubsubTopic(), conf.contentTopics[0], conf.fixedServicePeer
   )

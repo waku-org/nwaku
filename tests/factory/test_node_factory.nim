@@ -19,6 +19,8 @@ import
     waku_core,
     waku_node,
     waku_store/common,
+    waku_store/client,
+    waku_store/rpc_codec,
     net/net_config,
     waku_enr,
     net/auto_port,
@@ -58,6 +60,15 @@ suite "Node Factory":
       node.protocols.wakuFilter.isNil()
       not node.protocols.wakuStoreClient.isNil()
       not node.wakuRendezvous.isNil()
+
+  asynctest "The store client reads a full page of the configured message size":
+    var conf = defaultTestWakuConf()
+    conf.maxMessageSizeBytes = 1024 * 1024
+
+    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+      raiseAssert error
+
+    check node.protocols.wakuStoreClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
 
   asynctest "Set up a node with Store enabled":
     var confBuilder = defaultTestWakuConfBuilder()

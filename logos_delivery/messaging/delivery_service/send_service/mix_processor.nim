@@ -9,17 +9,19 @@ import ./[delivery_task, send_processor]
 logScope:
   topics = "send service mix processor"
 
-const MixUnavailableReason* = "mix not mounted or pool below: " & $MinMixPoolSize
+const MixUnavailableReason* =
+  "mix is not mounted or knows fewer than " & $MinMixPoolSize & " usable mix nodes"
   ## The pool counts only members with an address that mix routes.
 
-const MixSelfHopReason* = "own address cannot carry mix replies"
+const MixSelfHopReason* = "this node has no address that mix can use for replies"
   ## An IPv6-only or name-only announcement, or a NAT mapping not yet arrived.
 
-const MixNoExitReason* = "no mix exit serves the shard"
+const MixNoExitReason* = "no mix node serves lightpush on the shard of the message"
   ## No pool member serves lightpush on the message's shard.
 
-const MixUnusableRetries* = 2
-  ## Service passes a `Required` task waits for a mounted mix before it fails.
+const MixUnusableGrace* = chronos.seconds(3)
+  ## How long after its admission a `Required` task waits for a mounted mix that
+  ## cannot attempt it. Retries come `RetryInterval` apart.
 
 type
   MixUnusable* {.pure.} = enum
@@ -88,20 +90,19 @@ proc decideWithoutMix(
     self: MixSendProcessor, task: DeliveryTask, unusable: MixUnusable
 ) =
   ## Hands a `Preferred` task to the plain path at once. Fails a `Required` task
-  ## with the reason, after `MixUnusableRetries` more passes while mix is mounted.
+  ## with the reason, once its admission is older than `MixUnusableGrace` while
+  ## mix is mounted.
   if not self.fallbackAllowed:
-    if self.waku.mixMounted() and task.heldRounds < MixUnusableRetries:
-      inc task.heldRounds
+    if self.waku.mixMounted() and task.admissionAge() <= MixUnusableGrace:
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
-    debug "Mix cannot attempt the task, and the level has no other send path",
+    debug "Mix cannot attempt the task, and the Required anonymity level allows no send without mix",
       requestId = task.requestId,
       msgHash = task.msgHash.to0xHex(),
       reason = unusable.reason()
     task.state = DeliveryState.FailedToDeliver
     task.errorDesc = unusable.reason()
-    task.deliveryTime = Moment.now()
     return
 
   if self.fellBackReason != unusable:
@@ -128,7 +129,7 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     info "Mix can carry messages again"
 
   if self.fallbackAllowed and self.mixWindowElapsed(task):
-    debug "Mix window elapsed",
+    debug "Mix window elapsed, handing the task to the plain send path",
       requestId = task.requestId,
       msgHash = task.msgHash.to0xHex(),
       admissionAge = task.admissionAge()
@@ -142,7 +143,6 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
   task.anonymized = true
 
   task.errorDesc = "" # the attempt reports its own outcome
-  task.heldRounds = 0
   task.tryCount.inc()
   debug "Trying message delivery via Mix",
     requestId = task.requestId,
@@ -166,7 +166,6 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     else:
       task.state = DeliveryState.FailedToDeliver
       task.errorDesc = error.desc.get($error.code)
-      task.deliveryTime = Moment.now()
     return
 
   if numLightpushServers > 0:
@@ -174,11 +173,10 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
       requestId = task.requestId, msgHash = task.msgHash.to0xHex()
     task.state = DeliveryState.SuccessfullyPropagated
     task.propagatedAnonymously = true
-    task.deliveryTime = Moment.now()
     if task.firstPropagatedTime.isNone():
       task.firstPropagatedTime = Opt.some(Moment.now())
   else:
-    debug "Mix publish returned zero peers, request pushed back for next round",
+    debug "Mix publish returned zero peers, the task waits for a retry",
       requestId = task.requestId
     task.state = DeliveryState.NextRoundRetry
 
