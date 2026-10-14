@@ -7,6 +7,7 @@ import
   chronos,
   metrics,
   libp2p/crypto/crypto
+from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
 import nimcrypto
 import
@@ -19,6 +20,7 @@ import
     waku_store_sync/storage/range_processing,
     waku_store_sync/reconciliation,
     waku_store_sync/transfer,
+    waku_store_sync/codec,
     waku_store_sync/protocols_metrics,
     waku_archive/archive,
     waku_archive/driver,
@@ -45,6 +47,29 @@ proc failureCount(reason: string): float64 =
     )
   except ValueError:
     return 0.0
+
+proc newLimitedReceiver(
+    maxMessageSize: int
+): Future[(Switch, SyncTransfer, WakuArchive)] {.async.} =
+  ## A started transfer receiver with its own switch, archive and read limit.
+  let
+    switch = newTestSwitch()
+    archive = newWakuArchive(newSqliteArchiveDriver())
+    transfer = SyncTransfer.new(
+      peerManager = PeerManager.new(switch),
+      wakuArchive = archive,
+      idsTx = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](),
+      localWantsRx = newAsyncQueue[PeerId](),
+      remoteNeedsRx = newAsyncQueue[(PeerId, WakuMessageHash)](),
+      maxMessageSize = maxMessageSize,
+    )
+  await switch.start()
+  await transfer.start()
+  switch.mount(transfer)
+  return (switch, transfer, archive)
+
+proc encodedLen(msg: WakuMessage): int =
+  WakuMessageAndTopic(pubsub: DefaultPubsubTopic, message: msg).encode().buffer.len
 
 suite "Waku Sync: reconciliation":
   var serverSwitch {.threadvar.}: Switch
@@ -1202,33 +1227,21 @@ suite "Waku Sync: transfer":
 
   asyncTest "a receiver refuses messages above its limit without stalling the sender":
     # Given a third peer whose read limit is 1024 bytes plus the protocol overhead
-    let
-      smallSwitch = newTestSwitch()
-      smallArchive = newWakuArchive(newSqliteArchiveDriver())
-      small = SyncTransfer.new(
-        peerManager = PeerManager.new(smallSwitch),
-        wakuArchive = smallArchive,
-        idsTx = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](),
-        localWantsRx = newAsyncQueue[PeerId](),
-        remoteNeedsRx = newAsyncQueue[(PeerId, WakuMessageHash)](),
-        maxMessageSize = 1024,
-      )
-    await smallSwitch.start()
-    await small.start()
-    smallSwitch.mount(small)
+    let (smallSwitch, small, smallArchive) = await newLimitedReceiver(1024)
     defer:
       await small.stop()
       await smallSwitch.stop()
     let smallPeerInfo = smallSwitch.peerInfo.toRemotePeerInfo()
     serverPeerManager.addPeer(smallPeerInfo)
 
-    # and a server holding three 100 KiB messages, together more than the 256 KiB
-    # yamux send window, and a small one
+    # and a server holding two messages of half the yamux window each, which together
+    # exceed the window whatever its size, and a small one
     var bigMsgs: seq[WakuMessage]
-    for i in 1 .. 3:
+    for i in 1 .. 2:
       bigMsgs.add(
         fakeWakuMessage(
-          payload = newSeq[byte](100 * 1024), ts = now() - i.seconds.nanos
+          payload = newSeq[byte](YamuxDefaultWindowSize div 2),
+          ts = now() - i.seconds.nanos,
         )
       )
     var bigHashes: seq[WakuMessageHash]
@@ -1245,10 +1258,9 @@ suite "Waku Sync: transfer":
       await serverRemoteNeeds.put((smallPeerInfo.peerId, hash))
     await serverRemoteNeeds.put((smallPeerInfo.peerId, smallHash))
 
-    # Then the small one arrives: with a plain close instead of a reset, the third
+    # Then the small one arrives: with a plain close instead of a reset, the second
     # write would block on the full window for good. At least the first big one is
-    # refused; how many the receiver reads before its reset reaches the sender
-    # depends on timing.
+    # refused; whether the receiver also sees the second depends on timing.
     checkUntilTimeout:
       await smallArchive.holdsMessages(@[smallHash])
     check failureCount("too_large") >= refusedBefore + 1
@@ -1294,6 +1306,68 @@ suite "Waku Sync: transfer":
     checkUntilTimeout:
       failureCount("decode_error") == decodeErrorsBefore + 1
     await conn.close()
+
+  asyncTest "a message encoded exactly at the read limit is received, one byte more is refused":
+    # Given a peer whose read limit is 1024 bytes plus the protocol overhead
+    let (limitedSwitch, limited, limitedArchive) = await newLimitedReceiver(1024)
+    defer:
+      await limited.stop()
+      await limitedSwitch.stop()
+    let limitedPeerInfo = limitedSwitch.peerInfo.toRemotePeerInfo()
+    serverPeerManager.addPeer(limitedPeerInfo)
+
+    # and two messages whose encoded WakuMessageAndTopic is the limit and the limit + 1
+    let
+      readLimit = 1024 + DefaultSafetyBufferProtocolOverhead
+      encodingOverhead =
+        encodedLen(fakeWakuMessage(payload = newSeq[byte](readLimit))) - readLimit
+      atLimitMsg = fakeWakuMessage(payload = newSeq[byte](readLimit - encodingOverhead))
+      aboveLimitMsg =
+        fakeWakuMessage(payload = newSeq[byte](readLimit - encodingOverhead + 1))
+      atLimitHash = computeMessageHash(DefaultPubsubTopic, atLimitMsg)
+      aboveLimitHash = computeMessageHash(DefaultPubsubTopic, aboveLimitMsg)
+    check:
+      encodedLen(atLimitMsg) == readLimit
+      encodedLen(aboveLimitMsg) == readLimit + 1
+    serverDriver =
+      await serverDriver.put(DefaultPubsubTopic, @[atLimitMsg, aboveLimitMsg])
+    let refusedBefore = failureCount("too_large")
+
+    # When the server sends both
+    await serverRemoteNeeds.put((limitedPeerInfo.peerId, atLimitHash))
+    await serverRemoteNeeds.put((limitedPeerInfo.peerId, aboveLimitHash))
+
+    # Then the one at the limit is stored and the other is refused
+    checkUntilTimeout:
+      await limitedArchive.holdsMessages(@[atLimitHash])
+      failureCount("too_large") == refusedBefore + 1
+    check not await limitedArchive.holdsMessages(@[aboveLimitHash])
+
+  asyncTest "a stream that ends mid-payload is a read error, not a refusal":
+    let
+      msg = fakeWakuMessage()
+      hash = computeMessageHash(DefaultPubsubTopic, msg)
+    clientDriver = await clientDriver.put(DefaultPubsubTopic, @[msg])
+    let
+      readErrorsBefore = failureCount("read_error")
+      refusedBefore = failureCount("too_large")
+
+    # When a stream announces 1000 bytes, sends 10 and closes
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
+    )
+    await conn.write(@[byte 0xE8, 0x07] & newSeq[byte](10)) # varint 1000
+    await conn.close()
+
+    # Then the server counts a read error and no refusal
+    checkUntilTimeout:
+      failureCount("read_error") == readErrorsBefore + 1
+    check failureCount("too_large") == refusedBefore
+
+    # and still receives a message in a new session
+    await clientRemoteNeeds.put((serverPeerInfo.peerId, hash))
+    checkUntilTimeout:
+      await serverArchive.holdsMessages(@[hash])
 
   ## Disabled until we impl. DOS protection again
   #[ asyncTest "Check the exact missing messages are received":
