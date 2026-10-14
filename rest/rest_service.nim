@@ -265,7 +265,7 @@ proc start*(self: RestService, node: LogosDelivery): Result[void, string] =
 
   # Port 0 resolves on bind; keep the bound port so a restart reuses it.
   let boundPort = server.httpServer.address.port
-  waku.node.ports.rest = boundPort.uint16
+  waku.ports.rest = boundPort.uint16
   waku.conf.restServerConf.get().port = boundPort
   self.server = server
   return ok()
@@ -301,8 +301,8 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
   let conf = waku.conf
   installKernelRoutes(
     self.server,
-    waku.node,
-    waku.node.discovery.wakuDiscv5,
+    waku,
+    waku.discovery.wakuDiscv5,
     conf.restServerConf.get(),
     conf.relay,
     conf.lightPush,

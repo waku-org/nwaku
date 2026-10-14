@@ -8,10 +8,10 @@ logScope:
   topics = "send service lightpush processor"
 
 type LightpushSendProcessor* = ref object of BaseSendProcessor
-  waku: Waku
+  waku: Kernel
 
 proc new*(
-    T: typedesc[LightpushSendProcessor], waku: Waku, brokerCtx: BrokerContext
+    T: typedesc[LightpushSendProcessor], waku: Kernel, brokerCtx: BrokerContext
 ): T =
   return T(waku: waku, brokerCtx: brokerCtx)
 

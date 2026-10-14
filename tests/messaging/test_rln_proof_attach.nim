@@ -58,14 +58,14 @@ type FailingProofBackend = ref object
   failWith: RlnErrorKind
   attempts: int
 
-proc mountFailingRln(waku: Waku, failWith: RlnErrorKind): FailingProofBackend =
+proc mountFailingRln(waku: Kernel, failWith: RlnErrorKind): FailingProofBackend =
   let backend = FailingProofBackend(failWith: failWith)
 
   proc generate(message: WakuMessage): Future[Result[seq[byte], RlnError]] {.async.} =
     backend.attempts.inc()
     return err(RlnError.init(backend.failWith, "scripted attach failure"))
 
-  waku.node.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
+  waku.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
   return backend
 
 type CountingProcessor = ref object of BaseSendProcessor
@@ -94,7 +94,7 @@ suite "SendService RLN proof attach":
   asyncTest "passes the message through unproven when RLN is not mounted":
     ## The default (no-RLN) configuration must be unaffected: no proof is
     ## attached and the message reaches the send processors unchanged.
-    let waku = (await Waku.new(testConf())).expect("Waku.new")
+    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
     let msg = testMessage()
 
     let attached = (await waku.attachRlnProof(msg)).expect("attachRlnProof")
@@ -106,15 +106,15 @@ suite "SendService RLN proof attach":
 
   asyncTest "rlnEpochQuota fails when RLN is not mounted":
     ## The rate limit manager reads the failure as "use the local fallback".
-    let waku = (await Waku.new(testConf())).expect("Waku.new")
+    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
     check (await waku.rlnEpochQuota(nowSec())).isErr()
 
   asyncTest "rlnEpochQuota reads the RLN plugin's budget when it is mounted":
-    let waku = (await Waku.new(testConf())).expect("Waku.new")
+    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
     check logosdelivery_rln_set_plugin(addr lezPlugin, nil) == 0
     defer:
       discard logosdelivery_rln_set_plugin(nil, nil)
-    waku.node.protocols.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
+    waku.protocols.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
 
     let quota = (await waku.rlnEpochQuota(nowSec())).valueOr:
       raiseAssert $error
@@ -130,12 +130,12 @@ suite "SendService RLN proof attach - failing backend":
     "Failed to attach RLN proof: Permanent: scripted attach failure"
 
   var
-    waku {.threadvar.}: Waku
+    waku {.threadvar.}: Kernel
     errors {.threadvar.}: seq[MessageErrorEvent]
     listener {.threadvar.}: MessageErrorEventListener
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
     errors = @[]
     listener = MessageErrorEvent
       .listen(
@@ -147,7 +147,7 @@ suite "SendService RLN proof attach - failing backend":
 
   asyncTeardown:
     await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc newService(processor: BaseSendProcessor): SendService =
     ## A service that holds one task, so `isFull` tells whether it holds the task.
@@ -217,7 +217,7 @@ suite "SendService RLN proof attach - failing backend":
 
 suite "SendService RLN proof attach - RLN mounted":
   var
-    waku {.threadvar.}: Waku
+    waku {.threadvar.}: Kernel
     onchainRln {.threadvar.}: RlnEvm
     anvilProc {.threadvar.}: Process
     manager {.threadvar.}: RlnEvmGroupManager
@@ -226,8 +226,8 @@ suite "SendService RLN proof attach - RLN mounted":
     anvilProc = runAnvil(stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
     manager = await setupRlnEvm(deployContracts = false)
 
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    onchainRln = await waku.node.mountOnchainRln(
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    onchainRln = await waku.mountOnchainRln(
       getWakuRlnConfig(
         manager = manager,
         userMessageLimit = 20,
@@ -388,7 +388,7 @@ suite "SendService RLN proof attach - RLN mounted":
     ## drawn again after a restart. The draw is undone and the task retried.
     let now = nowSec()
     discard (await waku.attachRlnProof(messageAt(now, "a"))).expect("first")
-    GetPersistency.request(waku.node.brokerCtx).expect("persistency").closeJob(RlnJobId)
+    GetPersistency.request(waku.brokerCtx).expect("persistency").closeJob(RlnJobId)
 
     let res = await waku.attachRlnProof(messageAt(now, "b"))
     check:

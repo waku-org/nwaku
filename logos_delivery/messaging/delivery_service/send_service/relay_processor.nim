@@ -10,7 +10,7 @@ logScope:
   topics = "send service relay processor"
 
 type RelaySendProcessor* = ref object of BaseSendProcessor
-  waku: Waku
+  waku: Kernel
   publishProc: PushMessageHandler
   fallbackStateToSet: DeliveryState
 
@@ -18,7 +18,7 @@ proc new*(
     T: typedesc[RelaySendProcessor],
     lightpushAvailable: bool,
     publishProc: PushMessageHandler,
-    waku: Waku,
+    waku: Kernel,
     brokerCtx: BrokerContext,
 ): RelaySendProcessor =
   let fallbackStateToSet =

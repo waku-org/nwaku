@@ -66,7 +66,7 @@ suite "LogosDelivery - broker lifecycle":
 
       # The discv5 bridge listens on the node's context only.
       var bridged = 0
-      let disc = node.waku.node.discovery.discv5Discovery
+      let disc = node.waku.discovery.discv5Discovery
       let counter = PeersDiscovered.listen(
         disc.brokerCtx,
         proc(ev: PeersDiscovered): Future[void] {.async: (raises: []).} =

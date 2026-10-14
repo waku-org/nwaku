@@ -43,7 +43,7 @@ type ConnectionStatusAdjuster* = proc(
 ): ConnectionStatus {.gcsafe, raises: [].}
   # Allows an upper layer to adjust the computed connection status based on additional criteria.
 
-type NodeHealthMonitor* = ref object
+type NodeHealthMonitor* = ref object of RootObj
   nodeHealth: HealthStatus
   node: Kernel
   onlineMonitor*: OnlineMonitor
@@ -814,6 +814,9 @@ proc stopHealthMonitor*(hm: NodeHealthMonitor) {.async.} =
 
   if not isNil(hm.node.protocols.relay) and not isNil(hm.relayObserver):
     hm.node.protocols.relay.removeObserver(hm.relayObserver)
+
+proc healthMonitor*(node: Kernel): NodeHealthMonitor =
+  return NodeHealthMonitor(node.healthMonitorRef)
 
 proc new*(
     T: type NodeHealthMonitor,

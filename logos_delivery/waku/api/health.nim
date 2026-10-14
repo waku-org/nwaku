@@ -13,14 +13,14 @@ import
 
 export protocol_health
 
-proc isOnline*(self: Waku): Future[Result[bool, string]] {.async.} =
+proc isOnline*(self: Kernel): Future[Result[bool, string]] {.async.} =
   try:
     return ok(self.healthMonitor.onlineMonitor.amIOnline())
   except CatchableError as e:
     return err(e.msg)
 
 proc getConnectionStatus*(
-    self: Waku
+    self: Kernel
 ): Future[Result[ConnectionStatus, string]] {.async.} =
   ## The status `EventConnectionStatusChange` last reported, or would report
   ## now. `Disconnected` while the node is not started.
@@ -31,13 +31,13 @@ proc getConnectionStatus*(
   except CatchableError as e:
     return err(e.msg)
 
-proc setConnectionStatusAdjuster*(self: Waku, adjuster: ConnectionStatusAdjuster) =
+proc setConnectionStatusAdjuster*(self: Kernel, adjuster: ConnectionStatusAdjuster) =
   ## Lets an upper layer tighten the connection status; call before start.
   if self.healthMonitor.isNil():
     return
   self.healthMonitor.adjustConnectionStatus = adjuster
 
-func reportedProtocolHealth*(self: Waku, protocol: WakuProtocol): ProtocolHealth =
+func reportedProtocolHealth*(self: Kernel, protocol: WakuProtocol): ProtocolHealth =
   ## The record the health monitor stored for `protocol` on its last pass.
   ## The last `EventProtocolHealthChange` for `protocol` carried the same
   ## status. Before the first pass the status is `NOT_MOUNTED`.

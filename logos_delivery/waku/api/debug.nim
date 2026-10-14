@@ -8,28 +8,28 @@ import libp2p/peerid # pull PeerId pretty string formatting
 import logos_delivery/waku/waku
 import logos_delivery/waku/[waku_core, node/waku_node]
 
-proc version*(self: Waku): Future[Result[string, string]] {.async.} =
+proc version*(self: Kernel): Future[Result[string, string]] {.async.} =
   return ok(WakuNodeVersionString)
 
-proc listenAddresses*(self: Waku): Future[Result[seq[string], string]] {.async.} =
+proc listenAddresses*(self: Kernel): Future[Result[seq[string], string]] {.async.} =
   try:
-    return ok(self.node.info().listenAddresses)
+    return ok(self.info().listenAddresses)
   except CatchableError as e:
     return err(e.msg)
 
-proc myEnr*(self: Waku): Future[Result[string, string]] {.async.} =
+proc myEnr*(self: Kernel): Future[Result[string, string]] {.async.} =
   try:
-    return ok(self.node.enr.toURI())
+    return ok(self.enr.toURI())
   except CatchableError as e:
     return err(e.msg)
 
-proc myPeerId*(self: Waku): Future[Result[string, string]] {.async.} =
+proc myPeerId*(self: Kernel): Future[Result[string, string]] {.async.} =
   try:
-    return ok($self.node.peerId())
+    return ok($self.peerId())
   except CatchableError as e:
     return err(e.msg)
 
-proc metrics*(self: Waku): Future[Result[string, string]] {.async.} =
+proc metrics*(self: Kernel): Future[Result[string, string]] {.async.} =
   {.gcsafe.}:
     try:
       return ok(defaultRegistry.toText())

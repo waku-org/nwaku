@@ -22,7 +22,7 @@ method sendImpl*(
 ): Future[void] {.async, base.} =
   assert false, "Not implemented"
 
-proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Waku, errorDesc: string) =
+proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Kernel, errorDesc: string) =
   ## The service refused the task's proof as RLN-invalid: its proof went stale
   ## against a moved merkle root. Schedules a background merkle-path refresh and
   ## clears the proof so the next retry regenerates one against the refreshed

@@ -21,11 +21,8 @@ type
     MaxMessageSize
     IsRunning
 
-  WakuStateInfo* {.requiresInit.} = object
-    node: Kernel
-    conf: WakuConf
 
-proc getAllPossibleInfoItemIds*(self: WakuStateInfo): seq[NodeInfoId] =
+proc getAllPossibleInfoItemIds*(self: Kernel): seq[NodeInfoId] =
   ## Returns all possible options that can be queried to learn about the node's information.
   var ret = newSeq[NodeInfoId](0)
   for item in NodeInfoId:
@@ -36,7 +33,7 @@ proc getMetrics(): string =
   {.gcsafe.}:
     return defaultRegistry.toText() ## defaultRegistry is {.global.} in metrics module
 
-proc getNodeInfoItem*(self: WakuStateInfo, infoItemId: NodeInfoId): string =
+proc getNodeInfoItem*(self: Kernel, infoItemId: NodeInfoId): string =
   ## Returns the content of the info item with the given id if it exists.
   case infoItemId
   of NodeInfoId.Version:
@@ -44,26 +41,23 @@ proc getNodeInfoItem*(self: WakuStateInfo, infoItemId: NodeInfoId): string =
   of NodeInfoId.Metrics:
     return getMetrics()
   of NodeInfoId.MyMultiaddresses:
-    return self.node.info().listenAddresses.join(",")
+    return self.info().listenAddresses.join(",")
   of NodeInfoId.MyENR:
-    return self.node.enr.toURI()
+    return self.enr.toURI()
   of NodeInfoId.MyPeerId:
-    return $PeerId(self.node.peerId())
+    return $PeerId(self.peerId())
   of NodeInfoId.MyBoundPorts:
-    return $self.node.ports
+    return $self.ports
   of NodeInfoId.MyMixPubKey:
     ## Empty when the mix protocol is not mounted on this node.
-    if self.node.protocols.wakuMix.isNil():
+    if self.protocols.wakuMix.isNil():
       return ""
-    return self.node.protocols.wakuMix.pubKey.to0xHex()
+    return self.protocols.wakuMix.pubKey.to0xHex()
   of NodeInfoId.MaxMessageSize:
     ## Configured max message size (in bytes) for this node.
     return $self.conf.maxMessageSizeBytes
   of NodeInfoId.IsRunning:
     ## "true" between a successful start and stop, "false" otherwise.
-    return $self.node.started
+    return $self.started
   else:
     return "unknown info item id"
-
-proc init*(T: typedesc[WakuStateInfo], node: Kernel, conf: WakuConf): T =
-  return WakuStateInfo(node: node, conf: conf)

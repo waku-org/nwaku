@@ -111,7 +111,7 @@ suite "Reliable Channel - ingress":
       ## wire sender's id, not the local participant id
       check evt.senderId == SdsParticipantID("remote")
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "manager drops unmarked WakuMessage":
     ## Mirror of the above: same content topic, but `meta` is empty
@@ -160,7 +160,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "closed channel emits no channel event":
     ## Issue #4065: no ChannelMessageReceivedEvent after closeChannel.
@@ -217,7 +217,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "in-flight receive does not emit after close":
     ## A message already inside the ingress pipeline when closeChannel
@@ -299,7 +299,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Reliable Channel - send state machine":
   asyncTest "MessageSentEvent finalises the channelReqId as Sent":
@@ -364,7 +364,7 @@ suite "Reliable Channel - send state machine":
     if finalised:
       check sentFut.read() == channelReqId
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "two independent channelReqIds are finalised independently":
     ## Two `send()` calls -> two independent `channelReqId`s, each a
@@ -454,7 +454,7 @@ suite "Reliable Channel - send state machine":
     if erroredArrived:
       check erroredFut.read() == channelReqId2
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "channelReqId not pruned until ALL its segments are final":
     ## Multi-sibling prune rule: one `send()` of a payload spanning four
@@ -540,7 +540,7 @@ suite "Reliable Channel - send state machine":
     await sleepAsync(50.milliseconds)
     check sentCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "a single failed segment fails the whole channelReqId":
     ## Same four-segment send, but the last sibling fails: the parent must
@@ -627,7 +627,7 @@ suite "Reliable Channel - send state machine":
       check erroredFut.read() == channelReqId
     check not sentFired
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "sibling MessageSentEvent during sendHandler await does not corrupt state":
     ## Regression test for the prune-during-await race
@@ -724,7 +724,7 @@ suite "Reliable Channel - send state machine":
       check channelReqId1 in finalisedReqIds
       check channelReqId2 in finalisedReqIds
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Reliable Channel - SDS persistence":
   asyncTest "send persists SDS channel state through the persistency job":
@@ -789,7 +789,7 @@ suite "Reliable Channel - SDS persistence":
     check await pollMetaExists()
     check await pollLogRow()
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 ## A marked WakuMessage carrying an SDS envelope, as it arrives off the wire.
 proc sdsWakuMessage(contentTopic: ContentTopic, sdsWire: seq[byte]): WakuMessage =
@@ -871,7 +871,7 @@ suite "Reliable Channel - SDS lifecycle":
       check deliveries[0] == payload1
       check deliveries[1] == payload2
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "duplicate SDS envelope is delivered to the app only once":
     const
@@ -926,7 +926,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(200.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "SDS envelope for a foreign channel is dropped":
     ## Same content topic, different SDS channel id — dropped before unwrap.
@@ -976,7 +976,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(200.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "received history survives channel close and re-create":
     ## Receive m1, close, re-create, replay m1: the duplicate is only
@@ -1066,7 +1066,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(300.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Reliable Channel - SDS protocol semantics":
   asyncTest "a reply references the received message and advances the lamport clock":
@@ -1125,7 +1125,7 @@ suite "Reliable Channel - SDS protocol semantics":
     check SdsMessageID("semantics-m1") in reply.causalHistory.getMessageIds()
     check reply.lamportTimestamp > m1.lamportTimestamp
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "an unacknowledged send is acked by a later remote message":
     ## Our send sits in the outgoing buffer (visible in the persisted meta)
@@ -1222,7 +1222,7 @@ suite "Reliable Channel - SDS protocol semantics":
         await sleepAsync(5.milliseconds)
     check bufLen == 0
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "three-deep dependency chain is released in causal order":
     ## m1 <- m2 <- m3 arriving as m3, m2, m1: all held until m1 lands,
@@ -1296,7 +1296,7 @@ suite "Reliable Channel - SDS protocol semantics":
       check deliveries[1] == payloads[1]
       check deliveries[2] == payloads[2]
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "sync envelope without app payload is consumed silently":
     ## Sync traffic has no app payload: no event, and normal traffic
@@ -1367,7 +1367,7 @@ suite "Reliable Channel - SDS protocol semantics":
       await sleepAsync(5.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "identical payloads get distinct message ids and both deliver":
     ## Identical content sent twice must get distinct message ids and
@@ -1441,7 +1441,7 @@ suite "Reliable Channel - SDS protocol semantics":
       await sleepAsync(5.milliseconds)
     check deliveries.len == 2
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
   asyncTest "manager rejects operations on unknown channels":
     var waku: LogosDelivery
@@ -1453,7 +1453,7 @@ suite "Reliable Channel - SDS protocol semantics":
     check (await manager.send(ChannelId("no-such-channel"), "x".toBytes())).isErr()
     check (await manager.closeChannel(ChannelId("no-such-channel"))).isErr()
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Reliable Channel - content topic subscription":
   asyncTest "channels subscribe on create/start and unsubscribe on close":
@@ -1478,7 +1478,7 @@ suite "Reliable Channel - content topic subscription":
         .expect("createReliableChannel pre-start")
       check not waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
 
-      (await waku.start()).expect("start")
+      (await waku.startKernel()).expect("start")
       check waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
 
       ## Created after start: subscribed immediately.
@@ -1495,7 +1495,7 @@ suite "Reliable Channel - content topic subscription":
       (await manager.closeChannel(preStartChannelId)).expect("closeChannel pre-start")
       check not waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")
 
 suite "Reliable Channel - a mix fail-fast reaches the sender":
   asyncTest "a Required send that mix cannot attempt finalises the channel request":
@@ -1517,7 +1517,7 @@ suite "Reliable Channel - a mix fail-fast reaches the sender":
           ReliableChannelManagerConf(),
         )
       ).expect("LogosDelivery.new")
-      (await waku.start()).expect("start")
+      (await waku.startKernel()).expect("start")
 
     discard waku.reliableChannelManager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -1541,4 +1541,4 @@ suite "Reliable Channel - a mix fail-fast reaches the sender":
     if errFut.finished():
       check errFut.read() == channelReqId
 
-    (await waku.stop()).expect("stop")
+    (await waku.stopKernel()).expect("stop")

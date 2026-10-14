@@ -218,7 +218,7 @@ proc setupNetwork(
 
   let events = newReceiveEventListenerManager(subscriber.waku.brokerCtx, 1)
   if knowStorePeer:
-    subscriber.waku.node.peerManager.addServicePeer(storeNodePeerInfo, WakuStoreCodec)
+    subscriber.waku.peerManager.addServicePeer(storeNodePeerInfo, WakuStoreCodec)
   let subscribedAt = now()
   (await subscriber.messagingClient.subscribe(testTopic)).expect("Failed to subscribe")
 
@@ -285,7 +285,7 @@ proc runRestartedReceiver(
   subscriber.shortenIntervals()
   let events = newReceiveEventListenerManager(subscriber.waku.brokerCtx, expectedCount)
   (await subscriber.start()).expect("start new process subscriber")
-  subscriber.waku.node.peerManager.addServicePeer(
+  subscriber.waku.peerManager.addServicePeer(
     parsePeerInfo(storePeer).get(), WakuStoreCodec
   )
   (await subscriber.messagingClient.subscribe(RestartTopic)).expect("resubscribe")
@@ -362,7 +362,7 @@ proc archiveOffline(net: TestNetwork) {.async.} =
 
 proc knowStorePeer(net: TestNetwork) =
   ## Registers the store node as a service peer. The Store client dials it on demand.
-  net.subscriber.waku.node.peerManager.addServicePeer(
+  net.subscriber.waku.peerManager.addServicePeer(
     net.storeNodePeerInfo, WakuStoreCodec
   )
 
@@ -379,7 +379,7 @@ proc joinMesh(node: Kernel, peer: RemotePeerInfo) {.async.} =
 
 proc joinMesh(net: TestNetwork, peer: RemotePeerInfo) {.async.} =
   ## Joins the subscriber to the relay mesh through `peer`.
-  await net.subscriber.waku.node.joinMesh(peer)
+  await net.subscriber.waku.joinMesh(peer)
 
 proc joinMesh(net: TestNetwork) {.async.} =
   ## Joins the subscriber to the relay mesh through the store node.
@@ -392,7 +392,7 @@ proc archiveInOutage(
   ## puts one message straight into the archive. Direct insertion keeps Store
   ## the only path, because the relay cache can give a published message at
   ## reconnection.
-  await net.subscriber.waku.node.disconnectNode(net.storeNodePeerInfo)
+  await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
   await offline
   let msg =
     WakuMessage(payload: OutagePayload.toBytes(), contentTopic: topic, timestamp: now())
@@ -422,7 +422,7 @@ proc requiredAnonymity(): MessagingClientConf =
   )
 
 proc waitForProtocolHealth(
-    waku: Waku, protocol: WakuProtocol, health: HealthStatus
+    waku: Kernel, protocol: WakuProtocol, health: HealthStatus
 ) {.async.} =
   ## Completes once the kernel reports `protocol` at `health`. Registers the
   ## listener, then reads the stored status.
@@ -606,7 +606,7 @@ proc runOutage(net: TestNetwork, topic: ContentTopic): Future[seq[string]] {.asy
   discard await net.archiveInOutage(topic, net.waitOutage())
   events.targetCount = 2
   events.receivedEvent.clear()
-  await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+  await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
   check await events.waitForEvents(TestTimeout)
   check await net.caughtUp()
   check await events.nothingMore(2)
@@ -740,7 +740,7 @@ suite "Messaging API, Receive Service (backfill)":
       state = Opt.some(TopicRecordState.Online),
       within = IdleTimeout,
     )
-    await net.subscriber.waku.node.disconnectNode(net.storeNodePeerInfo)
+    await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
     await net.waitOutage()
     # Inside the gap, which starts two variances before the fill of the start
     # outage, and outside the variance of the next subscribe.
@@ -749,7 +749,7 @@ suite "Messaging API, Receive Service (backfill)":
     )
     net.subscriber.messagingClient.unsubscribe(topic).expect("unsubscribe")
     discard await root.waitForRecord(topic, present = false)
-    await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitLive()
     let resubscribedAt = now()
     (await net.subscriber.messagingClient.subscribe(topic)).expect("subscribe again")
@@ -766,7 +766,7 @@ suite "Messaging API, Receive Service (backfill)":
     # gap from its subscribe. Its messages of the outage come from Store, and
     # nothing from before its subscribe.
     discard await net.archiveAt(outageTopic, now() - Hour, "before its subscribe")
-    await net.subscriber.waku.node.disconnectNode(net.storeNodePeerInfo)
+    await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
     await net.waitOutage()
     (await net.subscriber.messagingClient.subscribe(outageTopic)).expect(
       "subscribe in outage"
@@ -777,7 +777,7 @@ suite "Messaging API, Receive Service (backfill)":
     discard await net.archiveAt(topic, now(), "the old topic in the outage")
     events.targetCount = 2
     events.receivedEvent.clear()
-    await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
     check await events.waitForEvents(TestTimeout)
     check await net.caughtUp()
     check await events.nothingMore(2)
@@ -859,7 +859,7 @@ suite "Messaging API, Receive Service (backfill)":
     await net.joinMesh(net.publisher.peerInfo.toRemotePeerInfo())
     await net.waitLive()
     net.knowStorePeer()
-    await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
     # The first page of the gap moves the record within seconds, far below
     # `BackfillRetryPeriod`.
     checkUntilTimeoutCustom(IdleTimeout, 100.milliseconds):
@@ -881,14 +881,14 @@ suite "Messaging API, Receive Service (backfill)":
       await net.teardown()
     let events = net.events
     # The subscription manager subscribes through a connected filter peer.
-    await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
-    net.subscriber.waku.node.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
+    net.subscriber.waku.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
     await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
-      net.subscriber.waku.node.switch.peerInfo.peerId
+      net.subscriber.waku.switch.peerInfo.peerId
     )
     await offline
     let gapMsg = await net.archiveAt(
@@ -920,7 +920,7 @@ suite "Messaging API, Receive Service (backfill)":
     defer:
       await net.teardown()
     let events = net.events
-    await net.subscriber.waku.node.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
@@ -938,7 +938,7 @@ suite "Messaging API, Receive Service (backfill)":
     defer:
       await filterNode.stop()
     let healthyB = net.waitForFilterSubscriptionHealth(healthy = true, SecondShard)
-    await net.subscriber.waku.node.connectToNodes(
+    await net.subscriber.waku.connectToNodes(
       @[filterNode.peerInfo.toRemotePeerInfo()]
     )
     await healthyB

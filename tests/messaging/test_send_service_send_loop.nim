@@ -238,16 +238,16 @@ proc fixedEpochQuota(epoch: ref uint64, userMessageLimit: uint64): QuotaProvider
     )
 
 suite "SendService - deliver":
-  var waku {.threadvar.}: Waku
+  var waku {.threadvar.}: Kernel
   var log {.threadvar.}: OutcomeLog
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    waku = (await Kernel.new(testConf())).expect("Kernel.new")
     log = newOutcomeLog(waku.brokerCtx)
 
   asyncTeardown:
     await log.teardown()
-    discard await waku.stop()
+    discard await waku.stopKernel()
 
   proc buildTask(
       id: string, timestamp: Timestamp = getNowInNanosecondTime(), ephemeral = false
@@ -394,7 +394,7 @@ suite "SendService - deliver":
       await reply
       return ok(@[4'u8, 5, 6])
 
-    waku.node.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
+    waku.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
     let processor = newScripted()
     let service = newService(processor)
     let proven = processor.admitted(buildTask("proven-retry"))

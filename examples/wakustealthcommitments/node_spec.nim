@@ -14,7 +14,7 @@ export
   networks_config, waku, logging, strutils, os, sequtils, stewNet, chronicles, chronos,
   metrics, crypto
 
-proc setup*(): Waku =
+proc setup*(): Kernel =
   const versionString = "version / git commit hash: " & waku.git_version
   let rng = crypto.newRng()
 
@@ -44,16 +44,16 @@ proc setup*(): Waku =
     conf.rlnRelay = Opt.some(twnNetworkConf.rlnRelay)
 
   info "Starting node"
-  var waku = (waitFor Waku.new(conf)).valueOr:
+  var waku = (waitFor Kernel.new(conf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  (waitFor waku.start()).isOkOr:
+  (waitFor waku.startKernel()).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
   # set triggerSelf to false, we don't want to process our own stealthCommitments
-  waku.node.protocols.relay.triggerSelf = false
+  waku.protocols.relay.triggerSelf = false
 
   info "Node setup complete"
   return waku

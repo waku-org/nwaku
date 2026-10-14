@@ -26,6 +26,7 @@ import
   libp2p_mix/mix_protocol,
   libp2p_mix/spam_protection,
   mix_rln_spam_protection/module_api,
+  metrics/chronos_httpserver,
   brokers/broker_context,
   brokers/request_broker
 
@@ -35,6 +36,9 @@ import
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
     discovery/discovery,
+    factory/waku_conf,
+    factory/app_callbacks,
+    persistency/persistency,
     node/protocols,
     waku_core,
     waku_core/topics/sharding,
@@ -104,6 +108,9 @@ const MixNodeResolveTimeout = chronos.seconds(10)
   ## `DnsResolver` gives each query 5 s per name server, and a node has two by
   ## default, so one name can take 10 s.
 
+const DefaultEnrReconcileInterval* = 5.seconds
+  ## nim-eth has no hook on its own record writes, so the node polls.
+
 type
   # TODO: Move to application instance (e.g., the node app)
   WakuInfo* = object # NOTE One for simplicity, can extend later as needed
@@ -147,6 +154,17 @@ type
     rateLimitSettings*: ProtocolRateLimitSettings
     ports*: BoundPorts
     protocols*: Protocols
+    conf*: WakuConf
+    key*: crypto.PrivateKey
+    healthMonitorRef*: RootRef
+      ## A `NodeHealthMonitor`; typed through `healthMonitor` in node_health_monitor.nim.
+    metricsServer*: MetricsHttpServerRef
+    appCallbacks*: AppCallbacks
+    persistency*: Persistency
+    enrReconcileLoopHandle*: Future[void]
+    enrReconcileInterval*: Duration = DefaultEnrReconcileInterval
+    enrReachable*: bool = true
+      ## Whether the record last carried a host. Only a change is worth a log.
     discovery*: Discovery
     subscriptionManager*: SubscriptionManager
 

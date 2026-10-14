@@ -213,7 +213,7 @@ procSuite "Announced addresses":
       extMultiAddrs = @[MultiAddress.init("/ip4/192.168.77.7/tcp/60111").get()],
     )
     let natSvc = NATService.new(upnpConfig(), rng(), portMapperFactory = factory)
-    ## NAT first, then the update, as in Waku.new.
+    ## NAT first, then the update, as in Kernel.new.
     node.switch.services.add(Service(natSvc))
     node.switch.services.add(Service(UpdateBeforeBind()))
 

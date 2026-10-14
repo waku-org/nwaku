@@ -67,7 +67,7 @@ logScope:
   topics = "logosdelivery"
 
 type LogosDelivery* = ref object ## Entry point. Holds one instance of each API layer.
-  waku*: Waku
+  waku*: Kernel
   messagingClient*: MessagingClient
   reliableChannelManager*: ReliableChannelManager
 
@@ -78,7 +78,7 @@ proc buildLogosDeliveryStack(
     appCallbacks: AppCallbacks,
 ): Future[Result[LogosDelivery, string]] {.async.} =
   ## Mounts each layer iff its config object is given.
-  let waku = (await Waku.new(wakuConf, appCallbacks)).valueOr:
+  let waku = (await Kernel.new(wakuConf, appCallbacks)).valueOr:
     return err("failed to create Waku: " & error)
 
   let messagingClient =
@@ -222,7 +222,7 @@ proc start*(self: LogosDelivery): Future[Result[void, string]] {.async.} =
   if self.waku.isNil():
     return err("Waku node is not initialized")
 
-  (await self.waku.start()).isOkOr:
+  (await self.waku.startKernel()).isOkOr:
     return err("failed to start Waku: " & error)
 
   if not self.messagingClient.isNil():
@@ -242,7 +242,7 @@ proc stop*(self: LogosDelivery): Future[Result[void, string]] {.async.} =
   if not self.messagingClient.isNil():
     await self.messagingClient.stop()
   if not self.waku.isNil():
-    (await self.waku.stop()).isOkOr:
+    (await self.waku.stopKernel()).isOkOr:
       return err("failed to stop Waku: " & error)
 
   return ok()
@@ -251,7 +251,7 @@ func isRunning*(self: LogosDelivery): bool =
   ## True while a layer still holds what `stop` releases; the channel manager
   ## needs no test, its `stop` is already a no-op when empty.
   let transportUp =
-    not self.waku.isNil() and not self.waku.node.isNil() and self.waku.node.started
+    not self.waku.isNil() and not self.waku.isNil() and self.waku.started
   let messagingUp = not self.messagingClient.isNil() and self.messagingClient.started
   transportUp or messagingUp
 
@@ -281,7 +281,7 @@ proc ensureChannels*(self: LogosDelivery): Result[void, string] =
 
 # Compile-time check that each concrete type satisfies its API concept.
 static:
-  doAssert Waku is KernelApi
+  doAssert Kernel is KernelApi
   doAssert MessagingClient is MessagingApi
   doAssert ReliableChannelManager is ReliableChannelApi
   doAssert LogosDelivery is LogosDeliveryApi
