@@ -17,7 +17,8 @@ import
   logos_delivery/waku/waku_mix,
   logos_delivery/waku/waku_enr/capabilities,
   logos_delivery/waku/common/rate_limit/setting,
-  logos_delivery/waku/common/utils/parse_size_units
+  logos_delivery/waku/common/utils/parse_size_units,
+  logos_delivery/waku/waku_core/message/default_values
 
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":
@@ -758,3 +759,31 @@ suite "Waku Conf - shard count limit":
     check:
       res.isErr()
       "too many shards" in res.error
+
+suite "Waku Conf - max message size range":
+  # Protocols read up to the max message size plus DefaultSafetyBufferProtocolOverhead
+  # as an int, so that sum must not overflow.
+  test "a max message size whose read limit would overflow an int fails the build":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize(uint64.high)
+    let res = builder.build()
+    check:
+      res.isErr()
+      "max message size out of range" in res.error
+
+  test "the largest max message size whose read limit fits an int builds":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize(uint64(int.high - DefaultSafetyBufferProtocolOverhead))
+    let res = builder.build()
+    check res.isOk()
+
+  test "a huge max message size given as a string fails the build":
+    var builder = WakuConfBuilder.init()
+    builder.withClusterId(1)
+    builder.withMaxMessageSize("99999999999999999999999 B")
+    let res = builder.build()
+    check:
+      res.isErr()
+      "too large" in res.error
