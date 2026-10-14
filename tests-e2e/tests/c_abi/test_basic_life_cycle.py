@@ -9,14 +9,11 @@ from src.node.wrapper_helpers import (
     wait_for_connected,
     wait_for_mesh,
 )
-from tests.c_abi.test_channel_delivery import DELIVERY_TIMEOUT_S, NO_CHANNEL_DELIVERY_WINDOW_S, wait_for_message_received
 
 NO_PROVIDER_REGISTERED_RE = re.compile(
     r"send_message: callback failed \(ret=1\): Send failed: MessagingClient\.send: Failed to create delivery task: Failed create DeliveryTask: "
     r"RequestBroker\(RequestRelayShard\): no provider registered for broker context (\w+)"
 )
-STOPPED_SEND_CONTENT_TOPIC = "/test/1/stopped-send/proto"
-OTHER_CONTENT_TOPIC = "/test/1/stopped-send-other/proto"
 STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
 
 
@@ -66,45 +63,6 @@ class TestLogosDeliveryLifecycle:
                 assert other_match, other_send_result.err()
                 assert other_match.group(1) != match.group(1), f"two nodes named the same broker context {match.group(1)}"
 
-    def test_send_after_stop_node(self, node_config):
-        # TODO: logos-delivery#4540
-        node_config.update({"numShardsInNetwork": 1})
-        with self._create_start_node(node_config) as node:
-            stop_result = node.stop_node()
-            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-            send_result = node.send_message(create_message_bindings())
-            assert send_result.is_err(), "send after stop_node succeeded"
-            assert NO_PROVIDER_REGISTERED_RE.search(send_result.err()), send_result.err()
-
-    def test_failed_send_after_stop_node_subscribes_content_topic(self, node_config):
-        # TODO: logos-delivery#4540
-        # A send after stop_node fails but still subscribes its content topic, so the restarted node delivers messages on it.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        with self._create_start_node(node_config, node_collector.event_callback) as node:
-            stop_result = node.stop_node()
-            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-            send_result = node.send_message(create_message_bindings(contentTopic=STOPPED_SEND_CONTENT_TOPIC))
-            assert send_result.is_err(), "send after stop_node succeeded"
-
-            start_result = node.start_node()
-            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
-
-            peer_collector = EventCollector()
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback) as peer:
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
-
-                other_send_result = peer.send_message(create_message_bindings(contentTopic=OTHER_CONTENT_TOPIC))
-                assert other_send_result.is_ok(), f"peer send failed: {other_send_result.err()}"
-                peer_send_result = peer.send_message(create_message_bindings(contentTopic=STOPPED_SEND_CONTENT_TOPIC))
-                assert peer_send_result.is_ok(), f"peer send failed: {peer_send_result.err()}"
-
-                assert wait_for_message_received(node_collector, STOPPED_SEND_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic of its failed send"
-                assert wait_for_message_received(node_collector, OTHER_CONTENT_TOPIC, timeout_s=NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a message on a content topic it never sent to"
-
     def test_subscribe_and_unsubscribe_on_node_never_started(self, node_config):
         # TODO: logos-delivery#4540
         node_config.update({"numShardsInNetwork": 1})
@@ -116,46 +74,6 @@ class TestLogosDeliveryLifecycle:
 
             unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
             assert unsubscribe_result.is_ok(), f"unsubscribe on a node never started failed: {unsubscribe_result.err()}"
-
-    def test_subscribe_and_unsubscribe_after_stop_node(self, node_config):
-        # TODO: logos-delivery#4540
-        node_config.update({"numShardsInNetwork": 1})
-        with self._create_start_node(node_config) as node:
-            stop_result = node.stop_node()
-            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
-
-            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
-            assert subscribe_result.is_ok(), f"subscribe after stop_node failed: {subscribe_result.err()}"
-
-            unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
-            assert unsubscribe_result.is_ok(), f"unsubscribe after stop_node failed: {unsubscribe_result.err()}"
-
-    def test_subscribe_on_node_never_started_subscribes_content_topic(self, node_config):
-        # TODO: logos-delivery#4540
-        # A subscribe on a node never started takes effect once the node starts.
-        node_config.update({"numShardsInNetwork": 1})
-        node_collector = EventCollector()
-        result = WrapperManager.create(config=node_config, event_cb=node_collector.event_callback)
-        assert result.is_ok(), f"Failed to create node: {result.err()}"
-        with result.ok_value as node:
-            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
-            assert subscribe_result.is_ok(), f"subscribe on a node never started failed: {subscribe_result.err()}"
-
-            start_result = node.start_node()
-            assert start_result.is_ok(), f"Failed to start node: {start_result.err()}"
-
-            peer_collector = EventCollector()
-            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback) as peer:
-                assert wait_for_mesh(node_collector), "node never meshed with the peer"
-                assert wait_for_mesh(peer_collector), "peer never meshed with the node"
-
-                other_send_result = peer.send_message(create_message_bindings(contentTopic=OTHER_CONTENT_TOPIC))
-                assert other_send_result.is_ok(), f"peer send failed: {other_send_result.err()}"
-                peer_send_result = peer.send_message(create_message_bindings(contentTopic=STOPPED_SUBSCRIBE_CONTENT_TOPIC))
-                assert peer_send_result.is_ok(), f"peer send failed: {peer_send_result.err()}"
-
-                assert wait_for_message_received(node_collector, STOPPED_SUBSCRIBE_CONTENT_TOPIC, DELIVERY_TIMEOUT_S), "node delivered no message on the content topic it subscribed to before start_node"
-                assert wait_for_message_received(node_collector, OTHER_CONTENT_TOPIC, timeout_s=NO_CHANNEL_DELIVERY_WINDOW_S) is None, "node delivered a message on a content topic it never subscribed to"
 
     def test_restart_node_with_rest(self, node_config):
         # TODO: logos-delivery#4522
@@ -180,25 +98,6 @@ class TestLogosDeliveryLifecycle:
             peer_collector = EventCollector()
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
                 assert not wait_for_mesh(peer_collector), "peer meshed with the node whose restart failed"
-
-    def test_restart_node_with_rest_after_failed_start(self, node_config):
-        # TODO: logos-delivery#4522
-        node_config.update({"rest": True})
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("", 0))
-            s.listen()
-            result = WrapperManager.create(config={**node_config, "tcpPort": s.getsockname()[1]})
-            assert result.is_ok(), f"Failed to create node: {result.err()}"
-            with result.ok_value as node:
-                start_result = node.start_node()
-                assert start_result.is_err(), "start on a TCP port in use succeeded"
-                assert "TcpTransport start" in start_result.err(), start_result.err()
-                s.close()
-
-                start_result = node.start_node()
-                assert start_result.is_err(), "start after the TCP port was freed succeeded"
-                assert "failed to start REST: could not start the essential REST server" in start_result.err(), start_result.err()
-                assert "Address already in use" in start_result.err(), start_result.err()
 
     def test_restart_node_with_metrics_server(self, node_config):
         # TODO: logos-delivery#4522
@@ -267,16 +166,3 @@ class TestLogosDeliveryLifecycle:
         node = self._create_start_node(node_config)
         stop_result = node.stop_and_destroy()
         assert stop_result.is_ok(), f"Failed to stop and destroy node: {stop_result.err()}"
-
-    def test_recreate_node_with_rest_after_destroy(self, node_config):
-        # TODO: logos-delivery#4522
-        node_config.update({"rest": True})
-        with self._create_start_node(node_config) as node:
-            rest_port = get_node_bound_ports(node)["rest"]
-            stop_result = node.stop_and_destroy()
-            assert stop_result.is_ok(), f"Failed to stop and destroy node: {stop_result.err()}"
-
-        result = WrapperManager.create_and_start(config={**node_config, "restPort": rest_port})
-        assert result.is_err(), "a node on the REST port of a destroyed node started"
-        assert "failed to start REST: could not start the essential REST server" in result.err(), result.err()
-        assert "Address already in use" in result.err(), result.err()

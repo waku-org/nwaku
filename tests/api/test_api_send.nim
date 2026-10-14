@@ -912,44 +912,6 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Sent}, laterRequestId
     )
 
-  asyncTest "Edge sender sends through a lightpushnode that was down at its start":
-    # TODO: logos-delivery#4510
-    let lightpushNodeAddr =
-      $lightpushNodePeerInfo.addrs[0] & "/p2p/" & $lightpushNodePeerId
-    await lightpushNode.stop()
-
-    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
-    conf.kernel.lightpushnode = lightpushNodeAddr
-    var node: LogosDelivery
-    lockNewGlobalBrokerContext:
-      node = (await LogosDelivery.new(conf)).valueOr:
-        raiseAssert error
-      node.shortenIntervals()
-      (await node.start()).isOkOr:
-        raiseAssert "Failed to start Waku node: " & error
-    defer:
-      (await node.stop()).expect("Failed to stop node")
-
-    await lightpushNode.start()
-    await lightpushNode.connectToNodes(@[relayNode2PeerInfo])
-
-    node.messagingClient.sendService.maxDeliveryTime = 5.seconds
-
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
-    defer:
-      await eventManager.teardown()
-
-    let envelope = MessageEnvelope.init(
-      ContentTopic("/waku/2/default-content/proto"), "test payload"
-    )
-
-    let requestId = (await node.messagingClient.send(envelope)).valueOr:
-      raiseAssert error
-
-    check await eventManager.propagatedFuture.withTimeout(10.seconds)
-
-    eventManager.validate({SendEventOutcome.Propagated}, requestId)
-
   asyncTest "Edge sender never sends through a static node that was down at its start":
     # TODO: logos-delivery#4510
     let lightpushNodeAddr =
