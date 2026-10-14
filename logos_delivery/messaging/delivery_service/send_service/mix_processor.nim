@@ -9,13 +9,14 @@ import ./[delivery_task, send_processor]
 logScope:
   topics = "send service mix processor"
 
-const MixUnavailableReason* = "mix not mounted or pool below: " & $MinMixPoolSize
+const MixUnavailableReason* =
+  "mix is not mounted or knows fewer than " & $MinMixPoolSize & " usable mix nodes"
   ## The pool counts only members with an address that mix routes.
 
-const MixSelfHopReason* = "own address cannot carry mix replies"
+const MixSelfHopReason* = "this node has no address that mix can use for replies"
   ## An IPv6-only or name-only announcement, or a NAT mapping not yet arrived.
 
-const MixNoExitReason* = "no mix exit serves the shard"
+const MixNoExitReason* = "no mix node serves lightpush on the shard of the message"
   ## No pool member serves lightpush on the message's shard.
 
 const MixUnusableGrace* = chronos.seconds(3)
@@ -96,7 +97,7 @@ proc decideWithoutMix(
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
-    debug "Mix cannot attempt the task, and the level has no other send path",
+    debug "Mix cannot attempt the task, and the Required anonymity level allows no send without mix",
       requestId = task.requestId,
       msgHash = task.msgHash.to0xHex(),
       reason = unusable.reason()
@@ -128,7 +129,7 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     info "Mix can carry messages again"
 
   if self.fallbackAllowed and self.mixWindowElapsed(task):
-    debug "Mix window elapsed",
+    debug "Mix window elapsed, handing the task to the plain send path",
       requestId = task.requestId,
       msgHash = task.msgHash.to0xHex(),
       admissionAge = task.admissionAge()

@@ -339,7 +339,9 @@ proc failExpired(self: SendService, task: DeliveryTask): bool =
       msgHash = task.loggedHash(),
       error = "Parked message too old",
       age = task.messageAge()
-    self.fail(task, "Rate-limit budget not available within max parked age")
+    self.fail(
+      task, "No rate-limit budget came within the maximum wait of a queued message"
+    )
     return true
   return false
 
