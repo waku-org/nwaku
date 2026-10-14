@@ -36,6 +36,10 @@ proc parseMsgSize*(input: string): Result[uint64, string] =
 
   value = value * multiplier
 
+  # uint64(float) is unchecked; float(uint64.high) rounds to 2^64, the first value that doesn't fit.
+  if value >= float(uint64.high):
+    return err("size too large: " & input)
+
   return ok(uint64(value))
 
 proc parseCorrectMsgSize*(input: string): uint64 =

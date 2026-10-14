@@ -20,5 +20,9 @@ declarePublicCounter logos_delivery_total_bytes_exchanged,
 declarePublicCounter logos_delivery_total_transfer_messages_exchanged,
   "the number of messages sent and received by the transfer protocol", ["direction"]
 
+declarePublicCounter logos_delivery_transfer_receive_failures,
+  "the number of transfer messages the node refused, failed to read or failed to decode",
+  ["reason"]
+
 declarePublicGauge logos_delivery_total_messages_cached,
   "the number of messages cached by the node after prunning"

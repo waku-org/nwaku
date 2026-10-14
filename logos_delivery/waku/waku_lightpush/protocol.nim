@@ -169,7 +169,7 @@ proc new*(
     pushHandler: PushMessageHandler,
     autoSharding: Opt[Sharding],
     rateLimitSetting: Opt[RateLimitSetting] = Opt.none(RateLimitSetting),
-    maxMessageSize: int = int(DefaultMaxWakuMessageSize),
+    maxMessageSize: int,
 ): T =
   let wl = WakuLightPush(
     rng: rng,

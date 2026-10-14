@@ -672,6 +672,7 @@ proc mountStoreSync*(
     storeSyncRange: uint32,
     storeSyncInterval: uint32,
     storeSyncRelayJitter: uint32,
+    maxMessageSize: int,
 ): Future[Result[void, string]] {.async.} =
   let idsChannel = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](0)
   let wantsChannel = newAsyncQueue[(PeerId)](0)
@@ -695,7 +696,8 @@ proc mountStoreSync*(
     return err(error.msg)
 
   let transfer = SyncTransfer.new(
-    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
+    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel,
+    maxMessageSize,
   )
 
   node.wakuStoreTransfer = transfer

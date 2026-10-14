@@ -717,6 +717,10 @@ proc build*(
         default = DefaultMaxWakuMessageSizeStr
       DefaultMaxWakuMessageSize
 
+  # Protocols read up to this size plus DefaultSafetyBufferProtocolOverhead as an int.
+  if maxMessageSizeBytes > uint64(int.high - DefaultSafetyBufferProtocolOverhead):
+    return err("max message size out of range: " & $maxMessageSizeBytes)
+
   # Build sub-configs
   var discv5Conf = builder.discv5Conf.build().valueOr:
     return err("Discv5 Conf building failed: " & $error)
