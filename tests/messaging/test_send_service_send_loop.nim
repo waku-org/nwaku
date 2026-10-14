@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[sequtils, tables]
+import std/[importutils, sequtils, tables]
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
@@ -730,6 +730,18 @@ suite "SendService - deliver":
     check:
       log.propagated == @[task.requestId]
       log.errors.len == 0
+
+  asyncTest "a second start while the service runs changes nothing":
+    privateAccess(SendService)
+    let service = newService(FakePropagatingProcessor())
+    service.startSendService()
+    let loop = service.retryLoopHandle
+    service.startSendService()
+    check service.retryLoopHandle == loop
+    await service.stopSendService()
+    check:
+      loop.cancelled()
+      service.retryLoopHandle.isNil()
 
   asyncTest "a task queued before the start waits for the start":
     let processor = FakePropagatingProcessor()

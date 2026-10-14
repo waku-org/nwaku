@@ -569,7 +569,10 @@ proc enqueue*(self: SendService, task: DeliveryTask): Result[RequestId, string] 
   return ok(task.requestId)
 
 proc startSendService*(self: SendService) =
-  ## Starts each task. Call it after `stopSendService` ends.
+  ## Starts each task. Call it after `stopSendService` ends. A call while the
+  ## service runs does nothing.
+  if self.running:
+    return
   self.running = true
   for task in self.deliveryTasks.values:
     self.startDeliverSoon(task)
