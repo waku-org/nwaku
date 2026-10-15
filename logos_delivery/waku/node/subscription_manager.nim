@@ -116,7 +116,8 @@ proc doRelayUnsubscribe(node: WakuNode, shard: PubsubTopic): bool =
   return unsubscribed
 
 const EdgeFilterLoopInterval = chronos.seconds(30)
-  ## Interval for the edge filter health ping loop.
+  ## Interval for the edge filter health ping loop, and for the new
+  ## reconciliation of a shard with too few filter peers.
 const EdgeFilterSubLoopDebounce = chronos.seconds(1)
   ## Debounce delay to coalesce rapid-fire wakeups into a single reconciliation pass.
 
@@ -467,6 +468,7 @@ proc subscribeFilterPeer(
 proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
   ## Periodically pings all tracked filter service peers to verify they are
   ## still alive at the application layer. Peers that fail the ping are removed.
+  ## It also wakes `edgeFilterSubLoop` when a shard has too few filter peers.
   while true:
     await sleepAsync(self.edgeFilterLoopInterval)
 
@@ -506,11 +508,63 @@ proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
         trace "Edge Filter health degraded by Ping failure",
           shard = shard, new = state.currentHealth
 
-    if changed:
+    # A shard with too few peers gets a new reconciliation, so the edge retries
+    # a filter peer that starts later, such as the configured one. Each such
+    # tick gives the configured peer one more try.
+    var tooFewPeers = false
+    for state in self.edgeFilterSubStates.mvalues:
+      if state.peers.len < HealthyThreshold:
+        tooFewPeers = true
+        state.slotPeerTried = false
+
+    if changed or tooFewPeers:
       self.edgeFilterWakeup.fire()
 
+proc missesShard(self: SubscriptionManager, peerId: PeerId, shard: PubsubTopic): bool =
+  ## True when the metadata of `peerId` gave its shards and neither they nor its
+  ## ENR have `shard`. With no metadata yet, the result is false.
+  let shardInfo = RelayShard.parse(shard).valueOr:
+    return false
+  let peerStore = self.node.peerManager.switch.peerStore
+  return
+    peerStore.getPeer(peerId).shards.len > 0 and
+    not peerStore.hasShard(peerId, shardInfo.clusterId, shardInfo.shardId)
+
+proc filterSlotPeer(
+    self: SubscriptionManager,
+    shard: PubsubTopic,
+    state: var EdgeFilterSubState,
+    exclude: HashSet[PeerId],
+): Opt[RemotePeerInfo] =
+  ## The configured filter peer, when the edge tries it for `shard` now. Until a
+  ## connection learns its protocols and shards, `selectPeers` does not return
+  ## it. The edge skips it when its metadata shows that it does not serve
+  ## `shard`. The edge tries it once when the shard first needs peers, and once
+  ## at each tick of `edgeFilterConnectionLoop` that finds the shard with fewer
+  ## than `HealthyThreshold` peers. So the edge does not dial a peer that is
+  ## down, or that is on another cluster, on each wake.
+  self.node.peerManager.serviceSlots.withValue(
+    filter_common.WakuFilterSubscribeCodec, slot
+  ):
+    let peer = slot[]
+    if peer.peerId in exclude:
+      return Opt.none(RemotePeerInfo)
+    if self.missesShard(peer.peerId, shard):
+      debug "Configured filter peer does not serve the shard, skipping it",
+        shard = shard, peer = peer.peerId
+      return Opt.none(RemotePeerInfo)
+    if state.slotPeerTried:
+      return Opt.none(RemotePeerInfo)
+    state.slotPeerTried = true
+    return Opt.some(peer)
+  return Opt.none(RemotePeerInfo)
+
 proc selectFilterCandidates(
-    self: SubscriptionManager, shard: PubsubTopic, exclude: HashSet[PeerId], needed: int
+    self: SubscriptionManager,
+    shard: PubsubTopic,
+    exclude: HashSet[PeerId],
+    needed: int,
+    slotPeer: Opt[RemotePeerInfo],
 ): seq[RemotePeerInfo] =
   ## Select filter service peer candidates for a shard.
 
@@ -534,9 +588,17 @@ proc selectFilterCandidates(
     allCandidates.filterIt(it.peerId in trackedOnOther) &
     allCandidates.filterIt(it.peerId notin trackedOnOther)
 
-  # We need to return 'needed' peers only
+  # The configured filter peer comes first, as in `selectPeer`, and it is not one
+  # of the 'needed' peers. So when it is down, it does not take the place of
+  # another peer.
+  if slotPeer.isSome():
+    candidates.keepItIf(it.peerId != slotPeer.get().peerId)
+
+  # We need to return 'needed' peers only, plus the slot peer
   if candidates.len > needed:
     candidates.setLen(needed)
+  if slotPeer.isSome():
+    candidates.insert(slotPeer.get(), 0)
   return candidates
 
 proc edgeFilterSubLoop(self: SubscriptionManager) {.async.} =
@@ -598,6 +660,13 @@ proc edgeFilterSubLoop(self: SubscriptionManager) {.async.} =
         state.peers.keepItIf(
           self.node.peerManager.switch.peerStore.isConnected(it.peerId)
         )
+        # The edge can subscribe to a peer, such as the configured filter peer,
+        # before its metadata shows that it does not serve the shard.
+        # Unsubscribe from it.
+        for peer in state.peers.filterIt(self.missesShard(it.peerId, shard)):
+          debug "Filter peer does not serve the shard, unsubscribing from it",
+            shard = shard, peer = peer.peerId
+          self.removePeer(shard, peer.peerId)
         state.pending.keepItIf(not it.finished)
 
         if addedTopics.len > 0 or removedTopics.len > 0:
@@ -617,8 +686,10 @@ proc edgeFilterSubLoop(self: SubscriptionManager) {.async.} =
               tracked.incl(p.peerId)
             for p in state.pendingPeers:
               tracked.incl(p)
-            let candidates = self.selectFilterCandidates(shard, tracked, needed)
-            let toSubscribe = min(needed, candidates.len)
+            let slotPeer = self.filterSlotPeer(shard, state[], tracked)
+            let candidates =
+              self.selectFilterCandidates(shard, tracked, needed, slotPeer)
+            let toSubscribe = candidates.len
 
             trace "edgeFilterSubLoop: shard reconciliation",
               shard = shard,
