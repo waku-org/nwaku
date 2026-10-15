@@ -3,6 +3,7 @@
 import
   results,
   std/[sets, random, math, algorithm],
+  stew/byteutils,
   testutils/unittests,
   chronos,
   metrics,
@@ -74,6 +75,12 @@ proc newLimitedReceiver(
 
 proc encodedLen(msg: WakuMessage): int =
   WakuMessageAndTopic(pubsub: DefaultPubsubTopic, message: msg).encode().len
+
+proc lengthDelimited(fieldNumber: int, value: seq[byte]): seq[byte] =
+  ## One length-delimited protobuf field, built without the codec. The value must
+  ## be shorter than 128 bytes, so that its length is a single varint byte.
+  doAssert value.len < 128
+  @[byte(fieldNumber shl 3 or 2), byte(value.len)] & value
 
 type HeldPutDriver = ref object of ArchiveDriver
   putStarted: Future[void]
@@ -1501,6 +1508,33 @@ suite "Waku Sync: transfer":
     # Then the server counts a decode error
     checkUntilTimeout:
       failureCount("decode_error") == decodeErrorsBefore + 1
+    await conn.close()
+
+  asyncTest "a transfer payload numbered as WAKU-SYNC is stored, one numbered the old way is not":
+    let
+      specMsg = fakeWakuMessage(payload = "message as field 1")
+      oldMsg = fakeWakuMessage(payload = "pubsub topic as field 1")
+      specHash = computeMessageHash(DefaultPubsubTopic, specMsg)
+      oldHash = computeMessageHash(DefaultPubsubTopic, oldMsg)
+      topic = DefaultPubsubTopic.toBytes()
+      specPayload = lengthDelimited(1, specMsg.encode()) & lengthDelimited(2, topic)
+      oldPayload = lengthDelimited(1, topic) & lengthDelimited(2, oldMsg.encode())
+      decodeErrorsBefore = failureCount("decode_error")
+
+    # When a stream to the server carries a payload in the old numbering, then one
+    # numbered as WAKU-SYNC
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuTransferCodec
+    )
+    await conn.writeLp(oldPayload)
+    await conn.writeLp(specPayload)
+
+    # Then the server stores the second and counts the first as a decode error. It
+    # reads a stream in order, so the first is handled once the second is stored.
+    checkUntilTimeout:
+      await serverArchive.holdsMessages(@[specHash])
+    check not await serverArchive.holdsMessages(@[oldHash])
+    check failureCount("decode_error") == decodeErrorsBefore + 1
     await conn.close()
 
   asyncTest "a message encoded exactly at the read limit is received, one byte more is refused":

@@ -225,16 +225,37 @@ suite "Waku Store Sync Codec":
 
 suite "Waku Store Sync - message codec refusals":
   test "a message without a pubsub topic is refused":
-    let res = WakuMessageAndTopic.decode(hexToSeqByte("12070a010112022f74"))
+    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a070a010112022f74"))
     check:
       res.isErr()
       res.error == ProtobufError.missingRequiredField("pubsub")
 
   test "a nested message without a content topic is refused":
-    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a022f7312030a0101"))
+    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a030a010112022f73"))
     check:
       res.isErr()
       res.error == ProtobufError.missingRequiredField("content_topic")
+
+suite "Waku Store Sync - transfer payload numbering":
+  # The message encodes as 0a0101 (payload 0x01) 12022f74 (content topic "/t"),
+  # and the pubsub topic "/s" as 2f73.
+  let msg = WakuMessage(payload: @[byte 1], contentTopic: "/t")
+
+  test "a transfer payload is the message as field 1 and the pubsub topic as field 2":
+    check WakuMessageAndTopic(pubsub: "/s", message: msg).encode() ==
+      hexToSeqByte("0a070a010112022f74" & "12022f73")
+
+  test "a transfer payload numbered as WAKU-SYNC decodes":
+    let res =
+      WakuMessageAndTopic.decode(hexToSeqByte("0a070a010112022f74" & "12022f73"))
+    check:
+      res.isOk()
+      res.get() == WakuMessageAndTopic(pubsub: "/s", message: msg)
+
+  test "a transfer payload with the pubsub topic as field 1 is refused":
+    let res =
+      WakuMessageAndTopic.decode(hexToSeqByte("0a022f73" & "12070a010112022f74"))
+    check res.isErr()
 
 suite "Store sync - codec bounds":
   test "a topic length beyond the payload is refused":
