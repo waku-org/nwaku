@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[sequtils, sets, strutils, tables]
+import std/[sequtils, sets, strutils]
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
@@ -57,12 +57,6 @@ method isValidProcessor(self: RetryingProcessor, task: DeliveryTask): bool {.gcs
 method sendImpl(self: RetryingProcessor, task: DeliveryTask): Future[void] {.async.} =
   task.errorDesc = self.reason
   task.state = DeliveryState.NextRoundRetry
-
-proc isWeak(waku: Waku, topic: ContentTopic): bool =
-  for sub in waku.node.subscriptionManager.shards.values:
-    if topic in sub.weakTopics:
-      return true
-  return false
 
 proc testConf(): WakuConf =
   defaultTestWakuNodeConf().toWakuConf().valueOr:
@@ -435,8 +429,8 @@ suite "SendService - anonymity level":
       errors.value == 1 # ... and exactly one later
 
   asyncTest "the service subscribes on a send only at the None level, and never in enqueue":
-    ## The API send subscribes before `enqueue`, with a weak interest, and only
-    ## at `None`. `SendService` reports the policy and makes no subscription.
+    ## The API send subscribes before `enqueue`, and only at `None`.
+    ## `SendService` reports the policy and makes no subscription.
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     for level in AnonymityLevel:
@@ -447,9 +441,7 @@ suite "SendService - anonymity level":
       let topic = "/test/1/subscribe-" & $ord(level) & "/proto"
       let task = buildTask("subscribe-" & $level, chronos.seconds(1), topic)
       check service.enqueue(task).expect("enqueue") == task.requestId
-      check:
-        not waku.isSubscribed(topic).valueOr(false)
-        not waku.isWeak(topic)
+      check not waku.isSubscribed(topic).valueOr(false)
 
 suite "SendService - anonymity level with a mounted mix":
   ## Mix is mounted before start, as the node factory does. The tests fill the

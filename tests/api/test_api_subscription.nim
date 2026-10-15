@@ -22,9 +22,7 @@ import logos_delivery/waku/factory/waku_conf
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/conf/logos_delivery_conf
-import logos_delivery/api/events/kernel_events
 import logos_delivery/waku/api/events/filter_subscribe_events
-import logos_delivery/waku/node/peer_manager/waku_peer_store
 import logos_delivery/waku/waku_filter_v2/subscriptions
 
 const TestTimeout = chronos.seconds(10)
@@ -900,26 +898,24 @@ suite "Messaging API, SubscriptionManager":
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)
       edgePeerId notin subscriptions.findSubscribedPeers(shard, removedTopic)
 
-type WeakInterestNet = ref object
+type SendSubscriptionNet = ref object
   servers: seq[WakuNode] ## relay and filter service nodes on `shard`
   edge: LogosDelivery
   shard: PubsubTopic
-  unsubscribed: seq[ContentTopic] ## each `ContentTopicUnsubscribedEvent` of `edge`
   requests: seq[seq[ContentTopic]] ## the topics of each filter subscribe of `edge`
-  unsubscribedListener: ContentTopicUnsubscribedEventListener
   requestListener: OnFilterSubscribeEventListener
 
-proc setupWeakInterestNet(
-    level = AnonymityLevel.None, pingInterval = Opt.none(Duration)
-): Future[WeakInterestNet] {.async.} =
-  ## Three service nodes, and an Edge node at `level` that connects to them.
-  ## `pingInterval` replaces the short interval of the filter ping loop.
-  let net = WeakInterestNet(shard: PubsubTopic("/waku/2/rs/" & $TestClusterId & "/0"))
+proc setupSendSubscriptionNet(
+    level: AnonymityLevel
+): Future[SendSubscriptionNet] {.async.} =
+  ## Two service nodes, and an Edge node at `level` that connects to them.
+  let net =
+    SendSubscriptionNet(shard: PubsubTopic("/waku/2/rs/" & $TestClusterId & "/0"))
 
   proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     discard
 
-  for i in 0 ..< 3:
+  for i in 0 ..< 2:
     var server: WakuNode
     lockNewGlobalBrokerContext:
       server = newTestWakuNode(generateSecp256k1Key())
@@ -941,21 +937,11 @@ proc setupWeakInterestNet(
   lockNewGlobalBrokerContext:
     net.edge = (await LogosDelivery.new(conf)).expect("create the edge node")
     net.edge.shortenIntervals()
-    if pingInterval.isSome():
-      net.edge.waku.node.subscriptionManager.edgeFilterLoopInterval = pingInterval.get()
     (await net.edge.start()).expect("start the edge node")
 
-  let ctx = net.edge.waku.brokerCtx
-  net.unsubscribedListener = ContentTopicUnsubscribedEvent
-    .listen(
-      ctx,
-      proc(event: ContentTopicUnsubscribedEvent) {.async: (raises: []).} =
-        net.unsubscribed.add(event.contentTopic),
-    )
-    .expect("listen to unsubscribes")
   net.requestListener = OnFilterSubscribeEvent
     .listen(
-      ctx,
+      net.edge.waku.brokerCtx,
       proc(event: OnFilterSubscribeEvent) {.async: (raises: []).} =
         net.requests.add(event.contentTopics),
     )
@@ -966,22 +952,22 @@ proc setupWeakInterestNet(
   )
   return net
 
-proc teardown(net: WeakInterestNet) {.async.} =
-  let ctx = net.edge.waku.brokerCtx
-  await ContentTopicUnsubscribedEvent.dropListener(ctx, net.unsubscribedListener)
-  await OnFilterSubscribeEvent.dropListener(ctx, net.requestListener)
+proc teardown(net: SendSubscriptionNet) {.async.} =
+  await OnFilterSubscribeEvent.dropListener(
+    net.edge.waku.brokerCtx, net.requestListener
+  )
   (await net.edge.stop()).expect("stop the edge node")
   for server in net.servers:
     await server.stop()
 
-proc holds(net: WeakInterestNet, server: WakuNode, topic: ContentTopic): bool =
+proc holds(net: SendSubscriptionNet, server: WakuNode, topic: ContentTopic): bool =
   ## True when `server` has a filter subscription of the edge node to `topic`.
   let edgePeerId = net.edge.waku.node.peerInfo.peerId
   return
     (net.shard, topic) in
     server.wakuFilter.subscriptions.getPeerSubscriptions(edgePeerId)
 
-proc holders(net: WeakInterestNet): seq[WakuNode] =
+proc holders(net: SendSubscriptionNet): seq[WakuNode] =
   ## The service nodes that the edge node tracks for the shard.
   var tracked: seq[WakuNode]
   net.edge.waku.node.subscriptionManager.edgeFilterSubStates.withValue(net.shard, state):
@@ -990,43 +976,32 @@ proc holders(net: WeakInterestNet): seq[WakuNode] =
         tracked.add(server)
   return tracked
 
-proc subscribed(net: WeakInterestNet, topic: ContentTopic): bool =
+proc subscribed(net: SendSubscriptionNet, topic: ContentTopic): bool =
   return net.edge.waku.isSubscribed(topic).valueOr(false)
 
-proc isWeak(net: WeakInterestNet, topic: ContentTopic): bool =
-  net.edge.waku.node.subscriptionManager.shards.withValue(net.shard, sub):
-    return topic in sub.weakTopics
-  return false
-
-proc holdsAll(net: WeakInterestNet, server: WakuNode, topics: seq[ContentTopic]): bool =
+proc holdsAll(
+    net: SendSubscriptionNet, server: WakuNode, topics: seq[ContentTopic]
+): bool =
   return topics.allIt(net.holds(server, it))
 
-proc requestCount(net: WeakInterestNet, topic: ContentTopic): int =
+proc requestCount(net: SendSubscriptionNet, topic: ContentTopic): int =
   return net.requests.countIt(topic in it)
 
-proc placeInterest(
-    net: WeakInterestNet, strong: seq[ContentTopic], weak: seq[ContentTopic]
-) {.async.} =
-  ## Subscribes `strong` as the app does and `weak` as a send does. Waits until
-  ## two service nodes hold each topic, and the events of their requests came.
-  for topic in strong:
-    (await net.edge.messagingClient.subscribe(topic)).expect("subscribe")
-  for topic in weak:
-    net.edge.waku.subscribe(topic, weak = true).expect("weak subscribe")
-  let topics = strong & weak
+proc waitForHolders(net: SendSubscriptionNet, topics: seq[ContentTopic]) {.async.} =
+  ## Waits until two service nodes hold each topic, and the events of their
+  ## requests came.
   checkUntilTimeout:
     net.holders().len == 2
     net.holders().allIt(net.holdsAll(it, topics))
     topics.allIt(net.requestCount(it) >= 2)
   require net.holders().len == 2
 
-suite "Subscription API - the weak interest of a send":
-  const Strong = ContentTopic("/waku/2/weak-interest-strong/proto")
-  const Weak = ContentTopic("/waku/2/weak-interest-weak/proto")
-  const Sent = ContentTopic("/waku/2/weak-interest-sent/proto")
+suite "Subscription API - the subscription of a send":
+  const App = ContentTopic("/waku/2/send-subscription-app/proto")
+  const Sent = ContentTopic("/waku/2/send-subscription-sent/proto")
 
   asyncTest "an Edge node at the Required level makes no subscription for a send":
-    let net = await setupWeakInterestNet(AnonymityLevel.Required)
+    let net = await setupSendSubscriptionNet(AnonymityLevel.Required)
     defer:
       await net.teardown()
     let ctx = net.edge.waku.brokerCtx
@@ -1052,105 +1027,20 @@ suite "Subscription API - the weak interest of a send":
     check not net.subscribed(Sent)
 
     # A subscribe to a new filter peer carries the full interest set.
-    await net.placeInterest(@[Strong], @[])
+    (await net.edge.messagingClient.subscribe(App)).expect("subscribe")
+    await net.waitForHolders(@[App])
     check:
       net.servers.allIt(not net.holds(it, Sent))
       net.requests.allIt(Sent notin it)
 
-  asyncTest "an Edge node drops a weak interest when it loses a filter service peer":
-    let net = await setupWeakInterestNet()
+  asyncTest "an Edge node at the None level subscribes for a send":
+    let net = await setupSendSubscriptionNet(AnonymityLevel.None)
     defer:
       await net.teardown()
-    await net.placeInterest(@[Strong], @[Weak])
-    let lost = net.holders()[0]
-    let kept = net.holders()[1]
-
-    await net.edge.waku.node.disconnectNode(lost.peerInfo.toRemotePeerInfo())
-
-    checkUntilTimeout:
-      Weak in net.unsubscribed
-    check:
-      not net.subscribed(Weak)
-      net.subscribed(Strong)
-    checkUntilTimeout:
-      not net.holds(kept, Weak) # the other holder gets the unsubscribe
-
-  asyncTest "an Edge node drops a weak interest when a filter service peer fails the ping":
-    let net = await setupWeakInterestNet()
-    defer:
-      await net.teardown()
-    await net.placeInterest(@[Strong], @[Weak])
-
-    await net.holders()[0].wakuFilter.subscriptions.removePeer(
-      net.edge.waku.node.peerInfo.peerId
-    )
-
-    checkUntilTimeout:
-      Weak in net.unsubscribed
-    check:
-      not net.subscribed(Weak)
-      net.subscribed(Strong)
-
-  asyncTest "an Edge node drops a weak interest when a filter service peer refuses a request":
-    const Strong2 = ContentTopic("/waku/2/weak-interest-strong-2/proto")
-    # No ping comes first.
-    let net = await setupWeakInterestNet(pingInterval = Opt.some(chronos.hours(1)))
-    defer:
-      await net.teardown()
-    await net.placeInterest(@[Strong, Strong2], @[Weak])
-    await net.holders()[0].wakuFilter.subscriptions.removePeer(
-      net.edge.waku.node.peerInfo.peerId
-    )
-
-    # The holder that lost the subscription refuses this unsubscribe.
-    net.edge.messagingClient.unsubscribe(Strong2).expect("unsubscribe")
-
-    checkUntilTimeout:
-      Weak in net.unsubscribed
-    check:
-      not net.subscribed(Weak)
-      net.subscribed(Strong)
-
-  asyncTest "an Edge node drops a weak interest when the peer store shows a filter service peer as not connected":
-    ## The peer store shows the holder as not connected, and no disconnect
-    ## event comes.
-    let net = await setupWeakInterestNet()
-    defer:
-      await net.teardown()
-    await net.placeInterest(@[Strong], @[Weak])
-    let before = net.requests.len
-
-    let peerStore = net.edge.waku.node.peerManager.switch.peerStore
-    peerStore[ConnectionBook][net.holders()[0].peerInfo.peerId] = CannotConnect
-    net.edge.waku.node.subscriptionManager.edgeFilterWakeup.fire()
-
-    checkUntilTimeout:
-      Weak in net.unsubscribed
-      net.requests.len > before
-    check:
-      not net.subscribed(Weak)
-      net.subscribed(Strong)
-      net.requests[before ..^ 1].allIt(it == @[Strong])
-
-  asyncTest "an app subscribe makes the weak interest of a send strong":
-    let net = await setupWeakInterestNet()
-    defer:
-      await net.teardown()
-    await net.placeInterest(@[Strong], @[Weak])
 
     # No lightpush peer, so the send does not go out.
-    let envelope = MessageEnvelope.init(Sent, "plain")
-    discard (await net.edge.messagingClient.send(envelope)).expect("send")
-    check net.isWeak(Sent)
-    (await net.edge.messagingClient.subscribe(Sent)).expect("subscribe")
-    check not net.isWeak(Sent)
-
-    await net.edge.waku.node.disconnectNode(
-      net.holders()[0].peerInfo.toRemotePeerInfo()
+    discard (await net.edge.messagingClient.send(MessageEnvelope.init(Sent, "plain"))).expect(
+      "send"
     )
-
-    checkUntilTimeout:
-      Weak in net.unsubscribed
-    check:
-      net.subscribed(Sent)
-      Sent notin net.unsubscribed
+    check net.subscribed(Sent)
+    await net.waitForHolders(@[Sent])

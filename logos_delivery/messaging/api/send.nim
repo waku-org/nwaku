@@ -19,7 +19,7 @@ proc enqueueSend(
     let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
     if not isSubbed:
       debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
-      self.waku.subscribe(envelope.contentTopic, weak = true).isOkOr:
+      self.waku.subscribe(envelope.contentTopic).isOkOr:
         error "Failed to auto-subscribe", error = error
         return err("Failed to auto-subscribe before sending: " & error)
 
@@ -33,8 +33,7 @@ proc enqueueSend(
 proc send*(
     self: MessagingClient, envelope: MessageEnvelope
 ): Future[Result[RequestId, string]] {.async.} =
-  ## At the `None` level, adds a weak interest in the content topic (see
-  ## `SubscriptionManager.subscribe`). Queues the message and returns its
-  ## request id. It never suspends, so the caller gets the id before any event
-  ## of the request, also over the FFI.
+  ## At the `None` level, subscribes to the content topic. Queues the message
+  ## and returns its request id. It never suspends, so the caller gets the id
+  ## before any event of the request, also over the FFI.
   return self.enqueueSend(envelope)
