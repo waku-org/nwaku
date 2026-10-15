@@ -1204,7 +1204,9 @@ suite "Waku v2 Rest API - Relay":
     ): Future[void] {.async, gcsafe.} =
       await sleepAsync(0.milliseconds)
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
+    node.subscribe(
+      (kind: PubsubSub, topic: $RelayShard(clusterId: 1, shardId: 0)), simpleHandler
+    ).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1

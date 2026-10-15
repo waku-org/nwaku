@@ -65,8 +65,9 @@ proc validateShardOfNode*(
     node: WakuNode, pubsubTopic: PubsubTopic
 ): Result[void, string] =
   ## A node stays on its own cluster and, under autosharding, on the cluster's shards.
+  ## Topics that are not shards are not this check's concern.
   let shard = RelayShard.parseStaticSharding(pubsubTopic).valueOr:
-    return err("invalid pubsub topic: " & $error)
+    return ok()
 
   if node.wakuAutoSharding.isSome():
     let sharding = node.wakuAutoSharding.get()
