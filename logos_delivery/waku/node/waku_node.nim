@@ -149,7 +149,7 @@ type
       ## reading it back would pin the first host the node ever advertised.
     onCommittedAddresses*: proc() {.gcsafe, raises: [].}
       ## Runs after every copy of the committed addresses.
-      ## waku.nim uses it to refresh the ENR.
+      ## kernel.nim uses it to refresh the ENR.
     started*: bool # Indicates that node has started listening
     rateLimitSettings*: ProtocolRateLimitSettings
     ports*: BoundPorts

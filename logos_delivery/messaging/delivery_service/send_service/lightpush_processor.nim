@@ -1,5 +1,5 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku
+import logos_delivery/waku/waku_core, logos_delivery/waku/kernel
 import logos_delivery/waku/api/publish
 
 import ./[delivery_task, send_processor]
@@ -8,17 +8,17 @@ logScope:
   topics = "send service lightpush processor"
 
 type LightpushSendProcessor* = ref object of BaseSendProcessor
-  waku: Kernel
+  kernel: Kernel
 
 proc new*(
-    T: typedesc[LightpushSendProcessor], waku: Kernel, brokerCtx: BrokerContext
+    T: typedesc[LightpushSendProcessor], kernel: Kernel, brokerCtx: BrokerContext
 ): T =
-  return T(waku: waku, brokerCtx: brokerCtx)
+  return T(kernel: kernel, brokerCtx: brokerCtx)
 
 method isValidProcessor*(
     self: LightpushSendProcessor, task: DeliveryTask
 ): bool {.gcsafe.} =
-  return self.waku.lightpushPeerAvailable(task.pubsubTopic)
+  return self.kernel.lightpushPeerAvailable(task.pubsubTopic)
 
 method sendImpl*(
     self: LightpushSendProcessor, task: DeliveryTask
@@ -30,12 +30,12 @@ method sendImpl*(
     tryCount = task.tryCount
 
   let numLightpushServers = (
-    await self.waku.lightpushPublishToAny(task.pubsubTopic, task.msg)
+    await self.kernel.lightpushPublishToAny(task.pubsubTopic, task.msg)
   ).valueOr:
     debug "LightpushSendProcessor.sendImpl failed", error = error.desc.get($error.code)
 
     if error.isRlnRejection():
-      task.parkForRlnProofRefresh(self.waku, error.desc.get($error.code))
+      task.parkForRlnProofRefresh(self.kernel, error.desc.get($error.code))
       return
 
     case error.code

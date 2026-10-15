@@ -60,7 +60,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.kernel))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       node.messagingClient.isNil()
       node.reliableChannelManager.isNil()
       node.ensureMessaging().isErr()
@@ -74,7 +74,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.messaging))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       not node.messagingClient.isNil()
       node.reliableChannelManager.isNil()
       node.ensureMessaging().isOk()
@@ -88,7 +88,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.channels))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       not node.messagingClient.isNil()
       not node.reliableChannelManager.isNil()
       node.ensureMessaging().isOk()
@@ -216,10 +216,10 @@ suite "LogosDelivery - relay REST API":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(configuredShard, node.waku.peerId)
-      publisher.hasGossipsubPeer(contentTopicShard, node.waku.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(contentTopicShard, node.kernel.peerId)
 
     let
       shardMessage = fakeWakuMessage("on the configured shard")
@@ -285,10 +285,10 @@ suite "LogosDelivery - relay REST API":
     publisher.subscribe((kind: PubsubSub, topic: otherShard), otherShardHandler).isOkOr:
       raiseAssert error
 
-    await node.waku.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(configuredShard, node.waku.peerId)
-      publisher.hasGossipsubPeer(otherShard, node.waku.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(otherShard, node.kernel.peerId)
 
     let
       configuredShardMessage = fakeWakuMessage("on the configured shard")
@@ -348,7 +348,7 @@ suite "LogosDelivery - configured shards":
       otherShard, toRelayWakuMessage(fakeWakuMessage("published over REST"))
     )
     check:
-      node.waku.protocols.relay.subscribedTopics() == @[configuredShard]
+      node.kernel.protocols.relay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
   asyncTest "under static sharding without REST the relay is on no shard, while the ENR and metadata report the configured shard":
@@ -378,7 +378,7 @@ suite "LogosDelivery - configured shards":
 
     let conn = (
       await peer.peerManager.dialPeer(
-        node.waku.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
+        node.kernel.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
@@ -386,9 +386,9 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
 
     check:
-      node.waku.protocols.relay.subscribedTopics().len == 0
+      node.kernel.protocols.relay.subscribedTopics().len == 0
       toSeq(0'u16 ..< 8'u16).filterIt(
-        node.waku.enr.containsShard(TestClusterId, it)
+        node.kernel.enr.containsShard(TestClusterId, it)
       ) == @[1'u16]
       metadata.shards == @[1'u32]
 
@@ -468,10 +468,10 @@ suite "LogosDelivery - configured shards":
     let filterSubscribe = await subscriber.filterSubscribe(
       Opt.some(configuredShard),
       @[contentTopic],
-      node.waku.peerInfo.toRemotePeerInfo(),
+      node.kernel.peerInfo.toRemotePeerInfo(),
     )
 
-    await node.waku.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     await receiver.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
       publisher.hasGossipsubPeer(configuredShard, receiver.peerId)
@@ -486,13 +486,13 @@ suite "LogosDelivery - configured shards":
     let stored = (
       await publisher.query(
         StoreQueryRequest(includeData: true, pubsubTopic: Opt.some(configuredShard)),
-        node.waku.peerInfo.toRemotePeerInfo(),
+        node.kernel.peerInfo.toRemotePeerInfo(),
       )
     ).valueOr:
       raiseAssert $error
     check:
       filterSubscribe.isOk()
-      not publisher.hasGossipsubPeer(configuredShard, node.waku.peerId)
+      not publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
       stored.messages.len == 0
       pushed.len == 0
 
@@ -513,7 +513,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.waku.protocols.relay.subscribedTopics().len == 0
+      node.kernel.protocols.relay.subscribedTopics().len == 0
 
   asyncTest "an unsigned message on a protected shard outside the configured shards is archived":
     # TODO: logos-delivery#4455
@@ -559,9 +559,9 @@ suite "LogosDelivery - configured shards":
     publisher.subscribe((kind: PubsubSub, topic: protectedShard), dummyHandler).isOkOr:
       raiseAssert error
 
-    await node.waku.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(protectedShard, node.waku.peerId)
+      publisher.hasGossipsubPeer(protectedShard, node.kernel.peerId)
 
     let unsignedMessage = fakeWakuMessage("unsigned")
     (await publisher.publish(Opt.some(protectedShard), unsignedMessage)).isOkOr:
@@ -622,10 +622,10 @@ suite "LogosDelivery - configured shards":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(protectedShard, node.waku.peerId)
-      publisher.hasGossipsubPeer(unprotectedShard, node.waku.peerId)
+      publisher.hasGossipsubPeer(protectedShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(unprotectedShard, node.kernel.peerId)
 
     let
       unsignedMessage = fakeWakuMessage("unsigned")
@@ -678,7 +678,7 @@ suite "LogosDelivery - configured shards":
 
     let conn = (
       await peer.peerManager.dialPeer(
-        node.waku.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
+        node.kernel.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
@@ -687,7 +687,7 @@ suite "LogosDelivery - configured shards":
 
     check:
       toSeq(0'u16 ..< 8'u16).filterIt(
-        node.waku.enr.containsShard(TestClusterId, it)
+        node.kernel.enr.containsShard(TestClusterId, it)
       ) == @[1'u16]
       metadata.shards.toHashSet() == toSeq(0'u32 ..< 8'u32).toHashSet()
 
@@ -709,4 +709,4 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     checkUntilTimeout:
-      toSeq(0'u16 ..< 8'u16).allIt(node.waku.enr.containsShard(TestClusterId, it))
+      toSeq(0'u16 ..< 8'u16).allIt(node.kernel.enr.containsShard(TestClusterId, it))

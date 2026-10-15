@@ -1,5 +1,5 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku
+import logos_delivery/waku/waku_core, logos_delivery/waku/kernel
 import logos_delivery/waku/api/publish
 import logos_delivery/waku/waku_mix
 import logos_delivery/api/conf/modes
@@ -32,7 +32,7 @@ type
     NoExit
 
   MixSendProcessor* = ref object of BaseSendProcessor
-    waku: Kernel
+    kernel: Kernel
     fallbackAllowed: bool
     mixWindow: timer.Duration
     fellBackReason: MixUnusable
@@ -54,13 +54,13 @@ proc fellBackFor*(self: MixSendProcessor): MixUnusable =
 
 proc new*(
     T: typedesc[MixSendProcessor],
-    waku: Kernel,
+    kernel: Kernel,
     brokerCtx: BrokerContext,
     anonymityLevel: AnonymityLevel,
     mixWindow: timer.Duration,
 ): T =
   return T(
-    waku: waku,
+    kernel: kernel,
     brokerCtx: brokerCtx,
     fallbackAllowed: anonymityLevel == AnonymityLevel.Preferred,
     mixWindow: mixWindow,
@@ -78,11 +78,11 @@ proc mixUnusable(self: MixSendProcessor, task: DeliveryTask): MixUnusable =
   ## Why mix cannot attempt `task` now, with no network call. It splits
   ## `mixReady()` into the self hop and the pool, then checks the exit with
   ## `selectMixLightpushPeer`, as `lightpushPublishToAny(mixify = true)` does.
-  if not self.waku.mixReady():
-    if self.waku.mixMounted() and not self.waku.mixSelfHopUsable():
+  if not self.kernel.mixReady():
+    if self.kernel.mixMounted() and not self.kernel.mixSelfHopUsable():
       return MixUnusable.SelfHop
     return MixUnusable.Unavailable
-  if self.waku.selectMixLightpushPeer(task.pubsubTopic).isNone():
+  if self.kernel.selectMixLightpushPeer(task.pubsubTopic).isNone():
     return MixUnusable.NoExit
   return MixUnusable.None
 
@@ -93,7 +93,7 @@ proc decideWithoutMix(
   ## with the reason, once its admission is older than `MixUnusableGrace` while
   ## mix is mounted.
   if not self.fallbackAllowed:
-    if self.waku.mixMounted() and task.admissionAge() <= MixUnusableGrace:
+    if self.kernel.mixMounted() and task.admissionAge() <= MixUnusableGrace:
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
@@ -150,12 +150,12 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     tryCount = task.tryCount
 
   let numLightpushServers = (
-    await self.waku.lightpushPublishToAny(task.pubsubTopic, task.msg, mixify = true)
+    await self.kernel.lightpushPublishToAny(task.pubsubTopic, task.msg, mixify = true)
   ).valueOr:
     debug "MixSendProcessor.sendImpl failed", error = error.desc.get($error.code)
 
     if error.isRlnRejection():
-      task.parkForRlnProofRefresh(self.waku, error.desc.get($error.code))
+      task.parkForRlnProofRefresh(self.kernel, error.desc.get($error.code))
       return
 
     case error.code

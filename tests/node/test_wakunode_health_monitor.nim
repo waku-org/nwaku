@@ -28,7 +28,7 @@ import
 
 import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
 import logos_delivery/waku/node/subscription_manager
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/factory/waku_state_info
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_client_lifecycle
@@ -299,9 +299,9 @@ suite "Health Monitor - events":
 
     # MessagingClient reads `conf` from the kernel; the raw test node has none.
     nodeA.conf = defaultTestWakuConf()
-    let waku = nodeA
+    let kernel = nodeA
     let ds = MessagingClient
-      .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
+      .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), kernel)
       .expect("Failed to create MessagingClient")
     ds.start().expect("Failed to start MessagingClient")
 
@@ -407,9 +407,9 @@ suite "Health Monitor - events":
 
     # MessagingClient reads `conf` from the kernel; the raw test node has none.
     nodeA.conf = defaultTestWakuConf()
-    let waku = nodeA
+    let kernel = nodeA
     let ds = MessagingClient
-      .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), waku)
+      .new(MessagingClientConf(reliabilityEnabled: Opt.some(false)), kernel)
       .expect("Failed to create MessagingClient")
     ds.start().expect("Failed to start MessagingClient")
     let subMgr = nodeA.subscriptionManager

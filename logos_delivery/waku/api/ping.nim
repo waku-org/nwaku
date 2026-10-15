@@ -5,7 +5,7 @@ import results, chronos, chronicles
 import libp2p/protocols/ping
 import libp2p/switch
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/[waku_core, node/waku_node, node/waku_node/ping]
 
 proc pingPeer*(

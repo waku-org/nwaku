@@ -17,7 +17,7 @@ import
   ../logos_delivery/waku/net/net_config,
   ../logos_delivery/waku/node/enr_addresses,
   ../logos_delivery/waku/node/waku_node,
-  ../logos_delivery/waku/waku,
+  ../logos_delivery/waku/kernel,
   ../logos_delivery/waku/waku_enr,
   ../logos_delivery/waku/waku_core/peers
 import ./testlib/[common, wakucore, wakunode]

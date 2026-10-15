@@ -5,7 +5,7 @@ import std/[sequtils, times], results, chronos, chronicles
 import
   logos_delivery/api/conf/messaging_conf,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/[publish, health],
   logos_delivery/waku/node/health_monitor,
   logos_delivery/waku/factory/conf_builder/waku_conf_builder,
@@ -17,7 +17,7 @@ export messaging_client_api, messaging_conf
 
 type MessagingClient* = ref object
   brokerCtx*: BrokerContext
-  waku*: Kernel ## The Waku kernel this layer drives; read by `messaging/api/*`.
+  kernel*: Kernel ## The Waku kernel this layer drives; read by `messaging/api/*`.
   sendService*: SendService
   recvService*: RecvService
   persistencyJob*: persistency.Job
@@ -27,14 +27,14 @@ const
   MaxParkedAgeSecLimit = 7'u * 24 * 3600
   SendQueueCapacityLimit = 1_000_000'u
 
-proc rlnQuotaProvider(waku: Kernel): QuotaProvider =
+proc rlnQuotaProvider(kernel: Kernel): QuotaProvider =
   ## Sources the rate limit manager's epoch budget from RLN. The closure
   ## queries `waku` on each admission, so a node whose RLN mounts after
   ## construction upgrades from the local fallback automatically.
   return proc(): Future[Opt[EpochQuota]] {.async: (raises: []), gcsafe.} =
     let res =
       try:
-        await waku.rlnEpochQuota(uint64(getTime().toUnix()))
+        await kernel.rlnEpochQuota(uint64(getTime().toUnix()))
       except CatchableError:
         return Opt.none(EpochQuota)
     let quota = res.valueOr:
@@ -50,25 +50,25 @@ proc requireMixReady*(
   return ConnectionStatus.Disconnected
 
 proc new*(
-    T: type MessagingClient, conf: MessagingClientConf, waku: Kernel
+    T: type MessagingClient, conf: MessagingClientConf, kernel: Kernel
 ): Result[T, string] =
   ## The messaging layer chains onto Waku: it drives the underlying Waku kernel
   ## for transport while exposing its own send/recv API.
   let reliability = conf.reliabilityEnabled.get(DefaultP2pReliability)
   let anonymityLevel = conf.anonymityLevel.get(AnonymityLevel.None)
   let rateLimitConfig = conf.rateLimitConfig()
-  let rateLimitManager = ?RateLimitManager.new(rateLimitConfig, rlnQuotaProvider(waku))
+  let rateLimitManager = ?RateLimitManager.new(rateLimitConfig, rlnQuotaProvider(kernel))
   let maxParkedAgeSec = conf.maxParkedAgeSec.get(uint(DefaultMaxParkedAge.seconds()))
   if maxParkedAgeSec notin 1'u .. MaxParkedAgeSecLimit:
     return err("maxParkedAgeSec must be between 1 and " & $MaxParkedAgeSecLimit)
   let sendQueueCapacity = conf.sendQueueCapacity.get(uint(DefaultSendQueueCapacity))
   if sendQueueCapacity notin 1'u .. SendQueueCapacityLimit:
     return err("sendQueueCapacity must be between 1 and " & $SendQueueCapacityLimit)
-  let sendProcessor = setupSendProcessorChain(waku, anonymityLevel).valueOr:
+  let sendProcessor = setupSendProcessorChain(kernel, anonymityLevel).valueOr:
     return err("failed to setup SendProcessorChain: " & error)
   let sendService = ?SendService.new(
     reliability,
-    waku,
+    kernel,
     rateLimitManager,
     sendProcessor,
     anonymityLevel = anonymityLevel,
@@ -76,10 +76,10 @@ proc new*(
     sendQueueCapacity = int(sendQueueCapacity),
   )
   let backfill = ?BackfillState.init(conf)
-  let recvService = RecvService.new(waku, backfill)
+  let recvService = RecvService.new(kernel, backfill)
 
   if anonymityLevel == AnonymityLevel.Required:
-    waku.setConnectionStatusAdjuster(requireMixReady)
+    kernel.setConnectionStatusAdjuster(requireMixReady)
   # Log the values that the preset, the flags and the defaults give.
   info "Messaging API settings",
     reliability = reliability,
@@ -94,10 +94,10 @@ proc new*(
 
   return ok(
     T(
-      waku: waku,
+      kernel: kernel,
       sendService: sendService,
       recvService: recvService,
-      brokerCtx: waku.brokerCtx,
+      brokerCtx: kernel.brokerCtx,
     )
   )
 

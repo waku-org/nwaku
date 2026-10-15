@@ -3,7 +3,7 @@ import chronos, results, ffi
 import logos_delivery, library/declare_lib
 
 proc waku_version(self: LogosDelivery): Future[Result[string, string]] {.ffi.} =
-  let v = (await self.waku.version()).valueOr:
+  let v = (await self.kernel.version()).valueOr:
     return err(error)
   return ok(v)
 
@@ -11,26 +11,26 @@ proc waku_listen_addresses(
     self: LogosDelivery
 ): Future[Result[string, string]] {.ffi.} =
   ## returns a comma-separated string of the listen addresses
-  let addrs = (await self.waku.listenAddresses()).valueOr:
+  let addrs = (await self.kernel.listenAddresses()).valueOr:
     return err(error)
   return ok(addrs.join(","))
 
 proc waku_get_my_enr(self: LogosDelivery): Future[Result[string, string]] {.ffi.} =
-  let enrUri = (await self.waku.myEnr()).valueOr:
+  let enrUri = (await self.kernel.myEnr()).valueOr:
     return err(error)
   return ok(enrUri)
 
 proc waku_get_my_peerid(self: LogosDelivery): Future[Result[string, string]] {.ffi.} =
-  let peerId = (await self.waku.myPeerId()).valueOr:
+  let peerId = (await self.kernel.myPeerId()).valueOr:
     return err(error)
   return ok(peerId)
 
 proc waku_get_metrics(self: LogosDelivery): Future[Result[string, string]] {.ffi.} =
-  let m = (await self.waku.metrics()).valueOr:
+  let m = (await self.kernel.metrics()).valueOr:
     return err(error)
   return ok(m)
 
 proc waku_is_online(self: LogosDelivery): Future[Result[string, string]] {.ffi.} =
-  let online = (await self.waku.isOnline()).valueOr:
+  let online = (await self.kernel.isOnline()).valueOr:
     return err(error)
   return ok($online)

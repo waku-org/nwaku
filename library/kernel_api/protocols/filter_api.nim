@@ -18,7 +18,7 @@ proc waku_filter_subscribe(
         $JsonMessageEvent.new(pubsubTopic, msg)
 
   (
-    await self.waku.filterSubscribe(
+    await self.kernel.filterSubscribe(
       PubsubTopic(pubSubTopic),
       contentTopics.split(",").mapIt(ContentTopic(it)),
       FilterPushHandler(onReceivedMessage()),
@@ -32,7 +32,7 @@ proc waku_filter_unsubscribe(
     self: LogosDelivery, pubSubTopic: string, contentTopics: string
 ): Future[Result[string, string]] {.ffi.} =
   (
-    await self.waku.filterUnsubscribe(
+    await self.kernel.filterUnsubscribe(
       PubsubTopic(pubSubTopic), contentTopics.split(",").mapIt(ContentTopic(it))
     )
   ).isOkOr:
@@ -43,7 +43,7 @@ proc waku_filter_unsubscribe(
 proc waku_filter_unsubscribe_all(
     self: LogosDelivery
 ): Future[Result[string, string]] {.ffi.} =
-  (await self.waku.filterUnsubscribeAll()).isOkOr:
+  (await self.kernel.filterUnsubscribeAll()).isOkOr:
     error "Fail filter unsubscribe all", error = error
     return err(error)
   return ok("")

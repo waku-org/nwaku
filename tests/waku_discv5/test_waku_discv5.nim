@@ -22,7 +22,7 @@ import
     net/auto_port,
     waku_enr/capabilities,
     factory/conf_builder/conf_builder,
-    waku,
+    kernel,
     waku_node,
     node/peer_manager,
   ],
@@ -491,22 +491,22 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = (await Kernel.new(conf)).valueOr:
+      let kernel = (await Kernel.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.enr,
-        waku.peerManager,
-        waku.conf.discv5Conf.get(),
-        waku.discovery.dynamicBootstrapNodes,
-        waku.rng,
-        waku.conf.nodeKey,
-        waku.conf.endpointConf.p2pListenAddress,
+        kernel.enr,
+        kernel.peerManager,
+        kernel.conf.discv5Conf.get(),
+        kernel.discovery.dynamicBootstrapNodes,
+        kernel.rng,
+        kernel.conf.nodeKey,
+        kernel.conf.endpointConf.p2pListenAddress,
       ).valueOr:
         raiseAssert "failed setup discv5 in test: " & $error
 
       check:
-        waku.peerManager.switch.peerStore.peers().anyIt(
+        kernel.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == validEnr
         )
 
@@ -521,21 +521,21 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = (await Kernel.new(conf)).valueOr:
+      let kernel = (await Kernel.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.enr,
-        waku.peerManager,
+        kernel.enr,
+        kernel.peerManager,
         conf.discv5Conf.get(),
-        waku.discovery.dynamicBootstrapNodes,
-        waku.rng,
-        waku.conf.nodeKey,
-        waku.conf.endpointConf.p2pListenAddress,
+        kernel.discovery.dynamicBootstrapNodes,
+        kernel.rng,
+        kernel.conf.nodeKey,
+        kernel.conf.endpointConf.p2pListenAddress,
       ).valueOr:
         raiseAssert "failed setup discv5 in test: " & $error
 
       check:
-        not waku.peerManager.switch.peerStore.peers().anyIt(
+        not kernel.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == invalidEnr
         )

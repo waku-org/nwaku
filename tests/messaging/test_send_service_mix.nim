@@ -12,7 +12,7 @@ import
   logos_delivery/waku/node/waku_node/mix_rln,
   libp2p/[peerid, multiaddress],
   libp2p/stream/connection,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_mix,
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/api/publish,
@@ -79,19 +79,19 @@ proc buildTask(id: string, admittedAgo: Duration): DeliveryTask =
   )
 
 suite "SendService - anonymity level":
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stopKernel()
+    discard await kernel.stopKernel()
 
   asyncTest "a Required task fails at once when mix cannot deliver":
     ## `Required` has no second path, so the task fails at once with the reason.
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -108,7 +108,7 @@ suite "SendService - anonymity level":
     ## task past its window fails with the reason and never reaches the plain path.
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -125,7 +125,7 @@ suite "SendService - anonymity level":
     ## mounted suite covers a mounted mix that cannot attempt the send.
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -141,9 +141,9 @@ suite "SendService - anonymity level":
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
 
     proc serviceFor(level: AnonymityLevel): SendService =
-      let chain = setupSendProcessorChain(waku, level).expect("send processor chain")
+      let chain = setupSendProcessorChain(kernel, level).expect("send processor chain")
       return
-        SendService.new(false, waku, manager, chain, level).expect("SendService.new")
+        SendService.new(false, kernel, manager, chain, level).expect("SendService.new")
 
     let plainService = serviceFor(AnonymityLevel.None)
     let mixOnlyService = serviceFor(AnonymityLevel.Required)
@@ -160,20 +160,20 @@ suite "SendService - anonymity level":
     let errors = EventCounter()
     let listener = MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(e: MessageErrorEvent) {.async: (raises: []).} =
           errors.inc(),
       )
       .expect("listen")
     defer:
-      await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
+      await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let chain = setupSendProcessorChain(waku, AnonymityLevel.Required).expect(
+    let chain = setupSendProcessorChain(kernel, AnonymityLevel.Required).expect(
         "send processor chain"
       )
     let service = SendService
-      .new(false, waku, manager, chain, AnonymityLevel.Required)
+      .new(false, kernel, manager, chain, AnonymityLevel.Required)
       .expect("SendService.new")
 
     service.startSendService()
@@ -192,23 +192,23 @@ suite "SendService - anonymity level":
 suite "SendService - anonymity level with a mounted mix":
   ## Mix is mounted before start, as the node factory does. The tests fill the
   ## pool by hand, with or without the lightpush codec that makes a member an exit.
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
     let mixKeys = generateKeyPair().expect("mix key pair")
-    (await waku.mountMix(3'u16, mixKeys.privateKey, @[])).isOkOr:
+    (await kernel.mountMix(3'u16, mixKeys.privateKey, @[])).isOkOr:
       raiseAssert "Failed to mount mix: " & $error
 
   asyncTeardown:
-    discard await waku.stopKernel()
+    discard await kernel.stopKernel()
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
   proc addMixPeer(port: int, lightpush: bool) =
     let peerId = PeerId.init(generateSecp256k1Key()).tryGet()
     let keyPair = generateKeyPair().expect("mix key pair")
-    waku.peerManager.addPeer(
+    kernel.peerManager.addPeer(
       RemotePeerInfo.init(
         peerId,
         @[MultiAddress.init("/ip4/127.0.0.1/tcp/" & $port).tryGet()],
@@ -217,7 +217,7 @@ suite "SendService - anonymity level with a mounted mix":
         mixPubKey = Opt.some(keyPair.publicKey),
       )
     )
-    waku.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
+    kernel.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
 
   asyncTest "a Required task waits for a short pool during its grace, then fails":
     ## A short pool is a reason mix cannot attempt the task. A `Required` task
@@ -225,10 +225,10 @@ suite "SendService - anonymity level with a mounted mix":
     ## that reason.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60100 + i, lightpush = true)
-    check not waku.mixReady()
+    check not kernel.mixReady()
 
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     let task = buildTask("short-pool", ZeroDuration)
     await mix.process(task)
@@ -244,23 +244,23 @@ suite "SendService - anonymity level with a mounted mix":
 
     # One more routable member and the pool can build a path.
     addMixPeer(60103, lightpush = true)
-    check waku.mixReady()
+    check kernel.mixReady()
 
   asyncTest "a Required task past its grace is attempted once mix can attempt it":
     ## The grace bounds only the wait for a mix that cannot attempt the task.
     for i in 0 ..< MinMixPoolSize - 1:
       addMixPeer(60210 + i, lightpush = true)
-    check not waku.mixReady()
+    check not kernel.mixReady()
 
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     let task = buildTask("held-then-usable", ZeroDuration)
     await mix.process(task)
     check task.state == DeliveryState.NextRoundRetry
 
     addMixPeer(60210 + MinMixPoolSize - 1, lightpush = true)
-    check waku.mixReady()
+    check kernel.mixReady()
     task.firstAdmittedTime =
       Opt.some(Moment.now() - MixUnusableGrace - chronos.seconds(1))
     let fut = mix.process(task)
@@ -273,12 +273,12 @@ suite "SendService - anonymity level with a mounted mix":
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60110 + i, lightpush = false)
     check:
-      waku.mixReady()
-      waku.selectMixLightpushPeer(shard).isNone()
+      kernel.mixReady()
+      kernel.selectMixLightpushPeer(shard).isNone()
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -298,11 +298,11 @@ suite "SendService - anonymity level with a mounted mix":
     ## task goes to the plain path in the same round.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60120 + i, lightpush = false)
-    check waku.mixReady()
+    check kernel.mixReady()
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -317,11 +317,11 @@ suite "SendService - anonymity level with a mounted mix":
     ## over for `MixUnusable.NoExit`; an exit clears the reason.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60180 + i, lightpush = false)
-    check waku.mixReady()
+    check kernel.mixReady()
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
     check mix.fellBackFor() == MixUnusable.None
@@ -341,7 +341,7 @@ suite "SendService - anonymity level with a mounted mix":
       mix.fellBackFor() == MixUnusable.NoExit # unchanged, so logged once
 
     addMixPeer(60184, lightpush = true)
-    check waku.selectMixLightpushPeer(shard).isSome()
+    check kernel.selectMixLightpushPeer(shard).isSome()
     let back = buildTask("exit-back", chronos.seconds(5))
     let fut = mix.process(back)
     check:
@@ -355,18 +355,18 @@ suite "SendService - anonymity level with a mounted mix":
     var errors: seq[MessageErrorEvent]
     let listener = MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(e: MessageErrorEvent) {.async: (raises: []).} =
           errors.add(e),
       )
       .expect("listen")
     defer:
-      await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
+      await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
 
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     let service = SendService
-      .new(false, waku, manager, RetryingProcessor(reason: "scripted reason"))
+      .new(false, kernel, manager, RetryingProcessor(reason: "scripted reason"))
       .expect("SendService.new")
 
     # Past its delivery window, so the end of its first attempt fails it.
@@ -390,7 +390,7 @@ suite "SendService - anonymity level with a mounted mix":
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -411,12 +411,12 @@ suite "SendService - anonymity level with a mounted mix":
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
 
     # A backend with a refresh hook, so the park waits for the refresh.
-    waku.protocols.rlnPlugin = Opt.some(
+    kernel.protocols.rlnPlugin = Opt.some(
       RlnPlugin(
         onProofRejected: proc() {.gcsafe, raises: [].} =
           discard
@@ -427,7 +427,7 @@ suite "SendService - anonymity level with a mounted mix":
     task.msg.proof = @[1'u8, 2, 3] # a proof the service would have rejected
 
     # The park clears the proof and `firstAdmittedTime`, which resets the window.
-    task.parkForRlnProofRefresh(waku, "rln proof rejected")
+    task.parkForRlnProofRefresh(kernel, "rln proof rejected")
     check:
       task.state == DeliveryState.NextRoundRetry
       task.msg.proof.len == 0
@@ -445,7 +445,7 @@ suite "SendService - anonymity level with a mounted mix":
     let task = buildTask("rln-no-refresh", chronos.minutes(2))
     task.msg.proof = @[1'u8, 2, 3] # a proof the service would have rejected
 
-    task.parkForRlnProofRefresh(waku, "rln proof rejected")
+    task.parkForRlnProofRefresh(kernel, "rln proof rejected")
     check:
       task.state == DeliveryState.FailedToDeliver
       task.errorDesc == "rln proof rejected"
@@ -458,7 +458,7 @@ suite "SendService - anonymity level with a mounted mix":
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Preferred, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -483,18 +483,18 @@ suite "SendService - anonymity level with a mounted mix":
     ## The pool is usable and the self hop is not, so no reply path can be built.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60160 + i, lightpush = true)
-    check waku.mixReady()
+    check kernel.mixReady()
 
-    discard waku.protocols.wakuMix.updateSelfHop(
+    discard kernel.protocols.wakuMix.updateSelfHop(
       @[MultiAddress.init("/dns4/node.test/tcp/30303").tryGet()], @[]
     )
     check:
-      not waku.protocols.wakuMix.selfHopUsable()
-      not waku.mixReady()
+      not kernel.protocols.wakuMix.selfHopUsable()
+      not kernel.mixReady()
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -510,21 +510,21 @@ suite "SendService - anonymity level with a mounted mix":
       task.errorDesc == MixSelfHopReason
 
     # An address the encoder takes, committed later, reopens the gate.
-    discard waku.protocols.wakuMix.updateSelfHop(
+    discard kernel.protocols.wakuMix.updateSelfHop(
       @[MultiAddress.init("/ip4/127.0.0.1/tcp/30303").tryGet()], @[]
     )
-    check waku.mixReady()
+    check kernel.mixReady()
 
   asyncTest "a Required task past its window is still attempted over a usable mix":
     ## Tests the `fallbackAllowed` guard on the window branch, which only a usable
     ## mix reaches: a `Required` task past its window must never go out in clear.
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60200 + i, lightpush = true)
-    check waku.mixReady()
+    check kernel.mixReady()
 
     let plain = PlainSendProcessor()
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     mix.chain(plain)
 
@@ -543,7 +543,7 @@ suite "SendService - anonymity level with a mounted mix":
       addMixPeer(60170 + i, lightpush = true)
 
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     let task = buildTask("announced-at-attempt", chronos.seconds(5))
 
@@ -561,11 +561,11 @@ suite "SendService - anonymity level with a mounted mix":
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60130 + i, lightpush = true)
     check:
-      waku.mixReady()
-      waku.selectMixLightpushPeer(shard).isSome()
+      kernel.mixReady()
+      kernel.selectMixLightpushPeer(shard).isSome()
 
     let mix = MixSendProcessor.new(
-      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+      kernel, kernel.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
     )
     let task = buildTask("usable", chronos.seconds(5))
     let fut = mix.process(task)
@@ -577,13 +577,13 @@ suite "Mix send path - exit peer selection":
   ## With `exit_is_dest` the lightpush server is the last node of the sphinx
   ## path. Mix refuses a destination that has no mix public key. The selection
   ## must skip a plain lightpush peer.
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stopKernel()
+    discard await kernel.stopKernel()
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
@@ -597,7 +597,7 @@ suite "Mix send path - exit peer selection":
         Opt.some(keyPair.publicKey)
       else:
         Opt.none(typeof(keyPair.publicKey))
-    waku.peerManager.addPeer(
+    kernel.peerManager.addPeer(
       RemotePeerInfo.init(
         peerId,
         @[MultiAddress.init(address).tryGet()],
@@ -606,15 +606,15 @@ suite "Mix send path - exit peer selection":
         mixPubKey = mixPubKey,
       )
     )
-    waku.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
+    kernel.peerManager.switch.peerStore.setShardInfo(peerId, @[0'u16])
     return peerId
 
   asyncTest "a plain lightpush peer is never offered as a mix exit":
     discard addLightpushPeer(mixCapable = false)
 
     check:
-      waku.lightpushPeerAvailable(shard) # usable for a plain send
-      waku.selectMixLightpushPeer(shard).isNone() # but not as a mix exit
+      kernel.lightpushPeerAvailable(shard) # usable for a plain send
+      kernel.selectMixLightpushPeer(shard).isNone() # but not as a mix exit
 
   asyncTest "a mix key alone does not make a peer a usable exit":
     ## Mix routes IPv4 TCP and QUIC-v1 addresses only. A peer with another
@@ -623,8 +623,8 @@ suite "Mix send path - exit peer selection":
     discard addLightpushPeer(mixCapable = true, address = "/dns4/node.test/tcp/60000")
 
     check:
-      waku.lightpushPeerAvailable(shard)
-      waku.selectMixLightpushPeer(shard).isNone()
+      kernel.lightpushPeerAvailable(shard)
+      kernel.selectMixLightpushPeer(shard).isNone()
 
   asyncTest "repeated selections spread over every mix-capable exit":
     ## Three usable exits and a hundred draws: every exit must come up. A uniform
@@ -635,7 +635,7 @@ suite "Mix send path - exit peer selection":
 
     var seen: HashSet[PeerId]
     for _ in 0 ..< 100:
-      let selected = waku.selectMixLightpushPeer(shard).valueOr:
+      let selected = kernel.selectMixLightpushPeer(shard).valueOr:
         raiseAssert "expected a mix-capable exit to be selected"
       seen.incl(selected.peerId)
     check seen.len == 3
@@ -649,7 +649,7 @@ suite "Mix send path - exit peer selection":
 
     var seen: HashSet[PeerId]
     for _ in 0 ..< 50:
-      let selected = waku.selectMixLightpushPeer(shard).valueOr:
+      let selected = kernel.selectMixLightpushPeer(shard).valueOr:
         raiseAssert "expected a mix-capable exit to be selected"
       seen.incl(selected.peerId)
     check seen.len == 2
@@ -659,7 +659,7 @@ suite "Mix send path - exit peer selection":
     let mixPeer = addLightpushPeer(mixCapable = true)
     discard addLightpushPeer(mixCapable = false)
 
-    let selected = waku.selectMixLightpushPeer(shard).valueOr:
+    let selected = kernel.selectMixLightpushPeer(shard).valueOr:
       raiseAssert "expected the mix-capable peer to be selected"
     check selected.peerId == mixPeer
 
@@ -668,23 +668,23 @@ suite "Mix send path - exit peer selection":
     ## `selectPeers` drops it until identify and waku-metadata fill the books.
     let peerId = PeerId.init(generateSecp256k1Key()).tryGet()
     let address = MultiAddress.init("/ip4/127.0.0.1/tcp/60000").tryGet()
-    waku.peerManager.addServicePeer(
+    kernel.peerManager.addServicePeer(
       RemotePeerInfo.init(peerId, @[address]), WakuLightPushCodec
     )
 
     check:
-      waku.lightpushPeerAvailable(shard) # the plain path already works
+      kernel.lightpushPeerAvailable(shard) # the plain path already works
       # ... and the protocol scan with the shard filter does not return it
-      waku.peerManager.selectPeers(WakuLightPushCodec, Opt.some(shard)).len == 0
-      waku.selectMixLightpushPeer(shard).isNone() # no mix key learned yet
+      kernel.peerManager.selectPeers(WakuLightPushCodec, Opt.some(shard)).len == 0
+      kernel.selectMixLightpushPeer(shard).isNone() # no mix key learned yet
 
     # Later, discovery (kademlia or rendezvous) learns the mix key of the peer.
     let keyPair = generateKeyPair().expect("mix key pair")
-    waku.peerManager.addPeer(
+    kernel.peerManager.addPeer(
       RemotePeerInfo.init(peerId, @[address], mixPubKey = Opt.some(keyPair.publicKey))
     )
 
-    let selected = waku.selectMixLightpushPeer(shard).valueOr:
+    let selected = kernel.selectMixLightpushPeer(shard).valueOr:
       raiseAssert "the slotted lightpush node should be offered as a mix exit"
     check selected.peerId == peerId
 
@@ -749,13 +749,13 @@ proc newStubMixConn(stallInSend = false): StubMixConn =
 suite "Mix send path - the reply budget":
   ## `publishOverMix` bounds a mix-routed lightpush. The mix connection does
   ## not bound the first-hop dial. These tests stall each phase in turn.
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stopKernel()
+    discard await kernel.stopKernel()
 
   # `publishOverMix` waits `MixReplyTimeout` by default. These tests use a short
   # limit, because the test subject is the mechanism and not the constant.
@@ -769,7 +769,7 @@ suite "Mix send path - the reply budget":
     let conn = newStubMixConn(stallInSend = stallInSend)
     let msg = fakeWakuMessage(contentTopic = "/test/1/anonymity/proto")
 
-    let publishFut = waku.publishOverMix(
+    let publishFut = kernel.publishOverMix(
       Connection(conn), PubsubTopic("/waku/2/rs/3/0"), msg, ReplyBudget
     )
     let guard = sleepAsync(chronos.seconds(5))
@@ -798,20 +798,20 @@ suite "Mix send path - the reply budget":
 suite "Mix send path - the node's own hop":
   ## `mixReady()` is false while mix cannot encode this node's own hop: every
   ## reply path and cover packet would fail at build time.
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
     # The test mix is not mounted on the switch, so the node must not stop it.
-    waku.protocols.wakuMix = nil
-    discard await waku.stopKernel()
+    kernel.protocols.wakuMix = nil
+    discard await kernel.stopKernel()
 
   proc addMixPeer(port: int) =
     let peerId = PeerId.init(generateSecp256k1Key()).tryGet()
     let keyPair = generateKeyPair().expect("mix key pair")
-    waku.peerManager.addPeer(
+    kernel.peerManager.addPeer(
       RemotePeerInfo.init(
         peerId,
         @[MultiAddress.init("/ip4/127.0.0.1/tcp/" & $port).tryGet()],
@@ -825,10 +825,10 @@ suite "Mix send path - the node's own hop":
     ## `WakuMix.new` takes the address as a string, as `mountMix` passes it, so
     ## the test gives it a name. Nothing dials; the test reads only the gate.
     let mixKeys = generateKeyPair().expect("mix key pair")
-    waku.protocols.wakuMix = WakuMix
+    kernel.protocols.wakuMix = WakuMix
       .new(
         "/dns4/node.test/tcp/30303",
-        waku.peerManager,
+        kernel.peerManager,
         3'u16,
         mixKeys.privateKey,
         @[],
@@ -837,17 +837,17 @@ suite "Mix send path - the node's own hop":
     for i in 0 ..< MinMixPoolSize:
       addMixPeer(60300 + i)
     check:
-      waku.getMixNodePoolSize() >= MinMixPoolSize
-      not waku.protocols.wakuMix.selfHopUsable()
-      not waku.mixReady()
+      kernel.getMixNodePoolSize() >= MinMixPoolSize
+      not kernel.protocols.wakuMix.selfHopUsable()
+      not kernel.mixReady()
 
     # The same node with a hop the encoder accepts: the gate opens.
-    waku.protocols.wakuMix
+    kernel.protocols.wakuMix
       .setLocalMultiAddr(MultiAddress.init("/ip4/127.0.0.1/tcp/30303").tryGet())
       .expect("an IPv4 TCP hop is accepted")
     check:
-      waku.protocols.wakuMix.selfHopUsable()
-      waku.mixReady()
+      kernel.protocols.wakuMix.selfHopUsable()
+      kernel.mixReady()
 
 suite "Mix RLN coordination protection":
   test "the default Mix scope is a 32-byte identifier":

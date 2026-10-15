@@ -8,7 +8,7 @@
 import std/sets
 import results
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/[waku_core, node/waku_node, node/subscription_manager]
 
 proc subscribe*(self: Kernel, contentTopic: ContentTopic): Result[void, string] =

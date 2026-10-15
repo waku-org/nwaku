@@ -21,7 +21,7 @@ proc waku_lightpush_publish(
   let msg = json_message_event.toWakuMessage(jsonMessage).valueOr:
     return err("Problem building the WakuMessage: " & $error)
 
-  let msgHashHex = (await self.waku.lightpushPublish(PubsubTopic(pubSubTopic), msg)).valueOr:
+  let msgHashHex = (await self.kernel.lightpushPublish(PubsubTopic(pubSubTopic), msg)).valueOr:
     error "PUBLISH failed", error = error
     return err(error)
 

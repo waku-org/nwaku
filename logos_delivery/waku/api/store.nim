@@ -3,7 +3,7 @@
 
 import results, chronos, chronicles
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import
   logos_delivery/waku/
     [waku_core, node/waku_node, node/peer_manager, waku_store/common, waku_store/client]
