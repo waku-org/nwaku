@@ -188,7 +188,7 @@ suite "RLN Proofs as a Lightpush Service":
       check publishResponse.error == protocol_metrics.notPublishedAnyPeer
 
     # The tests below drive `server.legacyLightpushPublish(...)` against the
-    # server node. Because `server.protocols.wakuLegacyLightPush` is mounted (and no
+    # server node. Because `server.protocols.legacyLightPush` is mounted (and no
     # legacy client is), the call takes the self-request path — it runs the
     # full client-side flow (proof gen, RLN-rejection detection via the
     # RlnValidatorErrorMsg substring), but the request lands in the local
@@ -207,7 +207,7 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err(RlnValidatorErrorMsg & ": simulated stale merkle path")
-      server.protocols.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()
@@ -226,7 +226,7 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err("unrelated failure")
-      server.protocols.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()
@@ -250,7 +250,7 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err(RlnValidatorErrorMsg & ": simulated")
-      server.protocols.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()

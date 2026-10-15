@@ -223,7 +223,7 @@ suite "RLN Proofs as a Lightpush Service":
         manager.merkleProofCache == goodCache
 
     # The tests below drive `server.lightpushPublish(...)` directly against the
-    # server node. Because `server.protocols.wakuLightPush` is mounted (and no lightpush
+    # server node. Because `server.protocols.lightPush` is mounted (and no lightpush
     # client is), lightpushPublish takes the self-request path — it still runs
     # the full client-side flow (proof gen, RLN-rejection classification), but
     # the request lands in the local pushHandler instead of going over the
@@ -238,7 +238,7 @@ suite "RLN Proofs as a Lightpush Service":
         inc callCount
         return
           lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, RlnValidatorErrorMsg)
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let manager = cast[RlnEvmGroupManager](serverRln.groupManager)
       let goodCache = manager.merkleProofCache
@@ -271,7 +271,7 @@ suite "RLN Proofs as a Lightpush Service":
         return lighpushErrorResult(
           LightPushErrorCode.OUT_OF_RLN_PROOF, "simulated out-of-proof"
         )
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let response = await server.lightpushPublish(Opt.some(pubsubTopic), message)
 
@@ -291,7 +291,7 @@ suite "RLN Proofs as a Lightpush Service":
             LightPushErrorCode.INVALID_MESSAGE, RlnValidatorErrorMsg
           )
         return lightpushSuccessResult(1)
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let firstResponse = await server.lightpushPublish(Opt.some(pubsubTopic), message)
 
@@ -316,7 +316,7 @@ suite "RLN Proofs as a Lightpush Service":
         inc callCount
         return
           lighpushErrorResult(LightPushErrorCode.INVALID_MESSAGE, "unrelated rejection")
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let response = await server.lightpushPublish(Opt.some(pubsubTopic), message)
 
@@ -334,7 +334,7 @@ suite "RLN Proofs as a Lightpush Service":
         return lighpushErrorResult(
           LightPushErrorCode.INTERNAL_SERVER_ERROR, "unrelated failure"
         )
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let response = await server.lightpushPublish(Opt.some(pubsubTopic), message)
 
@@ -355,7 +355,7 @@ suite "RLN Proofs as a Lightpush Service":
         return lighpushErrorResult(
           LightPushErrorCode.INTERNAL_SERVER_ERROR, "must not be published"
         )
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let anHourAgo = now() - 3_600_000_000_000 # nanoseconds
       let response = await server.lightpushPublish(
@@ -382,7 +382,7 @@ suite "RLN Proofs as a Lightpush Service":
         return lighpushErrorResult(
           LightPushErrorCode.INVALID_MESSAGE, RlnValidatorErrorMsg & ": simulated"
         )
-      server.protocols.wakuLightPush.pushHandler = stub
+      server.protocols.lightPush.pushHandler = stub
 
       let response = await server.lightpushPublish(Opt.some(pubsubTopic), message)
 

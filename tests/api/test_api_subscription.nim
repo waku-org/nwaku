@@ -868,7 +868,7 @@ suite "Messaging API, SubscriptionManager":
 
     let shard = net.subscriber.waku.node.getRelayShard(keptTopic)
     let edgePeerId = net.subscriber.waku.node.peerInfo.peerId
-    let subscriptions = net.publisher.protocols.wakuFilter.subscriptions
+    let subscriptions = net.publisher.protocols.filter.subscriptions
 
     checkUntilTimeout:
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)

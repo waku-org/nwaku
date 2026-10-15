@@ -352,7 +352,7 @@ proc installFilterPingSubscriberHandler(
       peerOp.valueOr:
         return makeRestResponse(requestId.get(), NoPeerNoneFoundError)
 
-    let pingFutRes = node.protocols.wakuFilterClient.ping(peer)
+    let pingFutRes = node.protocols.filterClient.ping(peer)
 
     if not await pingFutRes.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to ping filter service peer due to timeout!"
@@ -372,7 +372,7 @@ proc installFilterGetMessagesHandler(
   ) {.async, gcsafe, closure.} =
     cache.addMessage(pubsubTopic, msg)
 
-  node.protocols.wakuFilterClient.registerPushHandler(pushHandler)
+  node.protocols.filterClient.registerPushHandler(pushHandler)
 
   router.api(MethodGet, ROUTE_FILTER_MESSAGES) do(
     contentTopic: string

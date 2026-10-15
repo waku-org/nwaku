@@ -485,11 +485,11 @@ suite "SendService - anonymity level with a mounted mix":
       addMixPeer(60160 + i, lightpush = true)
     check waku.mixReady()
 
-    discard waku.node.protocols.wakuMix.updateSelfHop(
+    discard waku.node.protocols.mix.updateSelfHop(
       @[MultiAddress.init("/dns4/node.test/tcp/30303").tryGet()], @[]
     )
     check:
-      not waku.node.protocols.wakuMix.selfHopUsable()
+      not waku.node.protocols.mix.selfHopUsable()
       not waku.mixReady()
 
     let plain = PlainSendProcessor()
@@ -510,7 +510,7 @@ suite "SendService - anonymity level with a mounted mix":
       task.errorDesc == MixSelfHopReason
 
     # An address the encoder takes, committed later, reopens the gate.
-    discard waku.node.protocols.wakuMix.updateSelfHop(
+    discard waku.node.protocols.mix.updateSelfHop(
       @[MultiAddress.init("/ip4/127.0.0.1/tcp/30303").tryGet()], @[]
     )
     check waku.mixReady()
@@ -805,7 +805,7 @@ suite "Mix send path - the node's own hop":
 
   asyncTeardown:
     # The test mix is not mounted on the switch, so the node must not stop it.
-    waku.node.protocols.wakuMix = nil
+    waku.node.protocols.mix = nil
     discard await waku.stop()
 
   proc addMixPeer(port: int) =
@@ -825,7 +825,7 @@ suite "Mix send path - the node's own hop":
     ## `WakuMix.new` takes the address as a string, as `mountMix` passes it, so
     ## the test gives it a name. Nothing dials; the test reads only the gate.
     let mixKeys = generateKeyPair().expect("mix key pair")
-    waku.node.protocols.wakuMix = WakuMix
+    waku.node.protocols.mix = WakuMix
       .new(
         "/dns4/node.test/tcp/30303",
         waku.node.peerManager,
@@ -838,15 +838,15 @@ suite "Mix send path - the node's own hop":
       addMixPeer(60300 + i)
     check:
       waku.node.getMixNodePoolSize() >= MinMixPoolSize
-      not waku.node.protocols.wakuMix.selfHopUsable()
+      not waku.node.protocols.mix.selfHopUsable()
       not waku.mixReady()
 
     # The same node with a hop the encoder accepts: the gate opens.
-    waku.node.protocols.wakuMix
+    waku.node.protocols.mix
       .setLocalMultiAddr(MultiAddress.init("/ip4/127.0.0.1/tcp/30303").tryGet())
       .expect("an IPv4 TCP hop is accepted")
     check:
-      waku.node.protocols.wakuMix.selfHopUsable()
+      waku.node.protocols.mix.selfHopUsable()
       waku.mixReady()
 
 suite "Mix RLN coordination protection":

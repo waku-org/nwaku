@@ -2348,8 +2348,8 @@ suite "Waku Filter - End to End":
       await client2nd.mountFilterClient()
       await server.mountFilter()
 
-      client.protocols.wakuFilterClient.registerPushHandler(messagePushHandler)
-      client2nd.protocols.wakuFilterClient.registerPushHandler(messagePushHandler2nd)
+      client.protocols.filterClient.registerPushHandler(messagePushHandler)
+      client2nd.protocols.filterClient.registerPushHandler(messagePushHandler2nd)
       clientPeerId = client.switch.peerInfo.peerId
       clientPeerId2nd = client2nd.switch.peerInfo.peerId
       serverRemotePeerInfo = server.switch.peerInfo
@@ -2358,18 +2358,18 @@ suite "Waku Filter - End to End":
       await allFutures(client2nd.stop(), client.stop(), server.stop())
 
     asyncTest "client unsubscribe by timeout":
-      server.protocols.wakuFilter.setSubscriptionTimeout(1.seconds)
+      server.protocols.filter.setSubscriptionTimeout(1.seconds)
 
       # Given
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
@@ -2381,27 +2381,27 @@ suite "Waku Filter - End to End":
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       check:
-        server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId) == false
+        server.protocols.filter.subscriptions.isSubscribed(clientPeerId) == false
         not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "client reset subscription timeout with ping":
-      server.protocols.wakuFilter.setSubscriptionTimeout(1.seconds)
+      server.protocols.filter.setSubscriptionTimeout(1.seconds)
       # Given
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
 
-      assert server.protocols.wakuFilter.subscriptions.subscribedPeerCount() == 1,
+      assert server.protocols.filter.subscriptions.subscribedPeerCount() == 1,
         "wrong num of subscribed peers"
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       var msg1 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       var (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
@@ -2413,21 +2413,21 @@ suite "Waku Filter - End to End":
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       msg1 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       # the ping restarts the timeout counting. We will have 1 sec from now
-      let pingResponse = await client.protocols.wakuFilterClient.ping(serverRemotePeerInfo)
+      let pingResponse = await client.protocols.filterClient.ping(serverRemotePeerInfo)
 
       assert pingResponse.isOk(), $pingResponse.error
 
       # wait more in sum of the timeout
       await sleepAsync(700)
 
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
@@ -2437,15 +2437,15 @@ suite "Waku Filter - End to End":
 
     asyncTest "client reset subscription timeout with subscribe":
       # Given
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
@@ -2457,7 +2457,7 @@ suite "Waku Filter - End to End":
 
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq = @[contentTopic2nd]
-      let subscribeResponse2nd = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse2nd = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
 
@@ -2466,11 +2466,11 @@ suite "Waku Filter - End to End":
       # wait more in sum of the timeout
       await sleepAsync(1200)
 
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic2nd)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
@@ -2482,15 +2482,15 @@ suite "Waku Filter - End to End":
       # Given
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq.add(contentTopic2nd)
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic = contentTopic2nd)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
@@ -2501,7 +2501,7 @@ suite "Waku Filter - End to End":
       await sleepAsync(1000)
 
       contentTopicSeq = @[contentTopic2nd]
-      let unsubscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let unsubscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
 
@@ -2510,11 +2510,11 @@ suite "Waku Filter - End to End":
       # wait more in sum of the timeout
       await sleepAsync(1200)
 
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       # shall still receive message on default content topic
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -2524,29 +2524,29 @@ suite "Waku Filter - End to End":
         pushedMsg2 == msg2
 
     asyncTest "two clients shifted subscription and timeout":
-      server.protocols.wakuFilter.setSubscriptionTimeout(1.seconds)
+      server.protocols.filter.setSubscriptionTimeout(1.seconds)
       # Given
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq.add(contentTopic2nd)
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       await sleepAsync(500)
 
-      let subscribeResponse2nd = await client2nd.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse2nd = await client2nd.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
 
       assert subscribeResponse2nd.isOk(), $subscribeResponse2nd.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId2nd)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic = contentTopic2nd)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       # both clients get messages
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -2564,12 +2564,12 @@ suite "Waku Filter - End to End":
 
       await sleepAsync(700)
 
-      check not server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check not server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       # shall still receive message on default content topic
       check not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -2581,32 +2581,32 @@ suite "Waku Filter - End to End":
 
       await sleepAsync(500)
 
-      check not server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
+      check not server.protocols.filter.subscriptions.isSubscribed(clientPeerId2nd)
 
     asyncTest "two clients timeout maintenance":
-      server.protocols.wakuFilter.setSubscriptionTimeout(500.milliseconds)
+      server.protocols.filter.setSubscriptionTimeout(500.milliseconds)
       # Given
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq.add(contentTopic2nd)
-      let subscribeResponse = await client.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse = await client.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse.isOk(), $subscribeResponse.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
-      let subscribeResponse2nd = await client2nd.protocols.wakuFilterClient.subscribe(
+      let subscribeResponse2nd = await client2nd.protocols.filterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
       assert subscribeResponse2nd.isOk(), $subscribeResponse2nd.error
-      check server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
+      check server.protocols.filter.subscriptions.isSubscribed(clientPeerId2nd)
 
-      await server.protocols.wakuFilter.maintainSubscriptions()
+      await server.protocols.filter.maintainSubscriptions()
       check logos_delivery_filter_subscriptions.value() == 2
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic = contentTopic2nd)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg1)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg1)
 
       # both clients get messages
       check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -2624,16 +2624,16 @@ suite "Waku Filter - End to End":
 
       await sleepAsync(700)
 
-      await server.protocols.wakuFilter.maintainSubscriptions()
+      await server.protocols.filter.maintainSubscriptions()
 
-      check not server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check not server.protocols.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
+      check not server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
+      check not server.protocols.filter.subscriptions.isSubscribed(clientPeerId2nd)
       check logos_delivery_filter_subscriptions.value() == 0
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic = contentTopic)
-      await server.protocols.wakuFilter.handleMessage(pubsubTopic, msg2)
+      await server.protocols.filter.handleMessage(pubsubTopic, msg2)
 
       # shall still receive message on default content topic
       check (

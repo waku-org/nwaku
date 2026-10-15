@@ -5,7 +5,7 @@ import publisher_base
 type V3Publisher* = ref object of PublisherBase
 
 proc new*(T: type V3Publisher, kernel: Kernel): T =
-  if isNil(kernel.protocols.wakuLightpushClient):
+  if isNil(kernel.protocols.lightPushClient):
     kernel.mountLightPushClient()
 
   return V3Publisher(kernel: kernel)

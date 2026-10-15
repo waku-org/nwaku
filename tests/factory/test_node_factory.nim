@@ -68,7 +68,7 @@ suite "Node Factory":
     let node = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
-    check node.protocols.wakuStoreClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
+    check node.protocols.storeClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
 
   asynctest "Set up a node with Store enabled":
     var confBuilder = defaultTestWakuConfBuilder()
@@ -81,8 +81,8 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      not node.protocols.wakuStore.isNil()
-      not node.protocols.wakuArchive.isNil()
+      not node.protocols.store.isNil()
+      not node.protocols.archive.isNil()
 
   asynctest "The command line default rate limits reach the mounted protocols":
     # Given the configuration of a binary started without --rate-limit
@@ -378,7 +378,7 @@ suite "Node Factory":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await client.protocols.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await client.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     # Then both the ENR and the metadata advertise the content topic's shard
@@ -464,7 +464,7 @@ asynctest "Set up a node with Filter enabled":
 
   check:
     not node.isNil()
-    not node.protocols.wakuFilter.isNil()
+    not node.protocols.filter.isNil()
   echo "TEST END"
 
 asynctest "Start a node based on default test configuration":

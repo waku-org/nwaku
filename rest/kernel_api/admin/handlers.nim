@@ -242,7 +242,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: Kernel) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
-    if node.protocols.wakuMetadata.isNil():
+    if node.protocols.metadata.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Metadata Protocol is not mounted to the node"
       )
@@ -254,7 +254,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: Kernel) =
 
     # TODO: clusterId and shards should be uint16 across all codebase and probably be defined as a type
     let topic = toPubsubTopic(
-      RelayShard(clusterId: node.protocols.wakuMetadata.clusterId.uint16, shardId: shard)
+      RelayShard(clusterId: node.protocols.metadata.clusterId.uint16, shardId: shard)
     )
     let pubsubPeers =
       node.protocols.relay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
@@ -292,7 +292,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: Kernel) =
     let shard = shardId.valueOr:
       return RestApiResponse.badRequest(fmt("Invalid shardId: {error}"))
 
-    if node.protocols.wakuMetadata.isNil():
+    if node.protocols.metadata.isNil():
       return RestApiResponse.serviceUnavailable(
         "Error: Metadata Protocol is not mounted to the node"
       )
@@ -303,7 +303,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: Kernel) =
       )
 
     let topic = toPubsubTopic(
-      RelayShard(clusterId: node.protocols.wakuMetadata.clusterId.uint16, shardId: shard)
+      RelayShard(clusterId: node.protocols.metadata.clusterId.uint16, shardId: shard)
     )
     let peers =
       node.protocols.relay.getPubSubPeersInMesh(topic).get(initHashSet[PubSubPeer](0))
@@ -407,7 +407,7 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: Kernel) =
 
 proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: Kernel) =
   router.api(MethodGet, ROUTE_ADMIN_V1_FILTER_SUBS) do() -> RestApiResponse:
-    if node.protocols.wakuFilter.isNil():
+    if node.protocols.filter.isNil():
       return
         RestApiResponse.badRequest("Error: Filter Protocol is not mounted to the node")
 
@@ -415,8 +415,8 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: Kernel) =
       subscriptions: seq[FilterSubscription] = @[]
       filterCriteria: seq[FilterTopic]
 
-    for peerId in node.protocols.wakuFilter.subscriptions.peersSubscribed.keys:
-      filterCriteria = node.protocols.wakuFilter.subscriptions.getPeerSubscriptions(peerId).mapIt(
+    for peerId in node.protocols.filter.subscriptions.peersSubscribed.keys:
+      filterCriteria = node.protocols.filter.subscriptions.getPeerSubscriptions(peerId).mapIt(
           FilterTopic(pubsubTopic: it[0], contentTopic: it[1])
         )
 

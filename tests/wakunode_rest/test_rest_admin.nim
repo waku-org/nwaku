@@ -212,10 +212,10 @@ suite "Waku v2 Rest API - Admin":
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
 
     let
-      subscribeResponse2 = await node2.protocols.wakuFilterClient.subscribe(
+      subscribeResponse2 = await node2.protocols.filterClient.subscribe(
         peerInfo1, pubsubTopicNode2, contentFiltersNode2
       )
-      subscribeResponse3 = await node3.protocols.wakuFilterClient.subscribe(
+      subscribeResponse3 = await node3.protocols.filterClient.subscribe(
         peerInfo1, pubsubTopicNode3, contentFiltersNode3
       )
 

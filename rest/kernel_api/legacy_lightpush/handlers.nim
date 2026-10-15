@@ -37,7 +37,7 @@ const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
 proc useSelfHostedLightPush(node: Kernel): bool =
-  return node.protocols.wakuLegacyLightPush != nil and node.protocols.wakuLegacyLightpushClient == nil
+  return node.protocols.legacyLightPush != nil and node.protocols.legacyLightPushClient == nil
 
 #### Request handlers
 

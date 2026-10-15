@@ -219,8 +219,8 @@ proc getCapabilitiesGetter(node: Kernel): GetCapabilities =
 proc getWakuPeerRecordGetter(node: Kernel): GetWakuPeerRecord =
   return proc(): WakuPeerRecord {.closure, gcsafe, raises: [].} =
     var mixKey: string
-    if not node.protocols.wakuMix.isNil():
-      mixKey = node.protocols.wakuMix.pubKey.to0xHex()
+    if not node.protocols.mix.isNil():
+      mixKey = node.protocols.mix.pubKey.to0xHex()
     return WakuPeerRecord.init(
       peerId = node.switch.peerInfo.peerId,
       addresses = node.announcedAddresses,
@@ -274,10 +274,10 @@ proc updateMixSelfHop(node: Kernel) =
   ## Sets mix's own hop, which closes every reply path, to the first address mix
   ## can encode, in this order: a direct address known from outside, the ENR
   ## endpoint, a relay route known from outside, then the announced set.
-  if node.protocols.wakuMix.isNil():
+  if node.protocols.mix.isNil():
     return
-  let before = node.protocols.wakuMix.localMixPubInfo().multiAddr
-  let wasMissing = node.protocols.wakuMix.selfHopMissing()
+  let before = node.protocols.mix.localMixPubInfo().multiAddr
+  let wasMissing = node.protocols.mix.selfHopMissing()
   let outside = node.enrAddresses()
   var preferred = outside.filterIt(not it.isCircuitRelayMA())
   let baseline = node.enrBaseline()
@@ -287,7 +287,7 @@ proc updateMixSelfHop(node: Kernel) =
     if endpoint.isOk() and endpoint.get() notin outside:
       preferred.add(endpoint.get())
   preferred.add(outside.filterIt(it.isCircuitRelayMA()))
-  let chosen = node.protocols.wakuMix.updateSelfHop(preferred, node.announcedAddresses)
+  let chosen = node.protocols.mix.updateSelfHop(preferred, node.announcedAddresses)
   if chosen.isNone():
     # Warn once, when the hop goes missing; later commits log at debug.
     if wasMissing:
@@ -402,8 +402,8 @@ proc info*(node: Kernel): WakuInfo =
     listenStr &= fulladdr
   let enrUri = node.enr.toUri()
   var wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
-  if not node.protocols.wakuMix.isNil():
-    let keyStr = node.protocols.wakuMix.pubKey.to0xHex()
+  if not node.protocols.mix.isNil():
+    let keyStr = node.protocols.mix.pubKey.to0xHex()
     wakuInfo.mixPubKey = Opt.some(keyStr)
   info "node info", wakuInfo
   return wakuInfo
@@ -421,16 +421,16 @@ proc disconnectNode*(node: Kernel, remotePeer: RemotePeerInfo) {.async.} =
 proc mountMetadata*(
     node: Kernel, clusterId: uint32, shards: seq[uint16]
 ): Result[void, string] =
-  if not node.protocols.wakuMetadata.isNil():
+  if not node.protocols.metadata.isNil():
     return err("Waku metadata already mounted, skipping")
 
   let metadata = WakuMetadata.new(clusterId, node.getShardsGetter(shards))
 
-  node.protocols.wakuMetadata = metadata
+  node.protocols.metadata = metadata
   node.peerManager.wakuMetadata = metadata
 
   let catchRes = catch:
-    node.switch.mount(node.protocols.wakuMetadata, protocolMatcher(WakuMetadataCodec))
+    node.switch.mount(node.protocols.metadata, protocolMatcher(WakuMetadataCodec))
   catchRes.isOkOr:
     return err(error.msg)
 
@@ -452,9 +452,9 @@ proc mountAutoSharding*(
 
 proc getMixNodePoolSize*(node: Kernel): int =
   ## The number of mix pool members a path can use; zero when mix is not mounted.
-  if node.protocols.wakuMix.isNil():
+  if node.protocols.mix.isNil():
     return 0
-  return node.protocols.wakuMix.poolSize()
+  return node.protocols.mix.poolSize()
 
 proc splitMixNodes(
     node: Kernel, mixnodes: seq[MixNodePubInfo]
@@ -518,8 +518,8 @@ proc resolveMixNodeName(
     debug "A mix node name resolved to no literal address, skipping it",
       multiAddr = name.entry.multiAddr
     return false
-  if not node.protocols.wakuMix.isNil():
-    node.protocols.wakuMix.addBootNodes(entries)
+  if not node.protocols.mix.isNil():
+    node.protocols.mix.addBootNodes(entries)
   return true
 
 proc resolveMixNodeNames(node: Kernel) {.async: (raises: [CancelledError]).} =
@@ -585,16 +585,16 @@ proc mountMix*(
 
   let (literals, names, dropped) = node.splitMixNodes(mixnodes)
 
-  node.protocols.wakuMix = WakuMix.new(
+  node.protocols.mix = WakuMix.new(
     localaddrStr, node.peerManager, clusterId, mixPrivKey, literals, spamProtection
   ).valueOr:
     return err("Waku Mix protocol initialization failed: " & error)
   #TODO: should we do the below only for exit node? Also, what if multiple protocols use mix?
-  node.protocols.wakuMix.registerDestReadBehavior(
+  node.protocols.mix.registerDestReadBehavior(
     WakuLightPushCodec, readLp(lightpush_protocol.DefaultMaxPushResponseSize)
   )
   let catchRes = catch:
-    node.switch.mount(node.protocols.wakuMix)
+    node.switch.mount(node.protocols.mix)
   catchRes.isOkOr:
     return err(error.msg)
 
@@ -654,29 +654,29 @@ proc mountStoreSync*(
   let pubsubTopics = shards.mapIt($RelayShard(clusterId: cluster, shardId: it))
 
   let recon = ?await SyncReconciliation.new(
-    pubsubTopics, contentTopics, node.peerManager, node.protocols.wakuArchive,
+    pubsubTopics, contentTopics, node.peerManager, node.protocols.archive,
     storeSyncRange.seconds, storeSyncInterval.seconds, storeSyncRelayJitter.seconds,
     idsChannel, wantsChannel, needsChannel,
   )
 
-  node.protocols.wakuStoreReconciliation = recon
+  node.protocols.storeReconciliation = recon
 
   let reconMountRes = catch:
     node.switch.mount(
-      node.protocols.wakuStoreReconciliation, protocolMatcher(WakuReconciliationCodec)
+      node.protocols.storeReconciliation, protocolMatcher(WakuReconciliationCodec)
     )
   reconMountRes.isOkOr:
     return err(error.msg)
 
   let transfer = SyncTransfer.new(
-    node.peerManager, node.protocols.wakuArchive, idsChannel, wantsChannel, needsChannel,
+    node.peerManager, node.protocols.archive, idsChannel, wantsChannel, needsChannel,
     maxMessageSize,
   )
 
-  node.protocols.wakuStoreTransfer = transfer
+  node.protocols.storeTransfer = transfer
 
   let transMountRes = catch:
-    node.switch.mount(node.protocols.wakuStoreTransfer, protocolMatcher(WakuTransferCodec))
+    node.switch.mount(node.protocols.storeTransfer, protocolMatcher(WakuTransferCodec))
   transMountRes.isOkOr:
     return err(error.msg)
 
@@ -833,8 +833,8 @@ proc start*(node: Kernel) {.async.} =
   logos_delivery_version.set(1, labelValues = [git_version])
   info "Starting Waku node", version = git_version
 
-  if not node.protocols.wakuStoreResume.isNil():
-    await node.protocols.wakuStoreResume.start()
+  if not node.protocols.storeResume.isNil():
+    await node.protocols.storeResume.start()
 
   if not node.discovery.wakuRendezvousClient.isNil():
     await node.discovery.wakuRendezvousClient.start()
@@ -867,8 +867,8 @@ proc start*(node: Kernel) {.async.} =
     (await discovery.startDiscovery()).isOkOr:
       error "failed to start discovery backend", error = error
 
-  if not node.protocols.wakuFilterClient.isNil():
-    node.protocols.wakuFilterClient.registerPushHandler(
+  if not node.protocols.filterClient.isNil():
+    node.protocols.filterClient.registerPushHandler(
       proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
         MessageSeenEvent.emit(node.brokerCtx, pubsubTopic, msg)
     )
@@ -911,11 +911,11 @@ proc stop*(node: Kernel) {.async.} =
   if node.protocols.rlnPlugin.isSome() and not node.protocols.rlnPlugin.get().stop.isNil():
     await node.protocols.rlnPlugin.get().stop()
 
-  if not node.protocols.wakuArchive.isNil():
-    await node.protocols.wakuArchive.stopWait()
+  if not node.protocols.archive.isNil():
+    await node.protocols.archive.stopWait()
 
-  if not node.protocols.wakuStoreResume.isNil():
-    await node.protocols.wakuStoreResume.stopWait()
+  if not node.protocols.storeResume.isNil():
+    await node.protocols.storeResume.stopWait()
 
   if not node.discovery.wakuPeerExchangeClient.isNil() and
       not node.discovery.wakuPeerExchangeClient.pxLoopHandle.isNil():

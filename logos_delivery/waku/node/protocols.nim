@@ -34,26 +34,26 @@ type
   Protocols* = object
     ## The libp2p protocols mounted on the node, apart from discovery.
     relay*: WakuRelay
-    wakuArchive*: waku_archive.WakuArchive
-    wakuStore*: store.WakuStore
-    wakuStoreClient*: store_client.WakuStoreClient
-    wakuStoreResume*: StoreResume
-    wakuStoreReconciliation*: SyncReconciliation
-    wakuStoreTransfer*: SyncTransfer
-    wakuFilter*: waku_filter_v2.WakuFilter
-    wakuFilterClient*: filter_client.WakuFilterClient
+    archive*: waku_archive.WakuArchive
+    store*: store.WakuStore
+    storeClient*: store_client.WakuStoreClient
+    storeResume*: StoreResume
+    storeReconciliation*: SyncReconciliation
+    storeTransfer*: SyncTransfer
+    filter*: waku_filter_v2.WakuFilter
+    filterClient*: filter_client.WakuFilterClient
     rlnPlugin*: Opt[RlnPlugin]
-    wakuLegacyLightPush*: WakuLegacyLightPush
-    wakuLegacyLightpushClient*: WakuLegacyLightPushClient
-    wakuLightPush*: WakuLightPush
-    wakuLightpushClient*: WakuLightPushClient
-    wakuMetadata*: WakuMetadata
+    legacyLightPush*: WakuLegacyLightPush
+    legacyLightPushClient*: WakuLegacyLightPushClient
+    lightPush*: WakuLightPush
+    lightPushClient*: WakuLightPushClient
+    metadata*: WakuMetadata
     libp2pPing*: Ping
     legacyAppHandlers*: Table[PubsubTopic, WakuRelayHandler]
       ## Kernel API Relay appHandlers (if any)
-    wakuMixRln*: ModuleRlnProtection
-    wakuMixRlnListener*: Opt[MessageSeenEventListener]
-    wakuMix*: WakuMix
+    mixRln*: ModuleRlnProtection
+    mixRlnListener*: Opt[MessageSeenEventListener]
+    mix*: WakuMix
     mixNodeResolution*: Future[void].Raising([CancelledError])
       ## The background lookup of the `dns4` mix node names; `nil` when none.
     mixNodeNames*: seq[MixNodeName]
