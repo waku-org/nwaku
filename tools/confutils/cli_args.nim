@@ -160,7 +160,7 @@ type WakuNodeConf* = object
   maxMessageSize* {.
     desc:
       "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc. Default: " &
-        DefaultMaxWakuMessageSizeStr & ", or the one of the preset.",
+      DefaultMaxWakuMessageSizeStr & ", or the one of the preset.",
     defaultValue: "",
     name: "max-msg-size"
   .}: string
