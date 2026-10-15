@@ -629,8 +629,8 @@
       }
     },
     "libp2p": {
-      "version": "#da935c23b32c50134696483dfb52371f0641806b",
-      "vcsRevision": "da935c23b32c50134696483dfb52371f0641806b",
+      "version": "#01659a0b832b6e284a2b6f18c683a0d9dc40c2b1",
+      "vcsRevision": "01659a0b832b6e284a2b6f18c683a0d9dc40c2b1",
       "url": "https://github.com/Ivansete-status/nim-libp2p",
       "downloadMethod": "git",
       "dependencies": [
@@ -652,7 +652,7 @@
         "libplum"
       ],
       "checksums": {
-        "sha1": "e9e8c144512be99783c52905492aa19cd8e80c0b"
+        "sha1": "3fe1c1b10dcd6081197d06e3fb41e17f90459196"
       }
     },
     "sds": {
