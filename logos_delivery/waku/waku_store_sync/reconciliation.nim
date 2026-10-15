@@ -41,6 +41,8 @@ const DefaultMaxPayloadSize = 64 * 1024 * 1024
   ## takes at most 41 bytes, so this is about 1.6 million entries in one round.
 
 type SyncReconciliation* = ref object of LPProtocol
+  cluster: uint16
+  shards: HashSet[uint16] # Empty set means all shards.
   pubsubTopics: HashSet[PubsubTopic] # Empty set means accept all. See spec.
 
   peerManager: PeerManager
@@ -388,7 +390,8 @@ proc initFillStorage(
 
 proc new*(
     T: type SyncReconciliation,
-    pubsubTopics: seq[PubSubTopic],
+    cluster: uint16,
+    shards: seq[uint16],
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     syncRange: timer.Duration = DefaultSyncRange,
@@ -422,7 +425,9 @@ proc new*(
       res.get()
 
   var sync = SyncReconciliation(
-    pubsubTopics: pubsubTopics.toHashSet(),
+    cluster: cluster,
+    shards: shards.toHashSet(),
+    pubsubTopics: shards.mapIt($RelayShard(clusterId: cluster, shardId: it)).toHashSet(),
     peerManager: peerManager,
     storage: storage,
     syncRange: effectiveRange,

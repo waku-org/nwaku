@@ -39,7 +39,7 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
 
 proc newTestWakuRecon*(
     switch: Switch,
-    pubsubTopics: seq[PubsubTopic] = @[],
+    shards: seq[uint16] = @[],
     syncRange: timer.Duration = DefaultSyncRange,
     idsRx: AsyncQueue[(SyncID, PubsubTopic, ContentTopic)],
     wantsTx: AsyncQueue[PeerId],
@@ -47,11 +47,13 @@ proc newTestWakuRecon*(
     relayJitter: timer.Duration = 0.seconds,
     syncInterval: timer.Duration = DefaultSyncInterval,
     clock: proc(): Timestamp {.gcsafe, raises: [].} = getNowInNanosecondTime,
+    cluster: uint16 = DefaultClusterId,
 ): Future[SyncReconciliation] {.async.} =
   let peerManager = PeerManager.new(switch)
 
   let res = await SyncReconciliation.new(
-    pubsubTopics = pubsubTopics,
+    cluster = cluster,
+    shards = shards,
     peerManager = peerManager,
     wakuArchive = nil,
     syncRange = syncRange,

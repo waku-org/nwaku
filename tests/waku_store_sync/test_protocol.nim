@@ -510,20 +510,22 @@ suite "Waku Sync: reconciliation":
   asyncTest "sync 2 nodes different shards":
     server = await newTestWakuRecon(
       serverSwitch,
-      @["/waku/2/rs/2/1", "/waku/2/rs/2/2", "/waku/2/rs/2/3", "/waku/2/rs/2/4"],
+      @[1'u16, 2, 3, 4],
       DefaultSyncRange,
       idsChannel,
       localWants,
       remoteNeeds,
+      cluster = 2,
     )
 
     client = await newTestWakuRecon(
       clientSwitch,
-      @["/waku/2/rs/2/3", "/waku/2/rs/2/4", "/waku/2/rs/2/5", "/waku/2/rs/2/6"],
+      @[3'u16, 4, 5, 6],
       DefaultSyncRange,
       idsChannel,
       localWants,
       remoteNeeds,
+      cluster = 2,
     )
 
     let
