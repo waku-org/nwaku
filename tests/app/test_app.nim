@@ -10,7 +10,7 @@ import
   tests/testlib/[wakucore, wakunode],
   logos_delivery/waku/factory/conf_builder/conf_builder
 
-include logos_delivery/waku/waku, logos_delivery/waku/common/enr/typed_record
+include logos_delivery/waku/kernel, logos_delivery/waku/common/enr/typed_record
 
 suite "Node app - Waku":
   test "compilation version should be reported":

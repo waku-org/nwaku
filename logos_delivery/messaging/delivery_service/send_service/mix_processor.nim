@@ -1,5 +1,5 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku
+import logos_delivery/waku/waku_core, logos_delivery/waku/kernel
 import logos_delivery/waku/api/publish
 import logos_delivery/waku/waku_mix
 import logos_delivery/api/conf/modes

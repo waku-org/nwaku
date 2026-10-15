@@ -5,7 +5,7 @@ import std/[sequtils, times], results, chronos, chronicles
 import
   logos_delivery/api/conf/messaging_conf,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/[publish, health],
   logos_delivery/waku/node/health_monitor,
   logos_delivery/waku/factory/conf_builder/waku_conf_builder,

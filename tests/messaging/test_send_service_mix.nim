@@ -13,7 +13,7 @@ import
   logos_delivery/waku/node/waku_node/mix_rln,
   libp2p/[peerid, multiaddress],
   libp2p/stream/connection,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_mix,
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/api/publish,

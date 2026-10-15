@@ -1,7 +1,7 @@
 import results, chronos, chronicles
 import brokers/broker_context
 import logos_delivery/waku/[waku_core], logos_delivery/waku/waku_lightpush/[common, rpc]
-import logos_delivery/waku/waku, logos_delivery/waku/api/publish
+import logos_delivery/waku/kernel, logos_delivery/waku/api/publish
 import logos_delivery/waku/requests/health_requests
 import logos_delivery/api/types
 import ./[delivery_task, send_processor]

@@ -16,7 +16,7 @@ import presto
 import
   logos_delivery/logos_delivery,
   rest/rest_server_conf,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_node,
   logos_delivery/waku/node/health_monitor,
   logos_delivery/waku/discovery/waku_discv5,

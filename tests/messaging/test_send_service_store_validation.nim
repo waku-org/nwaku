@@ -4,7 +4,7 @@ import std/sequtils
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_node,
   logos_delivery/waku/waku_store,
   logos_delivery/waku/node/peer_manager,

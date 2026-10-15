@@ -21,7 +21,7 @@ import
   logos_delivery/waku/
     [waku_core, node/peer_manager, waku_node, waku_mix, waku_lightpush],
   logos_delivery/waku/node/peer_manager/waku_peer_store,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/publish,
   logos_delivery/waku/factory/waku_conf,
   logos_delivery/api/types,

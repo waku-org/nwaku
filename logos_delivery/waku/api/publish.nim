@@ -10,7 +10,7 @@
 import std/[tables, strutils]
 import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import
   logos_delivery/waku/[
     waku_core,

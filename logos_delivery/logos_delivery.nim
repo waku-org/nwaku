@@ -18,8 +18,8 @@ import results, chronos, chronicles
 # stem, so they are imported under aliases.)
 
 # Waku layer
-import logos_delivery/waku/waku
-export waku
+import logos_delivery/waku/kernel
+export kernel
 import
   logos_delivery/waku/api/[
     topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,

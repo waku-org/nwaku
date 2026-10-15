@@ -20,7 +20,7 @@ import
   logos_delivery/messaging/messaging_metrics,
   logos_delivery/waku/persistency/persistency,
   logos_delivery/waku/[waku_core, waku_core/topics, waku_store/common],
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/[store, subscriptions, health],
   logos_delivery/waku/api/events/[health_events, peer_events],
   logos_delivery/waku/requests/health_requests,

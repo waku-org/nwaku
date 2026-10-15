@@ -9,7 +9,7 @@ import
   json_serialization/std/options
 import presto/[route, common]
 import
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/subscriptions,
   rest/serdes,
   rest/responses,

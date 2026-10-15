@@ -3,7 +3,7 @@
 import std/[options, osproc, sequtils, times]
 import chronos, testutils/unittests, results, stew/byteutils
 import
-  logos_delivery/waku/[waku, waku_core, rln],
+  logos_delivery/waku/[kernel, waku_core, rln],
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/node/waku_node/relay,
   logos_delivery/waku/api/publish,

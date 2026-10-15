@@ -22,7 +22,7 @@ import
     net/auto_port,
     waku_enr/capabilities,
     factory/conf_builder/conf_builder,
-    waku,
+    kernel,
     waku_node,
     node/peer_manager,
   ],

@@ -15,7 +15,7 @@ import
   logos_delivery/waku/[
     common/enr,
     common/logging,
-    waku as waku_factory,
+    kernel as waku_factory,
     waku_node,
     node/waku_metrics,
     node/peer_manager,

@@ -1,6 +1,6 @@
 import results, chronos
 import brokers/broker_context
-import logos_delivery/waku/waku, logos_delivery/waku/api/publish
+import logos_delivery/waku/kernel, logos_delivery/waku/api/publish
 import ./delivery_task
 
 {.push raises: [].}

@@ -7,7 +7,7 @@ import
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/send,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/subscriptions,
   logos_delivery/waku/persistency/persistency,
   logos_delivery/messaging/delivery_service/[recv_service, send_service]

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import tools/confutils/cli_args
-import logos_delivery/waku/[common/logging, waku, factory/networks_config]
+import logos_delivery/waku/[common/logging, kernel, factory/networks_config]
 import
   results,
   std/[strutils, os, sequtils],
@@ -11,7 +11,7 @@ import
   libp2p/crypto/crypto
 
 export
-  networks_config, waku, logging, strutils, os, sequtils, stewNet, chronicles, chronos,
+  networks_config, kernel, logging, strutils, os, sequtils, stewNet, chronicles, chronos,
   metrics, crypto
 
 proc setup*(): Kernel =

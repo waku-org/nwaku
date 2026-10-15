@@ -4,7 +4,7 @@ import std/[importutils, sequtils, tables]
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_core,
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/rln/[rln_api, rln_plugin],
