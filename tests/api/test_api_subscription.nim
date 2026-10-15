@@ -15,6 +15,7 @@ import
     waku_core,
     waku_relay/protocol,
     node/waku_node/filter,
+    node/peer_manager,
     node/subscription_manager,
     waku_filter_v2/subscriptions,
   ]
@@ -474,19 +475,16 @@ suite "Messaging API, SubscriptionManager":
 
     await verifyNetworkState(activeSubs)
 
-  asyncTest "Subscription API, relay node configured with one shard is subscribed to every shard":
+  asyncTest "Subscription API, relay node configured with one shard is subscribed to that shard only":
     var conf = defaultTestNodeConf(numShards = 8)
     conf.kernel.shards = @[1'u16]
     let node = await setupSubscriberNode(conf)
     defer:
       (await node.stop()).expect("Failed to stop node")
 
-    let allShards =
-      toSeq(0'u16 ..< 8'u16).mapIt($RelayShard(clusterId: TestClusterId, shardId: it))
-
-    # The configured shards do not limit the relay subscription under autosharding.
     check:
-      node.waku.node.wakuRelay.subscribedTopics().toHashSet() == allShards.toHashSet()
+      node.waku.node.wakuRelay.subscribedTopics().toHashSet() ==
+        [$RelayShard(clusterId: TestClusterId, shardId: 1)].toHashSet()
 
   asyncTest "Subscription API, edge node subscribe and receive message":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
@@ -897,6 +895,68 @@ suite "Messaging API, SubscriptionManager":
     check:
       edgePeerId in subscriptions.findSubscribedPeers(shard, keptTopic)
       edgePeerId notin subscriptions.findSubscribedPeers(shard, removedTopic)
+
+  asyncTest "Subscription API, edge node never subscribes through its filternode":
+    # TODO: logos-delivery#4521
+    let shards = @[PubsubTopic("/waku/2/rs/3/0")]
+
+    proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+      discard
+
+    var filterNode: WakuNode
+    lockNewGlobalBrokerContext:
+      filterNode = newTestWakuNode(generateSecp256k1Key())
+      filterNode.mountMetadata(TestClusterId, @[0'u16]).expect(
+        "Failed to mount metadata on filterNode"
+      )
+      (await filterNode.mountRelay()).expect("Failed to mount relay on filterNode")
+      await filterNode.mountFilter()
+      await filterNode.mountLibp2pPing()
+      await filterNode.start()
+    defer:
+      await filterNode.stop()
+
+    for shard in shards:
+      filterNode.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
+        "Failed to sub filterNode"
+      )
+
+    let filterPeerInfo = filterNode.peerInfo.toRemotePeerInfo()
+    let filterAddr = $filterPeerInfo.addrs[0] & "/p2p/" & $filterPeerInfo.peerId
+
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.filternode = filterAddr
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+
+    let testTopic = ContentTopic("/waku/2/filternode/proto")
+    (await subscriber.messagingClient.subscribe(testTopic)).expect(
+      "Failed to subscribe"
+    )
+
+    let shard = subscriber.waku.node.getRelayShard(testTopic)
+    check shard == shards[0]
+    let edgePeerId = subscriber.waku.node.peerInfo.peerId
+    let peerStore = subscriber.waku.node.peerManager.switch.peerStore
+    checkUntilTimeout:
+      shard in subscriber.waku.node.subscriptionManager.edgeFilterSubStates
+
+    # The filter node stays up, but the edge never dials it.
+    await sleepAsync(NegativeTestTimeout)
+    check:
+      subscriber.waku.node.peerManager.serviceSlots.getOrDefault(
+        WakuFilterSubscribeCodec, RemotePeerInfo()
+      ).peerId == filterPeerInfo.peerId
+      peerStore.connectedness(filterPeerInfo.peerId) == NotConnected
+      subscriber.waku.node.subscriptionManager.edgeFilterPeerCount(shard) == 0
+      edgePeerId notin
+        filterNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
+
+    await subscriber.waku.node.connectToNodes(@[filterAddr])
+    checkUntilTimeout:
+      edgePeerId in
+        filterNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
 
 type SendSubscriptionNet = ref object
   servers: seq[WakuNode] ## relay and filter service nodes on `shard`

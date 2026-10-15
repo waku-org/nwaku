@@ -316,19 +316,21 @@ proc isSubscribed*(
   let shard = ?self.getShardForContentTopic(topic)
   return ok(self.isContentSubscribed(shard, topic))
 
-proc subscribeAllAutoshards*(self: SubscriptionManager): Result[void, string] =
-  ## Subscribes the relay to every shard in the configured autosharding cluster.
-  if self.node.wakuRelay.isNil() or self.node.wakuAutoSharding.isNone():
+proc subscribeConfiguredShards*(
+    self: SubscriptionManager, clusterId: uint16, shards: openArray[uint16]
+): Result[void, string] =
+  ## Subscribes the relay to the shards the node is configured for, so that what
+  ## the ENR and metadata advertise is what the relay is actually on.
+  if self.node.wakuRelay.isNil():
     return ok()
 
-  let autoSharding = self.node.wakuAutoSharding.get()
-  for shardId in autoSharding.shards:
-    let shardObj = RelayShard(clusterId: autoSharding.clusterId, shardId: shardId)
-    self.subscribeShard(PubsubTopic($shardObj)).isOkOr:
-      error "failed to auto-subscribe relay to cluster shard",
-        shard = $shardObj, error = error
+  for shardId in shards:
+    let shard = $RelayShard(clusterId: clusterId, shardId: shardId)
+    self.subscribeShard(PubsubTopic(shard)).isOkOr:
+      return
+        err("could not subscribe relay to configured shard: " & shard & ": " & error)
 
-  ok()
+  return ok()
 
 {.pop.}
 

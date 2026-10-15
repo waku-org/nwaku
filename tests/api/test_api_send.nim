@@ -21,6 +21,7 @@ import
     waku_archive,
     waku_archive/archive_metrics,
     common/base64,
+    node/peer_manager,
   ],
   rest/server,
   rest/client,
@@ -809,6 +810,170 @@ suite "Waku API - Send":
     await isolatedStoreNode.stop()
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
+
+  asyncTest "A store node that joins after a send propagated never gets that message, and only a later send is confirmed":
+    # TODO: logos-delivery#4511
+    ## A propagated message is not sent again, so a store node that joins the
+    ## mesh after it cannot confirm it.
+    var lateStoreNode: WakuNode
+    lockNewGlobalBrokerContext:
+      lateStoreNode = newTestWakuNode(generateSecp256k1Key())
+      lateStoreNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
+        raiseAssert "Failed to mount metadata: " & error
+      (await lateStoreNode.mountRelay()).isOkOr:
+        raiseAssert "Failed to mount relay"
+      let archiveDriver = newSqliteArchiveDriver()
+      lateStoreNode.mountArchive(archiveDriver).isOkOr:
+        raiseAssert "Failed to mount archive: " & error
+      await lateStoreNode.mountStore()
+      await lateStoreNode.mountLibp2pPing()
+      await lateStoreNode.start()
+    defer:
+      await lateStoreNode.stop()
+    let lateStoreNodePeerInfo = lateStoreNode.peerInfo.toRemotePeerInfo()
+    proc dummyHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      discard
+
+    lateStoreNode.subscribe(
+      (kind: PubsubSub, topic: PubsubTopic("/waku/2/rs/3/0")), dummyHandler
+    ).isOkOr:
+      raiseAssert "Failed to subscribe lateStoreNode: " & error
+
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+
+      await node.waku.node.connectToNodes(@[relayNode1PeerInfo])
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    node.messagingClient.sendService.maxValidationAge = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    let contentTopic = ContentTopic("/waku/2/default-content/proto")
+
+    let requestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(contentTopic, "test payload")
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await eventManager.propagatedFuture.withTimeout(10.seconds)
+
+    await node.waku.node.connectToNodes(@[lateStoreNodePeerInfo])
+    checkUntilTimeout:
+      lateStoreNode.hasMeshPeer(
+        PubsubTopic("/waku/2/rs/3/0"), node.waku.node.peerInfo.peerId
+      )
+    check eventManager.errorCount == 0
+
+    check await eventManager.errorFuture.withTimeout(30.seconds)
+
+    eventManager.validate(
+      {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
+    )
+    check eventManager.errorDescs ==
+      @[
+        "Propagated but not confirmed by a store node within the store validation window"
+      ]
+
+    let stored = (
+      await lateStoreNode.wakuArchive.findMessages(
+        ArchiveQuery(contentTopics: @[contentTopic])
+      )
+    ).valueOr:
+      ArchiveResponse()
+    check stored.hashes.len == 0
+
+    let laterEventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    defer:
+      await laterEventManager.teardown()
+
+    let laterRequestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(contentTopic, "later test payload")
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await laterEventManager.sentFuture.withTimeout(10.seconds)
+
+    laterEventManager.validate(
+      {SendEventOutcome.Propagated, SendEventOutcome.Sent}, laterRequestId
+    )
+
+  asyncTest "Edge sender never sends through a static node that was down at its start":
+    # TODO: logos-delivery#4510
+    let lightpushNodeAddr =
+      $lightpushNodePeerInfo.addrs[0] & "/p2p/" & $lightpushNodePeerId
+    await lightpushNode.stop()
+
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.staticnodes = @[lightpushNodeAddr]
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(conf)).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    await lightpushNode.start()
+    await lightpushNode.connectToNodes(@[relayNode2PeerInfo])
+
+    # The retry time window outlasts the backoff.
+    node.waku.node.peerManager.initialBackoffInSec = 1
+    node.messagingClient.sendService.maxDeliveryTime = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    let envelope = MessageEnvelope.init(
+      ContentTopic("/waku/2/default-content/proto"), "test payload"
+    )
+
+    let requestId = (await node.messagingClient.send(envelope)).valueOr:
+      raiseAssert error
+
+    check await eventManager.errorFuture.withTimeout(30.seconds)
+
+    eventManager.validate({SendEventOutcome.Error}, requestId)
+    check:
+      eventManager.errorDescs == @["Unable to send within retry time window"]
+      node.waku.node.peerManager.switch.peerStore.connectedness(lightpushNodePeerId) ==
+        CannotConnect
+
+    await node.waku.node.connectToNodes(@[lightpushNodeAddr])
+
+    let laterEventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    defer:
+      await laterEventManager.teardown()
+
+    let laterRequestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(
+          ContentTopic("/waku/2/default-content/proto"), "later test payload"
+        )
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await laterEventManager.propagatedFuture.withTimeout(10.seconds)
+
+    laterEventManager.validate({SendEventOutcome.Propagated}, laterRequestId)
 
 ## Checks that the caller gets the request id before any event of the send. The
 ## node has a budget of 0, so each send emits an event with no network call. A

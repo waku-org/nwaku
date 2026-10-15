@@ -221,8 +221,7 @@ suite "parseLogosDeliveryConf - JSON parsing":
     require lc.messagingConf.isSome()
     check lc.messagingConf.get().reliabilityEnabled.isSome()
 
-  test "a clusterId override of 2 replaces the logos.test preset with the logos.dev one":
-    # TODO: logos-delivery#4454
+  test "a clusterId override of 2 keeps the logos.test preset":
     let lc = parseLogosDeliveryConf(
       """{"preset": "logos.test", "messagingOverrides": {"clusterId": 2}}"""
     ).valueOr:
@@ -231,7 +230,7 @@ suite "parseLogosDeliveryConf - JSON parsing":
         raiseAssert error
     check:
       wakuConf.clusterId == 2
-      wakuConf.staticNodes == NetworkPresetConf.LogosDevConf().entryNodes
+      wakuConf.staticNodes == NetworkPresetConf.LogosTestConf().entryNodes
 
   test "an anonymity override reaches the messaging record and mounts mix":
     let lc = parseLogosDeliveryConf(
@@ -340,6 +339,13 @@ suite "parseLogosDeliveryConf - JSON parsing":
       kc.clusterId == Opt.some(7'u16)
       lc.messagingConf.get().reliabilityEnabled == Opt.some(true) # messaging-only
       kc.tcpPort == Port(1234)
+
+  test "the anonymity-level switch name is rejected as an override key":
+    # TODO: logos-delivery#4539
+    check parseLogosDeliveryConf(
+      """{"messagingOverrides": {"anonymity-level": "Required"}}"""
+    )
+      .isErr()
 
   test "unknown keys inside an overrides body are rejected":
     check parseLogosDeliveryConf("""{"messagingOverrides": {"bogusKey": 1}}""").isErr()
