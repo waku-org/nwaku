@@ -76,10 +76,9 @@ suite "WakuNodeConf - preset integration":
     require wakuConf.validate().isOk()
     check:
       wakuConf.clusterId == 2
-    # TODO: logos-delivery#4454
     check wakuConf.staticNodes == NetworkPresetConf.LogosTestConf().entryNodes
 
-  test "Cluster id 2 applies LogosDevConf":
+  test "Cluster id 2 alone sets the cluster only, without a preset":
     ## Given
     var conf = defaultKernelConf().valueOr:
       raiseAssert error
@@ -89,16 +88,12 @@ suite "WakuNodeConf - preset integration":
     let wakuConf = conf.toWakuConf().valueOr:
       raiseAssert error
 
-    ## Then the logos.dev preset runs on cluster 2 instead of its own cluster 3
+    ## Then
     check:
-      wakuConf.validate().isOk()
       wakuConf.clusterId == 2
-      wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShards == 8
-      wakuConf.staticNodes == NetworkPresetConf.LogosDevConf().entryNodes
+      wakuConf.staticNodes.len == 0
 
-  test "Cluster id 2 with the logos.test preset applies LogosDevConf":
-    # TODO: logos-delivery#4454
+  test "Cluster id 2 with the logos.test preset applies LogosTestConf":
     ## Given
     var conf = defaultKernelConf().valueOr:
       raiseAssert error
@@ -109,11 +104,11 @@ suite "WakuNodeConf - preset integration":
     let wakuConf = conf.toWakuConf().valueOr:
       raiseAssert error
 
-    ## Then the logos.dev preset replaces the requested logos.test preset
+    ## Then
     check:
       wakuConf.validate().isOk()
       wakuConf.clusterId == 2
-      wakuConf.staticNodes == NetworkPresetConf.LogosDevConf().entryNodes
+      wakuConf.staticNodes == NetworkPresetConf.LogosTestConf().entryNodes
 
   test "StatusProd preset applies StatusProdConf":
     ## Given
