@@ -755,7 +755,7 @@ suite "Waku API - Send":
       raiseAssert "Failed to stop node: " & error
 
   asyncTest "Own message is received as live with no relay peer":
-    # TODO: own-message-received-live
+    # TODO: logos-delivery#4563
     var node: LogosDelivery
     lockNewGlobalBrokerContext:
       node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
@@ -790,7 +790,7 @@ suite "Waku API - Send":
     ).valueOr:
       raiseAssert error
 
-    check await eventManager.errorFuture.withTimeout(30.seconds)
+    check await eventManager.errorFuture.withTimeout(10.seconds)
     eventManager.validate({SendEventOutcome.Error}, requestId)
     check:
       eventManager.errorDescs == @["Unable to send within retry time window"]

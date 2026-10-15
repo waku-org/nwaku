@@ -79,7 +79,7 @@ class TestMessagingRestNodeConfig(StepsMessaging):
             node.messaging_subscribe([self.test_content_topic])
 
     def test_store_validation_timeout_error_is_logged_at_debug_only(self):
-        # TODO: store-validation-log-level
+        # TODO: logos-delivery#4564
         # node1 is the relay peer of node2 and runs no Store service.
         self.node1 = WakuNode(NODE_1, f"node1_{self.test_id}")
         self.node1.start(**self.messaging_args())
