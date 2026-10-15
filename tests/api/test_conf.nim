@@ -1,6 +1,6 @@
 {.used.}
 
-import std/net, results, chronos, testutils/unittests
+import std/[net, strutils], results, chronos, testutils/unittests
 import brokers/broker_context
 import logos_delivery
 import logos_delivery/api/conf/logos_delivery_conf_json
@@ -340,12 +340,30 @@ suite "parseLogosDeliveryConf - JSON parsing":
       lc.messagingConf.get().reliabilityEnabled == Opt.some(true) # messaging-only
       kc.tcpPort == Port(1234)
 
-  test "the anonymity-level switch name is rejected as an override key":
-    # TODO: logos-delivery#4539
-    check parseLogosDeliveryConf(
+  test "the anonymity-level switch name is accepted as an override key":
+    let lc = parseLogosDeliveryConf(
       """{"messagingOverrides": {"anonymity-level": "Required"}}"""
-    )
-      .isErr()
+    ).valueOr:
+      raiseAssert error
+    check:
+      lc.messagingConf.get(MessagingClientConf()).anonymityLevel ==
+        Opt.some(AnonymityLevel.Required)
+      WakuNodeConf(lc.kernelConf).mix == Opt.some(true)
+
+  test "the anonymity-level switch name in a flat blob is lifted to the messaging record":
+    let lc = parseLogosDeliveryConf("""{"anonymity-level": "Preferred"}""").valueOr:
+      raiseAssert error
+    check:
+      lc.messagingConf.get(MessagingClientConf()).anonymityLevel ==
+        Opt.some(AnonymityLevel.Preferred)
+      WakuNodeConf(lc.kernelConf).mix == Opt.some(true)
+
+  test "anonymityLevel set via both its name and its switch name is rejected":
+    check "was set twice" in
+      parseLogosDeliveryConf(
+        """{"messagingOverrides": {"anonymityLevel": "Required", "anonymity-level": "Required"}}"""
+      )
+      .errorOr("accepted")
 
   test "unknown keys inside an overrides body are rejected":
     check parseLogosDeliveryConf("""{"messagingOverrides": {"bogusKey": 1}}""").isErr()
