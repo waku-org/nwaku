@@ -76,49 +76,37 @@ class TestLogosDeliveryLifecycle:
             assert unsubscribe_result.is_ok(), f"unsubscribe on a node never started failed: {unsubscribe_result.err()}"
 
     def test_restart_node_with_rest(self, node_config):
-        # TODO: logos-delivery#4522
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node({**node_config, "rest": True}) as node:
             rest_port = get_node_bound_ports(node)["rest"]
             stop_result = node.stop_node()
             assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                assert s.connect_ex(("127.0.0.1", rest_port)) == 0, "REST port refused a connection after stop_node"
+                assert s.connect_ex(("127.0.0.1", rest_port)) != 0, "REST port accepted a connection after stop_node"
 
             start_result = node.start_node()
-            assert start_result.is_err(), "restart with REST on succeeded"
-            assert "failed to start REST: could not start the essential REST server" in start_result.err(), start_result.err()
-            assert "Address already in use" in start_result.err(), start_result.err()
-
-            start_result = node.start_node()
-            assert start_result.is_err(), "second restart with REST on succeeded"
-            assert "failed to start REST: could not start the essential REST server" in start_result.err(), start_result.err()
-            assert "Address already in use" in start_result.err(), start_result.err()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+            assert get_node_bound_ports(node)["rest"] == rest_port, "REST bound another port after the restart"
 
             peer_collector = EventCollector()
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
-                assert not wait_for_mesh(peer_collector), "peer meshed with the node whose restart failed"
+                assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
 
     def test_restart_node_with_metrics_server(self, node_config):
-        # TODO: logos-delivery#4522
-        # The restart fails but the node keeps running, and stop_node cannot stop it.
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node({**node_config, "metricsServer": True, "metricsServerPort": 0}) as node:
             stop_result = node.stop_node()
             assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
 
             start_result = node.start_node()
-            assert start_result.is_err(), "restart with the metrics server on succeeded"
-            assert "Starting metrics server failed" in start_result.err(), start_result.err()
-            assert "Address already in use" in start_result.err(), start_result.err()
-
-            stop_result = node.stop_node()
-            assert stop_result.is_err(), "stop after the failed restart succeeded"
-            assert "Metrics server returns an error: HTTP server is already stopped" in stop_result.err(), stop_result.err()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
 
             peer_collector = EventCollector()
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
-                assert wait_for_mesh(peer_collector), "peer never meshed with the node whose stop failed"
+                assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
+
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
 
     def test_peer_meshes_with_started_node(self, node_config):
         node_config.update({"numShardsInNetwork": 1})

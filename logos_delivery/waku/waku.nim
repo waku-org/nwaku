@@ -466,6 +466,8 @@ proc closePersistency(waku: Waku) =
     waku.persistency.close()
     waku.persistency = nil
 
+proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).}
+
 proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   if waku.node.started:
     debug "start: waku node already started"
@@ -489,8 +491,13 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   var startSucceeded = false
   defer:
     if not startSucceeded:
-      await waku.node.stopMixRln()
-      waku.closePersistency()
+      if waku.node.started:
+        # Stop the node, so the next start does not return early as "already started".
+        (await waku.stop()).isOkOr:
+          error "Failed to stop after a failed start", error = error
+      else:
+        await waku.node.stopMixRln()
+        waku.closePersistency()
 
   if conf.dnsDiscoveryConf.isSome():
     let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
@@ -663,7 +670,8 @@ proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
     waku.closePersistency()
 
     if not waku.metricsServer.isNil():
-      await waku.metricsServer.stop()
+      await waku.metricsServer.close()
+      waku.metricsServer = nil
 
     # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
 
