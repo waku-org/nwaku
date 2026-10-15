@@ -2085,8 +2085,7 @@ suite "Waku v2 Rest API - Relay":
       bytesAfterFirst > bytesBefore
       relayNetworkBytes(netIn) - bytesAfterFirst == bytesAfterFirst - bytesBefore
 
-  asyncTest "A message posted again with a relay peer in the mesh is answered 200 on the static route and 400 NoPeersToPublish on the auto route - POST /relay/v1/messages/{topic}, POST /relay/v1/auto/messages":
-    # TODO: logos-delivery#4453
+  asyncTest "A message posted again with a relay peer in the mesh is answered 200 on the static route and 400 DuplicateMessage on the auto route - POST /relay/v1/messages/{topic}, POST /relay/v1/auto/messages":
     # Given two relay nodes with autosharding over 8 shards, each behind its own REST server
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
@@ -2144,12 +2143,12 @@ suite "Waku v2 Rest API - Relay":
     let staticAgain = await publisherClient.relayPostMessagesV1(shard, message)
     let autoAgain = await publisherClient.relayPostAutoMessagesV1(message)
 
-    # Then the static route answers 200 and the auto route 400 NoPeersToPublish, with the receiver still in the mesh
+    # Then the static route answers 200 and the auto route 400 DuplicateMessage, with the receiver still in the mesh
     check:
       firstResponse.status == 200
       received.mapIt(it.payload) == @[message.payload]
       staticAgain.status == 200
       staticAgain.data == "OK"
       autoAgain.status == 400
-      autoAgain.data == "Failed to publish: publish failed in relay: NoPeersToPublish"
+      autoAgain.data == "Failed to publish: publish failed in relay: DuplicateMessage"
       publisher.hasMeshPeer(shard, receiver.peerInfo.peerId)
