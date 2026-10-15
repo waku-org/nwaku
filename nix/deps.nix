@@ -306,8 +306,8 @@
 
   libp2p = pkgs.fetchgit {
     url = "https://github.com/Ivansete-status/nim-libp2p";
-    rev = "01659a0b832b6e284a2b6f18c683a0d9dc40c2b1";
-    sha256 = "067z9l4wyn2bmwbw3bbad5l4s0zm3ggfsgs6f4xrblcylp46vq9y";
+    rev = "591033cff9ae320b88c1e73b97b1d6112fd7fac9";
+    sha256 = "0gd156vxhd1xdx5fpzdbs9bbyqvybnsv5byarzyjyp4z1gwcaar5";
     fetchSubmodules = true;
   };
 
