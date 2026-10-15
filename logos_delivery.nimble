@@ -35,7 +35,8 @@ requires "nim == 2.2.6",
   "protobuf_serialization",
   "faststreams",
   # Networking & P2P
-  "libp2p == 2.4.1",
+  # Temporary: validates vacp2p/nim-libp2p#3270 (publish seen-check fix).
+  "https://github.com/Ivansete-status/nim-libp2p#da935c23b32c50134696483dfb52371f0641806b",
   # 0.9.0 is the locked version; an unversioned "eth" resolves to nim-eth HEAD,
   # which no longer ships eth/p2p/discoveryv5/enr.
   "eth == 0.9.0",
