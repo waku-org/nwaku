@@ -33,8 +33,7 @@ type
     fingerprints*: seq[Fingerprint] # Range type fingerprint stored here in order
     itemSets*: seq[ItemSet] # Range type itemset stored here in order
 
-  # Numbered as in the WAKU-SYNC transfer wire specification, in field number
-  # order, because the library writes the fields in declaration order.
+  # Fields in field number order: the library writes them in declaration order.
   WakuMessageAndTopic* {.proto3.} = object
     message* {.fieldNumber: 1.}: WakuMessage
     pubsub* {.fieldNumber: 2.}: PubSubTopic
