@@ -340,6 +340,13 @@ suite "parseLogosDeliveryConf - JSON parsing":
       lc.messagingConf.get().reliabilityEnabled == Opt.some(true) # messaging-only
       kc.tcpPort == Port(1234)
 
+  test "the anonymity-level switch name is rejected as an override key":
+    # TODO: logos-delivery#4539
+    check parseLogosDeliveryConf(
+      """{"messagingOverrides": {"anonymity-level": "Required"}}"""
+    )
+      .isErr()
+
   test "unknown keys inside an overrides body are rejected":
     check parseLogosDeliveryConf("""{"messagingOverrides": {"bogusKey": 1}}""").isErr()
     check parseLogosDeliveryConf("""{"channelsOverrides": {"bogusKey": 1}}""").isErr()
