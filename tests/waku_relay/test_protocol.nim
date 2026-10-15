@@ -1417,9 +1417,9 @@ suite "Waku Relay":
 
       # Then the relay keeps the limit, and gossipsub gets the limit plus the overhead
       check:
-        otherNode.maxWakuMessageSize == 1024
+        otherNode.maxEncodedMessageSize == 1024
         otherNode.maxMessageSize == 1024 + DefaultSafetyBufferProtocolOverhead
-        node.maxWakuMessageSize == int(DefaultMaxWakuMessageSize)
+        node.maxEncodedMessageSize == int(DefaultMaxWakuMessageSize)
         node.maxMessageSize ==
           int(DefaultMaxWakuMessageSize) + DefaultSafetyBufferProtocolOverhead
 
