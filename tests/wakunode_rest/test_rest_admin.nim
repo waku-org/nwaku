@@ -133,6 +133,7 @@ suite "Waku v2 Rest API - Admin":
       )
 
   asyncTest "get peers lists an inbound peer at a port it does not listen on":
+    # TODO: logos-delivery#4480
     let
       primaryIp = $getPrimaryIPAddr()
       node1TcpAddr =

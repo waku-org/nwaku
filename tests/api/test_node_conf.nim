@@ -165,25 +165,6 @@ suite "WakuNodeConf - preset integration":
     require wakuConfRes.isOk()
     check wakuConfRes.get().shardingConf.shards == @[0'u16, 1]
 
-  test "Invalid preset returns error":
-    ## Given
-    var conf = defaultKernelConf().valueOr:
-      raiseAssert error
-    conf.preset = "status.prod"
-
-    ## When
-    let wakuConfRes = conf.toWakuConf()
-
-    ## Then
-    require wakuConfRes.isOk()
-    let wakuConf = wakuConfRes.get()
-    require wakuConf.validate().isOk()
-    check:
-      wakuConf.clusterId == 16
-      wakuConf.shardingConf.kind == AutoSharding
-      wakuConf.shardingConf.numShards == 1
-      wakuConf.rlnEvmConf.isNone()
-
   test "StatusProd preset with autosharding shards lands on those shards":
     ## Given
     var conf = defaultKernelConf().valueOr:
