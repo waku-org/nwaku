@@ -466,7 +466,47 @@ proc closePersistency(waku: Waku) =
     waku.persistency.close()
     waku.persistency = nil
 
-proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).}
+proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
+  if not waku.node.started:
+    debug "stop: attempting to stop node that isn't running"
+
+  try:
+    waku.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+
+    waku.closePersistency()
+
+    if not waku.metricsServer.isNil():
+      await waku.metricsServer.close()
+      waku.metricsServer = nil
+
+    # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
+
+    if not waku.node.isNil():
+      await waku.node.stopMixRln()
+      await waku.node.stop()
+
+    if not waku.dnsRetryLoopHandle.isNil():
+      await waku.dnsRetryLoopHandle.cancelAndWait()
+
+    if not waku.enrReconcileLoopHandle.isNil():
+      await waku.enrReconcileLoopHandle.cancelAndWait()
+
+    if not waku.healthMonitor.isNil():
+      await waku.healthMonitor.stopHealthMonitor()
+
+    ## Clear all providers registered in start() so a later start() can re-set them.
+    RequestConnectionStatus.clearProvider(waku.brokerCtx)
+    RequestProtocolHealth.clearProvider(waku.brokerCtx)
+    RequestHealthReport.clearProvider(waku.brokerCtx)
+    ## Node-state getters: provided again by the next start(). Cleared after
+    ## node.stop() because discovery backends read them while stopping.
+    ## GetDiscoveryRequirements stays (see new): it is config-only.
+    waku.clearNodeState()
+  except Exception:
+    error "Waku stop failed", error = getCurrentExceptionMsg()
+    return err("waku stop failed: " & getCurrentExceptionMsg())
+
+  return ok()
 
 proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   if waku.node.started:
@@ -496,6 +536,7 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
         (await waku.stop()).isOkOr:
           error "Failed to stop after a failed start", error = error
       else:
+        # The node did not start, but mix RLN and the persistency can run.
         await waku.node.stopMixRln()
         waku.closePersistency()
 
@@ -658,48 +699,6 @@ proc start*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
   waku.healthMonitor.setOverallHealth(HealthStatus.READY)
 
   startSucceeded = true
-  return ok()
-
-proc stop*(waku: Waku): Future[Result[void, string]] {.async: (raises: []).} =
-  if not waku.node.started:
-    debug "stop: attempting to stop node that isn't running"
-
-  try:
-    waku.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-
-    waku.closePersistency()
-
-    if not waku.metricsServer.isNil():
-      await waku.metricsServer.close()
-      waku.metricsServer = nil
-
-    # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
-
-    if not waku.node.isNil():
-      await waku.node.stopMixRln()
-      await waku.node.stop()
-
-    if not waku.dnsRetryLoopHandle.isNil():
-      await waku.dnsRetryLoopHandle.cancelAndWait()
-
-    if not waku.enrReconcileLoopHandle.isNil():
-      await waku.enrReconcileLoopHandle.cancelAndWait()
-
-    if not waku.healthMonitor.isNil():
-      await waku.healthMonitor.stopHealthMonitor()
-
-    ## Clear all providers registered in start() so a later start() can re-set them.
-    RequestConnectionStatus.clearProvider(waku.brokerCtx)
-    RequestProtocolHealth.clearProvider(waku.brokerCtx)
-    RequestHealthReport.clearProvider(waku.brokerCtx)
-    ## Node-state getters: provided again by the next start(). Cleared after
-    ## node.stop() because discovery backends read them while stopping.
-    ## GetDiscoveryRequirements stays (see new): it is config-only.
-    waku.clearNodeState()
-  except Exception:
-    error "Waku stop failed", error = getCurrentExceptionMsg()
-    return err("waku stop failed: " & getCurrentExceptionMsg())
-
   return ok()
 
 {.pop.}
