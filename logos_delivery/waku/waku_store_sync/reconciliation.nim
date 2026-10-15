@@ -42,7 +42,6 @@ const DefaultMaxPayloadSize = 64 * 1024 * 1024
 
 type SyncReconciliation* = ref object of LPProtocol
   pubsubTopics: HashSet[PubsubTopic] # Empty set means accept all. See spec.
-  contentTopics: HashSet[ContentTopic] # Empty set means accept all. See spec.
 
   peerManager: PeerManager
 
@@ -276,7 +275,6 @@ proc initiate(
     offset: Duration,
     syncRange: Duration,
     pubsubTopics: seq[PubsubTopic],
-    contentTopics: seq[ContentTopic],
 ): Future[Result[void, string]] {.async.} =
   let
     timeRange = calculateTimeRange(self.clock(), offset, syncRange)
@@ -320,7 +318,6 @@ proc storeSynchronization*(
     offset: Duration = self.relayJitter,
     syncRange: Duration = self.syncRange,
     pubsubTopics: HashSet[PubsubTopic] = self.pubsubTopics,
-    contentTopics: HashSet[ContentTopic] = self.contentTopics,
 ): Future[Result[void, string]] {.async.} =
   let peer = peerInfo.valueOr:
     self.peerManager.selectPeer(WakuReconciliationCodec).valueOr:
@@ -334,11 +331,7 @@ proc storeSynchronization*(
   debug "Sync session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
-  (
-    await self.initiate(
-      conn, offset, syncRange, pubsubTopics.toSeq(), contentTopics.toSeq()
-    )
-  ).isOkOr:
+  (await self.initiate(conn, offset, syncRange, pubsubTopics.toSeq())).isOkOr:
     debug "Sync session failed",
       local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId, err = error
 
@@ -396,7 +389,6 @@ proc initFillStorage(
 proc new*(
     T: type SyncReconciliation,
     pubsubTopics: seq[PubSubTopic],
-    contentTopics: seq[ContentTopic],
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     syncRange: timer.Duration = DefaultSyncRange,
@@ -431,7 +423,6 @@ proc new*(
 
   var sync = SyncReconciliation(
     pubsubTopics: pubsubTopics.toHashSet(),
-    contentTopics: contentTopics.toHashSet(),
     peerManager: peerManager,
     storage: storage,
     syncRange: effectiveRange,

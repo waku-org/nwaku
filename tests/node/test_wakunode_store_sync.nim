@@ -43,7 +43,6 @@ proc newStoreSyncNode(
     await node.mountStoreSync(
       DefaultClusterId,
       @[DefaultShardId],
-      @[],
       storeSyncRange = 3600,
       storeSyncInterval = 300,
       storeSyncRelayJitter = storeSyncRelayJitter,
@@ -176,7 +175,6 @@ suite "Waku Store Sync - End to End":
       await node.mountStoreSync(
         DefaultClusterId,
         @[DefaultShardId],
-        @[],
         storeSyncRange = 3600,
         storeSyncInterval = 300,
         storeSyncRelayJitter = 20,

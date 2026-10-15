@@ -132,10 +132,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes both empty":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     check:
@@ -151,10 +151,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes empty client full server":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -187,10 +187,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes full client empty server":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -223,11 +223,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes empty client full server, relay jitter shifts the time range":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
       clientSwitch,
-      @[],
       @[],
       20.seconds,
       idsChannel,
@@ -276,7 +275,6 @@ suite "Waku Sync: reconciliation":
     let server = await newTestWakuRecon(
       serverSwitch,
       @[],
-      @[],
       narrowSyncRange,
       idsChannel,
       localWants,
@@ -286,7 +284,6 @@ suite "Waku Sync: reconciliation":
     )
     let client = await newTestWakuRecon(
       clientSwitch,
-      @[],
       @[],
       DefaultSyncRange,
       idsChannel,
@@ -431,24 +428,12 @@ suite "Waku Sync: reconciliation":
       processed.fingerprints.len == 0
       processed.itemSets == @[ItemSet(elements: elements[1 .. 2], reconciled: false)]
 
-  asyncTest "a node with content topics offers the messages of every content topic":
+  asyncTest "a node offers the messages of every content topic":
     server = await newTestWakuRecon(
-      serverSwitch,
-      @[],
-      @[DefaultContentTopic],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch,
-      @[],
-      @[DefaultContentTopic],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -467,18 +452,12 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.contains((serverPeerInfo.peerId, defaultHash)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, otherHash)) == true
 
-  asyncTest "neither the node's nor a peer's content topics narrow a payload":
+  asyncTest "a peer's content topics do not narrow a payload":
     server = await newTestWakuRecon(
-      serverSwitch,
-      @[],
-      @[DefaultContentTopic],
-      DefaultSyncRange,
-      idsChannel,
-      localWants,
-      remoteNeeds,
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -490,20 +469,15 @@ suite "Waku Sync: reconciliation":
         ranges: @[(bounds, RangeType.Fingerprint)],
         fingerprints: @[FullFingerprint],
       )
-      withoutTopics = RangesData(
-        ranges: @[(bounds, RangeType.Fingerprint)], fingerprints: @[FullFingerprint]
-      )
 
-    check:
-      server.preProcessPayload(withTopics, Timestamp(0)).get().contentTopics.len == 0
-      server.preProcessPayload(withoutTopics, Timestamp(0)).get().contentTopics.len == 0
+    check server.preProcessPayload(withTopics, Timestamp(0)).get().contentTopics.len == 0
 
   asyncTest "sync 2 nodes different hashes":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -537,7 +511,6 @@ suite "Waku Sync: reconciliation":
     server = await newTestWakuRecon(
       serverSwitch,
       @["/waku/2/rs/2/1", "/waku/2/rs/2/2", "/waku/2/rs/2/3", "/waku/2/rs/2/4"],
-      @[DefaultContentTopic],
       DefaultSyncRange,
       idsChannel,
       localWants,
@@ -547,7 +520,6 @@ suite "Waku Sync: reconciliation":
     client = await newTestWakuRecon(
       clientSwitch,
       @["/waku/2/rs/2/3", "/waku/2/rs/2/4", "/waku/2/rs/2/5", "/waku/2/rs/2/6"],
-      @[DefaultContentTopic],
       DefaultSyncRange,
       idsChannel,
       localWants,
@@ -589,10 +561,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes same hashes":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let
@@ -623,7 +595,6 @@ suite "Waku Sync: reconciliation":
     server = await newTestWakuRecon(
       serverSwitch,
       @[],
-      @[],
       DefaultSyncRange,
       idsChannel,
       localWants,
@@ -632,7 +603,6 @@ suite "Waku Sync: reconciliation":
     )
     client = await newTestWakuRecon(
       clientSwitch,
-      @[],
       @[],
       DefaultSyncRange,
       idsChannel,
@@ -683,7 +653,6 @@ suite "Waku Sync: reconciliation":
     server = await newTestWakuRecon(
       serverSwitch,
       @[],
-      @[],
       DefaultSyncRange,
       idsChannel,
       localWants,
@@ -692,7 +661,6 @@ suite "Waku Sync: reconciliation":
     )
     client = await newTestWakuRecon(
       clientSwitch,
-      @[],
       @[],
       DefaultSyncRange,
       idsChannel,
@@ -744,7 +712,6 @@ suite "Waku Sync: reconciliation":
     server = await newTestWakuRecon(
       serverSwitch,
       @[],
-      @[],
       DefaultSyncRange,
       idsChannel,
       localWants,
@@ -753,7 +720,6 @@ suite "Waku Sync: reconciliation":
     )
     client = await newTestWakuRecon(
       clientSwitch,
-      @[],
       @[],
       DefaultSyncRange,
       idsChannel,
@@ -799,10 +765,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes 100 msgs 20 diff – 1-second window":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     const
@@ -847,10 +813,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync 2 nodes 500k msgs 300k diff – stress window":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     const
@@ -968,10 +934,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "hash-fingerprint collision, same timestamp – stable sort":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let ts = Timestamp(getNowInNanosecondTime())
@@ -994,11 +960,11 @@ suite "Waku Sync: reconciliation":
 
     check remoteNeeds.len == 0
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     defer:
@@ -1020,10 +986,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "malformed message-ID is ignored during reconciliation":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let nowTs = Timestamp(getNowInNanosecondTime())
@@ -1042,10 +1008,10 @@ suite "Waku Sync: reconciliation":
     check remoteNeeds.len == 0
 
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     defer:
@@ -1062,10 +1028,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "malformed ID: future-timestamp msg is ignored":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let nowNs = getNowInNanosecondTime()
@@ -1086,10 +1052,10 @@ suite "Waku Sync: reconciliation":
 
     check remoteNeeds.len == 0
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     defer:
@@ -1106,10 +1072,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "duplicate ID is queued only once":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let ts = Timestamp(getNowInNanosecondTime())
@@ -1121,10 +1087,10 @@ suite "Waku Sync: reconciliation":
     check remoteNeeds.len == 0
 
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     defer:
@@ -1140,10 +1106,10 @@ suite "Waku Sync: reconciliation":
 
   asyncTest "sync terminates immediately when no diffs exist":
     server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
     client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
     )
 
     let ts = Timestamp(getNowInNanosecondTime())
@@ -1157,12 +1123,10 @@ suite "Waku Sync: reconciliation":
     let wantsQ = newAsyncQueue[PeerId]()
     let needsQ = newAsyncQueue[(PeerId, Fingerprint)]()
 
-    server = await newTestWakuRecon(
-      serverSwitch, @[], @[], DefaultSyncRange, idsQ, wantsQ, needsQ
-    )
-    client = await newTestWakuRecon(
-      clientSwitch, @[], @[], DefaultSyncRange, idsQ, wantsQ, needsQ
-    )
+    server =
+      await newTestWakuRecon(serverSwitch, @[], DefaultSyncRange, idsQ, wantsQ, needsQ)
+    client =
+      await newTestWakuRecon(clientSwitch, @[], DefaultSyncRange, idsQ, wantsQ, needsQ)
 
     defer:
       await server.stop()
