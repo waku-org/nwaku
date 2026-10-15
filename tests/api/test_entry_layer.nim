@@ -19,6 +19,7 @@ import
     waku_filter_v2/client,
     node/peer_manager,
     factory/validator_signed,
+    waku,
   ],
   rest/client,
   rest/kernel_api/relay/types,
@@ -702,7 +703,9 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    await sleepAsync(chronos.seconds(6))
+    discard reconcileEnrAddrs(node.waku.node, node.waku.key, node.waku.wakuDiscv5).valueOr:
+      raiseAssert "reconcile failed: " & error
+
     check:
       toSeq(0'u16 ..< 8'u16).filterIt(
         node.waku.node.enr.containsShard(TestClusterId, it)
