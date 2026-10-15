@@ -5,7 +5,7 @@ import results, chronos, chronicles, metrics
 import eth/p2p/discoveryv5/enr
 import libp2p/peerid # pull PeerId pretty string formatting
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/[waku_core, node/waku_node]
 
 proc version*(self: Kernel): Future[Result[string, string]] {.async.} =

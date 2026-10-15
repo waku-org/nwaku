@@ -5,10 +5,10 @@ import std/[sequtils, strutils]
 import results, chronos, chronicles
 import libp2p/[peerid, peerstore]
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/[waku_core, node/waku_node, node/peer_manager]
 
-# `PeerConnInfo` is defined in `api/types` (surfaced here via `import waku`).
+# `PeerConnInfo` is defined in `api/types` (surfaced here via `import kernel`).
 
 proc connect*(
     self: Kernel, peers: seq[string], timeoutMs: uint32

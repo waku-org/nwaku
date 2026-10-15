@@ -18,8 +18,8 @@ import results, chronos, chronicles
 # stem, so they are imported under aliases.)
 
 # Waku layer
-import logos_delivery/waku/waku
-export waku
+import logos_delivery/waku/kernel
+export kernel
 import
   logos_delivery/waku/api/[
     topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,
@@ -67,7 +67,7 @@ logScope:
   topics = "logosdelivery"
 
 type LogosDelivery* = ref object ## Entry point. Holds one instance of each API layer.
-  waku*: Kernel
+  kernel*: Kernel
   messagingClient*: MessagingClient
   reliableChannelManager*: ReliableChannelManager
 
@@ -78,26 +78,26 @@ proc buildLogosDeliveryStack(
     appCallbacks: AppCallbacks,
 ): Future[Result[LogosDelivery, string]] {.async.} =
   ## Mounts each layer iff its config object is given.
-  let waku = (await Kernel.new(wakuConf, appCallbacks)).valueOr:
+  let kernel = (await Kernel.new(wakuConf, appCallbacks)).valueOr:
     return err("failed to create Waku: " & error)
 
   let messagingClient =
     if messagingConf.isSome():
-      MessagingClient.new(messagingConf.get(), waku).valueOr:
+      MessagingClient.new(messagingConf.get(), kernel).valueOr:
         return err("failed to create MessagingClient: " & error)
     else:
       nil
 
   let reliableChannelManager =
     if channelsConf.isSome():
-      ReliableChannelManager.new(channelsConf.get(), waku.brokerCtx).valueOr:
+      ReliableChannelManager.new(channelsConf.get(), kernel.brokerCtx).valueOr:
         return err("failed to create ReliableChannelManager: " & error)
     else:
       nil
 
   return ok(
     LogosDelivery(
-      waku: waku,
+      kernel: kernel,
       messagingClient: messagingClient,
       reliableChannelManager: reliableChannelManager,
     )
@@ -219,10 +219,10 @@ proc new*(
 
 proc start*(self: LogosDelivery): Future[Result[void, string]] {.async.} =
   ## Starts each present layer bottom-up: transport, then messaging, then channels.
-  if self.waku.isNil():
+  if self.kernel.isNil():
     return err("Waku node is not initialized")
 
-  (await self.waku.startKernel()).isOkOr:
+  (await self.kernel.startKernel()).isOkOr:
     return err("failed to start Waku: " & error)
 
   if not self.messagingClient.isNil():
@@ -241,8 +241,8 @@ proc stop*(self: LogosDelivery): Future[Result[void, string]] {.async.} =
     await self.reliableChannelManager.stop()
   if not self.messagingClient.isNil():
     await self.messagingClient.stop()
-  if not self.waku.isNil():
-    (await self.waku.stopKernel()).isOkOr:
+  if not self.kernel.isNil():
+    (await self.kernel.stopKernel()).isOkOr:
       return err("failed to stop Waku: " & error)
 
   return ok()
@@ -251,21 +251,21 @@ func isRunning*(self: LogosDelivery): bool =
   ## True while a layer still holds what `stop` releases; the channel manager
   ## needs no test, its `stop` is already a no-op when empty.
   let transportUp =
-    not self.waku.isNil() and not self.waku.isNil() and self.waku.started
+    not self.kernel.isNil() and not self.kernel.isNil() and self.kernel.started
   let messagingUp = not self.messagingClient.isNil() and self.messagingClient.started
   transportUp or messagingUp
 
 proc isOnline*(self: LogosDelivery): Future[Result[bool, string]] {.async.} =
-  if self.waku.isNil():
+  if self.kernel.isNil():
     return err("Waku node is not initialized")
-  return await self.waku.isOnline()
+  return await self.kernel.isOnline()
 
 proc getConnectionStatus*(
     self: LogosDelivery
 ): Future[Result[ConnectionStatus, string]] {.async.} =
-  if self.waku.isNil():
+  if self.kernel.isNil():
     return err("Waku node is not initialized")
-  return await self.waku.getConnectionStatus()
+  return await self.kernel.getConnectionStatus()
 
 proc ensureMessaging*(self: LogosDelivery): Result[void, string] =
   ## Fails if the node has no messaging client (a kernel-only node).

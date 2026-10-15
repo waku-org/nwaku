@@ -21,7 +21,7 @@ import
   logos_delivery/waku/
     [waku_core, node/peer_manager, waku_node, waku_mix, waku_lightpush],
   logos_delivery/waku/node/peer_manager/waku_peer_store,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/api/publish,
   logos_delivery/waku/factory/waku_conf,
   logos_delivery/api/types,
@@ -354,41 +354,41 @@ suite "Waku Mix - end to end transport":
     nodeConf.clusterId = Opt.some(DefaultClusterId)
     let conf = nodeConf.toWakuConf().valueOr:
       raiseAssert error
-    let waku = (await Kernel.new(conf)).expect("Kernel.new")
+    let kernel = (await Kernel.new(conf)).expect("Kernel.new")
     defer:
-      discard await waku.stopKernel()
+      discard await kernel.stopKernel()
     let kp = generateKeyPair().expect("mix key pair")
     (
-      await waku.mountMix(
+      await kernel.mountMix(
         DefaultClusterId, kp.privateKey, mixnet.pubInfos[0 ..< NumCore]
       )
     ).isOkOr:
       raiseAssert "mountMix sender: " & $error
-    (await waku.startKernel()).expect("start")
-    await waku.connectToNodes(
+    (await kernel.startKernel()).expect("start")
+    await kernel.connectToNodes(
       (0 ..< NumCore).toSeq().mapIt(mixnet.nodes[it].peerInfo.toRemotePeerInfo())
     )
     # Identify fills this from waku-metadata too; set it here so the exit scan
     # does not wait for that round trip.
     let shardInfo = RelayShard.parse(shard).expect("shard")
     for i in 0 ..< NumCore:
-      waku.peerManager.switch.peerStore.setShardInfo(
+      kernel.peerManager.switch.peerStore.setShardInfo(
         mixnet.nodes[i].peerInfo.peerId, @[shardInfo.shardId]
       )
     # Identify fills the lightpush codec on connect; wait for the exit scan.
     let deadline = Moment.now() + chronos.seconds(5)
-    while not (waku.mixReady() and waku.selectMixLightpushPeer(shard).isSome()) and
+    while not (kernel.mixReady() and kernel.selectMixLightpushPeer(shard).isSome()) and
         Moment.now() < deadline:
       await sleepAsync(chronos.milliseconds(50))
     check:
-      waku.mixReady()
-      waku.selectMixLightpushPeer(shard).isSome()
+      kernel.mixReady()
+      kernel.selectMixLightpushPeer(shard).isSome()
 
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let chain = setupSendProcessorChain(waku, AnonymityLevel.Required).expect("chain")
+    let chain = setupSendProcessorChain(kernel, AnonymityLevel.Required).expect("chain")
     let service = SendService
-      .new(false, waku, manager, chain, AnonymityLevel.Required)
+      .new(false, kernel, manager, chain, AnonymityLevel.Required)
       .expect("SendService.new")
     let msg = WakuMessage(
       payload: toBytes("mix-e2e-send-service over mix"),

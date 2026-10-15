@@ -4,7 +4,7 @@
 import std/strformat
 import results, chronos
 
-import logos_delivery/waku/waku
+import logos_delivery/waku/kernel
 import logos_delivery/waku/waku_core
 
 proc buildContentTopic*(

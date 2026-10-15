@@ -303,7 +303,7 @@ suite "Waku API - Send":
       duplicateCount(relayIngress) >= duplicatesBefore + 2
 
     let stored = (
-      await node.waku.protocols.wakuArchive.findMessages(
+      await node.kernel.protocols.wakuArchive.findMessages(
         ArchiveQuery(contentTopics: @[contentTopic])
       )
     ).valueOr:
@@ -322,11 +322,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -358,11 +358,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -373,9 +373,9 @@ suite "Waku API - Send":
       inc sentCount
       if sentCount == burst:
         allSent.fire()
-    let counter = MessageSentEvent.listen(node.waku.brokerCtx, onSent).expect("listen")
+    let counter = MessageSentEvent.listen(node.kernel.brokerCtx, onSent).expect("listen")
     defer:
-      await MessageSentEvent.dropListener(node.waku.brokerCtx, counter)
+      await MessageSentEvent.dropListener(node.kernel.brokerCtx, counter)
 
     var requestIds: HashSet[RequestId]
     for i in 0 ..< burst:
@@ -406,9 +406,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[relayNode1PeerInfo])
+      await node.kernel.connectToNodes(@[relayNode1PeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -437,9 +437,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -476,11 +476,11 @@ suite "Waku API - Send":
 
       # Edge node has no relay; its only path to the network is the
       # lightpush peer it is connected to.
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
-    check node.waku.protocols.relay.isNil()
+    check node.kernel.protocols.relay.isNil()
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -515,9 +515,9 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
       # No connectToNodes: the sender has no reachable peer at T0.
 
-    check node.waku.protocols.relay.isNil()
+    check node.kernel.protocols.relay.isNil()
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -534,7 +534,7 @@ suite "Waku API - Send":
     check eventManager.propagatedCount == 0
 
     # The lightpush peer appears; a later retry must now deliver.
-    await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+    await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
     const eventTimeout = 10.seconds
     discard await eventManager.waitForEvents(eventTimeout)
@@ -553,9 +553,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -611,11 +611,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[fakeLightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[fakeLightpushNodePeerInfo])
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -649,13 +649,13 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
     defer:
       (await node.stop()).expect("Failed to stop node")
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -703,19 +703,19 @@ suite "Waku API - Send":
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
     var receivedHashes: seq[string]
     let receivedListener = MessageReceivedEvent.listen(
-      node.waku.brokerCtx,
+      node.kernel.brokerCtx,
       proc(event: MessageReceivedEvent) {.async: (raises: []).} =
         receivedHashes.add(event.messageHash),
     ).valueOr:
       raiseAssert error
     defer:
-      await MessageReceivedEvent.dropListener(node.waku.brokerCtx, receivedListener)
+      await MessageReceivedEvent.dropListener(node.kernel.brokerCtx, receivedListener)
 
     let
       client = newRestHttpClient(rest.server.localAddress())
@@ -782,14 +782,14 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
 
       # Propagate via relayNode1; store queries can only reach the isolated store node.
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, isolatedStoreNodePeerInfo]
       )
 
     # Longer than `archiveTime`, so the store node is queried first.
     node.messagingClient.sendService.maxValidationAge = 2.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -860,7 +860,7 @@ suite "Messaging API - the request id comes before the events":
 
     let direct = client.send(MessageEnvelope.init(OrderTopic, "direct"))
     let viaBroker = MessagingSend.request(
-      node.waku.brokerCtx, MessageEnvelope.init(OrderTopic, "broker")
+      node.kernel.brokerCtx, MessageEnvelope.init(OrderTopic, "broker")
     )
     check:
       direct.finished()
@@ -884,14 +884,14 @@ suite "Messaging API - the request id comes before the events":
       (await client.send(MessageEnvelope.init(RefusedTopic, "refused"))).errorOr(
         "accepted"
       ) == "Send queue full, retry later"
-      not node.waku.isSubscribed(RefusedTopic).valueOr(true)
+      not node.kernel.isSubscribed(RefusedTopic).valueOr(true)
 
   asyncTest "no event comes before its request id, durable and ephemeral":
     let node = await noBudgetNode(capacity = 100)
     defer:
       (await node.stop()).expect("stop")
     let client = node.messagingClient
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     let log = OrderLog()
     let queuedListener = MessageQueuedEvent

@@ -5,7 +5,7 @@ import
   logos_delivery/waku/waku_core/topics/pubsub_topic,
   logos_delivery/waku/waku_relay,
   logos_delivery,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/node/health_monitor/health_status,
   ./events/json_message_event,

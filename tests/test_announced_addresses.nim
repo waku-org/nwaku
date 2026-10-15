@@ -20,7 +20,7 @@ import stew/byteutils
 import
   ../logos_delivery/waku/net/net_config,
   ../logos_delivery/waku/node/waku_node,
-  ../logos_delivery/waku/waku,
+  ../logos_delivery/waku/kernel,
   ../logos_delivery/waku/waku_enr
 import ./testlib/[common, wakucore, wakunode]
 

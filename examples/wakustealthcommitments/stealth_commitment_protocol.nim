@@ -10,7 +10,7 @@ import
 export wire_spec, logging
 
 type StealthCommitmentProtocol* = object
-  waku: Kernel
+  kernel: Kernel
   contentTopic: string
   spendingKeyPair: StealthCommitmentFFI.KeyPair
   viewingKeyPair: StealthCommitmentFFI.KeyPair
@@ -46,10 +46,10 @@ proc sendThruWaku*(
     timestamp: getNanosecondTime(time),
   )
 
-  message = (await attachProof(self.waku.protocols.rlnPlugin, message)).valueOr:
+  message = (await attachProof(self.kernel.protocols.rlnPlugin, message)).valueOr:
     return err("could not append rate limit proof to the message: " & $error)
 
-  (await self.waku.publish(Opt.some(DefaultPubsubTopic), message)).isOkOr:
+  (await self.kernel.publish(Opt.some(DefaultPubsubTopic), message)).isOkOr:
     return err("failed to publish message: " & $error)
 
   info "rate limit proof is appended to the message"
@@ -155,7 +155,7 @@ proc getSCPHandler(self: StealthCommitmentProtocol): SCPHandler =
   return handler
 
 proc new*(
-    waku: Kernel, contentTopic = ContentTopic("/wakustealthcommitments/1/app/proto")
+    kernel: Kernel, contentTopic = ContentTopic("/wakustealthcommitments/1/app/proto")
 ): Result[StealthCommitmentProtocol, string] =
   let spendingKeyPair = StealthCommitmentFFI.generateKeyPair().valueOr:
     return err("could not generate spending key pair: " & $error)
@@ -166,7 +166,7 @@ proc new*(
   info "viewing public key", publicKey = viewingKeyPair.publicKey
 
   let SCP = StealthCommitmentProtocol(
-    waku: waku,
+    kernel: kernel,
     contentTopic: contentTopic,
     spendingKeyPair: spendingKeyPair,
     viewingKeyPair: viewingKeyPair,
@@ -180,7 +180,7 @@ proc new*(
       except CatchableError:
         error "could not handle SCP message: ", err = getCurrentExceptionMsg()
 
-  waku.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), Opt.some(handler)).isOkOr:
+  kernel.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), Opt.some(handler)).isOkOr:
     error "could not subscribe to pubsub topic: ", err = $error
     return err("could not subscribe to pubsub topic: " & $error)
   return ok(SCP)

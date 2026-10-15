@@ -216,9 +216,9 @@ proc setupNetwork(
     await archiveDriver.put(computeMessageHash(shard, missedMsg), shard, missedMsg)
   ).expect("archive put")
 
-  let events = newReceiveEventListenerManager(subscriber.waku.brokerCtx, 1)
+  let events = newReceiveEventListenerManager(subscriber.kernel.brokerCtx, 1)
   if knowStorePeer:
-    subscriber.waku.peerManager.addServicePeer(storeNodePeerInfo, WakuStoreCodec)
+    subscriber.kernel.peerManager.addServicePeer(storeNodePeerInfo, WakuStoreCodec)
   let subscribedAt = now()
   (await subscriber.messagingClient.subscribe(testTopic)).expect("Failed to subscribe")
 
@@ -283,9 +283,9 @@ proc runRestartedReceiver(
     "new process subscriber"
   )
   subscriber.shortenIntervals()
-  let events = newReceiveEventListenerManager(subscriber.waku.brokerCtx, expectedCount)
+  let events = newReceiveEventListenerManager(subscriber.kernel.brokerCtx, expectedCount)
   (await subscriber.start()).expect("start new process subscriber")
-  subscriber.waku.peerManager.addServicePeer(
+  subscriber.kernel.peerManager.addServicePeer(
     parsePeerInfo(storePeer).get(), WakuStoreCodec
   )
   (await subscriber.messagingClient.subscribe(RestartTopic)).expect("resubscribe")
@@ -362,7 +362,7 @@ proc archiveOffline(net: TestNetwork) {.async.} =
 
 proc knowStorePeer(net: TestNetwork) =
   ## Registers the store node as a service peer. The Store client dials it on demand.
-  net.subscriber.waku.peerManager.addServicePeer(
+  net.subscriber.kernel.peerManager.addServicePeer(
     net.storeNodePeerInfo, WakuStoreCodec
   )
 
@@ -379,7 +379,7 @@ proc joinMesh(node: Kernel, peer: RemotePeerInfo) {.async.} =
 
 proc joinMesh(net: TestNetwork, peer: RemotePeerInfo) {.async.} =
   ## Joins the subscriber to the relay mesh through `peer`.
-  await net.subscriber.waku.joinMesh(peer)
+  await net.subscriber.kernel.joinMesh(peer)
 
 proc joinMesh(net: TestNetwork) {.async.} =
   ## Joins the subscriber to the relay mesh through the store node.
@@ -392,7 +392,7 @@ proc archiveInOutage(
   ## puts one message straight into the archive. Direct insertion keeps Store
   ## the only path, because the relay cache can give a published message at
   ## reconnection.
-  await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
+  await net.subscriber.kernel.disconnectNode(net.storeNodePeerInfo)
   await offline
   let msg =
     WakuMessage(payload: OutagePayload.toBytes(), contentTopic: topic, timestamp: now())
@@ -422,7 +422,7 @@ proc requiredAnonymity(): MessagingClientConf =
   )
 
 proc waitForProtocolHealth(
-    waku: Kernel, protocol: WakuProtocol, health: HealthStatus
+    kernel: Kernel, protocol: WakuProtocol, health: HealthStatus
 ) {.async.} =
   ## Completes once the kernel reports `protocol` at `health`. Registers the
   ## listener, then reads the stored status.
@@ -433,15 +433,15 @@ proc waitForProtocolHealth(
     if not future.finished and e.protocolHealth.protocol == $protocol and
         e.protocolHealth.health == health:
       future.complete()
-  let handle = EventProtocolHealthChange.listen(waku.brokerCtx, handler).valueOr:
+  let handle = EventProtocolHealthChange.listen(kernel.brokerCtx, handler).valueOr:
     raiseAssert error
   try:
-    if waku.reportedProtocolHealth(protocol).health == health:
+    if kernel.reportedProtocolHealth(protocol).health == health:
       return
     if not await future.withTimeout(TestTimeout):
       raiseAssert "Timeout waiting for " & $protocol & " to be " & $health
   finally:
-    await EventProtocolHealthChange.dropListener(waku.brokerCtx, handle)
+    await EventProtocolHealthChange.dropListener(kernel.brokerCtx, handle)
 
 proc noopRelayHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
   discard
@@ -465,7 +465,7 @@ proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
 
 proc filterSubscriptionHealthy(net: TestNetwork, shard = TestShard): bool =
   ## True when the subscription manager reports `shard`'s filter subscription healthy.
-  let shardHealth = RequestEdgeShardHealth.request(net.subscriber.waku.brokerCtx, shard).valueOr:
+  let shardHealth = RequestEdgeShardHealth.request(net.subscriber.kernel.brokerCtx, shard).valueOr:
     return false
   return
     shardHealth.health in
@@ -487,7 +487,7 @@ proc waitForFilterSubscriptionHealth(
       e.health in {TopicHealth.MINIMALLY_HEALTHY, TopicHealth.SUFFICIENTLY_HEALTHY}
     if isHealthy == healthy:
       future.complete()
-  let brokerCtx = net.subscriber.waku.brokerCtx
+  let brokerCtx = net.subscriber.kernel.brokerCtx
   let handle = EventShardTopicHealthChange.listen(brokerCtx, handler).valueOr:
     raiseAssert error
   try:
@@ -517,7 +517,7 @@ proc restartSubscriber(
       (await LogosDelivery.new(nodeConf(conf, messaging))).expect("create subscriber")
     net.subscriber.shortenIntervals()
     (await net.subscriber.start()).expect("start subscriber")
-  net.events = newReceiveEventListenerManager(net.subscriber.waku.brokerCtx, 1)
+  net.events = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
   net.knowStorePeer()
 
 proc storedRecords(root: string): Future[Table[BackfillTopic, TopicRecord]] {.async.} =
@@ -585,13 +585,13 @@ proc caughtUp(net: TestNetwork): Future[bool] =
 proc waitOutage(net: TestNetwork): Future[void] =
   ## Completes when the kernel reports relay NOT_READY.
   return waitForProtocolHealth(
-    net.subscriber.waku, WakuProtocol.RelayProtocol, HealthStatus.NOT_READY
+    net.subscriber.kernel, WakuProtocol.RelayProtocol, HealthStatus.NOT_READY
   )
 
 proc waitLive(net: TestNetwork): Future[void] =
   ## Completes when the kernel reports relay READY.
   return waitForProtocolHealth(
-    net.subscriber.waku, WakuProtocol.RelayProtocol, HealthStatus.READY
+    net.subscriber.kernel, WakuProtocol.RelayProtocol, HealthStatus.READY
   )
 
 proc runOutage(net: TestNetwork, topic: ContentTopic): Future[seq[string]] {.async.} =
@@ -606,7 +606,7 @@ proc runOutage(net: TestNetwork, topic: ContentTopic): Future[seq[string]] {.asy
   discard await net.archiveInOutage(topic, net.waitOutage())
   events.targetCount = 2
   events.receivedEvent.clear()
-  await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+  await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
   check await events.waitForEvents(TestTimeout)
   check await net.caughtUp()
   check await events.nothingMore(2)
@@ -740,7 +740,7 @@ suite "Messaging API, Receive Service (backfill)":
       state = Opt.some(TopicRecordState.Online),
       within = IdleTimeout,
     )
-    await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
+    await net.subscriber.kernel.disconnectNode(net.storeNodePeerInfo)
     await net.waitOutage()
     # Inside the gap, which starts two variances before the fill of the start
     # outage, and outside the variance of the next subscribe.
@@ -749,7 +749,7 @@ suite "Messaging API, Receive Service (backfill)":
     )
     net.subscriber.messagingClient.unsubscribe(topic).expect("unsubscribe")
     discard await root.waitForRecord(topic, present = false)
-    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitLive()
     let resubscribedAt = now()
     (await net.subscriber.messagingClient.subscribe(topic)).expect("subscribe again")
@@ -766,7 +766,7 @@ suite "Messaging API, Receive Service (backfill)":
     # gap from its subscribe. Its messages of the outage come from Store, and
     # nothing from before its subscribe.
     discard await net.archiveAt(outageTopic, now() - Hour, "before its subscribe")
-    await net.subscriber.waku.disconnectNode(net.storeNodePeerInfo)
+    await net.subscriber.kernel.disconnectNode(net.storeNodePeerInfo)
     await net.waitOutage()
     (await net.subscriber.messagingClient.subscribe(outageTopic)).expect(
       "subscribe in outage"
@@ -777,7 +777,7 @@ suite "Messaging API, Receive Service (backfill)":
     discard await net.archiveAt(topic, now(), "the old topic in the outage")
     events.targetCount = 2
     events.receivedEvent.clear()
-    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
     check await events.waitForEvents(TestTimeout)
     check await net.caughtUp()
     check await events.nothingMore(2)
@@ -859,7 +859,7 @@ suite "Messaging API, Receive Service (backfill)":
     await net.joinMesh(net.publisher.peerInfo.toRemotePeerInfo())
     await net.waitLive()
     net.knowStorePeer()
-    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
     # The first page of the gap moves the record within seconds, far below
     # `BackfillRetryPeriod`.
     checkUntilTimeoutCustom(IdleTimeout, 100.milliseconds):
@@ -881,14 +881,14 @@ suite "Messaging API, Receive Service (backfill)":
       await net.teardown()
     let events = net.events
     # The subscription manager subscribes through a connected filter peer.
-    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
-    net.subscriber.waku.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
+    net.subscriber.kernel.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
     await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
-      net.subscriber.waku.switch.peerInfo.peerId
+      net.subscriber.kernel.switch.peerInfo.peerId
     )
     await offline
     let gapMsg = await net.archiveAt(
@@ -920,7 +920,7 @@ suite "Messaging API, Receive Service (backfill)":
     defer:
       await net.teardown()
     let events = net.events
-    await net.subscriber.waku.connectToNodes(@[net.storeNodePeerInfo])
+    await net.subscriber.kernel.connectToNodes(@[net.storeNodePeerInfo])
     await net.waitForFilterSubscriptionHealth(healthy = true)
     check await net.caughtUp()
     check await events.nothingMore(0)
@@ -938,7 +938,7 @@ suite "Messaging API, Receive Service (backfill)":
     defer:
       await filterNode.stop()
     let healthyB = net.waitForFilterSubscriptionHealth(healthy = true, SecondShard)
-    await net.subscriber.waku.connectToNodes(
+    await net.subscriber.kernel.connectToNodes(
       @[filterNode.peerInfo.toRemotePeerInfo()]
     )
     await healthyB
@@ -959,7 +959,7 @@ suite "Messaging API, Receive Service (backfill)":
         )
         node.shortenIntervals()
         (await node.start()).expect("start node")
-      check GetPersistency.request(node.waku.brokerCtx).isOk()
+      check GetPersistency.request(node.kernel.brokerCtx).isOk()
       let topic = ContentTopic("/waku/2/recv-memory-only/proto")
       (await node.messagingClient.subscribe(topic)).expect("subscribe")
       check await node.caughtUp()
@@ -975,7 +975,7 @@ suite "Messaging API, Receive Service (backfill)":
           "create node"
         )
         node.shortenIntervals()
-      check GetPersistency.request(node.waku.brokerCtx).isErr()
+      check GetPersistency.request(node.kernel.brokerCtx).isErr()
       check node.messagingClient.start().isOk()
       (
         await node.messagingClient.subscribe(

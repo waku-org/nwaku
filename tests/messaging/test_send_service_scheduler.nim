@@ -4,7 +4,7 @@ import std/[importutils, sequtils]
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_core,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
@@ -51,18 +51,18 @@ proc fixedEpochQuota(
       Opt.some(EpochQuota(epochIndex: epoch[], rateLimit: rateLimit, remaining: left))
 
 suite "SendService - rate-limit scheduling":
-  var waku {.threadvar.}: Kernel
+  var kernel {.threadvar.}: Kernel
   var started {.threadvar.}: seq[SendService]
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
     started = @[]
 
   asyncTeardown:
     for service in started:
       await service.stopSendService()
     ## The node is never started, so stop is best-effort cleanup.
-    discard await waku.stopKernel()
+    discard await kernel.stopKernel()
 
   proc buildTask(
       id, payload: string,
@@ -136,7 +136,7 @@ suite "SendService - rate-limit scheduling":
       script: @[DeliveryState.NextRoundRetry, DeliveryState.SuccessfullyPropagated]
     )
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
 
     let task = buildTask("charge-once", "hi")
@@ -165,7 +165,7 @@ suite "SendService - rate-limit scheduling":
       .expect("RateLimitManager.new")
     let processor = FakeSendProcessor(script: @[DeliveryState.SuccessfullyPropagated])
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
 
     let first = buildTask("in-budget", "one")
@@ -211,7 +211,7 @@ suite "SendService - rate-limit scheduling":
       .expect("RateLimitManager.new")
     let processor = FakeSendProcessor(script: @[DeliveryState.SuccessfullyPropagated])
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
 
     let task = buildTask("rln-spent", "one")
@@ -245,13 +245,13 @@ suite "SendService - rate-limit scheduling":
       .expect("RateLimitManager.new")
     let processor = FakeSendProcessor(script: @[DeliveryState.SuccessfullyPropagated])
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
 
     var queued: seq[MessageQueuedEvent]
     discard MessageQueuedEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(evt: MessageQueuedEvent) {.async: (raises: []).} =
           queued.add(evt),
       )
@@ -279,7 +279,7 @@ suite "SendService - rate-limit scheduling":
       second.state == DeliveryState.SuccessfullyPropagated
       queued.len == 1
 
-    await MessageQueuedEvent.dropAllListeners(waku.brokerCtx)
+    await MessageQueuedEvent.dropAllListeners(kernel.brokerCtx)
 
   proc approachedService(
       epoch: ref uint64, messagesPerEpoch: uint64, processor: FakeSendProcessor
@@ -297,7 +297,7 @@ suite "SendService - rate-limit scheduling":
       )
       .expect("RateLimitManager.new")
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
     return (service, manager)
 
@@ -310,7 +310,7 @@ suite "SendService - rate-limit scheduling":
     var errors: seq[MessageErrorEvent]
     discard MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(evt: MessageErrorEvent) {.async: (raises: []).} =
           errors.add(evt),
       )
@@ -318,7 +318,7 @@ suite "SendService - rate-limit scheduling":
     var queued: seq[MessageQueuedEvent]
     discard MessageQueuedEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(evt: MessageQueuedEvent) {.async: (raises: []).} =
           queued.add(evt),
       )
@@ -344,8 +344,8 @@ suite "SendService - rate-limit scheduling":
     await service.retryAndWait(0)
     check processor.calls == callsBefore
 
-    await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
-    await MessageQueuedEvent.dropAllListeners(waku.brokerCtx)
+    await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
+    await MessageQueuedEvent.dropAllListeners(kernel.brokerCtx)
 
   asyncTest "an ephemeral message is dropped, not parked, when the quota is exhausted":
     let epoch = new uint64
@@ -356,7 +356,7 @@ suite "SendService - rate-limit scheduling":
     var errors: seq[MessageErrorEvent]
     discard MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(evt: MessageErrorEvent) {.async: (raises: []).} =
           errors.add(evt),
       )
@@ -381,7 +381,7 @@ suite "SendService - rate-limit scheduling":
       (await manager.quotaState()) == QuotaState.Normal
       manager.sentInCurrentEpoch == 0'u64
 
-    await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
+    await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
 
   asyncTest "an ephemeral message below the threshold is charged and sent":
     let epoch = new uint64
@@ -443,7 +443,7 @@ suite "SendService - rate-limit scheduling":
     let service = SendService
       .new(
         false,
-        waku,
+        kernel,
         manager,
         processor,
         maxParkedAge = chronos.seconds(30),
@@ -452,7 +452,7 @@ suite "SendService - rate-limit scheduling":
       .expect("SendService.new")
 
     let errors = new seq[MessageErrorEvent]
-    listenErrors(waku.brokerCtx, errors)
+    listenErrors(kernel.brokerCtx, errors)
 
     ## Admitted, still retrying, with a timestamp far older than the limit.
     let admitted = buildTask("admitted-old", "one", 1_700_000_000_000_000_000)
@@ -478,7 +478,7 @@ suite "SendService - rate-limit scheduling":
       fresh.firstAdmittedTime.isSome()
       fresh.state == DeliveryState.SuccessfullyPropagated
 
-    await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
+    await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
 
   asyncTest "a send beyond the send queue limit is refused with no event":
     let epoch = new uint64
@@ -493,7 +493,7 @@ suite "SendService - rate-limit scheduling":
     let service = SendService
       .new(
         false,
-        waku,
+        kernel,
         manager,
         processor,
         sendQueueCapacity = 2,
@@ -502,7 +502,7 @@ suite "SendService - rate-limit scheduling":
       .expect("SendService.new")
 
     let errors = new seq[MessageErrorEvent]
-    listenErrors(waku.brokerCtx, errors)
+    listenErrors(kernel.brokerCtx, errors)
 
     await service.sendNow(buildTask("cap-admitted", "one"))
     await service.sendNow(buildTask("cap-parked", "two"))
@@ -517,7 +517,7 @@ suite "SendService - rate-limit scheduling":
       rejected.state == DeliveryState.Entry # never scheduled
       processor.calls == 1
 
-    await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
+    await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
 
   asyncTest "a propagated task past the validation window fails; a fresh one stays":
     let manager =
@@ -526,7 +526,7 @@ suite "SendService - rate-limit scheduling":
     let service = SendService
       .new(
         true,
-        waku,
+        kernel,
         manager,
         processor,
         maxValidationAge = chronos.seconds(30),
@@ -536,9 +536,9 @@ suite "SendService - rate-limit scheduling":
 
     let errors = new seq[MessageErrorEvent]
     let errorSeen = newAsyncEvent()
-    listenErrors(waku.brokerCtx, errors, errorSeen)
+    listenErrors(kernel.brokerCtx, errors, errorSeen)
     defer:
-      await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
+      await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
 
     let expired = buildTask("validation-expired", "one")
     let fresh = buildTask("validation-fresh", "two")
@@ -559,7 +559,7 @@ suite "SendService - rate-limit scheduling":
     let service = SendService
       .new(
         false,
-        waku,
+        kernel,
         manager,
         processor,
         sendQueueCapacity = 1,
@@ -569,9 +569,9 @@ suite "SendService - rate-limit scheduling":
       .expect("SendService.new")
 
     let errors = new seq[MessageErrorEvent]
-    listenErrors(waku.brokerCtx, errors)
+    listenErrors(kernel.brokerCtx, errors)
     defer:
-      await MessageErrorEvent.dropAllListeners(waku.brokerCtx)
+      await MessageErrorEvent.dropAllListeners(kernel.brokerCtx)
 
     # The send queue holds one task, so `isFull` tells whether it holds the task.
     let task = buildTask("reliability-off", "one")

@@ -2,7 +2,7 @@ import std/[json]
 import chronos, results, ffi
 import
   logos_delivery/waku/common/base64,
-  logos_delivery/waku/waku,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_core/topics/content_topic,
   logos_delivery/api/types,
   ../declare_lib

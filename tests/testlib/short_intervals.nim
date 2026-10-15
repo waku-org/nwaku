@@ -10,5 +10,5 @@ proc shortenIntervals*(node: LogosDelivery) =
   node.messagingClient.sendService.archiveTime = 300.milliseconds
   # A shorter interval would exceed a filter service's 30 requests per minute
   # per peer, and a peer that rejects the loop's request is removed.
-  node.waku.subscriptionManager.edgeFilterLoopInterval = 2.seconds
-  node.waku.subscriptionManager.edgeFilterSubLoopDebounce = 50.milliseconds
+  node.kernel.subscriptionManager.edgeFilterLoopInterval = 2.seconds
+  node.kernel.subscriptionManager.edgeFilterSubLoopDebounce = 50.milliseconds

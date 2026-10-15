@@ -25,8 +25,8 @@ suite "LogosDelivery API - Create node":
     ## Then
     check:
       not ld.isNil()
-      ld.waku.conf.clusterId == 3
-      ld.waku.conf.relay == true
+      ld.kernel.conf.clusterId == 3
+      ld.kernel.conf.relay == true
 
   asyncTest "Create node with full configuration":
     ## Given
@@ -52,14 +52,14 @@ suite "LogosDelivery API - Create node":
     ## Then
     check:
       not ld.isNil()
-      ld.waku.conf.clusterId == 99
-      ld.waku.conf.shardingConf.shards.len == 16
-      ld.waku.conf.maxMessageSizeBytes == 1024'u64 * 1024'u64
-      ld.waku.conf.staticNodes.len == 1
-      ld.waku.conf.relay == true
-      ld.waku.conf.lightPush == true
-      ld.waku.conf.peerExchangeService == true
-      ld.waku.conf.rendezvous == true
+      ld.kernel.conf.clusterId == 99
+      ld.kernel.conf.shardingConf.shards.len == 16
+      ld.kernel.conf.maxMessageSizeBytes == 1024'u64 * 1024'u64
+      ld.kernel.conf.staticNodes.len == 1
+      ld.kernel.conf.relay == true
+      ld.kernel.conf.lightPush == true
+      ld.kernel.conf.peerExchangeService == true
+      ld.kernel.conf.rendezvous == true
 
   asyncTest "Create node with mixed entry nodes (enrtree, multiaddr)":
     ## Given
@@ -81,12 +81,12 @@ suite "LogosDelivery API - Create node":
     ## Then
     check:
       not ld.isNil()
-      ld.waku.conf.clusterId == 42
+      ld.kernel.conf.clusterId == 42
       # ENRTree should go to DNS discovery
-      ld.waku.conf.dnsDiscoveryConf.isSome()
-      ld.waku.conf.dnsDiscoveryConf.get().enrTreeUrl ==
+      ld.kernel.conf.dnsDiscoveryConf.isSome()
+      ld.kernel.conf.dnsDiscoveryConf.get().enrTreeUrl ==
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
       # Multiaddr should go to static nodes
-      ld.waku.conf.staticNodes.len == 1
-      ld.waku.conf.staticNodes[0] ==
+      ld.kernel.conf.staticNodes.len == 1
+      ld.kernel.conf.staticNodes[0] ==
         "/ip4/127.0.0.1/tcp/60000/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"

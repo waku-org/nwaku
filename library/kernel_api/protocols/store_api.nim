@@ -78,7 +78,7 @@ proc waku_store_query(
   let storeQueryRequest = ?fromJsonNode(jsonContentRes.get())
 
   let queryResponse = (
-    await self.waku.storeQuery(storeQueryRequest, peerAddr, int(timeoutMs))
+    await self.kernel.storeQuery(storeQueryRequest, peerAddr, int(timeoutMs))
   ).valueOr:
     return err("StoreRequest failed store query: " & error)
 
