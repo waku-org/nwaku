@@ -75,8 +75,8 @@
 
   bearssl = pkgs.fetchgit {
     url = "https://github.com/status-im/nim-bearssl";
-    rev = "2aee5932fa1138969056b5bf6fad2f34941f249e";
-    sha256 = "0x0n9bz24vym5j30z6gyi9n3rvv441kb2iqb5x3bvkkdalfr11k5";
+    rev = "b6c9a38964a574f6bc51f69efaf8fb2fedea905e";
+    sha256 = "0cv4g2l1pk97qgyy53nqyabpnayr8qx6fw35vjs08zs6af05c4fm";
     fetchSubmodules = true;
   };
 
@@ -96,8 +96,8 @@
 
   stew = pkgs.fetchgit {
     url = "https://github.com/status-im/nim-stew";
-    rev = "e8dc1b38ceed74aa974efca652dccbd4bf1df33a";
-    sha256 = "0ibrzs72wgar57kyj1pvx3wgq4fqxmkhz5w92ay9mv0qm4v0macg";
+    rev = "0e601977e5ac8766dbf39fa53b94f908b9cb4753";
+    sha256 = "0acix676zivbmn1gzif4mr4gzgipyq7qx1ndq9a4a7l1vvvk9m19";
     fetchSubmodules = true;
   };
 

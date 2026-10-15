@@ -49,7 +49,8 @@ requires "nim == 2.2.6",
   # Cryptography
   "nimcrypto >= 0.7.3",
   "secp256k1 >= 0.8.0.8.0",
-  "bearssl",
+  # 0.2.14 writes into the read-only nix store when cross-building for Windows.
+  "bearssl == 0.2.13",
   # RPC & APIs
   "json_rpc == 0.7.0",
   "presto",
@@ -58,7 +59,8 @@ requires "nim == 2.2.6",
   "db_connector",
   "sqlite3_abi",
   # Utilities
-  "stew",
+  # 0.6.1+ cannot match fields of IdentityCredential (logging it fails to compile).
+  "stew == 0.6.0",
   "stint",
   "https://github.com/status-im/nim-metrics#9f2e1d4a4164deb37603b16cedd1707408ee5955",
   "regex",
