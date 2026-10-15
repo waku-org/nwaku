@@ -81,7 +81,7 @@ procSuite "Waku Rendezvous":
         node3.mountRendezvous(clusterId),
       ]
     )
-    await allFutures([node1.start(), node2.start(), node3.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
 
     let peerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
     let peerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
@@ -128,7 +128,7 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (before relay)
     await node.mountRendezvous(clusterId, configuredShards)
-    await node.start()
+    await node.startProtocols()
 
     ## Then: The rendezvous protocol should be mounted successfully
     check:
@@ -140,7 +140,7 @@ procSuite "Waku Rendezvous":
     check:
       namespace.len > 0
 
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "Rendezvous uses configured shards when relay not mounted":
     ## Given: A light client node with no relay protocol
@@ -155,7 +155,7 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (no relay mounted)
     await lightClient.mountRendezvous(clusterId, configuredShards)
-    await lightClient.start()
+    await lightClient.startProtocols()
 
     ## Then: Rendezvous should be mounted successfully without relay
     check:
@@ -169,4 +169,4 @@ procSuite "Waku Rendezvous":
     check:
       lightClient.discovery.rendezvous != nil
 
-    await lightClient.stop()
+    await lightClient.stopProtocols()

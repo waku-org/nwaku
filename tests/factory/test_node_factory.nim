@@ -183,9 +183,9 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(node.stopProtocols(), client.stopProtocols())
     await client.mountFilterClient()
     let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
 
@@ -215,9 +215,9 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(node.stopProtocols(), client.stopProtocols())
     await client.mountFilterClient()
     let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
 
@@ -321,9 +321,9 @@ suite "Node Factory":
     check:
       responder.mountMetadata(DefaultClusterId, @[]).isOk()
       discoveredNode.mountMetadata(DefaultClusterId, @[]).isOk()
-    await allFutures(responder.start(), discoveredNode.start())
+    await allFutures(responder.startProtocols(), discoveredNode.startProtocols())
     defer:
-      await allFutures(responder.stop(), discoveredNode.stop())
+      await allFutures(responder.stopProtocols(), discoveredNode.stopProtocols())
     await responder.mountPeerExchange()
     var discoveredPeer = discoveredNode.peerInfo.toRemotePeerInfo()
     discoveredPeer.enr = Opt.some(discoveredNode.enr)
@@ -343,7 +343,7 @@ suite "Node Factory":
       raiseAssert error
     let startResult = await startNode(node, conf)
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     # Then the responder holds the peer exchange service slot, and the peer it discovered is in the peer store
     check:
@@ -367,9 +367,9 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(node.stopProtocols(), client.stopProtocols())
 
     # When a peer asks for its metadata
     let conn = (
@@ -493,7 +493,7 @@ asynctest "Start a node based on default test configuration":
   check hasNonZeroTcp
 
   ## Cleanup
-  await node.stop()
+  await node.stopProtocols()
 
 suite "Auto-port retry":
   asynctest "metrics binds on free TCP port, fails on taken":
@@ -532,9 +532,9 @@ suite "Auto-port retry":
 
     let nodeKey = generateSecp256k1Key()
     let node = newTestWakuNode(nodeKey)
-    await node.start()
+    await node.startProtocols()
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     let takenUdp =
       newDatagramTransport(dummyCb, local = initTAddress("0.0.0.0", Port(0)))

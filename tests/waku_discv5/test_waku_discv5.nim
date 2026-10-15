@@ -429,7 +429,7 @@ suite "Waku Discovery v5":
 
       let waku0 = (await Kernel.new(conf)).valueOr:
         raiseAssert error
-      (await waku0.startKernel()).isOkOr:
+      (await waku0.start()).isOkOr:
         raiseAssert error
 
       confBuilder.withNodeKey(crypto.PrivateKey.random(Secp256k1, myRng)[])
@@ -443,7 +443,7 @@ suite "Waku Discovery v5":
 
       let waku1 = (await Kernel.new(conf1)).valueOr:
         raiseAssert error
-      (await waku1.startKernel()).isOkOr:
+      (await waku1.start()).isOkOr:
         raiseAssert error
 
       await waku1.mountPeerExchange()
@@ -459,7 +459,7 @@ suite "Waku Discovery v5":
 
       let waku2 = (await Kernel.new(conf2)).valueOr:
         raiseAssert error
-      (await waku2.startKernel()).isOkOr:
+      (await waku2.start()).isOkOr:
         raiseAssert error
 
       # leave some time for discv5 to act
@@ -491,22 +491,22 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = (await Kernel.new(conf)).valueOr:
+      let kernel = (await Kernel.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.enr,
-        waku.peerManager,
-        waku.conf.discv5Conf.get(),
-        waku.discovery.dynamicBootstrapNodes,
-        waku.rng,
-        waku.conf.nodeKey,
-        waku.conf.endpointConf.p2pListenAddress,
+        kernel.enr,
+        kernel.peerManager,
+        kernel.conf.discv5Conf.get(),
+        kernel.discovery.dynamicBootstrapNodes,
+        kernel.rng,
+        kernel.conf.nodeKey,
+        kernel.conf.endpointConf.p2pListenAddress,
       ).valueOr:
         raiseAssert "failed setup discv5 in test: " & $error
 
       check:
-        waku.peerManager.switch.peerStore.peers().anyIt(
+        kernel.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == validEnr
         )
 
@@ -521,21 +521,21 @@ suite "Waku Discovery v5":
       let conf = confBuilder.build().valueOr:
         raiseAssert error
 
-      let waku = (await Kernel.new(conf)).valueOr:
+      let kernel = (await Kernel.new(conf)).valueOr:
         raiseAssert error
 
       discard setupDiscoveryV5(
-        waku.enr,
-        waku.peerManager,
+        kernel.enr,
+        kernel.peerManager,
         conf.discv5Conf.get(),
-        waku.discovery.dynamicBootstrapNodes,
-        waku.rng,
-        waku.conf.nodeKey,
-        waku.conf.endpointConf.p2pListenAddress,
+        kernel.discovery.dynamicBootstrapNodes,
+        kernel.rng,
+        kernel.conf.nodeKey,
+        kernel.conf.endpointConf.p2pListenAddress,
       ).valueOr:
         raiseAssert "failed setup discv5 in test: " & $error
 
       check:
-        not waku.peerManager.switch.peerStore.peers().anyIt(
+        not kernel.peerManager.switch.peerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == invalidEnr
         )

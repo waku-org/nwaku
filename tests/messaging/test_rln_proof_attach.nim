@@ -58,14 +58,14 @@ type FailingProofBackend = ref object
   failWith: RlnErrorKind
   attempts: int
 
-proc mountFailingRln(waku: Kernel, failWith: RlnErrorKind): FailingProofBackend =
+proc mountFailingRln(kernel: Kernel, failWith: RlnErrorKind): FailingProofBackend =
   let backend = FailingProofBackend(failWith: failWith)
 
   proc generate(message: WakuMessage): Future[Result[seq[byte], RlnError]] {.async.} =
     backend.attempts.inc()
     return err(RlnError.init(backend.failWith, "scripted attach failure"))
 
-  waku.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
+  kernel.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
   return backend
 
 type CountingProcessor = ref object of BaseSendProcessor
@@ -94,10 +94,10 @@ suite "SendService RLN proof attach":
   asyncTest "passes the message through unproven when RLN is not mounted":
     ## The default (no-RLN) configuration must be unaffected: no proof is
     ## attached and the message reaches the send processors unchanged.
-    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    let kernel = (await Kernel.new(testConf())).expect("Kernel.new")
     let msg = testMessage()
 
-    let attached = (await waku.attachRlnProof(msg)).expect("attachRlnProof")
+    let attached = (await kernel.attachRlnProof(msg)).expect("attachRlnProof")
 
     check:
       attached.proof.len == 0
@@ -106,17 +106,17 @@ suite "SendService RLN proof attach":
 
   asyncTest "rlnEpochQuota fails when RLN is not mounted":
     ## The rate limit manager reads the failure as "use the local fallback".
-    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
-    check (await waku.rlnEpochQuota(nowSec())).isErr()
+    let kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    check (await kernel.rlnEpochQuota(nowSec())).isErr()
 
   asyncTest "rlnEpochQuota reads the RLN plugin's budget when it is mounted":
-    let waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    let kernel = (await Kernel.new(testConf())).expect("Kernel.new")
     check logosdelivery_rln_set_plugin(addr lezPlugin, nil) == 0
     defer:
       discard logosdelivery_rln_set_plugin(nil, nil)
-    waku.protocols.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
+    kernel.protocols.rlnPlugin = Opt.some(RlnLez.init().toRlnPlugin())
 
-    let quota = (await waku.rlnEpochQuota(nowSec())).valueOr:
+    let quota = (await kernel.rlnEpochQuota(nowSec())).valueOr:
       raiseAssert $error
     check:
       quota.epochIndex == 42
@@ -130,24 +130,24 @@ suite "SendService RLN proof attach - failing backend":
     "Failed to attach RLN proof: Permanent: scripted attach failure"
 
   var
-    waku {.threadvar.}: Kernel
+    kernel {.threadvar.}: Kernel
     errors {.threadvar.}: seq[MessageErrorEvent]
     listener {.threadvar.}: MessageErrorEventListener
 
   asyncSetup:
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
     errors = @[]
     listener = MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(e: MessageErrorEvent) {.async: (raises: []).} =
           errors.add(e),
       )
       .expect("listen")
 
   asyncTeardown:
-    await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
-    discard await waku.stopKernel()
+    await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
+    discard await kernel.stop()
 
   proc newService(processor: BaseSendProcessor): SendService =
     ## A service that holds one task, so `isFull` tells whether it holds the task.
@@ -157,7 +157,7 @@ suite "SendService RLN proof attach - failing backend":
     return SendService
       .new(
         false,
-        waku,
+        kernel,
         manager,
         processor,
         sendQueueCapacity = 1,
@@ -166,7 +166,7 @@ suite "SendService RLN proof attach - failing backend":
       .expect("SendService.new")
 
   asyncTest "a first attempt fails the task at once, with one event":
-    let backend = waku.mountFailingRln(RlnErrorKind.Permanent)
+    let backend = kernel.mountFailingRln(RlnErrorKind.Permanent)
     let processor = CountingProcessor()
     let service = newService(processor)
     let task = buildTask("permanent-in-first-attempt")
@@ -188,7 +188,7 @@ suite "SendService RLN proof attach - failing backend":
   asyncTest "a retry fails a task whose proof attach turns Permanent":
     ## The task waits for its proof while the backend is not ready. By the retry its
     ## message epoch can be out of reach, which the backend reports as Permanent.
-    let backend = waku.mountFailingRln(RlnErrorKind.NotReady)
+    let backend = kernel.mountFailingRln(RlnErrorKind.NotReady)
     let processor = CountingProcessor()
     let service = newService(processor)
     let task = buildTask("permanent-in-retry")
@@ -217,7 +217,7 @@ suite "SendService RLN proof attach - failing backend":
 
 suite "SendService RLN proof attach - RLN mounted":
   var
-    waku {.threadvar.}: Kernel
+    kernel {.threadvar.}: Kernel
     onchainRln {.threadvar.}: RlnEvm
     anvilProc {.threadvar.}: Process
     manager {.threadvar.}: RlnEvmGroupManager
@@ -226,8 +226,8 @@ suite "SendService RLN proof attach - RLN mounted":
     anvilProc = runAnvil(stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
     manager = await setupRlnEvm(deployContracts = false)
 
-    waku = (await Kernel.new(testConf())).expect("Kernel.new")
-    onchainRln = await waku.mountOnchainRln(
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    onchainRln = await kernel.mountOnchainRln(
       getWakuRlnConfig(
         manager = manager,
         userMessageLimit = 20,
@@ -254,7 +254,7 @@ suite "SendService RLN proof attach - RLN mounted":
     stopAnvil(anvilProc)
 
   asyncTest "attaches a proof":
-    let attached = (await waku.attachRlnProof(testMessage())).expect("attachRlnProof")
+    let attached = (await kernel.attachRlnProof(testMessage())).expect("attachRlnProof")
 
     check attached.proof.len > 0
 
@@ -263,9 +263,9 @@ suite "SendService RLN proof attach - RLN mounted":
     ## `remaining == 0` and the window rolls on `epochIndex`. The budget is
     ## the one of the epoch the message's timestamp falls in.
     let now = nowSec()
-    let before = (await waku.rlnEpochQuota(now)).expect("rlnEpochQuota")
-    discard (await waku.attachRlnProof(messageAt(now))).expect("attachRlnProof")
-    let after = (await waku.rlnEpochQuota(now)).expect("rlnEpochQuota")
+    let before = (await kernel.rlnEpochQuota(now)).expect("rlnEpochQuota")
+    discard (await kernel.attachRlnProof(messageAt(now))).expect("attachRlnProof")
+    let after = (await kernel.rlnEpochQuota(now)).expect("rlnEpochQuota")
     check:
       before.rateLimit == 20'u64 # the mounted userMessageLimit
       before.remaining == 20'u64
@@ -277,8 +277,8 @@ suite "SendService RLN proof attach - RLN mounted":
     ## The id is spent in the epoch the proof carries, which is derived from
     ## the message timestamp and not from the wall clock at proof time.
     let now = nowSec()
-    discard (await waku.attachRlnProof(messageAt(now, "a"))).expect("first")
-    discard (await waku.attachRlnProof(messageAt(now, "b"))).expect("second")
+    discard (await kernel.attachRlnProof(messageAt(now, "a"))).expect("first")
+    discard (await kernel.attachRlnProof(messageAt(now, "b"))).expect("second")
 
     check:
       onchainRln.nonceManager.epochIndex == now div TestEpochSizeSec
@@ -286,24 +286,24 @@ suite "SendService RLN proof attach - RLN mounted":
 
   asyncTest "a message in a later epoch starts that epoch's budget":
     let now = nowSec()
-    discard (await waku.attachRlnProof(messageAt(now, "a"))).expect("first")
+    discard (await kernel.attachRlnProof(messageAt(now, "a"))).expect("first")
     let later = now + 2 * TestEpochSizeSec
-    discard (await waku.attachRlnProof(messageAt(later, "b"))).expect("second")
+    discard (await kernel.attachRlnProof(messageAt(later, "b"))).expect("second")
 
     check:
       onchainRln.nonceManager.epochIndex == later div TestEpochSizeSec
       onchainRln.nonceManager.nextId == 1'u64
-      (await waku.rlnEpochQuota(now)).expect("quota").remaining == 20'u64
+      (await kernel.rlnEpochQuota(now)).expect("quota").remaining == 20'u64
 
   asyncTest "refuses a message timestamped in an epoch already left behind":
     ## Drawing again from a passed epoch could repeat an id that was sent, so
     ## the failure is permanent: the send service fails the task instead of
     ## retrying.
     let now = nowSec()
-    discard (await waku.attachRlnProof(messageAt(now, "a"))).expect("first")
+    discard (await kernel.attachRlnProof(messageAt(now, "a"))).expect("first")
     let earlier = now - 2 * TestEpochSizeSec
 
-    let res = await waku.attachRlnProof(messageAt(earlier, "b"))
+    let res = await kernel.attachRlnProof(messageAt(earlier, "b"))
     check:
       res.isErr()
       res.error.kind == RlnErrorKind.Permanent
@@ -318,20 +318,20 @@ suite "SendService RLN proof attach - RLN mounted":
     let now = nowSec()
     let farFuture = now + 3600
 
-    let res = await waku.attachRlnProof(messageAt(farFuture, "a"))
+    let res = await kernel.attachRlnProof(messageAt(farFuture, "a"))
     check:
       res.isErr()
       res.error.kind == RlnErrorKind.Permanent
       onchainRln.nonceManager.nextId == 0'u64
 
-    discard (await waku.attachRlnProof(messageAt(now, "b"))).expect("current message")
+    discard (await kernel.attachRlnProof(messageAt(now, "b"))).expect("current message")
     check:
       onchainRln.nonceManager.epochIndex == now div TestEpochSizeSec
       onchainRln.nonceManager.nextId == 1'u64
 
   asyncTest "a stale timestamp is refused without spending an id":
     let now = nowSec()
-    let res = await waku.attachRlnProof(messageAt(now - 3600))
+    let res = await kernel.attachRlnProof(messageAt(now - 3600))
     check:
       res.isErr()
       res.error.kind == RlnErrorKind.Permanent
@@ -346,7 +346,7 @@ suite "SendService RLN proof attach - RLN mounted":
     gm.merkleProofCache = @[1'u8]
     let msg = testMessage()
 
-    let res = await waku.attachRlnProof(msg)
+    let res = await kernel.attachRlnProof(msg)
     let storedAfterFailure = (
         await onchainRln.messageIdStore.loadMessageIds(onchainRln.messageIdKey)
       )
@@ -359,7 +359,7 @@ suite "SendService RLN proof attach - RLN mounted":
       storedAfterFailure.nextId == 0'u64 # the saved count is lowered again
 
     gm.invalidateMerkleProofCache()
-    let retried = (await waku.attachRlnProof(msg)).expect("retry")
+    let retried = (await kernel.attachRlnProof(msg)).expect("retry")
     let storedAfterRetry = (
         await onchainRln.messageIdStore.loadMessageIds(onchainRln.messageIdKey)
       )
@@ -372,7 +372,7 @@ suite "SendService RLN proof attach - RLN mounted":
 
   asyncTest "a drawn id's count is saved before its proof is returned":
     let now = nowSec()
-    discard (await waku.attachRlnProof(messageAt(now))).expect("attachRlnProof")
+    discard (await kernel.attachRlnProof(messageAt(now))).expect("attachRlnProof")
 
     let stored = (
         await onchainRln.messageIdStore.loadMessageIds(onchainRln.messageIdKey)
@@ -387,17 +387,17 @@ suite "SendService RLN proof attach - RLN mounted":
     ## Sending after a failed save is the unsafe direction: the id could be
     ## drawn again after a restart. The draw is undone and the task retried.
     let now = nowSec()
-    discard (await waku.attachRlnProof(messageAt(now, "a"))).expect("first")
-    GetPersistency.request(waku.brokerCtx).expect("persistency").closeJob(RlnJobId)
+    discard (await kernel.attachRlnProof(messageAt(now, "a"))).expect("first")
+    GetPersistency.request(kernel.brokerCtx).expect("persistency").closeJob(RlnJobId)
 
-    let res = await waku.attachRlnProof(messageAt(now, "b"))
+    let res = await kernel.attachRlnProof(messageAt(now, "b"))
     check:
       res.isErr()
       res.error.kind == RlnErrorKind.Transient
       onchainRln.nonceManager.nextId == 1'u64
 
   asyncTest "refuses an untimestamped message":
-    let res = await waku.attachRlnProof(messageAt(0))
+    let res = await kernel.attachRlnProof(messageAt(0))
     check:
       res.isErr()
       res.error.kind == RlnErrorKind.Permanent
@@ -407,8 +407,8 @@ suite "SendService RLN proof attach - RLN mounted":
     ## Pins the retry contract: the send service re-attaches on every round, so
     ## re-attaching must neither draw a fresh nonce nor change the bytes —
     ## otherwise a retried task would resend under a new nullifier.
-    let first = (await waku.attachRlnProof(testMessage())).expect("first attach")
-    let second = (await waku.attachRlnProof(first)).expect("second attach")
+    let first = (await kernel.attachRlnProof(testMessage())).expect("first attach")
+    let second = (await kernel.attachRlnProof(first)).expect("second attach")
 
     check:
       first.proof.len > 0

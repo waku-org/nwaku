@@ -56,7 +56,7 @@ suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin matches":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -114,12 +114,12 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "AllowedOrigin reject":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -181,12 +181,12 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "AllowedOrigin allmatches":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -238,12 +238,12 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "No origin goes through":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -272,4 +272,4 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()

@@ -16,16 +16,16 @@ proc enqueueSend(
   ?self.checkApiAvailability()
   # A full send queue gets no subscribe. `enqueue` refuses the send.
   if not self.sendService.isFull():
-    let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
+    let isSubbed = self.kernel.isSubscribed(envelope.contentTopic).valueOr(false)
     if not isSubbed:
       debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
-      self.waku.subscribe(envelope.contentTopic).isOkOr:
+      self.kernel.subscribe(envelope.contentTopic).isOkOr:
         error "Failed to auto-subscribe", error = error
         return err("Failed to auto-subscribe before sending: " & error)
 
-  let requestId = RequestId.new(self.waku.rng)
+  let requestId = RequestId.new(self.kernel.rng)
 
-  let deliveryTask = DeliveryTask.new(requestId, envelope, self.waku.brokerCtx).valueOr:
+  let deliveryTask = DeliveryTask.new(requestId, envelope, self.kernel.brokerCtx).valueOr:
     return err("MessagingClient.send: Failed to create delivery task: " & error)
 
   return self.sendService.enqueue(deliveryTask)

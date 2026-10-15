@@ -254,19 +254,19 @@ proc new*(T: type RestService): T =
 proc start*(self: RestService, node: LogosDelivery): Result[void, string] =
   ## Starts the HTTP server with the health route. No-op when REST is disabled
   ## in the node's configuration.
-  if node.waku.conf.restServerConf.isNone() or not self.server.isNil():
+  if node.kernel.conf.restServerConf.isNone() or not self.server.isNil():
     return ok()
 
-  let waku = node.waku
+  let kernel = node.kernel
   let server = startRestServerEssentials(
-    waku.healthMonitor, waku.conf.restServerConf.get()
+    kernel.healthMonitor, kernel.conf.restServerConf.get()
   ).valueOr:
     return err("could not start the essential REST server: " & error)
 
   # Port 0 resolves on bind; keep the bound port so a restart reuses it.
   let boundPort = server.httpServer.address.port
-  waku.ports.rest = boundPort.uint16
-  waku.conf.restServerConf.get().port = boundPort
+  kernel.ports.rest = boundPort.uint16
+  kernel.conf.restServerConf.get().port = boundPort
   self.server = server
   return ok()
 
@@ -280,7 +280,7 @@ proc mountMessaging(self: RestService, node: LogosDelivery): Result[void, string
     )
     return ok()
 
-  let capacity = int(node.waku.conf.restServerConf.get().messagingCacheCapacity)
+  let capacity = int(node.kernel.conf.restServerConf.get().messagingCacheCapacity)
   self.messagingEvents =
     MessagingRestEvents.new(MessagingEventCache.new(maxReceived = capacity))
   var router = self.server.router
@@ -297,12 +297,12 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
   if self.server.isNil():
     return ok()
 
-  let waku = node.waku
-  let conf = waku.conf
+  let kernel = node.kernel
+  let conf = kernel.conf
   installKernelRoutes(
     self.server,
-    waku,
-    waku.discovery.discv5,
+    kernel,
+    kernel.discovery.discv5,
     conf.restServerConf.get(),
     conf.relay,
     conf.lightPush,

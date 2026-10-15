@@ -22,7 +22,7 @@ method sendImpl*(
 ): Future[void] {.async, base.} =
   assert false, "Not implemented"
 
-proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Kernel, errorDesc: string) =
+proc parkForRlnProofRefresh*(task: DeliveryTask, kernel: Kernel, errorDesc: string) =
   ## The service refused the task's proof as RLN-invalid: its proof went stale
   ## against a moved merkle root. Schedules a background merkle-path refresh and
   ## clears the proof so the next retry regenerates one against the refreshed
@@ -30,7 +30,7 @@ proc parkForRlnProofRefresh*(task: DeliveryTask, waku: Kernel, errorDesc: string
   ## rejected bytes would be resent. Resetting admission charges the new nonce
   ## the regenerated proof draws. Without a backend refresh hook a retry would
   ## be rejected the same way, so the task fails with `errorDesc`.
-  if not waku.onRlnProofRejected():
+  if not kernel.onRlnProofRejected():
     task.state = DeliveryState.FailedToDeliver
     task.errorDesc = errorDesc
     return

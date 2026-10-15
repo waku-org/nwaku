@@ -9,7 +9,7 @@ import library/declare_lib
 proc waku_mix_get_peer_record(
     self: LogosDelivery
 ): Future[Result[string, string]] {.ffi.} =
-  let mix = self.waku.protocols.mix
+  let mix = self.kernel.protocols.mix
   if mix.isNil():
     return err("Mix is not enabled")
   let info = mix.localMixPubInfo()
@@ -20,7 +20,7 @@ proc waku_mix_get_peer_record(
         "multiaddrs": @[$info.multiAddr],
         "mixPubKeyHex": byteutils.toHex(fieldElementToBytes(info.mixPubKey)),
         "libp2pPubKeyHex":
-          byteutils.toHex(self.waku.switch.peerInfo.publicKey.skkey.getBytes()),
+          byteutils.toHex(self.kernel.switch.peerInfo.publicKey.skkey.getBytes()),
       }
     )
   )
@@ -28,7 +28,7 @@ proc waku_mix_get_peer_record(
 proc waku_mix_add_peer(
     self: LogosDelivery, recordJson: string
 ): Future[Result[string, string]] {.ffi.} =
-  let mix = self.waku.protocols.mix
+  let mix = self.kernel.protocols.mix
   if mix.isNil():
     return err("Mix is not enabled")
   try:
@@ -52,7 +52,7 @@ proc waku_mix_add_peer(
     if PeerId.init(publicKey).valueOr(default(PeerId)) != peerId:
       return err("Mix peer id does not match public key")
     mix.nodePool.add(MixPubInfo.init(peerId, address, key, pubkey))
-    self.waku.peerManager.addPeer(
+    self.kernel.peerManager.addPeer(
       RemotePeerInfo.init(
         peerId, @[address], publicKey = publicKey, mixPubKey = Opt.some(key)
       )

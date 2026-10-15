@@ -259,7 +259,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stop()
+        await c.node.stopProtocols()
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
@@ -477,7 +477,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
 
   #await node.mountRendezvousClient(conf.clusterId)
 
-  await node.start()
+  await node.startProtocols()
 
   node.peerManager.start()
 

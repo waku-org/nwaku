@@ -34,7 +34,7 @@ suite "Node app - Validators":
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -103,7 +103,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Spam protected topic rejects non-signed/wrongly-signed/no-timestamp messages":
     # Create 5 nodes
@@ -124,7 +124,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     # Mount relay with spam protected topics
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -253,7 +253,7 @@ suite "Node app - Validators":
       msgReceived == 125
       msgRejected == 500
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
@@ -274,7 +274,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -365,7 +365,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Tests vectors":
     # keys

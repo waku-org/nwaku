@@ -43,13 +43,13 @@ proc start*(self: MessagingClient): Result[void, string] =
   ?MessagingSubscribe.setProvider(
     self.brokerCtx,
     proc(contentTopic: ContentTopic): Result[void, string] =
-      self.waku.subscribe(contentTopic),
+      self.kernel.subscribe(contentTopic),
   )
 
   ?MessagingUnsubscribe.setProvider(
     self.brokerCtx,
     proc(contentTopic: ContentTopic): Result[void, string] =
-      self.waku.unsubscribe(contentTopic),
+      self.kernel.unsubscribe(contentTopic),
   )
 
   self.started = true

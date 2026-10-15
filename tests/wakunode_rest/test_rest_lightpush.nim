@@ -62,9 +62,9 @@ proc init(
   testSetup.consumerNode = testWakuNode()
 
   await allFutures(
-    testSetup.serviceNode.start(),
-    testSetup.pushNode.start(),
-    testSetup.consumerNode.start(),
+    testSetup.serviceNode.startProtocols(),
+    testSetup.pushNode.startProtocols(),
+    testSetup.consumerNode.startProtocols(),
   )
 
   (await testSetup.consumerNode.mountRelay()).isOkOr:
@@ -108,7 +108,7 @@ proc shutdown(self: RestLightPushTest) {.async.} =
   await self.restServer.stop()
   await self.restServer.closeWait()
   await allFutures(
-    self.serviceNode.stop(), self.pushNode.stop(), self.consumerNode.stop()
+    self.serviceNode.stopProtocols(), self.pushNode.stopProtocols(), self.consumerNode.stopProtocols()
   )
 
 const maxRpcSize =

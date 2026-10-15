@@ -171,7 +171,7 @@ suite "Waku API - Send":
       (await relayNode1.mountRelay()).isOkOr:
         raiseAssert "Failed to mount relay"
       await relayNode1.mountLibp2pPing()
-      await relayNode1.start()
+      await relayNode1.startProtocols()
 
     lockNewGlobalBrokerContext:
       relayNode2 = newTestWakuNode(generateSecp256k1Key())
@@ -180,7 +180,7 @@ suite "Waku API - Send":
       (await relayNode2.mountRelay()).isOkOr:
         raiseAssert "Failed to mount relay"
       await relayNode2.mountLibp2pPing()
-      await relayNode2.start()
+      await relayNode2.startProtocols()
 
     lockNewGlobalBrokerContext:
       lightpushNode = newTestWakuNode(generateSecp256k1Key())
@@ -191,7 +191,7 @@ suite "Waku API - Send":
       (await lightpushNode.mountLightPush()).isOkOr:
         raiseAssert "Failed to mount lightpush"
       await lightpushNode.mountLibp2pPing()
-      await lightpushNode.start()
+      await lightpushNode.startProtocols()
 
     lockNewGlobalBrokerContext:
       storeNode = newTestWakuNode(generateSecp256k1Key())
@@ -205,7 +205,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to mount archive: " & error
       await storeNode.mountStore()
       await storeNode.mountLibp2pPing()
-      await storeNode.start()
+      await storeNode.startProtocols()
 
     relayNode1PeerInfo = relayNode1.peerInfo.toRemotePeerInfo()
     relayNode1PeerId = relayNode1.peerInfo.peerId
@@ -242,7 +242,7 @@ suite "Waku API - Send":
 
   asyncTeardown:
     await allFutures(
-      relayNode1.stop(), relayNode2.stop(), lightpushNode.stop(), storeNode.stop()
+      relayNode1.stopProtocols(), relayNode2.stopProtocols(), lightpushNode.stopProtocols(), storeNode.stopProtocols()
     )
 
   asyncTest "Check API availability (unhealthy node)":
@@ -303,7 +303,7 @@ suite "Waku API - Send":
       duplicateCount(relayIngress) >= duplicatesBefore + 2
 
     let stored = (
-      await node.waku.protocols.archive.findMessages(
+      await node.kernel.protocols.archive.findMessages(
         ArchiveQuery(contentTopics: @[contentTopic])
       )
     ).valueOr:
@@ -322,11 +322,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -358,11 +358,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, lightpushNodePeerInfo, storeNodePeerInfo]
       )
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -373,9 +373,9 @@ suite "Waku API - Send":
       inc sentCount
       if sentCount == burst:
         allSent.fire()
-    let counter = MessageSentEvent.listen(node.waku.brokerCtx, onSent).expect("listen")
+    let counter = MessageSentEvent.listen(node.kernel.brokerCtx, onSent).expect("listen")
     defer:
-      await MessageSentEvent.dropListener(node.waku.brokerCtx, counter)
+      await MessageSentEvent.dropListener(node.kernel.brokerCtx, counter)
 
     var requestIds: HashSet[RequestId]
     for i in 0 ..< burst:
@@ -406,9 +406,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[relayNode1PeerInfo])
+      await node.kernel.connectToNodes(@[relayNode1PeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -437,9 +437,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -476,11 +476,11 @@ suite "Waku API - Send":
 
       # Edge node has no relay; its only path to the network is the
       # lightpush peer it is connected to.
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
-    check node.waku.protocols.relay.isNil()
+    check node.kernel.protocols.relay.isNil()
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -515,9 +515,9 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
       # No connectToNodes: the sender has no reachable peer at T0.
 
-    check node.waku.protocols.relay.isNil()
+    check node.kernel.protocols.relay.isNil()
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -534,7 +534,7 @@ suite "Waku API - Send":
     check eventManager.propagatedCount == 0
 
     # The lightpush peer appears; a later retry must now deliver.
-    await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+    await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
 
     const eventTimeout = 10.seconds
     discard await eventManager.waitForEvents(eventTimeout)
@@ -553,9 +553,9 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo, storeNodePeerInfo])
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -587,7 +587,7 @@ suite "Waku API - Send":
       (await fakeLightpushNode.mountLightPush()).isOkOr:
         raiseAssert "Failed to mount lightpush"
       await fakeLightpushNode.mountLibp2pPing()
-      await fakeLightpushNode.start()
+      await fakeLightpushNode.startProtocols()
     let fakeLightpushNodePeerInfo = fakeLightpushNode.peerInfo.toRemotePeerInfo()
     proc dummyHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -611,11 +611,11 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[fakeLightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[fakeLightpushNodePeerInfo])
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -649,13 +649,13 @@ suite "Waku API - Send":
       (await node.start()).isOkOr:
         raiseAssert "Failed to start Waku node: " & error
 
-      await node.waku.connectToNodes(@[lightpushNodePeerInfo])
+      await node.kernel.connectToNodes(@[lightpushNodePeerInfo])
     defer:
       (await node.stop()).expect("Failed to stop node")
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -703,19 +703,19 @@ suite "Waku API - Send":
 
     node.messagingClient.sendService.maxDeliveryTime = 5.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
     var receivedHashes: seq[string]
     let receivedListener = MessageReceivedEvent.listen(
-      node.waku.brokerCtx,
+      node.kernel.brokerCtx,
       proc(event: MessageReceivedEvent) {.async: (raises: []).} =
         receivedHashes.add(event.messageHash),
     ).valueOr:
       raiseAssert error
     defer:
-      await MessageReceivedEvent.dropListener(node.waku.brokerCtx, receivedListener)
+      await MessageReceivedEvent.dropListener(node.kernel.brokerCtx, receivedListener)
 
     let
       client = newRestHttpClient(rest.server.localAddress())
@@ -768,7 +768,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to mount archive: " & error
       await isolatedStoreNode.mountStore()
       await isolatedStoreNode.mountLibp2pPing()
-      await isolatedStoreNode.start()
+      await isolatedStoreNode.startProtocols()
     # Deliberately NOT subscribed to the topic and NOT wired into the relay mesh, so
     # it can answer store queries but never holds the published message.
     let isolatedStoreNodePeerInfo = isolatedStoreNode.peerInfo.toRemotePeerInfo()
@@ -782,14 +782,14 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
 
       # Propagate via relayNode1; store queries can only reach the isolated store node.
-      await node.waku.connectToNodes(
+      await node.kernel.connectToNodes(
         @[relayNode1PeerInfo, isolatedStoreNodePeerInfo]
       )
 
     # Longer than `archiveTime`, so the store node is queried first.
     node.messagingClient.sendService.maxValidationAge = 2.seconds
 
-    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
     defer:
       await eventManager.teardown()
 
@@ -806,7 +806,7 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
     )
 
-    await isolatedStoreNode.stop()
+    await isolatedStoreNode.stopProtocols()
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 
@@ -860,7 +860,7 @@ suite "Messaging API - the request id comes before the events":
 
     let direct = client.send(MessageEnvelope.init(OrderTopic, "direct"))
     let viaBroker = MessagingSend.request(
-      node.waku.brokerCtx, MessageEnvelope.init(OrderTopic, "broker")
+      node.kernel.brokerCtx, MessageEnvelope.init(OrderTopic, "broker")
     )
     check:
       direct.finished()
@@ -884,14 +884,14 @@ suite "Messaging API - the request id comes before the events":
       (await client.send(MessageEnvelope.init(RefusedTopic, "refused"))).errorOr(
         "accepted"
       ) == "Send queue full, retry later"
-      not node.waku.isSubscribed(RefusedTopic).valueOr(true)
+      not node.kernel.isSubscribed(RefusedTopic).valueOr(true)
 
   asyncTest "no event comes before its request id, durable and ephemeral":
     let node = await noBudgetNode(capacity = 100)
     defer:
       (await node.stop()).expect("stop")
     let client = node.messagingClient
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     let log = OrderLog()
     let queuedListener = MessageQueuedEvent

@@ -421,7 +421,7 @@ proc startNode*(
   info "Running nwaku node", version = git_version
 
   try:
-    await node.start()
+    await node.startProtocols()
   except CatchableError:
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 

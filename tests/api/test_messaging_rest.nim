@@ -129,7 +129,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     let reqA = RequestId("req-A")
     let reqB = RequestId("req-B")
@@ -294,7 +294,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     # Emit more than the cache capacity (50); oldest must be dropped. Odd
     # messages come from Store, so the source travels with each record.
@@ -383,7 +383,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     const total = 8
     let droppedBefore = logos_delivery_rest_received_dropped.value()

@@ -45,8 +45,8 @@ suite "Waku Lightpush - End To End":
     server = newTestWakuNode(serverKey)
     client = newTestWakuNode(clientKey)
 
-    await allFutures(server.start(), client.start())
-    await server.start()
+    await allFutures(server.startProtocols(), client.startProtocols())
+    await server.startProtocols()
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -59,7 +59,7 @@ suite "Waku Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    await server.stopProtocols()
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -136,8 +136,8 @@ suite "RLN Proofs as a Lightpush Service":
       epochSizeSec = 600,
     )
 
-    await allFutures(server.start(), client.start())
-    await server.start()
+    await allFutures(server.startProtocols(), client.startProtocols())
+    await server.startProtocols()
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -166,7 +166,7 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    await server.stopProtocols()
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
@@ -404,7 +404,7 @@ suite "Waku Lightpush message delivery":
       destNodeKey = generateSecp256k1Key()
       destNode = newTestWakuNode(destNodeKey)
 
-    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
+    await allFutures(destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols())
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -447,7 +447,7 @@ suite "Waku Lightpush message delivery":
     check await completionFutRelay.withTimeout(5.seconds)
 
     ## Cleanup
-    await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
+    await allFutures(lightNode.stopProtocols(), bridgeNode.stopProtocols(), destNode.stopProtocols())
 
   asyncTest "Publishing without a pubsub topic delivers on the shard derived from the content topic":
     ## Setup
@@ -456,9 +456,9 @@ suite "Waku Lightpush message delivery":
       bridgeNode = newTestWakuNode(generateSecp256k1Key())
       destNode = newTestWakuNode(generateSecp256k1Key())
 
-    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
+    await allFutures(destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols())
     defer:
-      await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
+      await allFutures(lightNode.stopProtocols(), bridgeNode.stopProtocols(), destNode.stopProtocols())
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"

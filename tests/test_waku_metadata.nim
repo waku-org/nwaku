@@ -44,7 +44,7 @@ procSuite "Waku Metadata Protocol":
     discard await node2.mountRelay()
 
     # Start nodes
-    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols()])
 
     # Subscribe to topics on node1 - relay will track these and metadata will report them
     let noOpHandler: WakuRelayHandler = proc(
@@ -73,7 +73,7 @@ procSuite "Waku Metadata Protocol":
       response1.get().clusterId.get() == clusterId
       response1.get().shards == @[uint32(6), uint32(7)]
 
-    await allFutures([node1.stop(), node2.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
 
   asyncTest "Metadata reports configured shards before relay subscription":
     ## Given: Node with configured shards but no relay subscriptions yet
@@ -92,7 +92,7 @@ procSuite "Waku Metadata Protocol":
     discard node2.mountMetadata(clusterId, @[])
 
     # Start nodes (relay is NOT mounted yet on node1)
-    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols()])
 
     ## When: Node2 requests metadata from Node1 before relay is active
     let connOpt = await node2.peerManager.dialPeer(
@@ -111,7 +111,7 @@ procSuite "Waku Metadata Protocol":
       response.get().clusterId.get() == clusterId
       response.get().shards == @[uint32(0), uint32(1)]
 
-    await allFutures([node1.stop(), node2.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
 
   asyncTest "Metadata reports configured shards once the relay holds a shard of another cluster":
     # TODO: logos-delivery#4457
@@ -128,7 +128,7 @@ procSuite "Waku Metadata Protocol":
     discard node3.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
-    await allFutures([node1.start(), node2.start(), node3.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
@@ -165,7 +165,7 @@ procSuite "Waku Metadata Protocol":
       node3.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(0)]
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols()])
 
   asyncTest "Metadata reports a shard of another cluster as a shard of the node's own cluster":
     # TODO: logos-delivery#4457
@@ -180,7 +180,7 @@ procSuite "Waku Metadata Protocol":
     discard node2.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
-    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
@@ -202,7 +202,7 @@ procSuite "Waku Metadata Protocol":
       node2.peerManager.switch.peerStore.getPeer(node1.switch.peerInfo.peerId).shards ==
         @[uint16(3)]
 
-    await allFutures([node1.stop(), node2.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
 
   asyncTest "A peer of another cluster is disconnected although the relay holds a shard of that cluster":
     # TODO: logos-delivery#4457
@@ -219,7 +219,7 @@ procSuite "Waku Metadata Protocol":
     discard await node1.mountRelay()
     discard await node2.mountRelay()
 
-    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
@@ -241,7 +241,7 @@ procSuite "Waku Metadata Protocol":
       not node1.switch.isConnected(node2.switch.peerInfo.peerId)
       not node2.switch.isConnected(node1.switch.peerInfo.peerId)
 
-    await allFutures([node1.stop(), node2.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
 
 suite "Waku Metadata - shards on the wire":
   test "the decoder reads the shards of each writer":

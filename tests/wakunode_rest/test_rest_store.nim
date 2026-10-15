@@ -73,7 +73,7 @@ proc init(
     T: type RestStoreTest, msgs: seq[WakuMessage], driver: ArchiveDriver
 ): Future[RestStoreTest] {.async.} =
   var t = RestStoreTest(node: testWakuNode(), driver: driver)
-  await t.node.start()
+  await t.node.startProtocols()
 
   t.node.mountArchive(t.driver).isOkOr:
     assert false, "failed to mount archive: " & error
@@ -104,7 +104,7 @@ proc init(
 proc shutdown(t: RestStoreTest) {.async.} =
   await t.restServer.stop()
   await t.restServer.closeWait()
-  await t.node.stop()
+  await t.node.stopProtocols()
 
 ################################################################################
 # Beginning of the tests
@@ -137,7 +137,7 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "invalid cursor":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -212,11 +212,11 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "Filter by start and end time":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -283,12 +283,12 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "Store node history response - forward pagination":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -376,12 +376,12 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "query a node and retrieve historical messages filtered by pubsub topic":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -449,12 +449,12 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "retrieve historical messages from a provided store node address":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -538,12 +538,12 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "filter historical messages by content topic":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -594,12 +594,12 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "precondition failed":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -661,7 +661,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "retrieve historical messages from a self-store-node":
     ## This test aims to validate the correct message retrieval for a store-node which exposes
@@ -669,7 +669,7 @@ procSuite "Waku Rest API - Store v3":
 
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -729,7 +729,7 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "correct message fields are returned":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -777,7 +777,7 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "Rate limit store node store query":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -917,7 +917,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "hashes filter: each hash list returns exactly its messages":
     let t = await RestStoreTest.init()
@@ -1313,9 +1313,9 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a failed dial to the store peer is answered 504":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1349,9 +1349,9 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a store peer whose port is closed is answered 504":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1383,9 +1383,9 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a store peer that accepts the connection and never answers is answered 504 on timeout":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()

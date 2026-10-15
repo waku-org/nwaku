@@ -32,7 +32,7 @@ suite "Waku Peer Exchange":
 
     asyncTest "Started node mounts peer exchange":
       # Given a started node without peer exchange mounted
-      await node.start()
+      await node.startProtocols()
       check:
         node.discovery.peerExchange == nil
 
@@ -45,7 +45,7 @@ suite "Waku Peer Exchange":
         node.discovery.peerExchange.started == true
 
       # Cleanup
-      await node.stop()
+      await node.stopProtocols()
 
     asyncTest "Stopped node mounts peer exchange":
       # Given a stopped node without peer exchange mounted
@@ -69,10 +69,10 @@ suite "Waku Peer Exchange":
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node3 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(node.start(), node2.start(), node3.start())
+      await allFutures(node.startProtocols(), node2.startProtocols(), node3.startProtocols())
 
     asyncTeardown:
-      await allFutures(node.stop(), node2.stop(), node3.stop())
+      await allFutures(node.stopProtocols(), node2.stopProtocols(), node3.stopProtocols())
 
     asyncTest "Node fetches without mounting peer exchange":
       # When a node, without peer exchange mounted, fetches peers
@@ -126,7 +126,7 @@ suite "Waku Peer Exchange":
       var rpInfo = node3.peerInfo.toRemotePeerInfo()
       rpInfo.enr = Opt.some(node3.enr)
       node2.peerManager.addPeer(rpInfo, PeerOrigin.Discv5)
-      await node3.stop()
+      await node3.stopProtocols()
 
       node.peerManager.addServicePeer(
         node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
@@ -154,10 +154,10 @@ suite "Waku Peer Exchange":
       node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(node.start(), node2.start())
+      await allFutures(node.startProtocols(), node2.startProtocols())
 
     asyncTeardown:
-      await allFutures(node.stop(), node2.stop())
+      await allFutures(node.stopProtocols(), node2.stopProtocols())
 
     asyncTest "peer set successfully":
       # Given a node with peer exchange mounted
@@ -225,7 +225,7 @@ suite "Waku Peer Exchange with discv5":
         nodeKey3 = generateSecp256k1Key()
         node3 = newTestWakuNode(nodeKey3, bindIp, Port(0), wakuFlags = Opt.some(flags))
 
-      await allFutures(node1.start(), node2.start(), node3.start())
+      await allFutures(node1.startProtocols(), node2.startProtocols(), node3.startProtocols())
 
       let disc1 = (
         await startDiscv5WithAutoPort(node1, keys.PrivateKey(nodeKey1.skkey), bindIp)
@@ -271,5 +271,5 @@ suite "Waku Peer Exchange with discv5":
         node3.peerManager.switch.peerStore.peers.len == currentPeers + requestPeers
 
       await allFutures(
-        [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
+        [node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), disc1.stop(), disc2.stop()]
       )

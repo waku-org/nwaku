@@ -39,7 +39,7 @@ suite "Waku v2 REST API - Debug":
   asyncTest "Get node info - GET /info":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -65,12 +65,12 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "Get node version - GET /version":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -94,4 +94,4 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()

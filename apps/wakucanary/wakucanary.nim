@@ -275,7 +275,7 @@ proc main(rng: Rng): Future[int] {.async.} =
     error "failed to mount metadata protocol", error = error.msg
     quit(QuitFailure)
 
-  await node.start()
+  await node.startProtocols()
 
   debug "Connecting to peer", peer = peer, timeout = conf.timeout
 
@@ -293,7 +293,7 @@ proc main(rng: Rng): Future[int] {.async.} =
   defer:
     debug "Cleanly disconnecting from peer", peerId = peer.peerId
     await node.peerManager.disconnectNode(peer.peerId)
-    await node.stop()
+    await node.stopProtocols()
 
   debug "Connected, checking connection status", peerId = peer.peerId
 

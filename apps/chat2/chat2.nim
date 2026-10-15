@@ -256,7 +256,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stop()
+        await c.node.stopProtocols()
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
@@ -343,7 +343,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       .tryGet()
     builder.build().tryGet()
 
-  await node.start()
+  await node.startProtocols()
 
   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")

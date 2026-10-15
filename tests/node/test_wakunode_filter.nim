@@ -85,7 +85,7 @@ suite "Waku Filter - End to End":
     client = newTestWakuNode(clientKey)
     clientClone = newTestWakuNode(clientKey) # Used for testing client restarts
 
-    await allFutures(server.start(), client.start())
+    await allFutures(server.startProtocols(), client.startProtocols())
 
     await server.mountFilter()
     await client.mountFilterClient()
@@ -99,7 +99,7 @@ suite "Waku Filter - End to End":
     clientClone.protocols.filterClient.registerPushHandler(messagePushHandler)
 
   asyncTeardown:
-    await allFutures(client.stop(), clientClone.stop(), server.stop())
+    await allFutures(client.stopProtocols(), clientClone.stopProtocols(), server.stopProtocols())
 
   asyncTest "Client Node receives Push from Server Node, via Filter":
     # When a client node subscribes to a filter node
@@ -180,9 +180,9 @@ suite "Waku Filter - End to End":
     let
       publisherKey = generateSecp256k1Key()
       publisher = newTestWakuNode(publisherKey)
-    await publisher.start()
+    await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      await publisher.stopProtocols()
 
     (await publisher.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
@@ -216,7 +216,7 @@ suite "Waku Filter - End to End":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey)
 
-    await server.start()
+    await server.startProtocols()
     (await server.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
 
@@ -293,8 +293,8 @@ suite "Waku Filter - End to End":
       server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
-    await client.stop()
-    await clientClone.start() # Mimic restart by starting the clone
+    await client.stopProtocols()
+    await clientClone.startProtocols() # Mimic restart by starting the clone
 
     # When a message is sent to the subscribed content topic, via Relay
     let msg = fakeWakuMessage(contentTopic = contentTopic)
@@ -646,7 +646,7 @@ suite "Waku Filter - End to End":
     for index in 0 ..< MaxFilterPeers:
       peers[index] = newTestWakuNode(generateSecp256k1Key())
 
-      await peers[index].start()
+      await peers[index].startProtocols()
       await peers[index].mountFilterClient()
 
       ## connect switches
@@ -684,7 +684,7 @@ suite "Waku Filter - End to End":
       )
 
     ## stop the peers
-    await allFutures(peers.mapIt(it.stop()))
+    await allFutures(peers.mapIt(it.stopProtocols()))
 
   asyncTest "unsubscribe errors":
     ## Tests most common error paths while unsubscribing
@@ -808,14 +808,14 @@ suite "Waku Filter - End to End":
       await client2.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
       await client3.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
 
-      await client1.start()
-      await client2.start()
-      await client3.start()
+      await client1.startProtocols()
+      await client2.startProtocols()
+      await client3.startProtocols()
 
       defer:
-        await client1.stop()
-        await client2.stop()
-        await client3.stop()
+        await client1.stopProtocols()
+        await client2.stopProtocols()
+        await client3.stopProtocols()
 
       await client1.mountFilterClient()
       await client2.mountFilterClient()

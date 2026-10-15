@@ -63,7 +63,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      await node1.startProtocols()
 
       # Registration is mandatory before sending messages with rln-relay
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
@@ -87,7 +87,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      await node2.startProtocols()
 
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let rootUpdated2 = await manager2.updateRoots()
@@ -105,7 +105,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      await node3.startProtocols()
 
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let rootUpdated3 = await manager3.updateRoots()
@@ -162,9 +162,9 @@ procSuite "Kernel - RLN relay":
     discard await node1.publish(Opt.some(DefaultPubsubTopic), message)
     assert (await completionFut.withTimeout(15.seconds)), "completionFut timed out"
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    await node1.stopProtocols()
+    await node2.stopProtocols()
+    await node3.stopProtocols()
 
   asyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
@@ -178,7 +178,7 @@ procSuite "Kernel - RLN relay":
       let wakuRlnConfig1 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      await node1.startProtocols()
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
       let idCredentials1 = generateCredentials()
 
@@ -195,7 +195,7 @@ procSuite "Kernel - RLN relay":
       let wakuRlnConfig2 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      await node2.startProtocols()
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let idCredentials2 = generateCredentials()
 
@@ -212,7 +212,7 @@ procSuite "Kernel - RLN relay":
       let wakuRlnConfig3 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      await node3.startProtocols()
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let idCredentials3 = generateCredentials()
 
@@ -318,9 +318,9 @@ procSuite "Kernel - RLN relay":
       rxMessagesTopic1 == 3
       rxMessagesTopic2 == 3
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    await node1.stopProtocols()
+    await node2.stopProtocols()
+    await node3.stopProtocols()
 
   asyncTest "testing rln-relay with invalid proof":
     var node1, node2, node3: Kernel
@@ -338,7 +338,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      await node1.startProtocols()
 
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
       let idCredentials1 = generateCredentials()
@@ -359,7 +359,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      await node2.startProtocols()
 
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let rootUpdated2 = await manager2.updateRoots()
@@ -375,7 +375,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      await node3.startProtocols()
 
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let rootUpdated3 = await manager3.updateRoots()
@@ -431,9 +431,9 @@ procSuite "Kernel - RLN relay":
       # the relayHandler of node3 never gets called
       (await completionFut.withTimeout(10.seconds)) == false
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    await node1.stopProtocols()
+    await node2.stopProtocols()
+    await node3.stopProtocols()
 
   asyncTest "testing rln-relay double-signaling detection":
     var node1, node2, node3: Kernel
@@ -451,7 +451,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      await node1.startProtocols()
 
       # Registration is mandatory before sending messages with rln-relay
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
@@ -474,7 +474,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      await node2.startProtocols()
 
       # Registration is mandatory before sending messages with rln-relay
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
@@ -492,7 +492,7 @@ procSuite "Kernel - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      await node3.startProtocols()
 
       # Registration is mandatory before sending messages with rln-relay
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
@@ -604,9 +604,9 @@ procSuite "Kernel - RLN relay":
       (await res3) == true
       (await res4) == false
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    await node1.stopProtocols()
+    await node2.stopProtocols()
+    await node3.stopProtocols()
 
   xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
     ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
@@ -795,7 +795,7 @@ procSuite "Kernel - RLN relay":
         userMessageLimit = 20,
       )
       let rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.start()
+      await node.startProtocols()
 
       let rlnManager = cast[RlnEvmGroupManager](rln.groupManager)
       let idCredentials = generateCredentials()
@@ -826,7 +826,7 @@ procSuite "Kernel - RLN relay":
       let rootValid = await rln.groupManager.validateRoot(rlnProof.merkleRoot)
       check rootValid
 
-      await node.stop()
+      await node.stopProtocols()
 
 proc relayVerdict(
     node: Kernel, msg: WakuMessage

@@ -73,7 +73,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -98,7 +98,7 @@ procSuite "Kernel - Store":
       response.messages == kvs
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
 
   test "Store node history response - forward pagination":
     ## Setup
@@ -108,7 +108,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -154,7 +154,7 @@ procSuite "Kernel - Store":
       pages[1] == kvs[7 .. 9]
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
 
   test "Store node history response - backward pagination":
     ## Setup
@@ -164,7 +164,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -210,7 +210,7 @@ procSuite "Kernel - Store":
       pages[1] == kvs[0 .. 2]
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
 
   test "Store protocol returns expected message when relay is disabled and filter enabled":
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
@@ -223,7 +223,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start(), filterSource.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols(), filterSource.startProtocols())
 
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
@@ -285,7 +285,7 @@ procSuite "Kernel - Store":
       handledMsg == message
 
     ## Cleanup
-    waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols(), filterSource.stopProtocols())
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup
@@ -295,7 +295,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -328,7 +328,7 @@ procSuite "Kernel - Store":
     check response.statusDesc == "BAD_REQUEST: invalid cursor"
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
 
   test "Store protocol queries does not violate request rate limitation":
     ## Setup
@@ -338,7 +338,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -372,7 +372,7 @@ procSuite "Kernel - Store":
       waitFor sleepAsync(20.millis)
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
 
   test "Store protocol queries overrun request rate limitation":
     when defined(macosx):
@@ -388,7 +388,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.start(), server.start())
+    waitFor allFutures(client.startProtocols(), server.startProtocols())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -431,4 +431,4 @@ procSuite "Kernel - Store":
       waitFor sleepAsync(20.millis)
 
     # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stopProtocols(), server.stopProtocols())

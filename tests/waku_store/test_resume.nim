@@ -87,14 +87,14 @@ suite "Store Resume - End to End":
 
     client.setupStoreResume()
 
-    await server.start()
+    await server.startProtocols()
 
     let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
     client.peerManager.addServicePeer(serverRemotePeerInfo, WakuStoreCodec)
 
   asyncTeardown:
-    await allFutures(client.stop(), server.stop())
+    await allFutures(client.stopProtocols(), server.stopProtocols())
 
   asyncTest "10 messages resume":
     var countRes = await clientDriver.getMessagesCount()
@@ -103,7 +103,7 @@ suite "Store Resume - End to End":
     check:
       countRes.get() == 0
 
-    await client.start()
+    await client.startProtocols()
 
     countRes = await clientDriver.getMessagesCount()
     assert countRes.isOk(), $countRes.error
@@ -156,18 +156,18 @@ suite "Store Resume - pages":
     client.mountStoreClient()
     client.setupStoreResume()
 
-    await server.start()
+    await server.startProtocols()
     client.peerManager.addServicePeer(
       server.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
   asyncTeardown:
-    await allFutures(client.stop(), server.stop())
+    await allFutures(client.stopProtocols(), server.stopProtocols())
 
   asyncTest "resume reads the pages after a page with a dropped message":
     check (await serverDriver.getMessagesCount()).get(0) == 150
 
-    await client.start()
+    await client.startProtocols()
 
     let count = await clientDriver.getMessagesCount()
     check:

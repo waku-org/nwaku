@@ -82,7 +82,7 @@ procSuite "Peer Manager":
   asyncTest "connectPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     let connOk =
       await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
@@ -102,7 +102,7 @@ procSuite "Peer Manager":
     ## address book with that order after every connection, so dial paths
     ## must reorder quic ahead of tcp themselves.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     let announced = nodes[1].peerInfo.toRemotePeerInfo().addrs
     let tcpFirst =
@@ -124,14 +124,14 @@ procSuite "Peer Manager":
       obsAddr.isSome()
       "/quic-v1" in $obsAddr.get()
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "reconnect after identify address book refresh still dials quic":
     ## The original quic-to-tcp drift: identify rewrites the address book
     ## with the peer's announced tcp-first order after every connection, so
     ## reconnects from the book must still come out quic.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     let peerId = nodes[1].peerInfo.peerId
 
     require await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
@@ -165,13 +165,13 @@ procSuite "Peer Manager":
       obsAddr.isSome()
       "/quic-v1" in $obsAddr.get()
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "protocol stream dial from tcp-first address book uses quic":
     ## dialPeer(peerId, proto) resolves addresses from the address book and
     ## must also come out quic when the book is tcp-first.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     let peerId = nodes[1].peerInfo.peerId
 
     let announced = nodes[1].peerInfo.toRemotePeerInfo().addrs
@@ -187,14 +187,14 @@ procSuite "Peer Manager":
       obsAddr.isSome()
       "/quic-v1" in $obsAddr.get()
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "tcp-only dialer connects to a quic-first address list":
     ## A node without quic support must skip quic addresses at no cost and
     ## connect over tcp.
     let dialer = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
     let server = newTestWakuNode(generateSecp256k1Key())
-    await allFutures(dialer.start(), server.start())
+    await allFutures(dialer.startProtocols(), server.startProtocols())
 
     let announced = server.peerInfo.toRemotePeerInfo().addrs
     let quicFirst =
@@ -212,12 +212,12 @@ procSuite "Peer Manager":
       obsAddr.isSome()
       "/quic-v1" notin $obsAddr.get()
 
-    await allFutures(dialer.stop(), server.stop())
+    await allFutures(dialer.stopProtocols(), server.stopProtocols())
 
   asyncTest "quic dialer connects to a tcp-only peer":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.start(), server.start())
+    await allFutures(dialer.startProtocols(), server.startProtocols())
 
     let peer = server.peerInfo.toRemotePeerInfo()
     require peer.addrs.allIt("/quic-v1" notin $it)
@@ -228,7 +228,7 @@ procSuite "Peer Manager":
     require conns.len >= 1
     check "/quic-v1" notin $conns[0].connection.observedAddr.get()
 
-    await allFutures(dialer.stop(), server.stop())
+    await allFutures(dialer.stopProtocols(), server.stopProtocols())
 
   asyncTest "quic dialer falls back to tcp when the peer's quic port is closed":
     ## A stale or wrong quic-v1 address for a tcp-only peer: nothing listens
@@ -237,7 +237,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.start(), server.start())
+    await allFutures(dialer.startProtocols(), server.startProtocols())
 
     let closedUdp = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -253,7 +253,7 @@ procSuite "Peer Manager":
       Moment.now() - started < quicDialTimeout + chronos.seconds(2)
       dialer.connectedOverTcpOnly(server)
 
-    await allFutures(dialer.stop(), server.stop())
+    await allFutures(dialer.stopProtocols(), server.stopProtocols())
 
   asyncTest "quic dialer falls back to tcp when the peer's quic packets are dropped":
     ## A firewall that drops udp silently: a socket that reads and ignores.
@@ -261,7 +261,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.start(), server.start())
+    await allFutures(dialer.startProtocols(), server.startProtocols())
 
     let blackhole = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -277,7 +277,7 @@ procSuite "Peer Manager":
       dialer.connectedOverTcpOnly(server)
 
     await blackhole.closeWait()
-    await allFutures(dialer.stop(), server.stop())
+    await allFutures(dialer.stopProtocols(), server.stopProtocols())
 
   asyncTest "quic dialer opens a stream over tcp when the peer's quic packets are dropped":
     ## The stream path (peerManager.dialPeer) goes through the dialer's `dial`,
@@ -286,7 +286,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.start(), server.start())
+    await allFutures(dialer.startProtocols(), server.startProtocols())
 
     let blackhole = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -304,14 +304,14 @@ procSuite "Peer Manager":
 
     await conn.get().close()
     await blackhole.closeWait()
-    await allFutures(dialer.stop(), server.stop())
+    await allFutures(dialer.stopProtocols(), server.stopProtocols())
 
   asyncTest "aborting the dials fails the stalled ones and the next ones":
     ## A mounted protocol (e.g. service discovery) waits, under `noCancel`, for
     ## the dials it left behind, so a stalled dial would hold the node stop.
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch)
-    await dialer.start()
+    await dialer.startProtocols()
 
     proc holdConnection(
         server: StreamServer, transp: StreamTransport
@@ -342,12 +342,12 @@ procSuite "Peer Manager":
       nextDial.failed()
 
     stalled.stop()
-    await allFutures(stalled.closeWait(), dialer.stop())
+    await allFutures(stalled.closeWait(), dialer.stopProtocols())
 
   asyncTest "Peer manager tracks active store request state":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let peerId = nodes[1].peerInfo.peerId
@@ -379,13 +379,13 @@ procSuite "Peer Manager":
       nodes[0].peerManager.switch.peerStore.connectedness(peerId) !=
         Connectedness.Connected
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "dialPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -413,12 +413,12 @@ procSuite "Peer Manager":
       nodes[0].peerManager.switch.peerStore.connectedness(nodes[1].peerInfo.peerId) ==
         Connectedness.Connected
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "dialPeer() fails gracefully":
     # Create 2 nodes and start them
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
@@ -440,14 +440,14 @@ procSuite "Peer Manager":
     check:
       conn2.isNone()
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "a cancelled dial ends cancelled":
     ## The listener accepts TCP but leaves the libp2p handshake pending.
     let node = newTestWakuNode(generateSecp256k1Key())
-    await node.start()
+    await node.startProtocols()
     defer:
-      await node.stop()
+      await node.stopProtocols()
 
     let accepted = newAsyncEvent()
     var held: seq[StreamTransport]
@@ -489,7 +489,7 @@ procSuite "Peer Manager":
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
       storePeer = PeerInfo.new(generateEcdsaKey(), @[storeLoc])
 
-    await node.start()
+    await node.startProtocols()
 
     node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
     node.peerManager.addServicePeer(
@@ -508,7 +508,7 @@ procSuite "Peer Manager":
           it.protocols.contains(WakuStoreCodec)
       )
 
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "total unique peers metric counts each peer once":
     let
@@ -540,7 +540,7 @@ procSuite "Peer Manager":
       assert false, "Failed to mount relay"
     (await control.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await allFutures(node.start(), control.start())
+    await allFutures(node.startProtocols(), control.startProtocols())
 
     proc simpleHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -567,13 +567,13 @@ procSuite "Peer Manager":
     checkUntilTimeout:
       connectedPeersPerShard(517) == Opt.some(0.0)
 
-    await allFutures(node.stop(), control.stop())
+    await allFutures(node.stopProtocols(), control.stopProtocols())
 
   asyncTest "Peer manager keeps track of connections":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Test default connectedness for new peers
@@ -615,19 +615,19 @@ procSuite "Peer Manager":
         Connected
 
     # Stop node. Gracefully disconnect from all peers.
-    await nodes[0].stop()
+    await nodes[0].stopProtocols()
     check:
       # Not currently connected to node2, but had recent, successful connection.
       nodes[0].peerManager.switch.peerStore.connectedness(nodes[1].peerInfo.peerId) ==
         CanConnect
 
-    await nodes[1].stop()
+    await nodes[1].stopProtocols()
 
   asyncTest "Peer manager updates failed peers correctly":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
@@ -682,13 +682,13 @@ procSuite "Peer Manager":
         nodes[1].peerInfo.peerId
       ] == 0
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "connectPeer() failing after the peer connected in keeps it Connected":
     ## The node's dial stalls on an address that never answers the handshake,
     ## and the peer connects in before that dial times out.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     var held: seq[StreamTransport]
     proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
@@ -720,11 +720,11 @@ procSuite "Peer Manager":
       await client.closeWait()
     listener.stop()
     await listener.closeWait()
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "connectPeer() on a connected peer neither dials nor counts a connection":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     let peer = nodes[1].peerInfo.toRemotePeerInfo()
     check await nodes[0].peerManager.connectPeer(peer)
@@ -740,7 +740,7 @@ procSuite "Peer Manager":
       peerStore[ConnectionBook][peer.peerId] == Connected
       nodes[0].switch.connManager.getConnections().getOrDefault(peer.peerId).len == 1
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "reconnectPeers only reconnects persisted (Cache) peers":
     ## Regression: freshly discovered relay peers were wrongly swept into the
@@ -748,7 +748,7 @@ procSuite "Peer Manager":
     ## persistent storage (origin == Cache); discovered peers are left for the
     ## connectivity loop to dial without any backoff.
     let node = newTestWakuNode(generateSecp256k1Key())
-    await node.start()
+    await node.startProtocols()
 
     let basePeerId = "QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW"
     var cachePeerId, discoveredPeerId: PeerId
@@ -788,7 +788,7 @@ procSuite "Peer Manager":
       peerStore[NumberFailedConnBook][discoveredPeerId] == 0
       peerStore.connectedness(discoveredPeerId) == NotConnected
 
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
@@ -809,8 +809,8 @@ procSuite "Peer Manager":
     node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
     node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
-    await node1.start()
-    await node2.start()
+    await node1.startProtocols()
+    await node2.startProtocols()
 
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -853,7 +853,7 @@ procSuite "Peer Manager":
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.start()
+    await node3.startProtocols()
 
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
@@ -872,7 +872,7 @@ procSuite "Peer Manager":
       node3.peerManager.switch.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.switch.peerStore.connectedness(peerInfo2.peerId) == Connected
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols()])
 
   asyncTest "Sharded peer manager can use persistent storage and survive restarts":
     let
@@ -893,8 +893,8 @@ procSuite "Peer Manager":
     node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
     node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
-    await node1.start()
-    await node2.start()
+    await node1.startProtocols()
+    await node2.startProtocols()
 
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -939,7 +939,7 @@ procSuite "Peer Manager":
     # the reconnect after a restart waits out the prune backoff
     node3.protocols.relay.parameters.pruneBackoff = ZeroDuration
 
-    await node3.start()
+    await node3.startProtocols()
 
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
@@ -958,7 +958,7 @@ procSuite "Peer Manager":
       node3.peerManager.switch.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.switch.peerStore.connectedness(peerInfo2.peerId) == Connected
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols()])
 
   asyncTest "Peer manager drops conections to peers on different networks":
     let
@@ -993,7 +993,7 @@ procSuite "Peer Manager":
     node3.mountMetadata(4, @[0'u16]).expect("Mounted Waku Metadata")
 
     # Start nodes
-    await allFutures([node1.start(), node2.start(), node3.start()])
+    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
 
     # 1->2 (fails)
     let conn1 = await node1.peerManager.dialPeer(
@@ -1027,7 +1027,7 @@ procSuite "Peer Manager":
     # Start them
     discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     # Get all peer infos
     let peerInfos = collect:
@@ -1085,7 +1085,7 @@ procSuite "Peer Manager":
         nodes[3].switch.peerInfo.peerId
       ] == Connected
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Sharded peer manager connects to all peers supporting a given protocol":
     # Create 4 nodes
@@ -1099,7 +1099,7 @@ procSuite "Peer Manager":
     # Start them
     discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
 
     proc simpleHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -1166,14 +1166,14 @@ procSuite "Peer Manager":
         nodes[3].switch.peerInfo.peerId
       ] == Connected
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Peer store keeps track of incoming connections":
     # Create 4 nodes
     let nodes = toSeq(0 ..< 4).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Get all peer infos
@@ -1260,7 +1260,7 @@ procSuite "Peer Manager":
         nodes[0].switch.peerInfo.peerId
       ] == Outbound
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Peer store addServicePeer() stores service peers":
     # Valid peer id missing the last digit
@@ -1308,7 +1308,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 4).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -1361,7 +1361,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -1650,7 +1650,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 5).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
@@ -1683,14 +1683,14 @@ procSuite "Peer Manager":
       nodes[0].peerManager.switch.connManager.getConnections().len == 1
       nodes[0].peerManager.switch.peerStore.peers().len == 1
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "Retrieve peer that mounted peer exchange":
     let
       node1 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
       node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
 
-    await allFutures(node1.start(), node2.start())
+    await allFutures(node1.startProtocols(), node2.startProtocols())
     await allFutures(node1.mountRelay(), node2.mountRelay())
     await allFutures(node1.mountPeerExchange(), node2.mountPeerExchange())
 
@@ -1722,7 +1722,7 @@ procSuite "Peer Manager":
       ),
     ]
 
-    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.startProtocols()))
     for node in nodes:
       discard await node.mountRelay()
 
@@ -1760,7 +1760,7 @@ procSuite "Peer Manager":
       selectedPeer1.isSome()
       selectedPeer1.get().peerId == peerInfos[1].peerId # node1 has shard 1
 
-    await allFutures(nodes.mapIt(it.stop()))
+    await allFutures(nodes.mapIt(it.stopProtocols()))
 
   asyncTest "selectPeer() filters peers by shard using shards field":
     ## Given: A peer manager with peers having shards in RemotePeerInfo (no ENR)
@@ -1826,11 +1826,11 @@ procSuite "Peer Manager":
     ## Given: A peer manager with valid peers
     let node =
       newTestWakuNode(generateSecp256k1Key(), clusterId = 0, subscribeShards = @[0'u16])
-    await node.start()
+    await node.startProtocols()
 
     # Add a peer
     let peer = newTestWakuNode(generateSecp256k1Key())
-    await peer.start()
+    await peer.startProtocols()
     discard await peer.mountRelay()
 
     var peerInfo = peer.switch.peerInfo.toRemotePeerInfo()
@@ -1852,7 +1852,7 @@ procSuite "Peer Manager":
       check:
         result.isNone()
 
-    await allFutures(node.stop(), peer.stop())
+    await allFutures(node.stopProtocols(), peer.stopProtocols())
 
   asyncTest "selectPeer() prioritizes ENR over shards field":
     ## Given: A peer with both ENR and shards field populated
@@ -1864,14 +1864,14 @@ procSuite "Peer Manager":
     let node = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[shardId0]
     )
-    await node.start()
+    await node.startProtocols()
     discard await node.mountRelay()
 
     # Create peer with ENR containing shard 0
     let peer = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[shardId0]
     )
-    await peer.start()
+    await peer.startProtocols()
     discard await peer.mountRelay()
 
     # Create peer info with ENR (shard 0) but set shards field to shard 1
@@ -1902,4 +1902,4 @@ procSuite "Peer Manager":
       selectedPeer1.isSome()
       selectedPeer1.get().peerId == peerInfo.peerId
 
-    await allFutures(node.stop(), peer.stop())
+    await allFutures(node.stopProtocols(), peer.stopProtocols())

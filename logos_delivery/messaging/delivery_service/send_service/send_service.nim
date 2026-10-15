@@ -81,7 +81,7 @@ type SendService* = ref object of RootObj
     ## Charges first transmissions against the per-epoch budget; re-publishes
     ## are free.
 
-  waku: Kernel
+  kernel: Kernel
   checkStoreForMessages: bool
   storeValidationHandle: Future[void]
     ## The Store validation loop. Nil when Store-based reliability is off.
@@ -100,11 +100,11 @@ type SendService* = ref object of RootObj
   retryInterval: timer.Duration
 
 proc setupSendProcessorChain*(
-    waku: Kernel, anonymityLevel: AnonymityLevel
+    kernel: Kernel, anonymityLevel: AnonymityLevel
 ): Result[BaseSendProcessor, string] =
-  let brokerCtx = waku.brokerCtx
-  let isRelayAvail = waku.hasRelay()
-  let isLightPushAvail = waku.hasLightpush()
+  let brokerCtx = kernel.brokerCtx
+  let isRelayAvail = kernel.hasRelay()
+  let isLightPushAvail = kernel.hasLightpush()
 
   var processors = newSeq[BaseSendProcessor]()
 
@@ -116,19 +116,19 @@ proc setupSendProcessorChain*(
       return err("Mix sending needs a lightpush client, which is not mounted")
 
     let mixProcessor: BaseSendProcessor =
-      MixSendProcessor.new(waku, brokerCtx, anonymityLevel, DeliveryWindow)
+      MixSendProcessor.new(kernel, brokerCtx, anonymityLevel, DeliveryWindow)
     if anonymityLevel == AnonymityLevel.Required:
       return ok(mixProcessor)
 
     processors.add(mixProcessor)
 
   if isRelayAvail:
-    let publishProc = waku.relayPushHandler()
+    let publishProc = kernel.relayPushHandler()
     processors.add(
-      RelaySendProcessor.new(isLightPushAvail, publishProc, waku, brokerCtx)
+      RelaySendProcessor.new(isLightPushAvail, publishProc, kernel, brokerCtx)
     )
   if isLightPushAvail:
-    processors.add(LightpushSendProcessor.new(waku, brokerCtx))
+    processors.add(LightpushSendProcessor.new(kernel, brokerCtx))
 
   if processors.len == 0:
     return err("No valid send processor found for the delivery task")
@@ -144,7 +144,7 @@ proc setupSendProcessorChain*(
 proc new*(
     T: typedesc[SendService],
     preferP2PReliability: bool,
-    waku: Kernel,
+    kernel: Kernel,
     rateLimitManager: RateLimitManager,
     sendProcessor: BaseSendProcessor,
     anonymityLevel: AnonymityLevel = AnonymityLevel.None,
@@ -161,17 +161,17 @@ proc new*(
   if maxSendsInFlight <= 0:
     return err("maxSendsInFlight must be positive")
 
-  let checkStoreForMessages = preferP2PReliability and waku.isStoreMounted()
+  let checkStoreForMessages = preferP2PReliability and kernel.isStoreMounted()
 
   let sendService = SendService(
-    brokerCtx: waku.brokerCtx,
+    brokerCtx: kernel.brokerCtx,
     deliveryTasks: initOrderedTable[WakuMessageHash, DeliveryTask](),
     admissionLock: newAsyncLock(),
     sendSlots: newAsyncSemaphore(maxSendsInFlight),
     retryTick: newAsyncEvent(),
     sendProcessor: sendProcessor,
     rateLimitManager: rateLimitManager,
-    waku: waku,
+    kernel: kernel,
     checkStoreForMessages: checkStoreForMessages,
     maxDeliveryTime: maxDeliveryTime(anonymityLevel),
     maxParkedAge: maxParkedAge,
@@ -243,7 +243,7 @@ proc checkMsgsInStore(self: SendService, batch: seq[DeliveryTask]) {.async.} =
     task.lastStoreQueryTime = Opt.some(now)
 
   # TODO: confirm hash format for store query!!!
-  let query = self.waku.storeQueryToAny(
+  let query = self.kernel.storeQueryToAny(
     StoreQueryRequest(
       includeData: false,
       messageHashes: batch.mapIt(it.msgHash),
@@ -278,7 +278,7 @@ proc storeValidationLoop(self: SendService) {.async: (raises: [CancelledError]).
         toSeq(self.deliveryTasks.values).filterIt(it.storeAnswerPending()), Moment.now()
       )
       if batch.len > 0:
-        if self.waku.hasStorePeer():
+        if self.kernel.hasStorePeer():
           await self.checkMsgsInStore(batch)
         else:
           debug "Skipping store validation, no store peer available",
@@ -398,7 +398,7 @@ proc admitAndProve(self: SendService, task: DeliveryTask): Future[bool] {.async.
 
   # The message timestamp sets its epoch, so a backend past that epoch or out of
   # budget fails the task. Other errors wait for a retry.
-  task.msg = (await self.waku.attachRlnProof(task.msg)).valueOr:
+  task.msg = (await self.kernel.attachRlnProof(task.msg)).valueOr:
     case error.kind
     of RlnErrorKind.Permanent, RlnErrorKind.BudgetExhausted:
       task.state = DeliveryState.FailedToDeliver
@@ -413,7 +413,7 @@ proc admitAndProve(self: SendService, task: DeliveryTask): Future[bool] {.async.
 func needsAdmission(self: SendService, task: DeliveryTask): bool =
   ## True when the task needs an epoch budget charge or an RLN proof. A task that
   ## needs neither does not wait for another task in `admitAndProve`.
-  return task.firstAdmittedTime.isNone() or self.waku.needsRlnProof(task.msg)
+  return task.firstAdmittedTime.isNone() or self.kernel.needsRlnProof(task.msg)
 
 proc runAdmission(
     self: SendService, task: DeliveryTask

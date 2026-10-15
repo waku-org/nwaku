@@ -2342,7 +2342,7 @@ suite "Waku Filter - End to End":
       server = newTestWakuNode(generateSecp256k1Key())
       client2nd = newTestWakuNode(generateSecp256k1Key())
 
-      await allFutures(server.start(), client.start(), client2nd.start())
+      await allFutures(server.startProtocols(), client.startProtocols(), client2nd.startProtocols())
 
       await client.mountFilterClient()
       await client2nd.mountFilterClient()
@@ -2355,7 +2355,7 @@ suite "Waku Filter - End to End":
       serverRemotePeerInfo = server.switch.peerInfo
 
     asyncTeardown:
-      await allFutures(client2nd.stop(), client.stop(), server.stop())
+      await allFutures(client2nd.stopProtocols(), client.stopProtocols(), server.stopProtocols())
 
     asyncTest "client unsubscribe by timeout":
       server.protocols.filter.setSubscriptionTimeout(1.seconds)

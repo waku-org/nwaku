@@ -119,18 +119,18 @@ when isMainModule:
     error "Issue converting toWakuConf", error = $error
     quit(QuitFailure)
 
-  var waku = (waitFor Kernel.new(wakuConf)).valueOr:
+  var kernel = (waitFor Kernel.new(wakuConf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  (waitFor waku.startKernel()).isOkOr:
+  (waitFor kernel.start()).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
   info "Setting up shutdown hooks"
 
-  proc asyncStopper(waku: Kernel) {.async: (raises: []).} =
-    (await waku.stopKernel()).isOkOr:
+  proc asyncStopper(kernel: Kernel) {.async: (raises: []).} =
+    (await kernel.stop()).isOkOr:
       error "Waku shutdown failed", error = error
     quit(QuitSuccess)
 
@@ -140,7 +140,7 @@ when isMainModule:
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     notice "Shutting down after receiving SIGINT"
-    asyncSpawn asyncStopper(waku)
+    asyncSpawn asyncStopper(kernel)
 
   setControlCHook(handleCtrlC)
 
@@ -148,7 +148,7 @@ when isMainModule:
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
       notice "Shutting down after receiving SIGTERM"
-      asyncSpawn asyncStopper(waku)
+      asyncSpawn asyncStopper(kernel)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
 
@@ -161,7 +161,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      (waitFor waku.stopKernel()).isOkOr:
+      (waitFor kernel.stop()).isOkOr:
         error "Waku shutdown failed", error = error
       quit(QuitFailure)
 
@@ -181,7 +181,7 @@ when isMainModule:
   if conf.serviceNode.len == 0:
     if conf.bootstrapNode.len > 0:
       info "Bootstrapping with PeerExchange to gather random service node"
-      let futForServiceNode = pxLookupServiceNode(waku, conf)
+      let futForServiceNode = pxLookupServiceNode(kernel, conf)
       if not (waitFor futForServiceNode.withTimeout(20.minutes)):
         error "Service node not found in time via PX"
         quit(QuitFailure)
@@ -191,7 +191,7 @@ when isMainModule:
         quit(QuitFailure)
 
       serviceNodePeerInfo = selectRandomServicePeer(
-        waku.peerManager, Opt.none(RemotePeerInfo), codec
+        kernel.peerManager, Opt.none(RemotePeerInfo), codec
       ).valueOr:
         error "Service node selection failed"
         quit(QuitFailure)
@@ -206,11 +206,11 @@ when isMainModule:
 
   info "Service node to be used", serviceNode = $serviceNodePeerInfo
 
-  logSelfPeers(waku.peerManager)
+  logSelfPeers(kernel.peerManager)
 
   if conf.testFunc == TesterFunctionality.SENDER:
-    setupAndPublish(waku, conf, serviceNodePeerInfo)
+    setupAndPublish(kernel, conf, serviceNodePeerInfo)
   else:
-    setupAndListen(waku, conf, serviceNodePeerInfo)
+    setupAndListen(kernel, conf, serviceNodePeerInfo)
 
   runForever()

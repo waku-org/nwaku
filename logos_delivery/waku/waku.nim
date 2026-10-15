@@ -149,31 +149,31 @@ proc setupAppCallbacks(
 
   return ok()
 
-proc provideNodeState(waku: Kernel) =
+proc provideNodeState(kernel: Kernel) =
   ## Node-state getters for loosely-coupled components (discovery backends).
   ## Provided at `new` and again at every `start` (discovery backends read them
   ## while starting); `stop` clears them so a stopped node hands out no state.
   ## reprovideIt: replace-or-insert, idempotent across restarts.
-  discard GetNodeSwitch.reprovideIt(waku.brokerCtx):
-    ok(waku.switch)
-  discard GetNodePeerManager.reprovideIt(waku.brokerCtx):
-    ok(waku.peerManager)
-  discard GetNodeEnr.reprovideIt(waku.brokerCtx):
-    ok(waku.enr)
-  discard GetNodeKey.reprovideIt(waku.brokerCtx):
-    ok(waku.key)
-  discard GetNodePeerInfo.reprovideIt(waku.brokerCtx):
-    ok(waku.switch.peerInfo)
-  discard GetDynamicBootstrapNodes.reprovideIt(waku.brokerCtx):
-    ok(waku.discovery.dynamicBootstrapNodes)
+  discard GetNodeSwitch.reprovideIt(kernel.brokerCtx):
+    ok(kernel.switch)
+  discard GetNodePeerManager.reprovideIt(kernel.brokerCtx):
+    ok(kernel.peerManager)
+  discard GetNodeEnr.reprovideIt(kernel.brokerCtx):
+    ok(kernel.enr)
+  discard GetNodeKey.reprovideIt(kernel.brokerCtx):
+    ok(kernel.key)
+  discard GetNodePeerInfo.reprovideIt(kernel.brokerCtx):
+    ok(kernel.switch.peerInfo)
+  discard GetDynamicBootstrapNodes.reprovideIt(kernel.brokerCtx):
+    ok(kernel.discovery.dynamicBootstrapNodes)
 
-proc clearNodeState(waku: Kernel) =
-  GetNodeSwitch.clearProvider(waku.brokerCtx)
-  GetNodePeerManager.clearProvider(waku.brokerCtx)
-  GetNodeEnr.clearProvider(waku.brokerCtx)
-  GetNodeKey.clearProvider(waku.brokerCtx)
-  GetNodePeerInfo.clearProvider(waku.brokerCtx)
-  GetDynamicBootstrapNodes.clearProvider(waku.brokerCtx)
+proc clearNodeState(kernel: Kernel) =
+  GetNodeSwitch.clearProvider(kernel.brokerCtx)
+  GetNodePeerManager.clearProvider(kernel.brokerCtx)
+  GetNodeEnr.clearProvider(kernel.brokerCtx)
+  GetNodeKey.clearProvider(kernel.brokerCtx)
+  GetNodePeerInfo.clearProvider(kernel.brokerCtx)
+  GetDynamicBootstrapNodes.clearProvider(kernel.brokerCtx)
 
 proc new*(
     T: type Kernel, wakuConf: WakuConf, appCallbacks: AppCallbacks = nil
@@ -202,30 +202,30 @@ proc new*(
   node.key = wakuConf.nodeKey
   node.healthMonitorRef = monitor
   node.appCallbacks = appCallbacks
-  var waku = node
+  var kernel = node
 
-  waku.setupSwitchServices(wakuConf, relay, rng)
+  kernel.setupSwitchServices(wakuConf, relay, rng)
 
   if wakuConf.discv5Conf.isSome():
-    waku.discovery.discv5Discovery = Discv5PeerDiscovery.create(
+    kernel.discovery.discv5Discovery = Discv5PeerDiscovery.create(
       wakuConf.discv5Conf.get(), wakuConf.endpointConf.p2pListenAddress, rng
     )
-    node.attachDiscovery(waku.discovery.discv5Discovery)
+    node.attachDiscovery(kernel.discovery.discv5Discovery)
 
   if wakuConf.externalDiscoveryConf.isSome():
     let extConf = wakuConf.externalDiscoveryConf.get()
-    waku.discovery.externalDiscovery = ExternalServiceDiscovery.create(
+    kernel.discovery.externalDiscovery = ExternalServiceDiscovery.create(
       extConf.serviceLookupInterval, extConf.randomLookupInterval
     )
-    node.attachDiscovery(waku.discovery.externalDiscovery)
+    node.attachDiscovery(kernel.discovery.externalDiscovery)
 
-  waku.provideNodeState()
+  kernel.provideNodeState()
 
   ## What a host must set up before `start` (a plugin, bootstrap peers). It is
   ## a pure function of this instance's config and captures nothing else, so
   ## unlike the node-state getters it stays registered across stop/start for
   ## the instance's lifetime: a host may query it while the node is stopped.
-  discard GetDiscoveryRequirements.reprovideIt(waku.brokerCtx):
+  discard GetDiscoveryRequirements.reprovideIt(kernel.brokerCtx):
     let ext = wakuConf.externalDiscoveryConf
     ok(
       DiscoveryRequirements(
@@ -238,12 +238,12 @@ proc new*(
       )
     )
 
-  ok(waku)
+  ok(kernel)
 
-proc getRunningNetConfig(waku: Kernel): Future[Result[NetConfig, string]] {.async.} =
-  let conf = waku.conf
+proc getRunningNetConfig(kernel: Kernel): Future[Result[NetConfig, string]] {.async.} =
+  let conf = kernel.conf
   let (tcpPort, websocketPort, quicPort) = getPorts(
-    waku.switch.peerInfo.listenAddrs
+    kernel.switch.peerInfo.listenAddrs
   ).valueOr:
     return err("Could not retrieve ports: " & error)
 
@@ -267,23 +267,23 @@ proc getRunningNetConfig(waku: Kernel): Future[Result[NetConfig, string]] {.asyn
 
   return ok(netConf)
 
-proc updateEnr(waku: Kernel): Future[Result[void, string]] {.async.} =
-  let netConf: NetConfig = (await getRunningNetConfig(waku)).valueOr:
+proc updateEnr(kernel: Kernel): Future[Result[void, string]] {.async.} =
+  let netConf: NetConfig = (await getRunningNetConfig(kernel)).valueOr:
     return err("error calling updateNetConfig: " & $error)
   ## discv5 bumped the seed record it was given, and a peer that cached the
   ## higher number ignores a lower one.
-  var seqNum = waku.enr.seqNum
-  if not waku.discovery.discv5.isNil():
-    seqNum = max(seqNum, waku.discovery.discv5.protocol.localNode.record.seqNum)
+  var seqNum = kernel.enr.seqNum
+  if not kernel.discovery.discv5.isNil():
+    seqNum = max(seqNum, kernel.discovery.discv5.protocol.localNode.record.seqNum)
 
-  let record = enrConfiguration(waku.conf, netConf, seqNum + 1).valueOr:
+  let record = enrConfiguration(kernel.conf, netConf, seqNum + 1).valueOr:
     return err("ENR setup failed: " & error)
 
-  if isClusterMismatched(record, waku.conf.clusterId):
+  if isClusterMismatched(record, kernel.conf.clusterId):
     return err("cluster-id mismatch configured shards")
 
-  waku.enr = record
-  waku.updateEnrConfiguredEndpoint(netConf)
+  kernel.enr = record
+  kernel.updateEnrConfiguredEndpoint(netConf)
 
   return ok()
 
@@ -344,119 +344,119 @@ proc reconcileEnrAddrs*(
   ?refreshEnrAddrs(node, key, wakuDiscv5)
   return ok(true)
 
-proc logEnrReachability(waku: Kernel) =
+proc logEnrReachability(kernel: Kernel) =
   ## Without an address the record advertises nothing anyone can dial. That is
   ## a normal edge-node state, so it is a notice, and only on a change.
-  let reachable = waku.enr.hasDialableAddress()
-  if reachable == waku.enrReachable:
+  let reachable = kernel.enr.hasDialableAddress()
+  if reachable == kernel.enrReachable:
     return
-  waku.enrReachable = reachable
+  kernel.enrReachable = reachable
   if reachable:
-    notice "ENR now advertises a reachable host", enr = waku.enr.toURI()
+    notice "ENR now advertises a reachable host", enr = kernel.enr.toURI()
   else:
     notice "ENR carries no reachable host, so peers cannot dial this node. " &
       "Set --nat, --ext-ip, --dns4-domain-name or --ext-multiaddr to advertise one"
 
-proc enrReconcileLoop(waku: Kernel): Future[void] {.async.} =
+proc enrReconcileLoop(kernel: Kernel): Future[void] {.async.} =
   while true:
-    await sleepAsync(waku.enrReconcileInterval)
-    let written = reconcileEnrAddrs(waku, waku.key, waku.discovery.discv5).valueOr:
+    await sleepAsync(kernel.enrReconcileInterval)
+    let written = reconcileEnrAddrs(kernel, kernel.key, kernel.discovery.discv5).valueOr:
       error "failed to reconcile the ENR with the discv5 record", error = error
       continue
     if written:
-      info "ENR reconciled with the discv5 record", enr = waku.enr.toURI()
-      waku.logEnrReachability()
+      info "ENR reconciled with the discv5 record", enr = kernel.enr.toURI()
+      kernel.logEnrReachability()
 
-proc updateWaku(waku: Kernel): Future[Result[void, string]] {.async.} =
-  (await updateEnr(waku)).isOkOr:
+proc updateWaku(kernel: Kernel): Future[Result[void, string]] {.async.} =
+  (await updateEnr(kernel)).isOkOr:
     return err("error calling updateEnr: " & $error)
 
-  if not waku.discovery.discv5.isNil():
+  if not kernel.discovery.discv5.isNil():
     ## Copy the startup ENR into the live discv5 record once. Shard updates
     ## and multiaddr refreshes then update that record in place. The seed
     ## also gave discv5 its own address; the rebuild replaces that too.
-    waku.discovery.discv5.protocol.localNode.record = waku.enr
-    waku.discovery.discv5.protocol.localNode.address = Opt.none(discv5_node.Address)
+    kernel.discovery.discv5.protocol.localNode.record = kernel.enr
+    kernel.discovery.discv5.protocol.localNode.address = Opt.none(discv5_node.Address)
     ## Seeding is not learning: from here on, a record that moved is discv5's.
-    waku.enrLearnedEndpoint = Opt.none(DiscoveryEndpoint)
+    kernel.enrLearnedEndpoint = Opt.none(DiscoveryEndpoint)
 
-  ?refreshEnrAddrs(waku, waku.key, waku.discovery.discv5)
+  ?refreshEnrAddrs(kernel, kernel.key, kernel.discovery.discv5)
 
   return ok()
 
-proc startDnsDiscoveryRetryLoop(waku: Kernel): Future[void] {.async.} =
+proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
   while true:
     await sleepAsync(30.seconds)
-    if waku.conf.dnsDiscoveryConf.isSome():
-      let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
-      waku.discovery.dynamicBootstrapNodes = (
+    if kernel.conf.dnsDiscoveryConf.isSome():
+      let dnsDiscoveryConf = kernel.conf.dnsDiscoveryConf.get()
+      kernel.discovery.dynamicBootstrapNodes = (
         await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-          dnsDiscoveryConf.enrTreeUrl, waku.conf.dnsAddrsNameServers
+          dnsDiscoveryConf.enrTreeUrl, kernel.conf.dnsAddrsNameServers
         )
       ).valueOr:
         debug "Retrieving dynamic bootstrap nodes failed", error = error
         continue
 
-    if not waku.discovery.discv5.isNil():
+    if not kernel.discovery.discv5.isNil():
       let dynamicBootstrapEnrs =
-        waku.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
+        kernel.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in dynamicBootstrapEnrs:
         addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
-      waku.discovery.discv5.updateBootstrapRecords(
-        waku.discovery.discv5.protocol.bootstrapRecords & discv5BootstrapEnrs
+      kernel.discovery.discv5.updateBootstrapRecords(
+        kernel.discovery.discv5.protocol.bootstrapRecords & discv5BootstrapEnrs
       )
 
     info "Connecting to dynamic bootstrap peers"
     try:
-      await connectToNodes(waku, waku.discovery.dynamicBootstrapNodes, "dynamic bootstrap")
+      await connectToNodes(kernel, kernel.discovery.dynamicBootstrapNodes, "dynamic bootstrap")
     except CatchableError:
       debug "Failed to connect to dynamic bootstrap nodes",
         error = getCurrentExceptionMsg()
     return
 
-proc closePersistency(waku: Kernel) =
+proc closePersistency(kernel: Kernel) =
   ## Clear the GetPersistency provider and close the instance (joins any
   ## job worker threads). Idempotent; shared by `stop` and a failed `start`.
-  GetPersistency.clearProvider(waku.brokerCtx)
-  if not waku.persistency.isNil():
-    waku.persistency.close()
-    waku.persistency = nil
+  GetPersistency.clearProvider(kernel.brokerCtx)
+  if not kernel.persistency.isNil():
+    kernel.persistency.close()
+    kernel.persistency = nil
 
-proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
-  if waku.started:
+proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
+  if kernel.started:
     debug "start: waku node already started"
     return ok()
 
-  waku.provideNodeState() # cleared by a previous stop()
+  kernel.provideNodeState() # cleared by a previous stop()
 
   info "Retrieve dynamic bootstrap nodes"
-  let conf = waku.conf
+  let conf = kernel.conf
 
   ## Create this node's Persistency instance and provide it under the node's
   ## BrokerContext first, so any later startup stage can restore persisted
   ## state through it. Inert until the first openJob. The defer below tears
   ## it down again on every one of start's error return paths.
-  waku.persistency = Persistency.new(conf.localStoragePath).valueOr:
+  kernel.persistency = Persistency.new(conf.localStoragePath).valueOr:
     error "Failed to initialize persistency instance", error = $error
     return err("Failed to initialize persistency instance: " & $error)
-  discard GetPersistency.reprovideIt(waku.brokerCtx):
-    ok(waku.persistency)
+  discard GetPersistency.reprovideIt(kernel.brokerCtx):
+    ok(kernel.persistency)
 
   var startSucceeded = false
   defer:
     if not startSucceeded:
-      await waku.stopMixRln()
-      waku.closePersistency()
+      await kernel.stopMixRln()
+      kernel.closePersistency()
 
   if conf.dnsDiscoveryConf.isSome():
-    let dnsDiscoveryConf = waku.conf.dnsDiscoveryConf.get()
+    let dnsDiscoveryConf = kernel.conf.dnsDiscoveryConf.get()
     let dynamicBootstrapNodesRes =
       try:
         await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-          dnsDiscoveryConf.enrTreeUrl, waku.conf.dnsAddrsNameServers
+          dnsDiscoveryConf.enrTreeUrl, kernel.conf.dnsAddrsNameServers
         )
       except CatchableError as exc:
         Result[seq[RemotePeerInfo], string].err(
@@ -466,95 +466,95 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
     if dynamicBootstrapNodesRes.isErr():
       info "Retrieving dynamic bootstrap nodes failed, starting retry loop",
         error = dynamicBootstrapNodesRes.error
-      waku.discovery.dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
+      kernel.discovery.dnsRetryLoopHandle = kernel.startDnsDiscoveryRetryLoop()
     else:
-      waku.discovery.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+      kernel.discovery.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if not waku.protocols.mixRln.isNil():
+  if not kernel.protocols.mixRln.isNil():
     try:
-      (await waku.startMixRln()).isOkOr:
+      (await kernel.startMixRln()).isOkOr:
         return err(error)
     except CancelledError:
       return err("Mix RLN startup cancelled")
-  (await startNode(waku, waku.conf, waku.discovery.dynamicBootstrapNodes)).isOkOr:
+  (await startNode(kernel, kernel.conf, kernel.discovery.dynamicBootstrapNodes)).isOkOr:
     return err("error while calling startNode: " & $error)
 
-  let bound = getPorts(waku.switch.peerInfo.listenAddrs).valueOr:
+  let bound = getPorts(kernel.switch.peerInfo.listenAddrs).valueOr:
     return err("failed to read bound ports from switch: " & $error)
-  waku.ports.tcp = bound.tcpPort.get(Port(0)).uint16
-  waku.ports.webSocket = bound.websocketPort.get(Port(0)).uint16
-  waku.ports.quic = bound.quicPort.get(Port(0)).uint16
+  kernel.ports.tcp = bound.tcpPort.get(Port(0)).uint16
+  kernel.ports.webSocket = bound.websocketPort.get(Port(0)).uint16
+  kernel.ports.quic = bound.quicPort.get(Port(0)).uint16
 
   ## Discv5
-  if not waku.discovery.discv5Discovery.isNil():
+  if not kernel.discovery.discv5Discovery.isNil():
     ## Normally already started by node.start() through the attached
     ## discovery backends; startDiscovery is idempotent and surfaces a
     ## start failure that the node start path only logged.
-    (await waku.discovery.discv5Discovery.startDiscovery()).isOkOr:
+    (await kernel.discovery.discv5Discovery.startDiscovery()).isOkOr:
       return err("failed to start waku discovery v5: " & error)
 
-    waku.discovery.discv5 = waku.discovery.discv5Discovery.inner
+    kernel.discovery.discv5 = kernel.discovery.discv5Discovery.inner
 
-    let discoveryInfo = (await waku.discovery.discv5Discovery.backendInfo()).valueOr:
+    let discoveryInfo = (await kernel.discovery.discv5Discovery.backendInfo()).valueOr:
       return err("failed to read discv5 backend info: " & error)
     if discoveryInfo.boundPorts.len > 0:
-      waku.ports.discv5Udp = discoveryInfo.boundPorts[0]
-      waku.conf.discv5Conf.get().udpPort = Port(discoveryInfo.boundPorts[0])
+      kernel.ports.discv5Udp = discoveryInfo.boundPorts[0]
+      kernel.conf.discv5Conf.get().udpPort = Port(discoveryInfo.boundPorts[0])
 
   ## Set the callback before the explicit refresh in updateWaku,
   ## so a commit in between reaches the ENR.
-  waku.onCommittedAddresses = proc() {.gcsafe, raises: [].} =
-    refreshEnrAddrs(waku, waku.key, waku.discovery.discv5).isOkOr:
+  kernel.onCommittedAddresses = proc() {.gcsafe, raises: [].} =
+    refreshEnrAddrs(kernel, kernel.key, kernel.discovery.discv5).isOkOr:
       error "failed to refresh ENR multiaddrs", error = $error
       return
-    waku.logEnrReachability()
+    kernel.logEnrReachability()
 
   ## External service discovery
-  if not waku.discovery.externalDiscovery.isNil():
+  if not kernel.discovery.externalDiscovery.isNil():
     ## Configured means required. The plugin is registered at runtime, so a
     ## node can reach start with none installed -- and it would then run
     ## believing it has discovery while having none at all. Same idempotent
     ## re-call as discv5 above, to turn the node start path's logged failure
     ## into a hard one.
-    (await waku.discovery.externalDiscovery.startDiscovery()).isOkOr:
+    (await kernel.discovery.externalDiscovery.startDiscovery()).isOkOr:
       return err("failed to start external service discovery: " & error)
 
   ## Update waku data that is set dynamically on node start
   try:
-    (await updateWaku(waku)).isOkOr:
+    (await updateWaku(kernel)).isOkOr:
       return err("Error in start: " & $error)
   except CatchableError:
     return err("Caught exception in start: " & getCurrentExceptionMsg())
 
-  waku.subscriptionManager.subscribeAllAutoshards().isOkOr:
+  kernel.subscriptionManager.subscribeAllAutoshards().isOkOr:
     return err("failed to auto-subscribe autosharding shards: " & $error)
 
-  waku.logEnrReachability()
+  kernel.logEnrReachability()
 
-  if not waku.discovery.discv5.isNil():
-    waku.enrReconcileLoopHandle = waku.enrReconcileLoop()
+  if not kernel.discovery.discv5.isNil():
+    kernel.enrReconcileLoopHandle = kernel.enrReconcileLoop()
 
   ## Announce ourselves on the delivery network. After the shard subscriptions,
   ## not before: an advertisement is only useful if the shards it claims are
   ## the ones we are actually on.
   await advertiseSelf(
-    waku.discovery.discoveries,
-    waku.conf,
-    waku.getShardsGetter(waku.conf.subscribeShards)(),
+    kernel.discovery.discoveries,
+    kernel.conf,
+    kernel.getShardsGetter(kernel.conf.subscribeShards)(),
   )
-  await advertiseMix(waku.discovery.discoveries, waku.conf)
+  await advertiseMix(kernel.discovery.discoveries, kernel.conf)
 
   ## Health Monitor
-  waku.healthMonitor.startHealthMonitor().isOkOr:
+  kernel.healthMonitor.startHealthMonitor().isOkOr:
     return err("failed to start health monitor: " & $error)
 
   ## Setup RequestConnectionStatus provider
 
   RequestConnectionStatus.setProvider(
-    waku.brokerCtx,
+    kernel.brokerCtx,
     proc(): Result[RequestConnectionStatus, string] =
       try:
-        let healthReport = waku.healthMonitor.getSyncNodeHealthReport()
+        let healthReport = kernel.healthMonitor.getSyncNodeHealthReport()
         return
           ok(RequestConnectionStatus(connectionStatus: healthReport.connectionStatus))
       except CatchableError:
@@ -565,13 +565,13 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
   ## Setup RequestProtocolHealth provider
 
   RequestProtocolHealth.setProvider(
-    waku.brokerCtx,
+    kernel.brokerCtx,
     proc(
         protocol: WakuProtocol
     ): Future[Result[RequestProtocolHealth, string]] {.async.} =
       try:
         let protocolHealthStatus =
-          await waku.healthMonitor.getProtocolHealthInfo(protocol)
+          await kernel.healthMonitor.getProtocolHealthInfo(protocol)
         return ok(RequestProtocolHealth(healthStatus: protocolHealthStatus))
       except CatchableError:
         return err("Failed to get protocol health: " & getCurrentExceptionMsg()),
@@ -581,10 +581,10 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
   ## Setup RequestHealthReport provider
 
   RequestHealthReport.setProvider(
-    waku.brokerCtx,
+    kernel.brokerCtx,
     proc(): Future[Result[RequestHealthReport, string]] {.async.} =
       try:
-        let report = await waku.healthMonitor.getNodeHealthReport()
+        let report = await kernel.healthMonitor.getNodeHealthReport()
         return ok(RequestHealthReport(healthReport: report))
       except CatchableError:
         return err("Failed to get health report: " & getCurrentExceptionMsg()),
@@ -597,54 +597,54 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
         await waku_metrics.startMetricsServerAndLogging(conf.metricsServerConf.get())
       ).valueOr:
         return err("Starting monitoring and external interfaces failed: " & error)
-      waku.metricsServer = server
-      waku.ports.metrics = port.uint16
-      waku.conf.metricsServerConf.get().httpPort = port
+      kernel.metricsServer = server
+      kernel.ports.metrics = port.uint16
+      kernel.conf.metricsServerConf.get().httpPort = port
     except CatchableError:
       return err(
         "Caught exception starting monitoring and external interfaces failed: " &
           getCurrentExceptionMsg()
       )
-  waku.healthMonitor.setOverallHealth(HealthStatus.READY)
+  kernel.healthMonitor.setOverallHealth(HealthStatus.READY)
 
   startSucceeded = true
   return ok()
 
-proc stopKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
-  if not waku.started:
+proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
+  if not kernel.started:
     debug "stop: attempting to stop node that isn't running"
 
   try:
-    waku.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+    kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
 
-    waku.closePersistency()
+    kernel.closePersistency()
 
-    if not waku.metricsServer.isNil():
-      await waku.metricsServer.stop()
+    if not kernel.metricsServer.isNil():
+      await kernel.metricsServer.stop()
 
     # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
 
-    if not waku.isNil():
-      await waku.stopMixRln()
-      await waku.stop()
+    if not kernel.isNil():
+      await kernel.stopMixRln()
+      await kernel.stopProtocols()
 
-    if not waku.discovery.dnsRetryLoopHandle.isNil():
-      await waku.discovery.dnsRetryLoopHandle.cancelAndWait()
+    if not kernel.discovery.dnsRetryLoopHandle.isNil():
+      await kernel.discovery.dnsRetryLoopHandle.cancelAndWait()
 
-    if not waku.enrReconcileLoopHandle.isNil():
-      await waku.enrReconcileLoopHandle.cancelAndWait()
+    if not kernel.enrReconcileLoopHandle.isNil():
+      await kernel.enrReconcileLoopHandle.cancelAndWait()
 
-    if not waku.healthMonitor.isNil():
-      await waku.healthMonitor.stopHealthMonitor()
+    if not kernel.healthMonitor.isNil():
+      await kernel.healthMonitor.stopHealthMonitor()
 
     ## Clear all providers registered in start() so a later start() can re-set them.
-    RequestConnectionStatus.clearProvider(waku.brokerCtx)
-    RequestProtocolHealth.clearProvider(waku.brokerCtx)
-    RequestHealthReport.clearProvider(waku.brokerCtx)
+    RequestConnectionStatus.clearProvider(kernel.brokerCtx)
+    RequestProtocolHealth.clearProvider(kernel.brokerCtx)
+    RequestHealthReport.clearProvider(kernel.brokerCtx)
     ## Node-state getters: provided again by the next start(). Cleared after
     ## node.stop() because discovery backends read them while stopping.
     ## GetDiscoveryRequirements stays (see new): it is config-only.
-    waku.clearNodeState()
+    kernel.clearNodeState()
   except Exception:
     error "Waku stop failed", error = getCurrentExceptionMsg()
     return err("waku stop failed: " & getCurrentExceptionMsg())

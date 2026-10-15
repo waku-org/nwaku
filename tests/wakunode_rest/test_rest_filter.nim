@@ -62,7 +62,7 @@ proc init(T: type RestFilterTest, autoShardCount = 0'u32): Future[T] {.async.} =
   testSetup.serviceNode = testWakuNode()
   testSetup.subscriberNode = testWakuNode()
 
-  await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
+  await allFutures(testSetup.serviceNode.startProtocols(), testSetup.subscriberNode.startProtocols())
 
   (await testSetup.serviceNode.mountRelay()).isOkOr:
     assert false, "Failed to mount relay: " & $error
@@ -116,7 +116,7 @@ proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServer.closeWait()
   await self.restServerForService.stop()
   await self.restServerForService.closeWait()
-  await allFutures(self.serviceNode.stop(), self.subscriberNode.stop())
+  await allFutures(self.serviceNode.stopProtocols(), self.subscriberNode.stopProtocols())
 
 proc waitForFilterMessages(
     client: RestClientRef, contentTopic: ContentTopic, count: int
@@ -936,9 +936,9 @@ suite "Waku v2 Rest API - Filter V2":
 
     # Given a second peer holding a criterion the subscriber does not
     let otherNode = testWakuNode()
-    await otherNode.start()
+    await otherNode.startProtocols()
     defer:
-      await otherNode.stop()
+      await otherNode.stopProtocols()
 
     await otherNode.mountFilterClient()
     let servicePeer = restFilterTest.serviceNode.peerInfo.toRemotePeerInfo()

@@ -47,7 +47,7 @@ procSuite "ENR endpoints":
     let node = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await node.start()
+    await node.startProtocols()
 
     let bound = getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
@@ -55,25 +55,25 @@ procSuite "ENR endpoints":
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.multiaddrsOf().len == 0
       node.announcedAddresses.allIt("0.0.0.0" notin $it)
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "a concrete bind host is a chosen host and is carried":
     let node =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await node.start()
+    await node.startProtocols()
 
     let bound = getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
       node.enr.ipOf().get() == [127'u8, 0, 0, 1]
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.multiaddrsOf().len > 0
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "a mapper addition is carried, the wildcard stand-in is not":
     let node = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await node.start()
+    await node.startProtocols()
     check node.enrAddresses().len == 0
 
     let granted = MultiAddress.init("/ip4/203.0.113.55/tcp/60555").get()
@@ -90,7 +90,7 @@ procSuite "ENR endpoints":
       node.enr.ipOf().get() == [203'u8, 0, 113, 55]
       node.enr.tcpOf().get() == 60555'u16
       node.enr.multiaddrsOf() == @[granted]
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "a configured external port stays beside its configured host":
     let node = newTestWakuNode(
@@ -105,11 +105,11 @@ procSuite "ENR endpoints":
       node.enrBaseline().ip.get() == parseIpAddress("203.0.113.9")
       node.enrBaseline().tcp.get() == Port(1234)
 
-    await node.start()
+    await node.startProtocols()
     check:
       node.enr.ipOf().get() == [203'u8, 0, 113, 9]
       node.enr.tcpOf().get() == 1234'u16
-    await node.stop()
+    await node.stopProtocols()
 
   test "a rebuild keeps every field that is not an address":
     let key = generateSecp256k1Key()
@@ -230,7 +230,7 @@ procSuite "ENR endpoints":
     let key = generateSecp256k1Key()
     let node =
       newTestWakuNode(key, parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false)
-    await node.start()
+    await node.startProtocols()
 
     let keyBytes = key.getRawBytes().expect("raw")
     let ethPk = keys.PrivateKey.fromHex(byteutils.toHex(keyBytes)).expect("pk")
@@ -260,7 +260,7 @@ procSuite "ENR endpoints":
       node.enr.ipOf().get() == [198'u8, 51, 100, 4]
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.toRemotePeerInfo().isOk()
-    await node.stop()
+    await node.stopProtocols()
 
   test "a record is dialable through its multiaddrs field alone":
     ## The scalars hold one IPv4 host, so a dns4 name or a relay route lives
@@ -492,7 +492,7 @@ procSuite "ENR endpoints":
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9917)),
     )
-    await node.start()
+    await node.startProtocols()
 
     require node.announcedAddresses.len == 1
     let resolved = node.announcedAddresses[0]
@@ -528,7 +528,7 @@ procSuite "ENR endpoints":
       node.enrAddresses() == @[resolved]
       node.enr.multiaddrsOf() == @[resolved]
       node.enr.udpOf().get() == 30303'u16
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "the bound endpoints move onto a host discv5 learned behind a NAT":
     ## The interface holds a private address and discv5 reports a different,
@@ -542,7 +542,7 @@ procSuite "ENR endpoints":
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9918)),
     )
-    await node.start()
+    await node.startProtocols()
 
     require node.announcedAddresses.len == 1
     let bound = node.announcedAddresses[0]
@@ -575,7 +575,7 @@ procSuite "ENR endpoints":
       initTAddress(carried[0]).expect("endpoint").port == boundPort
       node.enr.ipOf().get() == [198'u8, 51, 100, 7]
       node.enr.toRemotePeerInfo().isOk()
-    await node.stop()
+    await node.stopProtocols()
 
   test "the reconcile loop follows a discv5 record write":
     let key = generateSecp256k1Key()

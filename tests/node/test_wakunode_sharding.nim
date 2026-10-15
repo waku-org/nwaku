@@ -100,10 +100,10 @@ suite "Sharding":
     for node in [server, client]:
       node.mountAutoSharding(DefaultClusterId, autoShardCount).isOkOr:
         raiseAssert "mountAutoSharding failed: " & error
-    await allFutures(server.start(), client.start())
+    await allFutures(server.startProtocols(), client.startProtocols())
 
   asyncTeardown:
-    await allFutures(server.stop(), client.stop())
+    await allFutures(server.stopProtocols(), client.stopProtocols())
 
   suite "Static Sharding Functionality":
     asyncTest "Shard Subscription and Peer Dialing":

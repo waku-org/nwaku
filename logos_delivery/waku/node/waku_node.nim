@@ -844,7 +844,7 @@ proc stopProvidersAndListeners*(node: Kernel) =
   RequestShardTopicsHealth.clearProvider(node.brokerCtx)
   ServicePeersRequest.clearProvider(node.brokerCtx)
 
-proc start*(node: Kernel) {.async.} =
+proc startProtocols*(node: Kernel) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
 
@@ -898,7 +898,7 @@ proc start*(node: Kernel) {.async.} =
 
   info "Node started successfully"
 
-proc stop*(node: Kernel) {.async.} =
+proc stopProtocols*(node: Kernel) {.async.} =
   ## By stopping the switch we are stopping all the underlying mounted protocols
 
   # Cancel the background relay reconnection (may still be in its backoff wait).

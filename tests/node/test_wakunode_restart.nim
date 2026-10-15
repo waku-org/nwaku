@@ -18,15 +18,15 @@ suite "Kernel - restart (#3979)":
     (await node2.mountRelay()).isOkOr:
       raiseAssert "mountRelay node2: " & error
 
-    await allFutures(node1.start(), node2.start())
+    await allFutures(node1.startProtocols(), node2.startProtocols())
 
     # node1 learns node2 as a relay peer, so a restart triggers reconnectRelayPeers.
     await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
-    await node1.stop()
+    await node1.stopProtocols()
 
     # The restart must complete promptly and yield a usable, listening node.
-    let startFut = node1.start()
+    let startFut = node1.startProtocols()
     let restarted = await startFut.withTimeout(20.seconds)
     if not restarted:
       await startFut.cancelAndWait()
@@ -36,4 +36,4 @@ suite "Kernel - restart (#3979)":
       node1.started
       node1.switch.peerInfo.listenAddrs.len > 0
 
-    await allFutures(node1.stop(), node2.stop())
+    await allFutures(node1.stopProtocols(), node2.stopProtocols())

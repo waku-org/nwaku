@@ -10,10 +10,10 @@ proc subscribe*(
     self: MessagingClient, contentTopic: ContentTopic
 ): Future[Result[void, string]] {.async.} =
   ?self.checkApiAvailability()
-  return self.waku.subscribe(contentTopic)
+  return self.kernel.subscribe(contentTopic)
 
 proc unsubscribe*(
     self: MessagingClient, contentTopic: ContentTopic
 ): Result[void, string] =
   ?self.checkApiAvailability()
-  return self.waku.unsubscribe(contentTopic)
+  return self.kernel.unsubscribe(contentTopic)

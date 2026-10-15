@@ -53,7 +53,7 @@ suite "Waku v2 REST API - health":
   asyncTest "Get node health info - GET /health":
     # Given
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -116,11 +116,11 @@ suite "Waku v2 REST API - health":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    await node.stopProtocols()
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
     let node = testWakuNode()
-    await node.start()
+    await node.startProtocols()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -147,4 +147,4 @@ suite "Waku v2 REST API - health":
     check (await healthMonitor.getProtocolHealthInfo(RlnRelayProtocol)).health ==
       HealthStatus.READY
 
-    await node.stop()
+    await node.stopProtocols()
