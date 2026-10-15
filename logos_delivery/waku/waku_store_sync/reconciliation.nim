@@ -211,7 +211,6 @@ proc processRequest(
       hashToRecv: seq[WakuMessageHash]
       hashToSend: seq[WakuMessageHash]
       sendPayload: RangesData
-      rawPayload: seq[byte]
 
     let preProcessedPayloadRes = self.preProcessPayload(recvPayload, lowerBound)
     if preProcessedPayloadRes.isSome():
@@ -228,9 +227,6 @@ proc processRequest(
       trace "sync payload processed",
         hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
-      sendPayload.cluster = self.cluster
-      sendPayload.shards = self.shards.toSeq()
-
       for hash in hashToSend:
         self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
         diffs.inc()
@@ -238,7 +234,11 @@ proc processRequest(
       for hash in hashToRecv:
         diffs.inc()
 
-      rawPayload = sendPayload.deltaEncode()
+    # On another cluster or with no shared shard, the reply has no ranges: the
+    # header alone is the empty payload of WAKU-SYNC.
+    sendPayload.cluster = self.cluster
+    sendPayload.shards = self.shards.toSeq()
+    let rawPayload = sendPayload.deltaEncode()
 
     logos_delivery_total_bytes_exchanged.inc(
       rawPayload.len, labelValues = [Reconciliation, Sending]

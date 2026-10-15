@@ -576,6 +576,48 @@ suite "Waku Sync: reconciliation":
       res.isOk()
       remoteNeeds.len == 0
 
+  asyncTest "a peer on another cluster gets a reply with only the cluster and the shards":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[3'u16],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 1,
+    )
+
+    let
+      bounds =
+        SyncID(time: Timestamp(100), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+      payload = RangesData(
+        cluster: 1,
+        shards: @[3'u16],
+        ranges: @[(bounds, RangeType.Fingerprint)],
+        fingerprints: @[FullFingerprint],
+      )
+
+    # When a peer on cluster 1 sends a payload to the server on cluster 2
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuReconciliationCodec
+    )
+    await conn.writeLp(payload.deltaEncode())
+
+    # Then the server answers with its cluster (2) and its one shard (3) only
+    let reply = await conn.readLp(64 * 1024)
+    check reply == @[byte 2, 1, 3]
+    await conn.close()
+
   asyncTest "sync 2 nodes same hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
