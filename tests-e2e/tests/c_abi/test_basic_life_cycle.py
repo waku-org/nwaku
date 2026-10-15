@@ -1,4 +1,3 @@
-import re
 import socket
 from src.node.wrappers_manager import WrapperManager
 from src.node.wrapper_helpers import (
@@ -10,10 +9,7 @@ from src.node.wrapper_helpers import (
     wait_for_mesh,
 )
 
-NO_PROVIDER_REGISTERED_RE = re.compile(
-    r"send_message: callback failed \(ret=1\): Send failed: MessagingClient\.send: Failed to create delivery task: Failed create DeliveryTask: "
-    r"RequestBroker\(RequestRelayShard\): no provider registered for broker context (\w+)"
-)
+NODE_NOT_STARTED_MSG = "node is not started"
 STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
 
 
@@ -43,37 +39,26 @@ class TestLogosDeliveryLifecycle:
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
 
     def test_send_on_node_never_started(self, node_config):
-        # TODO: logos-delivery#4540
-        # Each node names its own broker context in the error.
         node_config.update({"numShardsInNetwork": 1})
         result = WrapperManager.create(config=node_config)
         assert result.is_ok(), f"Failed to create node: {result.err()}"
         with result.ok_value as node:
             send_result = node.send_message(create_message_bindings())
             assert send_result.is_err(), "send on a node never started succeeded"
-            match = NO_PROVIDER_REGISTERED_RE.search(send_result.err())
-            assert match, send_result.err()
-
-            other_result = WrapperManager.create(config=node_config)
-            assert other_result.is_ok(), f"Failed to create node: {other_result.err()}"
-            with other_result.ok_value as other_node:
-                other_send_result = other_node.send_message(create_message_bindings())
-                assert other_send_result.is_err(), "send on a node never started succeeded"
-                other_match = NO_PROVIDER_REGISTERED_RE.search(other_send_result.err())
-                assert other_match, other_send_result.err()
-                assert other_match.group(1) != match.group(1), f"two nodes named the same broker context {match.group(1)}"
+            assert f"Send failed: {NODE_NOT_STARTED_MSG}" in send_result.err(), send_result.err()
 
     def test_subscribe_and_unsubscribe_on_node_never_started(self, node_config):
-        # TODO: logos-delivery#4540
         node_config.update({"numShardsInNetwork": 1})
         result = WrapperManager.create(config=node_config)
         assert result.is_ok(), f"Failed to create node: {result.err()}"
         with result.ok_value as node:
             subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
-            assert subscribe_result.is_ok(), f"subscribe on a node never started failed: {subscribe_result.err()}"
+            assert subscribe_result.is_err(), "subscribe on a node never started succeeded"
+            assert f"Subscribe failed: {NODE_NOT_STARTED_MSG}" in subscribe_result.err(), subscribe_result.err()
 
             unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
-            assert unsubscribe_result.is_ok(), f"unsubscribe on a node never started failed: {unsubscribe_result.err()}"
+            assert unsubscribe_result.is_err(), "unsubscribe on a node never started succeeded"
+            assert f"Unsubscribe failed: {NODE_NOT_STARTED_MSG}" in unsubscribe_result.err(), unsubscribe_result.err()
 
     def test_restart_node_with_rest(self, node_config):
         # TODO: logos-delivery#4522
