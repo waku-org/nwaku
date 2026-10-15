@@ -703,7 +703,9 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    discard reconcileEnrAddrs(node.waku.node, node.waku.key, node.waku.wakuDiscv5).valueOr:
+    discard reconcileEnrAddrs(
+      node.waku.node, node.waku.conf.nodeKey, node.waku.wakuDiscv5
+    ).valueOr:
       raiseAssert "reconcile failed: " & error
 
     check:
