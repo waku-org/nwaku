@@ -38,9 +38,9 @@ proc discv5UpdateBootnodes*(
 ): Future[Result[bool, string]] {.async.} =
   ## `bootnodes` is a JSON array of ENRs, e.g. `["enr:...", "enr:..."]`.
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.node.discovery.discv5.isNil():
       return err("discv5 not started")
-    self.node.discovery.wakuDiscv5.updateBootstrapRecords(bootnodes).isOkOr:
+    self.node.discovery.discv5.updateBootstrapRecords(bootnodes).isOkOr:
       return err("error in discv5UpdateBootnodes: " & $error)
     return ok(true)
   except CatchableError as e:
@@ -48,9 +48,9 @@ proc discv5UpdateBootnodes*(
 
 proc startDiscv5*(self: Waku): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.node.discovery.discv5.isNil():
       return err("discv5 not started")
-    (await self.node.discovery.wakuDiscv5.start()).isOkOr:
+    (await self.node.discovery.discv5.start()).isOkOr:
       return err("error starting discv5: " & $error)
     return ok(true)
   except CatchableError as e:
@@ -58,9 +58,9 @@ proc startDiscv5*(self: Waku): Future[Result[bool, string]] {.async.} =
 
 proc stopDiscv5*(self: Waku): Future[Result[bool, string]] {.async.} =
   try:
-    if self.node.discovery.wakuDiscv5.isNil():
+    if self.node.discovery.discv5.isNil():
       return err("discv5 not started")
-    await self.node.discovery.wakuDiscv5.stop()
+    await self.node.discovery.discv5.stop()
     return ok(true)
   except CatchableError as e:
     return err(e.msg)

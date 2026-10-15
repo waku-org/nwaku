@@ -72,7 +72,7 @@ proc dialForPeerExchange*(
     await sleepAsync(FUTURE_TIMEOUT_SHORT)
 
     let response =
-      await client.discovery.wakuPeerExchangeClient.request(requestedPeers, connOpt.get())
+      await client.discovery.peerExchangeClient.request(requestedPeers, connOpt.get())
     assertResultOk(response)
 
     if uint64(response.get().peerInfos.len) > minimumPeers:

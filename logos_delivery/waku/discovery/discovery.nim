@@ -17,15 +17,15 @@ import
 type
   Discovery* = object
     ## Peer discovery mechanisms mounted on the node.
-    wakuPeerExchange*: WakuPeerExchange
-    wakuPeerExchangeClient*: WakuPeerExchangeClient
-    wakuRendezvous*: WakuRendezVous
-    wakuRendezvousClient*: rendezvous_client.WakuRendezVousClient
-    wakuKademlia*: WakuKademlia
+    peerExchange*: WakuPeerExchange
+    peerExchangeClient*: WakuPeerExchangeClient
+    rendezvous*: WakuRendezVous
+    rendezvousClient*: rendezvous_client.WakuRendezVousClient
+    kademlia*: WakuKademlia
     discoveries*: seq[IPeerDiscovery]
       ## Attached IPeerDiscovery backends; started after the node is up,
       ## stopped on node teardown.
-    wakuDiscv5*: WakuDiscoveryV5
+    discv5*: WakuDiscoveryV5
       ## Set by discv5Discovery on start; kept for direct consumers
       ## (REST builder, ENR/address updates, FFI ops).
     discv5Discovery*: Discv5PeerDiscovery
