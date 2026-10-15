@@ -1279,6 +1279,26 @@ proc start*(pm: PeerManager) =
   asyncSpawn pm.prunePeerStoreLoop()
   asyncSpawn pm.logAndMetrics()
 
+proc redialStaticPeersLoop(pm: PeerManager, peers: seq[string]) {.async.} =
+  while pm.started:
+    await sleepAsync(
+      min(ConnectivityLoopInterval, chronos.seconds(max(pm.initialBackoffInSec, 1)))
+    )
+    let toDial = peers.filterIt(
+      block:
+        let info = parsePeerInfo(it)
+        info.isOk() and not pm.switch.isConnected(info.value.peerId) and
+          pm.canBeConnected(info.value.peerId)
+    )
+    if toDial.len > 0:
+      await pm.connectToNodes(toDial, source = "static")
+
+proc startStaticPeersRedial*(pm: PeerManager, peers: seq[string]) =
+  ## For nodes without relay, whose connectivity loop is not running:
+  ## dial again the static peers that were down, honouring the backoff.
+  pm.started = true
+  asyncSpawn pm.redialStaticPeersLoop(peers)
+
 proc stop*(pm: PeerManager) =
   pm.started = false
 
