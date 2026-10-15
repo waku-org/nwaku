@@ -628,7 +628,7 @@ proc mountMix*(
 proc mountKademlia*(
     node: Kernel, config: KademliaDiscoveryConf
 ): Result[void, string] =
-  if not node.discovery.wakuKademlia.isNil():
+  if not node.discovery.kademlia.isNil():
     return err("WakuKademlia already mounted, skipping")
 
   let wk = WakuKademlia.new(
@@ -639,7 +639,7 @@ proc mountKademlia*(
   ).valueOr:
     return err("failed to create service discovery: " & error)
 
-  node.discovery.wakuKademlia = wk
+  node.discovery.kademlia = wk
 
   let mountRes = catch:
     node.switch.mount(wk.protocol)
@@ -719,14 +719,14 @@ proc selectRandomPeers*(peers: seq[PeerId], numRandomPeers: int): seq[PeerId] =
 proc mountRendezvousClient*(node: Kernel, clusterId: uint16) {.async: (raises: []).} =
   info "Mounting rendezvous client"
 
-  node.discovery.wakuRendezvousClient = rendezvous_client.WakuRendezVousClient.new(
+  node.discovery.rendezvousClient = rendezvous_client.WakuRendezVousClient.new(
     node.switch, node.peerManager, clusterId
   ).valueOr:
     error "Initializing waku rendezvous client failed", error = error
     return
 
   if node.started:
-    await node.discovery.wakuRendezvousClient.start()
+    await node.discovery.rendezvousClient.start()
 
 proc mountRendezvous*(
     node: Kernel, clusterId: uint16, shards: seq[RelayShard] = @[]
@@ -735,7 +735,7 @@ proc mountRendezvous*(
 
   let configuredShards = shards.mapIt(it.shardId)
 
-  node.discovery.wakuRendezvous = WakuRendezVous.new(
+  node.discovery.rendezvous = WakuRendezVous.new(
     node.switch,
     node.peerManager,
     clusterId,
@@ -748,12 +748,12 @@ proc mountRendezvous*(
 
   if node.started:
     try:
-      await node.discovery.wakuRendezvous.start()
+      await node.discovery.rendezvous.start()
     except CancelledError as exc:
       error "Failed to start wakuRendezvous", error = exc.msg
 
   try:
-    node.switch.mount(node.discovery.wakuRendezvous, protocolMatcher(WakuRendezVousCodec))
+    node.switch.mount(node.discovery.rendezvous, protocolMatcher(WakuRendezVousCodec))
   except LPError:
     error "Failed to mount wakuRendezvous", error = getCurrentExceptionMsg()
 
@@ -828,11 +828,11 @@ proc startProvidersAndListeners*(node: Kernel) =
   ).isOkOr:
     error "Can't set provider for RequestContentTopicsHealth", error = error
 
-  if not node.discovery.wakuKademlia.isNil():
+  if not node.discovery.kademlia.isNil():
     ServicePeersRequest.setProvider(
       node.brokerCtx,
       proc(serviceId: string): Future[Result[ServicePeersRequest, string]] {.async.} =
-        let peers = (await node.discovery.wakuKademlia.lookupServicePeers(serviceId)).valueOr:
+        let peers = (await node.discovery.kademlia.lookupServicePeers(serviceId)).valueOr:
           return err("failed call to lookupServicePeers: " & error)
         return ok(ServicePeersRequest(serviceId: serviceId, peers: peers)),
     ).isOkOr:
@@ -854,8 +854,8 @@ proc start*(node: Kernel) {.async.} =
   if not node.protocols.storeResume.isNil():
     await node.protocols.storeResume.start()
 
-  if not node.discovery.wakuRendezvousClient.isNil():
-    await node.discovery.wakuRendezvousClient.start()
+  if not node.discovery.rendezvousClient.isNil():
+    await node.discovery.rendezvousClient.start()
 
   node.switch.resumeDials()
 
@@ -935,12 +935,12 @@ proc stop*(node: Kernel) {.async.} =
   if not node.protocols.storeResume.isNil():
     await node.protocols.storeResume.stopWait()
 
-  if not node.discovery.wakuPeerExchangeClient.isNil() and
-      not node.discovery.wakuPeerExchangeClient.pxLoopHandle.isNil():
-    await node.discovery.wakuPeerExchangeClient.pxLoopHandle.cancelAndWait()
+  if not node.discovery.peerExchangeClient.isNil() and
+      not node.discovery.peerExchangeClient.pxLoopHandle.isNil():
+    await node.discovery.peerExchangeClient.pxLoopHandle.cancelAndWait()
 
-  if not node.discovery.wakuRendezvousClient.isNil():
-    await node.discovery.wakuRendezvousClient.stopWait()
+  if not node.discovery.rendezvousClient.isNil():
+    await node.discovery.rendezvousClient.stopWait()
 
   node.started = false
   node.baseAnnounced = Opt.none(seq[MultiAddress])

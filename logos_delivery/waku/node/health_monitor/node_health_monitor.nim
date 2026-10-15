@@ -277,7 +277,7 @@ proc getStoreClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getPeerExchangeHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.PeerExchangeProtocol)
 
-  if isNil(hm.node.discovery.wakuPeerExchange):
+  if isNil(hm.node.discovery.peerExchange):
     hm.strength[WakuProtocol.PeerExchangeProtocol] = 0
     return p.notMounted()
 
@@ -289,7 +289,7 @@ proc getPeerExchangeHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getRendezvousHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.RendezvousProtocol)
 
-  if isNil(hm.node.discovery.wakuRendezvous):
+  if isNil(hm.node.discovery.rendezvous):
     hm.strength[WakuProtocol.RendezvousProtocol] = 0
     return p.notMounted()
 

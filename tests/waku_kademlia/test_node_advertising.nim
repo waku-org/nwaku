@@ -14,13 +14,13 @@ import
 ## before it starts ServiceDiscovery. The node advertises its services after.
 
 proc isAdvertised(node: Kernel, service: ServiceInfo): bool =
-  let disco = node.discovery.wakuKademlia.protocol
+  let disco = node.discovery.kademlia.protocol
   service in disco.services and
     disco.advertiser.providedAdverts.hasKey(service.id.hashServiceId())
 
 proc publishedRecord(node: Kernel): Opt[ExtendedPeerRecord] =
   ## The self record the protocol stored in its own table.
-  let disco = node.discovery.wakuKademlia.protocol
+  let disco = node.discovery.kademlia.protocol
   let entry = disco.dataTable.get(node.switch.peerInfo.peerId.toKey()).valueOr:
     return Opt.none(ExtendedPeerRecord)
   let record = SignedExtendedPeerRecord.decode(entry.value.toBytes()).valueOr:
@@ -60,7 +60,7 @@ proc newAdvertisingNode(
   ).isOkOr:
     raiseAssert error
   ## node.start and node.stop reach WakuKademlia through the attached backend.
-  node.attachDiscovery(ServicePeerDiscovery.create(node.discovery.wakuKademlia))
+  node.attachDiscovery(ServicePeerDiscovery.create(node.discovery.kademlia))
   node
 
 suite "Waku Kademlia node advertising":
@@ -81,7 +81,7 @@ suite "Waku Kademlia node advertising":
     await node.stop()
     check not node.isAdvertised(service)
     ## The stored record survives the stop. Delete it so the restart must publish anew.
-    node.discovery.wakuKademlia.protocol.dataTable.del(node.switch.peerInfo.peerId.toKey())
+    node.discovery.kademlia.protocol.dataTable.del(node.switch.peerInfo.peerId.toKey())
 
     await node.start()
     check node.isAdvertised(service)
@@ -103,7 +103,7 @@ suite "Waku Kademlia node advertising":
     await node.start()
     check:
       node.started
-      node.discovery.wakuKademlia.protocol.record().isErr()
+      node.discovery.kademlia.protocol.record().isErr()
       not node.isAdvertised(service)
     await node.stop()
 

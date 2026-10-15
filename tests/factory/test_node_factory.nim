@@ -59,7 +59,7 @@ suite "Node Factory":
       node.protocols.store.isNil()
       node.protocols.filter.isNil()
       not node.protocols.storeClient.isNil()
-      not node.discovery.wakuRendezvous.isNil()
+      not node.discovery.rendezvous.isNil()
 
   asynctest "The store client reads a full page of the configured message size":
     var conf = defaultTestWakuConf()
@@ -97,7 +97,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -119,7 +119,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -141,7 +141,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -163,7 +163,7 @@ suite "Node Factory":
     let
       filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
       lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
+      peerExchangeLimit = node.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))

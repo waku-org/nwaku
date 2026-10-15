@@ -160,7 +160,7 @@ proc pxLookupServiceNode*(
 ): Future[Result[bool, void]] {.async.} =
   let codec: string = conf.getCodec()
 
-  if node.discovery.wakuPeerExchange.isNil():
+  if node.discovery.peerExchange.isNil():
     let peerExchangeNode = translateToRemotePeerInfo(conf.bootstrapNode).valueOr:
       error "Failed to parse bootstrap node - cannot use PeerExchange.",
         node = conf.bootstrapNode
