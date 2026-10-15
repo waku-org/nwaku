@@ -16,6 +16,7 @@ import
   logos_delivery/waku/waku_mix,
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/api/publish,
+  logos_delivery/waku/api/subscriptions,
   logos_delivery/waku/node/peer_manager,
   logos_delivery/waku/node/peer_manager/waku_peer_store,
   logos_delivery/waku/node/waku_node/lightpush,
@@ -60,11 +61,13 @@ proc testConf(): WakuConf =
   defaultTestWakuNodeConf().toWakuConf().valueOr:
     raiseAssert error
 
-proc buildTask(id: string, admittedAgo: Duration): DeliveryTask =
+proc buildTask(
+    id: string, admittedAgo: Duration, contentTopic = "/test/1/anonymity/proto"
+): DeliveryTask =
   ## An admitted task with no RLN, so `sendUntilPropagated` does not call
   ## `admitAndProve`. The id is the payload, so two tasks never have one hash.
   let msg = WakuMessage(
-    contentTopic: "/test/1/anonymity/proto",
+    contentTopic: contentTopic,
     payload: id.toBytes(),
     timestamp: 1_700_000_000_000_000_000,
   )
@@ -188,6 +191,21 @@ suite "SendService - anonymity level":
     check:
       task.state == DeliveryState.FailedToDeliver
       errors.value == 1 # ... and exactly one later
+
+  asyncTest "the service subscribes on a send only at the None level, and never in enqueue":
+    ## The API send subscribes before `enqueue`, and only at `None`.
+    ## `SendService` reports the policy and makes no subscription.
+    let manager =
+      RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
+    for level in AnonymityLevel:
+      let service = SendService
+        .new(false, waku, manager, PlainSendProcessor(), level)
+        .expect("SendService.new")
+      check service.subscribesOnSend() == (level == AnonymityLevel.None)
+      let topic = "/test/1/subscribe-" & $ord(level) & "/proto"
+      let task = buildTask("subscribe-" & $level, chronos.seconds(1), topic)
+      check service.enqueue(task).expect("enqueue") == task.requestId
+      check not waku.isSubscribed(topic).valueOr(false)
 
 suite "SendService - anonymity level with a mounted mix":
   ## Mix is mounted before start, as the node factory does. The tests fill the
