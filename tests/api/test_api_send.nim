@@ -1,6 +1,6 @@
 {.used.}
 
-import results, std/[os, sequtils, strutils, sets, tempfiles]
+import results, std/[importutils, os, sequtils, strutils, sets, tempfiles]
 import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo], metrics
 import brokers/broker_context
 import
@@ -30,6 +30,9 @@ import logos_delivery/waku/api/subscriptions
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
+import logos_delivery/messaging/delivery_service/send_service/send_service
+
+privateAccess(SendService) # the test reads `attempts`
 import logos_delivery/api/messaging_client_api
 import logos_delivery/messaging/delivery_service/send_service
 
@@ -299,7 +302,9 @@ suite "Waku API - Send":
 
     # The send is retried while the node has no relay peer, and no retry
     # reaches the archive again.
-    await sleepAsync(3.seconds)
+    let sendService = node.messagingClient.sendService
+    checkUntilTimeout:
+      sendService.attempts >= 3
 
     let stored = (
       await node.waku.node.wakuArchive.findMessages(
