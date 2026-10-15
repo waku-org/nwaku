@@ -273,8 +273,8 @@ proc updateEnr(waku: Kernel): Future[Result[void, string]] {.async.} =
   ## discv5 bumped the seed record it was given, and a peer that cached the
   ## higher number ignores a lower one.
   var seqNum = waku.enr.seqNum
-  if not waku.discovery.wakuDiscv5.isNil():
-    seqNum = max(seqNum, waku.discovery.wakuDiscv5.protocol.localNode.record.seqNum)
+  if not waku.discovery.discv5.isNil():
+    seqNum = max(seqNum, waku.discovery.discv5.protocol.localNode.record.seqNum)
 
   let record = enrConfiguration(waku.conf, netConf, seqNum + 1).valueOr:
     return err("ENR setup failed: " & error)
@@ -360,7 +360,7 @@ proc logEnrReachability(waku: Kernel) =
 proc enrReconcileLoop(waku: Kernel): Future[void] {.async.} =
   while true:
     await sleepAsync(waku.enrReconcileInterval)
-    let written = reconcileEnrAddrs(waku, waku.key, waku.discovery.wakuDiscv5).valueOr:
+    let written = reconcileEnrAddrs(waku, waku.key, waku.discovery.discv5).valueOr:
       error "failed to reconcile the ENR with the discv5 record", error = error
       continue
     if written:
@@ -371,16 +371,16 @@ proc updateWaku(waku: Kernel): Future[Result[void, string]] {.async.} =
   (await updateEnr(waku)).isOkOr:
     return err("error calling updateEnr: " & $error)
 
-  if not waku.discovery.wakuDiscv5.isNil():
+  if not waku.discovery.discv5.isNil():
     ## Copy the startup ENR into the live discv5 record once. Shard updates
     ## and multiaddr refreshes then update that record in place. The seed
     ## also gave discv5 its own address; the rebuild replaces that too.
-    waku.discovery.wakuDiscv5.protocol.localNode.record = waku.enr
-    waku.discovery.wakuDiscv5.protocol.localNode.address = Opt.none(discv5_node.Address)
+    waku.discovery.discv5.protocol.localNode.record = waku.enr
+    waku.discovery.discv5.protocol.localNode.address = Opt.none(discv5_node.Address)
     ## Seeding is not learning: from here on, a record that moved is discv5's.
     waku.enrLearnedEndpoint = Opt.none(DiscoveryEndpoint)
 
-  ?refreshEnrAddrs(waku, waku.key, waku.discovery.wakuDiscv5)
+  ?refreshEnrAddrs(waku, waku.key, waku.discovery.discv5)
 
   return ok()
 
@@ -397,7 +397,7 @@ proc startDnsDiscoveryRetryLoop(waku: Kernel): Future[void] {.async.} =
         debug "Retrieving dynamic bootstrap nodes failed", error = error
         continue
 
-    if not waku.discovery.wakuDiscv5.isNil():
+    if not waku.discovery.discv5.isNil():
       let dynamicBootstrapEnrs =
         waku.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
@@ -405,8 +405,8 @@ proc startDnsDiscoveryRetryLoop(waku: Kernel): Future[void] {.async.} =
       for enrUri in dynamicBootstrapEnrs:
         addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
-      waku.discovery.wakuDiscv5.updateBootstrapRecords(
-        waku.discovery.wakuDiscv5.protocol.bootstrapRecords & discv5BootstrapEnrs
+      waku.discovery.discv5.updateBootstrapRecords(
+        waku.discovery.discv5.protocol.bootstrapRecords & discv5BootstrapEnrs
       )
 
     info "Connecting to dynamic bootstrap peers"
@@ -493,7 +493,7 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
     (await waku.discovery.discv5Discovery.startDiscovery()).isOkOr:
       return err("failed to start waku discovery v5: " & error)
 
-    waku.discovery.wakuDiscv5 = waku.discovery.discv5Discovery.inner
+    waku.discovery.discv5 = waku.discovery.discv5Discovery.inner
 
     let discoveryInfo = (await waku.discovery.discv5Discovery.backendInfo()).valueOr:
       return err("failed to read discv5 backend info: " & error)
@@ -504,7 +504,7 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
   ## Set the callback before the explicit refresh in updateWaku,
   ## so a commit in between reaches the ENR.
   waku.onCommittedAddresses = proc() {.gcsafe, raises: [].} =
-    refreshEnrAddrs(waku, waku.key, waku.discovery.wakuDiscv5).isOkOr:
+    refreshEnrAddrs(waku, waku.key, waku.discovery.discv5).isOkOr:
       error "failed to refresh ENR multiaddrs", error = $error
       return
     waku.logEnrReachability()
@@ -531,7 +531,7 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
 
   waku.logEnrReachability()
 
-  if not waku.discovery.wakuDiscv5.isNil():
+  if not waku.discovery.discv5.isNil():
     waku.enrReconcileLoopHandle = waku.enrReconcileLoop()
 
   ## Announce ourselves on the delivery network. After the shard subscriptions,
