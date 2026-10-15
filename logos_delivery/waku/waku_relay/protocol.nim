@@ -180,12 +180,20 @@ type
       # true if all topics need to have their health status refreshed in the update event
     msgMetricsPerShard*: Table[string, ShardMetrics]
     triggerOwnHandlers*: bool
-      # whether a message this node publishes is also handed to its own subscription
-      # handlers (once per message id, in `publish`). Gossipsub's `triggerSelf` is
-      # kept off, so a message published again is not handled twice.
+      ## Whether a message this node publishes is also handed to the handlers
+      ## it registered with `subscribe`, as if it had come from the network.
+      ## `publish` does it, at most once per message id. A message over the max
+      ## size is never handled. A message published again, or retried while
+      ## there is no relay peer, is not handled twice and `publish` answers
+      ## `DuplicateMessage`.
+      ## Gossipsub's own `triggerSelf` stays off, because it would hand the
+      ## message to the handlers on every publish, duplicates included.
+      ## Turn it off on a node that must not see its own messages, as the
+      ## chat2 bridge does to avoid echoing them back.
     selfHandled: TimedCache[MessageId]
-      # messages already handed to our own handlers, so a message published again
-      # is not handled twice
+      ## Ids of the messages `publish` already handed to the node's own
+      ## handlers. Entries expire with gossipsub's seen TTL, the same window in
+      ## which `publish` refuses a duplicate.
 
 # predefinition for more detailed results from publishing new message
 type PublishOutcome* {.pure.} = enum
