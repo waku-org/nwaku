@@ -180,6 +180,9 @@ type
       # true if all topics need to have their health status refreshed in the update event
     msgMetricsPerShard*: Table[string, ShardMetrics]
     triggerOwnHandlers*: bool
+      # whether a message this node publishes is also handed to its own subscription
+      # handlers (once per message id, in `publish`). Gossipsub's `triggerSelf` is
+      # kept off, so a message published again is not handled twice.
     selfHandled: TimedCache[MessageId]
       # messages already handed to our own handlers, so a message published again
       # is not handled twice
