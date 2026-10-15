@@ -149,7 +149,7 @@ proc getLightpushHealth(
 ): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.LightpushProtocol)
 
-  if isNil(hm.node.protocols.wakuLightPush):
+  if isNil(hm.node.protocols.lightPush):
     hm.strength[WakuProtocol.LightpushProtocol] = 0
     return p.notMounted()
 
@@ -166,7 +166,7 @@ proc getLegacyLightpushHealth(
 ): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.LegacyLightpushProtocol)
 
-  if isNil(hm.node.protocols.wakuLegacyLightPush):
+  if isNil(hm.node.protocols.legacyLightPush):
     hm.strength[WakuProtocol.LegacyLightpushProtocol] = 0
     return p.notMounted()
 
@@ -181,7 +181,7 @@ proc getLegacyLightpushHealth(
 proc getFilterHealth(hm: NodeHealthMonitor, relayHealth: HealthStatus): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.FilterProtocol)
 
-  if isNil(hm.node.protocols.wakuFilter):
+  if isNil(hm.node.protocols.filter):
     hm.strength[WakuProtocol.FilterProtocol] = 0
     return p.notMounted()
 
@@ -196,7 +196,7 @@ proc getFilterHealth(hm: NodeHealthMonitor, relayHealth: HealthStatus): Protocol
 proc getStoreHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.StoreProtocol)
 
-  if isNil(hm.node.protocols.wakuStore):
+  if isNil(hm.node.protocols.store):
     hm.strength[WakuProtocol.StoreProtocol] = 0
     return p.notMounted()
 
@@ -207,7 +207,7 @@ proc getStoreHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getLightpushClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.LightpushClientProtocol)
 
-  if isNil(hm.node.protocols.wakuLightpushClient):
+  if isNil(hm.node.protocols.lightPushClient):
     hm.strength[WakuProtocol.LightpushClientProtocol] = 0
     return p.notMounted()
 
@@ -221,7 +221,7 @@ proc getLightpushClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getLegacyLightpushClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.LegacyLightpushClientProtocol)
 
-  if isNil(hm.node.protocols.wakuLegacyLightpushClient):
+  if isNil(hm.node.protocols.legacyLightPushClient):
     hm.strength[WakuProtocol.LegacyLightpushClientProtocol] = 0
     return p.notMounted()
 
@@ -235,7 +235,7 @@ proc getLegacyLightpushClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getFilterClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.FilterClientProtocol)
 
-  if isNil(hm.node.protocols.wakuFilterClient):
+  if isNil(hm.node.protocols.filterClient):
     hm.strength[WakuProtocol.FilterClientProtocol] = 0
     return p.notMounted()
 
@@ -260,14 +260,14 @@ proc getFilterClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc getStoreClientHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.StoreClientProtocol)
 
-  if isNil(hm.node.protocols.wakuStoreClient):
+  if isNil(hm.node.protocols.storeClient):
     hm.strength[WakuProtocol.StoreClientProtocol] = 0
     return p.notMounted()
 
   let peerCount = countCapablePeers(hm, WakuStoreCodec)
   hm.strength[WakuProtocol.StoreClientProtocol] = peerCount
 
-  if peerCount > 0 or not isNil(hm.node.protocols.wakuStore):
+  if peerCount > 0 or not isNil(hm.node.protocols.store):
     return p.ready()
 
   return p.notReady(
@@ -303,7 +303,7 @@ proc getRendezvousHealth(hm: NodeHealthMonitor): ProtocolHealth =
 proc hasMixExit(hm: NodeHealthMonitor): bool =
   ## Mirrors `selectMixLightpushPeer`, minus its per-message shard filter.
   ## Returns true if one node in the mix pool is capable of serving lightpush to exit through.
-  let pool = hm.node.protocols.wakuMix.nodePool
+  let pool = hm.node.protocols.mix.nodePool
   let slotted = hm.node.peerManager.serviceSlots.getOrDefault(WakuLightPushCodec)
   if not slotted.isNil() and pool.get(slotted.peerId).isSome():
     return true
@@ -315,7 +315,7 @@ proc hasMixExit(hm: NodeHealthMonitor): bool =
 proc getMixHealth(hm: NodeHealthMonitor): ProtocolHealth =
   var p = ProtocolHealth.init(WakuProtocol.MixProtocol)
 
-  if isNil(hm.node.protocols.wakuMix):
+  if isNil(hm.node.protocols.mix):
     hm.strength[WakuProtocol.MixProtocol] = 0
     return p.notMounted()
 
@@ -324,7 +324,7 @@ proc getMixHealth(hm: NodeHealthMonitor): ProtocolHealth =
 
   # Checked before the pool: discovery cannot fix a hop that the encoder
   # rejects, and every reply path and cover packet fails on it.
-  if not hm.node.protocols.wakuMix.selfHopUsable():
+  if not hm.node.protocols.mix.selfHopUsable():
     return p.notReady(
       "This node's announced address is not one mix can route replies to (IPv4 TCP or QUIC-v1)"
     )
@@ -577,7 +577,7 @@ proc healthLoop(hm: NodeHealthMonitor) {.async.} =
       # A `MixPubKeyBook` change wakes this loop, so the gauge follows the pool
       # as it fills, with no traffic. The loop publishes it, so a health read, as
       # from the REST endpoint, has no side effect.
-      if not isNil(hm.node.protocols.wakuMix):
+      if not isNil(hm.node.protocols.mix):
         updatePoolSize(hm.strength.getOrDefault(WakuProtocol.MixProtocol, 0))
 
       let newConnectionStatus = hm.calculateConnectionState()
@@ -745,7 +745,7 @@ proc setOverallHealth*(hm: NodeHealthMonitor, health: HealthStatus) =
   hm.nodeHealth = health
 
 proc onMixPoolChange(hm: NodeHealthMonitor) =
-  if hm.node.protocols.wakuMix.isNil() or hm.healthUpdateEvent.isNil():
+  if hm.node.protocols.mix.isNil() or hm.healthUpdateEvent.isNil():
     return
   hm.healthUpdateEvent.fire()
 

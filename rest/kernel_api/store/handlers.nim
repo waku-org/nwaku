@@ -202,7 +202,7 @@ proc retrieveMsgsFromSelfNode(
   ## it is not allowed to libp2p-dial a node to itself, by default.
   ##
 
-  let storeResp = (await self.protocols.wakuStore.handleSelfStoreRequest(storeQuery)).valueOr:
+  let storeResp = (await self.protocols.store.handleSelfStoreRequest(storeQuery)).valueOr:
     return storeErrorResponse(error.kind, $error)
 
   return storeResponse(storeResp)
@@ -251,7 +251,7 @@ proc installStoreApiHandlers*(
     storeQuery.validate().isOkOr:
       return RestApiResponse.badRequest(error)
 
-    if peer.isNone() and not node.protocols.wakuStore.isNil():
+    if peer.isNone() and not node.protocols.store.isNil():
       ## The user didn't specify a peer address and self-node is configured as a store node.
       ## In this case we assume that the user is willing to retrieve the messages stored by
       ## the local/self store node.

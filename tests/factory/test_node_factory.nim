@@ -55,10 +55,10 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      node.protocols.wakuArchive.isNil()
-      node.protocols.wakuStore.isNil()
-      node.protocols.wakuFilter.isNil()
-      not node.protocols.wakuStoreClient.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      node.protocols.filter.isNil()
+      not node.protocols.storeClient.isNil()
       not node.discovery.wakuRendezvous.isNil()
 
   asynctest "The store client reads a full page of the configured message size":
@@ -68,7 +68,7 @@ suite "Node Factory":
     let node = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
-    check node.protocols.wakuStoreClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
+    check node.protocols.storeClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
 
   asynctest "Set up a node with Store enabled":
     var confBuilder = defaultTestWakuConfBuilder()
@@ -81,8 +81,8 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      not node.protocols.wakuStore.isNil()
-      not node.protocols.wakuArchive.isNil()
+      not node.protocols.store.isNil()
+      not node.protocols.archive.isNil()
 
   asynctest "The command line default rate limits reach the mounted protocols":
     # Given the configuration of a binary started without --rate-limit
@@ -95,8 +95,8 @@ suite "Node Factory":
 
     # Then each protocol is mounted with the limit the command line assigns
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -117,8 +117,8 @@ suite "Node Factory":
 
     # Then only lightpush changes, filter and peer exchange keep their defaults
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -139,8 +139,8 @@ suite "Node Factory":
 
     # Then every protocol takes the global limit
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -161,8 +161,8 @@ suite "Node Factory":
 
     # Then filter, lightpush and peer exchange keep their defaults
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -378,7 +378,7 @@ suite "Node Factory":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await client.protocols.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await client.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     # Then both the ENR and the metadata advertise the content topic's shard
@@ -464,7 +464,7 @@ asynctest "Set up a node with Filter enabled":
 
   check:
     not node.isNil()
-    not node.protocols.wakuFilter.isNil()
+    not node.protocols.filter.isNil()
   echo "TEST END"
 
 asynctest "Start a node based on default test configuration":

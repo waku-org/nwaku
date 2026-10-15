@@ -34,7 +34,7 @@ proc unsubscribe(
     kernel: Kernel, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
 ) {.async.} =
   notice "unsubscribing from filter"
-  let unsubscribeRes = await kernel.protocols.wakuFilterClient.unsubscribe(
+  let unsubscribeRes = await kernel.protocols.filterClient.unsubscribe(
     actualFilterPeer, filterPubsubTopic, @[filterContentTopic]
   )
   if unsubscribeRes.isErr:
@@ -58,7 +58,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await kernel.protocols.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await kernel.protocols.filterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenanceMs)
       info "subscription is live."
       continue
@@ -116,7 +116,7 @@ proc maintainSubscription(
 proc setupAndListen*(
     kernel: Kernel, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
-  if isNil(kernel.protocols.wakuFilterClient):
+  if isNil(kernel.protocols.filterClient):
     # if we have not yet initialized lightpush client, then do it as the only way we can get here is
     # by having a service peer discovered.
     waitFor kernel.mountFilterClient()
@@ -146,7 +146,7 @@ proc setupAndListen*(
       pubsubTopic = pubsubTopic,
       hash = msgHash
 
-  kernel.protocols.wakuFilterClient.registerPushHandler(pushHandler)
+  kernel.protocols.filterClient.registerPushHandler(pushHandler)
 
   let interval = millis(20000)
   var printStats: CallbackFunc

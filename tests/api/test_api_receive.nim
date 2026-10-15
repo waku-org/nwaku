@@ -334,7 +334,7 @@ proc waitForArchived(net: TestNetwork, topic: ContentTopic, count: int) {.async.
     let query = archive_common.ArchiveQuery(
       includeData: false, contentTopics: @[topic], pubsubTopic: Opt.some(TestShard)
     )
-    let res = await net.storeNode.protocols.wakuArchive.findMessages(query)
+    let res = await net.storeNode.protocols.archive.findMessages(query)
     if res.isOk() and res.get().hashes.len >= count:
       return
     await sleepAsync(100.milliseconds)
@@ -396,7 +396,7 @@ proc archiveInOutage(
   await offline
   let msg =
     WakuMessage(payload: OutagePayload.toBytes(), contentTopic: topic, timestamp: now())
-  await net.storeNode.protocols.wakuArchive.handleMessage(TestShard, msg)
+  await net.storeNode.protocols.archive.handleMessage(TestShard, msg)
   await net.waitForArchived(topic, 2)
   return msg
 

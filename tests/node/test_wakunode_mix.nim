@@ -27,7 +27,7 @@ import
 ## known from outside, the ENR endpoint, a relay route, then the resolved set.
 
 proc selfHop(node: Kernel): MultiAddress =
-  node.protocols.wakuMix.localMixPubInfo().multiAddr
+  node.protocols.mix.localMixPubInfo().multiAddr
 
 proc boundTcpPort(node: Kernel): Port =
   getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports").tcpPort.get()
@@ -53,7 +53,7 @@ suite "Waku Mix - the node's own hop":
     check:
       node.selfHop() == node.announcedAddresses[0]
       $node.selfHop() != "/ip4/127.0.0.1/tcp/0"
-      node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopUsable()
     await node.stop()
 
   asyncTest "the default deployment takes the primary interface, not the wildcard":
@@ -70,7 +70,7 @@ suite "Waku Mix - the node's own hop":
       node.enrAddresses().len == 0
       node.selfHop() == node.announcedAddresses[0]
       "0.0.0.0" notin $node.selfHop()
-      node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopUsable()
     await node.stop()
 
   asyncTest "an address known from outside outranks the primary interface":
@@ -153,13 +153,13 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     check:
       $node.selfHop() == "/dns4/node.test/tcp/30303"
-      not node.protocols.wakuMix.selfHopUsable()
+      not node.protocols.mix.selfHopUsable()
 
     await node.start()
     check:
       node.announcedAddresses.allIt("/dns4/" in $it)
       $node.selfHop() == "/ip4/203.0.113.9/tcp/30303"
-      node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopUsable()
     await node.stop()
 
   asyncTest "the host a name resolved to outranks a relay route":
@@ -268,8 +268,8 @@ suite "Waku Mix - the node's own hop":
     check:
       node.started
       $node.selfHop() == "/dns4/node.test/tcp/30303"
-      node.protocols.wakuMix.selfHopMissing()
-      not node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopMissing()
+      not node.protocols.mix.selfHopUsable()
       health.health == HealthStatus.NOT_READY
       "replies" in health.desc.get("")
     await node.stop()
@@ -281,19 +281,19 @@ suite "Waku Mix - the node's own hop":
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
     await node.mountTestMix()
     let name = MultiAddress.init("/dns4/node.test/tcp/30303").tryGet()
-    check node.protocols.wakuMix.selfHopUsable() # the mount-time hop encodes
+    check node.protocols.mix.selfHopUsable() # the mount-time hop encodes
 
     check:
-      node.protocols.wakuMix.updateSelfHop(@[name], @[name]).isNone()
+      node.protocols.mix.updateSelfHop(@[name], @[name]).isNone()
       $node.selfHop() == "/ip4/127.0.0.1/tcp/0" # left as it was
-      node.protocols.wakuMix.selfHopMissing()
-      not node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopMissing()
+      not node.protocols.mix.selfHopUsable()
 
     let direct = MultiAddress.init("/ip4/127.0.0.1/tcp/60000").tryGet()
     check:
-      node.protocols.wakuMix.updateSelfHop(@[name], @[direct]) == Opt.some(direct)
-      not node.protocols.wakuMix.selfHopMissing()
-      node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.updateSelfHop(@[name], @[direct]) == Opt.some(direct)
+      not node.protocols.mix.selfHopMissing()
+      node.protocols.mix.selfHopUsable()
     await node.stop()
 
   asyncTest "a restart re-derives the hop":
@@ -307,12 +307,12 @@ suite "Waku Mix - the node's own hop":
     await node.stop()
 
     let stale = MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()
-    node.protocols.wakuMix.setLocalMultiAddr(stale).expect("an IPv4 TCP hop")
+    node.protocols.mix.setLocalMultiAddr(stale).expect("an IPv4 TCP hop")
     await node.start()
     check:
       node.selfHop() != stale
       node.selfHop() == node.announcedAddresses[0]
-      node.protocols.wakuMix.selfHopUsable()
+      node.protocols.mix.selfHopUsable()
     await node.stop()
 
 ## `poolSize` counts the live pool members a path can use; `mixReady` and the
@@ -548,7 +548,7 @@ suite "Waku Mix - bootstrap nodes":
 
     check:
       node.getMixNodePoolSize() == 1
-      node.switch.peerInfo.peerId notin node.protocols.wakuMix.nodePool.peerIds()
+      node.switch.peerInfo.peerId notin node.protocols.mix.nodePool.peerIds()
     await node.stop()
 
   asyncTest "a name the node cannot resolve is dropped, and the rest still mount":
