@@ -541,6 +541,42 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, hash4)) == true
 
+  asyncTest "two nodes with no message on their shared shards exchange nothing":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[1'u16, 2, 3, 4],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[3'u16, 4, 5, 6],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+
+    # Each holds one message on a shard the other does not share.
+    let
+      serverMsg = fakeWakuMessage(ts = now(), contentTopic = DefaultContentTopic)
+      clientMsg = fakeWakuMessage(ts = now() + 1, contentTopic = DefaultContentTopic)
+      serverHash = computeMessageHash("/waku/2/rs/2/1", serverMsg)
+      clientHash = computeMessageHash("/waku/2/rs/2/5", clientMsg)
+
+    server.messageIngress(serverHash, "/waku/2/rs/2/1", serverMsg)
+    client.messageIngress(clientHash, "/waku/2/rs/2/5", clientMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isOk()
+      remoteNeeds.len == 0
+
   asyncTest "sync 2 nodes on different clusters exchanges nothing":
     server = await newTestWakuRecon(
       serverSwitch,
