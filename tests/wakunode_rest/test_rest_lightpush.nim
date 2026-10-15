@@ -410,7 +410,7 @@ suite "Waku v2 Rest API - lightpush":
       received.mapIt(it.ephemeral) == @[sent.ephemeral]
       received.mapIt(it.proof) == @[sent.proof]
 
-  asyncTest "A message pushed twice is answered 505 the second time and not handed to the service node's handlers again - POST /lightpush/v3/message":
+  asyncTest "A message pushed twice is answered 400 the second time and not handed to the service node's handlers again - POST /lightpush/v3/message":
     # Given the service node and its relay peer subscribed over REST
     let restLightPushTest = await RestLightPushTest.init()
     defer:
@@ -459,7 +459,7 @@ suite "Waku v2 Rest API - lightpush":
     let sentAfterFirst = relayNetworkBytes(netOut)
     let secondResponse = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
-    # Then the second push is answered 505, and the service node neither handles the message again nor sends it to its relay peer
+    # Then the second push is answered 400, and the service node neither handles the message again nor sends it to its relay peer
     let secondOnService = await serviceClient.relayGetMessagesV1(DefaultPubsubTopic)
     let secondOnConsumer = await consumerClient.relayGetMessagesV1(DefaultPubsubTopic)
     check:
@@ -468,7 +468,7 @@ suite "Waku v2 Rest API - lightpush":
       firstOnService.mapIt(it.payload) == @[message.payload]
       onConsumer.mapIt(it.payload) == @[message.payload]
       sentAfterFirst > sentBefore
-      secondResponse.status == 505
+      secondResponse.status == 400
       secondResponse.data.statusDesc == Opt.some("Dropping already-seen message")
       secondResponse.data.relayPeerCount == Opt.none(uint32)
       secondOnService.status == 200
