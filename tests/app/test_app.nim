@@ -90,9 +90,9 @@ suite "Node app - Waku initialization":
     let node = waku.node
     check:
       not node.isNil()
-      node.protocols.wakuArchive.isNil()
-      node.protocols.wakuStore.isNil()
-      not node.protocols.wakuStoreClient.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      not node.protocols.storeClient.isNil()
       not node.discovery.wakuRendezvous.isNil()
 
     ## Cleanup
@@ -174,9 +174,9 @@ suite "Node app - Waku initialization":
     check:
       # Waku started properly
       not node.isNil()
-      node.protocols.wakuArchive.isNil()
-      node.protocols.wakuStore.isNil()
-      not node.protocols.wakuStoreClient.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      not node.protocols.storeClient.isNil()
       not node.discovery.wakuRendezvous.isNil()
 
       # DS structures are updated with dynamic ports

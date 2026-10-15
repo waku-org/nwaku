@@ -55,10 +55,10 @@ suite "Node Factory":
 
     check:
       not node.isNil()
-      node.protocols.wakuArchive.isNil()
-      node.protocols.wakuStore.isNil()
-      node.protocols.wakuFilter.isNil()
-      not node.protocols.wakuStoreClient.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      node.protocols.filter.isNil()
+      not node.protocols.storeClient.isNil()
       not node.discovery.wakuRendezvous.isNil()
 
   asynctest "The store client reads a full page of the configured message size":
@@ -95,8 +95,8 @@ suite "Node Factory":
 
     # Then each protocol is mounted with the limit the command line assigns
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -117,8 +117,8 @@ suite "Node Factory":
 
     # Then only lightpush changes, filter and peer exchange keep their defaults
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -139,8 +139,8 @@ suite "Node Factory":
 
     # Then every protocol takes the global limit
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
@@ -161,8 +161,8 @@ suite "Node Factory":
 
     # Then filter, lightpush and peer exchange keep their defaults
     let
-      filterLimit = node.protocols.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.protocols.wakuLightPush.requestRateLimiter.setting
+      filterLimit = node.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = node.protocols.lightPush.requestRateLimiter.setting
       peerExchangeLimit = node.discovery.wakuPeerExchange.requestRateLimiter.setting
 
     check:
