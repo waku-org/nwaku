@@ -257,10 +257,60 @@ suite "Waku Store Sync - transfer payload numbering":
       WakuMessageAndTopic.decode(hexToSeqByte("0a022f73" & "12070a010112022f74"))
     check res.isErr()
 
+suite "Waku Store Sync - reconciliation header":
+  test "reconciliation encoding starts with the cluster, the shard count and the shards":
+    let
+      bounds =
+        SyncID(time: Timestamp(100), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+      payload = RangesData(
+        cluster: 2,
+        shards: @[3'u16, 300],
+        ranges: @[(bounds, RangeType.Fingerprint)],
+        fingerprints: @[FullFingerprint],
+      )
+      encoded = payload.deltaEncode()
+      res = RangesData.deltaDecode(encoded)
+
+    check:
+      # 300 is the varint ac 02
+      encoded[0 ..< 5] == @[byte 2, 2, 3, 0xac, 0x02]
+      res.isOk()
+      res.get().cluster == 2
+      res.get().shards == @[3'u16, 300]
+
+  test "an empty payload is the cluster and the shards only":
+    let
+      encoded = RangesData(cluster: 2, shards: @[3'u16]).deltaEncode()
+      res = RangesData.deltaDecode(encoded)
+
+    check:
+      encoded == @[byte 2, 1, 3]
+      res.isOk()
+      res.get().cluster == 2
+      res.get().shards == @[3'u16]
+      res.get().ranges.len == 0
+
+  test "a zero-length payload decodes as empty":
+    let res = RangesData.deltaDecode(@[])
+    check:
+      res.isOk()
+      res.get().ranges.len == 0
+
 suite "Store sync - codec bounds":
-  test "a topic length beyond the payload is refused":
-    # One pubsub topic with the length int64.high.
-    check RangesData.deltaDecode(hexToSeqByte("01ffffffffffffffff7f")).isErr()
+  test "a shard count beyond the payload is refused":
+    # Cluster 2, then a shard count of int64.high.
+    let res = RangesData.deltaDecode(hexToSeqByte("02ffffffffffffffff7f"))
+    check:
+      res.isErr()
+      res.error == "Cannot decode shard count"
+
+  test "a shard above 65535 is refused":
+    # Cluster 2, one shard, then 65536 as a varint.
+    let res = RangesData.deltaDecode(hexToSeqByte("0201808004"))
+    check:
+      res.isErr()
+      res.error == "Cannot decode shard. Shard index: 0"
 
   test "a time that does not fit in a Timestamp is refused":
     # Two items: the time difference int64.high, then 1.
@@ -269,9 +319,9 @@ suite "Store sync - codec bounds":
       hexToSeqByte("ffffffffffffffff7f" & "00".repeat(32) & "01" & "00".repeat(40))
     check deltaDecode(itemSet, bytes, 2).isErr()
 
-  test "an incomplete topic length is refused":
-    # One pubsub topic, and a length of nine bytes that all continue.
-    let res = RangesData.deltaDecode(hexToSeqByte("01" & "80".repeat(9)))
+  test "an incomplete shard is refused":
+    # Cluster 2, one shard, and nine bytes that all continue.
+    let res = RangesData.deltaDecode(hexToSeqByte("0201" & "80".repeat(9)))
     check:
       res.isErr()
-      res.error == "Cannot decode length. Topic index: 0"
+      res.error == "Cannot decode shard. Shard index: 0"

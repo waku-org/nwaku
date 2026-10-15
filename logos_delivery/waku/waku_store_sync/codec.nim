@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/sequtils, stew/[leb128, byteutils]
+import std/sequtils, stew/leb128
 
 import ../common/protobuf, ../waku_core/message, ../waku_core/time, ./common
 
@@ -40,9 +40,6 @@ proc deltaEncode*(itemSet: ItemSet): seq[byte] =
   return output
 
 proc deltaEncode*(value: RangesData): seq[byte] =
-  if value.ranges.len == 0:
-    return @[0]
-
   var
     output = newSeqOfCap[byte](AvgCapacity)
     buf = Leb128Buf[uint64]()
@@ -51,25 +48,20 @@ proc deltaEncode*(value: RangesData): seq[byte] =
     i = 0
     j = 0
 
-  # encode pubsub topics
-  buf = uint64(value.pubsubTopics.len).toBytes(Leb128)
+  # encode cluster and shards
+  buf = uint64(value.cluster).toBytes(Leb128)
   output &= @buf
 
-  for topic in value.pubsubTopics:
-    buf = uint64(topic.len).toBytes(Leb128)
-    output &= @buf
-
-    output &= topic.toBytes()
-
-  # encode content topics
-  buf = uint64(value.contentTopics.len).toBytes(Leb128)
+  buf = uint64(value.shards.len).toBytes(Leb128)
   output &= @buf
 
-  for topic in value.contentTopics:
-    buf = uint64(topic.len).toBytes(Leb128)
+  for shard in value.shards:
+    buf = uint64(shard).toBytes(Leb128)
     output &= @buf
 
-    output &= topic.toBytes()
+  # an empty payload is the header alone
+  if value.ranges.len == 0:
+    return output
 
   # the first range is implicit but must be explicit when encoded
   let (bound, _) = value.ranges[0]
@@ -228,37 +220,44 @@ proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
 
   return ok(recon)
 
-proc getTopics(idx: var int, buffer: seq[byte]): Result[seq[string], string] =
-  if idx + VarIntLen > buffer.len:
-    return err("Cannot decode topic count")
+proc getVarint(idx: var int, buffer: seq[byte]): Opt[uint64] =
+  ## A header-only payload ends right after its last varint, so fewer than
+  ## VarIntLen bytes left is not an error here.
+  if idx >= buffer.len:
+    return Opt.none(uint64)
 
-  let slice = buffer[idx ..< idx + VarIntLen]
+  let slice = buffer[idx ..< min(idx + VarIntLen, buffer.len)]
   let (val, len) = uint64.fromBytes(slice, Leb128)
   if len <= 0:
-    return err("Cannot decode topic count")
+    return Opt.none(uint64)
   idx += len
-  let topicCount = int(val)
 
-  var topics: seq[string]
-  for i in 0 ..< topicCount:
-    if idx + VarIntLen > buffer.len:
-      return err("Cannot decode length. Topic index: " & $i)
+  return Opt.some(val)
 
-    let slice = buffer[idx ..< idx + VarIntLen]
-    let (val, len) = uint64.fromBytes(slice, Leb128)
-    if len <= 0:
-      return err("Cannot decode length. Topic index: " & $i)
-    idx += len
-    if val > uint64(buffer.len - idx):
-      return err("Cannot decode bytes. Topic index: " & $i)
-    let topicLen = int(val)
+proc getCluster(idx: var int, buffer: seq[byte]): Result[uint16, string] =
+  let cluster = getVarint(idx, buffer).valueOr:
+    return err("Cannot decode cluster")
+  if cluster > uint64(high(uint16)):
+    return err("Cannot decode cluster")
 
-    let topic = string.fromBytes(buffer[idx ..< idx + topicLen])
-    idx += topicLen
+  return ok(uint16(cluster))
 
-    topics.add(topic)
+proc getShards(idx: var int, buffer: seq[byte]): Result[seq[uint16], string] =
+  let count = getVarint(idx, buffer).valueOr:
+    return err("Cannot decode shard count")
+  # every shard takes at least one byte
+  if count > uint64(buffer.len - idx):
+    return err("Cannot decode shard count")
 
-  return ok(topics)
+  var shards = newSeqOfCap[uint16](int(count))
+  for i in 0 ..< int(count):
+    let shard = getVarint(idx, buffer).valueOr:
+      return err("Cannot decode shard. Shard index: " & $i)
+    if shard > uint64(high(uint16)):
+      return err("Cannot decode shard. Shard index: " & $i)
+    shards.add(uint16(shard))
+
+  return ok(shards)
 
 proc deltaDecode*(
     itemSet: var ItemSet, buffer: seq[byte], setLength: int
@@ -295,7 +294,7 @@ proc getItemSet(
   return ok(itemSet)
 
 proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
-  if buffer.len <= 1:
+  if buffer.len == 0:
     return ok(RangesData())
 
   var
@@ -303,8 +302,12 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
     lastTime = Timestamp(0)
     idx = 0
 
-  payload.pubsubTopics = ?getTopics(idx, buffer)
-  payload.contentTopics = ?getTopics(idx, buffer)
+  payload.cluster = ?getCluster(idx, buffer)
+  payload.shards = ?getShards(idx, buffer)
+
+  # an empty payload is the header alone
+  if idx == buffer.len:
+    return ok(payload)
 
   lastTime = ?getTimestamp(idx, buffer)
 

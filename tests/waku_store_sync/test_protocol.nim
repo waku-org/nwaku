@@ -561,6 +561,41 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, hash4)) == true
 
+  asyncTest "sync 2 nodes on different clusters exchanges nothing":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 1,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+
+    let
+      serverMsg = fakeWakuMessage(ts = now(), contentTopic = DefaultContentTopic)
+      clientMsg = fakeWakuMessage(ts = now() + 1, contentTopic = DefaultContentTopic)
+      serverHash = computeMessageHash(DefaultPubsubTopic, serverMsg)
+      clientHash = computeMessageHash(DefaultPubsubTopic, clientMsg)
+
+    server.messageIngress(serverHash, DefaultPubsubTopic, serverMsg)
+    client.messageIngress(clientHash, DefaultPubsubTopic, clientMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isOk()
+      remoteNeeds.len == 0
+
   asyncTest "sync 2 nodes same hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds

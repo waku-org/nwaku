@@ -403,16 +403,13 @@ method processPayload*(
     j = 0
 
   var pubsubTopicSet = initPackedSet[int]()
-  for inputTopic in input.pubsubTopics:
+  for shard in input.shards:
+    let inputTopic = $RelayShard(clusterId: input.cluster, shardId: shard)
     for i, localTopic in self.pubsubTopics:
       if inputTopic == localTopic:
         pubsubTopicSet.incl(i)
 
-  var contentTopicSet = initPackedSet[int]()
-  for inputTopic in input.contentTopics:
-    for i, localTopic in self.contentTopics:
-      if inputTopic == localTopic:
-        contentTopicSet.incl(i)
+  let contentTopicSet = initPackedSet[int]()
 
   for (bounds, rangeType) in input.ranges:
     case rangeType
