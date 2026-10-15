@@ -401,16 +401,6 @@ proc new*(
     w.topicHealthCheckAll = false
     w.initProtocolHandler()
     w.initRelayObservers()
-
-    w.peerEventListener = WakuPeerEvent.listen(
-      w.brokerCtx,
-      proc(evt: WakuPeerEvent): Future[void] {.async: (raises: []), gcsafe.} =
-        if evt.kind == WakuPeerEventKind.EventDisconnected:
-          w.topicHealthCheckAll = true
-          w.topicHealthUpdateEvent.fire()
-      ,
-    ).valueOr:
-      return err("Failed to subscribe to peer events: " & error)
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
@@ -543,6 +533,17 @@ proc topicsHealthLoop(w: WakuRelay) {.async.} =
 method start*(w: WakuRelay) {.async: (raises: [CancelledError]).} =
   info "start"
   await procCall GossipSub(w).start()
+
+  w.peerEventListener = WakuPeerEvent.listen(
+    w.brokerCtx,
+    proc(evt: WakuPeerEvent): Future[void] {.async: (raises: []), gcsafe.} =
+      if evt.kind == WakuPeerEventKind.EventDisconnected:
+        w.topicHealthCheckAll = true
+        w.topicHealthUpdateEvent.fire()
+    ,
+  ).valueOr:
+    error "could not listen to peer events", error = error
+    WakuPeerEventListener()
   w.topicHealthLoopHandle = w.topicsHealthLoop()
 
 method stop*(w: WakuRelay) {.async: (raises: []).} =
@@ -553,6 +554,13 @@ method stop*(w: WakuRelay) {.async: (raises: []).} =
 
   if not w.topicHealthLoopHandle.isNil():
     await w.topicHealthLoopHandle.cancelAndWait()
+
+  # GossipSub.stop emptied the meshes without waking the health loop
+  for topic in toSeq(w.topicsHealth.keys):
+    let currentHealth = w.calculateTopicHealth(topic)
+    if w.topicsHealth.getOrDefault(topic, TopicHealth.UNHEALTHY) != currentHealth:
+      w.topicsHealth[topic] = currentHealth
+      EventShardTopicHealthChange.emit(w.brokerCtx, topic, currentHealth)
 
 proc generateOrderedValidator(w: WakuRelay): ValidatorHandler {.gcsafe.} =
   # rejects messages that are not WakuMessage
