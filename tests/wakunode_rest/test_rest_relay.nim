@@ -1968,8 +1968,7 @@ suite "Waku v2 Rest API - Relay":
       lastResponse.status == 200
       node.wakuRelay.isSubscribed(lastShard)
 
-  asyncTest "A message posted again after it is read is returned again by the publisher and not by its relay peer - POST /relay/v1/messages/{topic}":
-    # TODO: logos-delivery#4453
+  asyncTest "A message posted again after it is read is neither returned again by the publisher nor sent to its relay peer - POST /relay/v1/messages/{topic}":
     # Given two relay nodes, each behind its own REST server
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
@@ -2027,9 +2026,8 @@ suite "Waku v2 Rest API - Relay":
     let againResponse =
       await publisherClient.relayPostMessagesV1(DefaultPubsubTopic, message)
 
-    # Then the publisher returns it again, and does not send it to its relay peer
-    let againOnPublisher =
-      await publisherClient.waitForRelayMessages(DefaultPubsubTopic, 1)
+    # Then the publisher does not handle it again, and does not send it to its relay peer
+    let againOnPublisher = await publisherClient.relayGetMessagesV1(DefaultPubsubTopic)
     let againOnReceiver = await receiverClient.relayGetMessagesV1(DefaultPubsubTopic)
     check:
       firstResponse.status == 200
@@ -2037,7 +2035,8 @@ suite "Waku v2 Rest API - Relay":
       firstOnReceiver.mapIt(it.payload) == @[message.payload]
       sentAfterFirst > sentBefore
       againResponse.status == 200
-      againOnPublisher.mapIt(it.payload) == @[message.payload]
+      againOnPublisher.status == 200
+      againOnPublisher.data.len == 0
       relayNetworkBytes(netOut) == sentAfterFirst
       againOnReceiver.status == 200
       againOnReceiver.data.len == 0
