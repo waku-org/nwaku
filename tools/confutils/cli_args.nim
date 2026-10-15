@@ -1135,11 +1135,6 @@ proc toNetworkPresetConf*(
       "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
     )
     lcPreset = "twn"
-  if clusterId.isSome() and clusterId.get() == 2:
-    warn(
-      "Logos.dev - Logos.dev configuration will not be applied when `--cluster-id=2` is passed in future releases. Use `--preset=logos.dev` instead."
-    )
-    lcPreset = "logos.dev"
 
   case lcPreset
   of "":
