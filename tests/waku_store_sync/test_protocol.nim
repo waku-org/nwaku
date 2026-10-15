@@ -452,26 +452,6 @@ suite "Waku Sync: reconciliation":
       remoteNeeds.contains((serverPeerInfo.peerId, defaultHash)) == true
       remoteNeeds.contains((serverPeerInfo.peerId, otherHash)) == true
 
-  asyncTest "a peer's content topics do not narrow a payload":
-    server = await newTestWakuRecon(
-      serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
-    )
-    client = await newTestWakuRecon(
-      clientSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
-    )
-
-    let
-      bounds =
-        SyncID(time: Timestamp(1), hash: EmptyFingerprint) ..
-        SyncID(time: Timestamp(2), hash: EmptyFingerprint)
-      withTopics = RangesData(
-        contentTopics: @[DefaultContentTopic],
-        ranges: @[(bounds, RangeType.Fingerprint)],
-        fingerprints: @[FullFingerprint],
-      )
-
-    check server.preProcessPayload(withTopics, Timestamp(0)).get().contentTopics.len == 0
-
   asyncTest "sync 2 nodes different hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds

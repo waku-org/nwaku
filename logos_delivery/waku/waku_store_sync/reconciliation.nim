@@ -134,10 +134,6 @@ proc preProcessPayload*(
   elif self.shards.len > 0:
     payload.shards = self.shards.toSeq()
 
-  # Content topics do not scope a sync: WAKU-SYNC has no field for them, and the
-  # node archives every content topic of its shards.
-  payload.contentTopics = @[]
-
   # for non skip ranges check if they happen before any of our ranges
   # convert to skip range before processing.
   # The range that crosses our lower bound is split into a skip part and the
