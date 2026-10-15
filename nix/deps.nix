@@ -96,8 +96,8 @@
 
   stew = pkgs.fetchgit {
     url = "https://github.com/status-im/nim-stew";
-    rev = "0e601977e5ac8766dbf39fa53b94f908b9cb4753";
-    sha256 = "0acix676zivbmn1gzif4mr4gzgipyq7qx1ndq9a4a7l1vvvk9m19";
+    rev = "6a930214323f48d879015a1d2d68db6ace3446fb";
+    sha256 = "186gpcs6mhsfi4yl91168v0706kwi1cbn70phd7z7p3k75jr8a5y";
     fetchSubmodules = true;
   };
 

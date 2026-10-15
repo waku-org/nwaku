@@ -59,8 +59,7 @@ requires "nim == 2.2.6",
   "db_connector",
   "sqlite3_abi",
   # Utilities
-  # 0.6.1+ cannot match fields of IdentityCredential (logging it fails to compile).
-  "stew == 0.6.0",
+  "stew",
   "stint",
   "https://github.com/status-im/nim-metrics#9f2e1d4a4164deb37603b16cedd1707408ee5955",
   "regex",

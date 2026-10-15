@@ -177,8 +177,8 @@
       }
     },
     "stew": {
-      "version": "0.6.0",
-      "vcsRevision": "0e601977e5ac8766dbf39fa53b94f908b9cb4753",
+      "version": "0.6.3",
+      "vcsRevision": "6a930214323f48d879015a1d2d68db6ace3446fb",
       "url": "https://github.com/status-im/nim-stew",
       "downloadMethod": "git",
       "dependencies": [
@@ -187,7 +187,7 @@
         "unittest2"
       ],
       "checksums": {
-        "sha1": "c5c725a31b674712336aeadd86c7e9a18eceddca"
+        "sha1": "d18cc3a5d1a8a5220b5c81df62fe9fb785fb91b5"
       }
     },
     "httputils": {
