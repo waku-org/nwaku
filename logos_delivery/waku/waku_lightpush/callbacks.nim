@@ -17,10 +17,11 @@ proc getRelayPushHandler*(wakuRelay: WakuRelay): PushMessageHandler =
       pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult] {.async.} =
     let messageSizeBytes = message.encode().len
-    if messageSizeBytes > wakuRelay.maxMessageSize:
+    if messageSizeBytes > wakuRelay.maxEncodedMessageSize:
       return lighpushErrorResult(
         LightPushErrorCode.PAYLOAD_TOO_LARGE,
-        "Message size exceeded maximum of: " & $wakuRelay.maxMessageSize & " bytes",
+        "Message size exceeded maximum of: " & $wakuRelay.maxEncodedMessageSize &
+          " bytes",
       )
 
     (await wakuRelay.validateMessage(pubSubTopic, message)).isOkOr:
@@ -30,6 +31,6 @@ proc getRelayPushHandler*(wakuRelay: WakuRelay): PushMessageHandler =
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       debug "Lightpush request has not been published to any peers",
         msg_hash = msgHash, reason = $error
-      return mapPubishingErrorToPushResult(error)
+      return mapPubishingErrorToPushResult(error, wakuRelay.maxEncodedMessageSize)
 
     return lightpushSuccessResult(publishedResult.uint32)
