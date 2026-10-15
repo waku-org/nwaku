@@ -230,7 +230,6 @@ suite "LM API health checking":
     check event.topic == DefaultShard
 
   asyncTest "EventShardTopicHealthChange, no health degradation after a restart":
-    # TODO: logos-delivery#4541
     (await client.stop()).isOkOr:
       raiseAssert error
     (await client.start()).isOkOr:
@@ -255,12 +254,12 @@ suite "LM API health checking":
     await client.waku.node.disconnectNode(servicePeerInfo)
     await disconnectFuture
 
-    # The restarted node reports no UNHEALTHY although its mesh is empty.
-    await sleepAsync(NegativeTestTimeout)
+    # The restarted node reports UNHEALTHY once its mesh is empty.
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
     check:
       client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
 
   asyncTest "RequestHealthReport, check aggregate report":
     let req = await RequestHealthReport.request(client.waku.brokerCtx)
@@ -340,7 +339,6 @@ suite "LM API health checking":
 
 suite "LM API health checking at stop":
   asyncTest "EventShardTopicHealthChange, no health degradation at stop":
-    # TODO: logos-delivery#4541
     var serviceNode: WakuNode
     lockNewGlobalBrokerContext:
       serviceNode = newTestWakuNode(generateSecp256k1Key())
@@ -382,10 +380,10 @@ suite "LM API health checking at stop":
     (await client.stop()).isOkOr:
       raiseAssert error
 
-    # The stopped node reports no UNHEALTHY, while its peer does for the same mesh.
+    # The stopped node reports UNHEALTHY, like its peer does for the same mesh.
     checkUntilTimeout:
       serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
     check:
       client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
-      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
