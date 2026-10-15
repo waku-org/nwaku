@@ -247,17 +247,17 @@ procSuite "Kernel - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.protocols.wakuArchive.handleMessage(pubsubTopic, msg)
+      await server.protocols.archive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
-    server.protocols.wakuFilterClient.registerPushHandler(filterHandler)
+    server.protocols.filterClient.registerPushHandler(filterHandler)
     let resp = waitFor server.filterSubscribe(
       Opt.some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
     )
 
     waitFor sleepAsync(100.millis)
 
-    waitFor filterSource.protocols.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    waitFor filterSource.protocols.filter.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)

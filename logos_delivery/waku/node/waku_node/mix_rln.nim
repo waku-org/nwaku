@@ -44,28 +44,28 @@ proc publishMetadata(
   return ok()
 
 proc stopMixRln*(node: Kernel) {.async: (raises: []).} =
-  if node.protocols.wakuMixRln.isNil():
+  if node.protocols.mixRln.isNil():
     return
-  if node.protocols.wakuMixRlnListener.isSome():
-    await MessageSeenEvent.dropListener(node.brokerCtx, node.protocols.wakuMixRlnListener.get())
-  node.protocols.wakuMixRlnListener = Opt.none(MessageSeenEventListener)
-  await node.protocols.wakuMixRln.stop()
+  if node.protocols.mixRlnListener.isSome():
+    await MessageSeenEvent.dropListener(node.brokerCtx, node.protocols.mixRlnListener.get())
+  node.protocols.mixRlnListener = Opt.none(MessageSeenEventListener)
+  await node.protocols.mixRln.stop()
 
 proc startMixRln*(
     node: Kernel
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
-  if node.protocols.wakuMixRln.isNil():
+  if node.protocols.mixRln.isNil():
     return err("Mix RLN is not configured")
   if node.protocols.rlnPlugin.isNone():
     return err("Mix RLN coordination requires Relay RLN")
-  let plugin = node.protocols.wakuMixRln
+  let plugin = node.protocols.mixRln
   plugin.setPublishCallback(
     proc(topic: string, data: seq[byte]): Future[Result[void, string]] {.async.} =
       return await node.publishMetadata(topic, data)
   )
   (await plugin.start()).isOkOr:
     return err("Failed to start Mix RLN plugin: " & $error)
-  if node.protocols.wakuMixRlnListener.isSome():
+  if node.protocols.mixRlnListener.isSome():
     return ok()
   let handler = proc(event: MessageSeenEvent): Future[void] {.async: (raises: []).} =
     if event.message.contentTopic == plugin.config.metadataTopic:
@@ -74,7 +74,7 @@ proc startMixRln*(
   let listener = MessageSeenEvent.listen(node.brokerCtx, handler).valueOr:
     await plugin.stop()
     return err(error)
-  node.protocols.wakuMixRlnListener = Opt.some(listener)
+  node.protocols.mixRlnListener = Opt.some(listener)
   node.subscriptionManager.subscribe(plugin.config.metadataTopic).isOkOr:
     await node.stopMixRln()
     return err(error)

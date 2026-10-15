@@ -176,9 +176,9 @@ proc setupProtocols(
     let mixConf = conf.mixConf.get()
     var protection = Opt.none(SpamProtection)
     if mixConf.mixRlnConfig.isSome():
-      node.protocols.wakuMixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
+      node.protocols.mixRln = ModuleRlnProtection.new(mixConf.mixRlnConfig.get(), rlnMixCall).valueOr:
         return err("failed to create Mix RLN adapter: " & error)
-      protection = Opt.some(SpamProtection(node.protocols.wakuMixRln))
+      protection = Opt.some(SpamProtection(node.protocols.mixRln))
     (await node.mountMix(conf.clusterId, mixConf.mixKey, mixConf.mixnodes, protection)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
 

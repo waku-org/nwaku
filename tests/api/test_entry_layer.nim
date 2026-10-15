@@ -382,7 +382,7 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     check:
@@ -464,7 +464,7 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
     receiver.subscribe((kind: PubsubSub, topic: configuredShard), receiverHandler).isOkOr:
       raiseAssert error
-    subscriber.protocols.wakuFilterClient.registerPushHandler(pushHandler)
+    subscriber.protocols.filterClient.registerPushHandler(pushHandler)
     let filterSubscribe = await subscriber.filterSubscribe(
       Opt.some(configuredShard),
       @[contentTopic],
@@ -682,7 +682,7 @@ suite "LogosDelivery - configured shards":
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.protocols.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     check:

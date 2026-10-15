@@ -63,7 +63,7 @@ procSuite "Waku Metadata Protocol":
       connOpt.isSome()
 
     # Request metadata
-    let response1 = await node2.protocols.wakuMetadata.request(connOpt.get())
+    let response1 = await node2.protocols.metadata.request(connOpt.get())
 
     # Check the response or dont even continue
     require:
@@ -101,7 +101,7 @@ procSuite "Waku Metadata Protocol":
     require:
       connOpt.isSome
 
-    let response = await node2.protocols.wakuMetadata.request(connOpt.get())
+    let response = await node2.protocols.metadata.request(connOpt.get())
 
     ## Then: Response contains configured shards even without relay subscriptions
     require:

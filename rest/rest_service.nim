@@ -190,7 +190,7 @@ proc installKernelRoutes(
     )
 
   ## Filter REST API
-  if node.protocols.wakuFilterClient != nil:
+  if node.protocols.filterClient != nil:
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =
@@ -220,8 +220,8 @@ proc installKernelRoutes(
   ## Install it either if client is mounted)
   ## or install it to be used with self-hosted lightpush service
   ## We either get lightpushnode (lightpush service node) from config or discovered or self served
-  if (node.protocols.wakuLegacyLightpushClient != nil) or
-      (lightPushEnabled and node.protocols.wakuLegacyLightPush != nil and node.protocols.relay != nil):
+  if (node.protocols.legacyLightPushClient != nil) or
+      (lightPushEnabled and node.protocols.legacyLightPush != nil and node.protocols.relay != nil):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))

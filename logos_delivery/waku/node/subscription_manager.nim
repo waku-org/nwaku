@@ -50,22 +50,22 @@ proc registerRelayHandler(
     logos_delivery_histogram_message_size.observe(msgSizeKB)
 
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.protocols.wakuFilter.isNil():
+    if node.protocols.filter.isNil():
       return
 
-    await node.protocols.wakuFilter.handleMessage(topic, msg)
+    await node.protocols.filter.handleMessage(topic, msg)
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.protocols.wakuArchive.isNil():
+    if node.protocols.archive.isNil():
       return
 
-    await node.protocols.wakuArchive.handleMessage(topic, msg)
+    await node.protocols.archive.handleMessage(topic, msg)
 
   proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    if node.protocols.wakuStoreReconciliation.isNil():
+    if node.protocols.storeReconciliation.isNil():
       return
 
-    node.protocols.wakuStoreReconciliation.messageIngress(topic, msg)
+    node.protocols.storeReconciliation.messageIngress(topic, msg)
 
   proc internalHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     MessageSeenEvent.emit(node.brokerCtx, topic, msg)
@@ -369,12 +369,12 @@ proc removePeer(self: SubscriptionManager, shard: PubsubTopic, peerId: PeerId) =
     self.updateShardHealth(shard, state[])
     self.edgeFilterWakeup.fire()
 
-    if not self.node.protocols.wakuFilterClient.isNil():
+    if not self.node.protocols.filterClient.isNil():
       self.shards.withValue(shard, sub):
         let ct = toSeq(sub.contentTopics)
         if ct.len > 0:
           proc doUnsubscribe() {.async.} =
-            discard await self.node.protocols.wakuFilterClient.unsubscribe(peer, shard, ct)
+            discard await self.node.protocols.filterClient.unsubscribe(peer, shard, ct)
 
           asyncSpawn doUnsubscribe()
 
@@ -399,9 +399,9 @@ proc sendChunkedFilterRpc(
       let fut =
         case kind
         of FilterSubscribe:
-          self.node.protocols.wakuFilterClient.subscribe(peer, shard, chunk)
+          self.node.protocols.filterClient.subscribe(peer, shard, chunk)
         of FilterUnsubscribe:
-          self.node.protocols.wakuFilterClient.unsubscribe(peer, shard, chunk)
+          self.node.protocols.filterClient.unsubscribe(peer, shard, chunk)
       if not (await fut.withTimeout(EdgeFilterSubscribeTimeout)) or fut.read().isErr():
         trace "sendChunkedFilterRpc: chunk failed",
           op = kind, shard = shard, peer = peer.peerId
@@ -468,7 +468,7 @@ proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
   while true:
     await sleepAsync(self.edgeFilterLoopInterval)
 
-    if self.node.protocols.wakuFilterClient.isNil():
+    if self.node.protocols.filterClient.isNil():
       debug "filter client is nil within edge filter connection loop"
       continue
 
@@ -484,7 +484,7 @@ proc edgeFilterConnectionLoop(self: SubscriptionManager) {.async.} =
       var pingTasks: seq[(PeerId, Future[FilterSubscribeResult])]
       for peer in connected.values:
         pingTasks.add(
-          (peer.peerId, self.node.protocols.wakuFilterClient.ping(peer, EdgeFilterPingTimeout))
+          (peer.peerId, self.node.protocols.filterClient.ping(peer, EdgeFilterPingTimeout))
         )
 
       await allFutures(pingTasks.mapIt(it[1]))
@@ -547,7 +547,7 @@ proc edgeFilterSubLoop(self: SubscriptionManager) {.async.} =
     self.edgeFilterWakeup.clear()
     trace "edgeFilterSubLoop: woke up"
 
-    if isNil(self.node.protocols.wakuFilterClient):
+    if isNil(self.node.protocols.filterClient):
       trace "edgeFilterSubLoop: wakuFilterClient is nil, skipping"
       continue
 
@@ -728,14 +728,14 @@ proc start*(self: SubscriptionManager): Result[void, string] =
   # Start Edge workers only when we are in Edge mode (relay not mounted)
   # AND the filter client is mounted (otherwise the loops have nothing
   # to talk to and just spam "filter client is nil" warnings).
-  if self.node.protocols.relay.isNil() and not self.node.protocols.wakuFilterClient.isNil():
+  if self.node.protocols.relay.isNil() and not self.node.protocols.filterClient.isNil():
     return self.startEdgeFilterLoops()
 
   return ok()
 
 proc stop*(self: SubscriptionManager) {.async: (raises: []).} =
   # Stop Edge workers if we started them in `start` (Edge mode + filter client).
-  if self.node.protocols.relay.isNil() and not self.node.protocols.wakuFilterClient.isNil():
+  if self.node.protocols.relay.isNil() and not self.node.protocols.filterClient.isNil():
     await self.stopEdgeFilterLoops()
 
   # Only clear providers we actually registered: another SubscriptionManager

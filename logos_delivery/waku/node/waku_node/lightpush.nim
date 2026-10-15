@@ -52,7 +52,7 @@ proc publishOverMix*(
   ## Publishes on a mix connection and returns within `replyTimeout`. The mix
   ## connection limits its wait for the reply, but not the first-hop dial.
   let publishFut =
-    node.protocols.wakuLightpushClient.publish(Opt.some(pubsubTopic), message, conn)
+    node.protocols.lightPushClient.publish(Opt.some(pubsubTopic), message, conn)
   let deadline = sleepAsync(replyTimeout)
   discard await race(FutureBase(publishFut), FutureBase(deadline))
 
@@ -79,7 +79,7 @@ proc mountLegacyLightPush*(
   info "mounting legacy lightpush with relay"
   let pushHandler = legacy_lightpush_protocol.getRelayPushHandler(node.protocols.relay)
 
-  node.protocols.wakuLegacyLightPush = WakuLegacyLightPush.new(
+  node.protocols.legacyLightPush = WakuLegacyLightPush.new(
     node.peerManager,
     node.rng,
     pushHandler,
@@ -89,9 +89,9 @@ proc mountLegacyLightPush*(
 
   if node.started:
     # Node has started already. Let's start lightpush too.
-    await node.protocols.wakuLegacyLightPush.start()
+    await node.protocols.legacyLightPush.start()
 
-  node.switch.mount(node.protocols.wakuLegacyLightPush, protocolMatcher(WakuLegacyLightPushCodec))
+  node.switch.mount(node.protocols.legacyLightPush, protocolMatcher(WakuLegacyLightPushCodec))
 
   debug "legacy lightpush mounted successfully"
   return ok()
@@ -99,8 +99,8 @@ proc mountLegacyLightPush*(
 proc mountLegacyLightPushClient*(node: Kernel) =
   info "mounting legacy light push client"
 
-  if node.protocols.wakuLegacyLightpushClient.isNil():
-    node.protocols.wakuLegacyLightpushClient =
+  if node.protocols.legacyLightPushClient.isNil():
+    node.protocols.legacyLightPushClient =
       WakuLegacyLightPushClient.new(node.peerManager, node.rng)
 
 proc internalLegacyLightpushPublish(
@@ -109,20 +109,20 @@ proc internalLegacyLightpushPublish(
   ## Dispatches to the legacy lightpush client if mounted, otherwise to the
   ## self-hosted server. Callers guarantee at least one is mounted.
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
-  if not node.protocols.wakuLegacyLightpushClient.isNil():
+  if not node.protocols.legacyLightPushClient.isNil():
     debug "Publishing message with legacy lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
       msg_hash = msgHash
-    return await node.protocols.wakuLegacyLightpushClient.publish(pubsubTopic, message, peer)
+    return await node.protocols.legacyLightPushClient.publish(pubsubTopic, message, peer)
 
   debug "Publishing message with self hosted legacy lightpush",
     pubsubTopic = pubsubTopic,
     contentTopic = message.contentTopic,
     target_peer_id = peer.peerId,
     msg_hash = msgHash
-  return await node.protocols.wakuLegacyLightPush.handleSelfLightPushRequest(pubsubTopic, message)
+  return await node.protocols.legacyLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
 proc resolveLegacyPubsubTopic(
     node: Kernel, pubsubTopic: Opt[PubsubTopic], contentTopic: ContentTopic
@@ -150,7 +150,7 @@ proc legacyLightpushPublish*(
   ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality.
-  if node.protocols.wakuLegacyLightpushClient.isNil() and node.protocols.wakuLegacyLightPush.isNil():
+  if node.protocols.legacyLightPushClient.isNil() and node.protocols.legacyLightPush.isNil():
     debug "Failed to publish message as legacy lightpush not available"
     return err("Waku lightpush not available")
 
@@ -191,18 +191,18 @@ proc legacyLightpushPublish*(
 ): Future[legacy_lightpush_protocol.WakuLightPushResult[string]] {.
     async, gcsafe, deprecated: "Use 'node.legacyLightpushPublish()' instead"
 .} =
-  if node.protocols.wakuLegacyLightpushClient.isNil() and node.protocols.wakuLegacyLightPush.isNil():
+  if node.protocols.legacyLightPushClient.isNil() and node.protocols.legacyLightPush.isNil():
     debug "Failed to publish message as legacy lightpush not available"
     return err("waku legacy lightpush not available")
 
   var peerOpt: Opt[RemotePeerInfo] = Opt.none(RemotePeerInfo)
-  if not node.protocols.wakuLegacyLightpushClient.isNil():
+  if not node.protocols.legacyLightPushClient.isNil():
     peerOpt = node.peerManager.selectPeer(WakuLegacyLightPushCodec)
     if peerOpt.isNone():
       let msg = "no suitable remote peers"
       debug "Failed to publish message", err = msg
       return err(msg)
-  elif not node.protocols.wakuLegacyLightPush.isNil():
+  elif not node.protocols.legacyLightPush.isNil():
     peerOpt = Opt.some(RemotePeerInfo.init($node.switch.peerInfo.peerId))
 
   return await node.legacyLightpushPublish(pubsubTopic, message, peer = peerOpt.get())
@@ -218,7 +218,7 @@ proc mountLightPush*(
   info "mounting lightpush with relay"
   let pushHandler = lightpush_protocol.getRelayPushHandler(node.protocols.relay)
 
-  node.protocols.wakuLightPush = WakuLightPush.new(
+  node.protocols.lightPush = WakuLightPush.new(
     node.peerManager,
     node.rng,
     pushHandler,
@@ -229,9 +229,9 @@ proc mountLightPush*(
 
   if node.started:
     # Node has started already. Let's start lightpush too.
-    await node.protocols.wakuLightPush.start()
+    await node.protocols.lightPush.start()
 
-  node.switch.mount(node.protocols.wakuLightPush, protocolMatcher(WakuLightPushCodec))
+  node.switch.mount(node.protocols.lightPush, protocolMatcher(WakuLightPushCodec))
 
   debug "lightpush mounted successfully"
   return ok()
@@ -239,8 +239,8 @@ proc mountLightPush*(
 proc mountLightPushClient*(node: Kernel) =
   info "mounting light push client"
 
-  if node.protocols.wakuLightpushClient.isNil():
-    node.protocols.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
+  if node.protocols.lightPushClient.isNil():
+    node.protocols.lightPushClient = WakuLightPushClient.new(node.peerManager, node.rng)
 
 proc lightpushPublishHandler(
     node: Kernel,
@@ -253,8 +253,8 @@ proc lightpushPublishHandler(
   # The client is always mounted alongside the service, and it cannot dial
   # this node's own peer id.
   let toSelf =
-    not node.protocols.wakuLightPush.isNil() and peer.peerId == node.peerId() and not mixify
-  if not node.protocols.wakuLightpushClient.isNil() and not toSelf:
+    not node.protocols.lightPush.isNil() and peer.peerId == node.peerId() and not mixify
+  if not node.protocols.lightPushClient.isNil() and not toSelf:
     debug "Publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
@@ -264,7 +264,7 @@ proc lightpushPublishHandler(
     if mixify:
       when defined(libp2p_mix_experimental_exit_is_dest):
         #TODO: How to handle multiple addresses?
-        let conn = node.protocols.wakuMix.toConnection(
+        let conn = node.protocols.mix.toConnection(
           MixDestination.exitNode(peer.peerId),
           WakuLightPushCodec,
           MixParameters(expectReply: Opt.some(true), numSurbs: Opt.some(byte(1))),
@@ -282,9 +282,9 @@ proc lightpushPublishHandler(
         {.error: "mix sends need -d:libp2p_mix_experimental_exit_is_dest".}
     else:
       return
-        await node.protocols.wakuLightpushClient.publish(Opt.some(pubsubTopic), message, peer)
+        await node.protocols.lightPushClient.publish(Opt.some(pubsubTopic), message, peer)
 
-  if not node.protocols.wakuLightPush.isNil():
+  if not node.protocols.lightPush.isNil():
     if mixify:
       debug "Mixify is not supported with self hosted lightpush"
       return lighpushErrorResult(
@@ -296,7 +296,7 @@ proc lightpushPublishHandler(
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
       msg_hash = msgHash
-    return await node.protocols.wakuLightPush.handleSelfLightPushRequest(
+    return await node.protocols.lightPush.handleSelfLightPushRequest(
       Opt.some(pubsubTopic), message
     )
 
@@ -307,20 +307,20 @@ proc lightpushPublish*(
     peerOpt: Opt[RemotePeerInfo] = Opt.none(RemotePeerInfo),
     mixify: bool = false,
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
-  if node.protocols.wakuLightpushClient.isNil() and node.protocols.wakuLightPush.isNil():
+  if node.protocols.lightPushClient.isNil() and node.protocols.lightPush.isNil():
     debug "Failed to publish message as lightpush not available"
     return lighpushErrorResult(
       LightPushErrorCode.SERVICE_NOT_AVAILABLE, "Waku lightpush not available"
     )
-  if mixify and node.protocols.wakuMix.isNil():
+  if mixify and node.protocols.mix.isNil():
     debug "Failed to publish message using mix as mix protocol is not mounted"
     return lighpushErrorResult(
       LightPushErrorCode.SERVICE_NOT_AVAILABLE, "Waku lightpush with mix not available"
     )
   let toPeer: RemotePeerInfo = peerOpt.valueOr:
-    if not node.protocols.wakuLightPush.isNil():
+    if not node.protocols.lightPush.isNil():
       RemotePeerInfo.init(node.peerId())
-    elif not node.protocols.wakuLightpushClient.isNil():
+    elif not node.protocols.lightPushClient.isNil():
       node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
         debug "Failed to publish message", msg = msg

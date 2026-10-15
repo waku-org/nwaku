@@ -267,7 +267,7 @@ proc main(rng: Rng): Future[int] {.async.} =
     return cliShards
 
   let metadata = WakuMetadata.new(conf.clusterId, shardsGetter)
-  node.protocols.wakuMetadata = metadata
+  node.protocols.metadata = metadata
   node.peerManager.wakuMetadata = metadata
   let mountRes = catch:
     node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))

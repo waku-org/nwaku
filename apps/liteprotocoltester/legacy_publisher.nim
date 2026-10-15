@@ -5,7 +5,7 @@ import publisher_base
 type LegacyPublisher* = ref object of PublisherBase
 
 proc new*(T: type LegacyPublisher, kernel: Kernel): T =
-  if isNil(kernel.protocols.wakuLegacyLightpushClient):
+  if isNil(kernel.protocols.legacyLightPushClient):
     kernel.mountLegacyLightPushClient()
 
   return LegacyPublisher(kernel: kernel)
