@@ -1,11 +1,12 @@
 {.used.}
 
-import std/[options, osproc, sequtils, times]
+import std/[options, osproc, sequtils, times, strutils]
 import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/waku/[waku, waku_core, rln],
   logos_delivery/waku/node/waku_node,
   logos_delivery/waku/node/waku_node/relay,
+  logos_delivery/waku/node/waku_node/lightpush,
   logos_delivery/waku/api/publish,
   logos_delivery/waku/factory/waku_conf,
   logos_delivery/waku/rln/[rln_api, rln_plugin],
@@ -15,7 +16,7 @@ import
   logos_delivery/api/events/messaging_client_events,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
-    [send_service {.all.}, send_processor, delivery_task]
+    [send_service {.all.}, send_processor, delivery_task, mix_processor]
 import
   ../testlib/[testasync, wakunodeconf],
   ../waku_rln_relay/utils_onchain,
@@ -252,6 +253,49 @@ suite "SendService RLN proof attach - RLN mounted":
     except Exception:
       assert false, "failed to stop RLN: " & getCurrentExceptionMsg()
     stopAnvil(anvilProc)
+
+  asyncTest "the EVM size preview equals the generated proof length":
+    let msg = testMessage()
+    let preview = waku.messageForSizeCheck(msg).expect("messageForSizeCheck")
+    check:
+      onchainRln.nonceManager.nextId == 0
+      msg.proof.len == 0
+    let proven = (await waku.attachRlnProof(msg)).expect("attachRlnProof")
+    check:
+      preview.proof.len == proven.proof.len
+      mixLightpushSize(PubsubTopic("/waku/2/rs/3/0"), preview).size ==
+        mixLightpushSize(PubsubTopic("/waku/2/rs/3/0"), proven).size
+
+  asyncTest "an oversized Required send leaves EVM message ids and admission budget untouched":
+    let task = buildTask("oversized-with-evm")
+    let limit = mixLightpushSize(task.pubsubTopic, task.msg).limit
+    for n in 0 .. limit:
+      task.msg.payload = newSeq[byte](n)
+      if mixLightpushSize(task.pubsubTopic, task.msg).size == limit:
+        break
+    check mixLightpushSize(task.pubsubTopic, task.msg).size == limit
+    task.msgHash = computeMessageHash(task.pubsubTopic, task.msg)
+    let quota = RateLimitManager
+      .new(RateLimitConfig(enabled: true, epochPeriodSec: 600, messagesPerEpoch: 1))
+      .expect("RateLimitManager.new")
+    let mix = MixSendProcessor.new(
+      waku, waku.brokerCtx, AnonymityLevel.Required, chronos.minutes(1)
+    )
+    let service = SendService
+      .new(false, waku, quota, mix, retryInterval = chronos.hours(1))
+      .expect("SendService.new")
+    service.startSendService()
+    defer:
+      await service.stopSendService()
+    check service.enqueue(task).isOk()
+    checkUntilTimeout:
+      task.state == DeliveryState.FailedToDeliver
+    check:
+      task.errorDesc.startsWith(MixTooLargeReason)
+      task.msg.proof.len == 0
+      task.firstAdmittedTime.isNone()
+      onchainRln.nonceManager.nextId == 0
+      quota.sentInCurrentEpoch == 0
 
   asyncTest "attaches a proof":
     let attached = (await waku.attachRlnProof(testMessage())).expect("attachRlnProof")

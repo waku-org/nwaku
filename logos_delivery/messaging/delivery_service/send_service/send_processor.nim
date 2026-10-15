@@ -17,6 +17,12 @@ method isValidProcessor*(
 ): bool {.base, gcsafe.} =
   return false
 
+method checkBeforeAdmission*(
+    self: BaseSendProcessor, task: DeliveryTask
+): bool {.base, gcsafe, raises: [].} =
+  ## Returns false when the task fails before it spends budget or a message id.
+  return true
+
 method sendImpl*(
     self: BaseSendProcessor, task: DeliveryTask
 ): Future[void] {.async, base.} =
