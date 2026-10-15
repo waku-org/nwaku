@@ -131,16 +131,9 @@ proc preProcessPayload*(
   elif self.pubsubTopics.len > 0:
     payload.pubsubTopics = self.pubsubTopics.toSeq()
 
-  # Always use the smallest content topic scope possible
-  if payload.contentTopics.len > 0 and self.contentTopics.len > 0:
-    let contentIntersection = self.contentTopics * payload.contentTopics.toHashSet()
-
-    if contentIntersection.len < 1:
-      return Opt.none(RangesData)
-
-    payload.contentTopics = contentIntersection.toSeq()
-  elif self.contentTopics.len > 0:
-    payload.contentTopics = self.contentTopics.toSeq()
+  # Content topics do not scope a sync: WAKU-SYNC has no field for them, and the
+  # node archives every content topic of its shards.
+  payload.contentTopics = @[]
 
   # for non skip ranges check if they happen before any of our ranges
   # convert to skip range before processing.
@@ -237,7 +230,6 @@ proc processRequest(
         hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
       sendPayload.pubsubTopics = self.pubsubTopics.toSeq()
-      sendPayload.contentTopics = self.contentTopics.toSeq()
 
       for hash in hashToSend:
         self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
@@ -292,11 +284,10 @@ proc initiate(
     upper = SyncID(time: timeRange.b, hash: FullFingerprint)
     bounds = lower .. upper
 
-    fingerprint = self.storage.computeFingerprint(bounds, pubsubTopics, contentTopics)
+    fingerprint = self.storage.computeFingerprint(bounds, pubsubTopics, @[])
 
     initPayload = RangesData(
       pubsubTopics: pubsubTopics,
-      contentTopics: contentTopics,
       ranges: @[(bounds, RangeType.Fingerprint)],
       fingerprints: @[fingerprint],
       itemSets: @[],

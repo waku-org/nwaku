@@ -431,6 +431,73 @@ suite "Waku Sync: reconciliation":
       processed.fingerprints.len == 0
       processed.itemSets == @[ItemSet(elements: elements[1 .. 2], reconciled: false)]
 
+  asyncTest "a node with content topics offers the messages of every content topic":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      @[DefaultContentTopic],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      @[DefaultContentTopic],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+    )
+
+    let
+      defaultMsg = fakeWakuMessage(contentTopic = DefaultContentTopic)
+      otherMsg = fakeWakuMessage(contentTopic = "/other/1/topic/proto")
+      defaultHash = computeMessageHash(DefaultPubsubTopic, defaultMsg)
+      otherHash = computeMessageHash(DefaultPubsubTopic, otherMsg)
+
+    client.messageIngress(defaultHash, DefaultPubsubTopic, defaultMsg)
+    client.messageIngress(otherHash, DefaultPubsubTopic, otherMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isOk()
+      remoteNeeds.contains((serverPeerInfo.peerId, defaultHash)) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, otherHash)) == true
+
+  asyncTest "neither the node's nor a peer's content topics narrow a payload":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[],
+      @[DefaultContentTopic],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
+    )
+
+    let
+      bounds =
+        SyncID(time: Timestamp(1), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(2), hash: EmptyFingerprint)
+      withTopics = RangesData(
+        contentTopics: @[DefaultContentTopic],
+        ranges: @[(bounds, RangeType.Fingerprint)],
+        fingerprints: @[FullFingerprint],
+      )
+      withoutTopics = RangesData(
+        ranges: @[(bounds, RangeType.Fingerprint)], fingerprints: @[FullFingerprint]
+      )
+
+    check:
+      server.preProcessPayload(withTopics, Timestamp(0)).get().contentTopics.len == 0
+      server.preProcessPayload(withoutTopics, Timestamp(0)).get().contentTopics.len == 0
+
   asyncTest "sync 2 nodes different hashes":
     server = await newTestWakuRecon(
       serverSwitch, @[], @[], DefaultSyncRange, idsChannel, localWants, remoteNeeds
