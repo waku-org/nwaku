@@ -269,7 +269,7 @@ int main() {
     logosdelivery_ctx_get_node_info(ctx, "WrongNodeInfoId", on_reply, (void *)"get_node_info");
 
     printf("\nRetrieving several node info for specific correct IDs...\n");
-    const char *nodeInfoIds[] = {"Version", "MyMultiaddresses", "MyENR", "MyPeerId"};
+    const char *nodeInfoIds[] = {"Version", "Multiaddrs", "ENR", "PeerId"};
     for (size_t i = 0; i < sizeof(nodeInfoIds) / sizeof(nodeInfoIds[0]); i++) {
         logosdelivery_ctx_get_node_info(ctx, nodeInfoIds[i], on_reply, (void *)"get_node_info");
     }

@@ -190,12 +190,12 @@ def assert_event_invariants(collector: EventCollector, request_id: str) -> None:
 def get_node_multiaddr(node) -> str:
     """Return the TCP multiaddr (with peer-id) from a WrapperManager node.
 
-    MyMultiaddresses is comma-separated and also lists the QUIC address when
+    Multiaddrs is comma-separated and also lists the QUIC address when
     QUIC is enabled. Asserts that exactly one TCP address is present, so a
     malformed or ambiguous answer fails loudly instead of silently passing a
     bad string downstream to staticnodes / add_peers.
     """
-    result = node.get_node_info("MyMultiaddresses")
+    result = node.get_node_info("Multiaddrs")
     if result.is_err():
         raise RuntimeError(f"get_node_info failed: {result.err()}")
 
@@ -206,7 +206,7 @@ def get_node_multiaddr(node) -> str:
 
     tcp_addrs = [a for a in addrs if "/tcp/" in a and "/ws" not in a]
     if len(tcp_addrs) != 1:
-        raise AssertionError(f"Expected a single TCP multiaddr from MyMultiaddresses, got: {raw!r}")
+        raise AssertionError(f"Expected a single TCP multiaddr from Multiaddrs, got: {raw!r}")
 
     return tcp_addrs[0]
 
