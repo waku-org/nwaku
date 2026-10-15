@@ -2153,3 +2153,81 @@ suite "Waku v2 Rest API - Relay":
       autoAgain.status == 400
       autoAgain.data == "Failed to publish: publish failed in relay: NoPeersToPublish"
       publisher.hasMeshPeer(shard, receiver.peerInfo.peerId)
+
+  asyncTest "A message encoded at the maximum size is relayed and answered 200 on both routes - POST /relay/v1/messages/{topic}, POST /relay/v1/auto/messages":
+    # Given two relay nodes with autosharding over 8 shards, each behind its own REST server
+    let publisher = testWakuNode()
+    (await publisher.mountRelay()).isOkOr:
+      assert false, "Failed to mount relay"
+    check publisher.mountAutoSharding(DefaultClusterId, 8).isOk
+    await publisher.start()
+    defer:
+      await publisher.stop()
+
+    var receiver: WakuNode
+    lockNewGlobalBrokerContext:
+      receiver = testWakuNode()
+      (await receiver.mountRelay()).isOkOr:
+        assert false, "Failed to mount relay"
+      check receiver.mountAutoSharding(DefaultClusterId, 8).isOk
+      await receiver.start()
+    defer:
+      await receiver.stop()
+
+    let restAddress = parseIpAddress("0.0.0.0")
+    let
+      publisherServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
+      receiverServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
+    installRelayApiHandlers(publisherServer.router, publisher, MessageCache.init())
+    installRelayApiHandlers(receiverServer.router, receiver, MessageCache.init())
+    publisherServer.start()
+    receiverServer.start()
+    defer:
+      await allFutures(publisherServer.stop(), receiverServer.stop())
+      await allFutures(publisherServer.closeWait(), receiverServer.closeWait())
+
+    let
+      publisherClient = newRestHttpClient(publisherServer.localAddress())
+      receiverClient = newRestHttpClient(receiverServer.localAddress())
+      contentTopic = ContentTopic("/myapp/1/at-limit/proto")
+      # every /myapp/1 content topic resolves to shard 0 of 8
+      shard = $RelayShard(clusterId: DefaultClusterId, shardId: 0)
+      # two messages encoded exactly at the limit, with different timestamps
+      staticMessage = fakeWakuMessageEncodedAt(
+        int(DefaultMaxWakuMessageSize), contentTopic = contentTopic, ts = ts(0)
+      )
+      autoMessage = fakeWakuMessageEncodedAt(
+        int(DefaultMaxWakuMessageSize), contentTopic = contentTopic, ts = ts(1)
+      )
+    check:
+      staticMessage.encode().len == int(DefaultMaxWakuMessageSize)
+      autoMessage.encode().len == int(DefaultMaxWakuMessageSize)
+      staticMessage != autoMessage
+
+    # Given both nodes subscribed over REST to the content topic, with the receiver in the publisher's mesh
+    for client in [publisherClient, receiverClient]:
+      let response = await client.relayPostAutoSubscriptionsV1(@[contentTopic])
+      check response.status == 200
+    await publisher.connectToNodes(@[receiver.peerInfo.toRemotePeerInfo()])
+    checkUntilTimeout:
+      publisher.hasMeshPeer(shard, receiver.peerInfo.peerId)
+
+    # When a message encoded at the limit is posted on each route
+    let staticResponse = await publisherClient.relayPostMessagesV1(
+      shard, toRelayWakuMessage(staticMessage)
+    )
+    let autoResponse =
+      await publisherClient.relayPostAutoMessagesV1(toRelayWakuMessage(autoMessage))
+    let received = await receiverClient.waitForRelayAutoMessages(contentTopic, 2)
+
+    # Then both routes answer 200 and the receiver gets both messages
+    check:
+      staticResponse.status == 200
+      staticResponse.data == "OK"
+      autoResponse.status == 200
+      autoResponse.data == "OK"
+      received.mapIt(it.payload) ==
+        @[
+          toRelayWakuMessage(staticMessage).payload,
+          toRelayWakuMessage(autoMessage).payload,
+        ]

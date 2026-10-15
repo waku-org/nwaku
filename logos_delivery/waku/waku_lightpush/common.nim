@@ -100,3 +100,10 @@ func mapPubishingErrorToPushResult*(
         Opt.some("Invalid message, skipping publish"),
       )
     )
+  of MessageTooLarge:
+    return err(
+      (
+        LightPushErrorCode.PAYLOAD_TOO_LARGE,
+        Opt.some("Message size exceeded maximum, skipping publish"),
+      )
+    )

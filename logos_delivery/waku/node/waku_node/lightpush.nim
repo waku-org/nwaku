@@ -108,7 +108,7 @@ proc mountLegacyLightPush*(
     node.rng,
     pushHandler,
     Opt.some(rateLimit),
-    node.wakuRelay.maxMessageSize,
+    node.wakuRelay.maxWakuMessageSize,
   )
 
   if node.started:
@@ -248,7 +248,7 @@ proc mountLightPush*(
     pushHandler,
     node.wakuAutoSharding,
     Opt.some(rateLimit),
-    node.wakuRelay.maxMessageSize,
+    node.wakuRelay.maxWakuMessageSize,
   )
 
   if node.started:

@@ -17,10 +17,10 @@ proc getRelayPushHandler*(wakuRelay: WakuRelay): PushMessageHandler =
       pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult] {.async.} =
     let messageSizeBytes = message.encode().len
-    if messageSizeBytes > wakuRelay.maxMessageSize:
+    if messageSizeBytes > wakuRelay.maxWakuMessageSize:
       return lighpushErrorResult(
         LightPushErrorCode.PAYLOAD_TOO_LARGE,
-        "Message size exceeded maximum of: " & $wakuRelay.maxMessageSize & " bytes",
+        "Message size exceeded maximum of: " & $wakuRelay.maxWakuMessageSize & " bytes",
       )
 
     (await wakuRelay.validateMessage(pubSubTopic, message)).isOkOr:
