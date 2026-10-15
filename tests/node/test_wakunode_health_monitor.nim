@@ -26,7 +26,7 @@ import
     waku_mix,
   ]
 
-import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
+import ../testlib/[wakunode, wakucore, testasync], ../waku_archive/archive_utils
 import logos_delivery/waku/node/subscription_manager
 import logos_delivery/waku/waku
 import logos_delivery/waku/factory/waku_state_info
@@ -519,6 +519,52 @@ suite "Health Monitor - events":
     await monitorA.stopHealthMonitor()
     await nodeB.stop()
     await nodeA.stop()
+
+  asyncTest "Edge reports Filter Client READY for a shard no peer serves":
+    # TODO: filter-client-health
+    var nodeA: WakuNode
+    lockNewGlobalBrokerContext:
+      let nodeAKey = generateSecp256k1Key()
+      nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
+      await nodeA.mountFilterClient()
+      check nodeA.mountAutoSharding(1, 8).isOk
+      nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
+      await nodeA.start()
+    defer:
+      await nodeA.stop()
+
+    let monitorA = NodeHealthMonitor.new(nodeA)
+    monitorA.startHealthMonitor().expect("Health monitor failed to start")
+    defer:
+      await monitorA.stopHealthMonitor()
+
+    let contentTopic = ContentTopic("/waku/2/default-content/proto")
+    let shard = PubsubTopic("/waku/2/rs/1/1")
+    nodeA.subscriptionManager.subscribe(contentTopic).expect("Failed to subscribe")
+
+    var nodeB: WakuNode
+    lockNewGlobalBrokerContext:
+      let nodeBKey = generateSecp256k1Key()
+      nodeB = newTestWakuNode(nodeBKey, parseIpAddress("127.0.0.1"), Port(0))
+      (await nodeB.mountRelay()).expect("Node B failed to mount relay")
+      await nodeB.mountFilter()
+      check nodeB.mountAutoSharding(1, 8).isOk
+      # Node B serves shard 0 only, and the content topic is on shard 1.
+      nodeB.mountMetadata(1, @[0'u16]).expect("Node B failed to mount metadata")
+      await nodeB.start()
+    defer:
+      await nodeB.stop()
+
+    let peerB = nodeB.switch.peerInfo.toRemotePeerInfo()
+    await nodeA.connectToNodes(@[peerB])
+
+    checkUntilTimeout:
+      nodeA.switch.peerStore.hasShard(peerB.peerId, 1, 0)
+      monitorA.reportedProtocolHealth(FilterClientProtocol).health == HealthStatus.READY
+
+    check:
+      nodeA.subscriptionManager.isContentSubscribed(shard, contentTopic)
+      nodeA.subscriptionManager.edgeFilterPeerCount(shard) == 0
 
   asyncTest "protocol health changes are published, identify included":
     ## The Store client is READY once the peer's identify lists Store. libp2p
