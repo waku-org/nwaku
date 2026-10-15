@@ -116,10 +116,11 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.itemSets == decodedPayload.itemSets
 
   test "payload fingerprint encoding roundtrip":
@@ -158,10 +159,11 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.fingerprints == decodedPayload.fingerprints
 
   test "payload mixed encoding roundtrip":
@@ -206,10 +208,11 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.fingerprints == decodedPayload.fingerprints
       payload.itemSets == decodedPayload.itemSets
 
@@ -293,6 +296,45 @@ suite "Waku Store Sync - reconciliation header":
     check:
       res.isOk()
       res.get().ranges.len == 0
+
+suite "Waku Store Sync - first range":
+  let
+    zero = SyncID(time: Timestamp(0), hash: EmptyFingerprint)
+    at100 = SyncID(time: Timestamp(100), hash: EmptyFingerprint)
+    at200 = SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+    # cluster 2, one shard, shard 3
+    header = @[byte 2, 1, 3]
+
+  test "a payload whose first range does not start at zero begins with a skip range":
+    let payload = RangesData(
+      cluster: 2,
+      shards: @[3'u16],
+      ranges: @[(at100 .. at200, RangeType.Fingerprint)],
+      fingerprints: @[FullFingerprint],
+    )
+
+    # upper bound 100 and Skip, then upper bound 100 later and Fingerprint
+    check payload.deltaEncode() == header & @[byte 100, 0, 100, 1] & @FullFingerprint
+
+  test "a payload whose first range starts at zero has no extra skip range":
+    let payload = RangesData(
+      cluster: 2,
+      shards: @[3'u16],
+      ranges: @[(zero .. at200, RangeType.Fingerprint)],
+      fingerprints: @[FullFingerprint],
+    )
+
+    # upper bound 200 (the varint c8 01) and Fingerprint
+    check payload.deltaEncode() == header & @[byte 0xc8, 0x01, 1] & @FullFingerprint
+
+  test "the leading skip range decodes as the first range":
+    let res = RangesData.deltaDecode(header & @[byte 100, 0, 100, 1] & @FullFingerprint)
+
+    check:
+      res.isOk()
+      res.get().ranges ==
+        @[(zero .. at100, RangeType.Skip), (at100 .. at200, RangeType.Fingerprint)]
+      res.get().fingerprints == @[FullFingerprint]
 
 suite "Store sync - codec bounds":
   test "a shard count beyond the payload is refused":

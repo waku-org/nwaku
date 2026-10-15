@@ -39,6 +39,33 @@ proc deltaEncode*(itemSet: ItemSet): seq[byte] =
 
   return output
 
+proc encodeUpperBound(
+    output: var seq[byte],
+    bound: SyncID,
+    lastTimestamp: var Timestamp,
+    lastHash: Fingerprint,
+) =
+  let timeDiff = uint64(bound.time) - uint64(lastTimestamp)
+  lastTimestamp = bound.time
+
+  # encode timestamp
+  let buf = timeDiff.toBytes(Leb128)
+  output &= @buf
+
+  if timeDiff == 0:
+    var sameBytes = 0
+    for (byte1, byte2) in zip(lastHash, bound.hash):
+      sameBytes.inc()
+
+      if byte1 != byte2:
+        break
+
+    # encode number of same bytes
+    output &= byte(sameBytes)
+
+    # encode hash bytes
+    output &= bound.hash[0 ..< sameBytes]
+
 proc deltaEncode*(value: RangesData): seq[byte] =
   var
     output = newSeqOfCap[byte](AvgCapacity)
@@ -63,39 +90,15 @@ proc deltaEncode*(value: RangesData): seq[byte] =
   if value.ranges.len == 0:
     return output
 
-  # the first range is implicit but must be explicit when encoded
-  let (bound, _) = value.ranges[0]
-
-  lastTimestamp = bound.a.time
-  lastHash = bound.a.hash
-
-  # encode first timestamp
-  buf = uint64(lastTimestamp).toBytes(Leb128)
-  output &= @buf
-
-  # implicit first hash is always 0 and range type is always skip
+  # The first range starts at SyncID 0, so a first range that starts later is
+  # preceded by a Skip range up to its lower bound.
+  let start = value.ranges[0][0].a
+  if start != SyncID(time: Timestamp(0), hash: EmptyWakuMessageHash):
+    output.encodeUpperBound(start, lastTimestamp, lastHash)
+    output &= byte(RangeType.Skip)
 
   for (bound, rangeType) in value.ranges:
-    let timeDiff = uint64(bound.b.time) - uint64(lastTimestamp)
-    lastTimestamp = bound.b.time
-
-    # encode timestamp
-    buf = timeDiff.toBytes(Leb128)
-    output &= @buf
-
-    if timeDiff == 0:
-      var sameBytes = 0
-      for (byte1, byte2) in zip(lastHash, bound.b.hash):
-        sameBytes.inc()
-
-        if byte1 != byte2:
-          break
-
-      # encode number of same bytes
-      output &= byte(sameBytes)
-
-      # encode hash bytes
-      output &= bound.b.hash[0 ..< sameBytes]
+    output.encodeUpperBound(bound.b, lastTimestamp, lastHash)
 
     # encode rangeType
     output &= byte(rangeType)
@@ -305,16 +308,8 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
   payload.cluster = ?getCluster(idx, buffer)
   payload.shards = ?getShards(idx, buffer)
 
-  # an empty payload is the header alone
-  if idx == buffer.len:
-    return ok(payload)
-
-  lastTime = ?getTimestamp(idx, buffer)
-
-  # implicit first hash is always 0 
-  # implicit first range mode is alway skip
-
-  while idx < buffer.len - 1:
+  # The first range starts at SyncID 0. An empty payload is the header alone.
+  while idx < buffer.len:
     let lowerRangeBound = SyncID(time: lastTime, hash: EmptyWakuMessageHash)
 
     let timeDiff = getTimeDiff(idx, buffer)
