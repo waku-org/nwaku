@@ -26,10 +26,10 @@ proc filterSubscribe*(
   ## Registers `pushHandler` for incoming filtered messages, selects a filter
   ## service peer, and subscribes.
   try:
-    if self.protocols.wakuFilterClient.isNil():
+    if self.protocols.filterClient.isNil():
       return err("wakuFilterClient is not mounted")
 
-    self.protocols.wakuFilterClient.registerPushHandler(pushHandler)
+    self.protocols.filterClient.registerPushHandler(pushHandler)
 
     let peer = self.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       return err("could not find peer with WakuFilterSubscribeCodec when subscribing")
@@ -49,7 +49,7 @@ proc filterUnsubscribe*(
 ): Future[Result[bool, string]] {.async.} =
   ## Selects a filter service peer and unsubscribes the given content topics.
   try:
-    if self.protocols.wakuFilterClient.isNil():
+    if self.protocols.filterClient.isNil():
       return err("wakuFilterClient is not mounted")
 
     let peer = self.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
@@ -69,7 +69,7 @@ proc filterUnsubscribe*(
 proc filterUnsubscribeAll*(self: Kernel): Future[Result[bool, string]] {.async.} =
   ## Selects a filter service peer and unsubscribes from everything.
   try:
-    if self.protocols.wakuFilterClient.isNil():
+    if self.protocols.filterClient.isNil():
       return err("wakuFilterClient is not mounted")
 
     let peer = self.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:

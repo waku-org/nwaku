@@ -289,6 +289,6 @@ suite "LM API health checking":
       check relayReq.isOk()
       check relayReq.get().healthStatus.health == HealthStatus.NOT_MOUNTED
 
-      check not edgeWaku.waku.protocols.wakuFilterClient.isNil()
+      check not edgeWaku.waku.protocols.filterClient.isNil()
 
       discard await edgeWaku.stop()

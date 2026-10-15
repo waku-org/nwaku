@@ -18,14 +18,14 @@ proc lightpushPublish*(
 ): Future[Result[string, string]] {.async.} =
   ## Selects a lightpush service peer and publishes; returns the message hash.
   try:
-    if self.protocols.wakuLegacyLightpushClient.isNil():
+    if self.protocols.legacyLightPushClient.isNil():
       return err("wakuLegacyLightpushClient is not mounted")
 
     let remotePeer = self.peerManager.selectPeer(WakuLightPushCodec).valueOr:
       return err("failed to lightpublish message, no suitable remote peers")
 
     let msgHashHex = (
-      await self.protocols.wakuLegacyLightpushClient.publish(
+      await self.protocols.legacyLightPushClient.publish(
         pubsubTopic, message, remotePeer
       )
     ).valueOr:

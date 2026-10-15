@@ -887,7 +887,7 @@ suite "Messaging API, Receive Service (backfill)":
     check await events.nothingMore(0)
     net.subscriber.waku.subscriptionManager.edgeFilterSubLoopDebounce = 1.seconds
     let offline = net.waitForFilterSubscriptionHealth(healthy = false)
-    await net.storeNode.protocols.wakuFilter.subscriptions.removePeer(
+    await net.storeNode.protocols.filter.subscriptions.removePeer(
       net.subscriber.waku.switch.peerInfo.peerId
     )
     await offline

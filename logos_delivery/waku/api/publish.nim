@@ -38,7 +38,7 @@ proc hasRelay*(self: Kernel): bool =
 
 proc hasLightpush*(self: Kernel): bool =
   ## True if a lightpush client is mounted.
-  return not self.protocols.wakuLightpushClient.isNil()
+  return not self.protocols.lightPushClient.isNil()
 
 proc relayPushHandler*(self: Kernel): PushMessageHandler =
   ## Builds the relay publish handler used by the send pipeline. Caller
@@ -127,21 +127,21 @@ proc mixReady*(self: Kernel): bool =
   ## True when mix is mounted, mix can encode this node's own hop, and the pool
   ## has enough nodes for a path. `lightpushPublishToAny` selects the exit and
   ## reports SERVICE_NOT_AVAILABLE when it finds none.
-  if self.protocols.wakuMix.isNil():
+  if self.protocols.mix.isNil():
     return false
-  if not self.protocols.wakuMix.selfHopUsable():
+  if not self.protocols.mix.selfHopUsable():
     return false
   return self.getMixNodePoolSize() >= MinMixPoolSize
 
 proc mixMounted*(self: Kernel): bool =
   ## True when mix is mounted. A short pool or a missing exit can clear with
   ## time; a node without mix never sends over mix.
-  return not self.protocols.wakuMix.isNil()
+  return not self.protocols.mix.isNil()
 
 proc mixSelfHopUsable*(self: Kernel): bool =
   ## True when mix is mounted and can encode this node's own hop. `mixReady`
   ## also checks this; the send path reads it alone to name the reason.
-  return not self.protocols.wakuMix.isNil() and self.protocols.wakuMix.selfHopUsable()
+  return not self.protocols.mix.isNil() and self.protocols.mix.selfHopUsable()
 
 proc lightpushPublishToAny*(
     self: Kernel, shard: PubsubTopic, message: WakuMessage, mixify: bool = false

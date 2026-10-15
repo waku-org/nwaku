@@ -470,7 +470,7 @@ proc startKernel*(waku: Kernel): Future[Result[void, string]] {.async: (raises: 
     else:
       waku.discovery.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  if not waku.protocols.wakuMixRln.isNil():
+  if not waku.protocols.mixRln.isNil():
     try:
       (await waku.startMixRln()).isOkOr:
         return err(error)

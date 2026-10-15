@@ -50,9 +50,9 @@ proc getNodeInfoItem*(self: Kernel, infoItemId: NodeInfoId): string =
     return $self.ports
   of NodeInfoId.MyMixPubKey:
     ## Empty when the mix protocol is not mounted on this node.
-    if self.protocols.wakuMix.isNil():
+    if self.protocols.mix.isNil():
       return ""
-    return self.protocols.wakuMix.pubKey.to0xHex()
+    return self.protocols.mix.pubKey.to0xHex()
   of NodeInfoId.MaxMessageSize:
     ## Configured max message size (in bytes) for this node.
     return $self.conf.maxMessageSizeBytes
