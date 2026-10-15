@@ -144,7 +144,6 @@ class TestLogosDeliveryLifecycle:
                 assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
 
     def test_listener_receives_events_after_restart(self, node_config):
-        # TODO: logos-delivery#4523
         # The binding registers event_cb only when it creates the node.
         node_config.update({"numShardsInNetwork": 1})
         node_collector = EventCollector()
