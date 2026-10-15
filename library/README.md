@@ -123,8 +123,7 @@ int logosdelivery_ctx_start_node(const LogosDeliveryCtx *ctx, LogosDeliveryStart
 ```
 
 #### `logosdelivery_ctx_stop_node`
-Stops the node and removes the event listeners. A second call is a no-op that
-reports `RET_OK`.
+Stops the node. A second call is a no-op that reports `RET_OK`. The event listeners stay registered, and they receive the events of the node again after a later `logosdelivery_ctx_start_node`. `logosdelivery_ctx_destroy` removes them.
 
 ```c
 int logosdelivery_ctx_stop_node(const LogosDeliveryCtx *ctx, LogosDeliveryStopNodeReplyFn onReply, void *userData);
