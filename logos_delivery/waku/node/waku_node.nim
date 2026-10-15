@@ -698,8 +698,13 @@ proc mountStoreSync*(
     return err(error.msg)
 
   let transfer = SyncTransfer.new(
-    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel,
+    node.peerManager,
+    node.wakuArchive,
+    idsChannel,
+    wantsChannel,
+    needsChannel,
     maxMessageSize,
+    recon.getEffectiveSyncRange(),
   )
 
   node.wakuStoreTransfer = transfer
