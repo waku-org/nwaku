@@ -521,7 +521,7 @@ suite "Health Monitor - events":
     await nodeA.stop()
 
   asyncTest "Edge reports Filter Client READY for a shard no peer serves":
-    # TODO: filter-client-health
+    # TODO: logos-delivery#4590
     var nodeA: WakuNode
     lockNewGlobalBrokerContext:
       let nodeAKey = generateSecp256k1Key()
@@ -564,6 +564,7 @@ suite "Health Monitor - events":
 
     check:
       nodeA.subscriptionManager.isContentSubscribed(shard, contentTopic)
+      nodeA.peerManager.selectPeers(WakuFilterSubscribeCodec, Opt.some(shard)).len == 0
       nodeA.subscriptionManager.edgeFilterPeerCount(shard) == 0
 
   asyncTest "protocol health changes are published, identify included":

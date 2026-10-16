@@ -188,7 +188,7 @@ procSuite "Waku Metadata Protocol":
     await allFutures([node1.stop(), node2.stop()])
 
   asyncTest "A lightpush peer is not selected for a shard it joins later":
-    # TODO: lightpush-stale-shards
+    # TODO: logos-delivery#4591
     let clusterId = 10.uint16
     let
       node1 = newTestWakuNode(
@@ -224,18 +224,29 @@ procSuite "Waku Metadata Protocol":
     check:
       node1.subscribe((kind: PubsubSub, topic: "/waku/2/rs/10/1"), noOpHandler).isOk()
 
-    let conn = await node2.switch.dial(node1Info.peerId, WakuMetadataCodec)
-    let response = await node2.wakuMetadata.request(conn)
-
     # node2 keeps the shards it learned on connecting.
     check:
-      response.get(WakuMetadataResponse()).shards.sorted() == @[0'u32, 1'u32]
       node2.peerManager.switch.peerStore.getPeer(node1Info.peerId).shards == @[0'u16]
       node2.peerManager.selectPeers(WakuLightPushCodec).mapIt(it.peerId) ==
         @[node1Info.peerId]
       node2.peerManager
         .selectPeer(WakuLightPushCodec, Opt.some(PubsubTopic("/waku/2/rs/10/1")))
         .isNone()
+
+    await node2.peerManager.disconnectNode(node1Info.peerId)
+    checkUntilTimeout:
+      not node2.switch.isConnected(node1Info.peerId)
+      not node1.switch.isConnected(node2.switch.peerInfo.peerId)
+
+    let reconnected = await node2.peerManager.connectPeer(node1Info)
+
+    check reconnected
+    checkUntilTimeout:
+      node2.peerManager.switch.peerStore.getPeer(node1Info.peerId).shards.sorted() ==
+        @[0'u16, 1'u16]
+      node2.peerManager
+        .selectPeer(WakuLightPushCodec, Opt.some(PubsubTopic("/waku/2/rs/10/1")))
+        .isSome()
 
 suite "Waku Metadata - shards on the wire":
   test "the decoder reads the shards of each writer":
