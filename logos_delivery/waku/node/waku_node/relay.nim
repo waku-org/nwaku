@@ -101,37 +101,36 @@ proc subscribe*(
     debug "Invalid API call to `subscribe`. WakuRelay not mounted."
     return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
+  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
     debug "Failed to decode subscription event", error = error
     return err("Failed to decode subscription event: " & error)
 
   node.validateShardOfNode(pubsubTopic).isOkOr:
     return err("could not subscribe to: " & pubsubTopic & ": " & error)
 
-  # strict version
-  #if contentTopicOp.isSome():
-  #  return
-  #    node.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
+  if contentTopicOp.isSome():
+    return
+      node.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
   return node.subscriptionManager.subscribeShard(pubsubTopic, handler)
 
 proc unsubscribe*(
     node: WakuNode, subscription: SubscriptionEvent
 ): Result[void, string] =
   ## Unsubscribes from a specific PubSub or Content topic.
-  ## This will both unsubscribe from the relay mesh and remove the app handler, if any.
+  ## A content topic only drops its own interest: the shard is left, and its app handler
+  ## removed, once no other content topic or direct shard subscription wants it.
   ## NOTE: This works because using MAPI and Kernel API at the same time is unsupported.
 
   if isNil(node.wakuRelay):
     debug "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
+  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
     debug "Failed to decode unsubscribe event", error = error
     return err("Failed to decode unsubscribe event: " & error)
 
-  # strict version
-  #if contentTopicOp.isSome():
-  #  return node.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
+  if contentTopicOp.isSome():
+    return node.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
   return node.subscriptionManager.unsubscribeAll(pubsubTopic)
 
 proc isSubscribed*(

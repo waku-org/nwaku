@@ -101,3 +101,22 @@ proc fakeWakuMessage*(
     ephemeral: ephemeral,
     proof: proof,
   )
+
+proc fakeWakuMessageEncodedAt*(
+    encodedSize: int, contentTopic = DefaultContentTopic, ts = now()
+): WakuMessage =
+  ## A message whose encoded `WakuMessage` has exactly `encodedSize` bytes.
+  let emptyMessage =
+    fakeWakuMessage(payload = newSeq[byte](0), contentTopic = contentTopic, ts = ts)
+  # The payload field adds a tag and a length prefix of one to three bytes
+  var payloadLen = encodedSize - emptyMessage.encode().len - 4
+  for _ in 0 .. 2:
+    var payload = newSeq[byte](payloadLen)
+    for i in 0 ..< payloadLen:
+      payload[i] = byte(i mod 256)
+    let msg = fakeWakuMessage(payload = payload, contentTopic = contentTopic, ts = ts)
+    let diff = encodedSize - msg.encode().len
+    if diff == 0:
+      return msg
+    payloadLen += diff
+  doAssert false, "no payload length encodes a message of " & $encodedSize & " bytes"

@@ -76,6 +76,7 @@ type SendService* = ref object of RootObj
   attempts: int
     ## The number of attempts that ended, in admission or in a send. Only tests
     ## read it.
+  subscribeOnSend: bool ## True only for the None anonymity level.
   sendProcessor: BaseSendProcessor
   rateLimitManager: RateLimitManager
     ## Charges first transmissions against the per-epoch budget; re-publishes
@@ -179,9 +180,13 @@ proc new*(
     archiveTime: ArchiveTime,
     sendQueueCapacity: sendQueueCapacity,
     retryInterval: retryInterval,
+    subscribeOnSend: anonymityLevel == AnonymityLevel.None,
   )
 
   return ok(sendService)
+
+proc subscribesOnSend*(self: SendService): bool =
+  return self.subscribeOnSend
 
 func isFull*(self: SendService): bool =
   return self.deliveryTasks.len >= self.sendQueueCapacity
@@ -375,6 +380,9 @@ proc admitAndProve(self: SendService, task: DeliveryTask): Future[bool] {.async.
   ## Charges the epoch budget, then attaches the RLN proof, so a message over the
   ## budget reserves no RLN message id. It charges a task once for each proof. Returns false
   ## when the task waits for its next attempt or failed.
+  if not self.sendProcessor.checkBeforeAdmission(task):
+    return false
+
   if task.firstAdmittedTime.isNone():
     # Ephemeral traffic is shed rather than queued so it cannot eat into the
     # budget left for durable messages.

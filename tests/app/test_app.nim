@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[json, net, sequtils, strutils],
+  std/[json, net, os, sequtils, strutils],
   testutils/unittests,
   chronicles,
   chronos,
@@ -223,6 +223,92 @@ suite "Node app - Waku initialization":
       parsed["webSocket"].getInt() != 0
       parsed["discv5Udp"].getInt() != 0
       parsed["metrics"].getInt() != 0
+
+  test "a restart binds the metrics server port again":
+    var builder = defaultTestWakuConfBuilder()
+    builder.withP2pTcpPort(Port(0))
+    builder.metricsServerConf.withEnabled(true)
+    builder.metricsServerConf.withHttpPort(Port(0))
+
+    let conf = builder.build().valueOr:
+      raiseAssert error
+
+    var waku = (waitFor Waku.new(conf)).valueOr:
+      raiseAssert error
+
+    (waitFor waku.start()).isOkOr:
+      raiseAssert error
+    let port = waku.conf.metricsServerConf.get().httpPort
+    (waitFor waku.stop()).isOkOr:
+      raiseAssert error
+
+    check:
+      (waitFor waku.start()).isOk()
+      waku.conf.metricsServerConf.get().httpPort == port
+      (waitFor waku.stop()).isOk()
+      not waku.node.started
+
+  test "a start that fails after the node starts stops the node":
+    # Take the metrics port, so the metrics server fails to start.
+    let taken = createStreamServer(initTAddress("127.0.0.1:0"))
+    let takenPort = taken.localAddress().port
+
+    var builder = defaultTestWakuConfBuilder()
+    builder.withP2pTcpPort(Port(0))
+    builder.metricsServerConf.withEnabled(true)
+    builder.metricsServerConf.withHttpAddress(parseIpAddress("127.0.0.1"))
+    builder.metricsServerConf.withHttpPort(takenPort)
+
+    let conf = builder.build().valueOr:
+      raiseAssert error
+
+    var waku = (waitFor Waku.new(conf)).valueOr:
+      raiseAssert error
+
+    check:
+      (waitFor waku.start()).isErr()
+      not waku.node.started
+
+    # The port is free again, so the next start starts the node and the metrics server.
+    waitFor taken.closeWait()
+    check:
+      (waitFor waku.start()).isOk()
+      not waku.metricsServer.isNil()
+      (waitFor waku.stop()).isOk()
+
+  test "a metrics server that fails to start leaves no thread":
+    proc threadCount(): int =
+      # The includes at the top of this file leave `raises: []` pushed.
+      var count = 0
+      try:
+        for _ in walkDir("/proc/self/task"):
+          inc count
+      except OSError:
+        raiseAssert "cannot list /proc/self/task: " & getCurrentExceptionMsg()
+      return count
+
+    when defined(linux):
+      let taken = createStreamServer(initTAddress("127.0.0.1:0"))
+      let takenPort = taken.localAddress().port
+      let before = threadCount()
+
+      let res = waitFor startMetricsServerAndLogging(
+        MetricsServerConf(
+          httpAddress: parseIpAddress("127.0.0.1"), httpPort: takenPort, logging: false
+        )
+      )
+      # The kernel lists a joined thread for a short time after the join.
+      for _ in 0 ..< 100:
+        if threadCount() <= before:
+          break
+        sleep(10)
+      check:
+        res.isErr()
+        threadCount() <= before # an older thread can end meanwhile
+
+      waitFor taken.closeWait()
+    else:
+      skip()
 
   test "QUIC port=0 auto-binds and advertises the real port":
     var builder = defaultTestWakuConfBuilder()

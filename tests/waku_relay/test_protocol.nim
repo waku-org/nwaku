@@ -30,6 +30,14 @@ proc invalidMessages(stage: string): float64 =
   except KeyError:
     0.0
 
+proc tooLargeMessages(stage: string): float64 =
+  ## The count of `logos_delivery_relay_too_large_messages` for `stage`, 0
+  ## before its first increment.
+  try:
+    logos_delivery_relay_too_large_messages.value([stage])
+  except KeyError:
+    0.0
+
 suite "Waku Relay":
   var messageSeq {.threadvar.}: seq[(PubsubTopic, WakuMessage)]
   var handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
@@ -1077,11 +1085,6 @@ suite "Waku Relay":
 
       # Given some valid payloads
       let
-        msgWithoutPayload =
-          fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(0))
-        sizeEmptyMsg = uint64(msgWithoutPayload.encode().len)
-
-      let
         msg1 =
           fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(1024))
           # 1KiB
@@ -1091,29 +1094,21 @@ suite "Waku Relay":
         msg3 = fakeWakuMessage(
           contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
         ) # 100KiB
-        msg4 = fakeWakuMessage(
-          contentTopic = contentTopic,
-          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 28),
+        msg4 = fakeWakuMessageEncodedAt(
+          int(DefaultMaxWakuMessageSize), contentTopic = contentTopic
         ) # Max Size (Inclusive Limit)
-        msg5 = fakeWakuMessage(
-          contentTopic = contentTopic,
-          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 27),
+        msg5 = fakeWakuMessageEncodedAt(
+          int(DefaultMaxWakuMessageSize) + 1, contentTopic = contentTopic
         ) # Max Size (Exclusive Limit)
         msg6 = fakeWakuMessage(
           contentTopic = contentTopic,
           payload = getByteSequence(DefaultMaxWakuMessageSize),
         ) # MaxWakuMessageSize -> Out of Max Size
 
-      # The relay accepts an encoded message of at most
-      # `DefaultMaxWakuMessageSize - 24` bytes. These checks fail first when the
-      # encoding of a message changes.
+      # The limit applies to the encoded message
       check:
-        uint64(msg4.encode().len) == DefaultMaxWakuMessageSize - 24
-        uint64(msg5.encode().len) == DefaultMaxWakuMessageSize - 23
-
-      # Notice that the message is wrapped with more data in https://github.com/status-im/nim-libp2p/blob/3011ba4326fa55220a758838835797ff322619fc/libp2p/protocols/pubsub/gossipsub.nim#L627-L632
-      # And therefore, we need to substract a hard-coded values above (for msg4 & msg5), obtained empirically,
-      # running the tests with 'TRACE' level: nim c -r -d:chronicles_log_level=DEBUG -d:release -d:postgres  -d:rln --passL:librln_v0.3.4.a --passL:-lm -d:nimDebugDlOpen tests/waku_relay/test_protocol.nim test "Valid Payload Sizes"
+        uint64(msg4.encode().len) == DefaultMaxWakuMessageSize
+        uint64(msg5.encode().len) == DefaultMaxWakuMessageSize + 1
 
       # When sending the 1KiB message
       handlerFuture = newPushHandlerFuture()
@@ -1151,26 +1146,27 @@ suite "Waku Relay":
         (pubsubTopic, msg3) == handlerFuture.read()
         (pubsubTopic, msg3) == otherHandlerFuture.read()
 
-      # When sending the 'DefaultMaxWakuMessageSize - sizeEmptyMsg - 28' message
+      # When sending the message encoded at 'DefaultMaxWakuMessageSize'
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
-      discard await node.publish(pubsubTopic, msg4)
+      let msg4Res = await node.publish(pubsubTopic, msg4)
 
       # Then the message is received in both nodes
       check:
+        msg4Res.isOk()
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
         (pubsubTopic, msg4) == handlerFuture.read()
         (pubsubTopic, msg4) == otherHandlerFuture.read()
 
-      # When sending the 'DefaultMaxWakuMessageSize - sizeEmptyMsg - 27' message
+      # When sending the message encoded at 'DefaultMaxWakuMessageSize + 1'
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       let msg5Res = await node.publish(pubsubTopic, msg5)
 
       # Then publish rejects the message before the local delivery, so no node receives it
       check:
-        msg5Res.isErr()
+        msg5Res.isErr() and msg5Res.error == PublishOutcome.MessageTooLarge
         not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
@@ -1181,7 +1177,7 @@ suite "Waku Relay":
 
       # Then publish rejects the message before the local delivery, so no node receives it
       check:
-        msg6Res.isErr()
+        msg6Res.isErr() and msg6Res.error == PublishOutcome.MessageTooLarge
         not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
@@ -1408,3 +1404,99 @@ suite "Waku Relay":
       check:
         res.isErr() and res.error == PublishOutcome.InvalidMessage
         invalidMessages("publish") == refusedBefore + 1
+
+  suite "Max message size":
+    asyncTest "gossipsub gets the max message size plus the RPC overhead":
+      # Given a relay with a custom max message size
+      let
+        otherSwitch = newTestSwitch()
+        otherNode = await newTestWakuRelay(otherSwitch, maxMessageSize = 1024)
+      await allFutures(otherSwitch.start(), otherNode.start())
+      defer:
+        await allFutures(otherSwitch.stop(), otherNode.stop())
+
+      # Then the relay keeps the limit, and gossipsub gets the limit plus the overhead
+      check:
+        otherNode.maxEncodedMessageSize == 1024
+        otherNode.maxMessageSize == 1024 + DefaultSafetyBufferProtocolOverhead
+        node.maxEncodedMessageSize == int(DefaultMaxWakuMessageSize)
+        node.maxMessageSize ==
+          int(DefaultMaxWakuMessageSize) + DefaultSafetyBufferProtocolOverhead
+
+    asyncTest "validateMessage accepts a message encoded at the limit and refuses one byte more":
+      let refusedBefore = tooLargeMessages("validate")
+      let
+        atLimit = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize))
+        overLimit = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize) + 1)
+
+      check:
+        (await node.validateMessage(pubsubTopic, atLimit)).isOk()
+        (await node.validateMessage(pubsubTopic, overLimit)).error ==
+          fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
+        tooLargeMessages("validate") == refusedBefore + 1
+
+    asyncTest "publish refuses a message encoded above the max message size":
+      let refusedBefore = tooLargeMessages("publish")
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+
+      # When publishing a message encoded one byte above the limit
+      let res = await node.publish(
+        pubsubTopic, fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize) + 1)
+      )
+
+      # Then the publish fails and the node's own handler does not run
+      check:
+        res.isErr() and res.error == PublishOutcome.MessageTooLarge
+        not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+        tooLargeMessages("publish") == refusedBefore + 1
+
+    asyncTest "a received message encoded above the max message size is rejected":
+      let refusedBefore = tooLargeMessages("receive")
+      # Given a peer with a larger max message size connected to the node
+      let
+        otherSwitch = newTestSwitch()
+        otherNode = await newTestWakuRelay(
+          otherSwitch, maxMessageSize = int(DefaultMaxWakuMessageSize) + 1024
+        )
+      await allFutures(otherSwitch.start(), otherNode.start())
+      defer:
+        await allFutures(otherSwitch.stop(), otherNode.stop())
+      let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
+      check await peerManager.connectPeer(otherRemotePeerInfo)
+
+      var otherHandlerFuture = newPushHandlerFuture()
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
+        otherHandlerFuture.complete((topic, message))
+
+      node.subscribe(pubsubTopic, simpleFutureHandler)
+      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      checkUntilTimeout:
+        node.hasMeshPeer(pubsubTopic, otherRemotePeerInfo.peerId)
+        otherNode.hasMeshPeer(pubsubTopic, peerId)
+
+      # When the peer publishes a message encoded one byte above the node's limit
+      let overLimit = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize) + 1)
+      let overRes = await otherNode.publish(pubsubTopic, overLimit)
+
+      # Then the peer accepts it and the node rejects it
+      check:
+        overRes.isOk()
+        await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+        tooLargeMessages("receive") == refusedBefore + 1
+
+      # When the peer publishes a message encoded at the node's limit
+      handlerFuture = newPushHandlerFuture()
+      otherHandlerFuture = newPushHandlerFuture()
+      let atLimit = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize))
+      let atRes = await otherNode.publish(pubsubTopic, atLimit)
+
+      # Then the node receives it
+      check:
+        atRes.isOk()
+        await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+        (pubsubTopic, atLimit) == handlerFuture.read()
+        tooLargeMessages("receive") == refusedBefore + 1

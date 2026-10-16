@@ -1362,6 +1362,107 @@ suite "Waku Sync: transfer":
     for hash in bigHashes:
       check not await smallArchive.holdsMessages(@[hash])
 
+  asyncTest "a sender does not re-send a message its peer refused as too large":
+    # Given a server holding a message above the default read limit, which the
+    # client refuses, but below the yamux window, so its own write succeeds
+    let
+      bigMsg = fakeWakuMessage(payload = newSeq[byte](230_000))
+      bigHash = computeMessageHash(DefaultPubsubTopic, bigMsg)
+      smallMsg = fakeWakuMessage()
+      smallHash = computeMessageHash(DefaultPubsubTopic, smallMsg)
+    check:
+      encodedLen(bigMsg) >
+        int(DefaultMaxWakuMessageSize) + DefaultSafetyBufferProtocolOverhead
+      encodedLen(bigMsg) < YamuxDefaultWindowSize
+    serverDriver = await serverDriver.put(DefaultPubsubTopic, @[bigMsg, smallMsg])
+    let refusedBefore = failureCount("too_large")
+
+    # When the client refuses it once
+    await serverRemoteNeeds.put((clientPeerInfo.peerId, bigHash))
+    checkUntilTimeout:
+      failureCount("too_large") == refusedBefore + 1
+    # The receiver counts before it resets, so give the reset time to reach the
+    # server; otherwise the next write may land in the old session.
+    await sleepAsync(200.milliseconds)
+
+    # and the next round asks for it again, first in the queue
+    await serverRemoteNeeds.put((clientPeerInfo.peerId, bigHash))
+
+    # Then a later message arrives. It is queued again because a write into a
+    # session the server has not yet seen reset fails and drops it.
+    var smallHeld = false
+    for _ in 0 ..< 10:
+      await serverRemoteNeeds.put((clientPeerInfo.peerId, smallHash))
+      await sleepAsync(200.milliseconds)
+      if await clientArchive.holdsMessages(@[smallHash]):
+        smallHeld = true
+        break
+    check smallHeld
+
+    # and the big one was refused only once
+    check failureCount("too_large") == refusedBefore + 1
+    check not await clientArchive.holdsMessages(@[bigHash])
+
+  asyncTest "a refused message is offered again once the sender's sync range has passed":
+    # Given a sender with a 2 s sync range holding a message the client refuses
+    let
+      bigMsg = fakeWakuMessage(payload = newSeq[byte](230_000))
+      bigHash = computeMessageHash(DefaultPubsubTopic, bigMsg)
+      firstSmallMsg = fakeWakuMessage(@[byte 1])
+      firstSmallHash = computeMessageHash(DefaultPubsubTopic, firstSmallMsg)
+      secondSmallMsg = fakeWakuMessage(@[byte 2])
+      secondSmallHash = computeMessageHash(DefaultPubsubTopic, secondSmallMsg)
+      senderSwitch = newTestSwitch()
+      senderPeerManager = PeerManager.new(senderSwitch)
+      senderNeeds = newAsyncQueue[(PeerId, WakuMessageHash)]()
+      senderDriver = await newSqliteArchiveDriver().put(
+        DefaultPubsubTopic, @[bigMsg, firstSmallMsg, secondSmallMsg]
+      )
+      sender = SyncTransfer.new(
+        peerManager = senderPeerManager,
+        wakuArchive = newWakuArchive(senderDriver),
+        idsTx = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](),
+        localWantsRx = newAsyncQueue[PeerId](),
+        remoteNeedsRx = senderNeeds,
+        maxMessageSize = int(DefaultMaxWakuMessageSize),
+        syncRange = 2.seconds,
+      )
+    await senderSwitch.start()
+    await sender.start()
+    senderSwitch.mount(sender)
+    defer:
+      await sender.stop()
+      await senderSwitch.stop()
+    senderPeerManager.addPeer(clientPeerInfo)
+    let refusedBefore = failureCount("too_large")
+
+    # A write into a session the sender has not yet seen reset fails and drops
+    # the message, so it is queued until the client holds it.
+    proc deliver(hash: WakuMessageHash): Future[bool] {.async.} =
+      for _ in 0 ..< 10:
+        await senderNeeds.put((clientPeerInfo.peerId, hash))
+        await sleepAsync(200.milliseconds)
+        if await clientArchive.holdsMessages(@[hash]):
+          return true
+      return false
+
+    # When the client refuses it once
+    await senderNeeds.put((clientPeerInfo.peerId, bigHash))
+    checkUntilTimeout:
+      failureCount("too_large") == refusedBefore + 1
+    check await deliver(firstSmallHash)
+
+    # Then it is skipped within the sync range
+    await senderNeeds.put((clientPeerInfo.peerId, bigHash))
+    check await deliver(secondSmallHash)
+    check failureCount("too_large") == refusedBefore + 1
+
+    # and offered, and refused, again once the range has passed
+    await sleepAsync(2500.milliseconds)
+    await senderNeeds.put((clientPeerInfo.peerId, bigHash))
+    checkUntilTimeout:
+      failureCount("too_large") == refusedBefore + 2
+
   asyncTest "a malformed length prefix is counted as a read error and the next session works":
     let
       msg = fakeWakuMessage()

@@ -1,5 +1,16 @@
+import socket
 from src.node.wrappers_manager import WrapperManager
-from src.node.wrapper_helpers import EventCollector, get_node_multiaddr, wait_for_mesh
+from src.node.wrapper_helpers import (
+    EventCollector,
+    create_message_bindings,
+    get_node_bound_ports,
+    get_node_multiaddr,
+    wait_for_connected,
+    wait_for_mesh,
+)
+
+NODE_NOT_STARTED_MSG = "node is not started"
+STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
 
 
 class TestLogosDeliveryLifecycle:
@@ -27,6 +38,61 @@ class TestLogosDeliveryLifecycle:
             start_result = node.start_node()
             assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
 
+    def test_send_on_node_never_started(self, node_config):
+        node_config.update({"numShardsInNetwork": 1})
+        result = WrapperManager.create(config=node_config)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            send_result = node.send_message(create_message_bindings())
+            assert send_result.is_err(), "send on a node never started succeeded"
+            assert f"Send failed: {NODE_NOT_STARTED_MSG}" in send_result.err(), send_result.err()
+
+    def test_subscribe_and_unsubscribe_on_node_never_started(self, node_config):
+        node_config.update({"numShardsInNetwork": 1})
+        result = WrapperManager.create(config=node_config)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            subscribe_result = node.subscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert subscribe_result.is_err(), "subscribe on a node never started succeeded"
+            assert f"Subscribe failed: {NODE_NOT_STARTED_MSG}" in subscribe_result.err(), subscribe_result.err()
+
+            unsubscribe_result = node.unsubscribe_content_topic(STOPPED_SUBSCRIBE_CONTENT_TOPIC)
+            assert unsubscribe_result.is_err(), "unsubscribe on a node never started succeeded"
+            assert f"Unsubscribe failed: {NODE_NOT_STARTED_MSG}" in unsubscribe_result.err(), unsubscribe_result.err()
+
+    def test_restart_node_with_rest(self, node_config):
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node({**node_config, "rest": True}) as node:
+            rest_port = get_node_bound_ports(node)["rest"]
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                assert s.connect_ex(("127.0.0.1", rest_port)) != 0, "REST port accepted a connection after stop_node"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+            assert get_node_bound_ports(node)["rest"] == rest_port, "REST bound another port after the restart"
+
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
+                assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
+
+    def test_restart_node_with_metrics_server(self, node_config):
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node({**node_config, "metricsServer": True, "metricsServerPort": 0}) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
+                assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
+
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
     def test_peer_meshes_with_started_node(self, node_config):
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node(node_config) as node:
@@ -49,6 +115,20 @@ class TestLogosDeliveryLifecycle:
             peer_collector = EventCollector()
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
                 assert wait_for_mesh(peer_collector), "peer never meshed with the restarted node"
+
+    def test_listener_receives_events_after_restart(self, node_config):
+        # The binding registers event_cb only when it creates the node.
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        with self._create_start_node(node_config, node_collector.event_callback) as node:
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}):
+                assert wait_for_connected(node_collector), "listener added at create got no event after stop_node and start_node"
 
     def test_recreate_node_after_destroy(self, node_config):
         node = self._create_start_node(node_config)
