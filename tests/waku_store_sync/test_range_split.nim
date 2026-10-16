@@ -57,8 +57,7 @@ suite "Waku Sync: range splitting":
     let remoteFp =
       remote.computeFingerprint(whole, @[DefaultPubsubTopic], @[DefaultContentTopic])
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(whole, RangeType.Fingerprint)],
       fingerprints: @[remoteFp],
       itemSets: @[],
@@ -118,8 +117,7 @@ suite "Waku Sync: range splitting":
     var toSend, toRecv: seq[WakuMessageHash]
 
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(wholeRange, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(
@@ -178,8 +176,7 @@ suite "Waku Sync: range splitting":
       )
 
     let payload1 = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(sliceWhole, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(
@@ -204,8 +201,7 @@ suite "Waku Sync: range splitting":
     check subSlice.a.time != 0
 
     let payload2 = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(subSlice, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(
@@ -268,8 +264,7 @@ suite "Waku Sync: range splitting":
     var toSend1, toRecv1: seq[WakuMessageHash]
 
     let rangeData = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(slice, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(slice, @[DefaultPubsubTopic], @[DefaultContentTopic])

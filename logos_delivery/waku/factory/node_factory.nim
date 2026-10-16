@@ -226,7 +226,6 @@ proc setupProtocols(
         await node.mountStoreSync(
           conf.clusterId,
           conf.subscribeShards,
-          conf.contentTopics,
           confStoreSync.rangeSec,
           confStoreSync.intervalSec,
           confStoreSync.relayJitterSec,

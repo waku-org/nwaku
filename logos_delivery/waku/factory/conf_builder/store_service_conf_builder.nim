@@ -79,6 +79,10 @@ proc validateRetentionPolicies(policies: seq[string]): Result[void, string] =
     if policyType in seen:
       return err("duplicated retention policy type: '" & policyType & "'")
 
+    if policyType == "capacity":
+      warn "capacity retention policy is deprecated and will be removed, use time or size instead",
+        policy = policy
+
     seen.add(policyType)
 
   return ok()

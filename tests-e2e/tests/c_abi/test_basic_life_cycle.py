@@ -1,3 +1,4 @@
+import re
 import socket
 from src.node.wrappers_manager import WrapperManager
 from src.node.wrapper_helpers import (
@@ -5,12 +6,24 @@ from src.node.wrapper_helpers import (
     create_message_bindings,
     get_node_bound_ports,
     get_node_multiaddr,
+    get_node_tcp_port,
+    is_channel_error_event,
+    unique_channel_id,
     wait_for_connected,
+    wait_for_error,
+    wait_for_event,
     wait_for_mesh,
 )
 
 NODE_NOT_STARTED_MSG = "node is not started"
 STOPPED_SUBSCRIBE_CONTENT_TOPIC = "/test/1/stopped-subscribe/proto"
+
+MESSAGING_SEND_NO_PROVIDER_RE = re.compile(r"messaging send failed: RequestBroker\(MessagingSend\): no provider registered for broker context \w+")
+SEGMENTS_FAILED_MSG = "one or more segments failed"
+STOPPED_CHANNEL_PREFIX = "stopped-channel"
+STOPPED_CHANNEL_CONTENT_TOPIC = "/test/1/stopped-channel/proto"
+STOPPED_CHANNEL_SENDER_ID = "stopped-channel-sender"
+ERROR_TIMEOUT_S = 10.0
 
 
 class TestLogosDeliveryLifecycle:
@@ -60,6 +73,61 @@ class TestLogosDeliveryLifecycle:
             assert unsubscribe_result.is_err(), "unsubscribe on a node never started succeeded"
             assert f"Unsubscribe failed: {NODE_NOT_STARTED_MSG}" in unsubscribe_result.err(), unsubscribe_result.err()
 
+    def test_channel_send_on_node_never_started(self, node_config):
+        # TODO: logos-delivery#4543
+        node_config.update({"numShardsInNetwork": 1})
+        node_collector = EventCollector()
+        result = WrapperManager.create(config=node_config, event_cb=node_collector.event_callback)
+        assert result.is_ok(), f"Failed to create node: {result.err()}"
+        with result.ok_value as node:
+            channel_id = unique_channel_id(STOPPED_CHANNEL_PREFIX)
+            create_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert create_result.is_ok(), f"channel_create failed: {create_result.err()}"
+
+            send_result = node.channel_send(channel_id, create_message_bindings())
+            assert send_result.is_ok(), f"channel_send on a node never started failed: {send_result.err()}"
+            request_id = send_result.ok_value
+
+            error_event = wait_for_error(node_collector, request_id, ERROR_TIMEOUT_S)
+            assert error_event is not None, f"no message_error for request {request_id}. Collected events: {node_collector.events}"
+            assert MESSAGING_SEND_NO_PROVIDER_RE.fullmatch(error_event["error"]), error_event["error"]
+
+            channel_error_event = wait_for_event(node_collector, request_id, is_channel_error_event, ERROR_TIMEOUT_S)
+            assert channel_error_event is not None, f"no channel_message_error for request {request_id}. Collected events: {node_collector.events}"
+            assert channel_error_event["channelId"] == channel_id, channel_error_event
+            assert channel_error_event["error"] == SEGMENTS_FAILED_MSG, channel_error_event
+
+    def test_channel_send_after_restart_on_channel_created_before_stop(self, node_config):
+        # TODO: logos-delivery#4554
+        # stop_node drops the channel, so creating it again under the same id succeeds.
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node(node_config) as node:
+            channel_id = unique_channel_id(STOPPED_CHANNEL_PREFIX)
+            create_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert create_result.is_ok(), f"channel_create failed: {create_result.err()}"
+
+            stop_result = node.stop_node()
+            assert stop_result.is_ok(), f"Failed to stop node: {stop_result.err()}"
+
+            stopped_send_result = node.channel_send(channel_id, create_message_bindings())
+            assert stopped_send_result.is_err(), "channel_send after stop_node on a channel created before the stop succeeded"
+            assert f"ChannelSend failed: unknown channel: {channel_id}" in stopped_send_result.err(), stopped_send_result.err()
+
+            start_result = node.start_node()
+            assert start_result.is_ok(), f"Failed to restart node: {start_result.err()}"
+
+            send_result = node.channel_send(channel_id, create_message_bindings())
+            assert send_result.is_err(), "channel_send after restart on a channel created before stop_node succeeded"
+            assert f"ChannelSend failed: unknown channel: {channel_id}" in send_result.err(), send_result.err()
+
+            close_result = node.channel_close(channel_id)
+            assert close_result.is_err(), "channel_close after restart on a channel created before stop_node succeeded"
+            assert f"ChannelClose failed: unknown channel: {channel_id}" in close_result.err(), close_result.err()
+
+            recreate_result = node.channel_create(channel_id, STOPPED_CHANNEL_CONTENT_TOPIC, STOPPED_CHANNEL_SENDER_ID)
+            assert recreate_result.is_ok(), f"channel_create after restart failed: {recreate_result.err()}"
+            assert recreate_result.ok_value == channel_id, recreate_result.ok_value
+
     def test_restart_node_with_rest(self, node_config):
         node_config.update({"numShardsInNetwork": 1})
         with self._create_start_node({**node_config, "rest": True}) as node:
@@ -99,6 +167,17 @@ class TestLogosDeliveryLifecycle:
             peer_collector = EventCollector()
             with self._create_start_node({**node_config, "staticnodes": [get_node_multiaddr(node)]}, peer_collector.event_callback):
                 assert wait_for_mesh(peer_collector), "peer never meshed with the node"
+
+    def test_peer_never_meshes_with_node_at_dns4_localhost(self, node_config):
+        # TODO: logos-delivery#1490
+        node_config.update({"numShardsInNetwork": 1})
+        with self._create_start_node(node_config) as node:
+            peer_id_result = node.get_node_info("MyPeerId")
+            assert peer_id_result.is_ok(), f"MyPeerId query failed: {peer_id_result.err()}"
+            dns4_multiaddr = f"/dns4/localhost/tcp/{get_node_tcp_port(node)}/p2p/{peer_id_result.ok_value.strip()}"
+            peer_collector = EventCollector()
+            with self._create_start_node({**node_config, "staticnodes": [dns4_multiaddr]}, peer_collector.event_callback):
+                assert not wait_for_mesh(peer_collector), "peer meshed with the node at a /dns4/localhost address"
 
     def test_peer_meshes_with_restarted_node(self, node_config):
         # A restarted node accepts the peers that connect after the restart.

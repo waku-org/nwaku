@@ -102,8 +102,7 @@ suite "Waku Store Sync Codec":
     let range4 = (bounds4, RangeType.ItemSet)
 
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[],
+      shards: @[DefaultShardId],
       ranges: @[range1, range2, range3, range4],
       fingerprints: @[],
       itemSets: @[itemSet1, itemSet2, itemSet3, itemSet4],
@@ -117,10 +116,11 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.itemSets == decodedPayload.itemSets
 
   test "payload fingerprint encoding roundtrip":
@@ -144,8 +144,7 @@ suite "Waku Store Sync Codec":
       ranges.add(range)
 
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[],
+      shards: @[DefaultShardId],
       ranges: ranges,
       fingerprints:
         @[randomHash(rng), randomHash(rng), randomHash(rng), randomHash(rng)],
@@ -160,10 +159,11 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.fingerprints == decodedPayload.fingerprints
 
   test "payload mixed encoding roundtrip":
@@ -194,8 +194,7 @@ suite "Waku Store Sync Codec":
       itemSets.add(itemSet)
 
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[],
+      shards: @[DefaultShardId],
       ranges: ranges,
       fingerprints: fingerprints,
       itemSets: itemSets,
@@ -209,37 +208,154 @@ suite "Waku Store Sync Codec":
     let decodedPayload = res.get()
 
     check:
-      payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
-      payload.ranges[1][0].b == decodedPayload.ranges[1][0].b
-      payload.ranges[2][0].b == decodedPayload.ranges[2][0].b
-      payload.ranges[3][0].b == decodedPayload.ranges[3][0].b
+      decodedPayload.ranges[0][1] == RangeType.Skip
+      payload.ranges[0][0].b == decodedPayload.ranges[1][0].b
+      payload.ranges[1][0].b == decodedPayload.ranges[2][0].b
+      payload.ranges[2][0].b == decodedPayload.ranges[3][0].b
+      payload.ranges[3][0].b == decodedPayload.ranges[4][0].b
       payload.fingerprints == decodedPayload.fingerprints
       payload.itemSets == decodedPayload.itemSets
 
-  test "transfer encoding writes the pubsub topic as field 1 and the message as field 2":
-    # TODO: logos-delivery#4483
-    let payload = WakuMessageAndTopic(
-      pubsub: "/s", message: WakuMessage(payload: @[byte 1], contentTopic: "/t")
-    )
-    check payload.encode() == hexToSeqByte("0a022f73" & "12070a010112022f74")
-
 suite "Waku Store Sync - message codec refusals":
   test "a message without a pubsub topic is refused":
-    let res = WakuMessageAndTopic.decode(hexToSeqByte("12070a010112022f74"))
+    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a070a010112022f74"))
     check:
       res.isErr()
       res.error == ProtobufError.missingRequiredField("pubsub")
 
   test "a nested message without a content topic is refused":
-    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a022f7312030a0101"))
+    let res = WakuMessageAndTopic.decode(hexToSeqByte("0a030a010112022f73"))
     check:
       res.isErr()
       res.error == ProtobufError.missingRequiredField("content_topic")
 
+suite "Waku Store Sync - transfer payload numbering":
+  # The message encodes as 0a0101 (payload 0x01) 12022f74 (content topic "/t"),
+  # and the pubsub topic "/s" as 2f73.
+  let msg = WakuMessage(payload: @[byte 1], contentTopic: "/t")
+
+  test "a transfer payload is the message as field 1 and the pubsub topic as field 2":
+    check WakuMessageAndTopic(pubsub: "/s", message: msg).encode() ==
+      hexToSeqByte("0a070a010112022f74" & "12022f73")
+
+  test "a transfer payload numbered as WAKU-SYNC decodes":
+    let res =
+      WakuMessageAndTopic.decode(hexToSeqByte("0a070a010112022f74" & "12022f73"))
+    check:
+      res.isOk()
+      res.get() == WakuMessageAndTopic(pubsub: "/s", message: msg)
+
+  test "a transfer payload with the pubsub topic as field 1 is refused":
+    let res =
+      WakuMessageAndTopic.decode(hexToSeqByte("0a022f73" & "12070a010112022f74"))
+    check res.isErr()
+
+suite "Waku Store Sync - reconciliation header":
+  test "reconciliation encoding starts with the cluster, the shard count and the shards":
+    let
+      bounds =
+        SyncID(time: Timestamp(100), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+      payload = RangesData(
+        cluster: 2,
+        shards: @[3'u16, 300],
+        ranges: @[(bounds, RangeType.Fingerprint)],
+        fingerprints: @[FullFingerprint],
+      )
+      encoded = payload.deltaEncode()
+      res = RangesData.deltaDecode(encoded)
+
+    check:
+      # 300 is the varint ac 02
+      encoded[0 ..< 5] == @[byte 2, 2, 3, 0xac, 0x02]
+      res.isOk()
+      res.get().cluster == 2
+      res.get().shards == @[3'u16, 300]
+
+  test "an empty payload is the cluster and the shards only":
+    let
+      encoded = RangesData(cluster: 2, shards: @[3'u16]).deltaEncode()
+      res = RangesData.deltaDecode(encoded)
+
+    check:
+      encoded == @[byte 2, 1, 3]
+      res.isOk()
+      res.get().cluster == 2
+      res.get().shards == @[3'u16]
+      res.get().ranges.len == 0
+
+  test "a zero-length payload decodes as empty":
+    let res = RangesData.deltaDecode(@[])
+    check:
+      res.isOk()
+      res.get().ranges.len == 0
+
+suite "Waku Store Sync - first range":
+  let
+    zero = SyncID(time: Timestamp(0), hash: EmptyFingerprint)
+    at100 = SyncID(time: Timestamp(100), hash: EmptyFingerprint)
+    at200 = SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+    # cluster 2, one shard, shard 3
+    header = @[byte 2, 1, 3]
+
+  test "a payload whose first range does not start at zero begins with a skip range":
+    let payload = RangesData(
+      cluster: 2,
+      shards: @[3'u16],
+      ranges: @[(at100 .. at200, RangeType.Fingerprint)],
+      fingerprints: @[FullFingerprint],
+    )
+
+    # upper bound 100 and Skip, then upper bound 100 later and Fingerprint
+    check payload.deltaEncode() == header & @[byte 100, 0, 100, 1] & @FullFingerprint
+
+  test "a payload whose first range starts at zero has no extra skip range":
+    let payload = RangesData(
+      cluster: 2,
+      shards: @[3'u16],
+      ranges: @[(zero .. at200, RangeType.Fingerprint)],
+      fingerprints: @[FullFingerprint],
+    )
+
+    # upper bound 200 (the varint c8 01) and Fingerprint
+    check payload.deltaEncode() == header & @[byte 0xc8, 0x01, 1] & @FullFingerprint
+
+  test "the leading skip range decodes as the first range":
+    let res = RangesData.deltaDecode(header & @[byte 100, 0, 100, 1] & @FullFingerprint)
+
+    check:
+      res.isOk()
+      res.get().ranges ==
+        @[(zero .. at100, RangeType.Skip), (at100 .. at200, RangeType.Fingerprint)]
+      res.get().fingerprints == @[FullFingerprint]
+
 suite "Store sync - codec bounds":
-  test "a topic length beyond the payload is refused":
-    # One pubsub topic with the length int64.high.
-    check RangesData.deltaDecode(hexToSeqByte("01ffffffffffffffff7f")).isErr()
+  test "a shard count beyond the payload is refused":
+    # Cluster 2, then a shard count of int64.high.
+    let res = RangesData.deltaDecode(hexToSeqByte("02ffffffffffffffff7f"))
+    check:
+      res.isErr()
+      res.error == "Cannot decode shard count"
+
+  test "a shard count above 65536 is refused":
+    # Cluster 2, a shard count (varints 808004 = 65536, 818004 = 65537), then that
+    # many zero shards.
+    let
+      atLimit = RangesData.deltaDecode(hexToSeqByte("02808004") & newSeq[byte](65536))
+      aboveLimit =
+        RangesData.deltaDecode(hexToSeqByte("02818004") & newSeq[byte](65537))
+    check:
+      atLimit.isOk()
+      atLimit.get().shards.len == 65536
+      aboveLimit.isErr()
+      aboveLimit.error == "Cannot decode shard count"
+
+  test "a shard above 65535 is refused":
+    # Cluster 2, one shard, then 65536 as a varint.
+    let res = RangesData.deltaDecode(hexToSeqByte("0201808004"))
+    check:
+      res.isErr()
+      res.error == "Cannot decode shard. Shard index: 0"
 
   test "a time that does not fit in a Timestamp is refused":
     # Two items: the time difference int64.high, then 1.
@@ -248,9 +364,9 @@ suite "Store sync - codec bounds":
       hexToSeqByte("ffffffffffffffff7f" & "00".repeat(32) & "01" & "00".repeat(40))
     check deltaDecode(itemSet, bytes, 2).isErr()
 
-  test "an incomplete topic length is refused":
-    # One pubsub topic, and a length of nine bytes that all continue.
-    let res = RangesData.deltaDecode(hexToSeqByte("01" & "80".repeat(9)))
+  test "an incomplete shard is refused":
+    # Cluster 2, one shard, and nine bytes that all continue.
+    let res = RangesData.deltaDecode(hexToSeqByte("0201" & "80".repeat(9)))
     check:
       res.isErr()
-      res.error == "Cannot decode length. Topic index: 0"
+      res.error == "Cannot decode shard. Shard index: 0"

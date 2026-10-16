@@ -17,6 +17,7 @@ EVENT_PROPAGATED = "message_propagated"
 EVENT_SENT = "message_sent"
 EVENT_ERROR = "message_error"
 EVENT_CHANNEL_RECEIVED = "channel_message_received"
+EVENT_CHANNEL_ERROR = "channel_message_error"
 EVENT_TOPIC_HEALTH_CHANGE = "relay_topic_health_change"
 # Topic health a node reports once its relay mesh on the shard has at least one peer.
 MESH_TOPIC_HEALTH = ("MinimallyHealthy", "SufficientlyHealthy")
@@ -77,6 +78,10 @@ def is_sent_event(event: dict) -> bool:
 
 def is_error_event(event: dict) -> bool:
     return event.get("eventType") == EVENT_ERROR
+
+
+def is_channel_error_event(event: dict) -> bool:
+    return event.get("eventType") == EVENT_CHANNEL_ERROR
 
 
 def wait_for_event(

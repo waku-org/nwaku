@@ -161,6 +161,13 @@ suite "MessagingClientConf - rate-limit config":
       rl.epochPeriodSec == DefaultRateLimitConfig.epochPeriodSec
       rl.messagesPerEpoch == DefaultRateLimitConfig.messagesPerEpoch
 
+proc warningsOf(lc: LogosDeliveryConf): seq[string] =
+  let conf = WakuNodeConf(lc.kernelConf)
+  let defaults = defaultKernelConf(ModeProtocolFlags()).get()
+  let wakuConf = conf.toWakuConf().valueOr:
+    raiseAssert error
+  return ignoredFlagWarnings(conf, defaults, wakuConf)
+
 suite "parseLogosDeliveryConf - JSON parsing":
   test "empty object resolves to a full Core node conf":
     let lc = parseLogosDeliveryConf("{}").valueOr:
@@ -458,6 +465,13 @@ suite "parseLogosDeliveryConf - JSON parsing":
     # neither consumed by the structured path nor a flat kernel field, so it must
     # surface as an unknown key.
     check parseLogosDeliveryConf("""{"mode": "core", "kernelConf": {}}""").isErr()
+
+  test "an empty config warns about the websocket port":
+    # TODO: logos-delivery#4553
+    let lc = parseLogosDeliveryConf("{}").valueOr:
+      raiseAssert error
+    check warningsOf(lc) ==
+      @["--websocket-port is ignored: --websocket-support is not enabled"]
 
 suite "LogosDelivery.new - construction (the app-dev entry)":
   asyncTest "builds the full messaging stack from mode + overrides":

@@ -215,6 +215,21 @@ proc findIdxBounds(self: SeqStorage, slice: Slice[SyncID]): Opt[Slice[int]] =
 
   return Opt.some(lower ..< upper)
 
+proc pubsubScope(self: SeqStorage, pubsubTopics: seq[PubsubTopic]): PackedSet[int] =
+  ## The local indexes of `pubsubTopics`. An empty set means every topic, so a
+  ## request whose topics are all unknown here gets an index no element has.
+  var scope = initPackedSet[int]()
+  for inputTopic in pubsubTopics:
+    for i, localTopic in self.pubsubTopics:
+      if inputTopic == localTopic:
+        scope.incl(i)
+
+  if pubsubTopics.len > 0 and scope.len == 0:
+    # -1 is never an element's topic index, so nothing matches
+    scope.incl(-1)
+
+  return scope
+
 method computeFingerprint*(
     self: SeqStorage,
     bounds: Slice[SyncID],
@@ -223,11 +238,7 @@ method computeFingerprint*(
 ): Fingerprint {.raises: [].} =
   let idxSliceOpt = self.findIdxBounds(bounds)
 
-  var pubsubTopicSet = initPackedSet[int]()
-  for inputTopic in pubsubTopics:
-    for i, localTopic in self.pubsubTopics:
-      if inputTopic == localTopic:
-        pubsubTopicSet.incl(i)
+  let pubsubTopicSet = self.pubsubScope(pubsubTopics)
 
   var contentTopicSet = initPackedSet[int]()
   for inputTopic in contentTopics:
@@ -402,17 +413,11 @@ method processPayload*(
     i = 0
     j = 0
 
-  var pubsubTopicSet = initPackedSet[int]()
-  for inputTopic in input.pubsubTopics:
-    for i, localTopic in self.pubsubTopics:
-      if inputTopic == localTopic:
-        pubsubTopicSet.incl(i)
+  let pubsubTopicSet = self.pubsubScope(
+    input.shards.mapIt($RelayShard(clusterId: input.cluster, shardId: it))
+  )
 
-  var contentTopicSet = initPackedSet[int]()
-  for inputTopic in input.contentTopics:
-    for i, localTopic in self.contentTopics:
-      if inputTopic == localTopic:
-        contentTopicSet.incl(i)
+  let contentTopicSet = initPackedSet[int]()
 
   for (bounds, rangeType) in input.ranges:
     case rangeType
