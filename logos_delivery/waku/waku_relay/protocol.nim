@@ -185,10 +185,11 @@ type
     triggerOwnHandlers*: bool
       ## Whether a message this node publishes is also handed to the handlers
       ## it registered with `subscribe`, as if it had come from the network.
-      ## `publish` does it, at most once per message id. A message over the max
-      ## size is never handled. A message published again, or retried while
-      ## there is no relay peer, is not handled twice and `publish` answers
-      ## `DuplicateMessage`.
+      ## `publish` does it, at most once per message id, and only after the
+      ## message was relayed to a peer, so a publish that fails with
+      ## `NoPeersToPublish` can be retried and is handled when it succeeds. A
+      ## message over the max size is never handled. A message published again
+      ## is not handled twice and `publish` answers `DuplicateMessage`.
       ## Gossipsub's own `triggerSelf` stays off, because it would hand the
       ## message to the handlers on every publish, duplicates included.
       ## Turn it off on a node that must not see its own messages, as the
@@ -785,13 +786,16 @@ proc publish*(
 
   let fitsMaxSize = RPCMsg.withMessages(pubsubMessage).encodedSize() <= w.maxMessageSize
 
-  if w.triggerOwnHandlers and fitsMaxSize and not w.selfHandled.put(msgId):
-    await procCall PubSub(w).handleData(pubsubTopic, data)
-
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
   if relayedPeerCount <= 0:
     return err(NoPeersToPublish)
+
+  # Only a message that was relayed reaches the handlers, and only on a topic
+  # that has one, so a failed or unhandled publish does not consume the id.
+  if w.triggerOwnHandlers and fitsMaxSize and w.topicHandlers.hasKey(pubsubTopic) and
+      not w.selfHandled.put(msgId):
+    await procCall PubSub(w).handleData(pubsubTopic, data)
 
   return ok(relayedPeerCount)
 
