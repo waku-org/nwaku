@@ -17,7 +17,11 @@ import
     node/waku_node/filter,
     node/peer_manager,
     node/subscription_manager {.all.},
+    node/edge_filter_sub_state,
+    node/node_telemetry,
+    node/health_monitor/connection_status,
     waku_filter_v2/subscriptions,
+    waku_lightpush/common,
     api/events/peer_events,
   ]
 import logos_delivery/waku/factory/waku_conf
@@ -245,6 +249,14 @@ proc newFilterServiceNode(
 proc multiaddrOf(node: WakuNode): string =
   let info = node.peerInfo.toRemotePeerInfo()
   return $info.addrs[0] & "/p2p/" & $info.peerId
+
+proc staticFilterPeerFailureCount(): float64 =
+  try:
+    return logos_delivery_node_errors.valueByName(
+      "logos_delivery_node_errors_total", ["static_filter_peer_failure"]
+    )
+  except ValueError:
+    return 0.0
 
 proc checkEdgeSubscribesThroughFilternode(protocolsKnown: bool) {.async.} =
   ## An edge configured with only a filternode subscribes through it. With
@@ -976,7 +988,7 @@ suite "Messaging API, SubscriptionManager":
   asyncTest "Subscription API, edge node subscribes through its filternode with known protocols":
     await checkEdgeSubscribesThroughFilternode(protocolsKnown = true)
 
-  asyncTest "Subscription API, edge node selects its filternode and all the filter peers a shard needs":
+  asyncTest "Subscription API, edge node counts its filternode as one of the filter peers a shard needs":
     let shard = PubsubTopic("/waku/2/rs/3/0")
     var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
     conf.kernel.filternode =
@@ -994,15 +1006,87 @@ suite "Messaging API, SubscriptionManager":
     )
     peerStore.addPeer(peerA)
     peerStore.setShardInfo(peerA.peerId, @[0'u16])
-    let slotPeer = subscriber.waku.node.peerManager.serviceSlots.getOrDefault(
+    let staticPeer = subscriber.waku.node.peerManager.serviceSlots.getOrDefault(
       WakuFilterSubscribeCodec, RemotePeerInfo()
     )
 
-    let candidates = subscriber.waku.node.subscriptionManager.selectFilterCandidates(
-      shard, initHashSet[PeerId](), 1, Opt.some(slotPeer)
-    )
+    let manager = subscriber.waku.node.subscriptionManager
     check:
-      candidates.mapIt(it.peerId) == @[slotPeer.peerId, peerA.peerId]
+      manager
+        .selectFilterCandidates(shard, initHashSet[PeerId](), 1, Opt.some(staticPeer))
+        .mapIt(it.peerId) == @[staticPeer.peerId]
+      manager
+        .selectFilterCandidates(shard, initHashSet[PeerId](), 2, Opt.some(staticPeer))
+        .mapIt(it.peerId) == @[staticPeer.peerId, peerA.peerId]
+
+  asyncTest "Subscription API, edge node skips a filternode whose known protocols miss filter":
+    let shard = PubsubTopic("/waku/2/rs/3/0")
+    let staticPeerId = PeerId.random(crypto.newRng()).get()
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.filternode = "/ip4/127.0.0.1/tcp/1/p2p/" & $staticPeerId
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+
+    let peerStore = subscriber.waku.node.peerManager.switch.peerStore
+    peerStore[ProtoBook][staticPeerId] = @[WakuLightPushCodec]
+    let failuresBefore = staticFilterPeerFailureCount()
+
+    let manager = subscriber.waku.node.subscriptionManager
+    var state = EdgeFilterSubState()
+    check:
+      manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
+      state.staticFilterPeerTries == MaxStaticFilterPeerTries
+      staticFilterPeerFailureCount() == failuresBefore + 1
+
+    # With its tries done, the edge skips it with no new failure.
+    check:
+      manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
+      staticFilterPeerFailureCount() == failuresBefore + 1
+
+  asyncTest "Subscription API, edge node fills the shard with other filter peers after the tries of a down filternode":
+    let shard = PubsubTopic("/waku/2/rs/3/0")
+    let filterNodeA = await newFilterServiceNode(shard)
+    let filterNodeB = await newFilterServiceNode(shard)
+    let filterNodes = @[filterNodeA, filterNodeB]
+    defer:
+      for filterNode in filterNodes:
+        await filterNode.stop()
+
+    # The filternode is down.
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.filternode =
+      "/ip4/127.0.0.1/tcp/1/p2p/" & $PeerId.random(crypto.newRng()).get()
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+
+    let peerStore = subscriber.waku.node.peerManager.switch.peerStore
+    for filterNode in filterNodes:
+      let info = filterNode.peerInfo.toRemotePeerInfo()
+      peerStore.addPeer(
+        RemotePeerInfo.init(
+          info.peerId, info.addrs, protocols = @[WakuFilterSubscribeCodec]
+        )
+      )
+      peerStore.setShardInfo(info.peerId, @[0'u16])
+    let failuresBefore = staticFilterPeerFailureCount()
+
+    let testTopic = ContentTopic("/waku/2/filternode/proto")
+    (await subscriber.messagingClient.subscribe(testTopic)).expect(
+      "Failed to subscribe"
+    )
+    check subscriber.waku.node.getRelayShard(testTopic) == shard
+
+    let manager = subscriber.waku.node.subscriptionManager
+    let edgePeerId = subscriber.waku.node.peerInfo.peerId
+    checkUntilTimeout:
+      manager.edgeFilterPeerCount(shard) == HealthyThreshold
+      filterNodes.allIt(
+        edgePeerId in it.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
+      )
+    check:
+      staticFilterPeerFailureCount() >= failuresBefore + MaxStaticFilterPeerTries
 
   asyncTest "Subscription API, edge node drops a filternode whose metadata misses the shard":
     let shard = PubsubTopic("/waku/2/rs/3/0")
@@ -1036,7 +1120,7 @@ suite "Messaging API, SubscriptionManager":
       edgePeerId notin
         otherShardNode.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
 
-  asyncTest "Subscription API, edge node dials a filternode of another cluster at most once each interval":
+  asyncTest "Subscription API, edge node dials a filternode of another cluster at most its tries each interval":
     let otherCluster = TestClusterId + 1
     let otherClusterNode = await newFilterServiceNode(
       PubsubTopic("/waku/2/rs/" & $otherCluster & "/0"), clusterId = otherCluster
@@ -1072,11 +1156,12 @@ suite "Messaging API, SubscriptionManager":
     ).expect("Failed to subscribe")
 
     # The metadata check drops the peer after each dial. Over three intervals,
-    # the edge dials it about once each interval, not once each wake.
+    # the edge dials it about `MaxStaticFilterPeerTries` times each interval,
+    # not once each wake.
     await sleepAsync(
       subscriber.waku.node.subscriptionManager.edgeFilterLoopInterval * 3
     )
-    check connects in 1 .. 4
+    check connects in 1 .. 4 * MaxStaticFilterPeerTries
 
   asyncTest "Subscription API, edge node subscribes through a filternode that starts later":
     let shard = PubsubTopic("/waku/2/rs/3/0")
