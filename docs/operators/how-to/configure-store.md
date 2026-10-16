@@ -33,8 +33,8 @@ There is a set of configuration options to customize the waku store protocol's m
 
 * `--store-message-retention-policy`: This option controls the retention policy i.e., how long certain messages will be persisted. Three different retention policies are supported:
   + The time retention policy,`time:<duration-in-seconds>` (e.g., `time:14400`)
-  + The capacity retention policy,`capacity:<messages-count>` (e.g, `capacity:25000`)
   + The size retention policy,`size:<size-in-gb-mb>` (e.g, `size:25Gb`)
+  + The capacity retention policy,`capacity:<messages-count>` (e.g, `capacity:25000`). Deprecated and to be removed in a future release: use `time` or `size` instead. The node logs a warning at startup when it is set.
   + Several policies can be combined with `;` (e.g., `time:14400;size:25Gb`). Each one deletes messages on its own.
 * `--store-message-db-url`: The message store database url option controls the message storage engine. This option follows the [_SQLAlchemy_ database URL format](https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls).
 
@@ -49,7 +49,7 @@ By default the node message store will be configured with a time retention polic
 logosdeliverynode \
   --store=true \
   --store-message-db-url=sqlite:///mnt/nwaku/data/db1/store.sqlite3 \
-  --store-message-retention-policy=capacity:150000
+  --store-message-retention-policy=size:25GB
 ```
 
 ### Retention policy and store sync
