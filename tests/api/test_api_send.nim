@@ -754,6 +754,49 @@ suite "Waku API - Send":
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 
+  asyncTest "Own message is received as live with no relay peer":
+    # TODO: logos-delivery#4563
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    node.messagingClient.sendService.maxDeliveryTime = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.waku.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    var received: seq[MessageReceivedEvent]
+    let receivedListener = MessageReceivedEvent.listen(
+      node.waku.brokerCtx,
+      proc(event: MessageReceivedEvent) {.async: (raises: []).} =
+        received.add(event),
+    ).valueOr:
+      raiseAssert error
+    defer:
+      await MessageReceivedEvent.dropListener(node.waku.brokerCtx, receivedListener)
+
+    let payload = "test payload"
+    let requestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(ContentTopic("/waku/2/default-content/proto"), payload)
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await eventManager.errorFuture.withTimeout(10.seconds)
+    eventManager.validate({SendEventOutcome.Error}, requestId)
+    check:
+      eventManager.errorDescs == @["Unable to send within retry time window"]
+      received.mapIt(it.source) == @[MessageSource.Live]
+      received.mapIt(it.message.payload) == @[payload.toBytes()]
+
   asyncTest "Store validation times out with an error event":
     ## The message propagates, but the only reachable store node is outside the
     ## relay mesh and never holds it. Once the validation window elapses the send
@@ -812,7 +855,7 @@ suite "Waku API - Send":
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 
-  asyncTest "A store node that joins after a send propagated never gets that message, and only a later send is confirmed":
+  asyncTest "A late store node never gets an earlier message":
     # TODO: logos-delivery#4511
     ## A propagated message is not sent again, so a store node that joins the
     ## mesh after it cannot confirm it.
@@ -913,7 +956,7 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Sent}, laterRequestId
     )
 
-  asyncTest "Edge sender never sends through a static node that was down at its start":
+  asyncTest "Edge sender never sends through a static node down at start":
     # TODO: logos-delivery#4510
     let lightpushNodeAddr =
       $lightpushNodePeerInfo.addrs[0] & "/p2p/" & $lightpushNodePeerId

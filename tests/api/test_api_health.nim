@@ -261,6 +261,26 @@ suite "LM API health checking":
       client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
 
+  asyncTest "EventShardTopicHealthChange, no health reported before a peer meshes":
+    # TODO: logos-delivery#4544
+    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+
+    # The node reports no UNHEALTHY although its mesh is empty.
+    await sleepAsync(NegativeTestTimeout)
+    check:
+      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)
+      healths[].len == 0
+
+    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+
   asyncTest "RequestHealthReport, check aggregate report":
     let req = await RequestHealthReport.request(client.waku.brokerCtx)
 
