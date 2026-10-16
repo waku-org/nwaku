@@ -82,7 +82,7 @@ procSuite "Peer Manager":
   asyncTest "connectPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     let connOk =
       await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
@@ -102,7 +102,7 @@ procSuite "Peer Manager":
     ## address book with that order after every connection, so dial paths
     ## must reorder quic ahead of tcp themselves.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     let announced = nodes[1].peerInfo.toRemotePeerInfo().addrs
     let tcpFirst =
@@ -131,7 +131,7 @@ procSuite "Peer Manager":
     ## with the peer's announced tcp-first order after every connection, so
     ## reconnects from the book must still come out quic.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     let peerId = nodes[1].peerInfo.peerId
 
     require await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
@@ -171,7 +171,7 @@ procSuite "Peer Manager":
     ## dialPeer(peerId, proto) resolves addresses from the address book and
     ## must also come out quic when the book is tcp-first.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     let peerId = nodes[1].peerInfo.peerId
 
     let announced = nodes[1].peerInfo.toRemotePeerInfo().addrs
@@ -194,7 +194,7 @@ procSuite "Peer Manager":
     ## connect over tcp.
     let dialer = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
     let server = newTestWakuNode(generateSecp256k1Key())
-    await allFutures(dialer.startProtocols(), server.startProtocols())
+    await allFutures(dialer.start(), server.start())
 
     let announced = server.peerInfo.toRemotePeerInfo().addrs
     let quicFirst =
@@ -217,7 +217,7 @@ procSuite "Peer Manager":
   asyncTest "quic dialer connects to a tcp-only peer":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.startProtocols(), server.startProtocols())
+    await allFutures(dialer.start(), server.start())
 
     let peer = server.peerInfo.toRemotePeerInfo()
     require peer.addrs.allIt("/quic-v1" notin $it)
@@ -237,7 +237,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.startProtocols(), server.startProtocols())
+    await allFutures(dialer.start(), server.start())
 
     let closedUdp = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -261,7 +261,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.startProtocols(), server.startProtocols())
+    await allFutures(dialer.start(), server.start())
 
     let blackhole = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -286,7 +286,7 @@ procSuite "Peer Manager":
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch, quicDialTimeout)
     let server = newTestWakuNode(generateSecp256k1Key(), quicEnabled = false)
-    await allFutures(dialer.startProtocols(), server.startProtocols())
+    await allFutures(dialer.start(), server.start())
 
     let blackhole = newDatagramTransport(
       proc(t: DatagramTransport, a: TransportAddress) {.async: (raises: []).} =
@@ -311,7 +311,8 @@ procSuite "Peer Manager":
     ## the dials it left behind, so a stalled dial would hold the node stop.
     let dialer = newTestWakuNode(generateSecp256k1Key())
     DeliveryDialer.install(dialer.switch)
-    await dialer.startProtocols()
+    (await dialer.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     proc holdConnection(
         server: StreamServer, transp: StreamTransport
@@ -347,7 +348,7 @@ procSuite "Peer Manager":
   asyncTest "Peer manager tracks active store request state":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let peerId = nodes[1].peerInfo.peerId
@@ -385,7 +386,7 @@ procSuite "Peer Manager":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -418,7 +419,7 @@ procSuite "Peer Manager":
   asyncTest "dialPeer() fails gracefully":
     # Create 2 nodes and start them
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
@@ -445,7 +446,8 @@ procSuite "Peer Manager":
   asyncTest "a cancelled dial ends cancelled":
     ## The listener accepts TCP but leaves the libp2p handshake pending.
     let node = newTestWakuNode(generateSecp256k1Key())
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -490,7 +492,8 @@ procSuite "Peer Manager":
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
       storePeer = PeerInfo.new(generateEcdsaKey(), @[storeLoc])
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
     node.peerManager.addServicePeer(
@@ -542,7 +545,7 @@ procSuite "Peer Manager":
       assert false, "Failed to mount relay"
     (await control.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await allFutures(node.startProtocols(), control.startProtocols())
+    await allFutures(node.start(), control.start())
 
     proc simpleHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -575,7 +578,7 @@ procSuite "Peer Manager":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Test default connectedness for new peers
@@ -631,7 +634,7 @@ procSuite "Peer Manager":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
@@ -692,7 +695,7 @@ procSuite "Peer Manager":
     ## The node's dial stalls on an address that never answers the handshake,
     ## and the peer connects in before that dial times out.
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     var held: seq[StreamTransport]
     proc mute(server: StreamServer, client: StreamTransport) {.async: (raises: []).} =
@@ -728,7 +731,7 @@ procSuite "Peer Manager":
 
   asyncTest "connectPeer() on a connected peer neither dials nor counts a connection":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     let peer = nodes[1].peerInfo.toRemotePeerInfo()
     check await nodes[0].peerManager.connectPeer(peer)
@@ -752,7 +755,8 @@ procSuite "Peer Manager":
     ## persistent storage (origin == Cache); discovered peers are left for the
     ## connectivity loop to dial without any backoff.
     let node = newTestWakuNode(generateSecp256k1Key())
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let basePeerId = "QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW"
     var cachePeerId, discoveredPeerId: PeerId
@@ -814,8 +818,10 @@ procSuite "Peer Manager":
     node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
     node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
-    await node1.startProtocols()
-    await node2.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -858,7 +864,8 @@ procSuite "Peer Manager":
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.startProtocols()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
@@ -898,8 +905,10 @@ procSuite "Peer Manager":
     node1.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
     node2.mountMetadata(0, @[0'u16]).expect("Mounted Waku Metadata")
 
-    await node1.startProtocols()
-    await node2.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -944,7 +953,8 @@ procSuite "Peer Manager":
     # the reconnect after a restart waits out the prune backoff
     node3.protocols.relay.parameters.pruneBackoff = ZeroDuration
 
-    await node3.startProtocols()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
@@ -998,9 +1008,7 @@ procSuite "Peer Manager":
     node3.mountMetadata(4, @[0'u16]).expect("Mounted Waku Metadata")
 
     # Start nodes
-    await allFutures(
-      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-    )
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     # 1->2 (fails)
     let conn1 = await node1.peerManager.dialPeer(
@@ -1034,7 +1042,7 @@ procSuite "Peer Manager":
     # Start them
     discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Get all peer infos
     let peerInfos = collect:
@@ -1106,7 +1114,7 @@ procSuite "Peer Manager":
     # Start them
     discard nodes.mapIt(it.mountMetadata(0, @[0'u16]))
     await allFutures(nodes.mapIt(it.mountRelay()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     proc simpleHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -1180,7 +1188,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 4).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Get all peer infos
@@ -1315,7 +1323,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 4).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -1368,7 +1376,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 2).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
 
@@ -1657,7 +1665,7 @@ procSuite "Peer Manager":
     let nodes = toSeq(0 ..< 5).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
     # Start them with relay + filter
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
@@ -1697,7 +1705,7 @@ procSuite "Peer Manager":
       node1 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
       node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
 
-    await allFutures(node1.startProtocols(), node2.startProtocols())
+    await allFutures(node1.start(), node2.start())
     await allFutures(node1.mountRelay(), node2.mountRelay())
     await allFutures(node1.mountPeerExchange(), node2.mountPeerExchange())
 
@@ -1729,7 +1737,7 @@ procSuite "Peer Manager":
       ),
     ]
 
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     for node in nodes:
       discard await node.mountRelay()
 
@@ -1833,11 +1841,13 @@ procSuite "Peer Manager":
     ## Given: A peer manager with valid peers
     let node =
       newTestWakuNode(generateSecp256k1Key(), clusterId = 0, subscribeShards = @[0'u16])
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Add a peer
     let peer = newTestWakuNode(generateSecp256k1Key())
-    await peer.startProtocols()
+    (await peer.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     discard await peer.mountRelay()
 
     var peerInfo = peer.switch.peerInfo.toRemotePeerInfo()
@@ -1871,14 +1881,16 @@ procSuite "Peer Manager":
     let node = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[shardId0]
     )
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     discard await node.mountRelay()
 
     # Create peer with ENR containing shard 0
     let peer = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[shardId0]
     )
-    await peer.startProtocols()
+    (await peer.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     discard await peer.mountRelay()
 
     # Create peer info with ENR (shard 0) but set shards field to shard 1

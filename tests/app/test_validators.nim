@@ -33,7 +33,7 @@ suite "Node app - Validators":
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -123,7 +123,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay with spam protected topics
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -273,7 +273,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))

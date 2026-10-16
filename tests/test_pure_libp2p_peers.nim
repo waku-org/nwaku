@@ -42,7 +42,8 @@ proc newMemberNode(mountMeta = true): Future[Kernel] {.async.} =
   let node = newTestWakuNode(generateSecp256k1Key(), clusterId = ClusterId)
   if mountMeta:
     discard node.mountMetadata(ClusterId, @[])
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
   node
 
 # identify, classification, and an asyncSpawned disconnect all have to land

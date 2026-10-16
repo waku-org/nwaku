@@ -431,6 +431,14 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
     debug "start: waku node already started"
     return ok()
 
+  if kernel.healthMonitor.isNil():
+    ## A bare node, built without a conf, runs only its switch and protocols.
+    try:
+      await kernel.startProtocols()
+    except CatchableError:
+      return err("failed to start protocols: " & getCurrentExceptionMsg())
+    return ok()
+
   kernel.provideNodeState() # cleared by a previous stop()
 
   info "Retrieve dynamic bootstrap nodes"

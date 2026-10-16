@@ -100,7 +100,7 @@ suite "Sharding":
     for node in [server, client]:
       node.mountAutoSharding(DefaultClusterId, autoShardCount).isOkOr:
         raiseAssert "mountAutoSharding failed: " & error
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
   asyncTeardown:
     await allFutures(server.stop(), client.stop())

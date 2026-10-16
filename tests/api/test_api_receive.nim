@@ -161,7 +161,8 @@ proc setupNetwork(
     if remoteFilter:
       await storeNode.mountFilter()
     await storeNode.mountLibp2pPing()
-    await storeNode.startProtocols()
+    (await storeNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
   storeNode.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
     "Failed to sub storeNode"
   )
@@ -177,7 +178,8 @@ proc setupNetwork(
     )
     (await publisher.mountRelay()).expect("Failed to mount relay on publisher")
     await publisher.mountLibp2pPing()
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
   publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
     "Failed to sub publisher"
   )
@@ -459,7 +461,8 @@ proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
     (await node.mountRelay()).expect("mount relay")
     await node.mountFilter()
     await node.mountLibp2pPing()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
   let subscribed = node.subscribe((kind: PubsubSub, topic: shard), noopRelayHandler)
   if subscribed.isErr():
     (await node.stop()).isOkOr:

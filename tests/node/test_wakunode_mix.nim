@@ -49,7 +49,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     check $node.selfHop() == "/ip4/127.0.0.1/tcp/0"
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.selfHop() == node.announcedAddresses[0]
       $node.selfHop() != "/ip4/127.0.0.1/tcp/0"
@@ -66,7 +67,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     check $node.selfHop() == "/ip4/0.0.0.0/tcp/0"
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.enrAddresses().len == 0
       node.selfHop() == node.announcedAddresses[0]
@@ -89,7 +91,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     check $node.selfHop() == "/ip4/0.0.0.0/tcp/0"
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.enrAddresses() == @[outside]
       node.announcedAddresses.len == 2
@@ -109,7 +112,8 @@ suite "Waku Mix - the node's own hop":
       quicEnabled = false,
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.enrAddresses().len == 2
       node.selfHop() == node.announcedAddresses[0]
@@ -136,7 +140,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     check node.selfHop() == circuit # the mount takes the first announced address
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.announcedAddresses == @[circuit, direct]
       node.selfHop() == direct
@@ -160,7 +165,8 @@ suite "Waku Mix - the node's own hop":
       $node.selfHop() == "/dns4/node.test/tcp/30303"
       not node.protocols.mix.selfHopUsable()
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.announcedAddresses.allIt("/dns4/" in $it)
       $node.selfHop() == "/ip4/203.0.113.9/tcp/30303"
@@ -186,7 +192,8 @@ suite "Waku Mix - the node's own hop":
       quicEnabled = false,
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.announcedAddresses ==
         @[MultiAddress.init("/dns4/node.test/tcp/30303").tryGet(), circuit]
@@ -208,7 +215,8 @@ suite "Waku Mix - the node's own hop":
       quicEnabled = false,
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.selfHop() == outside
     (await node.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
@@ -226,7 +234,8 @@ suite "Waku Mix - the node's own hop":
       quicEnabled = false,
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check $node.selfHop() == "/ip4/203.0.113.9/tcp/30303"
 
     let resolvedAgain = NetConfig
@@ -250,7 +259,8 @@ suite "Waku Mix - the node's own hop":
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check "0.0.0.0" notin $node.selfHop()
 
     node.enrLearnedEndpoint =
@@ -272,7 +282,8 @@ suite "Waku Mix - the node's own hop":
       quicEnabled = false,
     )
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let health = node.mixHealth()
     check:
@@ -314,14 +325,16 @@ suite "Waku Mix - the node's own hop":
     let node =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
     await node.mountTestMix()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.selfHop() == node.announcedAddresses[0]
     (await node.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
 
     let stale = MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()
     node.protocols.mix.setLocalMultiAddr(stale).expect("an IPv4 TCP hop")
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.selfHop() != stale
       node.selfHop() == node.announcedAddresses[0]
@@ -345,7 +358,8 @@ suite "Waku Mix - pool size":
     (await node.mountMix(DefaultClusterId, mixKeys.privateKey, @[])).isOkOr:
       raiseAssert "Failed to mount mix: " & $error
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
   asyncTeardown:
     (await node.stop()).isOkOr:
@@ -426,7 +440,8 @@ suite "Waku Mix - pool size":
       )
     ).isOkOr:
       raiseAssert "Failed to mount mix: " & $error
-    await other.startProtocols()
+    (await other.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       other.getMixNodePoolSize() == 1
@@ -524,7 +539,8 @@ suite "Waku Mix - bootstrap nodes":
     let mixKeys = generateKeyPair().expect("mix key pair")
     (await node.mountMix(DefaultClusterId, mixKeys.privateKey, bootnodes)).isOkOr:
       raiseAssert "Failed to mount mix: " & $error
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     await node.mixNodesResolved()
     return node
 
@@ -561,7 +577,8 @@ suite "Waku Mix - bootstrap nodes":
       )
     ).isOkOr:
       raiseAssert "Failed to mount mix: " & $error
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       node.getMixNodePoolSize() == 1
@@ -825,14 +842,16 @@ suite "Waku Mix - name resolution in the background":
       )
     ).isOkOr:
       raiseAssert "mount failed: " & error
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
     check:
       node.protocols.mixNodeResolution.cancelled()
       node.getMixNodePoolSize() == 0
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     resolver.gate.complete()
     check await node.mixNodesResolved().withTimeout(chronos.seconds(5))
     check node.getMixNodePoolSize() == 1

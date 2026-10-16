@@ -209,7 +209,8 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Start Waku v2 node
   info "Start listening on Waku v2"
-  await cmb.nodev2.startProtocols()
+  (await cmb.nodev2.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   # Always mount relay for bridge
   # `triggerSelf` is false on a `bridge` to avoid duplicates

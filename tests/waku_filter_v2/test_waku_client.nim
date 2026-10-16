@@ -2342,9 +2342,7 @@ suite "Waku Filter - End to End":
       server = newTestWakuNode(generateSecp256k1Key())
       client2nd = newTestWakuNode(generateSecp256k1Key())
 
-      await allFutures(
-        server.startProtocols(), client.startProtocols(), client2nd.startProtocols()
-      )
+      await allFutures(server.start(), client.start(), client2nd.start())
 
       await client.mountFilterClient()
       await client2nd.mountFilterClient()

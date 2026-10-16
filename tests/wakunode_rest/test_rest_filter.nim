@@ -62,9 +62,7 @@ proc init(T: type RestFilterTest, autoShardCount = 0'u32): Future[T] {.async.} =
   testSetup.serviceNode = testWakuNode()
   testSetup.subscriberNode = testWakuNode()
 
-  await allFutures(
-    testSetup.serviceNode.startProtocols(), testSetup.subscriberNode.startProtocols()
-  )
+  await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
 
   (await testSetup.serviceNode.mountRelay()).isOkOr:
     assert false, "Failed to mount relay: " & $error
@@ -939,7 +937,8 @@ suite "Waku v2 Rest API - Filter V2":
 
     # Given a second peer holding a criterion the subscriber does not
     let otherNode = testWakuNode()
-    await otherNode.startProtocols()
+    (await otherNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await otherNode.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

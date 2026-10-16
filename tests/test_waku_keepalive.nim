@@ -33,12 +33,14 @@ suite "Waku Keepalive":
       # complete the future with the comparison and check it below.
       completionFut.complete(peerId == node1.switch.peerInfo.peerId)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await node1.mountLibp2pPing()
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 

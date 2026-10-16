@@ -111,7 +111,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of pubsub topics - POST /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -175,7 +176,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Unsubscribe a node from an array of pubsub topics - DELETE /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let
       shard0 = RelayShard(clusterId: DefaultClusterId, shardId: 0)
@@ -243,7 +245,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Get the latest messages for a pubsub topic - GET /relay/v1/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -325,7 +328,8 @@ suite "Waku v2 Rest API - Relay":
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
     let idCredentials = generateCredentials()
@@ -392,7 +396,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # RPC server setup
     var restPort = Port(0)
@@ -439,7 +444,8 @@ suite "Waku v2 Rest API - Relay":
     check:
       (await node.mountRelay()).isOk()
       node.mountArchive(driver).isOk()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -483,7 +489,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of content topics - POST /relay/v1/auto/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
@@ -533,7 +540,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Unsubscribe a node from an array of content topics - DELETE /relay/v1/auto/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check node.mountAutoSharding(1, 8).isOk
@@ -611,7 +619,8 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -622,7 +631,8 @@ suite "Waku v2 Rest API - Relay":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -724,7 +734,8 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -735,7 +746,8 @@ suite "Waku v2 Rest API - Relay":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -816,7 +828,8 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -827,7 +840,8 @@ suite "Waku v2 Rest API - Relay":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -884,7 +898,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Get the latest messages for a content topic - GET /relay/v1/auto/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
@@ -960,7 +975,8 @@ suite "Waku v2 Rest API - Relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       discard await meshNode.mountOnchainRln(wakuRlnConfig)
-      await meshNode.startProtocols()
+      (await meshNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       const testPubsubTopic = PubsubTopic("/waku/2/rs/1/0")
       proc dummyHandler(
           topic: PubsubTopic, msg: WakuMessage
@@ -982,7 +998,8 @@ suite "Waku v2 Rest API - Relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.startProtocols()
+      (await node.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await node.connectToNodes(@[meshNode.peerInfo.toRemotePeerInfo()])
 
     # Registration is mandatory before sending messages with rln-relay
@@ -1053,7 +1070,8 @@ suite "Waku v2 Rest API - Relay":
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1113,7 +1131,8 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1186,7 +1205,8 @@ suite "Waku v2 Rest API - Relay":
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1259,7 +1279,8 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1341,7 +1362,8 @@ suite "Waku v2 Rest API - Relay":
       userMessageLimit = 20,
     )
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
     let idCredentials = generateCredentials()
@@ -1425,7 +1447,8 @@ suite "Waku v2 Rest API - Relay":
     (await meshNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay on mesh node"
     require meshNode.mountAutoSharding(1, 8).isOk
-    await meshNode.startProtocols()
+    (await meshNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let meshHandler = proc(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
@@ -1448,7 +1471,8 @@ suite "Waku v2 Rest API - Relay":
         userMessageLimit = 20,
       )
       rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.startProtocols()
+      (await node.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await node.connectToNodes(@[meshNode.peerInfo.toRemotePeerInfo()])
 
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1527,7 +1551,8 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let rlnCalls = node.mountStubRln(validProof = clientProof)
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -1575,7 +1600,8 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let rlnCalls = node.mountStubRln(validProof = @[1'u8, 2, 3])
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -1622,7 +1648,8 @@ suite "Waku v2 Rest API - Relay":
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1632,7 +1659,8 @@ suite "Waku v2 Rest API - Relay":
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1716,7 +1744,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1754,7 +1783,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1842,7 +1872,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1876,7 +1907,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1924,7 +1956,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2007,7 +2040,8 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check node.mountAutoSharding(DefaultClusterId, 8).isOk
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2045,7 +2079,8 @@ suite "Waku v2 Rest API - Relay":
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2055,7 +2090,8 @@ suite "Waku v2 Rest API - Relay":
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2121,7 +2157,8 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2166,7 +2203,8 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(DefaultClusterId, 8).isOk
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -2177,7 +2215,8 @@ suite "Waku v2 Rest API - Relay":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(DefaultClusterId, 8).isOk
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

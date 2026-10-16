@@ -85,7 +85,7 @@ suite "Waku Filter - End to End":
     client = newTestWakuNode(clientKey)
     clientClone = newTestWakuNode(clientKey) # Used for testing client restarts
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     await server.mountFilter()
     await client.mountFilterClient()
@@ -180,7 +180,8 @@ suite "Waku Filter - End to End":
     let
       publisherKey = generateSecp256k1Key()
       publisher = newTestWakuNode(publisherKey)
-    await publisher.startProtocols()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -217,7 +218,8 @@ suite "Waku Filter - End to End":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey)
 
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await server.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
 
@@ -251,7 +253,9 @@ suite "Waku Filter - End to End":
     ## is not prepare for restarts and maybe we don't need that restart feature.
 
     client = newTestWakuNode(clientKey)
-    await client.start() # Mimic restart by starting the clone
+    # Mimic restart by starting the clone
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # pushHandlerFuture = newFuture[(string, WakuMessage)]()
     await client.mountFilterClient()
@@ -296,7 +300,9 @@ suite "Waku Filter - End to End":
     # And the client node reboots
     (await client.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
-    await clientClone.startProtocols() # Mimic restart by starting the clone
+    # Mimic restart by starting the clone
+    (await clientClone.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # When a message is sent to the subscribed content topic, via Relay
     let msg = fakeWakuMessage(contentTopic = contentTopic)
@@ -648,7 +654,8 @@ suite "Waku Filter - End to End":
     for index in 0 ..< MaxFilterPeers:
       peers[index] = newTestWakuNode(generateSecp256k1Key())
 
-      await peers[index].startProtocols()
+      (await peers[index].start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await peers[index].mountFilterClient()
 
       ## connect switches
@@ -810,9 +817,12 @@ suite "Waku Filter - End to End":
       await client2.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
       await client3.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
 
-      await client1.startProtocols()
-      await client2.startProtocols()
-      await client3.startProtocols()
+      (await client1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await client2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await client3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       defer:
         (await client1.stop()).isOkOr:

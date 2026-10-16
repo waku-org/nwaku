@@ -53,7 +53,8 @@ suite "Waku v2 REST API - health":
   asyncTest "Get node health info - GET /health":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -121,7 +122,8 @@ suite "Waku v2 REST API - health":
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 

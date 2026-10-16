@@ -45,8 +45,9 @@ suite "Waku Lightpush - End To End":
     server = newTestWakuNode(serverKey)
     client = newTestWakuNode(clientKey)
 
-    await allFutures(server.startProtocols(), client.startProtocols())
-    await server.startProtocols()
+    await allFutures(server.start(), client.start())
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -137,8 +138,9 @@ suite "RLN Proofs as a Lightpush Service":
       epochSizeSec = 600,
     )
 
-    await allFutures(server.startProtocols(), client.startProtocols())
-    await server.startProtocols()
+    await allFutures(server.start(), client.start())
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -407,9 +409,7 @@ suite "Waku Lightpush message delivery":
       destNodeKey = generateSecp256k1Key()
       destNode = newTestWakuNode(destNodeKey)
 
-    await allFutures(
-      destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols()
-    )
+    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -461,9 +461,7 @@ suite "Waku Lightpush message delivery":
       bridgeNode = newTestWakuNode(generateSecp256k1Key())
       destNode = newTestWakuNode(generateSecp256k1Key())
 
-    await allFutures(
-      destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols()
-    )
+    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
     defer:
       await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
 

@@ -401,7 +401,8 @@ suite "SendService - Store validation loop":
     storeNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
       raiseAssert "mountMetadata: " & error
     discard await newTestWakuStore(storeNode.switch, delayedStoreHandler)
-    await storeNode.startProtocols()
+    (await storeNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     kernel.peerManager.addServicePeer(
       storeNode.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )

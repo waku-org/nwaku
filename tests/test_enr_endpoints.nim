@@ -47,7 +47,8 @@ procSuite "ENR endpoints":
     let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let bound = getPorts(kernel.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
@@ -61,7 +62,8 @@ procSuite "ENR endpoints":
   asyncTest "a concrete bind host is a chosen host and is carried":
     let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let bound = getPorts(kernel.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
@@ -75,7 +77,8 @@ procSuite "ENR endpoints":
     let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check kernel.enrAddresses().len == 0
 
     let granted = MultiAddress.init("/ip4/203.0.113.55/tcp/60555").get()
@@ -108,7 +111,8 @@ procSuite "ENR endpoints":
       kernel.enrBaseline().ip.get() == parseIpAddress("203.0.113.9")
       kernel.enrBaseline().tcp.get() == Port(1234)
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       kernel.enr.ipOf().get() == [203'u8, 0, 113, 9]
       kernel.enr.tcpOf().get() == 1234'u16
@@ -234,7 +238,8 @@ procSuite "ENR endpoints":
     let key = generateSecp256k1Key()
     let kernel =
       newTestWakuNode(key, parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false)
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let keyBytes = key.getRawBytes().expect("raw")
     let ethPk = keys.PrivateKey.fromHex(byteutils.toHex(keyBytes)).expect("pk")
@@ -498,7 +503,8 @@ procSuite "ENR endpoints":
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9917)),
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     require kernel.announcedAddresses.len == 1
     let resolved = kernel.announcedAddresses[0]
@@ -549,7 +555,8 @@ procSuite "ENR endpoints":
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9918)),
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     require kernel.announcedAddresses.len == 1
     let bound = kernel.announcedAddresses[0]

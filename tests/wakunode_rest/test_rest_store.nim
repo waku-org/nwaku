@@ -73,7 +73,8 @@ proc init(
     T: type RestStoreTest, msgs: seq[WakuMessage], driver: ArchiveDriver
 ): Future[RestStoreTest] {.async.} =
   var t = RestStoreTest(node: testWakuNode(), driver: driver)
-  await t.node.startProtocols()
+  (await t.node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   t.node.mountArchive(t.driver).isOkOr:
     assert false, "failed to mount archive: " & error
@@ -138,7 +139,8 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "invalid cursor":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -218,7 +220,8 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "Filter by start and end time":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -291,7 +294,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "Store node history response - forward pagination":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -385,7 +389,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "query a node and retrieve historical messages filtered by pubsub topic":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -459,7 +464,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "retrieve historical messages from a provided store node address":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -549,7 +555,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "filter historical messages by content topic":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -606,7 +613,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "precondition failed":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
@@ -677,7 +685,8 @@ procSuite "Waku Rest API - Store v3":
 
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -737,7 +746,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "correct message fields are returned":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -785,7 +795,8 @@ procSuite "Waku Rest API - Store v3":
   asyncTest "Rate limit store node store query":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -1322,7 +1333,8 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a failed dial to the store peer is answered 504":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await kernel.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1359,7 +1371,8 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a store peer whose port is closed is answered 504":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await kernel.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -1394,7 +1407,8 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "a store peer that accepts the connection and never answers is answered 504 on timeout":
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await kernel.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

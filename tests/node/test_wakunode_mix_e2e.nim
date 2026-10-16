@@ -147,7 +147,8 @@ proc setupMixNet(
       raiseAssert "mountMix " & $i & ": " & $error
 
   for n in mixnet.nodes:
-    await n.startProtocols()
+    (await n.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
   for i in 0 .. NumCore:
     let peers = (0 .. NumCore).toSeq().filterIt(it != i).mapIt(

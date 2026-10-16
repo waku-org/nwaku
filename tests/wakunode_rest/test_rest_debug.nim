@@ -39,7 +39,8 @@ suite "Waku v2 REST API - Debug":
   asyncTest "Get node info - GET /info":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -73,7 +74,8 @@ suite "Waku v2 REST API - Debug":
   asyncTest "Get node version - GET /version":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 

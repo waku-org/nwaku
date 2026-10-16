@@ -171,7 +171,8 @@ suite "Waku API - Send":
       (await relayNode1.mountRelay()).isOkOr:
         raiseAssert "Failed to mount relay"
       await relayNode1.mountLibp2pPing()
-      await relayNode1.startProtocols()
+      (await relayNode1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     lockNewGlobalBrokerContext:
       relayNode2 = newTestWakuNode(generateSecp256k1Key())
@@ -180,7 +181,8 @@ suite "Waku API - Send":
       (await relayNode2.mountRelay()).isOkOr:
         raiseAssert "Failed to mount relay"
       await relayNode2.mountLibp2pPing()
-      await relayNode2.startProtocols()
+      (await relayNode2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     lockNewGlobalBrokerContext:
       lightpushNode = newTestWakuNode(generateSecp256k1Key())
@@ -191,7 +193,8 @@ suite "Waku API - Send":
       (await lightpushNode.mountLightPush()).isOkOr:
         raiseAssert "Failed to mount lightpush"
       await lightpushNode.mountLibp2pPing()
-      await lightpushNode.startProtocols()
+      (await lightpushNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     lockNewGlobalBrokerContext:
       storeNode = newTestWakuNode(generateSecp256k1Key())
@@ -205,7 +208,8 @@ suite "Waku API - Send":
         raiseAssert "Failed to mount archive: " & error
       await storeNode.mountStore()
       await storeNode.mountLibp2pPing()
-      await storeNode.startProtocols()
+      (await storeNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     relayNode1PeerInfo = relayNode1.peerInfo.toRemotePeerInfo()
     relayNode1PeerId = relayNode1.peerInfo.peerId
@@ -588,7 +592,8 @@ suite "Waku API - Send":
       (await fakeLightpushNode.mountLightPush()).isOkOr:
         raiseAssert "Failed to mount lightpush"
       await fakeLightpushNode.mountLibp2pPing()
-      await fakeLightpushNode.startProtocols()
+      (await fakeLightpushNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     let fakeLightpushNodePeerInfo = fakeLightpushNode.peerInfo.toRemotePeerInfo()
     proc dummyHandler(
         topic: PubsubTopic, msg: WakuMessage
@@ -769,7 +774,8 @@ suite "Waku API - Send":
         raiseAssert "Failed to mount archive: " & error
       await isolatedStoreNode.mountStore()
       await isolatedStoreNode.mountLibp2pPing()
-      await isolatedStoreNode.startProtocols()
+      (await isolatedStoreNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     # Deliberately NOT subscribed to the topic and NOT wired into the relay mesh, so
     # it can answer store queries but never holds the published message.
     let isolatedStoreNodePeerInfo = isolatedStoreNode.peerInfo.toRemotePeerInfo()

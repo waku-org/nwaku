@@ -344,7 +344,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       .tryGet()
     builder.build().tryGet()
 
-  await kernel.startProtocols()
+  (await kernel.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")

@@ -32,7 +32,8 @@ suite "Waku Peer Exchange":
 
     asyncTest "Started node mounts peer exchange":
       # Given a started node without peer exchange mounted
-      await kernel.startProtocols()
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       check:
         kernel.discovery.peerExchange == nil
 
@@ -70,9 +71,7 @@ suite "Waku Peer Exchange":
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node3 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(
-        kernel.startProtocols(), node2.startProtocols(), node3.startProtocols()
-      )
+      await allFutures(kernel.start(), node2.start(), node3.start())
 
     asyncTeardown:
       await allFutures(kernel.stop(), node2.stop(), node3.stop())
@@ -158,7 +157,7 @@ suite "Waku Peer Exchange":
       kernel = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(kernel.startProtocols(), node2.startProtocols())
+      await allFutures(kernel.start(), node2.start())
 
     asyncTeardown:
       await allFutures(kernel.stop(), node2.stop())
@@ -229,9 +228,7 @@ suite "Waku Peer Exchange with discv5":
         nodeKey3 = generateSecp256k1Key()
         node3 = newTestWakuNode(nodeKey3, bindIp, Port(0), wakuFlags = Opt.some(flags))
 
-      await allFutures(
-        node1.startProtocols(), node2.startProtocols(), node3.startProtocols()
-      )
+      await allFutures(node1.start(), node2.start(), node3.start())
 
       let disc1 = (
         await startDiscv5WithAutoPort(node1, keys.PrivateKey(nodeKey1.skkey), bindIp)

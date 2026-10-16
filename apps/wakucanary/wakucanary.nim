@@ -272,7 +272,8 @@ proc main(rng: Rng): Future[int] {.async.} =
     error "failed to mount metadata protocol", error = error.msg
     quit(QuitFailure)
 
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   debug "Connecting to peer", peer = peer, timeout = conf.timeout
 

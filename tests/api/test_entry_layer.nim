@@ -205,7 +205,8 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -270,7 +271,8 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -374,7 +376,8 @@ suite "LogosDelivery - configured shards":
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.startProtocols()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await peer.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -424,7 +427,8 @@ suite "LogosDelivery - configured shards":
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
       publisher.mountStoreClient()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -436,7 +440,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await receiver.mountRelay()).isOkOr:
         raiseAssert error
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await receiver.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -447,7 +452,8 @@ suite "LogosDelivery - configured shards":
       subscriber.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
       await subscriber.mountFilterClient()
-      await subscriber.startProtocols()
+      (await subscriber.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await subscriber.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -554,7 +560,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -617,7 +624,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await publisher.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error
@@ -679,7 +687,8 @@ suite "LogosDelivery - configured shards":
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.startProtocols()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
       (await peer.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

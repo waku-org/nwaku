@@ -57,9 +57,7 @@ suite "Waku v2 Rest API - Admin":
     node3.mountMetadata(clusterId, shards).isOkOr:
       assert false, "Failed to mount metadata: " & $error
 
-    await allFutures(
-      node1.startProtocols(), node2.startProtocols(), node3.startProtocols()
-    )
+    await allFutures(node1.start(), node2.start(), node3.start())
     await allFutures(
       node1.mountRelay(),
       node2.mountRelay(),
@@ -379,7 +377,8 @@ suite "Waku v2 Rest API - Admin":
     # A peer without relay
     let node4 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
     check node4.mountMetadata(1, @[0.uint16]).isOk()
-    await node4.startProtocols()
+    (await node4.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await node4.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

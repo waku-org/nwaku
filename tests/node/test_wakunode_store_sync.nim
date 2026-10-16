@@ -78,7 +78,7 @@ suite "Waku Store Sync - End to End":
       )
       client = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[server, client]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # When the empty node syncs with it
     let res = await client.syncWith(server)
@@ -99,7 +99,7 @@ suite "Waku Store Sync - End to End":
       nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
       nodeC = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[nodeA, nodeB, nodeC]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # When B syncs with A, then C with B
     let resB = await nodeB.syncWith(nodeA)
@@ -121,7 +121,7 @@ suite "Waku Store Sync - End to End":
       nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[nodeA, nodeB]
     await allFutures(nodes.mapIt(it.mountRelay()))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     for node in nodes:
       node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), noopRawHandler()).isOkOr:
         raiseAssert error
@@ -184,7 +184,8 @@ suite "Waku Store Sync - End to End":
       )
     ).isOkOr:
       raiseAssert error
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Then the effective range is the retention minus the jitter
     check node.protocols.storeReconciliation.getEffectiveSyncRange() == 1780.seconds
@@ -192,7 +193,8 @@ suite "Waku Store Sync - End to End":
   asyncTest "The sync range stays as configured without a time retention":
     let node = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[node]
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check node.protocols.storeReconciliation.getEffectiveSyncRange() == 3600.seconds
 
@@ -213,7 +215,7 @@ suite "Waku Store Sync - End to End":
         await newArchiveDriverWithMessages(DefaultPubsubTopic, @[oldMsg, recentMsg])
       )
     nodes = @[node, peer]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     let syncInsertsBefore = insertCount(syncIngress)
 
@@ -247,7 +249,7 @@ suite "Waku Store Sync - End to End":
       nodeB =
         await newStoreSyncNode(newSqliteArchiveDriver(), maxMessageSize = 200 * 1024)
     nodes = @[nodeA, nodeB]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # When B syncs with A
     let res = await nodeB.syncWith(nodeA)
@@ -278,7 +280,7 @@ suite "Waku Store Sync - End to End":
         newSqliteArchiveDriver(), maxMessageSize = 200 * 1024, quicEnabled = false
       )
     nodes = @[nodeA, nodeB, nodeC]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # When B syncs with A, then C syncs with A
     let resB = await nodeB.syncWith(nodeA)
@@ -303,7 +305,7 @@ suite "Waku Store Sync - End to End":
       )
       nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[nodeA, nodeB]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     check await nodeB.peerManager.connectPeer(
       RemotePeerInfo.init(
         nodeA.peerInfo.peerId, nodeA.peerInfo.addrs.filterIt("/quic-v1" notin $it)
@@ -334,7 +336,7 @@ suite "Waku Store Sync - End to End":
       )
       nodeB = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[nodeA, nodeB]
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     check await nodeB.peerManager.connectPeer(
       RemotePeerInfo.init(
         nodeA.peerInfo.peerId, nodeA.peerInfo.addrs.filterIt("/quic-v1" in $it)

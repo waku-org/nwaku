@@ -3,7 +3,7 @@
 import results, chronicles, std/tables, chronos, testutils/unittests
 
 import
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_core,
   ../../waku_lightpush/[lightpush_utils],
   ../../testlib/[wakucore, wakunode, futures, testasync],
@@ -52,7 +52,7 @@ suite "Peer Manager":
       await server.mountFilter()
 
       # And both nodes are started
-      await allFutures(server.startProtocols(), client.startProtocols())
+      await allFutures(server.start(), client.start())
 
       # And the nodes are connected
       let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
@@ -99,7 +99,7 @@ suite "Peer Manager":
         assert false, "Failed to mount relay"
 
       # And both nodes are started
-      await allFutures(server.startProtocols(), client.startProtocols())
+      await allFutures(server.start(), client.start())
 
       # And the nodes are connected
       let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
@@ -147,7 +147,7 @@ suite "Peer Manager":
         assert false, "Failed to mount relay"
 
       # And both nodes are started
-      await allFutures(server.startProtocols(), client.startProtocols())
+      await allFutures(server.start(), client.start())
 
       # And the nodes are connected
       let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()

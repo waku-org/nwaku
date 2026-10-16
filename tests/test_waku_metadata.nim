@@ -44,7 +44,7 @@ procSuite "Waku Metadata Protocol":
     discard await node2.mountRelay()
 
     # Start nodes
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     # Subscribe to topics on node1 - relay will track these and metadata will report them
     let noOpHandler: WakuRelayHandler = proc(
@@ -92,7 +92,7 @@ procSuite "Waku Metadata Protocol":
     discard node2.mountMetadata(clusterId, @[])
 
     # Start nodes (relay is NOT mounted yet on node1)
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     ## When: Node2 requests metadata from Node1 before relay is active
     let connOpt = await node2.peerManager.dialPeer(
@@ -128,9 +128,7 @@ procSuite "Waku Metadata Protocol":
     discard node3.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
-    await allFutures(
-      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-    )
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
@@ -182,7 +180,7 @@ procSuite "Waku Metadata Protocol":
     discard node2.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
@@ -221,7 +219,7 @@ procSuite "Waku Metadata Protocol":
     discard await node1.mountRelay()
     discard await node2.mountRelay()
 
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage

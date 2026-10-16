@@ -89,7 +89,8 @@ procSuite "Announced addresses":
   asyncTest "the resolved base reaches peerInfo and the API projection":
     let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       kernel.announcedAddresses.len > 0
       kernel.announcedAddresses == kernel.switch.peerInfo.addrs
@@ -111,7 +112,8 @@ procSuite "Announced addresses":
       discard
     kernel.switch.mount(probe)
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       probe.addrsAtStart.len > 0
       probe.addrsAtStart.allIt("0.0.0.0" notin $it and "/tcp/0" notin $it)
@@ -126,7 +128,8 @@ procSuite "Announced addresses":
     ## because it announces endpoints nothing listens on.
     let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       kernel.announcedAddresses.len > 0
       kernel.announcedAddresses.allIt("/ip4/127.0.0.1/" in $it)
@@ -143,7 +146,8 @@ procSuite "Announced addresses":
       Port(0),
       extMultiAddrs = @[tricky],
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       tricky in kernel.announcedAddresses
     (await kernel.stop()).isOkOr:
@@ -159,7 +163,8 @@ procSuite "Announced addresses":
       Port(0),
       extMultiAddrs = @[mapped],
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       kernel.announcedAddresses.allIt(not it.getIp().get(LoopbackIp).isWildcard())
       kernel.announcedAddresses.anyIt("/tcp/60123" in $it)
@@ -169,7 +174,8 @@ procSuite "Announced addresses":
   asyncTest "a circuit route flows through the chain, and removal converges on the next update":
     let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let circuit = MultiAddress.init(CircuitAddr).get()
     var injecting = true
@@ -223,14 +229,16 @@ procSuite "Announced addresses":
     kernel.switch.services.add(Service(natSvc))
     kernel.switch.services.add(Service(UpdateBeforeBind()))
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let mappersAfterFirstStart = kernel.switch.peerInfo.addressMappers.len
     check kernel.announcedAddresses.anyIt("203.0.113.77" in $it and "62001" in $it)
     (await kernel.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
 
     grantPort = Port(62002)
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       ## The mapper count stays flat across restarts.
       kernel.switch.peerInfo.addressMappers.len == mappersAfterFirstStart
@@ -260,7 +268,8 @@ procSuite "Announced addresses":
       Service(NATService.new(upnpConfig(), rng(), portMapperFactory = factory))
     )
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let bound = kernel.boundTcpPort()
     check:
       bound != Port(0)
@@ -292,7 +301,8 @@ procSuite "Announced addresses":
     )
     kernel.switch.services.add(Service(UpdateBeforeBind()))
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       recorders.len >= 1
       recorders.allIt(it.mappedInternal == @[FixedPort, FixedPort])
@@ -316,7 +326,8 @@ procSuite "Announced addresses":
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
     kernel.switch.addressManager.networkInterfaceProvider = movingProvider
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let bound = kernel.boundTcpPort()
     check kernel.announcedAddresses ==
       @[MultiAddress.init("/ip4/192.168.9.9/tcp/" & $bound).get()]
@@ -331,7 +342,8 @@ procSuite "Announced addresses":
   asyncTest "an unchanged owned update needs the explicit copy":
     let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let committed = kernel.switch.peerInfo.addrs
 
     kernel.announcedAddresses = @[]
@@ -367,7 +379,8 @@ procSuite "Announced addresses":
     kernel.switch.services.add(
       Service(NATService.new(upnpConfig(), rng(), portMapperFactory = factory))
     )
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       kernel.announcedAddresses == @[ext]
       kernel.switch.peerInfo.addrs == @[ext]

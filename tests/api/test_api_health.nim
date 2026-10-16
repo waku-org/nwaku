@@ -85,7 +85,8 @@ suite "LM API health checking":
       serviceNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
         raiseAssert error
       await serviceNode.mountLibp2pPing()
-      await serviceNode.startProtocols()
+      (await serviceNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     servicePeerInfo = serviceNode.peerInfo.toRemotePeerInfo()
     serviceNode.protocols.relay.subscribe(DefaultShard, dummyHandler)

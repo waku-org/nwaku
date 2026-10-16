@@ -476,7 +476,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
 
   #await node.mountRendezvousClient(conf.clusterId)
 
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   node.peerManager.start()
 

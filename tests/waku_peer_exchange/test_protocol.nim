@@ -54,9 +54,7 @@ suite "Waku Peer Exchange":
           node3 =
             newTestWakuNode(nodeKey3, bindIp, Port(0), wakuFlags = Opt.some(flags))
 
-        await allFutures(
-          node1.startProtocols(), node2.startProtocols(), node3.startProtocols()
-        )
+        await allFutures(node1.start(), node2.start(), node3.start())
 
         let disc1 = (
           await startDiscv5WithAutoPort(node1, keys.PrivateKey(nodeKey1.skkey), bindIp)
@@ -107,14 +105,7 @@ suite "Waku Peer Exchange":
         node4 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures(
-        [
-          node1.startProtocols(),
-          node2.startProtocols(),
-          node3.startProtocols(),
-          node4.startProtocols(),
-        ]
-      )
+      await allFutures([node1.start(), node2.start(), node3.start(), node4.start()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Create connection
@@ -172,14 +163,7 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
         node4 = newTestWakuNode(generateSecp256k1Key())
 
-      await allFutures(
-        [
-          node1.startProtocols(),
-          node2.startProtocols(),
-          node3.startProtocols(),
-          node4.startProtocols(),
-        ]
-      )
+      await allFutures([node1.start(), node2.start(), node3.start(), node4.start()])
       defer:
         await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
@@ -213,7 +197,7 @@ suite "Waku Peer Exchange":
         node2 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols()])
+      await allFutures([node1.start(), node2.start()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Create connection
@@ -293,9 +277,7 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures(
-        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-      )
+      await allFutures([node1.start(), node2.start(), node3.start()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Connect the nodes
@@ -323,7 +305,7 @@ suite "Waku Peer Exchange":
         node2 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols()])
+      await allFutures([node1.start(), node2.start()])
       await allFutures([node1.mountPeerExchangeClient(), node2.mountPeerExchange()])
 
       # When making any request with an invalid peer info
@@ -341,7 +323,7 @@ suite "Waku Peer Exchange":
       # Create 3 nodes
       let nodes = toSeq(0 ..< 3).mapIt(newTestWakuNode(generateSecp256k1Key()))
 
-      await allFutures(nodes.mapIt(it.startProtocols()))
+      await allFutures(nodes.mapIt(it.start()))
       await allFutures(nodes.mapIt(it.mountPeerExchange()))
       await allFutures(nodes.mapIt(it.mountPeerExchangeClient()))
 
@@ -370,9 +352,7 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures(
-        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-      )
+      await allFutures([node1.start(), node2.start(), node3.start()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Simulate node1 discovering node3 via Discv5
@@ -411,9 +391,7 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures(
-        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-      )
+      await allFutures([node1.start(), node2.start(), node3.start()])
       await allFutures(
         [
           node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),

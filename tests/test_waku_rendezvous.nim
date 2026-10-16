@@ -81,9 +81,7 @@ procSuite "Waku Rendezvous":
         node3.mountRendezvous(clusterId),
       ]
     )
-    await allFutures(
-      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-    )
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     let peerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
     let peerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
@@ -130,7 +128,8 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (before relay)
     await kernel.mountRendezvous(clusterId, configuredShards)
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: The rendezvous protocol should be mounted successfully
     check:
@@ -158,7 +157,8 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (no relay mounted)
     await lightClient.mountRendezvous(clusterId, configuredShards)
-    await lightClient.startProtocols()
+    (await lightClient.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: Rendezvous should be mounted successfully without relay
     check:

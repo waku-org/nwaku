@@ -32,7 +32,8 @@ suite "Kernel - Relay":
 
     # Relay protocol starts if mounted after node start
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -52,7 +53,8 @@ suite "Kernel - Relay":
       # Relay has not yet started as node has not yet started
       GossipSub(node2.protocols.relay).heartbeatFut.isNil()
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       # Relay started on node start
@@ -73,15 +75,18 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.startProtocols()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -158,15 +163,18 @@ suite "Kernel - Relay":
       message2 = WakuMessage(payload: payload2, contentTopic: contentTopic2)
 
     # start all the nodes
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.startProtocols()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -289,11 +297,13 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -343,11 +353,13 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -402,11 +414,13 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -462,11 +476,13 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -522,11 +538,13 @@ suite "Kernel - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -570,7 +588,7 @@ suite "Kernel - Relay":
     # TCP teardown is deterministic enough to assert on connection counts.
     let nodes =
       toSeq(0 ..< 5).mapIt(newTestWakuNode(generateSecp256k1Key(), quicEnabled = false))
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     proc simpleHandler(
@@ -648,7 +666,8 @@ suite "Kernel - Relay":
       nodeKey = generateSecp256k1Key()
       kernel = newTestWakuNode(nodeKey)
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require kernel.mountAutoSharding(1, 1).isOk
@@ -715,12 +734,14 @@ suite "Kernel - Relay":
     ): Future[void] {.async, gcsafe.} =
       await sleepAsync(0.milliseconds)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node1.protocols.relay.parameters.pruneBackoff = 15.seconds
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -744,7 +765,8 @@ suite "Kernel - Relay":
       node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     let restartedNode2 = newTestWakuNode(nodeKey2)
-    await restartedNode2.startProtocols()
+    (await restartedNode2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await restartedNode2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     restartedNode2.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
@@ -850,7 +872,8 @@ suite "Kernel - Relay":
         restartedNode3ReceivedFromNode4.complete(true)
 
     for kernel in [node1, node2, node3, node4]:
-      await kernel.startProtocols()
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
 
@@ -889,7 +912,8 @@ suite "Kernel - Relay":
       not node4.hasGossipsubPeer($shard, peerId3)
 
     let restartedNode3 = newTestWakuNode(nodeKey3)
-    await restartedNode3.startProtocols()
+    (await restartedNode3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await restartedNode3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     restartedNode3.subscribe((kind: PubsubSub, topic: $shard), restartedNode3Handler).isOkOr:

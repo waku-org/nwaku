@@ -56,7 +56,8 @@ suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin matches":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -120,7 +121,8 @@ suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin reject":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -188,7 +190,8 @@ suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin allmatches":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -246,7 +249,8 @@ suite "Waku v2 REST API CORS Handling":
   asyncTest "No origin goes through":
     # Given
     let kernel = testWakuNode()
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 

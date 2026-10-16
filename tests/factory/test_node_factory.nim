@@ -184,7 +184,7 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(kernel.startProtocols(), client.startProtocols())
+    await allFutures(kernel.start(), client.start())
     defer:
       await allFutures(kernel.stop(), client.stop())
     await client.mountFilterClient()
@@ -216,7 +216,7 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(kernel.startProtocols(), client.startProtocols())
+    await allFutures(kernel.start(), client.start())
     defer:
       await allFutures(kernel.stop(), client.stop())
     await client.mountFilterClient()
@@ -322,7 +322,7 @@ suite "Node Factory":
     check:
       responder.mountMetadata(DefaultClusterId, @[]).isOk()
       discoveredNode.mountMetadata(DefaultClusterId, @[]).isOk()
-    await allFutures(responder.startProtocols(), discoveredNode.startProtocols())
+    await allFutures(responder.start(), discoveredNode.start())
     defer:
       await allFutures(responder.stop(), discoveredNode.stop())
     await responder.mountPeerExchange()
@@ -369,7 +369,7 @@ suite "Node Factory":
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(kernel.startProtocols(), client.startProtocols())
+    await allFutures(kernel.start(), client.start())
     defer:
       await allFutures(kernel.stop(), client.stop())
 
@@ -535,7 +535,8 @@ suite "Auto-port retry":
 
     let nodeKey = generateSecp256k1Key()
     let kernel = newTestWakuNode(nodeKey)
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
       (await kernel.stop()).isOkOr:
         raiseAssert "failed to stop kernel: " & error

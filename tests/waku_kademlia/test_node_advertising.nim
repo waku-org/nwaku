@@ -68,7 +68,8 @@ suite "Waku Kademlia node advertising":
     let service = ServiceInfo(id: "/test/service/1.0.0", data: Opt.none(seq[byte]))
     let node = newAdvertisingNode(parseIpAddress("0.0.0.0"), service)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     ## The record published before the service was added listed no services.
     checkUntilTimeout:
@@ -84,7 +85,8 @@ suite "Waku Kademlia node advertising":
     ## The stored record survives the stop. Delete it so the restart must publish anew.
     node.discovery.kademlia.protocol.dataTable.del(node.switch.peerInfo.peerId.toKey())
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()
@@ -102,7 +104,8 @@ suite "Waku Kademlia node advertising":
     )
     let node = newAdvertisingNode(parseIpAddress("127.0.0.1"), service, ext)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.started
       node.discovery.kademlia.protocol.record().isErr()
@@ -110,7 +113,8 @@ suite "Waku Kademlia node advertising":
     (await node.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check not node.isAdvertised(service)
     (await node.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
@@ -120,7 +124,8 @@ suite "Waku Kademlia node advertising":
     let service = ServiceInfo(id: "/test/service/1.0.0", data: Opt.none(seq[byte]))
     let node = newAdvertisingNode(parseIpAddress("127.0.0.1"), service)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()

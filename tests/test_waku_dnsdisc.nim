@@ -40,9 +40,7 @@ suite "Waku DNS Discovery":
       assert false, "Failed to mount relay"
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await allFutures(
-      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
-    )
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     let
       enr1 = newTestEnrRecord(nodeKey1, $bindIp, uint16(node1.boundTcpPort()), 0)
@@ -84,7 +82,8 @@ suite "Waku DNS Discovery":
 
     (await node4.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node4.startProtocols()
+    (await node4.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 

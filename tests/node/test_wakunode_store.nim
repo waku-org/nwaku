@@ -79,7 +79,7 @@ suite "Waku Store - End to End - Sorted Archive":
     await server.mountStore()
     client.mountStoreClient()
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
@@ -480,7 +480,8 @@ suite "Waku Store - End to End - Sorted Archive":
 
         await otherServer.mountStore()
 
-        await otherServer.startProtocols()
+        (await otherServer.start()).isOkOr:
+          raiseAssert "failed to start kernel: " & error
         let otherServerRemotePeerInfo = otherServer.peerInfo.toRemotePeerInfo()
 
         # When making a history query to the first server node
@@ -578,7 +579,7 @@ suite "Waku Store - End to End - Unsorted Archive":
     await server.mountStore()
     client.mountStoreClient()
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
@@ -795,7 +796,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
     await server.mountStore()
     client.mountStoreClient()
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
@@ -943,7 +944,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     await server.mountStore()
     client.mountStoreClient()
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
@@ -1247,7 +1248,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       assert mountEmptyArchiveResult.isOk()
 
       await emptyServer.mountStore()
-      await emptyServer.startProtocols()
+      (await emptyServer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let emptyServerRemotePeerInfo = emptyServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with an empty archive
@@ -1288,7 +1290,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       assert mountVoluminousArchiveResult.isOk()
 
       await voluminousServer.mountStore()
-      await voluminousServer.startProtocols()
+      (await voluminousServer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let voluminousServerRemotePeerInfo = voluminousServer.peerInfo.toRemotePeerInfo()
 
       # Given the following history query

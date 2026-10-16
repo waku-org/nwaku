@@ -39,14 +39,16 @@ suite "Kernel":
 
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node1.protocols.relay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node2.protocols.relay.codec = "/vac/waku/relay/2.0.0-beta2"
@@ -105,7 +107,7 @@ suite "Kernel":
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     # Construct DNS multiaddr for node2
     let
@@ -129,7 +131,8 @@ suite "Kernel":
       )
 
     # Initialize and start node1
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -141,7 +144,8 @@ suite "Kernel":
       let
         nodeKey = generateSecp256k1Key()
         kernel = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(0))
-      await kernel.startProtocols()
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       otherNodes.add(kernel)
@@ -201,7 +205,8 @@ suite "Kernel":
       kernel.announcedAddresses.len == 1
       kernel.announcedAddresses.contains(announcedEndpoint)
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       kernel.started
@@ -234,7 +239,8 @@ suite "Kernel":
       kernel.announcedAddresses.contains(tcpAnnounced)
       kernel.announcedAddresses.anyIt("/quic-v1" in $it)
 
-    await kernel.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       kernel.started
@@ -252,7 +258,7 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, quicEnabled = true)
 
-    await allFutures(node1.startProtocols(), node2.startProtocols())
+    await allFutures(node1.start(), node2.start())
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -275,7 +281,7 @@ suite "Kernel":
       node1 = newTestWakuNode(generateSecp256k1Key(), quicEnabled = true)
       node2 = newTestWakuNode(generateSecp256k1Key(), quicEnabled = true)
 
-    await allFutures(node1.startProtocols(), node2.startProtocols())
+    await allFutures(node1.start(), node2.start())
 
     let quicAddrs = node2.switch.peerInfo.addrs.filterIt("/quic-v1" in $it)
     require quicAddrs.len >= 1
@@ -386,11 +392,13 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -424,11 +432,13 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 

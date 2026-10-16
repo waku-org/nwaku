@@ -73,7 +73,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -108,7 +108,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -164,7 +164,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -223,9 +223,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(
-      client.startProtocols(), server.startProtocols(), filterSource.startProtocols()
-    )
+    waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
@@ -297,7 +295,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -340,7 +338,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -390,7 +388,7 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols())
+    waitFor allFutures(client.start(), server.start())
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error

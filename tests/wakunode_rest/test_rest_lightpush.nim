@@ -62,9 +62,9 @@ proc init(
   testSetup.consumerNode = testWakuNode()
 
   await allFutures(
-    testSetup.serviceNode.startProtocols(),
-    testSetup.pushNode.startProtocols(),
-    testSetup.consumerNode.startProtocols(),
+    testSetup.serviceNode.start(),
+    testSetup.pushNode.start(),
+    testSetup.consumerNode.start(),
   )
 
   (await testSetup.consumerNode.mountRelay()).isOkOr:

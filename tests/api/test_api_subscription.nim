@@ -95,7 +95,8 @@ proc setupNetwork(
     if mode == messaging_conf.LogosDeliveryMode.Edge:
       await net.publisher.mountFilter()
     await net.publisher.mountLibp2pPing()
-    await net.publisher.startProtocols()
+    (await net.publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
   net.publisherPeerInfo = net.publisher.peerInfo.toRemotePeerInfo()
 
@@ -118,7 +119,8 @@ proc setupNetwork(
         "Failed to mount metadata on meshBuddy"
       )
       (await net.meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
-      await net.meshBuddy.startProtocols()
+      (await net.meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       net.meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -655,7 +657,8 @@ suite "Messaging API, SubscriptionManager":
       (await publisher.mountRelay()).expect("Failed to mount relay on publisher")
       await publisher.mountFilter()
       await publisher.mountLibp2pPing()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -673,7 +676,8 @@ suite "Messaging API, SubscriptionManager":
       (await meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
       await meshBuddy.mountFilter()
       await meshBuddy.mountLibp2pPing()
-      await meshBuddy.startProtocols()
+      (await meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -770,7 +774,8 @@ suite "Messaging API, SubscriptionManager":
       (await publisher.mountRelay()).expect("Failed to mount relay on publisher")
       await publisher.mountFilter()
       await publisher.mountLibp2pPing()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -788,7 +793,8 @@ suite "Messaging API, SubscriptionManager":
       (await meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
       await meshBuddy.mountFilter()
       await meshBuddy.mountLibp2pPing()
-      await meshBuddy.startProtocols()
+      (await meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -806,7 +812,8 @@ suite "Messaging API, SubscriptionManager":
       (await sparePeer.mountRelay()).expect("Failed to mount relay on sparePeer")
       await sparePeer.mountFilter()
       await sparePeer.mountLibp2pPing()
-      await sparePeer.startProtocols()
+      (await sparePeer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       sparePeer.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
