@@ -365,14 +365,15 @@ proc installFilterPingSubscriberHandler(
 const ROUTE_FILTER_MESSAGES* = "/filter/v2/messages/{contentTopic}"
 
 proc installFilterGetMessagesHandler(
-    router: var RestRouter, node: WakuNode, cache: MessageCache
+    router: var RestRouter, node: WakuNode, cache: MessageCache, withPushHandler: bool
 ) =
-  let pushHandler: FilterPushHandler = proc(
-      pubsubTopic: PubsubTopic, msg: WakuMessage
-  ) {.async, gcsafe, closure.} =
-    cache.addMessage(pubsubTopic, msg)
+  if withPushHandler:
+    let pushHandler: FilterPushHandler = proc(
+        pubsubTopic: PubsubTopic, msg: WakuMessage
+    ) {.async, gcsafe, closure.} =
+      cache.addMessage(pubsubTopic, msg)
 
-  node.wakuFilterClient.registerPushHandler(pushHandler)
+    node.wakuFilterClient.registerPushHandler(pushHandler)
 
   router.api(MethodGet, ROUTE_FILTER_MESSAGES) do(
     contentTopic: string
@@ -402,10 +403,13 @@ proc installFilterRestApiHandlers*(
     node: WakuNode,
     cache: MessageCache,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
+    withPushHandler = true,
 ) =
+  ## Use `withPushHandler = false` when a previous call registered a push
+  ## handler that fills `cache`.
   installFilterPingSubscriberHandler(router, node, discHandler)
   installFilterPostSubscriptionsHandler(router, node, cache, discHandler)
   installFilterPutSubscriptionsHandler(router, node, cache, discHandler)
   installFilterDeleteSubscriptionsHandler(router, node, cache, discHandler)
   installFilterDeleteAllSubscriptionsHandler(router, node, cache, discHandler)
-  installFilterGetMessagesHandler(router, node, cache)
+  installFilterGetMessagesHandler(router, node, cache, withPushHandler)

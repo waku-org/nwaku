@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[options, net, sequtils, sets, strutils, uri]
+import std/[importutils, options, net, sequtils, sets, strutils, tables, uri]
 import chronos, metrics, testutils/unittests, presto, presto/client as presto_client
 import brokers/broker_context
 import logos_delivery
@@ -136,6 +136,49 @@ suite "LogosDelivery - entry layer selection":
 
     await rest.stop(node)
 
+    (await node.stop()).isOkOr:
+      raiseAssert "stop failed: " & error
+
+  asyncTest "messaging + rest: a REST restart keeps the message caches that the node fills":
+    privateAccess(WakuFilterClient)
+    var node: LogosDelivery
+    var rest: RestService
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(nodeConf(EntryLayer.messaging, rest = true))).valueOr:
+        raiseAssert error
+      rest = (await node.startWithRest()).valueOr:
+        raiseAssert "start failed: " & error
+    let filterClient = node.waku.node.wakuFilterClient
+    let pushHandlerCount =
+      if filterClient.isNil(): 0 else: filterClient.pushHandlers.len
+
+    # The library restarts a node this way.
+    await rest.stop(node)
+    (await node.stop()).isOkOr:
+      raiseAssert "stop failed: " & error
+    rest.start(node).isOkOr:
+      raiseAssert "REST restart failed: " & error
+    (await node.start()).isOkOr:
+      raiseAssert "node restart failed: " & error
+    rest.mount(node).isOkOr:
+      raiseAssert "REST mount failed: " & error
+
+    # The node keeps the relay handler of the first mount for each shard.
+    let shard = $RelayShard(
+      clusterId: node.waku.conf.clusterId, shardId: node.waku.conf.subscribeShards[0]
+    )
+    let message = fakeWakuMessage(payload = "after-restart")
+    check node.waku.node.legacyAppHandlers.hasKey(shard)
+    if node.waku.node.legacyAppHandlers.hasKey(shard):
+      await node.waku.node.legacyAppHandlers[shard](shard, message)
+    let response = await restClientFor(rest).relayGetMessagesV1(shard)
+    check:
+      response.status == 200
+      response.data.mapIt(it.payload) == @[toRelayWakuMessage(message).payload]
+      # The node start adds its own push handler. The REST mount adds none.
+      filterClient.isNil() or filterClient.pushHandlers.len == pushHandlerCount + 1
+
+    await rest.stop(node)
     (await node.stop()).isOkOr:
       raiseAssert "stop failed: " & error
 

@@ -25,8 +25,6 @@ import
 
 export protocol, waku_enr
 
-declarePublicGauge logos_delivery_discv5_discovered_per_shard,
-  "number of nodes discovered by each shard", labels = ["shard"]
 declarePublicCounter logos_delivery_discv5_errors,
   "number of waku discv5 errors", ["type"]
 
@@ -235,20 +233,13 @@ proc findRandomPeers*(
   elif wd.predicate.isSome():
     discoveredRecords = discoveredRecords.filter(wd.predicate.get())
 
-  # Increment metric for each discovered record's shards
   for record in discoveredRecords:
     let typedRecord = record.toTyped().valueOr:
-      # If we can't parse the record, skip it
       logos_delivery_discv5_errors.inc(labelValues = ["ParseFailure"])
       continue
 
-    let relayShards = typedRecord.relaySharding().valueOr:
-      # If no relay sharding info, skip it
+    if typedRecord.relaySharding().isNone():
       logos_delivery_discv5_errors.inc(labelValues = ["NoShardInfo"])
-      continue
-
-    for shardId in relayShards.shardIds:
-      logos_delivery_discv5_discovered_per_shard.inc(labelValues = [$shardId])
 
   return discoveredRecords
 

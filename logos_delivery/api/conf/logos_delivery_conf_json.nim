@@ -19,6 +19,7 @@ const
   KeyReliabilityEnabled = "reliabilityenabled"
   KeyReliability = "reliability"
   KeyAnonymityLevel = "anonymitylevel"
+  KeyAnonymityLevelSwitch = "anonymity-level"
 
 proc parseMode(s: string): Result[LogosDeliveryMode, string] =
   case s.strip().toLowerAscii()
@@ -65,7 +66,9 @@ proc parseFlatConf(
   ## `WakuNodeConf`. Full stack. Delete this proc and its call site to drop support.
   var messaging = MessagingClientConf()
   var messagingFields: Table[string, (string, JsonNode)]
-  for key in [KeyReliabilityEnabled, KeyReliability, KeyAnonymityLevel]:
+  for key in [
+    KeyReliabilityEnabled, KeyReliability, KeyAnonymityLevel, KeyAnonymityLevelSwitch
+  ]:
     if topJsonNode.hasKey(key):
       messagingFields[key] = topJsonNode.getOrDefault(key)
       topJsonNode.del(key)
