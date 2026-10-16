@@ -98,7 +98,7 @@ suite "LM API health checking":
 
   asyncTeardown:
     discard await client.stop()
-    await serviceNode.stop()
+    discard await serviceNode.stop()
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
     client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
@@ -107,7 +107,9 @@ suite "LM API health checking":
     var isHealthy = false
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
-      let req = RequestShardTopicsHealth.request(client.kernel.brokerCtx, @[DefaultShard]).valueOr:
+      let req = RequestShardTopicsHealth.request(
+        client.kernel.brokerCtx, @[DefaultShard]
+      ).valueOr:
         raiseAssert "RequestShardTopicsHealth failed"
 
       if req.topicHealth.len > 0:

@@ -54,7 +54,9 @@ suite "Waku Peer Exchange":
           node3 =
             newTestWakuNode(nodeKey3, bindIp, Port(0), wakuFlags = Opt.some(flags))
 
-        await allFutures(node1.startProtocols(), node2.startProtocols(), node3.startProtocols())
+        await allFutures(
+          node1.startProtocols(), node2.startProtocols(), node3.startProtocols()
+        )
 
         let disc1 = (
           await startDiscv5WithAutoPort(node1, keys.PrivateKey(nodeKey1.skkey), bindIp)
@@ -94,7 +96,7 @@ suite "Waku Peer Exchange":
           response.get().peerInfos[0].enr == disc2.protocol.localNode.record.raw
 
         await allFutures(
-          [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
+          node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()
         )
 
     asyncTest "Request returns some discovered peers":
@@ -105,7 +107,14 @@ suite "Waku Peer Exchange":
         node4 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols(), node4.startProtocols()])
+      await allFutures(
+        [
+          node1.startProtocols(),
+          node2.startProtocols(),
+          node3.startProtocols(),
+          node4.startProtocols(),
+        ]
+      )
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Create connection
@@ -127,8 +136,9 @@ suite "Waku Peer Exchange":
 
       # Request 2 peer from px. Test all request variants
       let response1 = await node2.discovery.peerExchangeClient.request(2)
-      let response2 =
-        await node2.discovery.peerExchangeClient.request(2, node1.peerInfo.toRemotePeerInfo())
+      let response2 = await node2.discovery.peerExchangeClient.request(
+        2, node1.peerInfo.toRemotePeerInfo()
+      )
       let response3 = await node2.discovery.peerExchangeClient.request(2, connOpt.get())
 
       # Check the response or dont even continue
@@ -162,7 +172,14 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
         node4 = newTestWakuNode(generateSecp256k1Key())
 
-      await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols(), node4.startProtocols()])
+      await allFutures(
+        [
+          node1.startProtocols(),
+          node2.startProtocols(),
+          node3.startProtocols(),
+          node4.startProtocols(),
+        ]
+      )
       defer:
         await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
@@ -180,8 +197,9 @@ suite "Waku Peer Exchange":
       node1.peerManager.switch.peerStore[ConnectionBook][info4.peerId] = CannotConnect
 
       # When node2 requests two peers from node1
-      let response =
-        await node2.discovery.peerExchangeClient.request(2, node1.peerInfo.toRemotePeerInfo())
+      let response = await node2.discovery.peerExchangeClient.request(
+        2, node1.peerInfo.toRemotePeerInfo()
+      )
       let returnedEnrs = response.get(PeerExchangeResponse()).peerInfos.mapIt(it.enr)
 
       # Then only node3 is returned
@@ -275,7 +293,9 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+      await allFutures(
+        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+      )
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Connect the nodes
@@ -309,7 +329,8 @@ suite "Waku Peer Exchange":
       # When making any request with an invalid peer info
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
-      let response = await node1.discovery.peerExchangeClient.request(1, remotePeerInfo2)
+      let response =
+        await node1.discovery.peerExchangeClient.request(1, remotePeerInfo2)
 
       # Then the response should be an error
       check:
@@ -349,7 +370,9 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+      await allFutures(
+        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+      )
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Simulate node1 discovering node3 via Discv5
@@ -388,7 +411,9 @@ suite "Waku Peer Exchange":
         node3 = newTestWakuNode(generateSecp256k1Key())
 
       # Start and mount peer exchange
-      await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+      await allFutures(
+        [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+      )
       await allFutures(
         [
           node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),
@@ -416,8 +441,9 @@ suite "Waku Peer Exchange":
         response1.isOk
         response1.get().peerInfos.len == 1
 
-      let response2 =
-        await node2.discovery.peerExchangeClient.request(1, node1.peerInfo.toRemotePeerInfo())
+      let response2 = await node2.discovery.peerExchangeClient.request(
+        1, node1.peerInfo.toRemotePeerInfo()
+      )
       check:
         response2.isErr
         response2.error().status_code == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS

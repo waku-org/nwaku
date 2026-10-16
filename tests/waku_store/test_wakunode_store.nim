@@ -223,7 +223,9 @@ procSuite "Kernel - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey)
 
-    waitFor allFutures(client.startProtocols(), server.startProtocols(), filterSource.startProtocols())
+    waitFor allFutures(
+      client.startProtocols(), server.startProtocols(), filterSource.startProtocols()
+    )
 
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()

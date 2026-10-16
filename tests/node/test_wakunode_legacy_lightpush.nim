@@ -57,7 +57,7 @@ suite "Waku Legacy Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    discard await server.stop()
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -161,7 +161,7 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    discard await server.stop()
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
@@ -274,7 +274,9 @@ suite "Waku Legacy Lightpush message delivery":
       destNodeKey = generateSecp256k1Key()
       destNode = newTestWakuNode(destNodeKey)
 
-    await allFutures(destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols())
+    await allFutures(
+      destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols()
+    )
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"

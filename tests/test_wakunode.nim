@@ -140,16 +140,16 @@ suite "Kernel":
     for _ in 0 ..< maxConnections + 1:
       let
         nodeKey = generateSecp256k1Key()
-        node = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(0))
-      await node.startProtocols()
-      (await node.mountRelay()).isOkOr:
+        kernel = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(0))
+      await kernel.startProtocols()
+      (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      otherNodes.add(node)
+      otherNodes.add(kernel)
 
     # Connect all other nodes to node1
-    for node in otherNodes:
+    for kernel in otherNodes:
       discard
-        await node1.peerManager.connectPeer(node.switch.peerInfo.toRemotePeerInfo())
+        await node1.peerManager.connectPeer(kernel.switch.peerInfo.toRemotePeerInfo())
 
     # Check that the number of connections matches the maxConnections
     check:
@@ -160,8 +160,8 @@ suite "Kernel":
 
     # Stop all nodes
     var stopFutures = @[node1.stop()]
-    for node in otherNodes:
-      stopFutures.add(node.stop())
+    for kernel in otherNodes:
+      stopFutures.add(kernel.stop())
     await allFutures(stopFutures)
 
   asyncTest "Messages fails with wrong key path":
@@ -184,7 +184,7 @@ suite "Kernel":
       extIp = Opt.some(getPrimaryIPAddr())
       extPort = Opt.some(Port(61008))
       # tcp-only: asserts exact single listen addr; quic variant below
-      node =
+      kernel =
         newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort, quicEnabled = false)
 
     let
@@ -193,27 +193,27 @@ suite "Kernel":
 
     check:
       # Check that underlying peer info contains only bindIp before starting
-      node.switch.peerInfo.listenAddrs.len == 1
-      node.switch.peerInfo.listenAddrs.contains(bindEndpoint)
+      kernel.switch.peerInfo.listenAddrs.len == 1
+      kernel.switch.peerInfo.listenAddrs.contains(bindEndpoint)
       # Underlying peer info has not updated addrs before starting
-      node.switch.peerInfo.addrs.len == 0
+      kernel.switch.peerInfo.addrs.len == 0
 
-      node.announcedAddresses.len == 1
-      node.announcedAddresses.contains(announcedEndpoint)
+      kernel.announcedAddresses.len == 1
+      kernel.announcedAddresses.contains(announcedEndpoint)
 
-    await node.startProtocols()
+    await kernel.startProtocols()
 
     check:
-      node.started
+      kernel.started
       # The port-0 listen addr is replaced by the port the OS assigned
-      node.switch.peerInfo.listenAddrs.len == 1
-      $node.switch.peerInfo.listenAddrs[0] != $bindEndpoint
-      ($node.switch.peerInfo.listenAddrs[0]).startsWith("/ip4/0.0.0.0/tcp/")
+      kernel.switch.peerInfo.listenAddrs.len == 1
+      $kernel.switch.peerInfo.listenAddrs[0] != $bindEndpoint
+      ($kernel.switch.peerInfo.listenAddrs[0]).startsWith("/ip4/0.0.0.0/tcp/")
       # Check that underlying peer info is updated with announced address
-      node.switch.peerInfo.addrs.len == 1
-      node.switch.peerInfo.addrs.contains(announcedEndpoint)
+      kernel.switch.peerInfo.addrs.len == 1
+      kernel.switch.peerInfo.addrs.contains(announcedEndpoint)
 
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "Peer info updates with correct announced addresses (QUIC)":
     # dual-stack node announces both tcp and quic-v1
@@ -223,25 +223,25 @@ suite "Kernel":
       bindPort = Port(0)
       extIp = Opt.some(getPrimaryIPAddr())
       extPort = Opt.some(Port(61008))
-      node =
+      kernel =
         newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort, quicEnabled = true)
 
     let tcpAnnounced = MultiAddress.init(extIp.get(), tcpProtocol, extPort.get())
 
     check:
-      node.announcedAddresses.len >= 2
-      node.announcedAddresses.contains(tcpAnnounced)
-      node.announcedAddresses.anyIt("/quic-v1" in $it)
+      kernel.announcedAddresses.len >= 2
+      kernel.announcedAddresses.contains(tcpAnnounced)
+      kernel.announcedAddresses.anyIt("/quic-v1" in $it)
 
-    await node.startProtocols()
+    await kernel.startProtocols()
 
     check:
-      node.started
-      node.switch.peerInfo.addrs.len >= 2
-      node.switch.peerInfo.addrs.contains(tcpAnnounced)
-      node.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
+      kernel.started
+      kernel.switch.peerInfo.addrs.len >= 2
+      kernel.switch.peerInfo.addrs.contains(tcpAnnounced)
+      kernel.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
 
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "Dual-stack nodes connect over QUIC":
     let
@@ -310,14 +310,14 @@ suite "Kernel":
       domainName = "example.com"
       expectedDns4Addr =
         MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
-      node = newTestWakuNode(
+      kernel = newTestWakuNode(
         nodeKey, bindIp, bindPort, extIp, extPort, dns4DomainName = Opt.some(domainName)
       )
 
     check:
       # dual-stack also adds a dns4 quic addr, don't assert exact count
-      node.announcedAddresses.len >= 1
-      node.announcedAddresses.contains(expectedDns4Addr)
+      kernel.announcedAddresses.len >= 1
+      kernel.announcedAddresses.contains(expectedDns4Addr)
 
   asyncTest "Node uses dns4 resolved ip in announced addresses if no extIp is provided":
     let
@@ -331,7 +331,7 @@ suite "Kernel":
       await dnsResolve(domainName, defaultTestWakuConf().dnsAddrsNameServers)
     ).valueOr:
       raiseAssert "DNS resolution failed: " & error
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       nodeKey,
       bindIp,
       bindPort,
@@ -340,7 +340,7 @@ suite "Kernel":
     )
 
     var ipStr = ""
-    var enrIp = node.enr.tryGet("ip", array[4, byte])
+    var enrIp = kernel.enr.tryGet("ip", array[4, byte])
 
     if enrIp.isSome():
       ipStr &= $ipv4(enrIp.get())
@@ -443,9 +443,9 @@ suite "Kernel":
     await allFutures(node1.stop(), node2.stop())
 
   asyncTest "isReady only raises CancelledError and is true without RLN":
-    let node = newTestWakuNode(generateSecp256k1Key())
+    let kernel = newTestWakuNode(generateSecp256k1Key())
 
-    let readyFut = node.isReady()
+    let readyFut = kernel.isReady()
     static:
       doAssert typeof(readyFut) is Future[bool].Raising([CancelledError])
 

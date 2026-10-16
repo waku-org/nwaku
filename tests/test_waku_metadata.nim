@@ -128,7 +128,9 @@ procSuite "Waku Metadata Protocol":
     discard node3.mountMetadata(clusterId, @[])
     discard await node1.mountRelay()
 
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures(
+      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+    )
 
     let noOpHandler: WakuRelayHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage

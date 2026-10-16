@@ -242,9 +242,7 @@ proc new*(
 
 proc getRunningNetConfig(kernel: Kernel): Future[Result[NetConfig, string]] {.async.} =
   let conf = kernel.conf
-  let (tcpPort, websocketPort, quicPort) = getPorts(
-    kernel.switch.peerInfo.listenAddrs
-  ).valueOr:
+  let (tcpPort, websocketPort, quicPort) = getPorts(kernel.switch.peerInfo.listenAddrs).valueOr:
     return err("Could not retrieve ports: " & error)
 
   if tcpPort.isSome():
@@ -398,8 +396,9 @@ proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
         continue
 
     if not kernel.discovery.discv5.isNil():
-      let dynamicBootstrapEnrs =
-        kernel.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
+      let dynamicBootstrapEnrs = kernel.discovery.dynamicBootstrapNodes
+        .filterIt(it.hasUdpPort())
+        .mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in dynamicBootstrapEnrs:
@@ -411,7 +410,9 @@ proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
 
     info "Connecting to dynamic bootstrap peers"
     try:
-      await connectToNodes(kernel, kernel.discovery.dynamicBootstrapNodes, "dynamic bootstrap")
+      await connectToNodes(
+        kernel, kernel.discovery.dynamicBootstrapNodes, "dynamic bootstrap"
+      )
     except CatchableError:
       debug "Failed to connect to dynamic bootstrap nodes",
         error = getCurrentExceptionMsg()
@@ -610,7 +611,7 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   startSucceeded = true
   return ok()
 
-proc stop*(kernel: Kernel) {.async: (raises: []).} =
+proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
   if not kernel.started:
     debug "stop: attempting to stop node that isn't running"
 
@@ -646,6 +647,9 @@ proc stop*(kernel: Kernel) {.async: (raises: []).} =
     ## GetDiscoveryRequirements stays (see new): it is config-only.
     kernel.clearNodeState()
   except Exception:
-    error "failed to stop kernel", error = getCurrentExceptionMsg()
+    error "Waku stop failed", error = getCurrentExceptionMsg()
+    return err("waku stop failed: " & getCurrentExceptionMsg())
+
+  return ok()
 
 {.pop.}

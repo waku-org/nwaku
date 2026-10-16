@@ -36,64 +36,64 @@ proc multiaddrsOf(record: enr.Record): seq[MultiAddress] =
 
 procSuite "ENR endpoints":
   test "a wildcard bind host and port 0 are left out before start":
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
     check:
-      node.enr.ipOf().isNone()
-      node.enr.tcpOf().isNone()
+      kernel.enr.ipOf().isNone()
+      kernel.enr.tcpOf().isNone()
 
   asyncTest "start fills the bound port and still carries no host":
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await node.startProtocols()
+    await kernel.startProtocols()
 
-    let bound = getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports")
+    let bound = getPorts(kernel.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
-      node.enr.ipOf().isNone()
-      node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
-      node.enr.multiaddrsOf().len == 0
-      node.announcedAddresses.allIt("0.0.0.0" notin $it)
-    await node.stop()
+      kernel.enr.ipOf().isNone()
+      kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
+      kernel.enr.multiaddrsOf().len == 0
+      kernel.announcedAddresses.allIt("0.0.0.0" notin $it)
+    discard await kernel.stop()
 
   asyncTest "a concrete bind host is a chosen host and is carried":
-    let node =
+    let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await node.startProtocols()
+    await kernel.startProtocols()
 
-    let bound = getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports")
+    let bound = getPorts(kernel.switch.peerInfo.listenAddrs).expect("bound ports")
     check:
-      node.enr.ipOf().get() == [127'u8, 0, 0, 1]
-      node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
-      node.enr.multiaddrsOf().len > 0
-    await node.stop()
+      kernel.enr.ipOf().get() == [127'u8, 0, 0, 1]
+      kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
+      kernel.enr.multiaddrsOf().len > 0
+    discard await kernel.stop()
 
   asyncTest "a mapper addition is carried, the wildcard stand-in is not":
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    await node.startProtocols()
-    check node.enrAddresses().len == 0
+    await kernel.startProtocols()
+    check kernel.enrAddresses().len == 0
 
     let granted = MultiAddress.init("/ip4/203.0.113.55/tcp/60555").get()
-    node.switch.peerInfo.addressMappers.add(
+    kernel.switch.peerInfo.addressMappers.add(
       proc(
           addrs: seq[MultiAddress]
       ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
         return addrs & @[granted]
     )
-    await node.switch.peerInfo.update()
+    await kernel.switch.peerInfo.update()
 
     check:
-      node.enrAddresses() == @[granted]
-      node.enr.ipOf().get() == [203'u8, 0, 113, 55]
-      node.enr.tcpOf().get() == 60555'u16
-      node.enr.multiaddrsOf() == @[granted]
-    await node.stop()
+      kernel.enrAddresses() == @[granted]
+      kernel.enr.ipOf().get() == [203'u8, 0, 113, 55]
+      kernel.enr.tcpOf().get() == 60555'u16
+      kernel.enr.multiaddrsOf() == @[granted]
+    discard await kernel.stop()
 
   asyncTest "a configured external port stays beside its configured host":
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(),
       parseIpAddress("0.0.0.0"),
       Port(0),
@@ -102,14 +102,14 @@ procSuite "ENR endpoints":
       quicEnabled = false,
     )
     check:
-      node.enrBaseline().ip.get() == parseIpAddress("203.0.113.9")
-      node.enrBaseline().tcp.get() == Port(1234)
+      kernel.enrBaseline().ip.get() == parseIpAddress("203.0.113.9")
+      kernel.enrBaseline().tcp.get() == Port(1234)
 
-    await node.startProtocols()
+    await kernel.startProtocols()
     check:
-      node.enr.ipOf().get() == [203'u8, 0, 113, 9]
-      node.enr.tcpOf().get() == 1234'u16
-    await node.stop()
+      kernel.enr.ipOf().get() == [203'u8, 0, 113, 9]
+      kernel.enr.tcpOf().get() == 1234'u16
+    discard await kernel.stop()
 
   test "a rebuild keeps every field that is not an address":
     let key = generateSecp256k1Key()
@@ -228,9 +228,9 @@ procSuite "ENR endpoints":
   asyncTest "a wildcard-bound node stays dialable once discv5 learns its host":
     ## End to end over the production refresh, not the writer alone.
     let key = generateSecp256k1Key()
-    let node =
+    let kernel =
       newTestWakuNode(key, parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false)
-    await node.startProtocols()
+    await kernel.startProtocols()
 
     let keyBytes = key.getRawBytes().expect("raw")
     let ethPk = keys.PrivateKey.fromHex(byteutils.toHex(keyBytes)).expect("pk")
@@ -239,14 +239,14 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9913),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
-    let bound = getPorts(node.switch.peerInfo.listenAddrs).expect("bound ports")
+    let bound = getPorts(kernel.switch.peerInfo.listenAddrs).expect("bound ports")
     check proto.localNode
       .update(
         ethPk,
@@ -254,13 +254,13 @@ procSuite "ENR endpoints":
         udpPort = Opt.some(Port(30303)),
       )
       .isOk()
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
 
     check:
-      node.enr.ipOf().get() == [198'u8, 51, 100, 4]
-      node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
-      node.enr.toRemotePeerInfo().isOk()
-    await node.stop()
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
+      kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
+      kernel.enr.toRemotePeerInfo().isOk()
+    discard await kernel.stop()
 
   test "a record is dialable through its multiaddrs field alone":
     ## The scalars hold one IPv4 host, so a dns4 name or a relay route lives
@@ -309,7 +309,7 @@ procSuite "ENR endpoints":
     ## discv5 enabled, so the record carries a `udp`: without one the
     ## endpoint the refresh writes back is never whole, and the loop this
     ## guards against cannot form.
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("0.0.0.0"),
       Port(0),
@@ -324,37 +324,38 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9912),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
     ## A NAT mapping arrives.
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
-    check refreshEnrAddrs(node, key, wd).isOk()
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
     check:
-      node.enr.ipOf().get() == [203'u8, 0, 113, 9]
-      node.enr.tcpOf().get() == 60000'u16
+      kernel.enr.ipOf().get() == [203'u8, 0, 113, 9]
+      kernel.enr.tcpOf().get() == 60000'u16
 
     ## It expires.
-    node.announcedAddresses = @[]
-    check refreshEnrAddrs(node, key, wd).isOk()
-    check node.enr.ipOf().isNone()
+    kernel.announcedAddresses = @[]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
+    check kernel.enr.ipOf().isNone()
 
     ## A new one arrives, on a different host.
-    node.announcedAddresses = @[MultiAddress.init("/ip4/198.51.100.7/tcp/60001").get()]
-    check refreshEnrAddrs(node, key, wd).isOk()
+    kernel.announcedAddresses =
+      @[MultiAddress.init("/ip4/198.51.100.7/tcp/60001").get()]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
     check:
-      node.enr.ipOf().get() == [198'u8, 51, 100, 7]
-      node.enr.tcpOf().get() == 60001'u16
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 7]
+      kernel.enr.tcpOf().get() == 60001'u16
 
   test "a host discv5 learned outranks the announced addresses and survives them":
     ## The other direction: what peers voted for is stronger evidence than a
     ## local mapping, so it stays until discv5 itself says otherwise.
     let key = generateSecp256k1Key()
-    let node =
+    let kernel =
       newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0), quicEnabled = false)
 
     let keyBytes = key.getRawBytes().expect("raw")
@@ -364,13 +365,13 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9914),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
+    proto.localNode.record = kernel.enr
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
 
     check proto.localNode
       .update(
@@ -379,14 +380,14 @@ procSuite "ENR endpoints":
         udpPort = Opt.some(Port(30303)),
       )
       .isOk()
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
-    check node.enr.ipOf().get() == [198'u8, 51, 100, 4]
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
+    check kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
 
     ## A later refresh keeps it, though nothing announced is on that host.
-    check refreshEnrAddrs(node, key, wd).isOk()
+    check refreshEnrAddrs(kernel, key, wd).isOk()
     check:
-      node.enr.ipOf().get() == [198'u8, 51, 100, 4]
-      node.enr.udpOf().get() == 30303'u16
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
+      kernel.enr.udpOf().get() == 30303'u16
 
   test "a shard update is not mistaken for a host discv5 learned":
     ## `updateENRShards` writes the live record too. Only a moved endpoint
@@ -395,7 +396,7 @@ procSuite "ENR endpoints":
     ## discv5 enabled, so the record carries a `udp`: without one the
     ## endpoint the refresh writes back is never whole, and the loop this
     ## guards against cannot form.
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("0.0.0.0"),
       Port(0),
@@ -410,32 +411,32 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9915),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
-    check refreshEnrAddrs(node, key, wd).isOk()
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
 
     ## A shard-only write, leaving the endpoint where it was.
     check proto.updateRecord([("rs", @[0'u8, 0, 0])]).isOk()
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
-    check node.enrLearnedEndpoint.isNone()
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
+    check kernel.enrLearnedEndpoint.isNone()
 
     ## So the mapping can still expire.
-    node.announcedAddresses = @[]
-    check refreshEnrAddrs(node, key, wd).isOk()
-    check node.enr.ipOf().isNone()
+    kernel.announcedAddresses = @[]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
+    check kernel.enr.ipOf().isNone()
 
   test "a refresh between discv5 writes keeps what discv5 learned":
     ## A commit can land before the reconcile tick. Rebuilding from the
     ## cached endpoint then overwrites the live record, and the next
     ## reconcile sees two equal records and never notices what was lost.
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("0.0.0.0"),
       Port(0),
@@ -450,16 +451,16 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9916),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
-    check refreshEnrAddrs(node, key, wd).isOk()
-    check node.enr.ipOf().get() == [203'u8, 0, 113, 9]
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
+    check kernel.enr.ipOf().get() == [203'u8, 0, 113, 9]
 
     ## discv5 learns a host and writes its own record.
     check proto.localNode
@@ -471,13 +472,13 @@ procSuite "ENR endpoints":
       .isOk()
 
     ## A mapping changes and commits before the reconcile tick.
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60001").get()]
-    check refreshEnrAddrs(node, key, wd).isOk()
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60001").get()]
+    check refreshEnrAddrs(kernel, key, wd).isOk()
 
     check:
-      node.enr.ipOf().get() == [198'u8, 51, 100, 4]
-      node.enr.udpOf().get() == 30303'u16
-      node.enr == proto.localNode.record
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
+      kernel.enr.udpOf().get() == 30303'u16
+      kernel.enr == proto.localNode.record
 
   asyncTest "an address on a host discv5 confirmed reaches the record":
     ## A server with its public address on the interface, bound to the
@@ -485,23 +486,23 @@ procSuite "ENR endpoints":
     ## until discv5 confirms that host from outside. The filter is the same
     ## for every transport, so a QUIC entry on that host travels with it.
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("0.0.0.0"),
       Port(0),
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9917)),
     )
-    await node.startProtocols()
+    await kernel.startProtocols()
 
-    require node.announcedAddresses.len == 1
-    let resolved = node.announcedAddresses[0]
+    require kernel.announcedAddresses.len == 1
+    let resolved = kernel.announcedAddresses[0]
     let host = resolved.getIp().expect("resolved host")
 
     ## Known only from the inside, so nothing is carried yet.
     check:
-      node.enrAddresses().len == 0
-      node.enr.multiaddrsOf().len == 0
+      kernel.enrAddresses().len == 0
+      kernel.enr.multiaddrsOf().len == 0
 
     let keyBytes = key.getRawBytes().expect("raw")
     let ethPk = keys.PrivateKey.fromHex(byteutils.toHex(keyBytes)).expect("pk")
@@ -510,42 +511,42 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9917),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
     check proto.localNode
       .update(ethPk, ip = Opt.some(host), udpPort = Opt.some(Port(30303)))
       .isOk()
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
 
     ## Confirmed from outside, so it is carried, with its own transport port
     ## and not the one discv5 learned.
     check:
-      node.enrAddresses() == @[resolved]
-      node.enr.multiaddrsOf() == @[resolved]
-      node.enr.udpOf().get() == 30303'u16
-    await node.stop()
+      kernel.enrAddresses() == @[resolved]
+      kernel.enr.multiaddrsOf() == @[resolved]
+      kernel.enr.udpOf().get() == 30303'u16
+    discard await kernel.stop()
 
   asyncTest "the bound endpoints move onto a host discv5 learned behind a NAT":
     ## The interface holds a private address and discv5 reports a different,
     ## public one. The scalars already pair that host with the bound TCP
     ## port, so the other transports travel with it on the same terms.
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("0.0.0.0"),
       Port(0),
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9918)),
     )
-    await node.startProtocols()
+    await kernel.startProtocols()
 
-    require node.announcedAddresses.len == 1
-    let bound = node.announcedAddresses[0]
+    require kernel.announcedAddresses.len == 1
+    let bound = kernel.announcedAddresses[0]
     let boundPort = initTAddress(bound).expect("bound endpoint").port
 
     let keyBytes = key.getRawBytes().expect("raw")
@@ -555,31 +556,31 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9918),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
     let public = parseIpAddress("198.51.100.7")
     check proto.localNode
       .update(ethPk, ip = Opt.some(public), udpPort = Opt.some(Port(30303)))
       .isOk()
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
 
-    let carried = node.enr.multiaddrsOf()
+    let carried = kernel.enr.multiaddrsOf()
     check:
       carried.len == 1
       carried[0].getIp().expect("host") == public
       initTAddress(carried[0]).expect("endpoint").port == boundPort
-      node.enr.ipOf().get() == [198'u8, 51, 100, 7]
-      node.enr.toRemotePeerInfo().isOk()
-    await node.stop()
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 7]
+      kernel.enr.toRemotePeerInfo().isOk()
+    discard await kernel.stop()
 
   test "the reconcile loop follows a discv5 record write":
     let key = generateSecp256k1Key()
-    let node =
+    let kernel =
       newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0), quicEnabled = false)
 
     let keyBytes = key.getRawBytes().expect("raw")
@@ -589,18 +590,19 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.none(Port),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9911),
       bindIp = Opt.none(IpAddress),
     )
     let wd = WakuDiscoveryV5(protocol: proto)
-    node.announcedAddresses = @[MultiAddress.init("/ip4/198.51.100.4/tcp/60123").get()]
+    kernel.announcedAddresses =
+      @[MultiAddress.init("/ip4/198.51.100.4/tcp/60123").get()]
 
     ## `updateWaku` seeds the live record from the node's copy.
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
 
     ## Nothing moved yet, so nothing to write.
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == false
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == false
 
     ## discv5 learns its host and writes its own record, telling nobody.
     check proto.localNode
@@ -611,26 +613,27 @@ procSuite "ENR endpoints":
       )
       .isOk()
 
-    check reconcileEnrAddrs(node, key, wd).expect("reconcile") == true
+    check reconcileEnrAddrs(kernel, key, wd).expect("reconcile") == true
     check:
-      node.enr == proto.localNode.record
-      node.enr.ipOf().get() == [198'u8, 51, 100, 4]
-      node.enr.tcpOf().get() == 60123'u16
-      node.enr.udpOf().get() == 30303'u16
+      kernel.enr == proto.localNode.record
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
+      kernel.enr.tcpOf().get() == 60123'u16
+      kernel.enr.udpOf().get() == 30303'u16
 
   test "the discv5 address follows the endpoint the record advertises":
     ## discv5 compares the host its peers vote for with this address. Left
     ## unset, it never matches, and a node with auto-update off warns at
     ## every vote interval.
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       key,
       parseIpAddress("127.0.0.1"),
       Port(0),
       quicEnabled = false,
       discv5UdpPort = Opt.some(Port(9000)),
     )
-    node.announcedAddresses = @[MultiAddress.init("/ip4/198.51.100.4/tcp/60123").get()]
+    kernel.announcedAddresses =
+      @[MultiAddress.init("/ip4/198.51.100.4/tcp/60123").get()]
 
     let keyBytes = key.getRawBytes().expect("raw")
     let ethPk = keys.PrivateKey.fromHex(byteutils.toHex(keyBytes)).expect("pk")
@@ -639,7 +642,7 @@ procSuite "ENR endpoints":
       enrIp = Opt.none(IpAddress),
       enrTcpPort = Opt.none(Port),
       enrUdpPort = Opt.some(Port(9000)),
-      previousRecord = Opt.some(node.enr),
+      previousRecord = Opt.some(kernel.enr),
       bindPort = Port(9000),
       bindIp = Opt.none(IpAddress),
     )
@@ -647,13 +650,13 @@ procSuite "ENR endpoints":
 
     ## `updateWaku` seeds the live record and drops the address that came
     ## with it.
-    proto.localNode.record = node.enr
+    proto.localNode.record = kernel.enr
     proto.localNode.address = Opt.none(discv5_node.Address)
 
-    check refreshEnrAddrs(node, key, wd).isOk()
+    check refreshEnrAddrs(kernel, key, wd).isOk()
     check:
-      node.enr.ipOf().get() == [198'u8, 51, 100, 4]
-      node.enr.udpOf().get() == 9000'u16
+      kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
+      kernel.enr.udpOf().get() == 9000'u16
       proto.localNode.address ==
         Opt.some(
           discv5_node.Address(ip: parseIpAddress("198.51.100.4"), port: Port(9000))

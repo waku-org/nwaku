@@ -182,7 +182,7 @@ suite "Waku Filter - End to End":
       publisher = newTestWakuNode(publisherKey)
     await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     (await publisher.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
@@ -293,7 +293,7 @@ suite "Waku Filter - End to End":
       server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
-    await client.stop()
+    discard await client.stop()
     await clientClone.startProtocols() # Mimic restart by starting the clone
 
     # When a message is sent to the subscribed content topic, via Relay
@@ -813,9 +813,9 @@ suite "Waku Filter - End to End":
       await client3.startProtocols()
 
       defer:
-        await client1.stop()
-        await client2.stop()
-        await client3.stop()
+        discard await client1.stop()
+        discard await client2.stop()
+        discard await client3.stop()
 
       await client1.mountFilterClient()
       await client2.mountFilterClient()

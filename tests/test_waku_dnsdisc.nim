@@ -40,7 +40,9 @@ suite "Waku DNS Discovery":
       assert false, "Failed to mount relay"
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures(
+      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+    )
 
     let
       enr1 = newTestEnrRecord(nodeKey1, $bindIp, uint16(node1.boundTcpPort()), 0)

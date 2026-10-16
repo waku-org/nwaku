@@ -62,7 +62,9 @@ proc init(T: type RestFilterTest, autoShardCount = 0'u32): Future[T] {.async.} =
   testSetup.serviceNode = testWakuNode()
   testSetup.subscriberNode = testWakuNode()
 
-  await allFutures(testSetup.serviceNode.startProtocols(), testSetup.subscriberNode.startProtocols())
+  await allFutures(
+    testSetup.serviceNode.startProtocols(), testSetup.subscriberNode.startProtocols()
+  )
 
   (await testSetup.serviceNode.mountRelay()).isOkOr:
     assert false, "Failed to mount relay: " & $error
@@ -693,7 +695,8 @@ suite "Waku v2 Rest API - Filter V2":
       emptyTopicPutResponse.status == 400
       emptyTopicPutResponse.data.statusDesc ==
         "pubsubTopic must be specified when static sharding is enabled"
-      restFilterTest.serviceNode.protocols.filter.subscriptions.subscribedPeerCount() == 0
+      restFilterTest.serviceNode.protocols.filter.subscriptions.subscribedPeerCount() ==
+        0
 
     # When it unsubscribes without a pubsubTopic
     let unsubscribeResponse = await restFilterTest.client.filterDeleteSubscriptions(
@@ -938,7 +941,7 @@ suite "Waku v2 Rest API - Filter V2":
     let otherNode = testWakuNode()
     await otherNode.startProtocols()
     defer:
-      await otherNode.stop()
+      discard await otherNode.stop()
 
     await otherNode.mountFilterClient()
     let servicePeer = restFilterTest.serviceNode.peerInfo.toRemotePeerInfo()

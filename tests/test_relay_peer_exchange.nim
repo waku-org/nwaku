@@ -89,7 +89,9 @@ procSuite "Relay (GossipSub) Peer Exchange":
     # Ensure that node1 prunes all peers after the first connection
     node1.protocols.relay.parameters.dHigh = 1
 
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures(
+      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+    )
 
     # The three nodes should be subscribed to the same shard
     proc simpleHandler(

@@ -199,7 +199,7 @@ suite "Peer manager - pure-libp2p peers":
       node.peerManager.pureLibp2pPeers.len == 0
     check node.peerManager.pureLibp2pPeers.len == 0
 
-    await node.stop()
+    discard await node.stop()
 
   asyncTest "a node without metadata mounted still accepts everyone":
     let node = await newMemberNode(mountMeta = false)

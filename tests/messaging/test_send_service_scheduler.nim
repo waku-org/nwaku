@@ -62,7 +62,7 @@ suite "SendService - rate-limit scheduling":
     for service in started:
       await service.stopSendService()
     ## The node is never started, so stop is best-effort cleanup.
-    await kernel.stop()
+    discard await kernel.stop()
 
   proc buildTask(
       id, payload: string,

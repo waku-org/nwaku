@@ -207,7 +207,7 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -271,7 +271,7 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -374,7 +374,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      await peer.stop()
+      discard await peer.stop()
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -387,9 +387,8 @@ suite "LogosDelivery - configured shards":
 
     check:
       node.kernel.protocols.relay.subscribedTopics().len == 0
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.kernel.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards == @[1'u32]
 
   asyncTest "under static sharding without REST the node is no relay peer on the configured shard, and a peer's message there is neither archived nor pushed to a filter subscriber":
@@ -424,7 +423,7 @@ suite "LogosDelivery - configured shards":
       publisher.mountStoreClient()
       await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -435,7 +434,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await receiver.startProtocols()
     defer:
-      await receiver.stop()
+      discard await receiver.stop()
 
     var subscriber: Kernel
     lockNewGlobalBrokerContext:
@@ -445,7 +444,7 @@ suite "LogosDelivery - configured shards":
       await subscriber.mountFilterClient()
       await subscriber.startProtocols()
     defer:
-      await subscriber.stop()
+      discard await subscriber.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -551,7 +550,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -613,7 +612,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stop()
+      discard await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -674,7 +673,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      await peer.stop()
+      discard await peer.stop()
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -686,9 +685,8 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
 
     check:
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.kernel.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards.toHashSet() == toSeq(0'u32 ..< 8'u32).toHashSet()
 
   asyncTest "with discv5 the ENR lists every shard":

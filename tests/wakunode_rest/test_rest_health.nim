@@ -52,9 +52,9 @@ suite "Waku v2 REST API - health":
 
   asyncTest "Get node health info - GET /health":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -62,19 +62,19 @@ suite "Waku v2 REST API - health":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    let healthMonitor = NodeHealthMonitor.new(node)
+    let healthMonitor = NodeHealthMonitor.new(kernel)
 
     installHealthApiHandler(restServer.router, healthMonitor)
     restServer.start()
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     # kick in rln (currently the only check for health)
-    discard await node.mountOnchainRln(
+    discard await kernel.mountOnchainRln(
       getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     )
 
-    node.mountLightPushClient()
-    await node.mountFilterClient()
+    kernel.mountLightPushClient()
+    await kernel.mountFilterClient()
 
     # We don't have a Waku, so we need to set the overall health to READY here in its behalf
     healthMonitor.setOverallHealth(HealthStatus.READY)
@@ -116,16 +116,16 @@ suite "Waku v2 REST API - health":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    let healthMonitor = NodeHealthMonitor.new(node)
-    let rln = await node.mountOnchainRln(
+    let healthMonitor = NodeHealthMonitor.new(kernel)
+    let rln = await kernel.mountOnchainRln(
       getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     )
 
@@ -147,4 +147,4 @@ suite "Waku v2 REST API - health":
     check (await healthMonitor.getProtocolHealthInfo(RlnRelayProtocol)).health ==
       HealthStatus.READY
 
-    await node.stop()
+    discard await kernel.stop()

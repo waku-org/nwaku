@@ -447,7 +447,7 @@ procSuite "Peer Manager":
     let node = newTestWakuNode(generateSecp256k1Key())
     await node.startProtocols()
     defer:
-      await node.stop()
+      discard await node.stop()
 
     let accepted = newAsyncEvent()
     var held: seq[StreamTransport]
@@ -508,7 +508,7 @@ procSuite "Peer Manager":
           it.protocols.contains(WakuStoreCodec)
       )
 
-    await node.stop()
+    discard await node.stop()
 
   asyncTest "total unique peers metric counts each peer once":
     let
@@ -615,13 +615,13 @@ procSuite "Peer Manager":
         Connected
 
     # Stop node. Gracefully disconnect from all peers.
-    await nodes[0].stop()
+    discard await nodes[0].stop()
     check:
       # Not currently connected to node2, but had recent, successful connection.
       nodes[0].peerManager.switch.peerStore.connectedness(nodes[1].peerInfo.peerId) ==
         CanConnect
 
-    await nodes[1].stop()
+    discard await nodes[1].stop()
 
   asyncTest "Peer manager updates failed peers correctly":
     # Create 2 nodes
@@ -788,7 +788,7 @@ procSuite "Peer Manager":
       peerStore[NumberFailedConnBook][discoveredPeerId] == 0
       peerStore.connectedness(discoveredPeerId) == NotConnected
 
-    await node.stop()
+    discard await node.stop()
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
@@ -993,7 +993,9 @@ procSuite "Peer Manager":
     node3.mountMetadata(4, @[0'u16]).expect("Mounted Waku Metadata")
 
     # Start nodes
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures(
+      [node1.startProtocols(), node2.startProtocols(), node3.startProtocols()]
+    )
 
     # 1->2 (fails)
     let conn1 = await node1.peerManager.dialPeer(

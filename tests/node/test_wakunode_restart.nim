@@ -23,7 +23,7 @@ suite "Kernel - restart (#3979)":
     # node1 learns node2 as a relay peer, so a restart triggers reconnectRelayPeers.
     await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
-    await node1.stop()
+    discard await node1.stop()
 
     # The restart must complete promptly and yield a usable, listening node.
     let startFut = node1.startProtocols()

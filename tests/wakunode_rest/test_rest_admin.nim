@@ -57,7 +57,9 @@ suite "Waku v2 Rest API - Admin":
     node3.mountMetadata(clusterId, shards).isOkOr:
       assert false, "Failed to mount metadata: " & $error
 
-    await allFutures(node1.startProtocols(), node2.startProtocols(), node3.startProtocols())
+    await allFutures(
+      node1.startProtocols(), node2.startProtocols(), node3.startProtocols()
+    )
     await allFutures(
       node1.mountRelay(),
       node2.mountRelay(),
@@ -379,7 +381,7 @@ suite "Waku v2 Rest API - Admin":
     check node4.mountMetadata(1, @[0.uint16]).isOk()
     await node4.startProtocols()
     defer:
-      await node4.stop()
+      discard await node4.stop()
     let peerInfo4 = node4.peerInfo.toRemotePeerInfo()
 
     # Connect to nodes 2, 3 and 4 using the Admin API

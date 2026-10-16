@@ -510,7 +510,7 @@ suite "Waku Store - End to End - Sorted Archive":
           otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
-        await otherServer.stop()
+        discard await otherServer.stop()
 
 suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -1257,7 +1257,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      await emptyServer.stop()
+      discard await emptyServer.stop()
 
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
@@ -1308,7 +1308,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ]
 
       # Cleanup
-      await voluminousServer.stop()
+      discard await voluminousServer.stop()
 
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10

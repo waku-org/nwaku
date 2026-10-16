@@ -373,7 +373,8 @@ suite "Waku API - Send":
       inc sentCount
       if sentCount == burst:
         allSent.fire()
-    let counter = MessageSentEvent.listen(node.kernel.brokerCtx, onSent).expect("listen")
+    let counter =
+      MessageSentEvent.listen(node.kernel.brokerCtx, onSent).expect("listen")
     defer:
       await MessageSentEvent.dropListener(node.kernel.brokerCtx, counter)
 
@@ -782,9 +783,7 @@ suite "Waku API - Send":
         raiseAssert "Failed to start Waku node: " & error
 
       # Propagate via relayNode1; store queries can only reach the isolated store node.
-      await node.kernel.connectToNodes(
-        @[relayNode1PeerInfo, isolatedStoreNodePeerInfo]
-      )
+      await node.kernel.connectToNodes(@[relayNode1PeerInfo, isolatedStoreNodePeerInfo])
 
     # Longer than `archiveTime`, so the store node is queried first.
     node.messagingClient.sendService.maxValidationAge = 2.seconds
@@ -806,7 +805,7 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
     )
 
-    await isolatedStoreNode.stop()
+    discard await isolatedStoreNode.stop()
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 

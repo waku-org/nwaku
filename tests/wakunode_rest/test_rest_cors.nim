@@ -55,9 +55,9 @@ proc checkResponse(
 suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin matches":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -73,7 +73,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -114,13 +114,13 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "AllowedOrigin reject":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -136,7 +136,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -181,13 +181,13 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "AllowedOrigin allmatches":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -197,7 +197,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -238,13 +238,13 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "No origin goes through":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -260,7 +260,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -272,4 +272,4 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    discard await kernel.stop()

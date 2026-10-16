@@ -262,8 +262,9 @@ suite "Kernel - Relay":
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
     for i in 0 .. 4:
-      discard
-        await nodes[0].protocols.relay.publish(DefaultPubsubTopic, urandom(1 * (10 ^ 2)))
+      discard await nodes[0].protocols.relay.publish(
+        DefaultPubsubTopic, urandom(1 * (10 ^ 2))
+      )
 
     # Wait for gossip
     await sleepAsync(500.millis)
@@ -326,8 +327,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    discard await node1.stop()
+    discard await node2.stop()
 
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
@@ -378,8 +379,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    discard await node1.stop()
+    discard await node2.stop()
 
   asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
@@ -555,8 +556,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    discard await node1.stop()
+    discard await node2.stop()
 
   asyncTest "Bad peers with low reputation are disconnected":
     # The bad-peer scoring under test is transport agnostic.
@@ -573,8 +574,8 @@ suite "Kernel - Relay":
 
     # subscribe all nodes to a topic
     let topic = "topic"
-    for node in nodes:
-      node.protocols.relay.subscribe(topic, simpleHandler)
+    for kernel in nodes:
+      kernel.protocols.relay.subscribe(topic, simpleHandler)
 
     # connect nodes in full mesh
     for i in 0 ..< 5:
@@ -608,7 +609,8 @@ suite "Kernel - Relay":
     # all nodes lower the score of nodes[0] (will change if gossipsub params or amount of msg changes)
     for i in 1 ..< 5:
       check:
-        nodes[i].protocols.relay.peerStats[nodes[0].switch.peerInfo.peerId].score == -249999.9
+        nodes[i].protocols.relay.peerStats[nodes[0].switch.peerInfo.peerId].score ==
+          -249999.9
 
     proc badPeerIsolated(): bool =
       nodes[0].peerManager.switch.connManager.getConnections().len == 0 and
@@ -638,12 +640,12 @@ suite "Kernel - Relay":
     ## Setup
     let
       nodeKey = generateSecp256k1Key()
-      node = newTestWakuNode(nodeKey)
+      kernel = newTestWakuNode(nodeKey)
 
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    await kernel.startProtocols()
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    require node.mountAutoSharding(1, 1).isOk
+    require kernel.mountAutoSharding(1, 1).isOk
 
     ## Given
     let
@@ -657,37 +659,37 @@ suite "Kernel - Relay":
         discard pubsubTopic
         discard message
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
       "topic must use the same shard"
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
       "topic must use the same shard"
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
       "topic must use the same shard"
 
     ## When
-    node.subscribe((kind: ContentSub, topic: contentTopicA), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicA), handler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
-    node.subscribe((kind: ContentSub, topic: contentTopicB), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicB), handler).isOkOr:
       assert false,
         "The subscription call shouldn't error even though it's already subscribed to that shard"
-    node.subscribe((kind: ContentSub, topic: contentTopicC), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicC), handler).isOkOr:
       assert false,
         "The subscription call shouldn't error even though it's already subscribed to that shard"
 
     ## The node should be subscribed to the shard
-    check node.protocols.relay.isSubscribed(shard)
+    check kernel.protocols.relay.isSubscribed(shard)
 
     ## Then
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
+    kernel.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
       assert false, "Failed to unsubscribe to topic: " & $error
 
     ## After unsubcription, the node should not be subscribed to the shard anymore
-    check not node.protocols.relay.isSubscribed(shard)
+    check not kernel.protocols.relay.isSubscribed(shard)
 
     ## Cleanup
-    await node.stop()
+    discard await kernel.stop()
 
   asyncTest "A peer restarted with the same key stays out of the mesh after the prune backoff until it publishes":
     # TODO: iftech/nim-libp2p#3236
@@ -725,7 +727,7 @@ suite "Kernel - Relay":
       node1.hasMeshPeer($shard, peerId2)
       node2.hasMeshPeer($shard, peerId1)
 
-    await node2.stop()
+    discard await node2.stop()
     checkUntilTimeout:
       not node1.hasGossipsubPeer($shard, peerId2)
 
@@ -745,8 +747,9 @@ suite "Kernel - Relay":
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
       restartedNode2.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId1)
       node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
-    let firstBackoff =
-      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(peerId1)
+    let firstBackoff = restartedNode2.protocols.relay.backingOff
+      .getOrDefault($shard)
+      .getOrDefault(peerId1)
 
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
       not node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
@@ -758,8 +761,9 @@ suite "Kernel - Relay":
 
     # The restarted node's next GRAFT is accepted and dropped again at the next heartbeat.
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(peerId1) >
-        firstBackoff
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(
+        peerId1
+      ) > firstBackoff
       node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     check:
@@ -837,9 +841,9 @@ suite "Kernel - Relay":
           not restartedNode3ReceivedFromNode4.finished():
         restartedNode3ReceivedFromNode4.complete(true)
 
-    for node in [node1, node2, node3, node4]:
-      await node.startProtocols()
-      (await node.mountRelay()).isOkOr:
+    for kernel in [node1, node2, node3, node4]:
+      await kernel.startProtocols()
+      (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
 
     node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
@@ -870,7 +874,7 @@ suite "Kernel - Relay":
       ).isOk()
       (await node4ReceivedBefore.withTimeout(FUTURE_TIMEOUT_MEDIUM)) == true
 
-    await node3.stop()
+    discard await node3.stop()
     checkUntilTimeout:
       not node2.hasGossipsubPeer($shard, peerId3)
       not node4.hasGossipsubPeer($shard, peerId3)

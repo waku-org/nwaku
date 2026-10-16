@@ -55,5 +55,5 @@ suite "Waku Keepalive":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await node2.stop()
-    await node1.stop()
+    discard await node2.stop()
+    discard await node1.stop()

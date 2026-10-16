@@ -86,7 +86,7 @@ suite "SendService - anonymity level":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    await kernel.stop()
+    discard await kernel.stop()
 
   asyncTest "a Required task fails at once when mix cannot deliver":
     ## `Required` has no second path, so the task fails at once with the reason.
@@ -202,7 +202,7 @@ suite "SendService - anonymity level with a mounted mix":
       raiseAssert "Failed to mount mix: " & $error
 
   asyncTeardown:
-    await kernel.stop()
+    discard await kernel.stop()
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
@@ -584,7 +584,7 @@ suite "Mix send path - exit peer selection":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    await kernel.stop()
+    discard await kernel.stop()
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
@@ -756,7 +756,7 @@ suite "Mix send path - the reply budget":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    await kernel.stop()
+    discard await kernel.stop()
 
   # `publishOverMix` waits `MixReplyTimeout` by default. These tests use a short
   # limit, because the test subject is the mechanism and not the constant.
@@ -807,7 +807,7 @@ suite "Mix send path - the node's own hop":
   asyncTeardown:
     # The test mix is not mounted on the switch, so the node must not stop it.
     kernel.protocols.mix = nil
-    await kernel.stop()
+    discard await kernel.stop()
 
   proc addMixPeer(port: int) =
     let peerId = PeerId.init(generateSecp256k1Key()).tryGet()

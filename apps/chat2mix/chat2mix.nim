@@ -100,9 +100,7 @@ type
     nick* {.fieldNumber: 2.}: string
     payload* {.fieldNumber: 3.}: seq[byte]
 
-proc getPubsubTopic*(
-    conf: Chat2Conf, node: Kernel, contentTopic: string
-): PubsubTopic =
+proc getPubsubTopic*(conf: Chat2Conf, node: Kernel, contentTopic: string): PubsubTopic =
   let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
       echo "Could not parse content topic: " & error
       return "" #TODO: fix this.
@@ -259,7 +257,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stop()
+        discard await c.node.stop()
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 

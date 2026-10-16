@@ -241,10 +241,10 @@ proc teardown(net: TestNetwork) {.async.} =
     (await net.subscriber.stop()).expect("Failed to stop subscriber")
     net.subscriber = nil
   if not isNil(net.publisher):
-    await net.publisher.stop()
+    discard await net.publisher.stop()
     net.publisher = nil
   if not isNil(net.storeNode):
-    await net.storeNode.stop()
+    discard await net.storeNode.stop()
     net.storeNode = nil
   if net.ownedRoot.len > 0:
     removeDir(net.ownedRoot)
@@ -283,7 +283,8 @@ proc runRestartedReceiver(
     "new process subscriber"
   )
   subscriber.shortenIntervals()
-  let events = newReceiveEventListenerManager(subscriber.kernel.brokerCtx, expectedCount)
+  let events =
+    newReceiveEventListenerManager(subscriber.kernel.brokerCtx, expectedCount)
   (await subscriber.start()).expect("start new process subscriber")
   subscriber.kernel.peerManager.addServicePeer(
     parsePeerInfo(storePeer).get(), WakuStoreCodec
@@ -459,13 +460,15 @@ proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
     await node.startProtocols()
   let subscribed = node.subscribe((kind: PubsubSub, topic: shard), noopRelayHandler)
   if subscribed.isErr():
-    await node.stop()
+    discard await node.stop()
     raiseAssert "filter service node subscribe: " & subscribed.error
   return node
 
 proc filterSubscriptionHealthy(net: TestNetwork, shard = TestShard): bool =
   ## True when the subscription manager reports `shard`'s filter subscription healthy.
-  let shardHealth = RequestEdgeShardHealth.request(net.subscriber.kernel.brokerCtx, shard).valueOr:
+  let shardHealth = RequestEdgeShardHealth.request(
+    net.subscriber.kernel.brokerCtx, shard
+  ).valueOr:
     return false
   return
     shardHealth.health in
@@ -936,7 +939,7 @@ suite "Messaging API, Receive Service (backfill)":
     # Shard 1 gets its filter service. The worker fills the gap of B.
     let filterNode = await newFilterServiceNode(1'u16)
     defer:
-      await filterNode.stop()
+      discard await filterNode.stop()
     let healthyB = net.waitForFilterSubscriptionHealth(healthy = true, SecondShard)
     await net.subscriber.kernel.connectToNodes(
       @[filterNode.peerInfo.toRemotePeerInfo()]

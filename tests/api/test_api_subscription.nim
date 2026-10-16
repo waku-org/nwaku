@@ -139,11 +139,11 @@ proc teardown(net: TestNetwork) {.async.} =
     net.subscriber = nil
 
   if not isNil(net.meshBuddy):
-    await net.meshBuddy.stop()
+    discard await net.meshBuddy.stop()
     net.meshBuddy = nil
 
   if not isNil(net.publisher):
-    await net.publisher.stop()
+    discard await net.publisher.stop()
     net.publisher = nil
 
 proc getRelayShard(node: Kernel, contentTopic: ContentTopic): PubsubTopic =
@@ -218,7 +218,8 @@ suite "Messaging API, SubscriptionManager":
       "subscriberNode failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -247,7 +248,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -272,7 +274,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to unsubscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -293,7 +296,8 @@ suite "Messaging API, SubscriptionManager":
     (await net.subscriber.messagingClient.subscribe(topicA)).expect("failed to sub A")
     (await net.subscriber.messagingClient.subscribe(topicB)).expect("failed to sub B")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -324,7 +328,8 @@ suite "Messaging API, SubscriptionManager":
     )
     net.subscriber.messagingClient.unsubscribe(glitchTopic).expect("failed to unsub")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -347,7 +352,8 @@ suite "Messaging API, SubscriptionManager":
       "Initial sub failed"
     )
 
-    var eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    var eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     discard
       (await net.publishToMesh(testTopic, "Msg 1".toBytes())).expect("Pub 1 failed")
 
@@ -392,7 +398,8 @@ suite "Messaging API, SubscriptionManager":
     (await net.subscriber.messagingClient.subscribe(topicA)).expect("failed to sub A")
     (await net.subscriber.messagingClient.subscribe(topicB)).expect("failed to sub B")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 2)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 2)
     defer:
       await eventManager.teardown()
 
@@ -495,7 +502,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -519,7 +527,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -544,7 +553,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to unsubscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -568,7 +578,8 @@ suite "Messaging API, SubscriptionManager":
     let shard = net.subscriber.kernel.getRelayShard(topicA)
     await waitForEdgeSubs(net.subscriber, shard)
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -595,7 +606,8 @@ suite "Messaging API, SubscriptionManager":
       "Initial sub failed"
     )
 
-    var eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    var eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     discard (await net.publishToMeshAfterEdgeReady(testTopic, "Msg 1".toBytes())).expect(
       "Pub 1 failed"
     )
@@ -732,8 +744,8 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await meshBuddy.stop()
-    await publisher.stop()
+    discard await meshBuddy.stop()
+    discard await publisher.stop()
 
   asyncTest "Subscription API, edge node dials replacement after peer eviction":
     # 3 service peers: publisher, meshBuddy, sparePeer. Edge subscribes and
@@ -849,9 +861,9 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await sparePeer.stop()
-    await meshBuddy.stop()
-    await publisher.stop()
+    discard await sparePeer.stop()
+    discard await meshBuddy.stop()
+    discard await publisher.stop()
 
   asyncTest "Subscription API, edge node unsubscribes a topic the service no longer holds without dropping its service peer":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
