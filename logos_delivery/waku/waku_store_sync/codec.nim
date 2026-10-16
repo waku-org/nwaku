@@ -248,8 +248,8 @@ proc getCluster(idx: var int, buffer: seq[byte]): Result[uint16, string] =
 proc getShards(idx: var int, buffer: seq[byte]): Result[seq[uint16], string] =
   let count = getVarint(idx, buffer).valueOr:
     return err("Cannot decode shard count")
-  # every shard takes at least one byte
-  if count > uint64(buffer.len - idx):
+  # every shard takes at least one byte, and there are at most 65536 distinct shards
+  if count > min(uint64(buffer.len - idx), uint64(high(uint16)) + 1):
     return err("Cannot decode shard count")
 
   var shards = newSeqOfCap[uint16](int(count))

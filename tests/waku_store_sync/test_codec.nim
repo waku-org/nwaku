@@ -344,6 +344,19 @@ suite "Store sync - codec bounds":
       res.isErr()
       res.error == "Cannot decode shard count"
 
+  test "a shard count above 65536 is refused":
+    # Cluster 2, a shard count (varints 808004 = 65536, 818004 = 65537), then that
+    # many zero shards.
+    let
+      atLimit = RangesData.deltaDecode(hexToSeqByte("02808004") & newSeq[byte](65536))
+      aboveLimit =
+        RangesData.deltaDecode(hexToSeqByte("02818004") & newSeq[byte](65537))
+    check:
+      atLimit.isOk()
+      atLimit.get().shards.len == 65536
+      aboveLimit.isErr()
+      aboveLimit.error == "Cannot decode shard count"
+
   test "a shard above 65535 is refused":
     # Cluster 2, one shard, then 65536 as a varint.
     let res = RangesData.deltaDecode(hexToSeqByte("0201808004"))
