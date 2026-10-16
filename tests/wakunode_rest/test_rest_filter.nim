@@ -941,7 +941,8 @@ suite "Waku v2 Rest API - Filter V2":
     let otherNode = testWakuNode()
     await otherNode.startProtocols()
     defer:
-      discard await otherNode.stop()
+      (await otherNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     await otherNode.mountFilterClient()
     let servicePeer = restFilterTest.serviceNode.peerInfo.toRemotePeerInfo()

@@ -805,7 +805,8 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
     )
 
-    discard await isolatedStoreNode.stop()
+    (await isolatedStoreNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 

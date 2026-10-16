@@ -352,7 +352,8 @@ suite "Peer Manager":
             DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
         # Cleanup
-        discard await server2.stop()
+        (await server2.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
     suite "Tracked Peer Metadata":
       asyncTest "Metadata Recording":
@@ -744,7 +745,8 @@ suite "Persistence Check":
       newClientPeerStore.peers().len == 1
 
     # Cleanup
-    discard await newClient.stop()
+    (await newClient.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     cleanupDb()
 
   asyncTest "PeerStorage exists but no data":
@@ -809,7 +811,8 @@ suite "Mount Order":
     clientRemotePeerInfo = client.switch.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    discard await client.stop()
+    (await client.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol-start-info":
     # Given a server that is initiaalised in the order defined in the title
@@ -834,7 +837,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol-info-start":
     # Given a server that is initialised in the order defined in the title
@@ -859,7 +863,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "start-protocol-info":
     # Given a server that is initialised in the order defined in the title
@@ -884,7 +889,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "start-info-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -909,7 +915,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "info-start-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -933,7 +940,8 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "info-protocol-start":
     # Given a server that is initialised in the order defined in the title
@@ -957,4 +965,5 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

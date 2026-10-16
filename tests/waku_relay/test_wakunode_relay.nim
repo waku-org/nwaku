@@ -327,8 +327,10 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    discard await node1.stop()
-    discard await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
@@ -379,8 +381,10 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    discard await node1.stop()
-    discard await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
@@ -556,8 +560,10 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    discard await node1.stop()
-    discard await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Bad peers with low reputation are disconnected":
     # The bad-peer scoring under test is transport agnostic.
@@ -689,7 +695,8 @@ suite "Kernel - Relay":
     check not kernel.protocols.relay.isSubscribed(shard)
 
     ## Cleanup
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "A peer restarted with the same key stays out of the mesh after the prune backoff until it publishes":
     # TODO: iftech/nim-libp2p#3236
@@ -727,7 +734,8 @@ suite "Kernel - Relay":
       node1.hasMeshPeer($shard, peerId2)
       node2.hasMeshPeer($shard, peerId1)
 
-    discard await node2.stop()
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     checkUntilTimeout:
       not node1.hasGossipsubPeer($shard, peerId2)
 
@@ -874,7 +882,8 @@ suite "Kernel - Relay":
       ).isOk()
       (await node4ReceivedBefore.withTimeout(FUTURE_TIMEOUT_MEDIUM)) == true
 
-    discard await node3.stop()
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     checkUntilTimeout:
       not node2.hasGossipsubPeer($shard, peerId3)
       not node4.hasGossipsubPeer($shard, peerId3)

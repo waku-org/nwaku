@@ -142,7 +142,8 @@ procSuite "Waku Rendezvous":
     check:
       namespace.len > 0
 
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Rendezvous uses configured shards when relay not mounted":
     ## Given: A light client node with no relay protocol
@@ -171,4 +172,5 @@ procSuite "Waku Rendezvous":
     check:
       lightClient.discovery.rendezvous != nil
 
-    discard await lightClient.stop()
+    (await lightClient.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

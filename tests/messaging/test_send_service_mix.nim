@@ -86,7 +86,8 @@ suite "SendService - anonymity level":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a Required task fails at once when mix cannot deliver":
     ## `Required` has no second path, so the task fails at once with the reason.
@@ -202,7 +203,8 @@ suite "SendService - anonymity level with a mounted mix":
       raiseAssert "Failed to mount mix: " & $error
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
@@ -584,7 +586,8 @@ suite "Mix send path - exit peer selection":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   const shard = PubsubTopic("/waku/2/rs/3/0")
 
@@ -756,7 +759,8 @@ suite "Mix send path - the reply budget":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   # `publishOverMix` waits `MixReplyTimeout` by default. These tests use a short
   # limit, because the test subject is the mechanism and not the constant.
@@ -807,7 +811,8 @@ suite "Mix send path - the node's own hop":
   asyncTeardown:
     # The test mix is not mounted on the switch, so the node must not stop it.
     kernel.protocols.mix = nil
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc addMixPeer(port: int) =
     let peerId = PeerId.init(generateSecp256k1Key()).tryGet()
@@ -828,11 +833,7 @@ suite "Mix send path - the node's own hop":
     let mixKeys = generateKeyPair().expect("mix key pair")
     kernel.protocols.mix = WakuMix
       .new(
-        "/dns4/node.test/tcp/30303",
-        kernel.peerManager,
-        3'u16,
-        mixKeys.privateKey,
-        @[],
+        "/dns4/node.test/tcp/30303", kernel.peerManager, 3'u16, mixKeys.privateKey, @[]
       )
       .expect("WakuMix.new")
     for i in 0 ..< MinMixPoolSize:
@@ -855,7 +856,9 @@ suite "Mix RLN coordination protection":
     check defaultTestWakuNodeConf().mixRlnIdentifierHex.hexToSeqByte().len == 32
 
   asyncTest "shared Mix refuses to start without Relay RLN":
-    let node = Kernel(ports: BoundPorts.init(), protocols: Protocols(mixRln: ModuleRlnProtection()))
+    let node = Kernel(
+      ports: BoundPorts.init(), protocols: Protocols(mixRln: ModuleRlnProtection())
+    )
     let started = await node.startMixRln()
     check:
       started.isErr()

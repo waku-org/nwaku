@@ -510,7 +510,8 @@ suite "Waku Store - End to End - Sorted Archive":
           otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
-        discard await otherServer.stop()
+        (await otherServer.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
 suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -1257,7 +1258,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      discard await emptyServer.stop()
+      (await emptyServer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
@@ -1308,7 +1310,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ]
 
       # Cleanup
-      discard await voluminousServer.stop()
+      (await voluminousServer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10

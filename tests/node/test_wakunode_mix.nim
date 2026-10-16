@@ -54,7 +54,8 @@ suite "Waku Mix - the node's own hop":
       node.selfHop() == node.announcedAddresses[0]
       $node.selfHop() != "/ip4/127.0.0.1/tcp/0"
       node.protocols.mix.selfHopUsable()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the default deployment takes the primary interface, not the wildcard":
     ## A wildcard bind with nothing configured leaves only the resolved set, so
@@ -71,7 +72,8 @@ suite "Waku Mix - the node's own hop":
       node.selfHop() == node.announcedAddresses[0]
       "0.0.0.0" notin $node.selfHop()
       node.protocols.mix.selfHopUsable()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "an address known from outside outranks the primary interface":
     ## Peers learn the operator-configured address, so it outranks the primary
@@ -92,7 +94,8 @@ suite "Waku Mix - the node's own hop":
       node.enrAddresses() == @[outside]
       node.announcedAddresses.len == 2
       node.selfHop() == outside
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "an explicit bind host stays first, as in the ENR":
     ## A concrete `--listen-address` is announced ahead of an `--ext-multiaddr`.
@@ -111,7 +114,8 @@ suite "Waku Mix - the node's own hop":
       node.enrAddresses().len == 2
       node.selfHop() == node.announcedAddresses[0]
       $node.selfHop() == "/ip4/127.0.0.1/tcp/" & $node.boundTcpPort()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a direct operator address outranks a relay route":
     ## The autorelay mapper announces a circuit route first. Only a relay client
@@ -136,7 +140,8 @@ suite "Waku Mix - the node's own hop":
     check:
       node.announcedAddresses == @[circuit, direct]
       node.selfHop() == direct
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a node announcing a name takes the host the name resolved to":
     ## A fleet node announces a name, which mix cannot encode. The hop is the
@@ -160,7 +165,8 @@ suite "Waku Mix - the node's own hop":
       node.announcedAddresses.allIt("/dns4/" in $it)
       $node.selfHop() == "/ip4/203.0.113.9/tcp/30303"
       node.protocols.mix.selfHopUsable()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the host a name resolved to outranks a relay route":
     ## A fleet node with a relay route: the hop is the resolved host, as in the
@@ -186,7 +192,8 @@ suite "Waku Mix - the node's own hop":
         @[MultiAddress.init("/dns4/node.test/tcp/30303").tryGet(), circuit]
       node.enrAddresses().len == 2
       $node.selfHop() == "/ip4/203.0.113.9/tcp/30303"
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "an operator address outranks the host a name resolved to":
     let outside = MultiAddress.init("/ip4/198.51.100.7/tcp/60001").tryGet()
@@ -203,7 +210,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     await node.startProtocols()
     check node.selfHop() == outside
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a name resolved again at start moves the hop with the ENR host":
     ## `Waku.start` resolves a dns4 name again and hands the result to the ENR
@@ -232,7 +240,8 @@ suite "Waku Mix - the node's own hop":
       .expect("NetConfig")
     node.updateEnrConfiguredEndpoint(resolvedAgain)
     check $node.selfHop() == "/ip4/198.51.100.7/tcp/30303"
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a host discv5 confirmed outranks the primary interface":
     ## A host that discv5 confirmed is known from outside; a commit after start
@@ -248,7 +257,8 @@ suite "Waku Mix - the node's own hop":
       Opt.some(DiscoveryEndpoint((ip: parseIpAddress("203.0.113.9"), udp: Port(9000))))
     node.copyCommittedAddresses()
     check $node.selfHop() == "/ip4/203.0.113.9/tcp/" & $node.boundTcpPort()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a node with no address mix can encode starts, and mix says so":
     ## A name and nothing else on a wildcard bind. The node starts, keeps the
@@ -272,7 +282,8 @@ suite "Waku Mix - the node's own hop":
       not node.protocols.mix.selfHopUsable()
       health.health == HealthStatus.NOT_READY
       "replies" in health.desc.get("")
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a derivation that finds nothing marks a leftover unusable even if it encodes":
     ## The mount's hop can encode and still be a placeholder. After a derivation
@@ -294,7 +305,8 @@ suite "Waku Mix - the node's own hop":
       node.protocols.mix.updateSelfHop(@[name], @[direct]) == Opt.some(direct)
       not node.protocols.mix.selfHopMissing()
       node.protocols.mix.selfHopUsable()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a restart re-derives the hop":
     ## `stop()` clears the resolved base, and the commit in the next `start()`
@@ -304,7 +316,8 @@ suite "Waku Mix - the node's own hop":
     await node.mountTestMix()
     await node.startProtocols()
     check node.selfHop() == node.announcedAddresses[0]
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
     let stale = MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()
     node.protocols.mix.setLocalMultiAddr(stale).expect("an IPv4 TCP hop")
@@ -313,7 +326,8 @@ suite "Waku Mix - the node's own hop":
       node.selfHop() != stale
       node.selfHop() == node.announcedAddresses[0]
       node.protocols.mix.selfHopUsable()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
 ## `poolSize` counts the live pool members a path can use; `mixReady` and the
 ## `mix_pool_size` gauge read it. The cases that read the gauge publish it first
@@ -334,7 +348,8 @@ suite "Waku Mix - pool size":
     await node.startProtocols()
 
   asyncTeardown:
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc addMixPeer(address: string): PeerId =
     ## Stores a mix key and its address in the peer store, as discovery does.
@@ -417,7 +432,8 @@ suite "Waku Mix - pool size":
       other.getMixNodePoolSize() == 1
       mix_pool_size.value() == 1.0
 
-    discard await other.stop()
+    (await other.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
 suite "Waku Mix - pool size without mix":
   asyncTest "a node that never mounted mix reports an empty pool":
@@ -524,7 +540,8 @@ suite "Waku Mix - bootstrap nodes":
     )
 
     check node.getMixNodePoolSize() == MinMixPoolSize
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a node skips its own entry in the bootstrap list":
     ## A fleet node finds itself in its own preset. The mount skips that entry,
@@ -549,7 +566,8 @@ suite "Waku Mix - bootstrap nodes":
     check:
       node.getMixNodePoolSize() == 1
       node.switch.peerInfo.peerId notin node.protocols.mix.nodePool.peerIds()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a name the node cannot resolve is dropped, and the rest still mount":
     ## `newTestWakuNode` has no name resolver, so the mount drops both names and
@@ -568,7 +586,8 @@ suite "Waku Mix - bootstrap nodes":
     check:
       node.getMixNodePoolSize() == 2
       logos_delivery_mix_bootnode_resolve_failures.value() - droppedBefore == 2.0
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a name is resolved into the address mix routes":
     ## A preset pins `/dns4/<host>/tcp/30303`, and the pool holds the literal
@@ -584,7 +603,8 @@ suite "Waku Mix - bootstrap nodes":
     )
 
     check node.getMixNodePoolSize() == MinMixPoolSize
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a name that answers with no address is dropped, the rest still mount":
     ## `DnsResolver` answers a dead or stale name with an empty list. The counter
@@ -603,7 +623,8 @@ suite "Waku Mix - bootstrap nodes":
     check:
       node.getMixNodePoolSize() == 2
       logos_delivery_mix_bootnode_resolve_failures.value() - droppedBefore == 2.0
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a lookup that raises is dropped, the rest still mount":
     ## As above, the counter is the witness of the drop.
@@ -621,7 +642,8 @@ suite "Waku Mix - bootstrap nodes":
     check:
       node.getMixNodePoolSize() == 2
       logos_delivery_mix_bootnode_resolve_failures.value() - droppedBefore == 2.0
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a name that answers with two addresses is one pool member with two addresses":
     let entry = mixBootnode("/dns4/delivery-01.example.invalid/tcp/30303")
@@ -631,7 +653,8 @@ suite "Waku Mix - bootstrap nodes":
     check:
       node.getMixNodePoolSize() == 1
       node.peerManager.switch.peerStore.getPeer(peerId).addrs.len == 2
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
 type NeverResolver = ref object of NameResolver
   waits: seq[Future[void].Raising([CancelledError])]
@@ -726,7 +749,8 @@ suite "Waku Mix - name resolution in the background":
       resolver.waits.len == 2
     for wait in resolver.waits:
       check wait.cancelled()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "stopping the node cancels a lookup still pending":
     ## No DNS request outlives the node.
@@ -786,7 +810,8 @@ suite "Waku Mix - name resolution in the background":
     check:
       node.getMixNodePoolSize() == 4
       not node.protocols.mixNodeResolution.finished()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a start after a stop resumes the names still pending":
     let resolver = GatedResolver(gate: newFuture[void]("gate"))
@@ -801,7 +826,8 @@ suite "Waku Mix - name resolution in the background":
     ).isOkOr:
       raiseAssert "mount failed: " & error
     await node.startProtocols()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     check:
       node.protocols.mixNodeResolution.cancelled()
       node.getMixNodePoolSize() == 0
@@ -810,4 +836,5 @@ suite "Waku Mix - name resolution in the background":
     resolver.gate.complete()
     check await node.mixNodesResolved().withTimeout(chronos.seconds(5))
     check node.getMixNodePoolSize() == 1
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

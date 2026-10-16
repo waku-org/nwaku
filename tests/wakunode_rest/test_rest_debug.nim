@@ -67,7 +67,8 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Get node version - GET /version":
     # Given
@@ -96,4 +97,5 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

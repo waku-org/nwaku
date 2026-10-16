@@ -98,7 +98,8 @@ suite "LM API health checking":
 
   asyncTeardown:
     discard await client.stop()
-    discard await serviceNode.stop()
+    (await serviceNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
     client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)

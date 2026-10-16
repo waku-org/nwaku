@@ -116,7 +116,8 @@ suite "Waku v2 REST API - health":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
     let kernel = testWakuNode()
@@ -147,4 +148,5 @@ suite "Waku v2 REST API - health":
     check (await healthMonitor.getProtocolHealthInfo(RlnRelayProtocol)).health ==
       HealthStatus.READY
 
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

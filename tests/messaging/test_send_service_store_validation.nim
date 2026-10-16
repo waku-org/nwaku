@@ -55,7 +55,8 @@ suite "SendService - store validation and mix":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc service(reliability: bool): SendService =
     ## The policy under test never sends, so the plain chain is enough.
@@ -205,7 +206,8 @@ suite "SendService - mix completion":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc countSent(counter: EventCounter): MessageSentEventListener =
     return MessageSentEvent
@@ -269,7 +271,8 @@ suite "SendService - Store validation window":
 
   asyncTeardown:
     await log.teardown()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the time while the service is stopped does not count against the window":
     ## The task propagates, then the service stops for longer than the window.
@@ -322,7 +325,8 @@ suite "SendService - Store validation batches":
     service = reliableService(kernel, ScriptedProc())
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a batch holds one Store page, and the tasks that waited longest come first":
     let now = Moment.now()
@@ -406,8 +410,10 @@ suite "SendService - Store validation loop":
     if not allowAnswer.finished():
       allowAnswer.complete()
     await log.teardown()
-    discard await storeNode.stop()
-    discard await kernel.stop()
+    (await storeNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc startedService(processor: BaseSendProcessor = ScriptedProc()): SendService =
     let service = reliableService(kernel, processor)

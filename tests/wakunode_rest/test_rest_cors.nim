@@ -114,7 +114,8 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "AllowedOrigin reject":
     # Given
@@ -181,7 +182,8 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "AllowedOrigin allmatches":
     # Given
@@ -238,7 +240,8 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "No origin goes through":
     # Given
@@ -272,4 +275,5 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

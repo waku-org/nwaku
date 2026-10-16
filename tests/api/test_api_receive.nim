@@ -241,10 +241,12 @@ proc teardown(net: TestNetwork) {.async.} =
     (await net.subscriber.stop()).expect("Failed to stop subscriber")
     net.subscriber = nil
   if not isNil(net.publisher):
-    discard await net.publisher.stop()
+    (await net.publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.publisher = nil
   if not isNil(net.storeNode):
-    discard await net.storeNode.stop()
+    (await net.storeNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.storeNode = nil
   if net.ownedRoot.len > 0:
     removeDir(net.ownedRoot)
@@ -460,7 +462,8 @@ proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
     await node.startProtocols()
   let subscribed = node.subscribe((kind: PubsubSub, topic: shard), noopRelayHandler)
   if subscribed.isErr():
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     raiseAssert "filter service node subscribe: " & subscribed.error
   return node
 
@@ -939,7 +942,8 @@ suite "Messaging API, Receive Service (backfill)":
     # Shard 1 gets its filter service. The worker fills the gap of B.
     let filterNode = await newFilterServiceNode(1'u16)
     defer:
-      discard await filterNode.stop()
+      (await filterNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let healthyB = net.waitForFilterSubscriptionHealth(healthy = true, SecondShard)
     await net.subscriber.kernel.connectToNodes(
       @[filterNode.peerInfo.toRemotePeerInfo()]

@@ -213,7 +213,8 @@ suite "Kernel":
       kernel.switch.peerInfo.addrs.len == 1
       kernel.switch.peerInfo.addrs.contains(announcedEndpoint)
 
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Peer info updates with correct announced addresses (QUIC)":
     # dual-stack node announces both tcp and quic-v1
@@ -241,7 +242,8 @@ suite "Kernel":
       kernel.switch.peerInfo.addrs.contains(tcpAnnounced)
       kernel.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
 
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Dual-stack nodes connect over QUIC":
     let

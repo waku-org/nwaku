@@ -447,7 +447,8 @@ procSuite "Peer Manager":
     let node = newTestWakuNode(generateSecp256k1Key())
     await node.startProtocols()
     defer:
-      discard await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let accepted = newAsyncEvent()
     var held: seq[StreamTransport]
@@ -508,7 +509,8 @@ procSuite "Peer Manager":
           it.protocols.contains(WakuStoreCodec)
       )
 
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "total unique peers metric counts each peer once":
     let
@@ -615,13 +617,15 @@ procSuite "Peer Manager":
         Connected
 
     # Stop node. Gracefully disconnect from all peers.
-    discard await nodes[0].stop()
+    (await nodes[0].stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     check:
       # Not currently connected to node2, but had recent, successful connection.
       nodes[0].peerManager.switch.peerStore.connectedness(nodes[1].peerInfo.peerId) ==
         CanConnect
 
-    discard await nodes[1].stop()
+    (await nodes[1].stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Peer manager updates failed peers correctly":
     # Create 2 nodes
@@ -788,7 +792,8 @@ procSuite "Peer Manager":
       peerStore[NumberFailedConnBook][discoveredPeerId] == 0
       peerStore.connectedness(discoveredPeerId) == NotConnected
 
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let

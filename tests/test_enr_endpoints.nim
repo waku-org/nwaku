@@ -55,7 +55,8 @@ procSuite "ENR endpoints":
       kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       kernel.enr.multiaddrsOf().len == 0
       kernel.announcedAddresses.allIt("0.0.0.0" notin $it)
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a concrete bind host is a chosen host and is carried":
     let kernel =
@@ -67,7 +68,8 @@ procSuite "ENR endpoints":
       kernel.enr.ipOf().get() == [127'u8, 0, 0, 1]
       kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       kernel.enr.multiaddrsOf().len > 0
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a mapper addition is carried, the wildcard stand-in is not":
     let kernel = newTestWakuNode(
@@ -90,7 +92,8 @@ procSuite "ENR endpoints":
       kernel.enr.ipOf().get() == [203'u8, 0, 113, 55]
       kernel.enr.tcpOf().get() == 60555'u16
       kernel.enr.multiaddrsOf() == @[granted]
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a configured external port stays beside its configured host":
     let kernel = newTestWakuNode(
@@ -109,7 +112,8 @@ procSuite "ENR endpoints":
     check:
       kernel.enr.ipOf().get() == [203'u8, 0, 113, 9]
       kernel.enr.tcpOf().get() == 1234'u16
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   test "a rebuild keeps every field that is not an address":
     let key = generateSecp256k1Key()
@@ -260,7 +264,8 @@ procSuite "ENR endpoints":
       kernel.enr.ipOf().get() == [198'u8, 51, 100, 4]
       kernel.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       kernel.enr.toRemotePeerInfo().isOk()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   test "a record is dialable through its multiaddrs field alone":
     ## The scalars hold one IPv4 host, so a dns4 name or a relay route lives
@@ -529,7 +534,8 @@ procSuite "ENR endpoints":
       kernel.enrAddresses() == @[resolved]
       kernel.enr.multiaddrsOf() == @[resolved]
       kernel.enr.udpOf().get() == 30303'u16
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the bound endpoints move onto a host discv5 learned behind a NAT":
     ## The interface holds a private address and discv5 reports a different,
@@ -576,7 +582,8 @@ procSuite "ENR endpoints":
       initTAddress(carried[0]).expect("endpoint").port == boundPort
       kernel.enr.ipOf().get() == [198'u8, 51, 100, 7]
       kernel.enr.toRemotePeerInfo().isOk()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   test "the reconcile loop follows a discv5 record write":
     let key = generateSecp256k1Key()

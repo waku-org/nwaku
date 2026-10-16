@@ -265,7 +265,8 @@ suite "Health Monitor - events":
 
     healthChangeSignal.clear()
 
-    discard await nodeB.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     await nodeA.disconnectNode(nodeB.switch.peerInfo.toRemotePeerInfo())
 
     let disconnectTimeLimit = Moment.now() + TestConnectivityTimeLimit
@@ -283,7 +284,8 @@ suite "Health Monitor - events":
       gotDisconnected == true
 
     await monitorA.stopHealthMonitor()
-    discard await nodeA.stop()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Edge (light client) health update":
     var nodeA: Kernel
@@ -371,7 +373,8 @@ suite "Health Monitor - events":
 
     healthChangeSignal.clear()
 
-    discard await nodeB.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     await nodeA.disconnectNode(nodeB.switch.peerInfo.toRemotePeerInfo())
 
     let disconnectTimeLimit = Moment.now() + TestConnectivityTimeLimit
@@ -391,7 +394,8 @@ suite "Health Monitor - events":
 
     await monitorA.stopHealthMonitor()
     await ds.stop()
-    discard await nodeA.stop()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Edge health driven by confirmed filter subscriptions":
     var nodeA: Kernel
@@ -507,8 +511,10 @@ suite "Health Monitor - events":
 
     await ds.stop()
     await monitorA.stopHealthMonitor()
-    discard await nodeB.stop()
-    discard await nodeA.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol health changes are published, identify included":
     ## The Store client is READY once the peer's identify lists Store. libp2p
@@ -521,7 +527,8 @@ suite "Health Monitor - events":
       nodeA.mountStoreClient()
       await nodeA.startProtocols()
     defer:
-      discard await nodeA.stop()
+      (await nodeA.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     var seen: seq[ProtocolHealth]
@@ -563,7 +570,8 @@ suite "Health Monitor - events":
     var nodeBStopped = false
     defer:
       if not nodeBStopped:
-        discard await nodeB.stop()
+        (await nodeB.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async.} =
       discard
@@ -599,7 +607,8 @@ suite "Health Monitor - events":
       # identify does not touch the connection book
       nodeA.switch.peerStore[ConnectionBook][peerB.peerId] == Connectedness.Connected
 
-    discard await nodeB.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     nodeBStopped = true
     await nodeA.disconnectNode(peerB)
 
@@ -724,8 +733,10 @@ suite "Health Monitor - mix readiness":
       lastStatus == ConnectionStatus.Disconnected
 
     await monitorA.stopHealthMonitor()
-    discard await nodeB.stop()
-    discard await nodeA.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix status follows the pool as it fills and drains":
     var nodeA: Kernel
@@ -797,8 +808,10 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.Disconnected)
 
     await monitorA.stopHealthMonitor()
-    discard await nodeB.stop()
-    discard await nodeA.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix stays Disconnected while the pool's fourth member is unroutable":
     ## The health gate reads the routable count: a fourth peer whose address mix
@@ -881,8 +894,10 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     await monitorA.stopHealthMonitor()
-    discard await nodeB.stop()
-    discard await nodeA.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix recovers when discovery learns a pool peer serves lightpush":
     var nodeA: Kernel
@@ -965,8 +980,10 @@ suite "Health Monitor - mix readiness":
       await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     await monitorA.stopHealthMonitor()
-    discard await nodeB.stop()
-    discard await nodeA.stop()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the health pass publishes the pool size":
     ## After the mount, the health loop is the gauge's only writer; the other
@@ -998,4 +1015,5 @@ suite "Health Monitor - mix readiness":
       mix_pool_size.value() == MinMixPoolSize.float64
 
     await monitorA.stopHealthMonitor()
-    discard await nodeA.stop()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

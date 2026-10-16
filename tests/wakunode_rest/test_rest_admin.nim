@@ -381,7 +381,8 @@ suite "Waku v2 Rest API - Admin":
     check node4.mountMetadata(1, @[0.uint16]).isOk()
     await node4.startProtocols()
     defer:
-      discard await node4.stop()
+      (await node4.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let peerInfo4 = node4.peerInfo.toRemotePeerInfo()
 
     # Connect to nodes 2, 3 and 4 using the Admin API

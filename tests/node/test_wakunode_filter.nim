@@ -182,7 +182,8 @@ suite "Waku Filter - End to End":
       publisher = newTestWakuNode(publisherKey)
     await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     (await publisher.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
@@ -293,7 +294,8 @@ suite "Waku Filter - End to End":
       server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
-    discard await client.stop()
+    (await client.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     await clientClone.startProtocols() # Mimic restart by starting the clone
 
     # When a message is sent to the subscribed content topic, via Relay
@@ -813,9 +815,12 @@ suite "Waku Filter - End to End":
       await client3.startProtocols()
 
       defer:
-        discard await client1.stop()
-        discard await client2.stop()
-        discard await client3.stop()
+        (await client1.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
+        (await client2.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
+        (await client3.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
       await client1.mountFilterClient()
       await client2.mountFilterClient()

@@ -237,7 +237,8 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [CancelledError]).} =
   cmb.running = false
 
   try:
-    discard await cmb.nodev2.stop()
+    (await cmb.nodev2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
   except CancelledError as e:
     raise e
   except CatchableError as e:

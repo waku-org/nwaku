@@ -139,11 +139,13 @@ proc teardown(net: TestNetwork) {.async.} =
     net.subscriber = nil
 
   if not isNil(net.meshBuddy):
-    discard await net.meshBuddy.stop()
+    (await net.meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.meshBuddy = nil
 
   if not isNil(net.publisher):
-    discard await net.publisher.stop()
+    (await net.publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.publisher = nil
 
 proc getRelayShard(node: Kernel, contentTopic: ContentTopic): PubsubTopic =
@@ -744,8 +746,10 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    discard await meshBuddy.stop()
-    discard await publisher.stop()
+    (await meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Subscription API, edge node dials replacement after peer eviction":
     # 3 service peers: publisher, meshBuddy, sparePeer. Edge subscribes and
@@ -861,9 +865,12 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    discard await sparePeer.stop()
-    discard await meshBuddy.stop()
-    discard await publisher.stop()
+    (await sparePeer.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Subscription API, edge node unsubscribes a topic the service no longer holds without dropping its service peer":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)

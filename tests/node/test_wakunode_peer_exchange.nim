@@ -45,7 +45,8 @@ suite "Waku Peer Exchange":
         kernel.discovery.peerExchange.started == true
 
       # Cleanup
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Stopped node mounts peer exchange":
       # Given a stopped node without peer exchange mounted
@@ -128,7 +129,8 @@ suite "Waku Peer Exchange":
       var rpInfo = node3.peerInfo.toRemotePeerInfo()
       rpInfo.enr = Opt.some(node3.enr)
       node2.peerManager.addPeer(rpInfo, PeerOrigin.Discv5)
-      discard await node3.stop()
+      (await node3.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
       kernel.peerManager.addServicePeer(
         node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec

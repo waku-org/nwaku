@@ -57,7 +57,8 @@ suite "Waku Legacy Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -161,7 +162,8 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    discard await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":

@@ -162,9 +162,12 @@ procSuite "Kernel - RLN relay":
     discard await node1.publish(Opt.some(DefaultPubsubTopic), message)
     assert (await completionFut.withTimeout(15.seconds)), "completionFut timed out"
 
-    discard await node1.stop()
-    discard await node2.stop()
-    discard await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
@@ -318,9 +321,12 @@ procSuite "Kernel - RLN relay":
       rxMessagesTopic1 == 3
       rxMessagesTopic2 == 3
 
-    discard await node1.stop()
-    discard await node2.stop()
-    discard await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay with invalid proof":
     var node1, node2, node3: Kernel
@@ -431,9 +437,12 @@ procSuite "Kernel - RLN relay":
       # the relayHandler of node3 never gets called
       (await completionFut.withTimeout(10.seconds)) == false
 
-    discard await node1.stop()
-    discard await node2.stop()
-    discard await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay double-signaling detection":
     var node1, node2, node3: Kernel
@@ -604,9 +613,12 @@ procSuite "Kernel - RLN relay":
       (await res3) == true
       (await res4) == false
 
-    discard await node1.stop()
-    discard await node2.stop()
-    discard await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
     ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
@@ -826,7 +838,8 @@ procSuite "Kernel - RLN relay":
       let rootValid = await rln.groupManager.validateRoot(rlnProof.merkleRoot)
       check rootValid
 
-      discard await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
 proc relayVerdict(
     node: Kernel, msg: WakuMessage

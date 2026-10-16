@@ -55,5 +55,7 @@ suite "Waku Keepalive":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    discard await node2.stop()
-    discard await node1.stop()
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

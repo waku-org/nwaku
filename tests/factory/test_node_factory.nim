@@ -344,7 +344,8 @@ suite "Node Factory":
       raiseAssert error
     let startResult = await startNode(kernel, conf)
     defer:
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     # Then the responder holds the peer exchange service slot, and the peer it discovered is in the peer store
     check:
@@ -494,7 +495,8 @@ asynctest "Start a node based on default test configuration":
   check hasNonZeroTcp
 
   ## Cleanup
-  discard await kernel.stop()
+  (await kernel.stop()).isOkOr:
+    raiseAssert "failed to stop kernel: " & error
 
 suite "Auto-port retry":
   asynctest "metrics binds on free TCP port, fails on taken":
@@ -535,7 +537,8 @@ suite "Auto-port retry":
     let kernel = newTestWakuNode(nodeKey)
     await kernel.startProtocols()
     defer:
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let takenUdp =
       newDatagramTransport(dummyCb, local = initTAddress("0.0.0.0", Port(0)))

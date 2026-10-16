@@ -104,7 +104,8 @@ proc init(
 proc shutdown(t: RestStoreTest) {.async.} =
   await t.restServer.stop()
   await t.restServer.closeWait()
-  discard await t.node.stop()
+  (await t.node.stop()).isOkOr:
+    raiseAssert "failed to stop kernel: " & error
 
 ################################################################################
 # Beginning of the tests
@@ -212,7 +213,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Filter by start and end time":
     let kernel = testWakuNode()
@@ -283,7 +285,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Store node history response - forward pagination":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
@@ -376,7 +379,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "query a node and retrieve historical messages filtered by pubsub topic":
     # Given
@@ -449,7 +453,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "retrieve historical messages from a provided store node address":
     # Given
@@ -538,7 +543,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "filter historical messages by content topic":
     # Given
@@ -594,7 +600,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "precondition failed":
     # Given
@@ -661,7 +668,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "retrieve historical messages from a self-store-node":
     ## This test aims to validate the correct message retrieval for a store-node which exposes
@@ -917,7 +925,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "hashes filter: each hash list returns exactly its messages":
     let t = await RestStoreTest.init()
@@ -1315,7 +1324,8 @@ procSuite "Waku Rest API - Store v3":
     let kernel = testWakuNode()
     await kernel.startProtocols()
     defer:
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1351,7 +1361,8 @@ procSuite "Waku Rest API - Store v3":
     let kernel = testWakuNode()
     await kernel.startProtocols()
     defer:
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1385,7 +1396,8 @@ procSuite "Waku Rest API - Store v3":
     let kernel = testWakuNode()
     await kernel.startProtocols()
     defer:
-      discard await kernel.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()

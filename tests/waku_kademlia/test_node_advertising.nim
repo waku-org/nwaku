@@ -78,7 +78,8 @@ suite "Waku Kademlia node advertising":
       node.publishedAddresses().len > 0
       node.publishedAddresses().allIt("0.0.0.0" notin $it and "/tcp/0" notin $it)
       node.publishedAddresses() == node.announcedAddresses
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     check not node.isAdvertised(service)
     ## The stored record survives the stop. Delete it so the restart must publish anew.
     node.discovery.kademlia.protocol.dataTable.del(node.switch.peerInfo.peerId.toKey())
@@ -87,7 +88,8 @@ suite "Waku Kademlia node advertising":
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a record the protocol cannot build leaves the node running and the service configured":
     ## 200 addresses push the record past its size cap. Through the constructor this
@@ -105,11 +107,13 @@ suite "Waku Kademlia node advertising":
       node.started
       node.discovery.kademlia.protocol.record().isErr()
       not node.isAdvertised(service)
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
     await node.startProtocols()
     check not node.isAdvertised(service)
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a concrete bind republishes the record once the service is added":
     ## The first record precedes the service, and a concrete bind changes no address.
@@ -120,4 +124,5 @@ suite "Waku Kademlia node advertising":
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

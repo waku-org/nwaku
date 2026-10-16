@@ -257,7 +257,8 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        discard await c.node.stop()
+        (await c.node.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 

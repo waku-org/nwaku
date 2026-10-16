@@ -290,7 +290,8 @@ proc main(rng: Rng): Future[int] {.async.} =
   defer:
     debug "Cleanly disconnecting from peer", peerId = peer.peerId
     await node.peerManager.disconnectNode(peer.peerId)
-    discard await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   debug "Connected, checking connection status", peerId = peer.peerId
 

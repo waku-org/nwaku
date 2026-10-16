@@ -207,7 +207,8 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -271,7 +272,8 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -374,7 +376,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      discard await peer.stop()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -423,7 +426,8 @@ suite "LogosDelivery - configured shards":
       publisher.mountStoreClient()
       await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -434,7 +438,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await receiver.startProtocols()
     defer:
-      discard await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     var subscriber: Kernel
     lockNewGlobalBrokerContext:
@@ -444,7 +449,8 @@ suite "LogosDelivery - configured shards":
       await subscriber.mountFilterClient()
       await subscriber.startProtocols()
     defer:
-      discard await subscriber.stop()
+      (await subscriber.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -550,7 +556,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -612,7 +619,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      discard await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -673,7 +681,8 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      discard await peer.stop()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
