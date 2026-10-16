@@ -233,6 +233,13 @@ proc processRequest(
 
       for hash in hashToRecv:
         diffs.inc()
+    else:
+      debug "Sync scope mismatch",
+        remote = conn.peerId,
+        remote_cluster = recvPayload.cluster,
+        remote_shards = recvPayload.shards,
+        local_cluster = self.cluster,
+        local_shards = self.shards
 
     # On another cluster or with no shared shard, the reply has no ranges: the
     # header alone is the empty payload of WAKU-SYNC.
