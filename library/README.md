@@ -170,6 +170,8 @@ The buffer belongs to the calling thread and stays valid until that thread calls
 
 ### Messaging
 
+`logosdelivery_ctx_subscribe`, `logosdelivery_ctx_unsubscribe` and `logosdelivery_ctx_send` answer `RET_ERR` until the reply of `logosdelivery_ctx_start_node` gives `RET_OK`, and again from `logosdelivery_ctx_stop_node` on. The error message ends with `node is not started`.
+
 #### `logosdelivery_ctx_subscribe`
 Subscribe to a content topic to receive messages.
 

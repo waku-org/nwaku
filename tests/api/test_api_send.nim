@@ -32,6 +32,7 @@ import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/api/messaging_client_api
+import logos_delivery/messaging/messaging_client_lifecycle
 import logos_delivery/messaging/delivery_service/send_service
 
 type SendEventOutcome {.pure.} = enum
@@ -1098,3 +1099,64 @@ suite "Messaging API - the request id comes before the events":
       log.ids.len == 12
       RequestId("") notin log.ids # each send got an id
       log.early.len == 0
+
+suite "Messaging API - a node that is not started":
+  asyncTest "send, subscribe and unsubscribe fail, and leave no subscription":
+    const
+      SendTopic = ContentTopic("/test/1/not-started-send/proto")
+      SubscribeTopic = ContentTopic("/test/1/not-started-subscribe/proto")
+      UnsubscribeTopic = ContentTopic("/test/1/not-started-unsubscribe/proto")
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      let client = node.messagingClient
+
+      # The loop runs once on a node never started, and once on a stopped node.
+      for stopped in [false, true]:
+        if stopped:
+          (await node.start()).expect("start")
+          (await node.stop()).expect("stop")
+        check:
+          (await client.send(MessageEnvelope.init(SendTopic, "payload"))).errorOr(
+            "accepted"
+          ) == "node is not started"
+          (await client.subscribe(SubscribeTopic)).errorOr("accepted") ==
+            "node is not started"
+          client.unsubscribe(UnsubscribeTopic).errorOr("accepted") ==
+            "node is not started"
+
+      (await node.start()).expect("start")
+      check:
+        not node.waku.isSubscribed(SendTopic).valueOr(true)
+        not node.waku.isSubscribed(SubscribeTopic).valueOr(true)
+      (await node.stop()).expect("stop")
+
+  asyncTest "a send during a stop fails and subscribes nothing":
+    const StopTopic = ContentTopic("/test/1/during-stop/proto")
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      (await node.start()).expect("start")
+      let client = node.messagingClient
+
+      # `stop` runs up to its first wait before it returns its future.
+      let stopping = client.stop()
+      check:
+        (await client.send(MessageEnvelope.init(StopTopic, "payload"))).errorOr(
+          "accepted"
+        ) == "node is not started"
+      await stopping
+      check not node.waku.isSubscribed(StopTopic).valueOr(true)
+      (await node.stop()).expect("stop")
+
+  asyncTest "MessagingClient.start refuses to run while its stop runs":
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      (await node.start()).expect("start")
+      let client = node.messagingClient
+
+      let stopping = client.stop()
+      check client.start().errorOr("accepted") == "MessagingClient is stopping"
+      await stopping
+      (await node.stop()).expect("stop")

@@ -22,6 +22,8 @@ type MessagingClient* = ref object
   recvService*: RecvService
   persistencyJob*: persistency.Job
   started*: bool
+    ## `start` sets it last and `stop` clears it first. `checkApiAvailability` reads it.
+  stopping*: bool ## True while `stop` runs.
 
 const
   MaxParkedAgeSecLimit = 7'u * 24 * 3600
@@ -105,5 +107,7 @@ proc checkApiAvailability*(self: MessagingClient): Result[void, string] =
   ## Shared guard for the api operation module.
   if self.isNil():
     return err("MessagingClient is not initialized")
+  if not self.started:
+    return err("node is not started")
 
   return ok()
