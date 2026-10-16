@@ -13,7 +13,7 @@ import
   chronicles,
   metrics,
   libp2p/multihash,
-  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/[floodsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   libp2p/switch,
@@ -756,6 +756,14 @@ proc publish*(
 
   trace "Start publish Waku message",
     msg_hash = msgHash, pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
+
+  # gossipsub hands a published message to the local handlers before its own
+  # seen check, so a duplicate must be refused here.
+  let rpcMsg = Message(topic: pubsubTopic, data: data)
+  let msgId = w.msgIdProvider(rpcMsg).valueOr:
+    return err(CannotGenerateMessageId)
+  if w.hasSeen(w.salt(msgId)):
+    return err(DuplicateMessage)
 
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
