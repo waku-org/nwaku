@@ -225,7 +225,8 @@ proc pubsubScope(self: SeqStorage, pubsubTopics: seq[PubsubTopic]): PackedSet[in
         scope.incl(i)
 
   if pubsubTopics.len > 0 and scope.len == 0:
-    scope.incl(self.pubsubTopics.len)
+    # -1 is never an element's topic index, so nothing matches
+    scope.incl(-1)
 
   return scope
 
