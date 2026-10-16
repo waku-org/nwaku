@@ -4,7 +4,7 @@ import std/[sequtils, json], testutils/unittests, results, chronos, metrics
 
 import
   logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/waku_core,
   logos_delivery/waku/waku_filter_v2/
     [common, client, subscriptions, protocol, protocol_metrics, rpc_codec],
@@ -2355,7 +2355,7 @@ suite "Waku Filter - End to End":
       serverRemotePeerInfo = server.switch.peerInfo
 
     asyncTeardown:
-      await allFutures(client2nd.stopProtocols(), client.stopProtocols(), server.stopProtocols())
+      await allFutures(client2nd.stop(), client.stop(), server.stop())
 
     asyncTest "client unsubscribe by timeout":
       server.protocols.filter.setSubscriptionTimeout(1.seconds)

@@ -147,7 +147,7 @@ suite "SendService RLN proof attach - failing backend":
 
   asyncTeardown:
     await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
-    discard await kernel.stop()
+    await kernel.stop()
 
   proc newService(processor: BaseSendProcessor): SendService =
     ## A service that holds one task, so `isFull` tells whether it holds the task.

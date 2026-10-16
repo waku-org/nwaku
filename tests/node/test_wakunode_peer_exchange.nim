@@ -15,7 +15,7 @@ import
 
 import
   logos_delivery/waku/
-    [waku_node, discovery/waku_discv5, waku_peer_exchange, node/peer_manager, waku_core],
+    [kernel, discovery/waku_discv5, waku_peer_exchange, node/peer_manager, waku_core],
   ../waku_peer_exchange/utils,
   ../testlib/[wakucore, wakunode, testasync]
 
@@ -45,7 +45,7 @@ suite "Waku Peer Exchange":
         node.discovery.peerExchange.started == true
 
       # Cleanup
-      await node.stopProtocols()
+      await node.stop()
 
     asyncTest "Stopped node mounts peer exchange":
       # Given a stopped node without peer exchange mounted
@@ -72,7 +72,7 @@ suite "Waku Peer Exchange":
       await allFutures(node.startProtocols(), node2.startProtocols(), node3.startProtocols())
 
     asyncTeardown:
-      await allFutures(node.stopProtocols(), node2.stopProtocols(), node3.stopProtocols())
+      await allFutures(node.stop(), node2.stop(), node3.stop())
 
     asyncTest "Node fetches without mounting peer exchange":
       # When a node, without peer exchange mounted, fetches peers
@@ -126,7 +126,7 @@ suite "Waku Peer Exchange":
       var rpInfo = node3.peerInfo.toRemotePeerInfo()
       rpInfo.enr = Opt.some(node3.enr)
       node2.peerManager.addPeer(rpInfo, PeerOrigin.Discv5)
-      await node3.stopProtocols()
+      await node3.stop()
 
       node.peerManager.addServicePeer(
         node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
@@ -157,7 +157,7 @@ suite "Waku Peer Exchange":
       await allFutures(node.startProtocols(), node2.startProtocols())
 
     asyncTeardown:
-      await allFutures(node.stopProtocols(), node2.stopProtocols())
+      await allFutures(node.stop(), node2.stop())
 
     asyncTest "peer set successfully":
       # Given a node with peer exchange mounted
@@ -271,5 +271,5 @@ suite "Waku Peer Exchange with discv5":
         node3.peerManager.switch.peerStore.peers.len == currentPeers + requestPeers
 
       await allFutures(
-        [node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), disc1.stop(), disc2.stop()]
+        [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
       )

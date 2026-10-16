@@ -159,7 +159,7 @@ proc setupMixNet(
 
 proc teardownMixNet(mixnet: MixNet) {.async.} =
   for n in mixnet.nodes:
-    await n.stopProtocols()
+    await n.stop()
 
 suite "Waku Mix - end to end transport":
   asyncTest "a message crosses the mixnet and the reply comes back":
@@ -356,7 +356,7 @@ suite "Waku Mix - end to end transport":
       raiseAssert error
     let kernel = (await Kernel.new(conf)).expect("Kernel.new")
     defer:
-      discard await kernel.stop()
+      await kernel.stop()
     let kp = generateKeyPair().expect("mix key pair")
     (
       await kernel.mountMix(

@@ -13,7 +13,7 @@ import
   dnsdisc/builder
 import
   logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/discovery/waku_dnsdisc,
   ./testlib/common,
   ./testlib/wakucore,
@@ -117,4 +117,4 @@ suite "Waku DNS Discovery":
       node4.peerManager.switch.peerStore.connectedness(node3.switch.peerInfo.peerId) ==
         Connected
 
-    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), node4.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])

@@ -15,7 +15,7 @@ import
   logos_delivery/waku/rln/types as rln_api_types,
   logos_delivery/waku/[
     waku_core,
-    waku_node,
+    kernel,
     waku_relay,
     rln,
     rln/rln_evm/protocol_types,
@@ -162,9 +162,9 @@ procSuite "Kernel - RLN relay":
     discard await node1.publish(Opt.some(DefaultPubsubTopic), message)
     assert (await completionFut.withTimeout(15.seconds)), "completionFut timed out"
 
-    await node1.stopProtocols()
-    await node2.stopProtocols()
-    await node3.stopProtocols()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   asyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
@@ -318,9 +318,9 @@ procSuite "Kernel - RLN relay":
       rxMessagesTopic1 == 3
       rxMessagesTopic2 == 3
 
-    await node1.stopProtocols()
-    await node2.stopProtocols()
-    await node3.stopProtocols()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   asyncTest "testing rln-relay with invalid proof":
     var node1, node2, node3: Kernel
@@ -431,9 +431,9 @@ procSuite "Kernel - RLN relay":
       # the relayHandler of node3 never gets called
       (await completionFut.withTimeout(10.seconds)) == false
 
-    await node1.stopProtocols()
-    await node2.stopProtocols()
-    await node3.stopProtocols()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   asyncTest "testing rln-relay double-signaling detection":
     var node1, node2, node3: Kernel
@@ -604,9 +604,9 @@ procSuite "Kernel - RLN relay":
       (await res3) == true
       (await res4) == false
 
-    await node1.stopProtocols()
-    await node2.stopProtocols()
-    await node3.stopProtocols()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
     ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
@@ -826,7 +826,7 @@ procSuite "Kernel - RLN relay":
       let rootValid = await rln.groupManager.validateRoot(rlnProof.merkleRoot)
       check rootValid
 
-      await node.stopProtocols()
+      await node.stop()
 
 proc relayVerdict(
     node: Kernel, msg: WakuMessage

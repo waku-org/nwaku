@@ -11,7 +11,7 @@ import
   libp2p/crypto/crypto
 import
   logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/node/health_monitor,
   ./testlib/wakucore,
   ./testlib/wakunode
@@ -55,5 +55,5 @@ suite "Waku Keepalive":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await node2.stopProtocols()
-    await node1.stopProtocols()
+    await node2.stop()
+    await node1.stop()

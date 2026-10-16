@@ -25,7 +25,7 @@ import
     common/base64,
     waku_core,
     waku_core/topics/sharding,
-    waku_node,
+    kernel,
     node/node_telemetry,
     node/peer_manager,
     waku_relay,
@@ -116,7 +116,7 @@ proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServer.closeWait()
   await self.restServerForService.stop()
   await self.restServerForService.closeWait()
-  await allFutures(self.serviceNode.stopProtocols(), self.subscriberNode.stopProtocols())
+  await allFutures(self.serviceNode.stop(), self.subscriberNode.stop())
 
 proc waitForFilterMessages(
     client: RestClientRef, contentTopic: ContentTopic, count: int
@@ -938,7 +938,7 @@ suite "Waku v2 Rest API - Filter V2":
     let otherNode = testWakuNode()
     await otherNode.startProtocols()
     defer:
-      await otherNode.stopProtocols()
+      await otherNode.stop()
 
     await otherNode.mountFilterClient()
     let servicePeer = restFilterTest.serviceNode.peerInfo.toRemotePeerInfo()

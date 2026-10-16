@@ -9,7 +9,7 @@ import
 
 import
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     node/peer_manager,
     waku_core,
     waku_archive,
@@ -62,7 +62,7 @@ suite "Waku Store Sync - End to End":
   var nodes {.threadvar.}: seq[Kernel]
 
   asyncTeardown:
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "A node syncs what its peer's archive held before store sync was mounted":
     # Given a node whose archive already holds messages, and an empty node
@@ -317,7 +317,7 @@ suite "Waku Store Sync - End to End":
     check res.isOk()
     checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
       transferCount(TransferDirection.Sent) > sentBefore
-    let stopping = nodeA.stopProtocols()
+    let stopping = nodeA.stop()
 
     # Then the stop completes before the node sent every message
     check:
@@ -348,7 +348,7 @@ suite "Waku Store Sync - End to End":
     check res.isOk()
     checkUntilTimeoutCustom(10.seconds, 1.milliseconds):
       transferCount(TransferDirection.Sent) > sentBefore
-    let stopping = nodeA.stopProtocols()
+    let stopping = nodeA.stop()
 
     # Then the stop completes before the node sent every message
     check:

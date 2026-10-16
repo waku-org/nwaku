@@ -14,7 +14,7 @@ import
   secp256k1
 import
   logos_delivery/waku/
-    [waku_core, node/peer_manager, waku_node, factory/validator_signed],
+    [waku_core, node/peer_manager, kernel, factory/validator_signed],
   tools/confutils/cli_args,
   ../testlib/wakucore,
   ../testlib/wakunode
@@ -103,7 +103,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Spam protected topic rejects non-signed/wrongly-signed/no-timestamp messages":
     # Create 5 nodes
@@ -253,7 +253,7 @@ suite "Node app - Validators":
       msgReceived == 125
       msgRejected == 500
 
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
@@ -365,7 +365,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Tests vectors":
     # keys

@@ -23,7 +23,7 @@ import
     waku_filter_v2,
     waku_filter_v2/client,
     waku_store,
-    waku_node,
+    kernel,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
@@ -98,7 +98,7 @@ procSuite "Kernel - Store":
       response.messages == kvs
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())
 
   test "Store node history response - forward pagination":
     ## Setup
@@ -154,7 +154,7 @@ procSuite "Kernel - Store":
       pages[1] == kvs[7 .. 9]
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())
 
   test "Store node history response - backward pagination":
     ## Setup
@@ -210,7 +210,7 @@ procSuite "Kernel - Store":
       pages[1] == kvs[0 .. 2]
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())
 
   test "Store protocol returns expected message when relay is disabled and filter enabled":
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
@@ -285,7 +285,7 @@ procSuite "Kernel - Store":
       handledMsg == message
 
     ## Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols(), filterSource.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup
@@ -328,7 +328,7 @@ procSuite "Kernel - Store":
     check response.statusDesc == "BAD_REQUEST: invalid cursor"
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())
 
   test "Store protocol queries does not violate request rate limitation":
     ## Setup
@@ -372,7 +372,7 @@ procSuite "Kernel - Store":
       waitFor sleepAsync(20.millis)
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())
 
   test "Store protocol queries overrun request rate limitation":
     when defined(macosx):
@@ -431,4 +431,4 @@ procSuite "Kernel - Store":
       waitFor sleepAsync(20.millis)
 
     # Cleanup
-    waitFor allFutures(client.stopProtocols(), server.stopProtocols())
+    waitFor allFutures(client.stop(), server.stop())

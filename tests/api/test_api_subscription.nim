@@ -11,7 +11,7 @@ import logos_delivery/messaging/messaging_metrics
 import
   logos_delivery,
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     waku_core,
     waku_relay/protocol,
     node/waku_node/filter,
@@ -139,11 +139,11 @@ proc teardown(net: TestNetwork) {.async.} =
     net.subscriber = nil
 
   if not isNil(net.meshBuddy):
-    await net.meshBuddy.stopProtocols()
+    await net.meshBuddy.stop()
     net.meshBuddy = nil
 
   if not isNil(net.publisher):
-    await net.publisher.stopProtocols()
+    await net.publisher.stop()
     net.publisher = nil
 
 proc getRelayShard(node: Kernel, contentTopic: ContentTopic): PubsubTopic =
@@ -732,8 +732,8 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await meshBuddy.stopProtocols()
-    await publisher.stopProtocols()
+    await meshBuddy.stop()
+    await publisher.stop()
 
   asyncTest "Subscription API, edge node dials replacement after peer eviction":
     # 3 service peers: publisher, meshBuddy, sparePeer. Edge subscribes and
@@ -849,9 +849,9 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await sparePeer.stopProtocols()
-    await meshBuddy.stopProtocols()
-    await publisher.stopProtocols()
+    await sparePeer.stop()
+    await meshBuddy.stop()
+    await publisher.stop()
 
   asyncTest "Subscription API, edge node unsubscribes a topic the service no longer holds without dropping its service peer":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)

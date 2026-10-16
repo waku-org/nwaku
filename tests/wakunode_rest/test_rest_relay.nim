@@ -22,7 +22,7 @@ import
   logos_delivery/waku/[
     common/base64,
     waku_core,
-    waku_node,
+    kernel,
     waku_relay,
     rln,
     rln/rln_plugin,
@@ -169,7 +169,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Unsubscribe a node from an array of pubsub topics - DELETE /relay/v1/subscriptions":
     # Given
@@ -236,7 +236,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Get the latest messages for a pubsub topic - GET /relay/v1/messages/{topic}":
     # Given
@@ -311,7 +311,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message to a pubsub topic - POST /relay/v1/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
@@ -381,7 +381,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message to a not subscribed pubsub topic - POST /relay/v1/messages/{topic}":
     # Given
@@ -404,7 +404,7 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stopProtocols()
+      await node.stop()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -436,7 +436,7 @@ suite "Waku v2 Rest API - Relay":
       node.mountArchive(driver).isOk()
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restServer = WakuRestServerRef.init(parseIpAddress("0.0.0.0"), Port(0)).tryGet()
     installRelayApiHandlers(restServer.router, node, MessageCache.init())
@@ -521,7 +521,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Unsubscribe a node from an array of content topics - DELETE /relay/v1/auto/subscriptions":
     # Given
@@ -594,7 +594,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Unsubscribing one content topic stops the other content topics on its shard - DELETE /relay/v1/auto/subscriptions":
     # TODO: logos-delivery#4456
@@ -605,7 +605,7 @@ suite "Waku v2 Rest API - Relay":
     check publisher.mountAutoSharding(1, 8).isOk
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -615,7 +615,7 @@ suite "Waku v2 Rest API - Relay":
       check receiver.mountAutoSharding(1, 8).isOk
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -716,7 +716,7 @@ suite "Waku v2 Rest API - Relay":
     check publisher.mountAutoSharding(1, 8).isOk
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -726,7 +726,7 @@ suite "Waku v2 Rest API - Relay":
       check receiver.mountAutoSharding(1, 8).isOk
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -806,7 +806,7 @@ suite "Waku v2 Rest API - Relay":
     check publisher.mountAutoSharding(1, 8).isOk
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -816,7 +816,7 @@ suite "Waku v2 Rest API - Relay":
       check receiver.mountAutoSharding(1, 8).isOk
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -929,7 +929,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message to a content topic - POST /relay/v1/auto/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
@@ -1025,7 +1025,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message to an invalid content topic - POST /relay/v1/auto/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
@@ -1087,7 +1087,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message larger than maximum size - POST /relay/v1/messages/{topic}":
     # Given
@@ -1157,7 +1157,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message larger than maximum size - POST /relay/v1/auto/messages/{topic}":
     # Given
@@ -1228,7 +1228,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Post a message timestamped outside the RLN bound returns 400 - POST /relay/v1/messages/{topic}":
     ## Proof generation refuses a timestamp further from the clock than the
@@ -1302,7 +1302,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "RLN rejection returns 503 and schedules a refresh - POST /relay/v1/messages/{topic}":
     ## When the local validator rejects the published message as RLN-invalid,
@@ -1391,7 +1391,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "RLN rejection returns 503 and schedules a refresh - POST /relay/v1/auto/messages/{topic}":
     ## Same fail-fast behavior as the static-sharding handler, exercised via
@@ -1496,7 +1496,7 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await allFutures(node.stopProtocols(), meshNode.stopProtocols())
+    await allFutures(node.stop(), meshNode.stop())
 
   asyncTest "A client-supplied RLN proof is published without generating one - POST /relay/v1/messages/{topic}":
     ## The node keeps the proof the client sent, so it spends none of its own
@@ -1518,7 +1518,7 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stopProtocols()
+      await node.stop()
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let simpleHandler = proc(
@@ -1565,7 +1565,7 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stopProtocols()
+      await node.stop()
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let simpleHandler = proc(
@@ -1601,7 +1601,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -1610,7 +1610,7 @@ suite "Waku v2 Rest API - Relay":
         assert false, "Failed to mount relay"
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -1693,7 +1693,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1730,7 +1730,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1817,7 +1817,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1850,7 +1850,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1897,7 +1897,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1979,7 +1979,7 @@ suite "Waku v2 Rest API - Relay":
     check node.mountAutoSharding(DefaultClusterId, 8).isOk
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -2016,7 +2016,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -2025,7 +2025,7 @@ suite "Waku v2 Rest API - Relay":
         assert false, "Failed to mount relay"
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -2090,7 +2090,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restServer = WakuRestServerRef.init(parseIpAddress("0.0.0.0"), Port(0)).tryGet()
     installRelayApiHandlers(restServer.router, node, MessageCache.init())
@@ -2134,7 +2134,7 @@ suite "Waku v2 Rest API - Relay":
     check publisher.mountAutoSharding(DefaultClusterId, 8).isOk
     await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -2144,7 +2144,7 @@ suite "Waku v2 Rest API - Relay":
       check receiver.mountAutoSharding(DefaultClusterId, 8).isOk
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let

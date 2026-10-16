@@ -5,7 +5,7 @@ import results, std/[sequtils, sets], testutils/unittests, chronos, libp2p/crypt
 import
   logos_delivery/waku/[
     common/paging,
-    waku_node,
+    kernel,
     node/peer_manager,
     waku_core,
     waku_core/message/digest,
@@ -85,7 +85,7 @@ suite "Waku Store - End to End - Sorted Archive":
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   suite "Message Pagination":
     asyncTest "Forward Pagination":
@@ -510,7 +510,7 @@ suite "Waku Store - End to End - Sorted Archive":
           otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
-        await otherServer.stopProtocols()
+        await otherServer.stop()
 
 suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -582,7 +582,7 @@ suite "Waku Store - End to End - Unsorted Archive":
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "Basic (Timestamp and Hash) Sorting Validation":
     # When making a history query
@@ -799,7 +799,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "Sorting using receiverTime":
     # When making a history query
@@ -947,7 +947,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   suite "Validation of Content Filtering":
     asyncTest "Basic Content Filtering":
@@ -1257,7 +1257,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      await emptyServer.stopProtocols()
+      await emptyServer.stop()
 
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
@@ -1308,7 +1308,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ]
 
       # Cleanup
-      await voluminousServer.stopProtocols()
+      await voluminousServer.stop()
 
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10

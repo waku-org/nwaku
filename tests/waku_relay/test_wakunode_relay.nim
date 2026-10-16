@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/mcache
 import
-  logos_delivery/waku/[waku_core, node/peer_manager, waku_node, waku_relay],
+  logos_delivery/waku/[waku_core, node/peer_manager, kernel, waku_relay],
   ../testlib/futures,
   ../testlib/testasync,
   ../testlib/testutils,
@@ -58,7 +58,7 @@ suite "Kernel - Relay":
       # Relay started on node start
       GossipSub(node2.protocols.relay).heartbeatFut.isNil() == false
 
-    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop()])
 
   asyncTest "Messages are correctly relayed":
     let
@@ -127,7 +127,7 @@ suite "Kernel - Relay":
       (await completionFut.withTimeout(5.seconds)) == true
 
     ## Cleanup
-    await allFutures(node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols())
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
 
   asyncTest "filtering relayed messages using topic validators":
     ## test scenario:
@@ -237,7 +237,7 @@ suite "Kernel - Relay":
       # check that validator is called for message2
       (await completionFutValidatorRej.withTimeout(10.seconds)) == true
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols())
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
 
   # TODO: Add a function to validate the WakuMessage integrity
   xasyncTest "Stats of peer sending wrong WakuMessages are updated":
@@ -326,8 +326,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stopProtocols()
-    await node2.stopProtocols()
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
@@ -378,8 +378,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stopProtocols()
-    await node2.stopProtocols()
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
@@ -438,7 +438,7 @@ suite "Kernel - Relay":
     check:
       (await completionFut.withTimeout(5.seconds)) == false
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and secure Websockets)":
     let
@@ -496,7 +496,7 @@ suite "Kernel - Relay":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
     let
@@ -555,8 +555,8 @@ suite "Kernel - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stopProtocols()
-    await node2.stopProtocols()
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Bad peers with low reputation are disconnected":
     # The bad-peer scoring under test is transport agnostic.
@@ -632,7 +632,7 @@ suite "Kernel - Relay":
         nodes[i].peerManager.switch.connManager.getConnections().len == 3
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Multiple subscription calls are allowed for contenttopics that generate the same shard":
     ## Setup
@@ -687,7 +687,7 @@ suite "Kernel - Relay":
     check not node.protocols.relay.isSubscribed(shard)
 
     ## Cleanup
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "A peer restarted with the same key stays out of the mesh after the prune backoff until it publishes":
     # TODO: iftech/nim-libp2p#3236
@@ -725,7 +725,7 @@ suite "Kernel - Relay":
       node1.hasMeshPeer($shard, peerId2)
       node2.hasMeshPeer($shard, peerId1)
 
-    await node2.stopProtocols()
+    await node2.stop()
     checkUntilTimeout:
       not node1.hasGossipsubPeer($shard, peerId2)
 
@@ -779,7 +779,7 @@ suite "Kernel - Relay":
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
       node1.hasMeshPeer($shard, peerId2)
 
-    await allFutures(node1.stopProtocols(), restartedNode2.stopProtocols())
+    await allFutures(node1.stop(), restartedNode2.stop())
 
   asyncTest "Messages are not relayed through a peer restarted with the same key":
     # TODO: iftech/nim-libp2p#3236
@@ -870,7 +870,7 @@ suite "Kernel - Relay":
       ).isOk()
       (await node4ReceivedBefore.withTimeout(FUTURE_TIMEOUT_MEDIUM)) == true
 
-    await node3.stopProtocols()
+    await node3.stop()
     checkUntilTimeout:
       not node2.hasGossipsubPeer($shard, peerId3)
       not node4.hasGossipsubPeer($shard, peerId3)
@@ -915,4 +915,4 @@ suite "Kernel - Relay":
       not node4ReceivedAfter.finished()
       not node2ReceivedFromNode4.finished()
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols(), restartedNode3.stopProtocols(), node4.stopProtocols())
+    await allFutures(node1.stop(), node2.stop(), restartedNode3.stop(), node4.stop())

@@ -11,7 +11,7 @@ import
 
 import
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     node/peer_manager,
     discovery/waku_discv5,
     waku_peer_exchange,
@@ -94,7 +94,7 @@ suite "Waku Peer Exchange":
           response.get().peerInfos[0].enr == disc2.protocol.localNode.record.raw
 
         await allFutures(
-          [node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), disc1.stop(), disc2.stop()]
+          [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
         )
 
     asyncTest "Request returns some discovered peers":
@@ -164,7 +164,7 @@ suite "Waku Peer Exchange":
 
       await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols(), node4.startProtocols()])
       defer:
-        await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), node4.stopProtocols()])
+        await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchangeClient()])
 
       # Given node1 discovered node3 and node4 via Discv5

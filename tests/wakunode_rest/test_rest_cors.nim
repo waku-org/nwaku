@@ -10,7 +10,7 @@ import
   libp2p/crypto/crypto
 import rest/server, rest/kernel_api/debug/handlers as debug_rest_interface
 import
-  logos_delivery/waku/[waku_node, node/waku_node as waku_node2],
+  logos_delivery/waku/[kernel, node/waku_node as waku_node2],
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../testlib/rest_requests
@@ -114,7 +114,7 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "AllowedOrigin reject":
     # Given
@@ -181,7 +181,7 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "AllowedOrigin allmatches":
     # Given
@@ -238,7 +238,7 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "No origin goes through":
     # Given
@@ -272,4 +272,4 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()

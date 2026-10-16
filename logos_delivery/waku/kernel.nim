@@ -610,12 +610,13 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   startSucceeded = true
   return ok()
 
-proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
+proc stop*(kernel: Kernel) {.async: (raises: []).} =
   if not kernel.started:
     debug "stop: attempting to stop node that isn't running"
 
   try:
-    kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+    if not kernel.healthMonitor.isNil():
+      kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
 
     kernel.closePersistency()
 
@@ -624,9 +625,8 @@ proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).}
 
     # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
 
-    if not kernel.isNil():
-      await kernel.stopMixRln()
-      await kernel.stopProtocols()
+    await kernel.stopMixRln()
+    await kernel.stopProtocols()
 
     if not kernel.discovery.dnsRetryLoopHandle.isNil():
       await kernel.discovery.dnsRetryLoopHandle.cancelAndWait()
@@ -646,9 +646,6 @@ proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).}
     ## GetDiscoveryRequirements stays (see new): it is config-only.
     kernel.clearNodeState()
   except Exception:
-    error "Waku stop failed", error = getCurrentExceptionMsg()
-    return err("waku stop failed: " & getCurrentExceptionMsg())
-
-  return ok()
+    error "failed to stop kernel", error = getCurrentExceptionMsg()
 
 {.pop.}

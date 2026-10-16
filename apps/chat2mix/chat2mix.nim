@@ -42,7 +42,7 @@ import
     waku_enr,
     discovery/waku_dnsdisc,
     discovery/waku_kademlia,
-    waku_node,
+    kernel,
     node/waku_metrics,
     node/peer_manager,
     factory/waku_conf,
@@ -259,7 +259,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stopProtocols()
+        await c.node.stop()
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 

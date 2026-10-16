@@ -22,7 +22,7 @@ import
     waku_core/message,
     waku_core/message/digest,
     waku_core/topics,
-    waku_node,
+    kernel,
     node/peer_manager,
     waku_archive,
     waku_archive/driver/queue_driver,
@@ -104,7 +104,7 @@ proc init(
 proc shutdown(t: RestStoreTest) {.async.} =
   await t.restServer.stop()
   await t.restServer.closeWait()
-  await t.node.stopProtocols()
+  await t.node.stop()
 
 ################################################################################
 # Beginning of the tests
@@ -212,7 +212,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Filter by start and end time":
     let node = testWakuNode()
@@ -283,7 +283,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Store node history response - forward pagination":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
@@ -376,7 +376,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "query a node and retrieve historical messages filtered by pubsub topic":
     # Given
@@ -449,7 +449,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "retrieve historical messages from a provided store node address":
     # Given
@@ -538,7 +538,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "filter historical messages by content topic":
     # Given
@@ -594,7 +594,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "precondition failed":
     # Given
@@ -661,7 +661,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "retrieve historical messages from a self-store-node":
     ## This test aims to validate the correct message retrieval for a store-node which exposes
@@ -917,7 +917,7 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "hashes filter: each hash list returns exactly its messages":
     let t = await RestStoreTest.init()
@@ -1315,7 +1315,7 @@ procSuite "Waku Rest API - Store v3":
     let node = testWakuNode()
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1351,7 +1351,7 @@ procSuite "Waku Rest API - Store v3":
     let node = testWakuNode()
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1385,7 +1385,7 @@ procSuite "Waku Rest API - Store v3":
     let node = testWakuNode()
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()

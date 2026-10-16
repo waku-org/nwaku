@@ -20,7 +20,7 @@ import
   eth/p2p/discoveryv5/enr,
   eth/net/utils
 import
-  logos_delivery/waku/[waku_core, waku_node, node/peer_manager],
+  logos_delivery/waku/[waku_core, kernel, node/peer_manager],
   logos_delivery/waku/factory/internal_config,
   ./testlib/wakucore,
   ./testlib/wakunode
@@ -87,7 +87,7 @@ suite "Kernel":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "resolve and connect to dns multiaddrs":
     let resolver = MockResolver.new()
@@ -118,7 +118,7 @@ suite "Kernel":
     check:
       node1.switch.connManager.connCount(node2.switch.peerInfo.peerId) == 1
 
-    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop()])
 
   asyncTest "Maximum connections can be configured with 20 nodes":
     let
@@ -159,9 +159,9 @@ suite "Kernel":
       node1.switch.isConnected(otherNodes[20].switch.peerInfo.peerId) == false
 
     # Stop all nodes
-    var stopFutures = @[node1.stopProtocols()]
+    var stopFutures = @[node1.stop()]
     for node in otherNodes:
-      stopFutures.add(node.stopProtocols())
+      stopFutures.add(node.stop())
     await allFutures(stopFutures)
 
   asyncTest "Messages fails with wrong key path":
@@ -213,7 +213,7 @@ suite "Kernel":
       node.switch.peerInfo.addrs.len == 1
       node.switch.peerInfo.addrs.contains(announcedEndpoint)
 
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Peer info updates with correct announced addresses (QUIC)":
     # dual-stack node announces both tcp and quic-v1
@@ -241,7 +241,7 @@ suite "Kernel":
       node.switch.peerInfo.addrs.contains(tcpAnnounced)
       node.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
 
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Dual-stack nodes connect over QUIC":
     let
@@ -264,7 +264,7 @@ suite "Kernel":
       "/udp/" in $obAddr
       "/tcp/" notin $obAddr
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "A QUIC-v1 node address given as a string is parsed and dialed":
     ## This is the path of a configured entry node or static node. The address
@@ -298,7 +298,7 @@ suite "Kernel":
         raiseAssert "connection has no observed address"
       check "/udp/" in $obAddr
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Node can use dns4 in announced addresses":
     let
@@ -404,7 +404,7 @@ suite "Kernel":
       node1Agent == expectedAgentString1
       node2Agent == expectedAgentString2
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Custom multiaddresses are set and advertised correctly":
     let
@@ -440,7 +440,7 @@ suite "Kernel":
     check:
       node1MultiAddrs.contains(expectedMultiaddress1)
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "isReady only raises CancelledError and is true without RLN":
     let node = newTestWakuNode(generateSecp256k1Key())

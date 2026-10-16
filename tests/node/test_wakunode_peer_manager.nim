@@ -17,7 +17,7 @@ import
   logos_delivery/waku/[
     waku_core,
     node/peer_manager,
-    waku_node,
+    kernel,
     discovery/waku_discv5,
     waku_filter_v2/common,
     waku_relay/protocol,
@@ -73,7 +73,7 @@ suite "Peer Manager":
     clientPeerId = clientRemotePeerInfo.peerId
 
   asyncTeardown:
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
   suite "Peer Connectivity, Management, and Store":
     asyncTest "Peer Connection Validation":
@@ -251,7 +251,7 @@ suite "Peer Manager":
           serverPeerStore.peers().len == 3
 
         # Teardown
-        await allFutures(client2.stopProtocols(), client3.stopProtocols())
+        await allFutures(client2.stop(), client3.stop())
 
       asyncTest "With colocation limits":
         # Given two extra clients
@@ -276,7 +276,7 @@ suite "Peer Manager":
           serverPeerStore.peers().len == 1
 
         # Teardown
-        await allFutures(client2.stopProtocols(), client3.stopProtocols())
+        await allFutures(client2.stop(), client3.stop())
 
     suite "In-memory Data Structure Verification":
       asyncTest "Cannot add self":
@@ -352,7 +352,7 @@ suite "Peer Manager":
             DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
         # Cleanup
-        await server2.stopProtocols()
+        await server2.stop()
 
     suite "Tracked Peer Metadata":
       asyncTest "Metadata Recording":
@@ -727,7 +727,7 @@ suite "Persistence Check":
     check:
       clientPeerStore.peers().len == 1
 
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
     # When initializing a new client using the prepopulated on-disk storage
     let
@@ -744,7 +744,7 @@ suite "Persistence Check":
       newClientPeerStore.peers().len == 1
 
     # Cleanup
-    await newClient.stopProtocols()
+    await newClient.stop()
     cleanupDb()
 
   asyncTest "PeerStorage exists but no data":
@@ -770,7 +770,7 @@ suite "Persistence Check":
       clientPeerStore.peers().len == 0
 
     # Cleanup
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
     cleanupDb()
 
   asyncTest "PeerStorage not exists":
@@ -790,7 +790,7 @@ suite "Persistence Check":
       clientPeerStore.peers().len == 0
 
     # Cleanup
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
 suite "Mount Order":
   var
@@ -809,7 +809,7 @@ suite "Mount Order":
     clientRemotePeerInfo = client.switch.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await client.stopProtocols()
+    await client.stop()
 
   asyncTest "protocol-start-info":
     # Given a server that is initiaalised in the order defined in the title
@@ -834,7 +834,7 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()
 
   asyncTest "protocol-info-start":
     # Given a server that is initialised in the order defined in the title
@@ -859,7 +859,7 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()
 
   asyncTest "start-protocol-info":
     # Given a server that is initialised in the order defined in the title
@@ -884,7 +884,7 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()
 
   asyncTest "start-info-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -909,7 +909,7 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()
 
   asyncTest "info-start-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -933,7 +933,7 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()
 
   asyncTest "info-protocol-start":
     # Given a server that is initialised in the order defined in the title
@@ -957,4 +957,4 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    await server.stopProtocols()
+    await server.stop()

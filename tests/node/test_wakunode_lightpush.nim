@@ -13,7 +13,7 @@ import
     waku_core,
     waku_core/topics/sharding,
     node/peer_manager,
-    waku_node,
+    kernel,
     waku_lightpush,
     rln,
     rln/rln_plugin,
@@ -59,7 +59,7 @@ suite "Waku Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stopProtocols()
+    await server.stop()
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -166,7 +166,7 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stopProtocols()
+    await server.stop()
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
@@ -447,7 +447,7 @@ suite "Waku Lightpush message delivery":
     check await completionFutRelay.withTimeout(5.seconds)
 
     ## Cleanup
-    await allFutures(lightNode.stopProtocols(), bridgeNode.stopProtocols(), destNode.stopProtocols())
+    await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
 
   asyncTest "Publishing without a pubsub topic delivers on the shard derived from the content topic":
     ## Setup
@@ -458,7 +458,7 @@ suite "Waku Lightpush message delivery":
 
     await allFutures(destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols())
     defer:
-      await allFutures(lightNode.stopProtocols(), bridgeNode.stopProtocols(), destNode.stopProtocols())
+      await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"

@@ -95,7 +95,7 @@ procSuite "Announced addresses":
       node.announcedAddresses == node.switch.peerInfo.addrs
       node.announcedAddresses.allIt("/tcp/0" notin $it and "/udp/0/" notin $it)
       node.announcedAddresses.allIt("0.0.0.0" notin $it)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a wildcard bind is resolved in peerInfo.addrs before the mounted protocols start":
     ## The helper rewrites 0.0.0.0 to loopback when quic is on, so quic is off.
@@ -117,7 +117,7 @@ procSuite "Announced addresses":
       ## Nothing after switch.start changed peerInfo.addrs.
       probe.addrsAtStart == node.switch.peerInfo.addrs
       probe.addrsAtStart == node.announcedAddresses
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a loopback bind stays loopback in the base":
     ## Rewriting loopback to the LAN IP once crashed the test suite
@@ -128,7 +128,7 @@ procSuite "Announced addresses":
     check:
       node.announcedAddresses.len > 0
       node.announcedAddresses.allIt("/ip4/127.0.0.1/" in $it)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "an operator host containing the wildcard substring survives intact":
     ## The host string contains "0.0.0.0". Text replacement corrupted it.
@@ -143,7 +143,7 @@ procSuite "Announced addresses":
     await node.startProtocols()
     check:
       tricky in node.announcedAddresses
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "the ipv4-mapped wildcard is rewritten like the plain one":
     ## `::ffff:0.0.0.0` is the wildcard host too, so it has to be replaced by
@@ -159,7 +159,7 @@ procSuite "Announced addresses":
     check:
       node.announcedAddresses.allIt(not it.getIp().get(LoopbackIp).isWildcard())
       node.announcedAddresses.anyIt("/tcp/60123" in $it)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a circuit route flows through the chain, and removal converges on the next update":
     let node =
@@ -192,7 +192,7 @@ procSuite "Announced addresses":
     check:
       circuit notin node.switch.peerInfo.addrs
       circuit notin node.announcedAddresses
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "NAT restart derives from the configured intent":
     var recorders: seq[RecordingMapper]
@@ -220,7 +220,7 @@ procSuite "Announced addresses":
     await node.startProtocols()
     let mappersAfterFirstStart = node.switch.peerInfo.addressMappers.len
     check node.announcedAddresses.anyIt("203.0.113.77" in $it and "62001" in $it)
-    await node.stopProtocols()
+    await node.stop()
 
     grantPort = Port(62002)
     await node.startProtocols()
@@ -230,7 +230,7 @@ procSuite "Announced addresses":
       ## The new grant is announced. The mapper got the configured address.
       node.announcedAddresses.anyIt("203.0.113.77" in $it and "62002" in $it)
       recorders.allIt(Port(0) notin it.mappedInternal)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "NAT maps the port a wildcard bind actually bound":
     ## The wildcard bind resolves onto the provider's interface before the NAT
@@ -260,7 +260,7 @@ procSuite "Announced addresses":
       recorders.allIt(it.mappedInternal.len >= 1)
       recorders.allIt(it.mappedInternal.allIt(it == bound))
       node.announcedAddresses.anyIt("203.0.113.77" in $it and "62010" in $it)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a fixed port is mapped in both mapper runs and announced once":
     ## Production binds a fixed port and AutonatService updates peerInfo during the
@@ -288,7 +288,7 @@ procSuite "Announced addresses":
       recorders.len >= 1
       recorders.allIt(it.mappedInternal == @[FixedPort, FixedPort])
       node.announcedAddresses.filterIt("203.0.113.77" in $it and "62020" in $it).len == 1
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a later update announces the current primary interface":
     ## The provider runs on every update, so a changed primary IP replaces the old one.
@@ -314,7 +314,7 @@ procSuite "Announced addresses":
     await node.switch.peerInfo.update()
     check node.announcedAddresses ==
       @[MultiAddress.init("/ip4/192.168.9.10/tcp/" & $bound).get()]
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "an unchanged owned update needs the explicit copy":
     let node =
@@ -328,7 +328,7 @@ procSuite "Announced addresses":
 
     node.copyCommittedAddresses()
     check node.announcedAddresses == committed
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "ext-multiaddr-only bypasses the chain from before start":
     let ext = MultiAddress.init("/ip4/203.0.113.44/tcp/60123").get()
@@ -362,7 +362,7 @@ procSuite "Announced addresses":
       ## libp2p announced that list itself. Every mapper stayed idle.
       recorders.len >= 1
       recorders.allIt(it.mappedInternal.len == 0)
-    await node.stopProtocols()
+    await node.stop()
 
   test "the ENR refresh trims to the largest fitting prefix and keeps shards":
     let key = generateSecp256k1Key()

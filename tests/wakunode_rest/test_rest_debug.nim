@@ -18,7 +18,7 @@ import
   rest/kernel_api/debug/client as debug_rest_client
 import
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     node/waku_node as waku_node2,
       # TODO: Remove after moving `git_version` to the app code.
   ],
@@ -65,7 +65,7 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Get node version - GET /version":
     # Given
@@ -94,4 +94,4 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()

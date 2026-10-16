@@ -10,7 +10,7 @@ import
 
 import
   logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   ./testlib/wakucore,
   ./testlib/wakunode
 
@@ -113,4 +113,4 @@ procSuite "Relay (GossipSub) Peer Exchange":
       (await completionFut.withTimeout(5.seconds)) == true
 
     # Clean up
-    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])

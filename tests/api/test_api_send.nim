@@ -12,7 +12,7 @@ import ../waku_archive/archive_utils
 import
   logos_delivery,
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     waku_core,
     waku_relay/protocol,
     waku_lightpush/common,
@@ -242,7 +242,7 @@ suite "Waku API - Send":
 
   asyncTeardown:
     await allFutures(
-      relayNode1.stopProtocols(), relayNode2.stopProtocols(), lightpushNode.stopProtocols(), storeNode.stopProtocols()
+      relayNode1.stop(), relayNode2.stop(), lightpushNode.stop(), storeNode.stop()
     )
 
   asyncTest "Check API availability (unhealthy node)":
@@ -806,7 +806,7 @@ suite "Waku API - Send":
       {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
     )
 
-    await isolatedStoreNode.stopProtocols()
+    await isolatedStoreNode.stop()
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
 

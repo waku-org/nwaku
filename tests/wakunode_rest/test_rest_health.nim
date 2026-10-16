@@ -18,7 +18,7 @@ import
 import
   logos_delivery/waku/[
     common/waku_protocol,
-    waku_node,
+    kernel,
     node/waku_node as waku_node2,
       # TODO: Remove after moving `git_version` to the app code.
     rln,
@@ -116,7 +116,7 @@ suite "Waku v2 REST API - health":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
     let node = testWakuNode()
@@ -147,4 +147,4 @@ suite "Waku v2 REST API - health":
     check (await healthMonitor.getProtocolHealthInfo(RlnRelayProtocol)).health ==
       HealthStatus.READY
 
-    await node.stopProtocols()
+    await node.stop()

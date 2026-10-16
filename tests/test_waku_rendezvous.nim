@@ -13,7 +13,7 @@ import
   logos_delivery/waku/waku_core/peers,
   logos_delivery/waku/waku_core/codecs,
   logos_delivery/waku/waku_core,
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/node/peer_manager/peer_manager,
   logos_delivery/waku/waku_rendezvous/protocol,
   logos_delivery/waku/waku_rendezvous/common,
@@ -140,7 +140,7 @@ procSuite "Waku Rendezvous":
     check:
       namespace.len > 0
 
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "Rendezvous uses configured shards when relay not mounted":
     ## Given: A light client node with no relay protocol
@@ -169,4 +169,4 @@ procSuite "Waku Rendezvous":
     check:
       lightClient.discovery.rendezvous != nil
 
-    await lightClient.stopProtocols()
+    await lightClient.stop()

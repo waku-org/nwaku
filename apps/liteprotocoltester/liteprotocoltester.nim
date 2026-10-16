@@ -130,8 +130,7 @@ when isMainModule:
   info "Setting up shutdown hooks"
 
   proc asyncStopper(kernel: Kernel) {.async: (raises: []).} =
-    (await kernel.stop()).isOkOr:
-      error "Waku shutdown failed", error = error
+    await kernel.stop()
     quit(QuitSuccess)
 
   # Handle Ctrl-C SIGINT
@@ -161,8 +160,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      (waitFor kernel.stop()).isOkOr:
-        error "Waku shutdown failed", error = error
+      waitFor kernel.stop()
       quit(QuitFailure)
 
     c_signal(ansi_c.SIGSEGV, handleSigsegv)

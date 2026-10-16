@@ -5,7 +5,7 @@ import std/net, testutils/unittests, chronos, results
 import
   logos_delivery/waku/[
     node/peer_manager,
-    waku_node,
+    kernel,
     waku_core,
     waku_store/resume,
     waku_store/common,
@@ -94,7 +94,7 @@ suite "Store Resume - End to End":
     client.peerManager.addServicePeer(serverRemotePeerInfo, WakuStoreCodec)
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "10 messages resume":
     var countRes = await clientDriver.getMessagesCount()
@@ -162,7 +162,7 @@ suite "Store Resume - pages":
     )
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "resume reads the pages after a page with a dropped message":
     check (await serverDriver.getMessagesCount()).get(0) == 150

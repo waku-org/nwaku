@@ -55,7 +55,7 @@ procSuite "ENR endpoints":
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.multiaddrsOf().len == 0
       node.announcedAddresses.allIt("0.0.0.0" notin $it)
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a concrete bind host is a chosen host and is carried":
     let node =
@@ -67,7 +67,7 @@ procSuite "ENR endpoints":
       node.enr.ipOf().get() == [127'u8, 0, 0, 1]
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.multiaddrsOf().len > 0
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a mapper addition is carried, the wildcard stand-in is not":
     let node = newTestWakuNode(
@@ -90,7 +90,7 @@ procSuite "ENR endpoints":
       node.enr.ipOf().get() == [203'u8, 0, 113, 55]
       node.enr.tcpOf().get() == 60555'u16
       node.enr.multiaddrsOf() == @[granted]
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "a configured external port stays beside its configured host":
     let node = newTestWakuNode(
@@ -109,7 +109,7 @@ procSuite "ENR endpoints":
     check:
       node.enr.ipOf().get() == [203'u8, 0, 113, 9]
       node.enr.tcpOf().get() == 1234'u16
-    await node.stopProtocols()
+    await node.stop()
 
   test "a rebuild keeps every field that is not an address":
     let key = generateSecp256k1Key()
@@ -260,7 +260,7 @@ procSuite "ENR endpoints":
       node.enr.ipOf().get() == [198'u8, 51, 100, 4]
       node.enr.tcpOf().get() == uint16(bound.tcpPort.get())
       node.enr.toRemotePeerInfo().isOk()
-    await node.stopProtocols()
+    await node.stop()
 
   test "a record is dialable through its multiaddrs field alone":
     ## The scalars hold one IPv4 host, so a dns4 name or a relay route lives
@@ -528,7 +528,7 @@ procSuite "ENR endpoints":
       node.enrAddresses() == @[resolved]
       node.enr.multiaddrsOf() == @[resolved]
       node.enr.udpOf().get() == 30303'u16
-    await node.stopProtocols()
+    await node.stop()
 
   asyncTest "the bound endpoints move onto a host discv5 learned behind a NAT":
     ## The interface holds a private address and discv5 reports a different,
@@ -575,7 +575,7 @@ procSuite "ENR endpoints":
       initTAddress(carried[0]).expect("endpoint").port == boundPort
       node.enr.ipOf().get() == [198'u8, 51, 100, 7]
       node.enr.toRemotePeerInfo().isOk()
-    await node.stopProtocols()
+    await node.stop()
 
   test "the reconcile loop follows a discv5 record write":
     let key = generateSecp256k1Key()

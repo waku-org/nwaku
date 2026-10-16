@@ -242,8 +242,7 @@ proc stop*(self: LogosDelivery): Future[Result[void, string]] {.async.} =
   if not self.messagingClient.isNil():
     await self.messagingClient.stop()
   if not self.kernel.isNil():
-    (await self.kernel.stop()).isOkOr:
-      return err("failed to stop Waku: " & error)
+    await self.kernel.stop()
 
   return ok()
 

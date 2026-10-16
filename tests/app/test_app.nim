@@ -53,8 +53,7 @@ suite "Node app - Waku":
     (waitFor kernel.start()).isOkOr:
       raiseAssert error
     let afterStart = kernel.getNodeInfoItem(NodeInfoId.IsRunning)
-    (waitFor kernel.stop()).isOkOr:
-      raiseAssert error
+    waitFor kernel.stop()
     let afterStop = kernel.getNodeInfoItem(NodeInfoId.IsRunning)
 
     ## Then
@@ -96,8 +95,7 @@ suite "Node app - Waku initialization":
       not node.discovery.rendezvous.isNil()
 
     ## Cleanup
-    (waitFor kernel.stop()).isOkOr:
-      raiseAssert error
+    waitFor kernel.stop()
 
   test "production service composition carries NATService":
     ## The test runs the full path from conf to switch services.
@@ -146,8 +144,7 @@ suite "Node app - Waku initialization":
       fieldAfter.isSome()
       fieldAfter != fieldBefore
 
-    (waitFor kernel.stop()).isOkOr:
-      raiseAssert error
+    waitFor kernel.stop()
 
   test "app properly handles dynamic port configuration":
     ## Given
@@ -183,8 +180,7 @@ suite "Node app - Waku initialization":
       typedNodeEnr.get().tcp.get() != 0
 
     ## Cleanup
-    (waitFor kernel.stop()).isOkOr:
-      raiseAssert error
+    waitFor kernel.stop()
 
   test "explicit port=0 triggers auto-bind across all services":
     var builder = defaultTestWakuConfBuilder()
@@ -208,8 +204,7 @@ suite "Node app - Waku initialization":
     var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor kernel.stop()).isOkOr:
-        raiseAssert error
+      waitFor kernel.stop()
 
     (waitFor kernel.start()).isOkOr:
       raiseAssert error
@@ -238,8 +233,7 @@ suite "Node app - Waku initialization":
     var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor kernel.stop()).isOkOr:
-        raiseAssert error
+      waitFor kernel.stop()
 
     (waitFor kernel.start()).isOkOr:
       raiseAssert error
@@ -276,8 +270,7 @@ suite "Node app - Waku initialization":
     var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor kernel.stop()).isOkOr:
-        raiseAssert error
+      waitFor kernel.stop()
 
     (waitFor kernel.start()).isOkOr:
       raiseAssert error

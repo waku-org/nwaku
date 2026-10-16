@@ -7,7 +7,7 @@ import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
 
 import
   logos_delivery,
-  logos_delivery/waku/[waku_node, waku_core, waku_relay/protocol],
+  logos_delivery/waku/[kernel, waku_core, waku_relay/protocol],
   logos_delivery/waku/node/health_monitor/
     [topic_health, health_status, protocol_health, health_report],
   logos_delivery/waku/requests/health_requests,
@@ -98,7 +98,7 @@ suite "LM API health checking":
 
   asyncTeardown:
     discard await client.stop()
-    await serviceNode.stopProtocols()
+    await serviceNode.stop()
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
     client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)

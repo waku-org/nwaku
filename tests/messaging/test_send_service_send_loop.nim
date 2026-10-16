@@ -247,7 +247,7 @@ suite "SendService - deliver":
 
   asyncTeardown:
     await log.teardown()
-    discard await kernel.stop()
+    await kernel.stop()
 
   proc buildTask(
       id: string, timestamp: Timestamp = getNowInNanosecondTime(), ephemeral = false

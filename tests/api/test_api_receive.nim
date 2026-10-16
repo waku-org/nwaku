@@ -24,7 +24,7 @@ from logos_delivery/waku/waku_filter_v2/subscriptions import removePeer
 import
   logos_delivery,
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     waku_core,
     node/peer_manager,
     api/events/health_events,
@@ -241,10 +241,10 @@ proc teardown(net: TestNetwork) {.async.} =
     (await net.subscriber.stop()).expect("Failed to stop subscriber")
     net.subscriber = nil
   if not isNil(net.publisher):
-    await net.publisher.stopProtocols()
+    await net.publisher.stop()
     net.publisher = nil
   if not isNil(net.storeNode):
-    await net.storeNode.stopProtocols()
+    await net.storeNode.stop()
     net.storeNode = nil
   if net.ownedRoot.len > 0:
     removeDir(net.ownedRoot)
@@ -459,7 +459,7 @@ proc newFilterServiceNode(shardId: uint16): Future[Kernel] {.async.} =
     await node.startProtocols()
   let subscribed = node.subscribe((kind: PubsubSub, topic: shard), noopRelayHandler)
   if subscribed.isErr():
-    await node.stopProtocols()
+    await node.stop()
     raiseAssert "filter service node subscribe: " & subscribed.error
   return node
 
@@ -936,7 +936,7 @@ suite "Messaging API, Receive Service (backfill)":
     # Shard 1 gets its filter service. The worker fills the gap of B.
     let filterNode = await newFilterServiceNode(1'u16)
     defer:
-      await filterNode.stopProtocols()
+      await filterNode.stop()
     let healthyB = net.waitForFilterSubscriptionHealth(healthy = true, SecondShard)
     await net.subscriber.kernel.connectToNodes(
       @[filterNode.peerInfo.toRemotePeerInfo()]

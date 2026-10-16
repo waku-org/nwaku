@@ -19,7 +19,7 @@ import
 import
   logos_delivery/waku/[
     waku_core,
-    waku_node,
+    kernel,
     waku_filter_v2/client,
     node/peer_manager,
     waku_archive,
@@ -97,7 +97,7 @@ suite "Waku v2 Rest API - Admin":
   asyncTearDown:
     await restServer.stop()
     await restServer.closeWait()
-    await allFutures(node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols())
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
 
   asyncTest "Set and get remote peers":
     # Connect to nodes 2 and 3 using the Admin API
@@ -379,7 +379,7 @@ suite "Waku v2 Rest API - Admin":
     check node4.mountMetadata(1, @[0.uint16]).isOk()
     await node4.startProtocols()
     defer:
-      await node4.stopProtocols()
+      await node4.stop()
     let peerInfo4 = node4.peerInfo.toRemotePeerInfo()
 
     # Connect to nodes 2, 3 and 4 using the Admin API

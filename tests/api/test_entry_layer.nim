@@ -13,7 +13,7 @@ import
     waku_core,
     waku_enr,
     waku_metadata,
-    waku_node,
+    kernel,
     waku_relay/protocol,
     waku_store/common,
     waku_filter_v2/client,
@@ -207,7 +207,7 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -271,7 +271,7 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -374,7 +374,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      await peer.stopProtocols()
+      await peer.stop()
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -424,7 +424,7 @@ suite "LogosDelivery - configured shards":
       publisher.mountStoreClient()
       await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -435,7 +435,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await receiver.startProtocols()
     defer:
-      await receiver.stopProtocols()
+      await receiver.stop()
 
     var subscriber: Kernel
     lockNewGlobalBrokerContext:
@@ -445,7 +445,7 @@ suite "LogosDelivery - configured shards":
       await subscriber.mountFilterClient()
       await subscriber.startProtocols()
     defer:
-      await subscriber.stopProtocols()
+      await subscriber.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -551,7 +551,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -613,7 +613,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await publisher.startProtocols()
     defer:
-      await publisher.stopProtocols()
+      await publisher.stop()
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -674,7 +674,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       await peer.startProtocols()
     defer:
-      await peer.stopProtocols()
+      await peer.stop()
 
     let conn = (
       await peer.peerManager.dialPeer(

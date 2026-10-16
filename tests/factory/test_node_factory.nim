@@ -17,7 +17,7 @@ import
   tests/testlib/[wakunode, wakucore],
   logos_delivery/waku/[
     waku_core,
-    waku_node,
+    kernel,
     waku_store/common,
     waku_store/client,
     waku_store/rpc_codec,
@@ -185,7 +185,7 @@ suite "Node Factory":
       raiseAssert error
     await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stopProtocols(), client.stopProtocols())
+      await allFutures(node.stop(), client.stop())
     await client.mountFilterClient()
     let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
 
@@ -217,7 +217,7 @@ suite "Node Factory":
       raiseAssert error
     await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stopProtocols(), client.stopProtocols())
+      await allFutures(node.stop(), client.stop())
     await client.mountFilterClient()
     let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
 
@@ -323,7 +323,7 @@ suite "Node Factory":
       discoveredNode.mountMetadata(DefaultClusterId, @[]).isOk()
     await allFutures(responder.startProtocols(), discoveredNode.startProtocols())
     defer:
-      await allFutures(responder.stopProtocols(), discoveredNode.stopProtocols())
+      await allFutures(responder.stop(), discoveredNode.stop())
     await responder.mountPeerExchange()
     var discoveredPeer = discoveredNode.peerInfo.toRemotePeerInfo()
     discoveredPeer.enr = Opt.some(discoveredNode.enr)
@@ -343,7 +343,7 @@ suite "Node Factory":
       raiseAssert error
     let startResult = await startNode(node, conf)
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     # Then the responder holds the peer exchange service slot, and the peer it discovered is in the peer store
     check:
@@ -369,7 +369,7 @@ suite "Node Factory":
       raiseAssert error
     await allFutures(node.startProtocols(), client.startProtocols())
     defer:
-      await allFutures(node.stopProtocols(), client.stopProtocols())
+      await allFutures(node.stop(), client.stop())
 
     # When a peer asks for its metadata
     let conn = (
@@ -493,7 +493,7 @@ asynctest "Start a node based on default test configuration":
   check hasNonZeroTcp
 
   ## Cleanup
-  await node.stopProtocols()
+  await node.stop()
 
 suite "Auto-port retry":
   asynctest "metrics binds on free TCP port, fails on taken":
@@ -534,7 +534,7 @@ suite "Auto-port retry":
     let node = newTestWakuNode(nodeKey)
     await node.startProtocols()
     defer:
-      await node.stopProtocols()
+      await node.stop()
 
     let takenUdp =
       newDatagramTransport(dummyCb, local = initTAddress("0.0.0.0", Port(0)))
