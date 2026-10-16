@@ -647,6 +647,51 @@ suite "Waku Sync: reconciliation":
       res.isErr()
       remoteNeeds.len == 0
 
+  asyncTest "a reply advertises the shards both peers share":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[1'u16, 2, 3],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+
+    let
+      bounds =
+        SyncID(time: Timestamp(100), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(200), hash: EmptyFingerprint)
+      payload = RangesData(
+        cluster: 2,
+        shards: @[2'u16, 3, 4],
+        ranges: @[(bounds, RangeType.Fingerprint)],
+        fingerprints: @[FullFingerprint],
+      )
+
+    # When a peer on shards 2, 3 and 4 sends a payload to the server on 1, 2 and 3
+    let conn = await clientSwitch.dial(
+      serverPeerInfo.peerId, serverPeerInfo.addrs, WakuReconciliationCodec
+    )
+    await conn.writeLp(payload.deltaEncode())
+
+    # Then the reply advertises the shards its ranges cover, 2 and 3
+    let reply = RangesData.deltaDecode(await conn.readLp(64 * 1024))
+    check:
+      reply.isOk()
+      reply.get().cluster == 2
+      reply.get().shards.sorted() == @[2'u16, 3]
+    await conn.close()
+
   asyncTest "a peer on another cluster gets a reply with only the cluster and the shards":
     server = await newTestWakuRecon(
       serverSwitch,

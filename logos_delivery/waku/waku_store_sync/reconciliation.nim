@@ -225,10 +225,13 @@ proc processRequest(
       hashToRecv: seq[WakuMessageHash]
       hashToSend: seq[WakuMessageHash]
       sendPayload: RangesData
+      # the scope the reply's ranges cover; ours when there is none
+      replyShards = self.shards.toSeq()
 
     let preProcessedPayloadRes = self.preProcessPayload(recvPayload, lowerBound)
     if preProcessedPayloadRes.isSome():
       let preProcessedPayload = preProcessedPayloadRes.get()
+      replyShards = preProcessedPayload.shards
 
       trace "pre-processed payload",
         local = self.peerManager.switch.peerInfo.peerId,
@@ -258,7 +261,7 @@ proc processRequest(
     # On another cluster or with no shared shard, the reply has no ranges: the
     # header alone is the empty payload of WAKU-SYNC.
     sendPayload.cluster = self.cluster
-    sendPayload.shards = self.shards.toSeq()
+    sendPayload.shards = replyShards
     let rawPayload = sendPayload.deltaEncode()
 
     logos_delivery_total_bytes_exchanged.inc(
