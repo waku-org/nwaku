@@ -7,8 +7,9 @@
 ##
 ## `start` brings the server up with the health route (so probes answer while
 ## the node boots), `mount` installs the protocol routes once the node runs,
-## and `stop` tears everything down. A fresh server is created on every
-## `start`, so the service restarts as often as the node does.
+## and `stop` closes the server and stops the messaging events. The relay and
+## filter message caches stay for the next `mount`. A fresh server is created
+## on every `start`, so the service restarts as often as the node does.
 
 import std/[net, strutils, tables]
 import results, chronicles, chronos
@@ -135,6 +136,9 @@ proc installKernelRoutes(
     clusterId: uint16,
     shards: seq[uint16],
     contentTopics: seq[string],
+    relayCache: MessageCache,
+    filterCache: MessageCache,
+    withFilterPushHandler: bool,
 ): Result[void, string] =
   var router = restServer.router
   ## Admin REST API
@@ -155,7 +159,7 @@ proc installKernelRoutes(
   if relayEnabled:
     ## This MessageCache is used, f.e., in js-waku<>nwaku interop tests.
     ## js-waku tests asks nwaku-docker through REST whether a message is properly received.
-    let cache = MessageCache.init(int(conf.relayCacheCapacity))
+    let cache = relayCache
 
     let handler: WakuRelayHandler = messageCacheHandler(cache)
 
@@ -191,8 +195,6 @@ proc installKernelRoutes(
 
   ## Filter REST API
   if node.wakuFilterClient != nil:
-    let filterCache = MessageCache.init()
-
     let filterDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Filter))
@@ -200,7 +202,7 @@ proc installKernelRoutes(
         Opt.none(DiscoveryHandler)
 
     rest_filter_endpoint.installFilterRestApiHandlers(
-      router, node, filterCache, filterDiscoHandler
+      router, node, filterCache, filterDiscoHandler, withFilterPushHandler
     )
     markRestApiInstalled(RestRootFilter)
   else:
@@ -247,6 +249,13 @@ type RestService* = ref object
   server*: WakuRestServerRef
   messagingEvents: MessagingRestEvents
     ## Set by `mount` when the node has a messaging layer.
+  relayCache: MessageCache
+    ## Made by the first `mount` and kept for the next ones. The node keeps the
+    ## relay handler of the first `mount` for each shard, and that handler fills
+    ## this cache.
+  filterCache: MessageCache
+    ## Made by the first `mount` and kept for the next ones. Only the first
+    ## `mount` registers a filter push handler, and that handler fills this cache.
 
 proc new*(T: type RestService): T =
   return T()
@@ -299,6 +308,11 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
 
   let waku = node.waku
   let conf = waku.conf
+  let firstMount = self.relayCache.isNil()
+  if firstMount:
+    self.relayCache =
+      MessageCache.init(int(conf.restServerConf.get().relayCacheCapacity))
+    self.filterCache = MessageCache.init()
   installKernelRoutes(
     self.server,
     waku.node,
@@ -309,6 +323,9 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
     conf.clusterId,
     conf.subscribeShards,
     conf.contentTopics,
+    self.relayCache,
+    self.filterCache,
+    withFilterPushHandler = firstMount,
   ).isOkOr:
     return err("could not install the kernel REST routes: " & error)
 
@@ -323,5 +340,5 @@ proc stop*(self: RestService, node: LogosDelivery) {.async: (raises: []).} =
   if not self.messagingEvents.isNil():
     await self.messagingEvents.stop(node.messagingClient.brokerCtx)
     self.messagingEvents = nil
-  await self.server.stop()
+  await self.server.closeWait()
   self.server = nil
