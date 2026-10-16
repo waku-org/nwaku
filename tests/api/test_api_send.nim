@@ -1,6 +1,6 @@
 {.used.}
 
-import results, std/[os, sequtils, strutils, sets, tempfiles]
+import results, std/[importutils, os, sequtils, strutils, sets, tempfiles]
 import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo], metrics
 import brokers/broker_context
 import
@@ -31,6 +31,9 @@ import logos_delivery/waku/api/subscriptions
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
+import logos_delivery/messaging/delivery_service/send_service/send_service
+
+privateAccess(SendService) # the test reads `attempts`
 import logos_delivery/api/messaging_client_api
 import logos_delivery/messaging/messaging_client_lifecycle
 import logos_delivery/messaging/delivery_service/send_service
@@ -299,10 +302,11 @@ suite "Waku API - Send":
     )
     check sendResult.isOk()
 
-    # The send is retried while the node has no relay peer, and each retry
-    # reaches the archive as a message it already holds.
+    # The send is retried while the node has no relay peer, and no retry
+    # reaches the archive again.
+    let sendService = node.messagingClient.sendService
     checkUntilTimeout:
-      duplicateCount(relayIngress) >= duplicatesBefore + 2
+      sendService.attempts >= 3
 
     let stored = (
       await node.waku.node.wakuArchive.findMessages(
@@ -313,6 +317,7 @@ suite "Waku API - Send":
     check:
       stored.hashes.len == 1
       insertCount(relayIngress) == insertsBefore + 1
+      duplicateCount(relayIngress) == duplicatesBefore
       errorCount(insertFailure) == failuresBefore
 
   asyncTest "Send fully validated":
@@ -691,8 +696,7 @@ suite "Waku API - Send":
         @["decode_rpc_failure: (kind: InvalidLengthField, field: \"meta\")"]
       rejected == 1.0
 
-  asyncTest "A send retried while the node has no relay peer is handed to the relay handlers on every attempt and received once":
-    # TODO: logos-delivery#4453
+  asyncTest "A send retried while the node has no relay peer is handed to the relay handlers once and received once":
     # Given a core node with REST that is connected to no peer
     var node: LogosDelivery
     var rest: RestService
@@ -732,21 +736,19 @@ suite "Waku API - Send":
     ).valueOr:
       raiseAssert error
 
-    # Then the relay cache returns the message again after a later attempt
+    # Then the relay cache returns the message once
     let first = await client.waitForRelayAutoMessages(contentTopic, 1)
-    let handledAtFirstRead = nodeMessagesCount(["relay"])
-    checkUntilTimeout:
-      nodeMessagesCount(["relay"]) > handledAtFirstRead
-    let again = await client.waitForRelayAutoMessages(contentTopic, 1)
 
-    # Then the send ends with an error event, and the message was received once
+    # Then the send ends with an error event, and the message was handled and received once
     check await eventManager.errorFuture.withTimeout(30.seconds)
     eventManager.validate({SendEventOutcome.Error}, requestId)
+    let again = await client.relayGetAutoMessagesV1(contentTopic)
     check:
       subscribeResponse.status == 200
       first.mapIt(it.payload) == @[base64.encode(payload)]
-      again.mapIt(it.payload) == @[base64.encode(payload)]
-      nodeMessagesCount(["relay"]) >= handledBefore + 2
+      again.status == 200
+      again.data.len == 0
+      nodeMessagesCount(["relay"]) == handledBefore + 1
       receivedHashes.len == 1
 
     await rest.stop(node)

@@ -410,8 +410,7 @@ suite "Waku v2 Rest API - lightpush":
       received.mapIt(it.ephemeral) == @[sent.ephemeral]
       received.mapIt(it.proof) == @[sent.proof]
 
-  asyncTest "A message pushed twice is answered 505 the second time and handed to the service node's handlers both times - POST /lightpush/v3/message":
-    # TODO: logos-delivery#4453
+  asyncTest "A message pushed twice is answered 400 the second time and handed to the service node's handlers once - POST /lightpush/v3/message":
     # Given the service node and its relay peer subscribed over REST
     let restLightPushTest = await RestLightPushTest.init()
     defer:
@@ -460,9 +459,8 @@ suite "Waku v2 Rest API - lightpush":
     let sentAfterFirst = relayNetworkBytes(netOut)
     let secondResponse = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
-    # Then the second push is answered 505, and the service node returns the message again without sending it to its relay peer
-    let secondOnService =
-      await serviceClient.waitForRelayMessages(DefaultPubsubTopic, 1)
+    # Then the second push is answered as a duplicate, and the service node neither returns the message again nor sends it to its relay peer
+    let secondOnService = await serviceClient.relayGetMessagesV1(DefaultPubsubTopic)
     let secondOnConsumer = await consumerClient.relayGetMessagesV1(DefaultPubsubTopic)
     check:
       firstResponse.status == 200
@@ -470,10 +468,11 @@ suite "Waku v2 Rest API - lightpush":
       firstOnService.mapIt(it.payload) == @[message.payload]
       onConsumer.mapIt(it.payload) == @[message.payload]
       sentAfterFirst > sentBefore
-      secondResponse.status == 505
-      secondResponse.data.statusDesc == Opt.some("No peers for topic, skipping publish")
+      secondResponse.status == 400
+      secondResponse.data.statusDesc == Opt.some("Dropping already-seen message")
       secondResponse.data.relayPeerCount == Opt.none(uint32)
-      secondOnService.mapIt(it.payload) == @[message.payload]
+      secondOnService.status == 200
+      secondOnService.data.len == 0
       relayNetworkBytes(netOut) == sentAfterFirst
       secondOnConsumer.status == 200
       secondOnConsumer.data.len == 0

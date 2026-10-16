@@ -1308,13 +1308,13 @@ suite "Waku Relay":
       otherHandlerFuture = newPushHandlerFuture()
       let secondPublish = await node.publish(pubsubTopic, msg)
 
-      # Then the second publish fails with NoPeersToPublish, the publishing
-      # node's handler still runs and the peer receives a single copy
+      # Then the second publish fails with DuplicateMessage and neither the
+      # publishing node's handler nor the peer's receives a second copy
       check:
-        secondPublish.isErr() and secondPublish.error == PublishOutcome.NoPeersToPublish
-        await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+        secondPublish.isErr() and secondPublish.error == PublishOutcome.DuplicateMessage
+        not (await handlerFuture.withTimeout(FUTURE_TIMEOUT))
         not (await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT))
-        messageSeq == @[(pubsubTopic, msg), (pubsubTopic, msg)]
+        messageSeq == @[(pubsubTopic, msg)]
         otherMessageSeq == @[(pubsubTopic, msg)]
 
   suite "Security and Privacy":
