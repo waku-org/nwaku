@@ -577,7 +577,7 @@ suite "Waku Sync: reconciliation":
       res.isOk()
       remoteNeeds.len == 0
 
-  asyncTest "sync 2 nodes on different clusters exchanges nothing":
+  asyncTest "sync 2 nodes on different clusters fails and exchanges nothing":
     server = await newTestWakuRecon(
       serverSwitch,
       @[],
@@ -609,7 +609,42 @@ suite "Waku Sync: reconciliation":
     let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
 
     check:
-      res.isOk()
+      res.isErr()
+      remoteNeeds.len == 0
+
+  asyncTest "sync 2 nodes with no shared shard fails and exchanges nothing":
+    server = await newTestWakuRecon(
+      serverSwitch,
+      @[1'u16],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+    client = await newTestWakuRecon(
+      clientSwitch,
+      @[2'u16],
+      DefaultSyncRange,
+      idsChannel,
+      localWants,
+      remoteNeeds,
+      cluster = 2,
+    )
+
+    let
+      serverMsg = fakeWakuMessage(ts = now(), contentTopic = DefaultContentTopic)
+      clientMsg = fakeWakuMessage(ts = now() + 1, contentTopic = DefaultContentTopic)
+      serverHash = computeMessageHash("/waku/2/rs/2/1", serverMsg)
+      clientHash = computeMessageHash("/waku/2/rs/2/2", clientMsg)
+
+    server.messageIngress(serverHash, "/waku/2/rs/2/1", serverMsg)
+    client.messageIngress(clientHash, "/waku/2/rs/2/2", clientMsg)
+
+    let res = await client.storeSynchronization(Opt.some(serverPeerInfo))
+
+    check:
+      res.isErr()
       remoteNeeds.len == 0
 
   asyncTest "a peer on another cluster gets a reply with only the cluster and the shards":

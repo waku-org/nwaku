@@ -204,6 +204,20 @@ proc processRequest(
       remote = conn.peerId,
       payload = recvPayload
 
+    # A peer on another cluster or with no shared shard answers with its header
+    # alone, which would otherwise end the session like one that is in sync.
+    if recvPayload.ranges.len == 0 and (
+      recvPayload.cluster != self.cluster or (
+        self.shards.len > 0 and recvPayload.shards.len > 0 and
+        (self.shards * recvPayload.shards.toHashSet()).len == 0
+      )
+    ):
+      await conn.close()
+      return err(
+        "remote " & $conn.peerId & " is outside the sync scope: cluster " &
+          $recvPayload.cluster & ", shards " & $recvPayload.shards
+      )
+
     if recvPayload.ranges.len == 0 or recvPayload.ranges.allIt(it[1] == RangeType.Skip):
       break
 
