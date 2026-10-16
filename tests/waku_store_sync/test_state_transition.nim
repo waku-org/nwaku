@@ -43,8 +43,7 @@ suite "Waku Sync: state transition":
 
     var s1, r1: seq[WakuMessageHash]
     let p1 = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(whole, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(whole, @[DefaultPubsubTopic], @[DefaultContentTopic])
@@ -61,8 +60,7 @@ suite "Waku Sync: state transition":
 
     var s2, r2: seq[WakuMessageHash]
     let p2 = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(sub, RangeType.Fingerprint)],
       fingerprints:
         @[remote.computeFingerprint(sub, @[DefaultPubsubTopic], @[DefaultContentTopic])],
@@ -86,8 +84,7 @@ suite "Waku Sync: state transition":
 
     var s4, r4: seq[WakuMessageHash]
     let p3 = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(sub, RangeType.Fingerprint)],
       fingerprints:
         @[remote.computeFingerprint(sub, @[DefaultPubsubTopic], @[DefaultContentTopic])],
@@ -127,8 +124,7 @@ suite "Waku Sync: state transition":
 
     var s, r: seq[WakuMessageHash]
     let payload = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(sliceA, RangeType.Fingerprint), (sliceB, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(sliceA, @[DefaultPubsubTopic], @[DefaultContentTopic]),
@@ -171,8 +167,7 @@ suite "Waku Sync: state transition":
 
     var toS, toR: seq[WakuMessageHash]
     let p = RangesData(
-      pubsubTopics: @[DefaultPubsubTopic],
-      contentTopics: @[DefaultContentTopic],
+      shards: @[DefaultShardId],
       ranges: @[(slice, RangeType.Fingerprint)],
       fingerprints: @[
         remote.computeFingerprint(slice, @[DefaultPubsubTopic], @[DefaultContentTopic])
@@ -224,8 +219,7 @@ suite "Waku Sync: state transition":
     proc fpReply(s: Slice[SyncID], sendQ, recvQ: var seq[WakuMessageHash]): RangesData =
       local.processPayload(
         RangesData(
-          pubsubTopics: @[DefaultPubsubTopic],
-          contentTopics: @[DefaultContentTopic],
+          shards: @[DefaultShardId],
           ranges: @[(s, RangeType.Fingerprint)],
           fingerprints: @[
             remote.computeFingerprint(s, @[DefaultPubsubTopic], @[DefaultContentTopic])

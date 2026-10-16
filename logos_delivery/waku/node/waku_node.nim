@@ -670,7 +670,6 @@ proc mountStoreSync*(
     node: WakuNode,
     cluster: uint16,
     shards: seq[uint16],
-    contentTopics: seq[string],
     storeSyncRange: uint32,
     storeSyncInterval: uint32,
     storeSyncRelayJitter: uint32,
@@ -680,12 +679,10 @@ proc mountStoreSync*(
   let wantsChannel = newAsyncQueue[(PeerId)](0)
   let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
 
-  let pubsubTopics = shards.mapIt($RelayShard(clusterId: cluster, shardId: it))
-
   let recon = ?await SyncReconciliation.new(
-    pubsubTopics, contentTopics, node.peerManager, node.wakuArchive,
-    storeSyncRange.seconds, storeSyncInterval.seconds, storeSyncRelayJitter.seconds,
-    idsChannel, wantsChannel, needsChannel,
+    cluster, shards, node.peerManager, node.wakuArchive, storeSyncRange.seconds,
+    storeSyncInterval.seconds, storeSyncRelayJitter.seconds, idsChannel, wantsChannel,
+    needsChannel,
   )
 
   node.wakuStoreReconciliation = recon

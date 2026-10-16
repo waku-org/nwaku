@@ -40,13 +40,7 @@ method processPayload*(
     hashToSend: var seq[Fingerprint],
     hashToRecv: var seq[Fingerprint],
 ): RangesData {.base, gcsafe, raises: [].} =
-  return RangesData(
-    pubsubTopics: @["InsertPubsubTopicHere"],
-    contentTopics: @["InsertContentTopicHere"],
-    ranges: @[],
-    fingerprints: @[FullFingerprint],
-    itemSets: @[],
-  )
+  return RangesData(ranges: @[], fingerprints: @[FullFingerprint], itemSets: @[])
 
 method length*(self: SyncStorage): int {.base, gcsafe, raises: [].} =
   -1
