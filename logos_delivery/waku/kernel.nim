@@ -242,9 +242,7 @@ proc new*(
 
 proc getRunningNetConfig(kernel: Kernel): Future[Result[NetConfig, string]] {.async.} =
   let conf = kernel.conf
-  let (tcpPort, websocketPort, quicPort) = getPorts(
-    kernel.switch.peerInfo.listenAddrs
-  ).valueOr:
+  let (tcpPort, websocketPort, quicPort) = getPorts(kernel.switch.peerInfo.listenAddrs).valueOr:
     return err("Could not retrieve ports: " & error)
 
   if tcpPort.isSome():
@@ -398,8 +396,9 @@ proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
         continue
 
     if not kernel.discovery.discv5.isNil():
-      let dynamicBootstrapEnrs =
-        kernel.discovery.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get().toUri())
+      let dynamicBootstrapEnrs = kernel.discovery.dynamicBootstrapNodes
+        .filterIt(it.hasUdpPort())
+        .mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in dynamicBootstrapEnrs:
@@ -411,7 +410,9 @@ proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
 
     info "Connecting to dynamic bootstrap peers"
     try:
-      await connectToNodes(kernel, kernel.discovery.dynamicBootstrapNodes, "dynamic bootstrap")
+      await connectToNodes(
+        kernel, kernel.discovery.dynamicBootstrapNodes, "dynamic bootstrap"
+      )
     except CatchableError:
       debug "Failed to connect to dynamic bootstrap nodes",
         error = getCurrentExceptionMsg()
@@ -428,6 +429,14 @@ proc closePersistency(kernel: Kernel) =
 proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
   if kernel.started:
     debug "start: waku node already started"
+    return ok()
+
+  if kernel.healthMonitor.isNil():
+    ## A bare node, built without a conf, runs only its switch and protocols.
+    try:
+      await kernel.startProtocols()
+    except CatchableError:
+      return err("failed to start protocols: " & getCurrentExceptionMsg())
     return ok()
 
   kernel.provideNodeState() # cleared by a previous stop()
@@ -615,7 +624,8 @@ proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).}
     debug "stop: attempting to stop node that isn't running"
 
   try:
-    kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+    if not kernel.healthMonitor.isNil():
+      kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
 
     kernel.closePersistency()
 
@@ -624,9 +634,8 @@ proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).}
 
     # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
 
-    if not kernel.isNil():
-      await kernel.stopMixRln()
-      await kernel.stopProtocols()
+    await kernel.stopMixRln()
+    await kernel.stopProtocols()
 
     if not kernel.discovery.dnsRetryLoopHandle.isNil():
       await kernel.discovery.dnsRetryLoopHandle.cancelAndWait()

@@ -65,7 +65,8 @@ proc mountFailingRln(kernel: Kernel, failWith: RlnErrorKind): FailingProofBacken
     backend.attempts.inc()
     return err(RlnError.init(backend.failWith, "scripted attach failure"))
 
-  kernel.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "stub", generateProof: generate))
+  kernel.protocols.rlnPlugin =
+    Opt.some(RlnPlugin(name: "stub", generateProof: generate))
   return backend
 
 type CountingProcessor = ref object of BaseSendProcessor
@@ -147,7 +148,8 @@ suite "SendService RLN proof attach - failing backend":
 
   asyncTeardown:
     await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc newService(processor: BaseSendProcessor): SendService =
     ## A service that holds one task, so `isFull` tells whether it holds the task.

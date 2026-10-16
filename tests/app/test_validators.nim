@@ -13,8 +13,7 @@ import
   libp2p/multihash,
   secp256k1
 import
-  logos_delivery/waku/
-    [waku_core, node/peer_manager, waku_node, factory/validator_signed],
+  logos_delivery/waku/[waku_core, node/peer_manager, kernel, factory/validator_signed],
   tools/confutils/cli_args,
   ../testlib/wakucore,
   ../testlib/wakunode
@@ -34,7 +33,7 @@ suite "Node app - Validators":
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -103,7 +102,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Spam protected topic rejects non-signed/wrongly-signed/no-timestamp messages":
     # Create 5 nodes
@@ -124,7 +123,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay with spam protected topics
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -253,7 +252,7 @@ suite "Node app - Validators":
       msgReceived == 125
       msgRejected == 500
 
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
@@ -274,7 +273,7 @@ suite "Node app - Validators":
       .expect("valid key")
 
     # Start all the nodes and mount relay with protected topic
-    await allFutures(nodes.mapIt(it.startProtocols()))
+    await allFutures(nodes.mapIt(it.start()))
 
     # Mount relay for all nodes
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -365,7 +364,7 @@ suite "Node app - Validators":
           v.topicInfos[spamProtectedShard].invalidMessageDeliveries == 0.0
 
     # Stop all nodes
-    await allFutures(nodes.mapIt(it.stopProtocols()))
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Tests vectors":
     # keys

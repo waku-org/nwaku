@@ -18,7 +18,7 @@ import
   rest/kernel_api/debug/client as debug_rest_client
 import
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     node/waku_node as waku_node2,
       # TODO: Remove after moving `git_version` to the app code.
   ],
@@ -38,9 +38,10 @@ proc testWakuNode(): Kernel =
 suite "Waku v2 REST API - Debug":
   asyncTest "Get node info - GET /info":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -48,7 +49,7 @@ suite "Waku v2 REST API - Debug":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # When
@@ -60,18 +61,22 @@ suite "Waku v2 REST API - Debug":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.listenAddresses ==
-        node.switch.peerInfo.addrs.mapIt($it & "/p2p/" & $node.switch.peerInfo.peerId)
-      response.data.enrUri == Opt.some(node.enr.toUri())
+        kernel.switch.peerInfo.addrs.mapIt(
+          $it & "/p2p/" & $kernel.switch.peerInfo.peerId
+        )
+      response.data.enrUri == Opt.some(kernel.enr.toUri())
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Get node version - GET /version":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -79,7 +84,7 @@ suite "Waku v2 REST API - Debug":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # When
@@ -94,4 +99,5 @@ suite "Waku v2 REST API - Debug":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

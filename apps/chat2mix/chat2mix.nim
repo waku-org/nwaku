@@ -42,7 +42,7 @@ import
     waku_enr,
     discovery/waku_dnsdisc,
     discovery/waku_kademlia,
-    waku_node,
+    kernel,
     node/waku_metrics,
     node/peer_manager,
     factory/waku_conf,
@@ -100,9 +100,7 @@ type
     nick* {.fieldNumber: 2.}: string
     payload* {.fieldNumber: 3.}: seq[byte]
 
-proc getPubsubTopic*(
-    conf: Chat2Conf, node: Kernel, contentTopic: string
-): PubsubTopic =
+proc getPubsubTopic*(conf: Chat2Conf, node: Kernel, contentTopic: string): PubsubTopic =
   let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
       echo "Could not parse content topic: " & error
       return "" #TODO: fix this.
@@ -259,7 +257,8 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stopProtocols()
+        (await c.node.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
@@ -477,7 +476,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
 
   #await node.mountRendezvousClient(conf.clusterId)
 
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   node.peerManager.start()
 

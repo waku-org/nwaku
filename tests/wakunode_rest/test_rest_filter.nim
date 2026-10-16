@@ -25,7 +25,7 @@ import
     common/base64,
     waku_core,
     waku_core/topics/sharding,
-    waku_node,
+    kernel,
     node/node_telemetry,
     node/peer_manager,
     waku_relay,
@@ -62,7 +62,7 @@ proc init(T: type RestFilterTest, autoShardCount = 0'u32): Future[T] {.async.} =
   testSetup.serviceNode = testWakuNode()
   testSetup.subscriberNode = testWakuNode()
 
-  await allFutures(testSetup.serviceNode.startProtocols(), testSetup.subscriberNode.startProtocols())
+  await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
 
   (await testSetup.serviceNode.mountRelay()).isOkOr:
     assert false, "Failed to mount relay: " & $error
@@ -116,7 +116,7 @@ proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServer.closeWait()
   await self.restServerForService.stop()
   await self.restServerForService.closeWait()
-  await allFutures(self.serviceNode.stopProtocols(), self.subscriberNode.stopProtocols())
+  await allFutures(self.serviceNode.stop(), self.subscriberNode.stop())
 
 proc waitForFilterMessages(
     client: RestClientRef, contentTopic: ContentTopic, count: int
@@ -693,7 +693,8 @@ suite "Waku v2 Rest API - Filter V2":
       emptyTopicPutResponse.status == 400
       emptyTopicPutResponse.data.statusDesc ==
         "pubsubTopic must be specified when static sharding is enabled"
-      restFilterTest.serviceNode.protocols.filter.subscriptions.subscribedPeerCount() == 0
+      restFilterTest.serviceNode.protocols.filter.subscriptions.subscribedPeerCount() ==
+        0
 
     # When it unsubscribes without a pubsubTopic
     let unsubscribeResponse = await restFilterTest.client.filterDeleteSubscriptions(
@@ -936,9 +937,11 @@ suite "Waku v2 Rest API - Filter V2":
 
     # Given a second peer holding a criterion the subscriber does not
     let otherNode = testWakuNode()
-    await otherNode.startProtocols()
+    (await otherNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await otherNode.stopProtocols()
+      (await otherNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     await otherNode.mountFilterClient()
     let servicePeer = restFilterTest.serviceNode.peerInfo.toRemotePeerInfo()

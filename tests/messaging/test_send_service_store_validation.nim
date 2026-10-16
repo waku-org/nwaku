@@ -55,14 +55,16 @@ suite "SendService - store validation and mix":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc service(reliability: bool): SendService =
     ## The policy under test never sends, so the plain chain is enough.
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     let chain = setupSendProcessorChain(kernel, AnonymityLevel.None).expect("chain")
-    return SendService.new(reliability, kernel, manager, chain).expect("SendService.new")
+    return
+      SendService.new(reliability, kernel, manager, chain).expect("SendService.new")
 
   proc propagatedTask(overMix: bool, ephemeral = false): DeliveryTask =
     let task = propagatedAt("t", Moment.now())
@@ -204,7 +206,8 @@ suite "SendService - mix completion":
     kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc countSent(counter: EventCounter): MessageSentEventListener =
     return MessageSentEvent
@@ -245,7 +248,9 @@ suite "SendService - mix completion":
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     let service = SendService
-      .new(false, kernel, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred)
+      .new(
+        false, kernel, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred
+      )
       .expect("SendService.new") # reliability = false
     let task = newTask("mixed-no-reliability")
     check service.enqueue(task).isOk()
@@ -266,7 +271,8 @@ suite "SendService - Store validation window":
 
   asyncTeardown:
     await log.teardown()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the time while the service is stopped does not count against the window":
     ## The task propagates, then the service stops for longer than the window.
@@ -319,7 +325,8 @@ suite "SendService - Store validation batches":
     service = reliableService(kernel, ScriptedProc())
 
   asyncTeardown:
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a batch holds one Store page, and the tasks that waited longest come first":
     let now = Moment.now()
@@ -394,7 +401,8 @@ suite "SendService - Store validation loop":
     storeNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
       raiseAssert "mountMetadata: " & error
     discard await newTestWakuStore(storeNode.switch, delayedStoreHandler)
-    await storeNode.startProtocols()
+    (await storeNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     kernel.peerManager.addServicePeer(
       storeNode.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
@@ -403,8 +411,10 @@ suite "SendService - Store validation loop":
     if not allowAnswer.finished():
       allowAnswer.complete()
     await log.teardown()
-    await storeNode.stopProtocols()
-    discard await kernel.stop()
+    (await storeNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc startedService(processor: BaseSendProcessor = ScriptedProc()): SendService =
     let service = reliableService(kernel, processor)

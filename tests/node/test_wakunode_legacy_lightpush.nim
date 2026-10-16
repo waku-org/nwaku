@@ -12,7 +12,7 @@ import
   logos_delivery/waku/[
     waku_core,
     node/peer_manager,
-    waku_node,
+    kernel,
     waku_lightpush_legacy,
     waku_lightpush_legacy/common,
     waku_lightpush_legacy/protocol_metrics,
@@ -42,8 +42,9 @@ suite "Waku Legacy Lightpush - End To End":
     server = newTestWakuNode(serverKey)
     client = newTestWakuNode(clientKey)
 
-    await allFutures(server.startProtocols(), client.startProtocols())
-    await server.startProtocols()
+    await allFutures(server.start(), client.start())
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -57,7 +58,8 @@ suite "Waku Legacy Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -131,8 +133,9 @@ suite "RLN Proofs as a Lightpush Service":
       epochSizeSec = 600,
     )
 
-    await allFutures(server.startProtocols(), client.startProtocols())
-    await server.startProtocols()
+    await allFutures(server.start(), client.start())
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -161,7 +164,8 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
@@ -274,7 +278,7 @@ suite "Waku Legacy Lightpush message delivery":
       destNodeKey = generateSecp256k1Key()
       destNode = newTestWakuNode(destNodeKey)
 
-    await allFutures(destNode.startProtocols(), bridgeNode.startProtocols(), lightNode.startProtocols())
+    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
     (await destNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -316,7 +320,7 @@ suite "Waku Legacy Lightpush message delivery":
     check await completionFutRelay.withTimeout(5.seconds)
 
     ## Cleanup
-    await allFutures(lightNode.stopProtocols(), bridgeNode.stopProtocols(), destNode.stopProtocols())
+    await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
 
 suite "Waku Legacy Lightpush mounting behavior":
   asyncTest "fails to mount when relay is not mounted":

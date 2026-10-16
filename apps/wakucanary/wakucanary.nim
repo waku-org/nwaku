@@ -13,8 +13,7 @@ import
   libp2p/multicodec
 import
   ./certsgenerator,
-  logos_delivery/waku/
-    [waku_enr, node/peer_manager, waku_core, waku_node, factory/builder],
+  logos_delivery/waku/[waku_enr, node/peer_manager, waku_core, kernel, factory/builder],
   logos_delivery/waku/net/net_config,
   logos_delivery/waku/waku_metadata/protocol,
   logos_delivery/waku/common/callbacks
@@ -147,9 +146,7 @@ proc areProtocolsSupported(
 
   return false
 
-proc pingNode(
-    node: Kernel, peerInfo: RemotePeerInfo
-): Future[bool] {.async, gcsafe.} =
+proc pingNode(node: Kernel, peerInfo: RemotePeerInfo): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
     let pingDelay = await node.protocols.libp2pPing.ping(conn)
@@ -275,7 +272,8 @@ proc main(rng: Rng): Future[int] {.async.} =
     error "failed to mount metadata protocol", error = error.msg
     quit(QuitFailure)
 
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   debug "Connecting to peer", peer = peer, timeout = conf.timeout
 
@@ -293,7 +291,8 @@ proc main(rng: Rng): Future[int] {.async.} =
   defer:
     debug "Cleanly disconnecting from peer", peerId = peer.peerId
     await node.peerManager.disconnectNode(peer.peerId)
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   debug "Connected, checking connection status", peerId = peer.peerId
 

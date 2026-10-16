@@ -13,7 +13,7 @@ import
   logos_delivery/waku/waku_core/peers,
   logos_delivery/waku/waku_core/codecs,
   logos_delivery/waku/waku_core,
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/node/peer_manager/peer_manager,
   logos_delivery/waku/waku_rendezvous/protocol,
   logos_delivery/waku/waku_rendezvous/common,
@@ -81,7 +81,7 @@ procSuite "Waku Rendezvous":
         node3.mountRendezvous(clusterId),
       ]
     )
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     let peerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
     let peerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
@@ -122,17 +122,18 @@ procSuite "Waku Rendezvous":
       clusterId = 10.uint16
       configuredShards = @[RelayShard(clusterId: clusterId, shardId: 0)]
 
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[0'u16]
     )
 
     ## When: Node mounts rendezvous with configured shards (before relay)
-    await node.mountRendezvous(clusterId, configuredShards)
-    await node.startProtocols()
+    await kernel.mountRendezvous(clusterId, configuredShards)
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: The rendezvous protocol should be mounted successfully
     check:
-      node.discovery.rendezvous != nil
+      kernel.discovery.rendezvous != nil
 
     # Verify that the protocol is running without errors
     # (shards are used internally by the getShardsGetter closure)
@@ -140,7 +141,8 @@ procSuite "Waku Rendezvous":
     check:
       namespace.len > 0
 
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Rendezvous uses configured shards when relay not mounted":
     ## Given: A light client node with no relay protocol
@@ -155,7 +157,8 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (no relay mounted)
     await lightClient.mountRendezvous(clusterId, configuredShards)
-    await lightClient.startProtocols()
+    (await lightClient.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: Rendezvous should be mounted successfully without relay
     check:
@@ -169,4 +172,5 @@ procSuite "Waku Rendezvous":
     check:
       lightClient.discovery.rendezvous != nil
 
-    await lightClient.stopProtocols()
+    (await lightClient.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

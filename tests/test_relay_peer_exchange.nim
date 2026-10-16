@@ -10,7 +10,7 @@ import
 
 import
   logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   ./testlib/wakucore,
   ./testlib/wakunode
 
@@ -89,7 +89,7 @@ procSuite "Relay (GossipSub) Peer Exchange":
     # Ensure that node1 prunes all peers after the first connection
     node1.protocols.relay.parameters.dHigh = 1
 
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     # The three nodes should be subscribed to the same shard
     proc simpleHandler(
@@ -113,4 +113,4 @@ procSuite "Relay (GossipSub) Peer Exchange":
       (await completionFut.withTimeout(5.seconds)) == true
 
     # Clean up
-    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])

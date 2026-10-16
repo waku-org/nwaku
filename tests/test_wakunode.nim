@@ -20,7 +20,7 @@ import
   eth/p2p/discoveryv5/enr,
   eth/net/utils
 import
-  logos_delivery/waku/[waku_core, waku_node, node/peer_manager],
+  logos_delivery/waku/[waku_core, kernel, node/peer_manager],
   logos_delivery/waku/factory/internal_config,
   ./testlib/wakucore,
   ./testlib/wakunode
@@ -39,14 +39,16 @@ suite "Kernel":
 
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node1.protocols.relay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     node2.protocols.relay.codec = "/vac/waku/relay/2.0.0-beta2"
@@ -87,7 +89,7 @@ suite "Kernel":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "resolve and connect to dns multiaddrs":
     let resolver = MockResolver.new()
@@ -105,7 +107,7 @@ suite "Kernel":
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await allFutures([node1.startProtocols(), node2.startProtocols()])
+    await allFutures([node1.start(), node2.start()])
 
     # Construct DNS multiaddr for node2
     let
@@ -118,7 +120,7 @@ suite "Kernel":
     check:
       node1.switch.connManager.connCount(node2.switch.peerInfo.peerId) == 1
 
-    await allFutures([node1.stopProtocols(), node2.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop()])
 
   asyncTest "Maximum connections can be configured with 20 nodes":
     let
@@ -129,7 +131,8 @@ suite "Kernel":
       )
 
     # Initialize and start node1
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -140,16 +143,17 @@ suite "Kernel":
     for _ in 0 ..< maxConnections + 1:
       let
         nodeKey = generateSecp256k1Key()
-        node = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(0))
-      await node.startProtocols()
-      (await node.mountRelay()).isOkOr:
+        kernel = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(0))
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      otherNodes.add(node)
+      otherNodes.add(kernel)
 
     # Connect all other nodes to node1
-    for node in otherNodes:
+    for kernel in otherNodes:
       discard
-        await node1.peerManager.connectPeer(node.switch.peerInfo.toRemotePeerInfo())
+        await node1.peerManager.connectPeer(kernel.switch.peerInfo.toRemotePeerInfo())
 
     # Check that the number of connections matches the maxConnections
     check:
@@ -159,9 +163,9 @@ suite "Kernel":
       node1.switch.isConnected(otherNodes[20].switch.peerInfo.peerId) == false
 
     # Stop all nodes
-    var stopFutures = @[node1.stopProtocols()]
-    for node in otherNodes:
-      stopFutures.add(node.stopProtocols())
+    var stopFutures = @[node1.stop()]
+    for kernel in otherNodes:
+      stopFutures.add(kernel.stop())
     await allFutures(stopFutures)
 
   asyncTest "Messages fails with wrong key path":
@@ -184,7 +188,7 @@ suite "Kernel":
       extIp = Opt.some(getPrimaryIPAddr())
       extPort = Opt.some(Port(61008))
       # tcp-only: asserts exact single listen addr; quic variant below
-      node =
+      kernel =
         newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort, quicEnabled = false)
 
     let
@@ -193,27 +197,29 @@ suite "Kernel":
 
     check:
       # Check that underlying peer info contains only bindIp before starting
-      node.switch.peerInfo.listenAddrs.len == 1
-      node.switch.peerInfo.listenAddrs.contains(bindEndpoint)
+      kernel.switch.peerInfo.listenAddrs.len == 1
+      kernel.switch.peerInfo.listenAddrs.contains(bindEndpoint)
       # Underlying peer info has not updated addrs before starting
-      node.switch.peerInfo.addrs.len == 0
+      kernel.switch.peerInfo.addrs.len == 0
 
-      node.announcedAddresses.len == 1
-      node.announcedAddresses.contains(announcedEndpoint)
+      kernel.announcedAddresses.len == 1
+      kernel.announcedAddresses.contains(announcedEndpoint)
 
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
-      node.started
+      kernel.started
       # The port-0 listen addr is replaced by the port the OS assigned
-      node.switch.peerInfo.listenAddrs.len == 1
-      $node.switch.peerInfo.listenAddrs[0] != $bindEndpoint
-      ($node.switch.peerInfo.listenAddrs[0]).startsWith("/ip4/0.0.0.0/tcp/")
+      kernel.switch.peerInfo.listenAddrs.len == 1
+      $kernel.switch.peerInfo.listenAddrs[0] != $bindEndpoint
+      ($kernel.switch.peerInfo.listenAddrs[0]).startsWith("/ip4/0.0.0.0/tcp/")
       # Check that underlying peer info is updated with announced address
-      node.switch.peerInfo.addrs.len == 1
-      node.switch.peerInfo.addrs.contains(announcedEndpoint)
+      kernel.switch.peerInfo.addrs.len == 1
+      kernel.switch.peerInfo.addrs.contains(announcedEndpoint)
 
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Peer info updates with correct announced addresses (QUIC)":
     # dual-stack node announces both tcp and quic-v1
@@ -223,25 +229,27 @@ suite "Kernel":
       bindPort = Port(0)
       extIp = Opt.some(getPrimaryIPAddr())
       extPort = Opt.some(Port(61008))
-      node =
+      kernel =
         newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort, quicEnabled = true)
 
     let tcpAnnounced = MultiAddress.init(extIp.get(), tcpProtocol, extPort.get())
 
     check:
-      node.announcedAddresses.len >= 2
-      node.announcedAddresses.contains(tcpAnnounced)
-      node.announcedAddresses.anyIt("/quic-v1" in $it)
+      kernel.announcedAddresses.len >= 2
+      kernel.announcedAddresses.contains(tcpAnnounced)
+      kernel.announcedAddresses.anyIt("/quic-v1" in $it)
 
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
-      node.started
-      node.switch.peerInfo.addrs.len >= 2
-      node.switch.peerInfo.addrs.contains(tcpAnnounced)
-      node.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
+      kernel.started
+      kernel.switch.peerInfo.addrs.len >= 2
+      kernel.switch.peerInfo.addrs.contains(tcpAnnounced)
+      kernel.switch.peerInfo.addrs.anyIt("/quic-v1" in $it)
 
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Dual-stack nodes connect over QUIC":
     let
@@ -250,7 +258,7 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, quicEnabled = true)
 
-    await allFutures(node1.startProtocols(), node2.startProtocols())
+    await allFutures(node1.start(), node2.start())
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -264,7 +272,7 @@ suite "Kernel":
       "/udp/" in $obAddr
       "/tcp/" notin $obAddr
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "A QUIC-v1 node address given as a string is parsed and dialed":
     ## This is the path of a configured entry node or static node. The address
@@ -273,7 +281,7 @@ suite "Kernel":
       node1 = newTestWakuNode(generateSecp256k1Key(), quicEnabled = true)
       node2 = newTestWakuNode(generateSecp256k1Key(), quicEnabled = true)
 
-    await allFutures(node1.startProtocols(), node2.startProtocols())
+    await allFutures(node1.start(), node2.start())
 
     let quicAddrs = node2.switch.peerInfo.addrs.filterIt("/quic-v1" in $it)
     require quicAddrs.len >= 1
@@ -298,7 +306,7 @@ suite "Kernel":
         raiseAssert "connection has no observed address"
       check "/udp/" in $obAddr
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Node can use dns4 in announced addresses":
     let
@@ -310,14 +318,14 @@ suite "Kernel":
       domainName = "example.com"
       expectedDns4Addr =
         MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
-      node = newTestWakuNode(
+      kernel = newTestWakuNode(
         nodeKey, bindIp, bindPort, extIp, extPort, dns4DomainName = Opt.some(domainName)
       )
 
     check:
       # dual-stack also adds a dns4 quic addr, don't assert exact count
-      node.announcedAddresses.len >= 1
-      node.announcedAddresses.contains(expectedDns4Addr)
+      kernel.announcedAddresses.len >= 1
+      kernel.announcedAddresses.contains(expectedDns4Addr)
 
   asyncTest "Node uses dns4 resolved ip in announced addresses if no extIp is provided":
     let
@@ -331,7 +339,7 @@ suite "Kernel":
       await dnsResolve(domainName, defaultTestWakuConf().dnsAddrsNameServers)
     ).valueOr:
       raiseAssert "DNS resolution failed: " & error
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       nodeKey,
       bindIp,
       bindPort,
@@ -340,7 +348,7 @@ suite "Kernel":
     )
 
     var ipStr = ""
-    var enrIp = node.enr.tryGet("ip", array[4, byte])
+    var enrIp = kernel.enr.tryGet("ip", array[4, byte])
 
     if enrIp.isSome():
       ipStr &= $ipv4(enrIp.get())
@@ -384,11 +392,13 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -404,7 +414,7 @@ suite "Kernel":
       node1Agent == expectedAgentString1
       node2Agent == expectedAgentString2
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Custom multiaddresses are set and advertised correctly":
     let
@@ -422,11 +432,13 @@ suite "Kernel":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2)
 
-    await node1.startProtocols()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.startProtocols()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -440,12 +452,12 @@ suite "Kernel":
     check:
       node1MultiAddrs.contains(expectedMultiaddress1)
 
-    await allFutures(node1.stopProtocols(), node2.stopProtocols())
+    await allFutures(node1.stop(), node2.stop())
 
   asyncTest "isReady only raises CancelledError and is true without RLN":
-    let node = newTestWakuNode(generateSecp256k1Key())
+    let kernel = newTestWakuNode(generateSecp256k1Key())
 
-    let readyFut = node.isReady()
+    let readyFut = kernel.isReady()
     static:
       doAssert typeof(readyFut) is Future[bool].Raising([CancelledError])
 

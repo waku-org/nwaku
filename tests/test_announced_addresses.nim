@@ -87,88 +87,99 @@ method start(p: AddressProbe) {.async: (raises: [CancelledError]).} =
 
 procSuite "Announced addresses":
   asyncTest "the resolved base reaches peerInfo and the API projection":
-    let node =
+    let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
-      node.announcedAddresses.len > 0
-      node.announcedAddresses == node.switch.peerInfo.addrs
-      node.announcedAddresses.allIt("/tcp/0" notin $it and "/udp/0/" notin $it)
-      node.announcedAddresses.allIt("0.0.0.0" notin $it)
-    await node.stopProtocols()
+      kernel.announcedAddresses.len > 0
+      kernel.announcedAddresses == kernel.switch.peerInfo.addrs
+      kernel.announcedAddresses.allIt("/tcp/0" notin $it and "/udp/0/" notin $it)
+      kernel.announcedAddresses.allIt("0.0.0.0" notin $it)
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a wildcard bind is resolved in peerInfo.addrs before the mounted protocols start":
     ## The helper rewrites 0.0.0.0 to loopback when quic is on, so quic is off.
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    let probe = AddressProbe(switch: node.switch)
+    let probe = AddressProbe(switch: kernel.switch)
     probe.codec = "/waku/test/address-probe/1.0.0"
     probe.handler = proc(
         stream: Stream, proto: string
     ) {.async: (raises: [CancelledError]).} =
       discard
-    node.switch.mount(probe)
+    kernel.switch.mount(probe)
 
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       probe.addrsAtStart.len > 0
       probe.addrsAtStart.allIt("0.0.0.0" notin $it and "/tcp/0" notin $it)
       ## Nothing after switch.start changed peerInfo.addrs.
-      probe.addrsAtStart == node.switch.peerInfo.addrs
-      probe.addrsAtStart == node.announcedAddresses
-    await node.stopProtocols()
+      probe.addrsAtStart == kernel.switch.peerInfo.addrs
+      probe.addrsAtStart == kernel.announcedAddresses
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a loopback bind stays loopback in the base":
     ## Rewriting loopback to the LAN IP once crashed the test suite
     ## because it announces endpoints nothing listens on.
-    let node =
+    let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
-      node.announcedAddresses.len > 0
-      node.announcedAddresses.allIt("/ip4/127.0.0.1/" in $it)
-    await node.stopProtocols()
+      kernel.announcedAddresses.len > 0
+      kernel.announcedAddresses.allIt("/ip4/127.0.0.1/" in $it)
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "an operator host containing the wildcard substring survives intact":
     ## The host string contains "0.0.0.0". Text replacement corrupted it.
     ## Matching the parsed IP keeps it unchanged.
     let tricky = MultiAddress.init("/ip4/10.0.0.0/tcp/60123").get()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(),
       parseIpAddress("127.0.0.1"),
       Port(0),
       extMultiAddrs = @[tricky],
     )
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
-      tricky in node.announcedAddresses
-    await node.stopProtocols()
+      tricky in kernel.announcedAddresses
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the ipv4-mapped wildcard is rewritten like the plain one":
     ## `::ffff:0.0.0.0` is the wildcard host too, so it has to be replaced by
     ## the primary IP rather than dropped from what the node announces.
     let mapped = MultiAddress.init("/ip6/::ffff:0.0.0.0/tcp/60123").get()
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(),
       parseIpAddress("127.0.0.1"),
       Port(0),
       extMultiAddrs = @[mapped],
     )
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
-      node.announcedAddresses.allIt(not it.getIp().get(LoopbackIp).isWildcard())
-      node.announcedAddresses.anyIt("/tcp/60123" in $it)
-    await node.stopProtocols()
+      kernel.announcedAddresses.allIt(not it.getIp().get(LoopbackIp).isWildcard())
+      kernel.announcedAddresses.anyIt("/tcp/60123" in $it)
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a circuit route flows through the chain, and removal converges on the next update":
-    let node =
+    let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let circuit = MultiAddress.init(CircuitAddr).get()
     var injecting = true
-    node.switch.peerInfo.addressMappers.add(
+    kernel.switch.peerInfo.addressMappers.add(
       proc(
           addrs: seq[MultiAddress]
       ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
@@ -178,21 +189,22 @@ procSuite "Announced addresses":
     )
 
     ## The service's own update carries the route.
-    await node.switch.peerInfo.update()
+    await kernel.switch.peerInfo.update()
     check:
-      circuit in node.switch.peerInfo.addrs
-      circuit in node.announcedAddresses
-      node.announcedAddresses.anyIt(not it.isCircuitRelayMA())
+      circuit in kernel.switch.peerInfo.addrs
+      circuit in kernel.announcedAddresses
+      kernel.announcedAddresses.anyIt(not it.isCircuitRelayMA())
 
     ## libp2p keeps peerInfo unchanged on removal.
     ## The stale route stays until the next update.
     injecting = false
-    check circuit in node.announcedAddresses ## stale until next update
-    await node.switch.peerInfo.update() ## any later natural commit
+    check circuit in kernel.announcedAddresses ## stale until next update
+    await kernel.switch.peerInfo.update() ## any later natural commit
     check:
-      circuit notin node.switch.peerInfo.addrs
-      circuit notin node.announcedAddresses
-    await node.stopProtocols()
+      circuit notin kernel.switch.peerInfo.addrs
+      circuit notin kernel.announcedAddresses
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "NAT restart derives from the configured intent":
     var recorders: seq[RecordingMapper]
@@ -206,7 +218,7 @@ procSuite "Announced addresses":
 
     ## A private configured address for NATService to map.
     ## The test runs the same on every machine.
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(),
       parseIpAddress("127.0.0.1"),
       Port(0),
@@ -214,23 +226,27 @@ procSuite "Announced addresses":
     )
     let natSvc = NATService.new(upnpConfig(), rng(), portMapperFactory = factory)
     ## NAT first, then the update, as in Kernel.new.
-    node.switch.services.add(Service(natSvc))
-    node.switch.services.add(Service(UpdateBeforeBind()))
+    kernel.switch.services.add(Service(natSvc))
+    kernel.switch.services.add(Service(UpdateBeforeBind()))
 
-    await node.startProtocols()
-    let mappersAfterFirstStart = node.switch.peerInfo.addressMappers.len
-    check node.announcedAddresses.anyIt("203.0.113.77" in $it and "62001" in $it)
-    await node.stopProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    let mappersAfterFirstStart = kernel.switch.peerInfo.addressMappers.len
+    check kernel.announcedAddresses.anyIt("203.0.113.77" in $it and "62001" in $it)
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
     grantPort = Port(62002)
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       ## The mapper count stays flat across restarts.
-      node.switch.peerInfo.addressMappers.len == mappersAfterFirstStart
+      kernel.switch.peerInfo.addressMappers.len == mappersAfterFirstStart
       ## The new grant is announced. The mapper got the configured address.
-      node.announcedAddresses.anyIt("203.0.113.77" in $it and "62002" in $it)
+      kernel.announcedAddresses.anyIt("203.0.113.77" in $it and "62002" in $it)
       recorders.allIt(Port(0) notin it.mappedInternal)
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "NAT maps the port a wildcard bind actually bound":
     ## The wildcard bind resolves onto the provider's interface before the NAT
@@ -244,23 +260,25 @@ procSuite "Announced addresses":
       Opt.some(PortMapper(rec))
 
     ## The helper rewrites 0.0.0.0 to loopback when quic is on, so quic is off.
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    node.switch.addressManager.networkInterfaceProvider = privateInterfaceProvider
-    node.switch.services.add(
+    kernel.switch.addressManager.networkInterfaceProvider = privateInterfaceProvider
+    kernel.switch.services.add(
       Service(NATService.new(upnpConfig(), rng(), portMapperFactory = factory))
     )
 
-    await node.startProtocols()
-    let bound = node.boundTcpPort()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    let bound = kernel.boundTcpPort()
     check:
       bound != Port(0)
       recorders.len >= 1
       recorders.allIt(it.mappedInternal.len >= 1)
       recorders.allIt(it.mappedInternal.allIt(it == bound))
-      node.announcedAddresses.anyIt("203.0.113.77" in $it and "62010" in $it)
-    await node.stopProtocols()
+      kernel.announcedAddresses.anyIt("203.0.113.77" in $it and "62010" in $it)
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a fixed port is mapped in both mapper runs and announced once":
     ## Production binds a fixed port and AutonatService updates peerInfo during the
@@ -274,21 +292,24 @@ procSuite "Announced addresses":
       Opt.some(PortMapper(rec))
 
     const FixedPort = Port(61020)
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), FixedPort, quicEnabled = false
     )
-    node.switch.addressManager.networkInterfaceProvider = privateInterfaceProvider
-    node.switch.services.add(
+    kernel.switch.addressManager.networkInterfaceProvider = privateInterfaceProvider
+    kernel.switch.services.add(
       Service(NATService.new(upnpConfig(), rng(), portMapperFactory = factory))
     )
-    node.switch.services.add(Service(UpdateBeforeBind()))
+    kernel.switch.services.add(Service(UpdateBeforeBind()))
 
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       recorders.len >= 1
       recorders.allIt(it.mappedInternal == @[FixedPort, FixedPort])
-      node.announcedAddresses.filterIt("203.0.113.77" in $it and "62020" in $it).len == 1
-    await node.stopProtocols()
+      kernel.announcedAddresses.filterIt("203.0.113.77" in $it and "62020" in $it).len ==
+        1
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a later update announces the current primary interface":
     ## The provider runs on every update, so a changed primary IP replaces the old one.
@@ -301,34 +322,38 @@ procSuite "Announced addresses":
       {.gcsafe.}:
         @[InterfaceAddress.init(initTAddress(primary, Port(0)), 24)]
 
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), quicEnabled = false
     )
-    node.switch.addressManager.networkInterfaceProvider = movingProvider
-    await node.startProtocols()
-    let bound = node.boundTcpPort()
-    check node.announcedAddresses ==
+    kernel.switch.addressManager.networkInterfaceProvider = movingProvider
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    let bound = kernel.boundTcpPort()
+    check kernel.announcedAddresses ==
       @[MultiAddress.init("/ip4/192.168.9.9/tcp/" & $bound).get()]
 
     primary = parseIpAddress("192.168.9.10")
-    await node.switch.peerInfo.update()
-    check node.announcedAddresses ==
+    await kernel.switch.peerInfo.update()
+    check kernel.announcedAddresses ==
       @[MultiAddress.init("/ip4/192.168.9.10/tcp/" & $bound).get()]
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "an unchanged owned update needs the explicit copy":
-    let node =
+    let kernel =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
-    await node.startProtocols()
-    let committed = node.switch.peerInfo.addrs
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    let committed = kernel.switch.peerInfo.addrs
 
-    node.announcedAddresses = @[]
-    await node.switch.peerInfo.update()
-    check node.announcedAddresses.len == 0 ## unchanged commit, observer silent
+    kernel.announcedAddresses = @[]
+    await kernel.switch.peerInfo.update()
+    check kernel.announcedAddresses.len == 0 ## unchanged commit, observer silent
 
-    node.copyCommittedAddresses()
-    check node.announcedAddresses == committed
-    await node.stopProtocols()
+    kernel.copyCommittedAddresses()
+    check kernel.announcedAddresses == committed
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "ext-multiaddr-only bypasses the chain from before start":
     let ext = MultiAddress.init("/ip4/203.0.113.44/tcp/60123").get()
@@ -340,7 +365,7 @@ procSuite "Announced addresses":
         recorders.add(rec)
       Opt.some(PortMapper(rec))
 
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(),
       parseIpAddress("127.0.0.1"),
       Port(0),
@@ -348,60 +373,62 @@ procSuite "Announced addresses":
       extMultiAddrsOnly = true,
     )
     ## The override is active from construction, before any start.
-    check node.switch.peerInfo.announcedAddrs == @[ext]
+    check kernel.switch.peerInfo.announcedAddrs == @[ext]
 
-    node.switch.services.add(Service(UpdateBeforeBind()))
-    node.switch.services.add(
+    kernel.switch.services.add(Service(UpdateBeforeBind()))
+    kernel.switch.services.add(
       Service(NATService.new(upnpConfig(), rng(), portMapperFactory = factory))
     )
-    await node.startProtocols()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
-      node.announcedAddresses == @[ext]
-      node.switch.peerInfo.addrs == @[ext]
+      kernel.announcedAddresses == @[ext]
+      kernel.switch.peerInfo.addrs == @[ext]
       ## The mappers ran over the configured list, which has nothing private to map.
       ## libp2p announced that list itself. Every mapper stayed idle.
       recorders.len >= 1
       recorders.allIt(it.mappedInternal.len == 0)
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   test "the ENR refresh trims to the largest fitting prefix and keeps shards":
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
+    let kernel = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
     var builder = EnrBuilder.init(key)
     builder
       .withWakuRelaySharding(RelayShards(clusterId: 1, shardIds: @[0'u16, 1, 2, 3]))
       .expect("shards")
-    node.enr = builder.build().expect("record")
+    kernel.enr = builder.build().expect("record")
 
     var addrs: seq[MultiAddress]
     for i in 0 ..< 6:
       addrs.add(MultiAddress.init(CircuitAddr).get())
       addrs.add(MultiAddress.init("/ip4/203.0.113." & $i & "/tcp/60000").get())
-    node.announcedAddresses = addrs
+    kernel.announcedAddresses = addrs
 
-    check refreshEnrAddrs(node, key, nil).isOk()
+    check refreshEnrAddrs(kernel, key, nil).isOk()
 
-    let typed = node.enr.toTyped().expect("typed")
+    let typed = kernel.enr.toTyped().expect("typed")
     let decoded = typed.multiaddrs.expect("multiaddrs field")
     check:
       decoded.len > 0
       decoded.len < addrs.len ## oversized input was trimmed
       decoded[0].isCircuitRelayMA() ## relay routes sort first and stay
-      node.enr.toTyped().expect("typed").relaySharding().isSome()
+      kernel.enr.toTyped().expect("typed").relaySharding().isSome()
 
   test "an empty committed set clears the ENR multiaddrs field":
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
-    node.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
-    check refreshEnrAddrs(node, key, nil).isOk()
-    node.announcedAddresses = @[]
-    check refreshEnrAddrs(node, key, nil).isOk()
-    let typed = node.enr.toTyped().expect("typed")
+    let kernel = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
+    kernel.announcedAddresses = @[MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get()]
+    check refreshEnrAddrs(kernel, key, nil).isOk()
+    kernel.announcedAddresses = @[]
+    check refreshEnrAddrs(kernel, key, nil).isOk()
+    let typed = kernel.enr.toTyped().expect("typed")
     check typed.multiaddrs.expect("field").len == 0
 
   test "the live discv5 record takes the refresh and copies back":
     let key = generateSecp256k1Key()
-    let node = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
+    let kernel = newTestWakuNode(key, parseIpAddress("127.0.0.1"), Port(0))
 
     var builder = EnrBuilder.init(key)
     builder
@@ -423,11 +450,11 @@ procSuite "Announced addresses":
     let wd = WakuDiscoveryV5(protocol: proto)
     let seqBefore = proto.localNode.record.seqNum
 
-    node.announcedAddresses = @[
+    kernel.announcedAddresses = @[
       MultiAddress.init(CircuitAddr).get(),
       MultiAddress.init("/ip4/203.0.113.9/tcp/60000").get(),
     ]
-    check refreshEnrAddrs(node, key, wd).isOk()
+    check refreshEnrAddrs(kernel, key, wd).isOk()
 
     let live = proto.localNode.record
     let typed = live.toTyped().expect("typed")
@@ -435,4 +462,4 @@ procSuite "Announced addresses":
       typed.multiaddrs.expect("field").len == 2
       typed.relaySharding().isSome() ## shards stay after the field update
       live.seqNum > seqBefore
-      node.enr == live ## copy-back
+      kernel.enr == live ## copy-back

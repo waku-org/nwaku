@@ -5,7 +5,7 @@ import std/net, testutils/unittests, chronos, results
 import
   logos_delivery/waku/[
     node/peer_manager,
-    waku_node,
+    kernel,
     waku_core,
     waku_store/resume,
     waku_store/common,
@@ -87,14 +87,15 @@ suite "Store Resume - End to End":
 
     client.setupStoreResume()
 
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
     client.peerManager.addServicePeer(serverRemotePeerInfo, WakuStoreCodec)
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "10 messages resume":
     var countRes = await clientDriver.getMessagesCount()
@@ -103,7 +104,8 @@ suite "Store Resume - End to End":
     check:
       countRes.get() == 0
 
-    await client.startProtocols()
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     countRes = await clientDriver.getMessagesCount()
     assert countRes.isOk(), $countRes.error
@@ -156,18 +158,20 @@ suite "Store Resume - pages":
     client.mountStoreClient()
     client.setupStoreResume()
 
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     client.peerManager.addServicePeer(
       server.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
   asyncTeardown:
-    await allFutures(client.stopProtocols(), server.stopProtocols())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "resume reads the pages after a page with a dropped message":
     check (await serverDriver.getMessagesCount()).get(0) == 150
 
-    await client.startProtocols()
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let count = await clientDriver.getMessagesCount()
     check:

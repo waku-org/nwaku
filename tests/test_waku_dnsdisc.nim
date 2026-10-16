@@ -13,7 +13,7 @@ import
   dnsdisc/builder
 import
   logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/discovery/waku_dnsdisc,
   ./testlib/common,
   ./testlib/wakucore,
@@ -40,7 +40,7 @@ suite "Waku DNS Discovery":
       assert false, "Failed to mount relay"
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await allFutures([node1.startProtocols(), node2.startProtocols(), node3.startProtocols()])
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
     let
       enr1 = newTestEnrRecord(nodeKey1, $bindIp, uint16(node1.boundTcpPort()), 0)
@@ -82,7 +82,8 @@ suite "Waku DNS Discovery":
 
     (await node4.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node4.startProtocols()
+    (await node4.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 
@@ -117,4 +118,4 @@ suite "Waku DNS Discovery":
       node4.peerManager.switch.peerStore.connectedness(node3.switch.peerInfo.peerId) ==
         Connected
 
-    await allFutures([node1.stopProtocols(), node2.stopProtocols(), node3.stopProtocols(), node4.stopProtocols()])
+    await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])

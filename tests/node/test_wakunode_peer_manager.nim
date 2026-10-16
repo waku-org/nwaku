@@ -17,7 +17,7 @@ import
   logos_delivery/waku/[
     waku_core,
     node/peer_manager,
-    waku_node,
+    kernel,
     discovery/waku_discv5,
     waku_filter_v2/common,
     waku_relay/protocol,
@@ -65,7 +65,7 @@ suite "Peer Manager":
     client = newTestWakuNode(clientKey, listenIp, Port(0))
     clientPeerStore = client.peerManager.switch.peerStore
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
     serverPeerId = serverRemotePeerInfo.peerId
@@ -73,7 +73,7 @@ suite "Peer Manager":
     clientPeerId = clientRemotePeerInfo.peerId
 
   asyncTeardown:
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
   suite "Peer Connectivity, Management, and Store":
     asyncTest "Peer Connection Validation":
@@ -236,7 +236,7 @@ suite "Peer Manager":
           client2 = newTestWakuNode(client2Key, listenIp, listenPort)
           client3 = newTestWakuNode(client3Key, listenIp, listenPort)
 
-        await allFutures(client2.startProtocols(), client3.startProtocols())
+        await allFutures(client2.start(), client3.start())
 
         # And the server's peer manager has no colocation limit
         server.peerManager.colocationLimit = 0
@@ -251,7 +251,7 @@ suite "Peer Manager":
           serverPeerStore.peers().len == 3
 
         # Teardown
-        await allFutures(client2.stopProtocols(), client3.stopProtocols())
+        await allFutures(client2.stop(), client3.stop())
 
       asyncTest "With colocation limits":
         # Given two extra clients
@@ -261,7 +261,7 @@ suite "Peer Manager":
           client2 = newTestWakuNode(client2Key, listenIp, listenPort)
           client3 = newTestWakuNode(client3Key, listenIp, listenPort)
 
-        await allFutures(client2.startProtocols(), client3.startProtocols())
+        await allFutures(client2.start(), client3.start())
 
         # And the server's peer manager has a colocation limit of 1
         server.peerManager.colocationLimit = 1
@@ -276,7 +276,7 @@ suite "Peer Manager":
           serverPeerStore.peers().len == 1
 
         # Teardown
-        await allFutures(client2.stopProtocols(), client3.stopProtocols())
+        await allFutures(client2.stop(), client3.stop())
 
     suite "In-memory Data Structure Verification":
       asyncTest "Cannot add self":
@@ -330,7 +330,8 @@ suite "Peer Manager":
           server2Key = generateSecp256k1Key()
           server2 = newTestWakuNode(server2Key, listenIp, listenPort)
 
-        await server2.startProtocols()
+        (await server2.start()).isOkOr:
+          raiseAssert "failed to start kernel: " & error
 
         let
           server2RemotePeerInfo = server2.switch.peerInfo.toRemotePeerInfo()
@@ -352,7 +353,8 @@ suite "Peer Manager":
             DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
         # Cleanup
-        await server2.stopProtocols()
+        (await server2.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
     suite "Tracked Peer Metadata":
       asyncTest "Metadata Recording":
@@ -721,13 +723,13 @@ suite "Persistence Check":
       serverPeerStore = server.peerManager.switch.peerStore
       clientPeerStore = client.peerManager.switch.peerStore
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
     check:
       clientPeerStore.peers().len == 1
 
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
     # When initializing a new client using the prepopulated on-disk storage
     let
@@ -737,14 +739,16 @@ suite "Persistence Check":
       )
       newClientPeerStore = newClient.peerManager.switch.peerStore
 
-    await newClient.startProtocols()
+    (await newClient.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Then the new client should have the same peer in its peer store
     check:
       newClientPeerStore.peers().len == 1
 
     # Cleanup
-    await newClient.stopProtocols()
+    (await newClient.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     cleanupDb()
 
   asyncTest "PeerStorage exists but no data":
@@ -763,14 +767,14 @@ suite "Persistence Check":
       serverPeerStore = server.peerManager.switch.peerStore
       clientPeerStore = client.peerManager.switch.peerStore
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     # Then the client's peer store should be empty
     check:
       clientPeerStore.peers().len == 0
 
     # Cleanup
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
     cleanupDb()
 
   asyncTest "PeerStorage not exists":
@@ -783,14 +787,14 @@ suite "Persistence Check":
       serverPeerStore = server.peerManager.switch.peerStore
       clientPeerStore = client.peerManager.switch.peerStore
 
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
     # Then the client's peer store should be empty
     check:
       clientPeerStore.peers().len == 0
 
     # Cleanup
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
 suite "Mount Order":
   var
@@ -804,12 +808,14 @@ suite "Mount Order":
     client = newTestWakuNode(clientKey, listenIp, listenPort)
     clientPeerStore = client.peerManager.switch.peerStore
 
-    await client.startProtocols()
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     clientRemotePeerInfo = client.switch.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await client.stopProtocols()
+    (await client.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol-start-info":
     # Given a server that is initiaalised in the order defined in the title
@@ -819,7 +825,8 @@ suite "Mount Order":
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
@@ -834,7 +841,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol-info-start":
     # Given a server that is initialised in the order defined in the title
@@ -847,7 +855,8 @@ suite "Mount Order":
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # When connecting to the server
     await client.connectToNodes(@[serverRemotePeerInfo])
@@ -859,7 +868,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "start-protocol-info":
     # Given a server that is initialised in the order defined in the title
@@ -867,7 +877,8 @@ suite "Mount Order":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, listenIp, listenPort)
 
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let
@@ -884,7 +895,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "start-info-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -892,7 +904,8 @@ suite "Mount Order":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, listenIp, listenPort)
 
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
@@ -909,7 +922,8 @@ suite "Mount Order":
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "info-start-protocol":
     # Given a server that is initialised in the order defined in the title
@@ -920,7 +934,8 @@ suite "Mount Order":
     let
       serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
       serverPeerId = serverRemotePeerInfo.peerId
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -933,7 +948,8 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "info-protocol-start":
     # Given a server that is initialised in the order defined in the title
@@ -946,7 +962,8 @@ suite "Mount Order":
       serverPeerId = serverRemotePeerInfo.peerId
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await server.startProtocols()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # When connecting to the server
     await client.connectToNodes(@[serverRemotePeerInfo])
@@ -957,4 +974,5 @@ suite "Mount Order":
       clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
-    await server.stopProtocols()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

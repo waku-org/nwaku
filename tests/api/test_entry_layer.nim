@@ -13,7 +13,7 @@ import
     waku_core,
     waku_enr,
     waku_metadata,
-    waku_node,
+    kernel,
     waku_relay/protocol,
     waku_store/common,
     waku_filter_v2/client,
@@ -205,9 +205,11 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stopProtocols()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -269,9 +271,11 @@ suite "LogosDelivery - relay REST API":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stopProtocols()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -372,9 +376,11 @@ suite "LogosDelivery - configured shards":
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.startProtocols()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await peer.stopProtocols()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -387,9 +393,8 @@ suite "LogosDelivery - configured shards":
 
     check:
       node.kernel.protocols.relay.subscribedTopics().len == 0
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.kernel.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards == @[1'u32]
 
   asyncTest "under static sharding without REST the node is no relay peer on the configured shard, and a peer's message there is neither archived nor pushed to a filter subscriber":
@@ -422,9 +427,11 @@ suite "LogosDelivery - configured shards":
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
       publisher.mountStoreClient()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stopProtocols()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     var receiver: Kernel
     lockNewGlobalBrokerContext:
@@ -433,9 +440,11 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await receiver.mountRelay()).isOkOr:
         raiseAssert error
-      await receiver.startProtocols()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stopProtocols()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     var subscriber: Kernel
     lockNewGlobalBrokerContext:
@@ -443,9 +452,11 @@ suite "LogosDelivery - configured shards":
       subscriber.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
       await subscriber.mountFilterClient()
-      await subscriber.startProtocols()
+      (await subscriber.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await subscriber.stopProtocols()
+      (await subscriber.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -549,9 +560,11 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stopProtocols()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -611,9 +624,11 @@ suite "LogosDelivery - configured shards":
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stopProtocols()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -672,9 +687,11 @@ suite "LogosDelivery - configured shards":
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.startProtocols()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await peer.stopProtocols()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
@@ -686,9 +703,8 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
 
     check:
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.kernel.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards.toHashSet() == toSeq(0'u32 ..< 8'u32).toHashSet()
 
   asyncTest "with discv5 the ENR lists every shard":

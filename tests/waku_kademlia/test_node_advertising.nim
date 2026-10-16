@@ -6,7 +6,7 @@ import libp2p/extended_peer_record
 import libp2p/protocols/service_discovery/types as sd_types
 import libp2p/protocols/kademlia/types
 import
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/waku/kernel,
   logos_delivery/waku/discovery/[waku_kademlia, service_discovery],
   ../testlib/[wakucore, wakunode, testasync]
 
@@ -68,7 +68,8 @@ suite "Waku Kademlia node advertising":
     let service = ServiceInfo(id: "/test/service/1.0.0", data: Opt.none(seq[byte]))
     let node = newAdvertisingNode(parseIpAddress("0.0.0.0"), service)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     ## The record published before the service was added listed no services.
     checkUntilTimeout:
@@ -78,16 +79,19 @@ suite "Waku Kademlia node advertising":
       node.publishedAddresses().len > 0
       node.publishedAddresses().allIt("0.0.0.0" notin $it and "/tcp/0" notin $it)
       node.publishedAddresses() == node.announcedAddresses
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     check not node.isAdvertised(service)
     ## The stored record survives the stop. Delete it so the restart must publish anew.
     node.discovery.kademlia.protocol.dataTable.del(node.switch.peerInfo.peerId.toKey())
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a record the protocol cannot build leaves the node running and the service configured":
     ## 200 addresses push the record past its size cap. Through the constructor this
@@ -100,24 +104,30 @@ suite "Waku Kademlia node advertising":
     )
     let node = newAdvertisingNode(parseIpAddress("127.0.0.1"), service, ext)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check:
       node.started
       node.discovery.kademlia.protocol.record().isErr()
       not node.isAdvertised(service)
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check not node.isAdvertised(service)
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a concrete bind republishes the record once the service is added":
     ## The first record precedes the service, and a concrete bind changes no address.
     let service = ServiceInfo(id: "/test/service/1.0.0", data: Opt.none(seq[byte]))
     let node = newAdvertisingNode(parseIpAddress("127.0.0.1"), service)
 
-    await node.startProtocols()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     check node.isAdvertised(service)
     checkUntilTimeout:
       service in node.publishedServices()
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

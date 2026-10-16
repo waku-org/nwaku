@@ -22,7 +22,7 @@ import
     waku_core/message,
     waku_core/message/digest,
     waku_core/topics,
-    waku_node,
+    kernel,
     node/peer_manager,
     waku_archive,
     waku_archive/driver/queue_driver,
@@ -73,7 +73,8 @@ proc init(
     T: type RestStoreTest, msgs: seq[WakuMessage], driver: ArchiveDriver
 ): Future[RestStoreTest] {.async.} =
   var t = RestStoreTest(node: testWakuNode(), driver: driver)
-  await t.node.startProtocols()
+  (await t.node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   t.node.mountArchive(t.driver).isOkOr:
     assert false, "failed to mount archive: " & error
@@ -104,7 +105,8 @@ proc init(
 proc shutdown(t: RestStoreTest) {.async.} =
   await t.restServer.stop()
   await t.restServer.closeWait()
-  await t.node.stopProtocols()
+  (await t.node.stop()).isOkOr:
+    raiseAssert "failed to stop kernel: " & error
 
 ################################################################################
 # Beginning of the tests
@@ -136,9 +138,10 @@ procSuite "Waku Rest API - Store v3":
       expected.get() == msgHashRes.get().get().toRestStringWakuMessageHash()
 
   asyncTest "invalid cursor":
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -146,24 +149,24 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let db: SqliteDatabase =
       SqliteDatabase.new(Opt.none(string).get(":memory:")).expect("valid DB")
     let driver: ArchiveDriver = SqliteDriver.new(db).expect("valid driver")
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     await sleepAsync(1.seconds())
 
@@ -212,12 +215,14 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Filter by start and end time":
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -225,22 +230,22 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -283,34 +288,36 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Store node history response - forward pagination":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let timeOrigin = wakucore.now()
@@ -376,13 +383,15 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "query a node and retrieve historical messages filtered by pubsub topic":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -390,22 +399,22 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -449,13 +458,15 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "retrieve historical messages from a provided store node address":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -463,22 +474,22 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -538,13 +549,15 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "filter historical messages by content topic":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -552,22 +565,22 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
-    node.mountStoreClient()
+    await kernel.mountStore()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -594,13 +607,15 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "precondition failed":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       error "failed to mount relay", error = error
 
     var restPort = Port(0)
@@ -608,10 +623,10 @@ procSuite "Waku Rest API - Store v3":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
-    node.mountStoreClient()
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
@@ -632,14 +647,14 @@ procSuite "Waku Rest API - Store v3":
       response.data.statusDesc == NoPeerNoDiscError.errobj.message
 
     # Now add the storenode from "config"
-    node.peerManager.addServicePeer(remotePeerInfo, WakuStoreCodec)
+    kernel.peerManager.addServicePeer(remotePeerInfo, WakuStoreCodec)
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
+    await kernel.mountStore()
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -661,30 +676,32 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "retrieve historical messages from a self-store-node":
     ## This test aims to validate the correct message retrieval for a store-node which exposes
     ## a REST server.
 
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
+    await kernel.mountStore()
 
     # Now prime it with some history before tests
     let msgList = @[
@@ -728,23 +745,24 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "correct message fields are returned":
     # Given
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    await node.mountStore()
+    await kernel.mountStore()
 
     # Now prime it with some history before tests
     let msg = fakeWakuMessage(
@@ -776,31 +794,32 @@ procSuite "Waku Rest API - Store v3":
 
   asyncTest "Rate limit store node store query":
     # Test adapted from the analogous present at waku_store/test_wakunode_store.nim
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    let mountArchiveRes = node.mountArchive(driver)
+    let mountArchiveRes = kernel.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     # bucket refills 4 tokens/s: the 429 below needs all 3 requests within 250ms
-    await node.mountStore((2, 500.millis))
-    node.mountStoreClient()
+    await kernel.mountStore((2, 500.millis))
+    kernel.mountStoreClient()
 
     let key = generateEcdsaKey()
     var peerSwitch = newStandardSwitch(Opt.some(key))
     await peerSwitch.start()
 
-    peerSwitch.mount(node.protocols.store)
+    peerSwitch.mount(kernel.protocols.store)
 
     # Now prime it with some history before tests
     let timeOrigin = wakucore.now()
@@ -917,7 +936,8 @@ procSuite "Waku Rest API - Store v3":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stopProtocols()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "hashes filter: each hash list returns exactly its messages":
     let t = await RestStoreTest.init()
@@ -1312,26 +1332,28 @@ procSuite "Waku Rest API - Store v3":
       response.data.messages.len == 0
 
   asyncTest "a failed dial to the store peer is answered 504":
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stopProtocols()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
     defer:
       await restServer.stop()
       await restServer.closeWait()
 
-    node.mountStoreClient()
+    kernel.mountStoreClient()
 
     let peerSwitch = newStandardSwitch(Opt.some(generateEcdsaKey()))
     await peerSwitch.start()
     defer:
       await peerSwitch.stop()
-    node.peerManager.addServicePeer(
+    kernel.peerManager.addServicePeer(
       peerSwitch.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
@@ -1348,26 +1370,28 @@ procSuite "Waku Rest API - Store v3":
       response.data.messages.len == 0
 
   asyncTest "a store peer whose port is closed is answered 504":
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stopProtocols()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
     defer:
       await restServer.stop()
       await restServer.closeWait()
 
-    node.mountStoreClient()
+    kernel.mountStoreClient()
 
     let peerSwitch = newStandardSwitch(Opt.some(generateEcdsaKey()))
     await peerSwitch.start()
     let closedPeer = peerSwitch.peerInfo.toRemotePeerInfo()
     await peerSwitch.stop()
-    node.peerManager.addServicePeer(closedPeer, WakuStoreCodec)
+    kernel.peerManager.addServicePeer(closedPeer, WakuStoreCodec)
 
     let client =
       newRestHttpClient(initTAddress(restAddress, restServer.httpServer.address.port))
@@ -1382,20 +1406,22 @@ procSuite "Waku Rest API - Store v3":
       response.data.messages.len == 0
 
   asyncTest "a store peer that accepts the connection and never answers is answered 504 on timeout":
-    let node = testWakuNode()
-    await node.startProtocols()
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stopProtocols()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
-    installStoreApiHandlers(restServer.router, node)
+    installStoreApiHandlers(restServer.router, kernel)
     restServer.start()
     defer:
       await restServer.stop()
       await restServer.closeWait()
 
-    node.mountStoreClient()
+    kernel.mountStoreClient()
 
     let accepted = newAsyncEvent()
     var held: seq[StreamTransport]
@@ -1411,7 +1437,7 @@ procSuite "Waku Rest API - Store v3":
       listener.stop()
       await listener.closeWait()
 
-    node.peerManager.addServicePeer(
+    kernel.peerManager.addServicePeer(
       RemotePeerInfo.init(
         PeerId.init(generateSecp256k1Key()).tryGet(),
         @[

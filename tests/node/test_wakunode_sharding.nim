@@ -15,7 +15,7 @@ import
   logos_delivery/waku/[
     waku_core/topics/pubsub_topic,
     waku_core/topics/sharding,
-    waku_node,
+    kernel,
     common/paging,
     waku_core,
     waku_store/common,
@@ -100,10 +100,10 @@ suite "Sharding":
     for node in [server, client]:
       node.mountAutoSharding(DefaultClusterId, autoShardCount).isOkOr:
         raiseAssert "mountAutoSharding failed: " & error
-    await allFutures(server.startProtocols(), client.startProtocols())
+    await allFutures(server.start(), client.start())
 
   asyncTeardown:
-    await allFutures(server.stopProtocols(), client.stopProtocols())
+    await allFutures(server.stop(), client.stop())
 
   suite "Static Sharding Functionality":
     asyncTest "Shard Subscription and Peer Dialing":

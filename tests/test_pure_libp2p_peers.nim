@@ -12,7 +12,7 @@ import
   libp2p/protocols/service_discovery/types,
   libp2p_mix/mix_protocol
 import
-  logos_delivery/waku/[waku_node, waku_core, node/peer_manager, waku_metadata],
+  logos_delivery/waku/[kernel, waku_core, node/peer_manager, waku_metadata],
   ./testlib/testasync,
   ./testlib/wakucore,
   ./testlib/wakunode
@@ -42,7 +42,8 @@ proc newMemberNode(mountMeta = true): Future[Kernel] {.async.} =
   let node = newTestWakuNode(generateSecp256k1Key(), clusterId = ClusterId)
   if mountMeta:
     discard node.mountMetadata(ClusterId, @[])
-  await node.startProtocols()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
   node
 
 # identify, classification, and an asyncSpawned disconnect all have to land
@@ -78,7 +79,7 @@ suite "Peer manager - pure-libp2p peers":
       not peer.isConnected(node.switch.peerInfo.peerId)
       node.peerManager.pureLibp2pPeers.len == 0
 
-    await allFutures(node.stopProtocols(), peer.stop())
+    await allFutures(node.stop(), peer.stop())
 
   asyncTest "a registered Mix peer is rejected when the budget is off":
     let node = await newMemberNode()
@@ -100,7 +101,7 @@ suite "Peer manager - pure-libp2p peers":
       not node.switch.isConnected(peer.peerInfo.peerId)
       peer.peerInfo.peerId notin node.peerManager.pureLibp2pPeers
 
-    await allFutures(node.stopProtocols(), peer.stop())
+    await allFutures(node.stop(), peer.stop())
 
   asyncTest "budget on: an inbound pure-libp2p peer is kept and tracked":
     let node = await newMemberNode()
@@ -120,7 +121,7 @@ suite "Peer manager - pure-libp2p peers":
         it.peerId != peer.peerInfo.peerId
       )
 
-    await allFutures(node.stopProtocols(), peer.stop())
+    await allFutures(node.stop(), peer.stop())
 
   asyncTest "budget on: the N+1th inbound pure-libp2p peer is rejected":
     let node = await newMemberNode()
@@ -141,7 +142,7 @@ suite "Peer manager - pure-libp2p peers":
       not node.switch.isConnected(second.peerInfo.peerId)
       node.peerManager.pureLibp2pPeers.len == 1
 
-    await allFutures(node.stopProtocols(), first.stop(), second.stop())
+    await allFutures(node.stop(), first.stop(), second.stop())
 
   asyncTest "outbound pure-libp2p peers are exempt from the inbound budget":
     let node = await newMemberNode()
@@ -165,7 +166,7 @@ suite "Peer manager - pure-libp2p peers":
       node.switch.isConnected(dialed.peerInfo.peerId)
       node.peerManager.pureLibp2pPeers.len == 2
 
-    await allFutures(node.stopProtocols(), inboundPeer.stop(), dialed.stop())
+    await allFutures(node.stop(), inboundPeer.stop(), dialed.stop())
 
   asyncTest "a peer offering nothing we consume is rejected even with budget on":
     let node = await newMemberNode()
@@ -181,7 +182,7 @@ suite "Peer manager - pure-libp2p peers":
       not node.switch.isConnected(peer.peerInfo.peerId)
       node.peerManager.pureLibp2pPeers.len == 0
 
-    await allFutures(node.stopProtocols(), peer.stop())
+    await allFutures(node.stop(), peer.stop())
 
   asyncTest "leaving clears the admission":
     let node = await newMemberNode()
@@ -199,7 +200,8 @@ suite "Peer manager - pure-libp2p peers":
       node.peerManager.pureLibp2pPeers.len == 0
     check node.peerManager.pureLibp2pPeers.len == 0
 
-    await node.stopProtocols()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a node without metadata mounted still accepts everyone":
     let node = await newMemberNode(mountMeta = false)
@@ -213,4 +215,4 @@ suite "Peer manager - pure-libp2p peers":
       node.switch.isConnected(peer.peerInfo.peerId)
       node.peerManager.pureLibp2pPeers.len == 0
 
-    await allFutures(node.stopProtocols(), peer.stop())
+    await allFutures(node.stop(), peer.stop())

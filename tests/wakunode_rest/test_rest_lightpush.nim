@@ -23,7 +23,7 @@ import
   logos_delivery/waku/[
     common/base64,
     waku_core,
-    waku_node,
+    kernel,
     node/peer_manager,
     waku_lightpush/common,
     waku_relay,
@@ -62,9 +62,9 @@ proc init(
   testSetup.consumerNode = testWakuNode()
 
   await allFutures(
-    testSetup.serviceNode.startProtocols(),
-    testSetup.pushNode.startProtocols(),
-    testSetup.consumerNode.startProtocols(),
+    testSetup.serviceNode.start(),
+    testSetup.pushNode.start(),
+    testSetup.consumerNode.start(),
   )
 
   (await testSetup.consumerNode.mountRelay()).isOkOr:
@@ -108,7 +108,7 @@ proc shutdown(self: RestLightPushTest) {.async.} =
   await self.restServer.stop()
   await self.restServer.closeWait()
   await allFutures(
-    self.serviceNode.stopProtocols(), self.pushNode.stopProtocols(), self.consumerNode.stopProtocols()
+    self.serviceNode.stop(), self.pushNode.stop(), self.consumerNode.stop()
   )
 
 const maxRpcSize =

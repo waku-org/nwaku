@@ -247,7 +247,8 @@ suite "SendService - deliver":
 
   asyncTeardown:
     await log.teardown()
-    discard await kernel.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc buildTask(
       id: string, timestamp: Timestamp = getNowInNanosecondTime(), ephemeral = false
@@ -394,7 +395,8 @@ suite "SendService - deliver":
       await reply
       return ok(@[4'u8, 5, 6])
 
-    kernel.protocols.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
+    kernel.protocols.rlnPlugin =
+      Opt.some(RlnPlugin(name: "fake", generateProof: generate))
     let processor = newScripted()
     let service = newService(processor)
     let proven = processor.admitted(buildTask("proven-retry"))

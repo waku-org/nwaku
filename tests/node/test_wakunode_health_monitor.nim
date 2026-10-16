@@ -209,7 +209,8 @@ suite "Health Monitor - events":
       let nodeAKey = generateSecp256k1Key()
       nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
 
@@ -233,7 +234,8 @@ suite "Health Monitor - events":
       nodeB.mountArchive(driver).expect("Node B failed to mount archive")
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
       await nodeB.mountStore()
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     await nodeA.connectToNodes(@[nodeB.switch.peerInfo.toRemotePeerInfo()])
 
@@ -265,7 +267,8 @@ suite "Health Monitor - events":
 
     healthChangeSignal.clear()
 
-    await nodeB.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     await nodeA.disconnectNode(nodeB.switch.peerInfo.toRemotePeerInfo())
 
     let disconnectTimeLimit = Moment.now() + TestConnectivityTimeLimit
@@ -283,7 +286,8 @@ suite "Health Monitor - events":
       gotDisconnected == true
 
     await monitorA.stopHealthMonitor()
-    await nodeA.stopProtocols()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Edge (light client) health update":
     var nodeA: Kernel
@@ -295,7 +299,8 @@ suite "Health Monitor - events":
       nodeA.mountStoreClient()
       require nodeA.mountAutoSharding(1, 8).isOk
       nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     # MessagingClient reads `conf` from the kernel; the raw test node has none.
     nodeA.conf = defaultTestWakuConf()
@@ -333,7 +338,8 @@ suite "Health Monitor - events":
       nodeB.mountMetadata(1, toSeq(0'u16 ..< 8'u16)).expect(
         "Node B failed to mount metadata"
       )
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     var metadataFut = newFuture[void]("waitForMetadata")
     let metadataLis = WakuPeerEvent
@@ -371,7 +377,8 @@ suite "Health Monitor - events":
 
     healthChangeSignal.clear()
 
-    await nodeB.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     await nodeA.disconnectNode(nodeB.switch.peerInfo.toRemotePeerInfo())
 
     let disconnectTimeLimit = Moment.now() + TestConnectivityTimeLimit
@@ -391,7 +398,8 @@ suite "Health Monitor - events":
 
     await monitorA.stopHealthMonitor()
     await ds.stop()
-    await nodeA.stopProtocols()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Edge health driven by confirmed filter subscriptions":
     var nodeA: Kernel
@@ -403,7 +411,8 @@ suite "Health Monitor - events":
       nodeA.mountStoreClient()
       require nodeA.mountAutoSharding(1, 8).isOk
       nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     # MessagingClient reads `conf` from the kernel; the raw test node has none.
     nodeA.conf = defaultTestWakuConf()
@@ -428,7 +437,8 @@ suite "Health Monitor - events":
       nodeB.mountMetadata(1, toSeq(0'u16 ..< 8'u16)).expect(
         "Node B failed to mount metadata"
       )
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
 
@@ -507,8 +517,10 @@ suite "Health Monitor - events":
 
     await ds.stop()
     await monitorA.stopHealthMonitor()
-    await nodeB.stopProtocols()
-    await nodeA.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "protocol health changes are published, identify included":
     ## The Store client is READY once the peer's identify lists Store. libp2p
@@ -519,9 +531,11 @@ suite "Health Monitor - events":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
       nodeA.mountStoreClient()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await nodeA.stopProtocols()
+      (await nodeA.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     var seen: seq[ProtocolHealth]
@@ -559,11 +573,13 @@ suite "Health Monitor - events":
       )
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
       await nodeB.mountStore()
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     var nodeBStopped = false
     defer:
       if not nodeBStopped:
-        await nodeB.stopProtocols()
+        (await nodeB.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async.} =
       discard
@@ -599,7 +615,8 @@ suite "Health Monitor - events":
       # identify does not touch the connection book
       nodeA.switch.peerStore[ConnectionBook][peerB.peerId] == Connectedness.Connected
 
-    await nodeB.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     nodeBStopped = true
     await nodeA.disconnectNode(peerB)
 
@@ -679,7 +696,8 @@ suite "Health Monitor - mix readiness":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
       await nodeA.mountTestMix()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     monitorA.adjustConnectionStatus = requireMixReady
@@ -699,7 +717,8 @@ suite "Health Monitor - mix readiness":
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     await nodeA.connectToNodes(@[nodeB.switch.peerInfo.toRemotePeerInfo()])
 
@@ -724,8 +743,10 @@ suite "Health Monitor - mix readiness":
       lastStatus == ConnectionStatus.Disconnected
 
     await monitorA.stopHealthMonitor()
-    await nodeB.stopProtocols()
-    await nodeA.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix status follows the pool as it fills and drains":
     var nodeA: Kernel
@@ -734,7 +755,8 @@ suite "Health Monitor - mix readiness":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
       await nodeA.mountTestMix()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     monitorA.adjustConnectionStatus = requireMixReady
@@ -754,7 +776,8 @@ suite "Health Monitor - mix readiness":
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     await nodeA.connectToNodes(@[nodeB.switch.peerInfo.toRemotePeerInfo()])
 
@@ -797,8 +820,10 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.Disconnected)
 
     await monitorA.stopHealthMonitor()
-    await nodeB.stopProtocols()
-    await nodeA.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix stays Disconnected while the pool's fourth member is unroutable":
     ## The health gate reads the routable count: a fourth peer whose address mix
@@ -809,7 +834,8 @@ suite "Health Monitor - mix readiness":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
       await nodeA.mountTestMix()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     monitorA.adjustConnectionStatus = requireMixReady
@@ -829,7 +855,8 @@ suite "Health Monitor - mix readiness":
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     await nodeA.connectToNodes(@[nodeB.switch.peerInfo.toRemotePeerInfo()])
 
@@ -881,8 +908,10 @@ suite "Health Monitor - mix readiness":
     check await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     await monitorA.stopHealthMonitor()
-    await nodeB.stopProtocols()
-    await nodeA.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Required mix recovers when discovery learns a pool peer serves lightpush":
     var nodeA: Kernel
@@ -891,7 +920,8 @@ suite "Health Monitor - mix readiness":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeA.mountRelay()).expect("Node A failed to mount Relay")
       await nodeA.mountTestMix()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     # A full pool without an exit, like bootnodes, which arrive without protocols.
     let exitCandidate = mixPeerInfo(63000)
@@ -917,7 +947,8 @@ suite "Health Monitor - mix readiness":
       nodeB =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       (await nodeB.mountRelay()).expect("Node B failed to mount relay")
-      await nodeB.startProtocols()
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     await nodeA.connectToNodes(@[nodeB.switch.peerInfo.toRemotePeerInfo()])
 
@@ -965,8 +996,10 @@ suite "Health Monitor - mix readiness":
       await waitForStatus(ConnectionStatus.PartiallyConnected)
 
     await monitorA.stopHealthMonitor()
-    await nodeB.stopProtocols()
-    await nodeA.stopProtocols()
+    (await nodeB.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the health pass publishes the pool size":
     ## After the mount, the health loop is the gauge's only writer; the other
@@ -977,7 +1010,8 @@ suite "Health Monitor - mix readiness":
       nodeA =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(0))
       await nodeA.mountTestMix()
-      await nodeA.startProtocols()
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     let monitorA = NodeHealthMonitor.new(nodeA)
     monitorA.startHealthMonitor().expect("Health monitor failed to start")
@@ -998,4 +1032,5 @@ suite "Health Monitor - mix readiness":
       mix_pool_size.value() == MinMixPoolSize.float64
 
     await monitorA.stopHealthMonitor()
-    await nodeA.stopProtocols()
+    (await nodeA.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

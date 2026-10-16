@@ -11,7 +11,7 @@ import logos_delivery/messaging/messaging_metrics
 import
   logos_delivery,
   logos_delivery/waku/[
-    waku_node,
+    kernel,
     waku_core,
     waku_relay/protocol,
     node/waku_node/filter,
@@ -95,7 +95,8 @@ proc setupNetwork(
     if mode == messaging_conf.LogosDeliveryMode.Edge:
       await net.publisher.mountFilter()
     await net.publisher.mountLibp2pPing()
-    await net.publisher.startProtocols()
+    (await net.publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
   net.publisherPeerInfo = net.publisher.peerInfo.toRemotePeerInfo()
 
@@ -118,7 +119,8 @@ proc setupNetwork(
         "Failed to mount metadata on meshBuddy"
       )
       (await net.meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
-      await net.meshBuddy.startProtocols()
+      (await net.meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       net.meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -139,11 +141,13 @@ proc teardown(net: TestNetwork) {.async.} =
     net.subscriber = nil
 
   if not isNil(net.meshBuddy):
-    await net.meshBuddy.stopProtocols()
+    (await net.meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.meshBuddy = nil
 
   if not isNil(net.publisher):
-    await net.publisher.stopProtocols()
+    (await net.publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     net.publisher = nil
 
 proc getRelayShard(node: Kernel, contentTopic: ContentTopic): PubsubTopic =
@@ -218,7 +222,8 @@ suite "Messaging API, SubscriptionManager":
       "subscriberNode failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -247,7 +252,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -272,7 +278,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to unsubscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -293,7 +300,8 @@ suite "Messaging API, SubscriptionManager":
     (await net.subscriber.messagingClient.subscribe(topicA)).expect("failed to sub A")
     (await net.subscriber.messagingClient.subscribe(topicB)).expect("failed to sub B")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -324,7 +332,8 @@ suite "Messaging API, SubscriptionManager":
     )
     net.subscriber.messagingClient.unsubscribe(glitchTopic).expect("failed to unsub")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -347,7 +356,8 @@ suite "Messaging API, SubscriptionManager":
       "Initial sub failed"
     )
 
-    var eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    var eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     discard
       (await net.publishToMesh(testTopic, "Msg 1".toBytes())).expect("Pub 1 failed")
 
@@ -392,7 +402,8 @@ suite "Messaging API, SubscriptionManager":
     (await net.subscriber.messagingClient.subscribe(topicA)).expect("failed to sub A")
     (await net.subscriber.messagingClient.subscribe(topicB)).expect("failed to sub B")
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 2)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 2)
     defer:
       await eventManager.teardown()
 
@@ -495,7 +506,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -519,7 +531,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to subscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -544,7 +557,8 @@ suite "Messaging API, SubscriptionManager":
       "failed to unsubscribe"
     )
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -568,7 +582,8 @@ suite "Messaging API, SubscriptionManager":
     let shard = net.subscriber.kernel.getRelayShard(topicA)
     await waitForEdgeSubs(net.subscriber, shard)
 
-    let eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    let eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     defer:
       await eventManager.teardown()
 
@@ -595,7 +610,8 @@ suite "Messaging API, SubscriptionManager":
       "Initial sub failed"
     )
 
-    var eventManager = newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
+    var eventManager =
+      newReceiveEventListenerManager(net.subscriber.kernel.brokerCtx, 1)
     discard (await net.publishToMeshAfterEdgeReady(testTopic, "Msg 1".toBytes())).expect(
       "Pub 1 failed"
     )
@@ -641,7 +657,8 @@ suite "Messaging API, SubscriptionManager":
       (await publisher.mountRelay()).expect("Failed to mount relay on publisher")
       await publisher.mountFilter()
       await publisher.mountLibp2pPing()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -659,7 +676,8 @@ suite "Messaging API, SubscriptionManager":
       (await meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
       await meshBuddy.mountFilter()
       await meshBuddy.mountLibp2pPing()
-      await meshBuddy.startProtocols()
+      (await meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -732,8 +750,10 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await meshBuddy.stopProtocols()
-    await publisher.stopProtocols()
+    (await meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Subscription API, edge node dials replacement after peer eviction":
     # 3 service peers: publisher, meshBuddy, sparePeer. Edge subscribes and
@@ -754,7 +774,8 @@ suite "Messaging API, SubscriptionManager":
       (await publisher.mountRelay()).expect("Failed to mount relay on publisher")
       await publisher.mountFilter()
       await publisher.mountLibp2pPing()
-      await publisher.startProtocols()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -772,7 +793,8 @@ suite "Messaging API, SubscriptionManager":
       (await meshBuddy.mountRelay()).expect("Failed to mount relay on meshBuddy")
       await meshBuddy.mountFilter()
       await meshBuddy.mountLibp2pPing()
-      await meshBuddy.startProtocols()
+      (await meshBuddy.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       meshBuddy.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -790,7 +812,8 @@ suite "Messaging API, SubscriptionManager":
       (await sparePeer.mountRelay()).expect("Failed to mount relay on sparePeer")
       await sparePeer.mountFilter()
       await sparePeer.mountLibp2pPing()
-      await sparePeer.startProtocols()
+      (await sparePeer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     for shard in shards:
       sparePeer.subscribe((kind: PubsubSub, topic: shard), dummyHandler).expect(
@@ -849,9 +872,12 @@ suite "Messaging API, SubscriptionManager":
     await eventManager.teardown()
 
     (await subscriber.stop()).expect("Failed to stop subscriber")
-    await sparePeer.stopProtocols()
-    await meshBuddy.stopProtocols()
-    await publisher.stopProtocols()
+    (await sparePeer.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await meshBuddy.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await publisher.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Subscription API, edge node unsubscribes a topic the service no longer holds without dropping its service peer":
     let net = await setupNetwork(1, messaging_conf.LogosDeliveryMode.Edge)
