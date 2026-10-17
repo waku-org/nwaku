@@ -88,16 +88,12 @@ import
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],
   logos_delivery/kernel/node/delivery_dialer,
-  logos_delivery/kernel/node/enr_addresses,
+  logos_delivery/kernel/enr/enr_addresses,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/node/health_monitor/health_status,
   logos_delivery/kernel/node/health_monitor/topic_health,
-  logos_delivery/kernel/node/metrics,
   logos_delivery/kernel/node/subscription_manager,
-  logos_delivery/kernel/node/edge_filter_sub_state,
   logos_delivery/kernel/node/health_monitor/node_health_monitor
-
-export edge_filter_sub_state, subscription_manager
 
 logScope:
   topics = "waku node"
@@ -109,6 +105,9 @@ randomize()
 # TODO: Move to application instance (e.g., the node app)
 # Git version in git describe format (defined compile time)
 const git_version* {.strdefine.} = "n/a"
+
+declarePublicGauge logos_delivery_version,
+  "Waku version info (in git describe format)", ["version"]
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"

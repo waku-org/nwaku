@@ -21,7 +21,7 @@ import
 
 import
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/node/metrics,
+  logos_delivery/kernel/node/metrics_server,
   logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,

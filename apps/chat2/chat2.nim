@@ -42,7 +42,7 @@ import
     common/enr,
     discovery/dnsdisc,
     kernel_lifecycle,
-    node/metrics,
+    node/metrics_server,
     node/peer_manager/peer_manager,
     factory/builder,
     net/nat_config,

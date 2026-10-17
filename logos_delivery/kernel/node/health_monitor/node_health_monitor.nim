@@ -22,7 +22,7 @@ import
     rln/rln_plugin,
     protocols/protocols,
     discovery/discovery,
-    node/metrics,
+    node/metrics_server,
     node/peer_manager/peer_manager,
     node/health_monitor/peer_ping,
     node/health_monitor/online_monitor,

@@ -18,7 +18,7 @@ import
     topics/pubsub_topic,
     node/switch,
     node/peer_manager/peer_manager,
-    node/metrics,
+    node/subscription_manager,
     common/enr,
     enr/capabilities,
     enr/multiaddr,

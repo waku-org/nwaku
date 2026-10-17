@@ -31,7 +31,7 @@ import
     node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
-    node/metrics,
+    node/metrics_server,
     node/peer_manager/peer_manager,
     protocols/relay/protocol,
     node/health_monitor/topic_health,

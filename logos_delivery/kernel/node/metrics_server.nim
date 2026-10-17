@@ -1,32 +1,12 @@
 {.push raises: [].}
 
-import chronicles, chronos, pkg/metrics, metrics/chronos_httpserver
+import chronicles, chronos, metrics, metrics/chronos_httpserver
 import
-  logos_delivery/kernel/[net/auto_port, rln/protocol_metrics as rln_metrics, common/utils/collector],
+  logos_delivery/kernel/
+    [net/auto_port, rln/protocol_metrics as rln_metrics, common/utils/collector],
   logos_delivery/kernel/node/peer_manager/peer_manager
 
-declarePublicGauge logos_delivery_version,
-  "Waku version info (in git describe format)", ["version"]
-
 declarePublicCounter logos_delivery_node_errors, "number of wakunode errors", ["type"]
-
-declarePublicGauge logos_delivery_lightpush_peers, "number of lightpush peers"
-
-declarePublicGauge logos_delivery_filter_peers, "number of filter peers"
-
-declarePublicGauge logos_delivery_store_peers, "number of store peers"
-
-declarePublicGauge logos_delivery_px_peers,
-  "number of peers (in the node's peerManager) supporting the peer exchange protocol"
-
-declarePublicCounter logos_delivery_node_messages,
-  "number of messages received", ["type"]
-
-declarePublicHistogram logos_delivery_histogram_message_size,
-  "message size histogram in kB",
-  buckets = [
-    0.0, 1.0, 3.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 500.0, 700.0, 1000.0, Inf
-  ]
 
 const LogInterval = 10.minutes
 
@@ -57,20 +37,8 @@ proc startMetricsLog*() =
       let freshConnCount =
         parseAndAccumulate(logos_delivery_node_conns_initiated, cumulativeConns)
 
-      let totalMessages = collectorAsF64(logos_delivery_node_messages)
-      let storePeers = collectorAsF64(logos_delivery_store_peers)
-      let pxPeers = collectorAsF64(logos_delivery_px_peers)
-      let lightpushPeers = collectorAsF64(logos_delivery_lightpush_peers)
-      let filterPeers = collectorAsF64(logos_delivery_filter_peers)
-
       info "Node metrics",
-        connectionsInitiated = $freshConnCount,
-        messages = totalMessages,
-        storePeers = storePeers,
-        peerExchangePeers = pxPeers,
-        lightpushPeers = lightpushPeers,
-        filterPeers = filterPeers,
-        errors = $freshErrorCount
+        connectionsInitiated = $freshConnCount, errors = $freshErrorCount
 
       # Start protocol specific metrics logging
       logRlnMetrics()

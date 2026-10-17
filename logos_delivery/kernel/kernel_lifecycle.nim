@@ -56,9 +56,9 @@ import
     node/health_monitor/protocol_health,
     node/health_monitor/health_status,
     node/health_monitor/health_report,
-    node/enr_addresses,
+    enr/enr_addresses,
     net/net_config,
-    node/metrics as node_metrics,
+    node/metrics_server,
     node/subscription_manager,
     api/mix,
     discovery/dnsdisc,
@@ -1155,7 +1155,7 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   if conf.metricsServerConf.isSome():
     try:
       let (server, port) = (
-        await node_metrics.startMetricsServerAndLogging(conf.metricsServerConf.get())
+        await startMetricsServerAndLogging(conf.metricsServerConf.get())
       ).valueOr:
         return err("Starting monitoring and external interfaces failed: " & error)
       kernel.metricsServer = server

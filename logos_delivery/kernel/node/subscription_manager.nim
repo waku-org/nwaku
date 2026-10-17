@@ -1,4 +1,4 @@
-import std/[sequtils, sets, tables], chronos, chronicles, pkg/metrics, results
+import std/[sequtils, sets, tables], chronos, chronicles, metrics, results
 
 import libp2p/[peerid, peerinfo]
 import brokers/broker_context
@@ -12,8 +12,6 @@ import
     node/peer_manager/peers,
     protocols/codecs,
     protocols/protocols,
-    node/edge_filter_sub_state,
-    node/metrics,
     protocols/relay/protocol,
     node/health_monitor/topic_health,
     archive/archive,
@@ -32,6 +30,15 @@ import logos_delivery/api/events/kernel_events
 
 {.push raises: [].}
 
+declarePublicCounter logos_delivery_node_messages,
+  "number of messages received", ["type"]
+
+declarePublicHistogram logos_delivery_histogram_message_size,
+  "message size histogram in kB",
+  buckets = [
+    0.0, 1.0, 3.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 500.0, 700.0, 1000.0, Inf
+  ]
+
 type
   SubscriptionKind* = enum
     ContentSub
@@ -45,6 +52,12 @@ type
     contentTopics*: HashSet[ContentTopic]
     directShardSub*: bool
       ## shard subscribed directly (PubsubSub), independent of content-topic interest
+
+type EdgeFilterSubState* = object
+  peers*: seq[RemotePeerInfo]
+  pending*: seq[Future[void]]
+  pendingPeers*: HashSet[PeerId]
+  currentHealth*: TopicHealth
 
 type SubscriptionManager* = ref object of RootObj
   protocols*: Protocols

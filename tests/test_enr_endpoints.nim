@@ -15,7 +15,7 @@ import stew/byteutils
 import
   ../logos_delivery/kernel/discovery/discv5,
   ../logos_delivery/kernel/net/net_config,
-  ../logos_delivery/kernel/node/enr_addresses,
+  ../logos_delivery/kernel/enr/enr_addresses,
   ../logos_delivery/kernel/kernel,
   ../logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[

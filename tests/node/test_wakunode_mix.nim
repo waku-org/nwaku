@@ -13,7 +13,7 @@ import
     node/peer_manager/peers,
     node/health_monitor/protocol_health,
     net/net_config,
-    node/enr_addresses,
+    enr/enr_addresses,
     node/peer_manager/peer_manager,
     kernel_lifecycle,
     node/health_monitor/health_status,

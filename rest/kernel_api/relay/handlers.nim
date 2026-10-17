@@ -16,6 +16,7 @@ import logos_delivery/kernel/topics/pubsub_topic
 import
   logos_delivery/kernel/[kernel, api/relay],
   logos_delivery/kernel/protocols/relay/protocol,
+  logos_delivery/kernel/node/subscription_manager,
   logos_delivery/kernel/
     [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
   logos_delivery/kernel/rln/rln_plugin,

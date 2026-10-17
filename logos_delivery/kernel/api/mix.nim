@@ -45,9 +45,7 @@ import
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/node/delivery_dialer,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/subscription_manager,
-  logos_delivery/kernel/node/edge_filter_sub_state
-export edge_filter_sub_state, subscription_manager
+  logos_delivery/kernel/node/subscription_manager
 
 import logos_delivery/kernel/kernel
 import logos_delivery/kernel/protocols/mix/protocol_metrics

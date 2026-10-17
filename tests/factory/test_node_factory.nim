@@ -30,7 +30,7 @@ import
     enr/sharding,
     discovery/discv5,
     node/peer_manager/peer_manager,
-    node/metrics,
+    node/metrics_server,
     protocols/metadata/protocol,
     protocols/filter/common,
     protocols/filter/protocol,
