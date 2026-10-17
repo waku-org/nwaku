@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/sequtils, stew/[byteutils, endians2]
-import logos_delivery/kernel/core/message
+import logos_delivery/kernel/protocols/message
 
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## The signal an RLN proof is bound to: the message's payload, content topic

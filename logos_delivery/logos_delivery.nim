@@ -56,7 +56,7 @@ export reliable_channel_manager_events
 
 import logos_delivery/api/logos_delivery_api
 export logos_delivery_api
-import logos_delivery/kernel/factory/waku_conf
+import logos_delivery/kernel/factory/conf
 import logos_delivery/kernel/factory/app_callbacks
 import tools/confutils/cli_args
 import logos_delivery/kernel/node/health_monitor/online_monitor

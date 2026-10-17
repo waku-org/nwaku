@@ -15,13 +15,13 @@ from times import getTime, toUnix
 import
   logos_delivery/kernel/[
     common/enr as waku_enr,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
     kernel_lifecycle,
-    discovery/waku_discv5,
+    discovery/discv5,
     protocols/filter/common,
     protocols/relay/protocol,
   ],

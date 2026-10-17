@@ -26,7 +26,9 @@ import
   ./proof,
   ./nullifier_log
 
-import logos_delivery/kernel/[common/error_handling, core/time, core/message, rln/keystore/keyfile]
+import
+  logos_delivery/kernel/
+    [common/error_handling, common/time, protocols/message, rln/keystore/keyfile]
 import logos_delivery/kernel/rln/types as rln_api_types
 import logos_delivery/kernel/rln/rln_plugin
 

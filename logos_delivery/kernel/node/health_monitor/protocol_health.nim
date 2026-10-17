@@ -1,8 +1,26 @@
 import results, std/strformat
 import ./health_status
-import logos_delivery/kernel/common/waku_protocol
 
-export waku_protocol
+type ProtocolName* {.pure.} = enum
+  RelayProtocol = "Relay"
+  RlnRelayProtocol = "Rln Relay"
+  StoreProtocol = "Store"
+  FilterProtocol = "Filter"
+  LightpushProtocol = "Lightpush"
+  LegacyLightpushProtocol = "Legacy Lightpush"
+  PeerExchangeProtocol = "Peer Exchange"
+  RendezvousProtocol = "Rendezvous"
+  MixProtocol = "Mix"
+  StoreClientProtocol = "Store Client"
+  FilterClientProtocol = "Filter Client"
+  LightpushClientProtocol = "Lightpush Client"
+  LegacyLightpushClientProtocol = "Legacy Lightpush Client"
+
+const
+  RelayProtocols* = {RelayProtocol}
+  StoreClientProtocols* = {StoreClientProtocol}
+  LightpushClientProtocols* = {LightpushClientProtocol, LegacyLightpushClientProtocol}
+  FilterClientProtocols* = {FilterClientProtocol}
 
 type ProtocolHealth* = object
   protocol*: string
@@ -43,7 +61,7 @@ proc `$`*(p: ProtocolHealth): string =
   let desc = p.desc.get("")
   return fmt"protocol: {p.protocol}, health: {p.health}, description: {desc}"
 
-proc init*(p: typedesc[ProtocolHealth], protocol: WakuProtocol): ProtocolHealth =
+proc init*(p: typedesc[ProtocolHealth], protocol: ProtocolName): ProtocolHealth =
   return ProtocolHealth(
     protocol: $protocol, health: HealthStatus.NOT_MOUNTED, desc: Opt.none(string)
   )

@@ -25,12 +25,12 @@ import
   logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
     api/events/health_events,
@@ -435,7 +435,7 @@ proc requiredAnonymity(): MessagingClientConf =
   )
 
 proc waitForProtocolHealth(
-    kernel: Kernel, protocol: WakuProtocol, health: HealthStatus
+    kernel: Kernel, protocol: ProtocolName, health: HealthStatus
 ) {.async.} =
   ## Completes once the kernel reports `protocol` at `health`. Registers the
   ## listener, then reads the stored status.
@@ -602,13 +602,13 @@ proc caughtUp(net: TestNetwork): Future[bool] =
 proc waitOutage(net: TestNetwork): Future[void] =
   ## Completes when the kernel reports relay NOT_READY.
   return waitForProtocolHealth(
-    net.subscriber.kernel, WakuProtocol.RelayProtocol, HealthStatus.NOT_READY
+    net.subscriber.kernel, ProtocolName.RelayProtocol, HealthStatus.NOT_READY
   )
 
 proc waitLive(net: TestNetwork): Future[void] =
   ## Completes when the kernel reports relay READY.
   return waitForProtocolHealth(
-    net.subscriber.kernel, WakuProtocol.RelayProtocol, HealthStatus.READY
+    net.subscriber.kernel, ProtocolName.RelayProtocol, HealthStatus.READY
   )
 
 proc runOutage(net: TestNetwork, topic: ContentTopic): Future[seq[string]] {.async.} =

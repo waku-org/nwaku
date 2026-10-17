@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import std/strutils, results
-import logos_delivery/kernel/core/topics/parsing
+import logos_delivery/kernel/topics/parsing
 
 export parsing
 

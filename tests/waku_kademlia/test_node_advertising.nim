@@ -7,7 +7,7 @@ import libp2p/protocols/service_discovery/types as sd_types
 import libp2p/protocols/kademlia/types
 import
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/discovery/[waku_kademlia, service_discovery],
+  logos_delivery/kernel/discovery/[kademlia, service_discovery],
   ../testlib/[wakucore, wakunode, testasync]
 
 ## The default deployment binds 0.0.0.0. switch.start resolves peerInfo.addrs

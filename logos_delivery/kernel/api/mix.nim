@@ -23,17 +23,17 @@ import
   mix_rln_spam_protection/module_api,
   metrics/chronos_httpserver,
   brokers/request_broker
-import logos_delivery/kernel/core/time
+import logos_delivery/kernel/common/time
 
 import
   logos_delivery/kernel/[
-    discovery/waku_discv5,
+    discovery/discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
     factory/app_callbacks,
     protocols/protocols,
-    core/topics/pubsub_topic,
-    core/message,
+    topics/pubsub_topic,
+    protocols/message,
     protocols/codecs,
     protocols/lightpush/rpc_codec as lightpush_protocol,
     rln/rln_plugin,
@@ -45,12 +45,9 @@ import
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/node/delivery_dialer,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/shard_subscription,
-  logos_delivery/kernel/node/edge_filter_sub_state,
-  logos_delivery/kernel/node/subscription_manager
-
-export
-  shard_subscription, edge_filter_sub_state, subscription_manager.SubscriptionManager
+  logos_delivery/kernel/node/subscription_manager,
+  logos_delivery/kernel/node/edge_filter_sub_state
+export edge_filter_sub_state, subscription_manager
 
 import logos_delivery/kernel/kernel
 import logos_delivery/kernel/protocols/mix/protocol_metrics
@@ -58,14 +55,14 @@ import mix_rln_spam_protection/module_api
 import logos_delivery/api/events/kernel_events
 import logos_delivery/kernel/api/[relay, lightpush]
 
-proc getMixNodePoolSize*(node: Kernel): int =
+proc getMixNodePoolSize*(self: Kernel): int =
   ## The number of mix pool members a path can use; zero when mix is not mounted.
-  if node.protocols.mix.isNil():
+  if self.protocols.mix.isNil():
     return 0
-  return node.protocols.mix.poolSize()
+  return self.protocols.mix.poolSize()
 
 proc splitMixNodes(
-    node: Kernel, mixnodes: seq[MixNodePubInfo]
+    self: Kernel, mixnodes: seq[MixNodePubInfo]
 ): tuple[literals: seq[MixNodePubInfo], names: seq[MixNodeName], dropped: int] =
   ## Splits a mix node list into literal entries, which the pool takes as they
   ## are, and `dns4` names to resolve. Drops a bad multiaddress, and a name when
@@ -83,7 +80,7 @@ proc splitMixNodes(
       continue
     if not DNS.matchPartial(address):
       literals.add(mixnode)
-    elif node.switch.nameResolver.isNil():
+    elif self.switch.nameResolver.isNil():
       debug "Skipping a mix node given by name: the node has no name resolver",
         multiAddr = mixnode.multiAddr
       logos_delivery_mix_bootnode_resolve_failures.inc()
@@ -92,39 +89,39 @@ proc splitMixNodes(
       names.add((entry: mixnode, address: address))
   return (literals, names, dropped)
 
-proc mixNodesResolved*(node: Kernel) {.async: (raises: [CancelledError]).} =
+proc mixNodesResolved*(self: Kernel) {.async: (raises: [CancelledError]).} =
   ## Waits until the background lookup of the mix node names has finished.
-  if not node.protocols.mixNodeResolution.isNil():
-    await node.protocols.mixNodeResolution.join()
+  if not self.protocols.mixNodeResolution.isNil():
+    await self.protocols.mixNodeResolution.join()
 
 proc mountMix*(
-    node: Kernel,
+    self: Kernel,
     clusterId: uint16,
     mixPrivKey: Curve25519Key,
     mixnodes: seq[MixNodePubInfo],
     spamProtection: Opt[SpamProtection] = Opt.none(SpamProtection),
 ): Future[Result[void, string]] {.async.} =
-  info "Mounting mix protocol", nodeId = node.info #TODO log the config used
+  info "Mounting mix protocol", nodeId = self.info #TODO log the config used
 
-  if node.announcedAddresses.len == 0:
+  if self.announcedAddresses.len == 0:
     return err("Trying to mount mix without having announced addresses")
 
-  let localaddrStr = node.announcedAddresses[0].toString().valueOr:
+  let localaddrStr = self.announcedAddresses[0].toString().valueOr:
     return err("Failed to convert multiaddress to string.")
   info "local addr", localaddr = localaddrStr
 
-  let (literals, names, dropped) = node.splitMixNodes(mixnodes)
+  let (literals, names, dropped) = self.splitMixNodes(mixnodes)
 
-  node.protocols.mix = WakuMix.new(
-    localaddrStr, node.peerManager, clusterId, mixPrivKey, literals, spamProtection
+  self.protocols.mix = WakuMix.new(
+    localaddrStr, self.peerManager, clusterId, mixPrivKey, literals, spamProtection
   ).valueOr:
     return err("Waku Mix protocol initialization failed: " & error)
   #TODO: should we do the below only for exit node? Also, what if multiple protocols use mix?
-  node.protocols.mix.registerDestReadBehavior(
+  self.protocols.mix.registerDestReadBehavior(
     WakuLightPushCodec, readLp(lightpush_protocol.DefaultMaxPushResponseSize)
   )
   let catchRes = catch:
-    node.switch.mount(node.protocols.mix)
+    self.switch.mount(self.protocols.mix)
   catchRes.isOkOr:
     return err(error.msg)
 
@@ -133,12 +130,12 @@ proc mountMix*(
 
   # In the background, so a slow or dead DNS server does not hold the start.
   if names.len > 0:
-    node.protocols.mixNodeNames = names
-    node.protocols.mixNodeResolution = node.resolveMixNodeNames()
+    self.protocols.mixNodeNames = names
+    self.protocols.mixNodeResolution = self.resolveMixNodeNames()
   return ok()
 
 proc publishMetadata(
-    node: Kernel, topic: string, data: seq[byte]
+    self: Kernel, topic: string, data: seq[byte]
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   var message = WakuMessage(
     payload: data,
@@ -148,23 +145,23 @@ proc publishMetadata(
   )
   # Coordination messages use the node's mounted Relay RLN backend. Mix per-hop
   # proofs use wakuMixRln's separate scope.
-  if node.protocols.rlnPlugin.isSome():
+  if self.protocols.rlnPlugin.isSome():
     try:
-      message = (await attachProof(node.protocols.rlnPlugin, message)).valueOr:
+      message = (await attachProof(self.protocols.rlnPlugin, message)).valueOr:
         return err("Failed to attach Relay RLN proof: " & $error)
     except CancelledError as exc:
       raise exc
     except CatchableError as exc:
       return err("Relay RLN proof generation failed: " & exc.msg)
   try:
-    if not node.protocols.relay.isNil():
-      let peers = (await node.publish(Opt.none(PubsubTopic), message)).valueOr:
+    if not self.protocols.relay.isNil():
+      let peers = (await self.publish(Opt.none(PubsubTopic), message)).valueOr:
         return err(error)
       if peers == 0:
         return err("No Relay peers for Mix coordination")
     else:
       discard (
-        await node.lightpushPublish(Opt.none(PubsubTopic), message, mixify = false)
+        await self.lightpushPublish(Opt.none(PubsubTopic), message, mixify = false)
       ).valueOr:
         return err("Mix coordination Lightpush failed: " & $error)
   except CancelledError as exc:
@@ -173,41 +170,41 @@ proc publishMetadata(
     return err("Mix coordination publish failed: " & exc.msg)
   return ok()
 
-proc stopMixRln*(node: Kernel) {.async: (raises: []).} =
-  if node.protocols.mixRln.isNil():
+proc stopMixRln*(self: Kernel) {.async: (raises: []).} =
+  if self.protocols.mixRln.isNil():
     return
-  if node.protocols.mixRlnListener.isSome():
+  if self.protocols.mixRlnListener.isSome():
     await MessageSeenEvent.dropListener(
-      node.brokerCtx, node.protocols.mixRlnListener.get()
+      self.brokerCtx, self.protocols.mixRlnListener.get()
     )
-  node.protocols.mixRlnListener = Opt.none(MessageSeenEventListener)
-  await node.protocols.mixRln.stop()
+  self.protocols.mixRlnListener = Opt.none(MessageSeenEventListener)
+  await self.protocols.mixRln.stop()
 
 proc startMixRln*(
-    node: Kernel
+    self: Kernel
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
-  if node.protocols.mixRln.isNil():
+  if self.protocols.mixRln.isNil():
     return err("Mix RLN is not configured")
-  if node.protocols.rlnPlugin.isNone():
+  if self.protocols.rlnPlugin.isNone():
     return err("Mix RLN coordination requires Relay RLN")
-  let plugin = node.protocols.mixRln
+  let plugin = self.protocols.mixRln
   plugin.setPublishCallback(
     proc(topic: string, data: seq[byte]): Future[Result[void, string]] {.async.} =
-      return await node.publishMetadata(topic, data)
+      return await self.publishMetadata(topic, data)
   )
   (await plugin.start()).isOkOr:
     return err("Failed to start Mix RLN plugin: " & $error)
-  if node.protocols.mixRlnListener.isSome():
+  if self.protocols.mixRlnListener.isSome():
     return ok()
   let handler = proc(event: MessageSeenEvent): Future[void] {.async: (raises: []).} =
     if event.message.contentTopic == plugin.config.metadataTopic:
       plugin.handleProofMetadata(event.message.payload).isOkOr:
         debug "Rejected Mix coordination metadata", error
-  let listener = MessageSeenEvent.listen(node.brokerCtx, handler).valueOr:
+  let listener = MessageSeenEvent.listen(self.brokerCtx, handler).valueOr:
     await plugin.stop()
     return err(error)
-  node.protocols.mixRlnListener = Opt.some(listener)
-  node.subscriptionManager.subscribe(plugin.config.metadataTopic).isOkOr:
-    await node.stopMixRln()
+  self.protocols.mixRlnListener = Opt.some(listener)
+  self.subscriptionManager.subscribe(plugin.config.metadataTopic).isOkOr:
+    await self.stopMixRln()
     return err(error)
   return ok()

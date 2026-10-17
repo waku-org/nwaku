@@ -14,12 +14,8 @@ import
 import
   ../../tools/confutils/
     [cli_args, envvar as confEnvvarDefs, envvar_net as confEnvvarNet],
-  logos_delivery/kernel/[
-    common/logging,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    protocols/codecs,
-  ]
+  logos_delivery/kernel/
+    [common/logging, topics/content_topic, topics/pubsub_topic, protocols/codecs]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 

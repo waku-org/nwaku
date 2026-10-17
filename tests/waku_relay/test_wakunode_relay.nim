@@ -12,12 +12,12 @@ import
   libp2p/protocols/pubsub/mcache
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
     node/peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/relay/protocol,

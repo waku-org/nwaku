@@ -18,10 +18,10 @@ import
   presto/[route, server, client]
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
     kernel,
@@ -30,8 +30,8 @@ import
     common/enr/typed_record,
     enr/capabilities,
     enr/sharding,
-    discovery/waku_discv5,
-    discovery/waku_dnsdisc,
+    discovery/discv5 as discv5_module,
+    discovery/dnsdisc,
     protocols/relay/protocol,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,

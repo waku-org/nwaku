@@ -18,10 +18,10 @@ import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/common/callbacks,
   logos_delivery/kernel/enr/capabilities,
-  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/node/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
   ./common,
-  ./waku_peer_record
+  ./peer_record
 
 logScope:
   topics = "waku rendezvous"

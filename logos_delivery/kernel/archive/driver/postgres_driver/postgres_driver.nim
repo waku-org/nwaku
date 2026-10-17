@@ -10,7 +10,17 @@ import
   chronicles
 import
   ../../../common/error_handling,
-  logos_delivery/kernel/core/[ topics, topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, time, message, peers, multiaddrstr], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/archive/common,
   logos_delivery/kernel/archive/driver,
   logos_delivery/kernel/common/databases/db_postgres as waku_postgres,

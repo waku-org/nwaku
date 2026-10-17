@@ -23,12 +23,12 @@ import
 import
   logos_delivery/kernel/[
     common/base64,
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     node/metrics,

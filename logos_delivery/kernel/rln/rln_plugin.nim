@@ -13,7 +13,7 @@
 
 import chronos, results
 
-import logos_delivery/kernel/core/message, ./types
+import logos_delivery/kernel/protocols/message, ./types
 
 export results
 

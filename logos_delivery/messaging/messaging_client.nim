@@ -14,7 +14,7 @@ import
     node/health_monitor/health_status,
     node/health_monitor/connection_status,
   ],
-  logos_delivery/kernel/factory/conf_builder/waku_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/conf_builder,
   logos_delivery/kernel/persistency/persistency,
   logos_delivery/messaging/delivery_service/
     [recv_service/recv_service, send_service/send_service, send_service/delivery_task],

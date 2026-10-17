@@ -6,8 +6,8 @@ import
     protocols/filter/protocol,
     protocols/filter/subscriptions,
     protocols/filter/client,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
+    topics/content_topic,
+    topics/pubsub_topic,
     common/rate_limit/setting,
   ],
   ../testlib/[common, wakucore]

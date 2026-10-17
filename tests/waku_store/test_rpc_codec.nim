@@ -5,10 +5,10 @@ import results, testutils/unittests, chronos, metrics
 import
   logos_delivery/kernel/[
     common/paging,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
     protocols/store/common,
     protocols/store/protocol_metrics,
     protocols/store/rpc_codec,

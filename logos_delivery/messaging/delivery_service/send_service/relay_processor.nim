@@ -1,7 +1,7 @@
 import results, chronos, chronicles
 import brokers/broker_context
 import
-  logos_delivery/kernel/core/[topics/pubsub_topic, message],
+  logos_delivery/kernel/[topics/pubsub_topic, protocols/message],
   logos_delivery/kernel/protocols/lightpush/[common, rpc]
 import logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/api/publish
 import logos_delivery/kernel/requests/health_requests

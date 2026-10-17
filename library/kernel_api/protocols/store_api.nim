@@ -3,7 +3,7 @@ import chronos, chronicles, results, ffi
 import
   logos_delivery,
   library/utils,
-  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/message,
   logos_delivery/kernel/protocols/store/common,
   rest/serdes,
   rest/kernel_api/store/types,

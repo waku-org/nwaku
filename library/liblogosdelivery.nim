@@ -1,8 +1,8 @@
 import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
-  logos_delivery/kernel/core/message,
-  logos_delivery/kernel/core/topics/pubsub_topic,
+  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/topics/pubsub_topic,
   logos_delivery/kernel/protocols/relay/protocol,
   logos_delivery/kernel/node/health_monitor/topic_health,
   logos_delivery,

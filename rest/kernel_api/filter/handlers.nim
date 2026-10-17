@@ -12,8 +12,13 @@ import
   presto/route,
   presto/common
 import
-  logos_delivery/kernel/core/
-    [topics/content_topic, topics/pubsub_topic, topics/sharding, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[kernel, api/filter],
   logos_delivery/kernel/[node/peer_manager/peer_manager],

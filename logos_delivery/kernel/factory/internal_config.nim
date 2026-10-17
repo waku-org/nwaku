@@ -11,7 +11,7 @@ import
 import
   logos_delivery/kernel/
     [net/net_config, common/enr, enr/capabilities, enr/multiaddr, enr/sharding],
-  ./waku_conf
+  ./conf
 
 proc tryBuildEnrRecord(
     conf: WakuConf, netConfig: NetConfig, multiaddrs: seq[MultiAddress], seqNum: uint64

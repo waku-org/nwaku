@@ -20,25 +20,25 @@ import results, chronos, chronicles
 import libp2p/protocols/ping
 import libp2p/switch
 
-import logos_delivery/kernel/[core/peers]
+import logos_delivery/kernel/[node/peer_manager/peers]
 
-proc mountLibp2pPing*(node: Kernel) {.async: (raises: []).} =
+proc mountLibp2pPing*(self: Kernel) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"
 
   try:
-    node.protocols.libp2pPing = Ping.new(rng = node.rng)
+    self.protocols.libp2pPing = Ping.new(rng = self.rng)
   except Exception as e:
     error "failed to create ping", error = getCurrentExceptionMsg()
 
-  if node.started:
+  if self.started:
     # Node has started already. Let's start ping too.
     try:
-      await node.protocols.libp2pPing.start()
+      await self.protocols.libp2pPing.start()
     except CatchableError:
       error "failed to start libp2pPing", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.protocols.libp2pPing)
+    self.switch.mount(self.protocols.libp2pPing)
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 

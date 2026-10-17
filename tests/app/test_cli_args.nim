@@ -15,10 +15,10 @@ import tools/confutils/cli_args
 
 import
   ../../logos_delivery/kernel/factory/networks_config,
-  ../../logos_delivery/kernel/factory/waku_conf,
+  ../../logos_delivery/kernel/factory/conf,
   ../../logos_delivery/kernel/common/logging,
   ../../logos_delivery/kernel/common/utils/parse_size_units,
-  ../../logos_delivery/kernel/core/message
+  ../../logos_delivery/kernel/protocols/message
 
 suite "Waku external config - default values":
   test "Default sharding value":

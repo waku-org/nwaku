@@ -11,10 +11,10 @@ import
 import
   logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/filter/[common, client, subscriptions, protocol],
   ../testlib/[wakucore, testasync, futures],

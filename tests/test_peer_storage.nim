@@ -5,7 +5,7 @@ import
   logos_delivery/kernel/[
     common/databases/db_sqlite,
     node/peer_manager/peer_manager,
-    node/peer_manager/peer_store/waku_peer_storage,
+    node/peer_manager/peer_store/sqlite_peer_storage,
     common/enr/builder,
     enr/sharding,
   ],

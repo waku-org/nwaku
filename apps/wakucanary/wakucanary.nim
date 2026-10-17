@@ -12,7 +12,7 @@ import
     common/enr,
     enr/sharding,
     node/peer_manager/peer_manager,
-    core/peers,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     factory/builder,

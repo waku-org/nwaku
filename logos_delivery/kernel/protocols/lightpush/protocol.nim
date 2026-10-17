@@ -4,18 +4,16 @@ import libp2p/crypto/crypto
 import std/strutils, results, chronicles, chronos, metrics
 import
   logos_delivery/kernel/node/peer_manager/peer_manager,
-  logos_delivery/kernel/core/[
+  logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
-    time,
-    message,
+    common/time,
+    protocols/message,
   ],
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/core/topics/sharding,
+  logos_delivery/kernel/topics/sharding,
   ./common,
   ./rpc,
   ./rpc_codec,

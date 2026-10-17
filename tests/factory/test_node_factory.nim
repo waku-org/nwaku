@@ -16,9 +16,9 @@ import tools/confutils/cli_args
 import
   tests/testlib/[wakunode, wakucore],
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     protocols/store/common,
@@ -28,7 +28,7 @@ import
     common/enr/typed_record,
     enr/multiaddr,
     enr/sharding,
-    discovery/waku_discv5,
+    discovery/discv5,
     node/peer_manager/peer_manager,
     node/metrics,
     protocols/metadata/protocol,
@@ -39,7 +39,7 @@ import
   logos_delivery/kernel/factory/[
     internal_config,
     networks_config,
-    conf_builder/waku_conf_builder,
+    conf_builder/conf_builder,
     conf_builder/filter_service_conf_builder,
     conf_builder/store_service_conf_builder,
     conf_builder/discv5_conf_builder,

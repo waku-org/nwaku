@@ -12,7 +12,7 @@ import libp2p/[multiaddress, peerid], libp2p/crypto/crypto
 import brokers/broker_context
 import logos_delivery
 import
-  logos_delivery/kernel/[core/peers, kernel],
+  logos_delivery/kernel/[node/peer_manager/peers, kernel],
   logos_delivery/kernel/api/events/discovery_events,
   logos_delivery/kernel/requests/[node_state_requests, health_requests],
   logos_delivery/kernel/discovery/[peer_discovery_interface, external_service_discovery]

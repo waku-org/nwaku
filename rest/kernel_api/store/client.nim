@@ -8,7 +8,7 @@ import
   presto/[route, client]
 import
   logos_delivery/kernel/protocols/store/common,
-  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/message,
   rest/serdes,
   rest/responses,
   rest/kernel_api/store/types

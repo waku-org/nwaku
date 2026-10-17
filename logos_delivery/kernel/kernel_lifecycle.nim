@@ -24,12 +24,12 @@ import
   logos_delivery/api/types,
   logos_delivery/api/kernel_api,
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
-    node/waku_switch,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
+    node/switch,
     kernel,
     api/filter,
     api/lightpush,
@@ -61,8 +61,8 @@ import
     node/metrics as node_metrics,
     node/subscription_manager,
     api/mix,
-    discovery/waku_dnsdisc,
-    discovery/waku_discv5,
+    discovery/dnsdisc,
+    discovery/discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
     discovery/self_advertisement,
@@ -76,8 +76,7 @@ import
     protocols/lightpush_legacy/client,
     protocols/store/client,
   ],
-  ./factory/waku_conf,
-  ./factory/waku_state_info
+  ./factory/conf
 
 # Surfaces the Kernel API interface to consumers of the Waku layer.
 # `MessageSeenEvent` now lives in `events/kernel_events` (surfaced by the concentrator).
@@ -102,7 +101,7 @@ import
   logos_delivery/kernel/factory/internal_config,
   logos_delivery/kernel/rln/rln_lez/transport,
   logos_delivery/kernel/factory/networks_config,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/factory/builder,
   logos_delivery/kernel/factory/validator_signed,
   logos_delivery/kernel/enr/sharding,
@@ -111,13 +110,14 @@ import
   ],
   logos_delivery/kernel/net/net_config,
   logos_delivery/kernel/net/nat_config,
-  logos_delivery/kernel/core/[topics/pubsub_topic, topics/pubsub_topic, peers],
+  logos_delivery/kernel/
+    [topics/pubsub_topic, topics/pubsub_topic, node/peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/
     [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm],
   logos_delivery/kernel/rln/rln_plugin,
   logos_delivery/kernel/rln/rln_lez/rln_lez,
-  logos_delivery/kernel/discovery/waku_dnsdisc,
+  logos_delivery/kernel/discovery/dnsdisc,
   logos_delivery/kernel/archive/retention_policy as policy,
   logos_delivery/kernel/archive/retention_policy/builder as policy_builder,
   logos_delivery/kernel/archive/driver as driver,
@@ -126,17 +126,16 @@ import
   logos_delivery/kernel/protocols/store/common as store_common,
   logos_delivery/kernel/protocols/filter/[common],
   logos_delivery/kernel/protocols/peer_exchange/[protocol, common],
-  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/discovery/service_discovery,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/peer_manager/peer_store/waku_peer_storage,
+  logos_delivery/kernel/node/peer_manager/peer_store/sqlite_peer_storage,
   logos_delivery/kernel/node/peer_manager/peer_store/migrations as
     peer_store_sqlite_migrations,
   logos_delivery/kernel/protocols/lightpush_legacy/common,
   logos_delivery/kernel/common/rate_limit/setting
 
-export
-  kernel_api, kernel, waku_switch, filter, lightpush, store, relay, peer_exchange, ping
+export kernel_api, kernel, switch, filter, lightpush, store, relay, peer_exchange, ping
 
 logScope:
   topics = "wakunode waku"
@@ -941,7 +940,7 @@ proc startDnsDiscoveryRetryLoop(kernel: Kernel): Future[void] {.async.} =
     if kernel.conf.dnsDiscoveryConf.isSome():
       let dnsDiscoveryConf = kernel.conf.dnsDiscoveryConf.get()
       kernel.discovery.dynamicBootstrapNodes = (
-        await waku_dnsdisc.retrieveDynamicBootstrapNodes(
+        await dnsdisc.retrieveDynamicBootstrapNodes(
           dnsDiscoveryConf.enrTreeUrl, kernel.conf.dnsAddrsNameServers
         )
       ).valueOr:
@@ -1017,7 +1016,7 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
     let dnsDiscoveryConf = kernel.conf.dnsDiscoveryConf.get()
     let dynamicBootstrapNodesRes =
       try:
-        await waku_dnsdisc.retrieveDynamicBootstrapNodes(
+        await dnsdisc.retrieveDynamicBootstrapNodes(
           dnsDiscoveryConf.enrTreeUrl, kernel.conf.dnsAddrsNameServers
         )
       except CatchableError as exc:
@@ -1129,7 +1128,7 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   RequestProtocolHealth.setProvider(
     kernel.brokerCtx,
     proc(
-        protocol: WakuProtocol
+        protocol: ProtocolName
     ): Future[Result[RequestProtocolHealth, string]] {.async.} =
       try:
         let protocolHealthStatus =

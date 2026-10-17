@@ -19,7 +19,7 @@ import
     node/peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/filter/common,
-    core/peers,
+    node/peer_manager/peers,
   ],
   ./tester_config,
   ./publisher,

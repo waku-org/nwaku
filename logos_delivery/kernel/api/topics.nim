@@ -5,7 +5,10 @@ import std/strformat
 import results, chronos
 
 import logos_delivery/kernel/kernel_lifecycle
-import logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic]
+import
+  logos_delivery/kernel/[
+    topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic
+  ]
 
 proc buildContentTopic*(
     self: Kernel, appName: string, appVersion: uint32, name: string, encoding: string

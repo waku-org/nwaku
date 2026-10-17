@@ -2,7 +2,7 @@
 
 import std/[sets, random, sequtils], results, stew/byteutils, testutils/unittests
 import
-  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message],
+  logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic, protocols/message],
   rest/message_cache,
   ./testlib/wakucore
 

@@ -5,7 +5,6 @@ import
   std/[sequtils, strutils, net],
   stew/byteutils,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -21,11 +20,11 @@ import
   eth/net/utils
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     kernel_lifecycle,
     node/peer_manager/peer_manager,
   ],

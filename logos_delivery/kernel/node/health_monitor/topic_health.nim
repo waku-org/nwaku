@@ -1,6 +1,6 @@
 import chronos
 
-import logos_delivery/kernel/core/[ topics/pubsub_topic, topics/pubsub_topic]
+import logos_delivery/kernel/[topics/pubsub_topic, topics/pubsub_topic]
 
 type TopicHealth* = enum
   UNHEALTHY

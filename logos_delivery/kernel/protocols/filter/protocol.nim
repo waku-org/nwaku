@@ -12,15 +12,13 @@ import
   libp2p/protocols/pubsub/timedcache
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/[
+  logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
-    message,
-    peers,
+    protocols/message,
+    node/peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/common/rate_limit/per_peer_limiter,

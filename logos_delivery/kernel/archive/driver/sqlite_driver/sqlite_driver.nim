@@ -5,7 +5,16 @@
 import stew/byteutils, chronicles, chronos, results
 import
   ../../../common/databases/db_sqlite,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, time, message, peers], logos_delivery/kernel/core/message,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/protocols/message,
   logos_delivery/kernel/archive/common,
   logos_delivery/kernel/archive/driver,
   logos_delivery/kernel/archive/driver/sqlite_driver/queries

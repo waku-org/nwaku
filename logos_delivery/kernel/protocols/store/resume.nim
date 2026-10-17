@@ -13,7 +13,8 @@ import
 
 import
   logos_delivery/kernel/common/databases/db_sqlite,
-  logos_delivery/kernel/core/[ time, peers], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[common/time, node/peer_manager/peers],
+  logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[archive/archive],
   logos_delivery/kernel/common/nimchronos,
   ./[client, common],

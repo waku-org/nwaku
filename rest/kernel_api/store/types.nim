@@ -11,8 +11,13 @@ import
 import
   logos_delivery/kernel/protocols/store/common,
   logos_delivery/kernel/common/base64,
-  logos_delivery/kernel/core/
-    [topics/content_topic, topics/pubsub_topic, time, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   rest/serdes
 
 #### Types

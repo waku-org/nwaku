@@ -1,6 +1,9 @@
 {.push raises: [].}
 
-import results, logos_delivery/kernel/common/protobuf, logos_delivery/kernel/core/[ message]
+import
+  results,
+  logos_delivery/kernel/common/protobuf,
+  logos_delivery/kernel/[protocols/message]
 
 type
   PushRequest* {.proto3.} = object

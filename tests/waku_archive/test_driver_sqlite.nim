@@ -5,9 +5,9 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/driver/sqlite_driver/sqlite_driver,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
   ],
   ./archive_utils,
   ../testlib/wakucore

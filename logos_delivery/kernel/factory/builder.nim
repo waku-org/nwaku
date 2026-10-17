@@ -13,9 +13,9 @@ import
 
 import
   logos_delivery/kernel/[common/enr, enr/capabilities],
-  ../discovery/waku_discv5,
-  logos_delivery/kernel/[node/waku_switch, kernel],
-  ../node/waku_switch,
+  ../discovery/discv5,
+  logos_delivery/kernel/[node/switch, kernel],
+  ../node/switch,
   ../net/net_config,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   ../common/rate_limit/setting,

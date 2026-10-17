@@ -5,12 +5,13 @@
 
 {.push raises: [].}
 
-import std/[sequtils, unicode], stew/[byteutils, endians2, arrayops], nimcrypto/sha2, results
+import
+  std/[sequtils, unicode], stew/[byteutils, endians2, arrayops], nimcrypto/sha2, results
 import
   logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/common/utils/parse_size_units,
-  logos_delivery/kernel/[core/topics/content_topic, core/topics/pubsub_topic],
-  logos_delivery/kernel/core/time
+  logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic],
+  logos_delivery/kernel/common/time
 
 const MaxMetaAttrLength* = 64 # 64 bytes
 

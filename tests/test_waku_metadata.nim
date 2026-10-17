@@ -13,12 +13,12 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
-    discovery/waku_discv5,
+    discovery/discv5,
     protocols/metadata/protocol,
     protocols/metadata/rpc,
     protocols/relay/protocol,

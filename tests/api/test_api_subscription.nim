@@ -12,15 +12,14 @@ import
   logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/relay/protocol,
     api/filter,
-    node/subscription_manager,
     protocols/filter/subscriptions,
   ]
 import tools/confutils/cli_args

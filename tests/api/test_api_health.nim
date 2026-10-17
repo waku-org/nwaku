@@ -9,10 +9,10 @@ import
   logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/relay/protocol,
   ],
   logos_delivery/kernel/node/health_monitor/
@@ -20,7 +20,7 @@ import
   logos_delivery/kernel/requests/health_requests,
   logos_delivery/kernel/requests/node_requests,
   logos_delivery/kernel/api/events/health_events,
-  logos_delivery/kernel/common/waku_protocol
+  logos_delivery/kernel/node/health_monitor/protocol_health
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)
@@ -146,7 +146,7 @@ suite "LM API health checking":
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
       let relayReq = await RequestProtocolHealth.request(
-        client.kernel.brokerCtx, WakuProtocol.RelayProtocol
+        client.kernel.brokerCtx, ProtocolName.RelayProtocol
       )
       if relayReq.isOk() and relayReq.get().healthStatus.health == HealthStatus.READY:
         isReady = true
@@ -156,14 +156,14 @@ suite "LM API health checking":
     check isReady == true
 
     let storeReq = await RequestProtocolHealth.request(
-      client.kernel.brokerCtx, WakuProtocol.StoreProtocol
+      client.kernel.brokerCtx, ProtocolName.StoreProtocol
     )
     if storeReq.isOk():
       check storeReq.get().healthStatus.health != HealthStatus.READY
 
   asyncTest "RequestProtocolHealth, check unmounted protocol":
     let req = await RequestProtocolHealth.request(
-      client.kernel.brokerCtx, WakuProtocol.StoreProtocol
+      client.kernel.brokerCtx, ProtocolName.StoreProtocol
     )
     check req.isOk()
 
@@ -235,7 +235,7 @@ suite "LM API health checking":
     let report = req.get().healthReport
     check report.nodeHealth == HealthStatus.READY
     check report.protocolsHealth.len > 0
-    check report.protocolsHealth.anyIt(it.protocol == $WakuProtocol.RelayProtocol)
+    check report.protocolsHealth.anyIt(it.protocol == $ProtocolName.RelayProtocol)
 
   asyncTest "RequestContentTopicsHealth, smoke test":
     let fictionalTopic = ContentTopic("/waku/2/this-does-not-exist/proto")
@@ -294,7 +294,7 @@ suite "LM API health checking":
         raiseAssert "Failed to start edge waku: " & error
 
       let relayReq = await RequestProtocolHealth.request(
-        edgeWaku.kernel.brokerCtx, WakuProtocol.RelayProtocol
+        edgeWaku.kernel.brokerCtx, ProtocolName.RelayProtocol
       )
       check relayReq.isOk()
       check relayReq.get().healthStatus.health == HealthStatus.NOT_MOUNTED

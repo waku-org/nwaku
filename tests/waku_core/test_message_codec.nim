@@ -1,7 +1,8 @@
 {.used.}
 
 import results, stew/byteutils, testutils/unittests
-import logos_delivery/kernel/[common/protobuf, core/message], ../testlib/protobuf_errors
+import
+  logos_delivery/kernel/[common/protobuf, protocols/message], ../testlib/protobuf_errors
 
 suite "Waku Core - WakuMessage codec":
   test "a message with all fields encodes in field number order":

@@ -1,5 +1,5 @@
 import chronos, stew/byteutils, presto, presto/client as presto_client
-import logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic]
+import logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic]
 import
   rest/server,
   rest/kernel_api/relay/types,

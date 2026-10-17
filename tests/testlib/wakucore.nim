@@ -8,7 +8,8 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, time, message],
+  logos_delivery/kernel/
+    [topics/content_topic, topics/pubsub_topic, common/time, protocols/message],
   ./common
 
 export switch
@@ -41,7 +42,7 @@ proc newStandardSwitch*(
 ): Switch =
   ## Bare libp2p switch for tests. Replaces nim-libp2p's `newStandardSwitch`,
   ## removed in 2.0.0. Mirrors the *substrate* of the production switch
-  ## (`newWakuSwitch`, waku/node/waku_switch.nim): same transport (TCP only — no
+  ## (`newWakuSwitch`, waku/node/switch.nim): same transport (TCP only — no
   ## QUIC yet, like prod), security (Noise), and muxers (yamux first so it is the
   ## one negotiated, then mplex). Tests therefore run on the same kernel peers
   ## actually use in prod. NB: the removed libp2p `newStandardSwitch` was

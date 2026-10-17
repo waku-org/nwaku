@@ -1,10 +1,9 @@
-import libp2p/crypto/rng
 {.used.}
 
 {.push raises: [].}
 
 import
-  std/[net, os, osproc, streams, strutils, strformat],
+  std/[net, os, osproc, strutils, strformat],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -33,8 +32,7 @@ import
     kernel,
     api/relay,
     persistency/persistency,
-  ],
-  ../testlib/common
+  ]
 
 const CHAIN_ID* = 1234'u256
 

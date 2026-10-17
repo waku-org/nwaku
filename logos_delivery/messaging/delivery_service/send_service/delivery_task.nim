@@ -1,8 +1,13 @@
 import results, std/times, chronos
 import brokers/broker_context
 import
-  logos_delivery/kernel/core/
-    [topics/content_topic, topics/pubsub_topic, time, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   logos_delivery/api/types,
   logos_delivery/kernel/requests/node_requests
 

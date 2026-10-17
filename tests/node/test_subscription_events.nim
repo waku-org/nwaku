@@ -5,14 +5,12 @@ import chronos, results, testutils/unittests
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/time,
-    core/message,
-    core/peers,
-    core/multiaddrstr,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     node/subscription_manager,

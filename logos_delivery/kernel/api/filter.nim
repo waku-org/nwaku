@@ -22,18 +22,16 @@ import
 import
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/node/metrics,
-  logos_delivery/kernel/core/[
+  logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
-    message,
-    peers,
+    protocols/message,
+    node/peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/core/topics/sharding,
+  logos_delivery/kernel/topics/sharding,
   logos_delivery/kernel/protocols/filter/[common, protocol, subscriptions],
   logos_delivery/kernel/protocols/filter/client as filter_client,
   logos_delivery/kernel/protocols/filter/subscriptions as filter_subscriptions,
@@ -50,10 +48,10 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
     protocols/filter/client,
@@ -61,7 +59,7 @@ import
   ]
 
 proc mountFilter*(
-    node: Kernel,
+    self: Kernel,
     subscriptionTimeout: Duration =
       filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
@@ -72,8 +70,8 @@ proc mountFilter*(
   ## Mounting filter v2 protocol
 
   info "mounting filter protocol"
-  node.protocols.filter = WakuFilter.new(
-    node.peerManager,
+  self.protocols.filter = WakuFilter.new(
+    self.peerManager,
     subscriptionTimeout,
     maxFilterPeers,
     maxFilterCriteriaPerPeer,
@@ -82,56 +80,56 @@ proc mountFilter*(
   )
 
   try:
-    await node.protocols.filter.start()
+    await self.protocols.filter.start()
   except CatchableError:
     error "failed to start wakuFilter", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.protocols.filter, protocolMatcher(WakuFilterSubscribeCodec))
+    self.switch.mount(self.protocols.filter, protocolMatcher(WakuFilterSubscribeCodec))
   except LPError:
     error "failed to mount wakuFilter", error = getCurrentExceptionMsg()
 
 proc filterHandleMessage*(
-    node: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage
+    self: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage
 ) {.async.} =
-  if node.protocols.filter.isNil():
+  if self.protocols.filter.isNil():
     debug "Cannot handle filter message", error = "waku filter is required"
     return
 
-  await node.protocols.filter.handleMessage(pubsubTopic, message)
+  await self.protocols.filter.handleMessage(pubsubTopic, message)
 
-proc mountFilterClient*(node: Kernel) {.async: (raises: []).} =
+proc mountFilterClient*(self: Kernel) {.async: (raises: []).} =
   ## Mounting both filter
   ## Giving option for application level to choose btw own push message handling or
   ## rely on node provided cache. - This only applies for v2 filter client
   info "mounting filter client"
 
-  if not node.protocols.filterClient.isNil():
+  if not self.protocols.filterClient.isNil():
     trace "Filter client already mounted."
     return
 
-  node.protocols.filterClient = WakuFilterClient.new(node.peerManager, node.rng)
+  self.protocols.filterClient = WakuFilterClient.new(self.peerManager, self.rng)
 
   try:
-    await node.protocols.filterClient.start()
+    await self.protocols.filterClient.start()
   except CatchableError:
     error "failed to start wakuFilterClient", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(
-      node.protocols.filterClient, protocolMatcher(WakuFilterSubscribeCodec)
+    self.switch.mount(
+      self.protocols.filterClient, protocolMatcher(WakuFilterSubscribeCodec)
     )
   except LPError:
     error "failed to mount wakuFilterClient", error = getCurrentExceptionMsg()
 
 proc filterSubscribe*(
-    node: Kernel,
+    self: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
-  if node.protocols.filterClient.isNil():
+  if self.protocols.filterClient.isNil():
     debug "Cannot register filter subscription to topic",
       error = "waku filter client is not set up"
     return err(FilterSubscribeError.serviceUnavailable())
@@ -148,7 +146,7 @@ proc filterSubscribe*(
 
     when (contentTopics is ContentTopic):
       let contentTopics = @[contentTopics]
-    let subRes = await node.protocols.filterClient.subscribe(
+    let subRes = await self.protocols.filterClient.subscribe(
       remotePeer, pubsubTopic.get(), contentTopics
     )
     if subRes.isOk():
@@ -157,14 +155,14 @@ proc filterSubscribe*(
 
       # Purpose is to update Waku Metadata
       ShardSubscribedEvent.emit(
-        node.brokerCtx, ShardSubscribedEvent(topic: pubsubTopic.get())
+        self.brokerCtx, ShardSubscribedEvent(topic: pubsubTopic.get())
       )
     else:
       debug "Failed filter v2 subscription", error = subRes.error
       logos_delivery_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
     return subRes
-  elif node.wakuAutoSharding.isNone():
+  elif self.wakuAutoSharding.isNone():
     debug "Failed filter subscription, pubsub topic must be specified with static sharding"
     logos_delivery_node_errors.inc(labelValues = ["subscribe_filter_failure"])
     return err(
@@ -175,7 +173,7 @@ proc filterSubscribe*(
   else:
     # No pubsub topic, autosharding is used to deduce it
     # but content topics must be well-formed for this
-    let topicMap = node.wakuAutoSharding
+    let topicMap = self.wakuAutoSharding
       .get()
       .getShardsFromContentTopics(contentTopics).valueOr:
         debug "Can't get shard", error = error
@@ -186,7 +184,7 @@ proc filterSubscribe*(
         debug "Registering filter subscription to content",
           shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.protocols.filterClient.subscribe(remotePeer, $shard, content)
+        self.protocols.filterClient.subscribe(remotePeer, $shard, content)
 
     var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -204,7 +202,7 @@ proc filterSubscribe*(
         info "subscribed to topic", pubsubTopic = pubsub, contentTopics = topics
 
         # Purpose is to update Waku Metadata
-        ShardSubscribedEvent.emit(node.brokerCtx, ShardSubscribedEvent(topic: $pubsub))
+        ShardSubscribedEvent.emit(self.brokerCtx, ShardSubscribedEvent(topic: $pubsub))
     except CatchableError:
       let errMsg = "exception in filterSubscribe: " & getCurrentExceptionMsg()
       debug "Exception in filterSubscribe", error = getCurrentExceptionMsg()
@@ -216,7 +214,7 @@ proc filterSubscribe*(
     return subRes
 
 proc filterUnsubscribe*(
-    node: Kernel,
+    self: Kernel,
     pubsubTopic: Opt[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
@@ -233,7 +231,7 @@ proc filterUnsubscribe*(
       contentTopics = contentTopics,
       peer = remotePeer.peerId
 
-    let unsubRes = await node.protocols.filterClient.unsubscribe(
+    let unsubRes = await self.protocols.filterClient.unsubscribe(
       remotePeer, pubsubTopic.get(), contentTopics
     )
     if unsubRes.isOk():
@@ -242,14 +240,14 @@ proc filterUnsubscribe*(
 
       # Purpose is to update Waku Metadata
       ShardUnsubscribedEvent.emit(
-        node.brokerCtx, ShardUnsubscribedEvent(topic: pubsubTopic.get())
+        self.brokerCtx, ShardUnsubscribedEvent(topic: pubsubTopic.get())
       )
     else:
       debug "Failed filter unsubscription", error = unsubRes.error
       logos_delivery_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
 
     return unsubRes
-  elif node.wakuAutoSharding.isNone():
+  elif self.wakuAutoSharding.isNone():
     debug "Failed filter un-subscription, pubsub topic must be specified with static sharding"
     logos_delivery_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
     return err(
@@ -258,7 +256,7 @@ proc filterUnsubscribe*(
       )
     )
   else: # pubsubTopic.isNone
-    let topicMap = node.wakuAutoSharding
+    let topicMap = self.wakuAutoSharding
       .get()
       .getShardsFromContentTopics(contentTopics).valueOr:
         debug "Can't get shard", error = error
@@ -269,7 +267,7 @@ proc filterUnsubscribe*(
         debug "Deregistering filter subscription to content",
           shard = shard, contentTopics = topics, peer = remotePeer.peerId
         let content = topics.mapIt($it)
-        node.protocols.filterClient.unsubscribe(remotePeer, $shard, content)
+        self.protocols.filterClient.unsubscribe(remotePeer, $shard, content)
 
     var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
     try:
@@ -288,7 +286,7 @@ proc filterUnsubscribe*(
 
         # Purpose is to update Waku Metadata
         ShardUnsubscribedEvent.emit(
-          node.brokerCtx, ShardUnsubscribedEvent(topic: $pubsub)
+          self.brokerCtx, ShardUnsubscribedEvent(topic: $pubsub)
         )
     except CatchableError:
       let errMsg = "exception in filterUnsubscribe: " & getCurrentExceptionMsg()
@@ -301,7 +299,7 @@ proc filterUnsubscribe*(
     return unsubRes
 
 proc filterUnsubscribeAll*(
-    node: Kernel, peer: RemotePeerInfo | string
+    self: Kernel, peer: RemotePeerInfo | string
 ): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
@@ -311,7 +309,7 @@ proc filterUnsubscribeAll*(
 
   debug "Deregistering all filter subscription to content", peer = remotePeer.peerId
 
-  let unsubRes = await node.protocols.filterClient.unsubscribeAll(remotePeer)
+  let unsubRes = await self.protocols.filterClient.unsubscribeAll(remotePeer)
   if unsubRes.isOk():
     debug "Unsubscribed from all content-topic", peerId = remotePeer.peerId
   else:

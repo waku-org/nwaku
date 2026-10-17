@@ -1,7 +1,10 @@
 {.push raises: [].}
 
 import
-  results, logos_delivery/kernel/common/protobuf, logos_delivery/kernel/core/[ message], ./rpc
+  results,
+  logos_delivery/kernel/common/protobuf,
+  logos_delivery/kernel/[protocols/message],
+  ./rpc
 
 const
   DefaultMaxSubscribeSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024

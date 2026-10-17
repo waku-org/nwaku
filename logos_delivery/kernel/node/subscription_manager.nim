@@ -5,14 +5,19 @@ import brokers/broker_context
 
 import
   logos_delivery/kernel/[
-    core/topics/content_topic, core/topics/pubsub_topic, core/topics/sharding, core/message, core/peers, protocols/codecs,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
+    protocols/codecs,
     protocols/protocols,
-    node/shard_subscription,
     node/edge_filter_sub_state,
     node/metrics,
     protocols/relay/protocol,
     node/health_monitor/topic_health,
-    archive/archive, protocols/store_sync/reconciliation,
+    archive/archive,
+    protocols/store_sync/reconciliation,
     protocols/filter/common as filter_common,
     protocols/filter/client as filter_client,
     protocols/filter/protocol as filter_protocol,
@@ -26,6 +31,20 @@ import
 import logos_delivery/api/events/kernel_events
 
 {.push raises: [].}
+
+type
+  SubscriptionKind* = enum
+    ContentSub
+    ContentUnsub
+    PubsubSub
+    PubsubUnsub
+
+  SubscriptionEvent* = tuple[kind: SubscriptionKind, topic: string]
+
+  ShardSubscription* = object
+    contentTopics*: HashSet[ContentTopic]
+    directShardSub*: bool
+      ## shard subscribed directly (PubsubSub), independent of content-topic interest
 
 type SubscriptionManager* = ref object of RootObj
   protocols*: Protocols

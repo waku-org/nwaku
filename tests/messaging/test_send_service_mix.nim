@@ -17,15 +17,20 @@ import
   logos_delivery/kernel/protocols/mix/protocol,
   logos_delivery/kernel/api/publish,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/peer_manager/waku_peer_store,
+  logos_delivery/kernel/node/peer_manager/peer_store,
   logos_delivery/kernel/api/lightpush,
   logos_delivery/kernel/rln/rln_plugin,
   logos_delivery/kernel/protocols/lightpush/common,
-  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, send_processor, mix_processor, delivery_task]

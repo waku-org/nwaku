@@ -2,7 +2,7 @@
 
 import std/[sequtils, net], results, stew/endians2
 import libp2p/[multiaddress, multicodec, wire]
-import logos_delivery/kernel/core/peers
+import logos_delivery/kernel/node/peer_manager/peers
 import logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding]
 
 type NetConfig* = object

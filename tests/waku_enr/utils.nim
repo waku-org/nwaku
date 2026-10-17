@@ -3,7 +3,7 @@ import
 
 import
   logos_delivery/kernel/
-    [common/enr as waku_enr, enr/capabilities, enr/sharding, discovery/waku_discv5],
+    [common/enr as waku_enr, enr/capabilities, enr/sharding, discovery/discv5],
   ../testlib/wakucore
 
 proc newTestEnrRecord*(

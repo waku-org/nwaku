@@ -5,7 +5,14 @@ import chronicles
 import
   ../../../common/databases/db_sqlite,
   ../../../common/databases/common,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, time, message, peers]
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+  ]
 
 const DbTable = "Message"
 

@@ -5,10 +5,10 @@ import chronos, testutils/unittests, results, stew/byteutils
 
 import
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/core/[topics/pubsub_topic, time, message],
+  logos_delivery/kernel/[topics/pubsub_topic, common/time, protocols/message],
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service {.all.}, send_processor, delivery_task]

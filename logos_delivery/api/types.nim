@@ -3,7 +3,7 @@
 import libp2p/crypto/crypto, chronos
 import stew/byteutils
 import logos_delivery/kernel/common/utils/requests as request_utils
-import logos_delivery/kernel/core/[topics/content_topic, message, time]
+import logos_delivery/kernel/[topics/content_topic, protocols/message, common/time]
 
 export content_topic, message
 

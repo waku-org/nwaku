@@ -7,7 +7,7 @@ import results, chronos
 import logos_delivery/kernel/kernel_lifecycle
 import
   logos_delivery/kernel/
-    [core/peers, api/peer_exchange, discovery/waku_dnsdisc, discovery/waku_discv5]
+    [node/peer_manager/peers, api/peer_exchange, discovery/dnsdisc, discovery/discv5]
 
 proc dnsDiscovery*(
     self: Kernel, enrTreeUrl: string, nameServer: string, timeoutMs: int

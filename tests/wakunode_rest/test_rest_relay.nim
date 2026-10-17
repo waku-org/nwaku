@@ -21,12 +21,12 @@ import
 import
   logos_delivery/kernel/[
     common/base64,
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/markers,

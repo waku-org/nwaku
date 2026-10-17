@@ -8,7 +8,7 @@ import
   mix_rln_spam_protection/module_api
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic,
+    topics/pubsub_topic,
     archive/archive,
     protocols/relay/protocol,
     protocols/store/protocol as store,

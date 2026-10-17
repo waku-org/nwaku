@@ -9,7 +9,8 @@ import
     rln/rln_evm/protocol_types,
     rln/protocol_metrics,
   ]
-import logos_delivery/kernel/[core/time, rln/keystore/keyfile, rln/keystore/protocol_types]
+import
+  logos_delivery/kernel/[common/time, rln/keystore/keyfile, rln/keystore/protocol_types]
 
 {.push raises: [], gcsafe.}
 

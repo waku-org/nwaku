@@ -1,5 +1,5 @@
 import chronicles, std/strutils, results
-import ../waku_conf
+import ../conf
 
 logScope:
   topics = "waku conf builder dns discovery"

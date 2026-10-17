@@ -9,10 +9,11 @@ import
   logos_delivery/kernel/protocols/store/[common],
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/api/store,
-  logos_delivery/kernel/core/[topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/
+    [topics/pubsub_topic, protocols/message, node/peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, send_processor, delivery_task],

@@ -9,14 +9,14 @@ import
 
 import
   logos_delivery/kernel/[
-    factory/waku_conf,
+    factory/conf,
     factory/networks_config,
     common/logging,
     common/utils/parse_size_units,
     node/peer_manager/peer_manager,
-    core/message,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
+    protocols/message,
+    topics/pubsub_topic,
+    topics/sharding,
     enr/capabilities,
     persistency/persistency,
     protocols/mix/protocol,

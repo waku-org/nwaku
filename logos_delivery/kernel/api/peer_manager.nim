@@ -6,7 +6,7 @@ import results, chronos
 import libp2p/[peerid]
 
 import logos_delivery/kernel/kernel_lifecycle
-import logos_delivery/kernel/[core/peers, node/peer_manager/peer_manager]
+import logos_delivery/kernel/[node/peer_manager/peers, node/peer_manager/peer_manager]
 
 # `PeerConnInfo` is defined in `api/types` (surfaced here via `import kernel`).
 

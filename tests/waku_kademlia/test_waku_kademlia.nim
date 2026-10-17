@@ -11,10 +11,10 @@ import
   libp2p_mix/mix_protocol
 
 import
-  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/discovery/signed_service_record,
-  logos_delivery/kernel/core/peers,
-  logos_delivery/kernel/node/peer_manager/waku_peer_store
+  logos_delivery/kernel/node/peer_manager/peers,
+  logos_delivery/kernel/node/peer_manager/peer_store
 import ../testlib/[wakucore, futures]
 import ./utils as kad_utils
 

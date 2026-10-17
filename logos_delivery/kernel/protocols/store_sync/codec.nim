@@ -4,8 +4,8 @@ import std/sequtils, stew/[leb128, byteutils]
 
 import
   logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/core/message,
-  logos_delivery/kernel/core/time,
+  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/common/time,
   ./common
 
 const

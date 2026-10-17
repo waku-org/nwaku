@@ -19,7 +19,7 @@ import chronos, chronicles, results
 import libp2p_mix/mix_protocol
 import
   logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/enr/capabilities
 
 logScope:

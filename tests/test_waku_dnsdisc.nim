@@ -12,7 +12,7 @@ import
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/discovery/waku_dnsdisc,
+  logos_delivery/kernel/discovery/dnsdisc,
   ./testlib/wakucore,
   ./testlib/wakunode,
   ./waku_enr/utils

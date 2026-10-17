@@ -7,17 +7,16 @@ import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
-    common/waku_protocol,
+    node/health_monitor/protocol_health,
     node/peer_manager/peer_manager,
     node/health_monitor/health_status,
     node/health_monitor/connection_status,
-    node/health_monitor/protocol_health,
     node/health_monitor/topic_health,
     node/health_monitor/node_health_monitor,
     api/relay,
@@ -39,7 +38,7 @@ const MockDLow = 4 # Mocked GossipSub DLow value
 
 const TestConnectivityTimeLimit = 3.seconds
 
-proc protoHealthMock(kind: WakuProtocol, health: HealthStatus): ProtocolHealth =
+proc protoHealthMock(kind: ProtocolName, health: HealthStatus): ProtocolHealth =
   var ph = ProtocolHealth.init(kind)
   if health == HealthStatus.READY:
     return ph.ready()
@@ -54,14 +53,14 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(FilterClientProtocol, HealthStatus.NOT_READY),
       protoHealthMock(LightpushClientProtocol, HealthStatus.NOT_READY),
     ]
-    let strength = initTable[WakuProtocol, int]()
+    let strength = initTable[ProtocolName, int]()
     let state = calculateConnectionState(protocols, strength, Opt.some(MockDLow))
     check state == ConnectionStatus.Disconnected
 
   test "PartiallyConnected, weak relay":
     let weakCount = MockDLow - 1
     let protocols = @[protoHealthMock(RelayProtocol, HealthStatus.READY)]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = weakCount
     let state = calculateConnectionState(protocols, strength, Opt.some(MockDLow))
     # Partially connected since relay connectivity is weak (> 0, but < dLow)
@@ -69,7 +68,7 @@ suite "Health Monitor - health state calculation":
 
   test "Connected, robust relay":
     let protocols = @[protoHealthMock(RelayProtocol, HealthStatus.READY)]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     let state = calculateConnectionState(protocols, strength, Opt.some(MockDLow))
     # Fully connected since relay connectivity is ideal (>= dLow)
@@ -82,7 +81,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(FilterClientProtocol, HealthStatus.READY),
       protoHealthMock(StoreClientProtocol, HealthStatus.READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[LightpushClientProtocol] = HealthyThreshold
     strength[FilterClientProtocol] = HealthyThreshold
     strength[StoreClientProtocol] = HealthyThreshold
@@ -95,7 +94,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(FilterClientProtocol, HealthStatus.READY),
       protoHealthMock(StoreClientProtocol, HealthStatus.NOT_READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[LightpushClientProtocol] = HealthyThreshold
     strength[FilterClientProtocol] = HealthyThreshold
     strength[StoreClientProtocol] = 0
@@ -109,7 +108,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(FilterClientProtocol, HealthStatus.READY),
       protoHealthMock(StoreClientProtocol, HealthStatus.READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[LightpushClientProtocol] = weakCount
     strength[FilterClientProtocol] = weakCount
     strength[StoreClientProtocol] = weakCount
@@ -121,7 +120,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(RelayProtocol, HealthStatus.READY),
       protoHealthMock(StoreProtocol, HealthStatus.READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     strength[StoreProtocol] = 0
     let state = calculateConnectionState(protocols, strength, Opt.some(MockDLow))
@@ -133,7 +132,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(StoreProtocol, HealthStatus.READY),
       protoHealthMock(StoreClientProtocol, HealthStatus.NOT_READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     strength[StoreProtocol] = 0
     strength[StoreClientProtocol] = 0
@@ -145,7 +144,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(RelayProtocol, HealthStatus.READY),
       protoHealthMock(MixProtocol, HealthStatus.NOT_READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     let state = requireMixReady(
       calculateConnectionState(protocols, strength, Opt.some(MockDLow)), protocols
@@ -157,7 +156,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(RelayProtocol, HealthStatus.READY),
       ProtocolHealth.init(MixProtocol), # not mounted
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     let state = requireMixReady(
       calculateConnectionState(protocols, strength, Opt.some(MockDLow)), protocols
@@ -169,7 +168,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(RelayProtocol, HealthStatus.READY),
       protoHealthMock(MixProtocol, HealthStatus.READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     let state = requireMixReady(
       calculateConnectionState(protocols, strength, Opt.some(MockDLow)), protocols
@@ -182,7 +181,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(RelayProtocol, HealthStatus.READY),
       protoHealthMock(MixProtocol, HealthStatus.NOT_READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[RelayProtocol] = MockDLow
     let state = calculateConnectionState(protocols, strength, Opt.some(MockDLow))
     check state == ConnectionStatus.Connected
@@ -195,7 +194,7 @@ suite "Health Monitor - health state calculation":
       protoHealthMock(StoreClientProtocol, HealthStatus.READY),
       protoHealthMock(MixProtocol, HealthStatus.NOT_READY),
     ]
-    var strength = initTable[WakuProtocol, int]()
+    var strength = initTable[ProtocolName, int]()
     strength[LightpushClientProtocol] = HealthyThreshold
     strength[FilterClientProtocol] = HealthyThreshold
     strength[StoreClientProtocol] = HealthyThreshold
@@ -595,7 +594,7 @@ suite "Health Monitor - events":
     let peerB = nodeB.switch.peerInfo.toRemotePeerInfo()
     await nodeA.connectToNodes(@[peerB])
 
-    proc lastReported(kind: WakuProtocol): Opt[HealthStatus] =
+    proc lastReported(kind: ProtocolName): Opt[HealthStatus] =
       for i in countdown(seen.high, 0):
         if seen[i].protocol == $kind:
           return Opt.some(seen[i].health)

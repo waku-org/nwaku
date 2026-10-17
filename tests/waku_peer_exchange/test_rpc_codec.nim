@@ -14,7 +14,7 @@ import
 import
   logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    discovery/waku_discv5,
+    discovery/discv5,
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/rpc_codec,
   ],

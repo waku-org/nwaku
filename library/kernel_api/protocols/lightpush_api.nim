@@ -2,8 +2,8 @@ import std/[json, strformat]
 import chronicles, chronos, results, ffi
 import
   logos_delivery,
-  logos_delivery/kernel/core/message,
-  logos_delivery/kernel/core/topics/pubsub_topic,
+  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/topics/pubsub_topic,
   library/events/json_message_event,
   library/declare_lib
 

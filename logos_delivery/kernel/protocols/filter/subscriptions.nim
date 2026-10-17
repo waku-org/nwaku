@@ -8,7 +8,10 @@ import
   libp2p/stream/connection,
   stew/shims/sets
 import
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic], logos_delivery/kernel/common/utils/tableutils,
+  logos_delivery/kernel/[
+    topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic
+  ],
+  logos_delivery/kernel/common/utils/tableutils,
   logos_delivery/kernel/[node/peer_manager/peer_manager]
 
 logScope:

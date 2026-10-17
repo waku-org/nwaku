@@ -2,8 +2,8 @@ import system, results, std/json
 import stew/byteutils
 import
   ../../logos_delivery/kernel/common/base64,
-  ../../logos_delivery/kernel/core/message,
-  ../../logos_delivery/kernel/core/message,
+  ../../logos_delivery/kernel/protocols/message,
+  ../../logos_delivery/kernel/protocols/message,
   ../utils,
   ./json_base_event
 

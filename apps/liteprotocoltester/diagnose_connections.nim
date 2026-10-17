@@ -20,7 +20,7 @@ import
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/peer_exchange/protocol,
-    core/multiaddrstr,
+    node/peer_manager/peers,
     enr/capabilities,
   ]
 logScope:

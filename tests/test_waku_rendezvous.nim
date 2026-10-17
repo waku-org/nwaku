@@ -10,14 +10,14 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/node/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/core/[topics/pubsub_topic, peers],
+  logos_delivery/kernel/[topics/pubsub_topic, node/peer_manager/peers],
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/node/peer_manager/peer_manager,
   logos_delivery/kernel/protocols/rendezvous/protocol,
   logos_delivery/kernel/protocols/rendezvous/common,
-  logos_delivery/kernel/protocols/rendezvous/waku_peer_record,
+  logos_delivery/kernel/protocols/rendezvous/peer_record,
   logos_delivery/kernel/protocols/rendezvous/client,
   logos_delivery/kernel/common/protobuf,
   ./testlib/[protobuf_errors, wakucore, wakunode]

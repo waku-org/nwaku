@@ -5,15 +5,15 @@ import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    core/topics/pubsub_topic,
-    core/message,
+    topics/pubsub_topic,
+    protocols/message,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,
     rln/rln_evm/rln_evm,
   ],
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/api/publish,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/rln/[rln_api, rln_plugin],
   logos_delivery/kernel/rln/rln_evm/message_id_store,
   logos_delivery/kernel/rln/rln_lez/[rln_lez, transport],

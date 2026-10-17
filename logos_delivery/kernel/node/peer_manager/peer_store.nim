@@ -14,10 +14,11 @@ import
   libp2p_mix/pool
 
 import
-  logos_delivery/kernel/core/[ message, peers], logos_delivery/kernel/enr/sharding,
+  logos_delivery/kernel/[protocols/message, node/peer_manager/peers],
+  logos_delivery/kernel/enr/sharding,
   logos_delivery/kernel/enr/capabilities,
   ../../common/utils/sequence,
-  logos_delivery/kernel/core/peers
+  logos_delivery/kernel/node/peer_manager/peers
 
 export peerstore, builders
 

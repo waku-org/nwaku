@@ -11,8 +11,9 @@ import
 import
   logos_delivery/kernel/common/nimchronos,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/[ peers], logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/discovery/waku_discv5,
+  logos_delivery/kernel/[node/peer_manager/peers],
+  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/discovery/discv5,
   ./rpc,
   ./rpc_codec,
   logos_delivery/kernel/common/rate_limit/request_limiter,

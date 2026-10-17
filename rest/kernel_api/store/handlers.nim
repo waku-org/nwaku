@@ -5,10 +5,10 @@ import std/options, std/[strformat, strutils], results
 import chronicles, uri, json_serialization, presto/route
 import
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/time,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/store/self_req_handler,

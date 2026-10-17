@@ -6,7 +6,7 @@ import
   logos_delivery/api/conf/logos_delivery_conf_json,
   logos_delivery/api/conf/logos_delivery_conf,
   tools/confutils/cli_args,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/factory/conf_builder/kademlia_discovery_conf_builder,
   logos_delivery/kernel/factory/networks_config
 

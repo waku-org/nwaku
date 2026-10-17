@@ -18,7 +18,10 @@ import
   libp2p/peerid,
   dnsdisc/client
 import libp2p/nameresolving/dnsresolver
-import logos_delivery/kernel/core/[ topics/content_topic, topics/sharding, topics/content_topic, topics/sharding, peers]
+import
+  logos_delivery/kernel/[
+    topics/content_topic, topics/sharding, topics/content_topic, node/peer_manager/peers
+  ]
 
 export client
 

@@ -9,7 +9,8 @@ import
   libp2p/errors,
   confutils/toml/std/net
 import
-  logos_delivery/kernel/[core/peers, protocols/codecs, common/enr, enr/capabilities],
+  logos_delivery/kernel/
+    [node/peer_manager/peers, protocols/codecs, common/enr, enr/capabilities],
   ../testlib/wakucore
 
 procSuite "Waku Core - Peers":

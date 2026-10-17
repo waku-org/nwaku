@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import results
-import logos_delivery/kernel/core/[ peers], ../waku_peer_store
+import logos_delivery/kernel/[node/peer_manager/peers], ../peer_store
 
 ## This module defines a peer storage interface. Implementations of
 ## PeerStorage are used to store and retrieve peers

@@ -1,6 +1,6 @@
 import chronicles, results, chronos
 import libp2p/peerinfo
-import logos_delivery/kernel/factory/waku_conf
+import logos_delivery/kernel/factory/conf
 import ./kademlia_discovery_conf_builder
 
 logScope:

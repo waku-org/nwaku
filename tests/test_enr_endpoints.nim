@@ -13,7 +13,7 @@ import eth/p2p/discoveryv5/node as discv5_node
 import eth/p2p/discoveryv5/protocol as discv5_protocol
 import stew/byteutils
 import
-  ../logos_delivery/kernel/discovery/waku_discv5,
+  ../logos_delivery/kernel/discovery/discv5,
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/node/enr_addresses,
   ../logos_delivery/kernel/kernel,
@@ -25,7 +25,7 @@ import
     enr/multiaddr,
     enr/sharding,
   ],
-  ../logos_delivery/kernel/core/peers
+  ../logos_delivery/kernel/node/peer_manager/peers
 import ./testlib/[wakucore, wakunode]
 
 proc tcpOf(record: enr.Record): Opt[uint16] =

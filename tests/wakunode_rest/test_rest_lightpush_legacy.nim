@@ -19,14 +19,13 @@ import
   rest/kernel_api/legacy_lightpush/client as lightpush_rest_client
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/time,
-    core/message,
-    core/peers,
-    core/multiaddrstr,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     node/peer_manager/peer_manager,

@@ -16,11 +16,11 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    discovery/waku_discv5,
+    discovery/discv5,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/rpc,
     node/peer_manager/peer_manager,
-    core/peers,
+    node/peer_manager/peers,
     protocols/codecs,
   ],
   ../waku_peer_exchange/utils,

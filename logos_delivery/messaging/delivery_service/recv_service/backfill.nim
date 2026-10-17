@@ -11,10 +11,10 @@ import std/[algorithm, sets]
 import chronos, chronicles, results
 import
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
     protocols/store/common,
   ],
   logos_delivery/kernel/common/[paging, protobuf],

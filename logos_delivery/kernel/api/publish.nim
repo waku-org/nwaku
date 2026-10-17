@@ -14,9 +14,9 @@ import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 import logos_delivery/kernel/kernel_lifecycle
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     rln/rln_api,
     rln/rln_plugin,

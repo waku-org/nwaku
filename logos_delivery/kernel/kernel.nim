@@ -31,19 +31,19 @@ import
 
 import
   logos_delivery/kernel/[
-    discovery/waku_discv5,
+    discovery/discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
     discovery/discovery,
-    factory/waku_conf,
+    factory/conf,
     factory/app_callbacks,
     persistency/persistency,
     protocols/protocols,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     protocols/relay/protocol,
     node/health_monitor/topic_health,
@@ -64,7 +64,7 @@ import
     protocols/metadata/protocol,
     protocols/rendezvous/protocol,
     protocols/rendezvous/client as rendezvous_client,
-    protocols/rendezvous/waku_peer_record,
+    protocols/rendezvous/peer_record,
     protocols/lightpush_legacy/client as legacy_ligntpuhs_client,
     protocols/lightpush/client as ligntpuhs_client,
     common/enr/typed_record,
@@ -85,7 +85,7 @@ import
   ],
   logos_delivery/api/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],
   logos_delivery/kernel/node/delivery_dialer,
   logos_delivery/kernel/node/enr_addresses,
@@ -93,13 +93,11 @@ import
   logos_delivery/kernel/node/health_monitor/health_status,
   logos_delivery/kernel/node/health_monitor/topic_health,
   logos_delivery/kernel/node/metrics,
-  logos_delivery/kernel/node/shard_subscription,
-  logos_delivery/kernel/node/edge_filter_sub_state,
   logos_delivery/kernel/node/subscription_manager,
+  logos_delivery/kernel/node/edge_filter_sub_state,
   logos_delivery/kernel/node/health_monitor/node_health_monitor
 
-export
-  shard_subscription, edge_filter_sub_state, subscription_manager.SubscriptionManager
+export edge_filter_sub_state, subscription_manager
 
 logScope:
   topics = "waku node"

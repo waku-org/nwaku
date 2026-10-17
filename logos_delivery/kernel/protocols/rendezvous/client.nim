@@ -13,10 +13,10 @@ import metrics except collect
 
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/node/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
   ./common,
-  ./waku_peer_record
+  ./peer_record
 
 logScope:
   topics = "waku rendezvous client"

@@ -3,9 +3,9 @@
 import testutils/unittests
 import
   results,
-  logos_delivery/kernel/core/message,
-  logos_delivery/kernel/core/time,
-  logos_delivery/kernel/[core/topics/content_topic]
+  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/common/time,
+  logos_delivery/kernel/[topics/content_topic]
 
 suite "Waku Payload":
   test "Encode/Decode waku message with timestamp":

@@ -2,9 +2,9 @@
 
 import chronos, std/sequtils, results
 import
-  logos_delivery/kernel/discovery/waku_discv5,
+  logos_delivery/kernel/discovery/discv5,
   logos_delivery/kernel/protocols/relay/protocol,
-  logos_delivery/kernel/core/[message, peers],
+  logos_delivery/kernel/[protocols/message, node/peer_manager/peers],
   rest/message_cache
 
 ### Discovery

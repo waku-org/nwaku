@@ -13,7 +13,11 @@ import
 
 import
   logos_delivery/kernel/[
-    core/topics/content_topic, core/topics/pubsub_topic, core/message, core/peers, protocols/codecs,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
+    protocols/codecs,
     protocols/relay/protocol,
     node/health_monitor/topic_health,
     protocols/metadata/protocol,
@@ -25,12 +29,12 @@ import
     common/callbacks,
     common/utils/parse_size_units,
     node/health_monitor/online_monitor,
-    node/waku_switch,
+    node/switch,
   ],
   ./peer_store/peer_storage,
-  ./waku_peer_store
+  ./peer_store
 
-export waku_peer_store, peer_storage, peers
+export peer_store, peer_storage, peers
 
 const KnownAgents = [
   "nwaku", "logos-delivery", "go-waku", "js-waku", "nim-libp2p", "go-libp2p",

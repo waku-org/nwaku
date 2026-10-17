@@ -6,10 +6,10 @@ import
     archive/archive,
     archive/driver/queue_driver/queue_driver {.all.},
     archive/driver/queue_driver/index,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
   ],
   ../testlib/wakucore
 

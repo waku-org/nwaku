@@ -1,5 +1,5 @@
 import chronicles, std/net, results
-import ../waku_conf
+import ../conf
 
 logScope:
   topics = "waku conf builder metrics server"

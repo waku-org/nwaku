@@ -1,4 +1,4 @@
-import chronicles, results, logos_delivery/kernel/discovery/waku_kademlia
+import chronicles, results, logos_delivery/kernel/discovery/kademlia
 import chronos
 import libp2p/[peerid, multiaddress, peerinfo]
 import libp2p/protocols/kademlia/types

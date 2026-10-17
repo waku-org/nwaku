@@ -1,7 +1,10 @@
 {.push raises: [].}
 
 import std/times, results, chronicles, chronos
-import logos_delivery/kernel/core/[ time], logos_delivery/kernel/archive/driver, logos_delivery/kernel/archive/retention_policy
+import
+  logos_delivery/kernel/[common/time],
+  logos_delivery/kernel/archive/driver,
+  logos_delivery/kernel/archive/retention_policy
 
 logScope:
   topics = "waku archive retention_policy"

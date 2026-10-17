@@ -12,9 +12,15 @@ import libp2p/crypto/crypto
 import brokers/broker_implement
 import logos_delivery/kernel/discovery/peer_discovery_interface
 import
-  logos_delivery/kernel/discovery/waku_discv5,
+  logos_delivery/kernel/discovery/discv5,
   logos_delivery/kernel/discovery/peer_discovery_conversion,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, peers], logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
   logos_delivery/kernel/api/events/discovery_events,
   logos_delivery/kernel/requests/node_state_requests
 

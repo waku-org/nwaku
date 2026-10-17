@@ -9,7 +9,9 @@ import std/sets
 import results
 
 import logos_delivery/kernel/kernel_lifecycle
-import logos_delivery/kernel/[core/topics/content_topic, core/topics/pubsub_topic, node/subscription_manager]
+import
+  logos_delivery/kernel/
+    [topics/content_topic, topics/pubsub_topic, node/subscription_manager]
 
 proc subscribe*(self: Kernel, contentTopic: ContentTopic): Result[void, string] =
   ## Subscribes to `contentTopic`, resolving its shard via autosharding.

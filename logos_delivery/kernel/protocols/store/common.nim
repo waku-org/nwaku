@@ -1,7 +1,16 @@
 {.push raises: [].}
 
 import std/sequtils, results
-import logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, time, message], logos_delivery/kernel/protocols/codecs, logos_delivery/kernel/common/[paging, protobuf]
+import
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+  ],
+  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/common/[paging, protobuf]
 
 from logos_delivery/kernel/protocols/codecs import WakuStoreCodec
 export WakuStoreCodec

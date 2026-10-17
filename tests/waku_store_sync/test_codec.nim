@@ -5,9 +5,9 @@ import std/[random, strutils], testutils/unittests, chronos
 
 import
   ../../logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/core/[topics/pubsub_topic, time, message],
-  ../../logos_delivery/kernel/core/message,
-  ../../logos_delivery/kernel/core/time,
+  logos_delivery/kernel/[topics/pubsub_topic, common/time, protocols/message],
+  ../../logos_delivery/kernel/protocols/message,
+  ../../logos_delivery/kernel/common/time,
   logos_delivery/kernel/protocols/store_sync/common,
   logos_delivery/kernel/protocols/store_sync/codec,
   ../testlib/protobuf_errors,

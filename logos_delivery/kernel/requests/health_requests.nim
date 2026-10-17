@@ -2,9 +2,10 @@ import brokers/request_broker
 
 import logos_delivery/api/types
 import
-  logos_delivery/kernel/node/health_monitor/[protocol_health, topic_health, health_report]
-import logos_delivery/kernel/[core/topics/content_topic, core/topics/pubsub_topic]
-import logos_delivery/kernel/common/waku_protocol
+  logos_delivery/kernel/node/health_monitor/
+    [protocol_health, topic_health, health_report]
+import logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic]
+import logos_delivery/kernel/node/health_monitor/protocol_health
 
 export protocol_health, topic_health
 
@@ -37,7 +38,7 @@ RequestBroker:
   type RequestProtocolHealth* = object
     healthStatus*: ProtocolHealth
 
-  proc signature(protocol: WakuProtocol): Future[Result[RequestProtocolHealth, string]]
+  proc signature(protocol: ProtocolName): Future[Result[RequestProtocolHealth, string]]
 
 # Get edge filter health for a single shard (set when edge mode is active)
 RequestBroker(sync):

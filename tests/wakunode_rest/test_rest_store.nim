@@ -19,11 +19,11 @@ import
   rest/kernel_api/store/types
 import
   logos_delivery/kernel/[
-    core/message,
-    core/message,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
+    protocols/message,
+    protocols/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
     kernel_lifecycle,
     node/peer_manager/peer_manager,
     archive/archive,

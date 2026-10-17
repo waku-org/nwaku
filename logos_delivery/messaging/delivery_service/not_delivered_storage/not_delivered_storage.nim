@@ -10,7 +10,7 @@
 import results
 import
   logos_delivery/kernel/common/databases/db_sqlite,
-  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/message,
   ./migrations
 
 const NotDeliveredMessagesDbUrl = "not-delivered-messages.db"

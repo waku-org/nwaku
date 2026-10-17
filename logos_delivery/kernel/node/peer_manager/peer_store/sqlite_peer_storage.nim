@@ -4,7 +4,8 @@ import std/sets, chronicles, results, sqlite3_abi, stew/byteutils
 import
   ../../../common/databases/db_sqlite,
   ../../../common/protobuf,
-  logos_delivery/kernel/core/[ message, peers], ../waku_peer_store,
+  logos_delivery/kernel/[protocols/message, node/peer_manager/peers],
+  ../peer_store,
   ./peer_storage
 
 export db_sqlite

@@ -1,8 +1,7 @@
 import chronos, results
 
 import
-  logos_delivery/kernel/core/time,
-  logos_delivery/kernel/protocols/store_sync/common
+  logos_delivery/kernel/common/time, logos_delivery/kernel/protocols/store_sync/common
 
 func calculateTimeRange*(
     now: Timestamp, jitter: Duration, syncRange: Duration

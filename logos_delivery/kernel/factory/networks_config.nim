@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import chronicles, results, stint
-import logos_delivery/kernel/core/message
+import logos_delivery/kernel/protocols/message
 
 logScope:
   topics = "waku networks conf"

@@ -4,10 +4,12 @@ import libp2p/crypto/crypto
 import results, chronicles, chronos, metrics, stew/byteutils
 import libp2p/peerid
 import
-  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/node/peer_manager/peers,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/common/utils/requests,
-  logos_delivery/kernel/core/[topics/pubsub_topic, topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/[
+    topics/pubsub_topic, topics/pubsub_topic, protocols/message, node/peer_manager/peers
+  ],
   logos_delivery/kernel/protocols/codecs,
   ./common,
   ./protocol_metrics,

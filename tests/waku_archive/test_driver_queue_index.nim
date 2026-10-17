@@ -2,7 +2,7 @@
 
 import std/random, testutils/unittests
 import
-  logos_delivery/kernel/core/[time, message],
+  logos_delivery/kernel/[common/time, protocols/message],
   logos_delivery/kernel/archive/driver/queue_driver/index
 
 var rng = initRand()

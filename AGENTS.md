@@ -140,7 +140,7 @@ suite "Waku ENR - Capabilities":
 Mandatory: All code must be formatted with `nph` (installed via `make build-nph`, which fetches a pinned `nph` version with Nimble)
 ```bash
 # Format specific file
-make nph/logos_delivery/kernel/core.nim
+make nph/logos_delivery/kernel/protocols/message.nim
 
 # Install git pre-commit hook (auto-formats on commit)
 make install-nph
@@ -495,7 +495,7 @@ Language: Nim 2.x | License: MIT or Apache 2.0
 - `nimble.lock` - Pinned dependency versions resolved into `nimbledeps/`
 - `logos_delivery/kernel/kernel.nim` - Core node implementation
 - `apps/logos_delivery_node/logosdeliverynode.nim` - Main CLI application
-- `logos_delivery/kernel/factory/waku_conf.nim` - Configuration types
+- `logos_delivery/kernel/factory/conf.nim` - Configuration types
 - `library/liblogosdelivery.nim` - C bindings entry point
 
 ### Testing Entry Points

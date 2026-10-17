@@ -18,8 +18,16 @@ import
 
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, message, peers], logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
-  logos_delivery/kernel/node/peer_manager/waku_peer_store
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    topics/content_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
+  logos_delivery/kernel/node/peer_manager/peer_store
 
 logScope:
   topics = "waku mix"

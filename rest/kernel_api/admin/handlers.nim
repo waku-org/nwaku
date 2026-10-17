@@ -12,9 +12,8 @@ import
 
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic,
-    core/peers,
-    core/multiaddrstr,
+    topics/pubsub_topic,
+    node/peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/filter/common,

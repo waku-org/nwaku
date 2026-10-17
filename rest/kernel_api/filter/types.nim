@@ -10,7 +10,12 @@ import
   libp2p/peerid
 import
   logos_delivery/kernel/common/base64,
-  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   rest/serdes
 
 #### Types

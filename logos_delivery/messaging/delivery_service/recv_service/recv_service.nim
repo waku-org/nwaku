@@ -20,11 +20,11 @@ import
   logos_delivery/messaging/messaging_metrics,
   logos_delivery/kernel/persistency/persistency,
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/store/common,
   ],
   logos_delivery/kernel/kernel_lifecycle,
@@ -169,7 +169,7 @@ proc hasHealthyFilterSubscription(self: RecvService): bool =
 proc hasLiveDelivery(self: RecvService): bool =
   ## Relay READY, or a healthy filter subscription on every subscribed shard.
   return
-    self.kernel.reportedProtocolHealth(WakuProtocol.RelayProtocol).health ==
+    self.kernel.reportedProtocolHealth(ProtocolName.RelayProtocol).health ==
     HealthStatus.READY or self.hasHealthyFilterSubscription()
 
 proc backfillWriteRecords(self: RecvService, ops: seq[TxOp]) {.async: (raises: []).} =

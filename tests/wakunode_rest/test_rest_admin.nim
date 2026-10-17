@@ -18,12 +18,11 @@ import
   rest/kernel_api/admin/client as admin_rest_client
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
-    core/multiaddrstr,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     protocols/filter/client,

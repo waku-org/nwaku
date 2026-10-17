@@ -6,7 +6,7 @@ import
   libp2p/crypto/curve25519,
   libp2p_mix/curve25519
 import mix_rln_spam_protection/module_api
-import ../waku_conf, logos_delivery/kernel/protocols/mix/protocol
+import ../conf, logos_delivery/kernel/protocols/mix/protocol
 
 logScope:
   topics = "waku conf builder mix"

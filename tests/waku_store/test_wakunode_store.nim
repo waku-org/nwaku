@@ -16,11 +16,11 @@ import
 import
   logos_delivery/kernel/[
     common/paging,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    protocols/message,
+    node/peer_manager/peers,
     node/peer_manager/peer_manager,
     archive/archive,
     archive/driver,

@@ -12,7 +12,7 @@ import
   logos_delivery/kernel/[
     common/enr,
     enr/sharding,
-    discovery/waku_discv5,
+    discovery/discv5,
     common/enr,
     net/auto_port,
     api/events/subscription_events,

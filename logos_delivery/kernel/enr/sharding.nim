@@ -8,7 +8,7 @@ import
   eth/keys,
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto
-import ../common/enr, logos_delivery/kernel/core/topics/pubsub_topic
+import ../common/enr, logos_delivery/kernel/topics/pubsub_topic
 
 logScope:
   topics = "waku enr sharding"

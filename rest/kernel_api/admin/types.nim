@@ -8,7 +8,8 @@ import
   results,
   libp2p/protocols/pubsub/pubsubpeer
 import
-  logos_delivery/kernel/[core/peers, core/multiaddrstr, node/peer_manager/peer_manager],
+  logos_delivery/kernel/
+    [node/peer_manager/peers, node/peer_manager/peers, node/peer_manager/peer_manager],
   rest/serdes
 
 #### Types

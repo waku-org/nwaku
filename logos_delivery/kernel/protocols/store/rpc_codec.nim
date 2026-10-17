@@ -3,7 +3,14 @@
 import results, chronicles, metrics
 import
   logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, message, peers], ./common,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
+  ./common,
   ./protocol_metrics
 
 logScope:

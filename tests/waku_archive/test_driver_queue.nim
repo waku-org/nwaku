@@ -6,8 +6,8 @@ import
     archive/archive,
     archive/driver/queue_driver/queue_driver {.all.},
     archive/driver/queue_driver/index,
-    core/time,
-    core/message,
+    common/time,
+    protocols/message,
   ]
 
 # Helper functions

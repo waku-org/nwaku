@@ -7,7 +7,7 @@ import chronos, chronicles
 import brokers/broker_context
 import
   ./[send_processor, relay_processor, lightpush_processor, mix_processor, delivery_task],
-  logos_delivery/kernel/[core/message, protocols/store/common],
+  logos_delivery/kernel/[protocols/message, protocols/store/common],
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/api/[store, publish],
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager

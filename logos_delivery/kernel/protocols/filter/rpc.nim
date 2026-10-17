@@ -1,7 +1,15 @@
 {.push raises: [].}
 
 import results, json_serialization
-import logos_delivery/kernel/common/protobuf, logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, message, peers]
+import
+  logos_delivery/kernel/common/protobuf,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ]
 
 type
   FilterSubscribeType* {.pure.} = enum

@@ -3,10 +3,10 @@ import std/random, chronos, metrics
 import
   logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
     protocols/store_sync/common,
     protocols/store_sync/reconciliation,
     protocols/store_sync/transfer,

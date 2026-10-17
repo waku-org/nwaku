@@ -10,7 +10,7 @@
 import std/json
 import chronos, chronicles, results
 import stew/byteutils
-import logos_delivery/kernel/core/message
+import logos_delivery/kernel/protocols/message
 import ../types, ../signal, ./transport
 import ../rln_api, ../rln_plugin
 

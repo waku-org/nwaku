@@ -18,7 +18,7 @@ import
 
 import
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/core/[time, message, peers],
+  logos_delivery/kernel/[common/time, protocols/message, node/peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/protocols/store/protocol as store,
   logos_delivery/kernel/protocols/store/client as store_client,
@@ -39,7 +39,7 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    core/peers,
+    node/peer_manager/peers,
     protocols/codecs,
     node/peer_manager/peer_manager,
     protocols/store/common,
@@ -47,14 +47,14 @@ import
   ]
 
 proc mountArchive*(
-    node: Kernel, driver: ArchiveDriver, retentionPolicies = newSeq[RetentionPolicy]()
+    self: Kernel, driver: ArchiveDriver, retentionPolicies = newSeq[RetentionPolicy]()
 ): Result[void, string] =
-  node.protocols.archive = WakuArchive.new(
+  self.protocols.archive = WakuArchive.new(
     driver = driver, retentionPolicies = retentionPolicies
   ).valueOr:
     return err("error in mountArchive: " & error)
 
-  node.protocols.archive.start()
+  self.protocols.archive.start()
 
   return ok()
 
@@ -105,9 +105,9 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   return ok(res)
 
 proc mountStore*(
-    node: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    self: Kernel, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
-  if node.protocols.archive.isNil():
+  if self.protocols.archive.isNil():
     error "failed to mount waku store protocol", error = "waku archive not set"
     return
 
@@ -117,36 +117,36 @@ proc mountStore*(
       request: StoreQueryRequest
   ): Future[StoreQueryResult] {.async.} =
     let request = request.toArchiveQuery()
-    let response = await node.protocols.archive.findMessages(request)
+    let response = await self.protocols.archive.findMessages(request)
 
     return response.toStoreResult()
 
-  node.protocols.store =
-    store.WakuStore.new(node.peerManager, node.rng, requestHandler, Opt.some(rateLimit))
+  self.protocols.store =
+    store.WakuStore.new(self.peerManager, self.rng, requestHandler, Opt.some(rateLimit))
 
-  if node.started:
-    await node.protocols.store.start()
+  if self.started:
+    await self.protocols.store.start()
 
-  node.switch.mount(node.protocols.store, protocolMatcher(store_common.WakuStoreCodec))
+  self.switch.mount(self.protocols.store, protocolMatcher(store_common.WakuStoreCodec))
 
-proc mountStoreClient*(node: Kernel, maxMessageSize = int(DefaultMaxWakuMessageSize)) =
+proc mountStoreClient*(self: Kernel, maxMessageSize = int(DefaultMaxWakuMessageSize)) =
   ## `maxMessageSize` sets the largest store response that the client reads.
   info "mounting store client"
 
-  node.protocols.storeClient = store_client.WakuStoreClient.new(
-    node.peerManager, node.rng, maxQueryResponseSize(maxMessageSize)
+  self.protocols.storeClient = store_client.WakuStoreClient.new(
+    self.peerManager, self.rng, maxQueryResponseSize(maxMessageSize)
   )
 
 proc query*(
-    node: Kernel, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
+    self: Kernel, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
 ): Future[store_common.WakuStoreResult[store_common.StoreQueryResponse]] {.
     async, gcsafe
 .} =
   ## Queries known nodes for historical messages
-  if node.protocols.storeClient.isNil():
+  if self.protocols.storeClient.isNil():
     return err("waku store v3 client is nil")
 
-  let response = (await node.protocols.storeClient.query(request, peer)).valueOr:
+  let response = (await self.protocols.storeClient.query(request, peer)).valueOr:
     var res = StoreQueryResponse()
     res.statusCode = uint32(error.kind)
     res.statusDesc = $error
@@ -155,9 +155,9 @@ proc query*(
 
   return ok(response)
 
-proc setupStoreResume*(node: Kernel) =
-  node.protocols.storeResume = StoreResume.new(
-    node.peerManager, node.protocols.archive, node.protocols.storeClient
+proc setupStoreResume*(self: Kernel) =
+  self.protocols.storeResume = StoreResume.new(
+    self.peerManager, self.protocols.archive, self.protocols.storeClient
   ).valueOr:
     error "Failed to setup Store Resume", error = $error
     return

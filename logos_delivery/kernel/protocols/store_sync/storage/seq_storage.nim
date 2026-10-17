@@ -2,10 +2,10 @@ import
   std/[algorithm, sequtils, tables, packedsets, sugar], results, chronos, stew/arrayops
 
 import
-  logos_delivery/kernel/core/time,
-  logos_delivery/kernel/core/message,
-  logos_delivery/kernel/core/topics/pubsub_topic,
-  logos_delivery/kernel/core/topics/content_topic,
+  logos_delivery/kernel/common/time,
+  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/topics/pubsub_topic,
+  logos_delivery/kernel/topics/content_topic,
   logos_delivery/kernel/protocols/store_sync/common,
   ./range_processing,
   ./storage

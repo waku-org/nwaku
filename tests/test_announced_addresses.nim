@@ -14,7 +14,7 @@ import libp2p/services/natservice
 import chronos/transports/osnet
 import libp2p/services/nat/portmapper
 import eth/p2p/discoveryv5/protocol as discv5_protocol
-import ../logos_delivery/kernel/discovery/waku_discv5
+import ../logos_delivery/kernel/discovery/discv5
 import eth/keys, eth/p2p/discoveryv5/enr
 import stew/byteutils
 import

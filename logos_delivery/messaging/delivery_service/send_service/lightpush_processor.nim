@@ -1,5 +1,5 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/kernel/core/[message], logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/[protocols/message], logos_delivery/kernel/kernel_lifecycle
 import logos_delivery/kernel/api/publish
 
 import ./[delivery_task, send_processor]

@@ -10,7 +10,7 @@ import
   chronos/threadsync,
   chronicles,
   strutils
-import ./dbconn, ./dns_resolver, ../common, logos_delivery/kernel/core/time
+import ./dbconn, ./dns_resolver, ../common, logos_delivery/kernel/common/time
 
 type
   # Database connection pool

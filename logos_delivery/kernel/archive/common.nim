@@ -1,6 +1,15 @@
 {.push raises: [].}
 
-import results, logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, time, message], ../common/paging
+import
+  results,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+  ],
+  ../common/paging
 
 ## Public API types
 

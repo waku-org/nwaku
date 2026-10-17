@@ -14,11 +14,11 @@ import
   secp256k1
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     node/peer_manager/peer_manager,
     kernel_lifecycle,
     factory/validator_signed,

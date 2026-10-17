@@ -12,7 +12,7 @@ include
 
 import
   logos_delivery/kernel/factory/conf_builder/web_socket_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/waku_conf_builder
+  logos_delivery/kernel/factory/conf_builder/conf_builder
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(

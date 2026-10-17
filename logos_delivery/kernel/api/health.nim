@@ -39,7 +39,7 @@ proc setConnectionStatusAdjuster*(self: Kernel, adjuster: ConnectionStatusAdjust
     return
   self.healthMonitor.adjustConnectionStatus = adjuster
 
-func reportedProtocolHealth*(self: Kernel, protocol: WakuProtocol): ProtocolHealth =
+func reportedProtocolHealth*(self: Kernel, protocol: ProtocolName): ProtocolHealth =
   ## The record the health monitor stored for `protocol` on its last pass.
   ## The last `EventProtocolHealthChange` for `protocol` carried the same
   ## status. Before the first pass the status is `NOT_MOUNTED`.

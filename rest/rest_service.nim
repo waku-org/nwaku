@@ -19,9 +19,9 @@ import
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[kernel, api/relay],
   logos_delivery/kernel/[node/health_monitor/node_health_monitor],
-  logos_delivery/kernel/discovery/waku_discv5,
+  logos_delivery/kernel/discovery/discv5,
   logos_delivery/kernel/
-    [core/topics, core/topics/pubsub_topic, core/topics/sharding, core/topics/sharding],
+    [node/subscription_manager, topics/pubsub_topic, topics/sharding],
   logos_delivery/kernel/protocols/relay/protocol
 import
   rest/message_cache,

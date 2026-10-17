@@ -6,7 +6,7 @@
 
 import nimcrypto, std/tables, stew/endians2, results, stew/byteutils
 
-import logos_delivery/kernel/core/topics/content_topic, logos_delivery/kernel/core/topics/pubsub_topic
+import logos_delivery/kernel/topics/content_topic, logos_delivery/kernel/topics/pubsub_topic
 
 # TODO: this is autosharding, not just "sharding"
 type Sharding* = object

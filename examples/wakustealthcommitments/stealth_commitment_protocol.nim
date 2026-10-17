@@ -4,7 +4,7 @@ import
   results,
   logos_delivery/kernel/[
     common/logging,
-    node/waku_switch,
+    node/switch,
     kernel,
     api/filter,
     api/lightpush,

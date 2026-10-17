@@ -14,14 +14,14 @@ import
 import
   logos_delivery/kernel/[
     kernel,
-    discovery/waku_discv5,
+    discovery/discv5,
     net/auto_port,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
     node/peer_manager/peer_manager,
-    core/peers,
+    node/peer_manager/peers,
     protocols/codecs,
   ],
   ../testlib/[futures, wakucore, assertions]

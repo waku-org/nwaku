@@ -6,7 +6,7 @@ import brokers/broker_implement
 import
   logos_delivery/kernel/discovery/self_advertisement,
   logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/enr/capabilities
 import tools/confutils/cli_args
 

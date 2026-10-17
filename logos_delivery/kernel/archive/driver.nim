@@ -1,7 +1,15 @@
 {.push raises: [].}
 
 import results, chronos
-import logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, time, message], logos_delivery/kernel/archive/common
+import
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+  ],
+  logos_delivery/kernel/archive/common
 
 const DefaultPageSize*: uint = 25
 

@@ -2,7 +2,7 @@
 
 import std/sets
 import chronos, libp2p/peerid
-import logos_delivery/kernel/core/[ peers], ./health_monitor/topic_health
+import logos_delivery/kernel/[node/peer_manager/peers], ./health_monitor/topic_health
 
 type EdgeFilterSubState* = object
   peers*: seq[RemotePeerInfo]

@@ -3,9 +3,9 @@ import
   logos_delivery/kernel/[
     kernel,
     api/lightpush,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
   ]

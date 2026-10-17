@@ -8,7 +8,7 @@
 ## fields in sync -- can react without polling a queue.
 
 import brokers/event_broker
-import logos_delivery/kernel/core/topics/pubsub_topic
+import logos_delivery/kernel/topics/pubsub_topic
 
 export event_broker, pubsub_topic
 

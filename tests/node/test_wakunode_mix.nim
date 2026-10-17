@@ -9,15 +9,14 @@ import libp2p_mix, libp2p_mix/[curve25519, mix_metrics]
 
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic,
-    core/peers,
-    common/waku_protocol,
+    topics/pubsub_topic,
+    node/peer_manager/peers,
+    node/health_monitor/protocol_health,
     net/net_config,
     node/enr_addresses,
     node/peer_manager/peer_manager,
     kernel_lifecycle,
     node/health_monitor/health_status,
-    node/health_monitor/protocol_health,
     node/health_monitor/node_health_monitor,
     protocols/mix/protocol,
     protocols/mix/protocol_metrics,
@@ -40,7 +39,7 @@ proc mountTestMix(node: Kernel) {.async.} =
     raiseAssert "Failed to mount mix: " & $error
 
 proc mixHealth(node: Kernel): ProtocolHealth =
-  NodeHealthMonitor.new(node).getSyncProtocolHealthInfo(WakuProtocol.MixProtocol)
+  NodeHealthMonitor.new(node).getSyncProtocolHealthInfo(ProtocolName.MixProtocol)
 
 suite "Waku Mix - the node's own hop":
   asyncTest "the hop follows the bound port once the node starts":

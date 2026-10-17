@@ -26,8 +26,8 @@ import
   logos_delivery/api/conf/messaging_node_conf,
   logos_delivery/kernel/net/nat_strategy,
   logos_delivery/kernel/factory/[
-    waku_conf,
-    conf_builder/waku_conf_builder,
+    conf,
+    conf_builder/conf_builder,
     conf_builder/filter_service_conf_builder,
     conf_builder/store_sync_conf_builder,
     conf_builder/store_service_conf_builder,
@@ -51,8 +51,8 @@ import
     enr/capabilities,
     enr/sharding,
     node/peer_manager/peer_manager,
-    core/topics/pubsub_topic,
-    core/message,
+    topics/pubsub_topic,
+    protocols/message,
     protocols/mix/protocol,
   ],
   ./entry_nodes

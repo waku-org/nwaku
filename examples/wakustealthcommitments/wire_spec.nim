@@ -3,14 +3,12 @@ import confutils, chronicles, chronos, results
 
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/time,
-    core/message,
-    core/peers,
-    core/multiaddrstr,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     common/protobuf,
   ]

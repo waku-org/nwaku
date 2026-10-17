@@ -21,7 +21,16 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, time, message, peers], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    topics/content_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/node/health_monitor/topic_health,
   logos_delivery/kernel/requests/health_requests,
   logos_delivery/kernel/api/events/health_events,

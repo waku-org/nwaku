@@ -3,10 +3,10 @@
 import std/[sequtils, times], results, testutils/unittests, chronos
 import
   logos_delivery/kernel/[
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
     archive/driver,
     archive/retention_policy,
     archive/retention_policy/retention_policy_time,

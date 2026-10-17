@@ -16,12 +16,12 @@ import chronos, chronos/asyncsync
 import
   ../../logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    node/peer_manager/peers,
     protocols/codecs,
-    core/message,
+    protocols/message,
     protocols/store_sync/common,
     protocols/store_sync/codec,
     protocols/store_sync/storage/range_processing,

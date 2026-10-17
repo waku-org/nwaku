@@ -5,7 +5,12 @@ import std/[sequtils, json], testutils/unittests, results, chronos, metrics
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
   logos_delivery/kernel/protocols/filter/
     [common, client, subscriptions, protocol, protocol_metrics, rpc_codec],
   ../testlib/[wakucore, testasync, testutils, futures, sequtils, wakunode],

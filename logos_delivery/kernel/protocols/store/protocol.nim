@@ -13,7 +13,7 @@ import
   libp2p/stream/connection,
   metrics
 import
-  logos_delivery/kernel/core/[message],
+  logos_delivery/kernel/[protocols/message],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   ./common,

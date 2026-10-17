@@ -24,18 +24,17 @@ import
   logos_delivery/kernel/[
     protocols/relay/protocol as relay_protocol,
     node/health_monitor/topic_health,
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/time,
-    core/message,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    common/time,
+    protocols/message,
     protocols/codecs,
     rln/markers,
     rln/protocol_metrics,
     rln/rln_plugin,
     kernel,
-    node/subscription_manager,
     node/peer_manager/peer_manager,
     rln/types,
   ]
@@ -53,21 +52,21 @@ import results, chronos, chronicles, secp256k1, stew/byteutils
 
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/pubsub_topic,
-    core/message,
+    node/subscription_manager,
+    topics/pubsub_topic,
+    protocols/message,
     protocols/relay/protocol,
-    factory/waku_conf,
+    factory/conf,
     factory/validator_signed,
   ]
 
 proc getTopicOfSubscriptionEvent(
-    node: Kernel, subscription: SubscriptionEvent
+    self: Kernel, subscription: SubscriptionEvent
 ): Result[(PubsubTopic, Opt[ContentTopic]), string] =
   case subscription.kind
   of ContentSub, ContentUnsub:
-    if node.wakuAutoSharding.isSome():
-      let shard = node.wakuAutoSharding.get().getShard((subscription.topic)).valueOr:
+    if self.wakuAutoSharding.isSome():
+      let shard = self.wakuAutoSharding.get().getShard((subscription.topic)).valueOr:
           return err("Autosharding error: " & error)
       return ok(($shard, Opt.some(subscription.topic)))
     else:
@@ -79,7 +78,7 @@ proc getTopicOfSubscriptionEvent(
     return err("Unsupported subscription type in relay getTopicOfSubscriptionEvent")
 
 proc subscribe*(
-    node: Kernel, subscription: SubscriptionEvent, handler: WakuRelayHandler
+    self: Kernel, subscription: SubscriptionEvent, handler: WakuRelayHandler
 ): Result[void, string] =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
@@ -87,11 +86,11 @@ proc subscribe*(
   ## but no app handler will be registered at this time (it can be registered later with
   ## another call to this proc for the same gossipsub topic).
 
-  if isNil(node.protocols.relay):
+  if isNil(self.protocols.relay):
     debug "Invalid API call to `subscribe`. WakuRelay not mounted."
     return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
+  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
     debug "Failed to decode subscription event", error = error
     return err("Failed to decode subscription event: " & error)
 
@@ -99,47 +98,47 @@ proc subscribe*(
   #if contentTopicOp.isSome():
   #  return
   #    node.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
-  return node.subscriptionManager.subscribeShard(pubsubTopic, handler)
+  return self.subscriptionManager.subscribeShard(pubsubTopic, handler)
 
-proc unsubscribe*(node: Kernel, subscription: SubscriptionEvent): Result[void, string] =
+proc unsubscribe*(self: Kernel, subscription: SubscriptionEvent): Result[void, string] =
   ## Unsubscribes from a specific PubSub or Content topic.
   ## This will both unsubscribe from the relay mesh and remove the app handler, if any.
   ## NOTE: This works because using MAPI and Kernel API at the same time is unsupported.
 
-  if isNil(node.protocols.relay):
+  if isNil(self.protocols.relay):
     debug "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
+  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
     debug "Failed to decode unsubscribe event", error = error
     return err("Failed to decode unsubscribe event: " & error)
 
   # strict version
   #if contentTopicOp.isSome():
   #  return node.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
-  return node.subscriptionManager.unsubscribeAll(pubsubTopic)
+  return self.subscriptionManager.unsubscribeAll(pubsubTopic)
 
 proc isSubscribed*(
-    node: Kernel, subscription: SubscriptionEvent
+    self: Kernel, subscription: SubscriptionEvent
 ): Result[bool, string] =
-  if node.protocols.relay.isNil():
+  if self.protocols.relay.isNil():
     debug "Invalid API call to `isSubscribed`. WakuRelay not mounted."
     return err("Invalid API call to `isSubscribed`. WakuRelay not mounted.")
 
-  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(node, subscription).valueOr:
+  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
     debug "Failed to decode subscription event", error = error
     return err("Failed to decode subscription event: " & error)
 
-  return ok(node.protocols.relay.isSubscribed(pubsubTopic))
+  return ok(self.protocols.relay.isSubscribed(pubsubTopic))
 
 proc publish*(
-    node: Kernel, pubsubTopicOp: Opt[PubsubTopic], message: WakuMessage
+    self: Kernel, pubsubTopicOp: Opt[PubsubTopic], message: WakuMessage
 ): Future[Result[int, string]] {.async, gcsafe.} =
   ## Publish a `WakuMessage`. Pubsub topic contains; none, a named or static shard.
   ## `WakuMessage` should contain a `contentTopic` field for light node functionality.
   ## It is also used to determine the shard.
 
-  if node.protocols.relay.isNil():
+  if self.protocols.relay.isNil():
     let msg =
       "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
     debug "Publish error", err = msg
@@ -147,19 +146,19 @@ proc publish*(
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
-    if node.wakuAutoSharding.isNone():
+    if self.wakuAutoSharding.isNone():
       return err("Pubsub topic must be specified when static sharding is enabled.")
-    node.wakuAutoSharding.get().getShard(message.contentTopic).valueOr:
+    self.wakuAutoSharding.get().getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
       return err(msg)
 
-  let numPeers = (await node.protocols.relay.publish(pubsubTopic, message)).valueOr:
+  let numPeers = (await self.protocols.relay.publish(pubsubTopic, message)).valueOr:
     debug "waku.relay did not publish", error = error
     # Todo: If NoPeersToPublish, we might want to return ok(0) instead!!!
     return err("publish failed in relay: " & $error)
 
   debug "waku.relay published",
-    peerId = node.peerId,
+    peerId = self.peerId,
     pubsubTopic = pubsubTopic,
     msg_hash = pubsubTopic.computeMessageHash(message).to0xHex(),
     publishTime = getNowInNanosecondTime(),
@@ -169,32 +168,32 @@ proc publish*(
   ok(numPeers)
 
 proc mountRelay*(
-    node: Kernel,
+    self: Kernel,
     peerExchangeHandler = Opt.none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ): Future[Result[void, string]] {.async.} =
-  if not node.protocols.relay.isNil():
+  if not self.protocols.relay.isNil():
     debug "wakuRelay already mounted, skipping"
     return err("wakuRelay already mounted, skipping")
 
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
-  node.protocols.relay = WakuRelay.new(node.switch, maxMessageSize).valueOr:
+  self.protocols.relay = WakuRelay.new(self.switch, maxMessageSize).valueOr:
     error "failed mounting relay protocol", error = error
     return err("failed mounting relay protocol: " & error)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
-    node.protocols.relay.parameters.enablePX = true
+    self.protocols.relay.parameters.enablePX = true
       # Feature flag for peer exchange in nim-libp2p
-    node.protocols.relay.routingRecordsHandler.add(peerExchangeHandler.get())
+    self.protocols.relay.routingRecordsHandler.add(peerExchangeHandler.get())
 
-  if node.started:
-    await node.protocols.relay.start()
-    await node.reconnectRelayPeers()
+  if self.started:
+    await self.protocols.relay.start()
+    await self.reconnectRelayPeers()
 
-  node.switch.mount(node.protocols.relay, protocolMatcher(WakuRelayCodec))
+  self.switch.mount(self.protocols.relay, protocolMatcher(WakuRelayCodec))
 
   debug "relay mounted successfully"
   return ok()
@@ -202,7 +201,7 @@ proc mountRelay*(
   ## Waku RLN Relay
 
 proc registerRlnValidator(
-    node: Kernel,
+    self: Kernel,
     plugin: RlnPlugin,
     commonConf: RlnCommonConf,
     spamHandler = Opt.none(SpamHandler),
@@ -211,7 +210,7 @@ proc registerRlnValidator(
   ## the mounted backend's `validateProof`; the validator never names a backend.
   info "Setting rln validator"
 
-  if node.protocols.relay.isNil():
+  if self.protocols.relay.isNil():
     info "WakuRelay not mounted; RLN validator not set"
     return
 
@@ -256,18 +255,18 @@ proc registerRlnValidator(
       return pubsub.ValidationResult.Reject
 
   debug "Registering RLN validator"
-  node.protocols.relay.addValidator(validator, RlnValidatorErrorMsg)
+  self.protocols.relay.addValidator(validator, RlnValidatorErrorMsg)
 
 proc mountRln*(
-    node: Kernel,
+    self: Kernel,
     plugin: RlnPlugin,
     commonConf: RlnCommonConf,
     spamHandler = Opt.none(SpamHandler),
 ) =
   ## Mounts an RLN backend on `node`: records its plugin and registers the
   ## RLN relay validator.
-  node.protocols.rlnPlugin = Opt.some(plugin)
-  node.registerRlnValidator(plugin, commonConf, spamHandler)
+  self.protocols.rlnPlugin = Opt.some(plugin)
+  self.registerRlnValidator(plugin, commonConf, spamHandler)
 
 proc relayPublish*(
     self: Kernel, pubsubTopic: PubsubTopic, message: WakuMessage, timeoutMs: uint32

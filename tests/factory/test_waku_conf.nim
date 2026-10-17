@@ -10,8 +10,8 @@ import
   results,
   testutils/unittests
 import
-  logos_delivery/kernel/factory/waku_conf,
-  logos_delivery/kernel/factory/conf_builder/waku_conf_builder,
+  logos_delivery/kernel/factory/conf,
+  logos_delivery/kernel/factory/conf_builder/conf_builder,
   logos_delivery/kernel/factory/conf_builder/store_sync_conf_builder,
   logos_delivery/kernel/factory/conf_builder/store_service_conf_builder,
   logos_delivery/kernel/factory/conf_builder/discv5_conf_builder,
@@ -23,7 +23,7 @@ import
   logos_delivery/kernel/enr/capabilities,
   logos_delivery/kernel/common/rate_limit/setting,
   logos_delivery/kernel/common/utils/parse_size_units,
-  logos_delivery/kernel/core/message
+  logos_delivery/kernel/protocols/message
 
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":

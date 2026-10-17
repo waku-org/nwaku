@@ -1,5 +1,5 @@
 import chronicles, results, stint, stew/[endians2]
-import ../waku_conf
+import ../conf
 
 logScope:
   topics = "waku conf builder rln relay"

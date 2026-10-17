@@ -5,11 +5,11 @@ import results, std/[sets, sequtils], testutils/unittests, chronos, libp2p/crypt
 import
   logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/store/protocol,

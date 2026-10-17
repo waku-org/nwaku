@@ -18,7 +18,10 @@ import
   libp2p/peerinfo,
   libp2p/routing_record,
   json_serialization
-import logos_delivery/kernel/[common/enr/typed_record, enr/capabilities, enr/multiaddr, enr/sharding], ../common/protobuf
+import
+  logos_delivery/kernel/
+    [common/enr/typed_record, enr/capabilities, enr/multiaddr, enr/sharding],
+  logos_delivery/kernel/common/protobuf
 
 type
   Connectedness* = enum
@@ -417,3 +420,19 @@ proc getShards*(peer: RemotePeerInfo): seq[uint16] =
     return shards.get().shardIds
 
   return @[]
+
+proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =
+  # Constructs a multiaddress with both wire address and p2p identity
+  return $wireaddr & "/p2p/" & $peerId
+
+proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
+  # Constructs a multiaddress with both location (wire) address and p2p identity
+  if peerInfo.listenAddrs.len == 0:
+    return ""
+  return constructMultiaddrStr(peerInfo.listenAddrs[0], peerInfo.peerId)
+
+proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
+  # Constructs a multiaddress with both location (wire) address and p2p identity
+  if remotePeerInfo.addrs.len == 0:
+    return ""
+  return constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)

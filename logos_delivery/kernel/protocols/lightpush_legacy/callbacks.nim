@@ -2,7 +2,8 @@
 
 import results, chronos, chronicles
 import
-  logos_delivery/kernel/core/[ message], logos_delivery/kernel/protocols/relay/protocol,
+  logos_delivery/kernel/[protocols/message],
+  logos_delivery/kernel/protocols/relay/protocol,
   ./common,
   ./protocol_metrics
 

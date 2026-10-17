@@ -14,11 +14,11 @@ import
 import
   logos_delivery/kernel/rln/types as rln_api_types,
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/rln_evm/group_manager,
@@ -30,8 +30,6 @@ import
   ../testlib/[wakucore, wakunode, testasync, testutils],
   ./utils_onchain,
   ./rln/waku_rln_relay_utils
-
-from std/times import epochTime
 
 proc waitForNullifierLog(rln: RlnEvm, expectedLen: int): Future[bool] {.async.} =
   ## Helper function

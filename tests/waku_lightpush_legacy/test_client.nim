@@ -5,10 +5,10 @@ import std/[strscans, strutils], testutils/unittests, chronos, libp2p/crypto/cry
 import
   logos_delivery/kernel/[
     node/peer_manager/peer_manager,
-    core/topics/content_topic,
-    core/topics/pubsub_topic,
-    core/message,
-    core/peers,
+    topics/content_topic,
+    topics/pubsub_topic,
+    protocols/message,
+    node/peer_manager/peers,
     protocols/codecs,
     protocols/lightpush_legacy/protocol,
     protocols/lightpush_legacy/common,

@@ -3,20 +3,27 @@
 import std/strutils, results, chronicles, chronos
 import
   logos_delivery/kernel/archive/driver,
-  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/message,
   ../../common/databases/dburl,
   ../../common/databases/db_sqlite,
   ../../common/error_handling,
   logos_delivery/kernel/[archive/driver/sqlite_driver/sqlite_driver],
-  logos_delivery/kernel/archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  logos_delivery/kernel/[archive/driver/queue_driver/queue_driver, archive/driver/queue_driver/index]
+  logos_delivery/kernel/archive/driver/sqlite_driver/migrations as
+    archive_driver_sqlite_migrations,
+  logos_delivery/kernel/
+    [archive/driver/queue_driver/queue_driver, archive/driver/queue_driver/index]
 
 export sqlite_driver, queue_driver, index
 
 when defined(postgres):
   import ## These imports add dependency with an external libpq library
-    logos_delivery/kernel/archive/driver/postgres_driver/migrations as archive_postgres_driver_migrations,
-    logos_delivery/kernel/[archive/driver/postgres_driver/postgres_driver, archive/driver/postgres_driver/partitions_manager, archive/driver/postgres_driver/postgres_healthcheck]
+    logos_delivery/kernel/archive/driver/postgres_driver/migrations as
+      archive_postgres_driver_migrations,
+    logos_delivery/kernel/[
+      archive/driver/postgres_driver/postgres_driver,
+      archive/driver/postgres_driver/partitions_manager,
+      archive/driver/postgres_driver/postgres_healthcheck,
+    ]
   export postgres_driver
 
 proc new*(

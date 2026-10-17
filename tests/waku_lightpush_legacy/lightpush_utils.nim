@@ -7,7 +7,7 @@ logScope:
 
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/[message],
+  logos_delivery/kernel/[protocols/message],
   logos_delivery/kernel/protocols/lightpush_legacy/[protocol, common],
   logos_delivery/kernel/protocols/lightpush_legacy/[client, common],
   logos_delivery/kernel/common/rate_limit/setting,

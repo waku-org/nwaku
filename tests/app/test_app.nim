@@ -8,11 +8,12 @@ import
   libp2p/[crypto/crypto, crypto/secp, multiaddress, peerinfo, switch],
   libp2p/services/natservice,
   tests/testlib/[wakucore, wakunode],
-  logos_delivery/kernel/factory/conf_builder/waku_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/conf_builder,
   logos_delivery/kernel/factory/conf_builder/discv5_conf_builder,
   logos_delivery/kernel/factory/conf_builder/web_socket_conf_builder,
   logos_delivery/kernel/factory/conf_builder/quic_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/metrics_server_conf_builder
+  logos_delivery/kernel/factory/conf_builder/metrics_server_conf_builder,
+  logos_delivery/kernel/factory/state_info
 
 include
   logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/common/enr/typed_record

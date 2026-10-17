@@ -19,11 +19,11 @@ import logos_delivery/kernel/api/mix
 
 import
   logos_delivery/kernel/[
-    core/topics,
-    core/topics/pubsub_topic,
-    core/time,
-    core/message,
-    core/peers,
+    node/subscription_manager,
+    topics/pubsub_topic,
+    common/time,
+    protocols/message,
+    node/peer_manager/peers,
     node/peer_manager/peer_manager,
     kernel,
     api/lightpush,
@@ -31,7 +31,7 @@ import
     protocols/mix/protocol,
     protocols/lightpush/common,
   ],
-  logos_delivery/kernel/node/peer_manager/waku_peer_store,
+  logos_delivery/kernel/node/peer_manager/peer_store,
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/api/publish,
   logos_delivery/api/types,

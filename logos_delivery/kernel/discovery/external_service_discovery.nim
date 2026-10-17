@@ -29,7 +29,14 @@ import
   logos_delivery/kernel/requests/node_state_requests,
   logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
   logos_delivery/kernel/discovery/plugin/service_discovery_worker,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, message, peers], logos_delivery/kernel/node/peer_manager/peer_manager
+  logos_delivery/kernel/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    protocols/message,
+    node/peer_manager/peers,
+  ],
+  logos_delivery/kernel/node/peer_manager/peer_manager
 
 export peer_discovery_interface, service_discovery_accessor
 

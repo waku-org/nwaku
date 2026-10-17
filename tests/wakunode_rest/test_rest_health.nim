@@ -17,7 +17,7 @@ import
   rest/kernel_api/health/client as health_rest_client
 import
   logos_delivery/kernel/[
-    common/waku_protocol,
+    node/health_monitor/protocol_health,
     kernel_lifecycle,
     kernel as waku_node2, # TODO: Remove after moving `git_version` to the app code.
     rln/rln_evm/group_manager,

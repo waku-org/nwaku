@@ -3,15 +3,15 @@
 import chronos, libp2p/switch
 import
   logos_delivery/kernel/[
-    core/peers,
+    node/peer_manager/peers,
     node/peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/client,
     protocols/rendezvous/protocol,
     protocols/rendezvous/client as rendezvous_client,
     discovery/peer_discovery_interface,
-    discovery/waku_kademlia,
-    discovery/waku_discv5,
+    discovery/kademlia,
+    discovery/discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
   ]
