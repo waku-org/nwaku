@@ -2,7 +2,6 @@ import results, libp2p/crypto/crypto
 import
   chronos,
   chronicles,
-  bearssl/rand,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service
 

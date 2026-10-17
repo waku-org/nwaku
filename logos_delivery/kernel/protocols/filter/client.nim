@@ -4,15 +4,18 @@ import results, libp2p/crypto/crypto
 {.push raises: [].}
 
 import
-  chronicles,
-  chronos,
-  libp2p/protocols/protocol,
-  bearssl/rand,
-  stew/byteutils,
-  brokers/broker_context
+  chronicles, chronos, libp2p/protocols/protocol, stew/byteutils, brokers/broker_context
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager, core/topics/content_topic, core/topics/pubsub_topic, core/message, core/peers, protocols/codecs, api/events/filter_subscribe_events],
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    api/events/filter_subscribe_events,
+  ],
   ./common,
   ./protocol_metrics,
   ./rpc_codec,

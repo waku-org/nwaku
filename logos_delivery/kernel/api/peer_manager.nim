@@ -2,8 +2,8 @@
 {.push raises: [].}
 
 import std/[sequtils, strutils]
-import results, chronos, chronicles
-import libp2p/[peerid, peerstore]
+import results, chronos
+import libp2p/[peerid]
 
 import logos_delivery/kernel/kernel_lifecycle
 import logos_delivery/kernel/[core/peers, node/peer_manager/peer_manager]

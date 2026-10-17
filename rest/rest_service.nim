@@ -17,7 +17,7 @@ import
   logos_delivery/logos_delivery,
   rest/rest_server_conf,
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/[kernel, node/node/relay],
+  logos_delivery/kernel/[kernel, api/relay],
   logos_delivery/kernel/[node/health_monitor/node_health_monitor],
   logos_delivery/kernel/discovery/waku_discv5,
   logos_delivery/kernel/

@@ -1,16 +1,13 @@
 {.used.}
 
 import
-  std/[algorithm, sequtils, tables],
+  std/[algorithm],
   testutils/unittests,
   stew/byteutils,
   chronos,
-  chronicles,
   libp2p/switch,
   libp2p/peerId,
   libp2p/crypto/crypto,
-  libp2p/multistream,
-  libp2p/muxers/muxer,
   eth/keys,
   eth/p2p/discoveryv5/enr
 import

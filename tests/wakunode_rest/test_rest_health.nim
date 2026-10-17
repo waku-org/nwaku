@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[tempfiles, osproc],
+  std/[osproc],
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -27,7 +27,6 @@ import
     node/health_monitor/health_status,
     node/health_monitor/health_report,
   ],
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]

@@ -11,7 +11,7 @@ import
   logos_delivery/kernel/[
     common/logging,
     kernel,
-    node/node/lightpush,
+    api/lightpush,
     node/peer_manager/peer_manager,
     core/topics/content_topic,
     core/topics/pubsub_topic,
@@ -26,7 +26,6 @@ import
   ./tester_config,
   ./tester_message,
   ./lpt_metrics,
-  ./diagnose_connections,
   ./service_peer_management,
   ./publisher_base,
   ./legacy_publisher,

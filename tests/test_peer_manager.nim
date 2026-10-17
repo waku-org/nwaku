@@ -37,7 +37,6 @@ import
   ],
   ./testlib/common,
   ./testlib/testasync,
-  ./testlib/testutils,
   ./testlib/wakucore,
   ./testlib/wakunode
 

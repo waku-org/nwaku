@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[net, sysrand, random, strformat, strutils, sequtils],
+  std/[net, sysrand, random, strutils, sequtils],
   chronicles,
   chronos,
   metrics,
@@ -15,7 +15,7 @@ import
   logos_delivery/kernel/[
     common/enr,
     kernel,
-    node/node/peer_exchange,
+    api/peer_exchange,
     node/peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     core/multiaddrstr,
@@ -24,7 +24,6 @@ import
     enr/sharding,
   ],
   ./tester_config,
-  ./diagnose_connections,
   ./lpt_metrics
 
 logScope:

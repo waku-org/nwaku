@@ -1,6 +1,6 @@
 {.used.}
 
-import chronos, chronicles
+import chronos
 
 import
   logos_delivery/kernel/

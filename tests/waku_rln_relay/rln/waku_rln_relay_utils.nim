@@ -1,4 +1,3 @@
-import std/tempfiles
 import results
 
 import

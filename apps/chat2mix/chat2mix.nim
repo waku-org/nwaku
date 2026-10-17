@@ -7,6 +7,7 @@ when not (compileOption("threads")):
 {.push raises: [].}
 
 import std/[strformat, strutils, times, random, sequtils, sets]
+import logos_delivery/kernel/api/mix
 import
   confutils,
   chronicles,

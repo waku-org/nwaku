@@ -1,7 +1,7 @@
 ## Waku layer API — debug / info operations.
 {.push raises: [].}
 
-import results, chronos, chronicles, metrics
+import results, chronos, metrics
 import eth/p2p/discoveryv5/enr
 import libp2p/peerid # pull PeerId pretty string formatting
 

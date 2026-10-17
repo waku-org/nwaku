@@ -8,7 +8,6 @@ import
   std/[net, strutils, sequtils],
   testutils/unittests,
   chronos,
-  chronicles,
   results,
   metrics,
   stew/byteutils,
@@ -16,6 +15,7 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p_mix/[curve25519, mix_protocol, mix_metrics]
+import logos_delivery/kernel/api/mix
 
 import
   logos_delivery/kernel/[
@@ -26,8 +26,8 @@ import
     core/peers,
     node/peer_manager/peer_manager,
     kernel,
-    node/node/lightpush,
-    node/node/relay,
+    api/lightpush,
+    api/relay,
     protocols/mix/protocol,
     protocols/lightpush/common,
   ],

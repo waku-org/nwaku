@@ -5,11 +5,12 @@ import
   chronos,
   results,
   libp2p/[multiaddress, protocols/ping],
-  libp2p_mix,
   mix_rln_spam_protection/module_api
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic, archive/archive, protocols/relay/protocol,
+    core/topics/pubsub_topic,
+    archive/archive,
+    protocols/relay/protocol,
     protocols/store/protocol as store,
     protocols/store/client as store_client,
     protocols/store/resume,

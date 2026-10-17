@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[options, osproc, sequtils, times]
+import std/[osproc, sequtils, times]
 import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/kernel/[

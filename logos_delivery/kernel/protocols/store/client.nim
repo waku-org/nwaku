@@ -1,13 +1,7 @@
 import libp2p/crypto/crypto
 {.push raises: [].}
 
-import
-  std/[tables, sequtils, algorithm, random],
-  results,
-  chronicles,
-  chronos,
-  metrics,
-  bearssl/rand
+import std/[tables, sequtils, random], results, chronicles, chronos, metrics
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/common/utils/requests,

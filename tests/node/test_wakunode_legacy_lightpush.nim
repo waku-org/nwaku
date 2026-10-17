@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[tempfiles, net, osproc, strutils],
+  std/[net, osproc, strutils],
   testutils/unittests,
   chronos,
   std/strformat,
@@ -27,7 +27,7 @@ import
     rln/rln_evm/rln_evm,
     rln/rln_plugin,
   ],
-  ../testlib/[wakucore, wakunode, testasync, futures, testutils],
+  ../testlib/[wakucore, wakunode, testasync],
   ../resources/payloads,
   ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 

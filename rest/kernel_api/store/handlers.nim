@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/options, std/[strformat, strutils, sugar], results
+import std/options, std/[strformat, strutils], results
 
 import chronicles, uri, json_serialization, presto/route
 import
@@ -13,7 +13,7 @@ import
     protocols/store/common,
     protocols/store/self_req_handler,
     kernel,
-    node/node/store,
+    api/store,
     node/peer_manager/peer_manager,
     common/paging,
   ]

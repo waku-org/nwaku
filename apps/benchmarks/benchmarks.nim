@@ -1,14 +1,8 @@
-import std/[strutils, times, sequtils, osproc], math, results, testutils/unittests
+import std/[strutils, times], math, results
 
 import
   logos_delivery/kernel/[
-    rln/rln_evm/protocol_types,
-    rln/rln_evm/librln_interface,
-    rln/rln_evm/wrappers,
-    rln/markers,
-    rln/rln_evm/group_manager,
-    rln/rln_evm/conversion_utils,
-    rln/rln_evm/rln_evm,
+    rln/rln_evm/protocol_types, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils
   ],
   tests/waku_rln_relay/utils_onchain
 

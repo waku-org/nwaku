@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[sets, random, math, algorithm],
+  std/[sets, random, algorithm],
   testutils/unittests,
   chronos,
   metrics,
@@ -13,17 +13,13 @@ import
   libp2p/varint
 from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
-import nimcrypto
 import
   ../../logos_delivery/kernel/[
     node/peer_manager/peer_manager,
     core/topics/content_topic,
     core/topics/pubsub_topic,
-    core/topics/sharding,
-    core/topics,
     core/time,
     core/peers,
-    core/multiaddrstr,
     protocols/codecs,
     core/message,
     protocols/store_sync/common,

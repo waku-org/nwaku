@@ -1,11 +1,11 @@
 {.used.}
 
-import results, std/[os, sequtils, strutils, sets, tempfiles]
+import results, std/[os, sequtils, sets, tempfiles]
 import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo], metrics
 import brokers/broker_context
 import
   ../testlib/[
-    common, futures, wakucore, wakunode, wakunodeconf, testasync, short_intervals,
+    futures, wakucore, wakunode, wakunodeconf, testasync, short_intervals,
     rest_requests, rest_service,
   ]
 import ../waku_archive/archive_utils

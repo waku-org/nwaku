@@ -5,13 +5,11 @@ import
   std/[sequtils, algorithm, net],
   results,
   chronos,
-  chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/enr as ethEnr,
-  libp2p/crypto/secp,
-  libp2p/protocols/rendezvous
+  libp2p/crypto/secp
 
 import
   logos_delivery/kernel/[
@@ -27,10 +25,10 @@ import
     factory/conf_builder/discv5_conf_builder,
     kernel_lifecycle,
     kernel,
-    node/node/peer_exchange,
+    api/peer_exchange,
     node/peer_manager/peer_manager,
   ],
-  ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],
+  ../testlib/[wakucore, testasync, futures, wakunode, testutils],
   ../waku_enr/utils,
   ./utils as discv5_utils
 

@@ -26,8 +26,7 @@ import
   ../common/rate_limit/setting,
   logos_delivery/kernel/enr/capabilities,
   ./networks_config,
-  logos_delivery/kernel/protocols/mix/protocol,
-  ./conf_builder/kademlia_discovery_conf_builder
+  logos_delivery/kernel/protocols/mix/protocol
 
 export RlnConf, RlnCreds, RlnCommonConf, RestServerConf, Discv5Conf, MetricsServerConf
 # Export only the NatStrategy type and its parse and render procs.

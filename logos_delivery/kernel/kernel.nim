@@ -24,7 +24,6 @@ import
   libp2p/utils/offsettedseq,
   libp2p_mix,
   libp2p_mix/mix_protocol,
-  libp2p_mix/spam_protection,
   mix_rln_spam_protection/module_api,
   metrics/chronos_httpserver,
   brokers/broker_context,
@@ -40,10 +39,17 @@ import
     factory/app_callbacks,
     persistency/persistency,
     protocols/protocols,
-    core/topics/content_topic, core/topics/pubsub_topic, core/topics/sharding, core/message, core/peers, protocols/codecs,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    protocols/codecs,
     protocols/relay/protocol,
     node/health_monitor/topic_health,
-    archive/common, archive/archive, archive/retention_policy,
+    archive/common,
+    archive/archive,
+    archive/retention_policy,
     protocols/store/protocol as store,
     protocols/store/client as store_client,
     protocols/store/common as store_common,
@@ -61,8 +67,9 @@ import
     protocols/rendezvous/waku_peer_record,
     protocols/lightpush_legacy/client as legacy_ligntpuhs_client,
     protocols/lightpush/client as ligntpuhs_client,
-    protocols/lightpush/rpc_codec as lightpush_protocol,
-    common/enr/typed_record, enr/capabilities, enr/sharding,
+    common/enr/typed_record,
+    enr/capabilities,
+    enr/sharding,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/client,
@@ -362,8 +369,11 @@ proc new*(
     rateLimitSettings: rateLimitSettings,
     ports: BoundPorts.init(),
     protocols: Protocols(),
-    discovery: Discovery(),
+    discovery: Discovery(peerManager: peerManager, switch: switch),
   )
+
+  node.discovery.isStarted = proc(): bool {.gcsafe, raises: [].} =
+    node.started
 
   if netConfig.extMultiAddrsOnly:
     ## libp2p announces this list as is. NetConfig.init guarantees concrete entries.
@@ -481,40 +491,6 @@ proc mountAutoSharding*(
 ): Result[void, string] =
   node.mountAutoSharding(clusterId, Sharding.init(clusterId, shardCount).shards)
 
-proc getMixNodePoolSize*(node: Kernel): int =
-  ## The number of mix pool members a path can use; zero when mix is not mounted.
-  if node.protocols.mix.isNil():
-    return 0
-  return node.protocols.mix.poolSize()
-
-proc splitMixNodes(
-    node: Kernel, mixnodes: seq[MixNodePubInfo]
-): tuple[literals: seq[MixNodePubInfo], names: seq[MixNodeName], dropped: int] =
-  ## Splits a mix node list into literal entries, which the pool takes as they
-  ## are, and `dns4` names to resolve. Drops a bad multiaddress, and a name when
-  ## the node has no resolver.
-  var
-    literals: seq[MixNodePubInfo]
-    names: seq[MixNodeName]
-    dropped = 0
-  for mixnode in mixnodes:
-    let address = MultiAddress.init(mixnode.multiAddr).valueOr:
-      debug "Skipping a mix node with an invalid multiaddress",
-        multiAddr = mixnode.multiAddr, error = error
-      logos_delivery_mix_bootnode_resolve_failures.inc()
-      dropped.inc()
-      continue
-    if not DNS.matchPartial(address):
-      literals.add(mixnode)
-    elif node.switch.nameResolver.isNil():
-      debug "Skipping a mix node given by name: the node has no name resolver",
-        multiAddr = mixnode.multiAddr
-      logos_delivery_mix_bootnode_resolve_failures.inc()
-      dropped.inc()
-    else:
-      names.add((entry: mixnode, address: address))
-  return (literals, names, dropped)
-
 proc literalMixNodes(
     mixnode: MixNodePubInfo, addresses: seq[MultiAddress]
 ): seq[MixNodePubInfo] =
@@ -553,7 +529,7 @@ proc resolveMixNodeName(
     node.protocols.mix.addBootNodes(entries)
   return true
 
-proc resolveMixNodeNames(node: Kernel) {.async: (raises: [CancelledError]).} =
+proc resolveMixNodeNames*(node: Kernel) {.async: (raises: [CancelledError]).} =
   ## Resolves `mixNodeNames` in the background. Each node joins the pool when its
   ## own name answers, and all lookups share one `MixNodeResolveTimeout`.
   let names = node.protocols.mixNodeNames
@@ -592,51 +568,6 @@ proc resolveMixNodeNames(node: Kernel) {.async: (raises: [CancelledError]).} =
       resolved = resolved,
       timedOut = timedOut,
       timeout = MixNodeResolveTimeout
-
-proc mixNodesResolved*(node: Kernel) {.async: (raises: [CancelledError]).} =
-  ## Waits until the background lookup of the mix node names has finished.
-  if not node.protocols.mixNodeResolution.isNil():
-    await node.protocols.mixNodeResolution.join()
-
-proc mountMix*(
-    node: Kernel,
-    clusterId: uint16,
-    mixPrivKey: Curve25519Key,
-    mixnodes: seq[MixNodePubInfo],
-    spamProtection: Opt[SpamProtection] = Opt.none(SpamProtection),
-): Future[Result[void, string]] {.async.} =
-  info "Mounting mix protocol", nodeId = node.info #TODO log the config used
-
-  if node.announcedAddresses.len == 0:
-    return err("Trying to mount mix without having announced addresses")
-
-  let localaddrStr = node.announcedAddresses[0].toString().valueOr:
-    return err("Failed to convert multiaddress to string.")
-  info "local addr", localaddr = localaddrStr
-
-  let (literals, names, dropped) = node.splitMixNodes(mixnodes)
-
-  node.protocols.mix = WakuMix.new(
-    localaddrStr, node.peerManager, clusterId, mixPrivKey, literals, spamProtection
-  ).valueOr:
-    return err("Waku Mix protocol initialization failed: " & error)
-  #TODO: should we do the below only for exit node? Also, what if multiple protocols use mix?
-  node.protocols.mix.registerDestReadBehavior(
-    WakuLightPushCodec, readLp(lightpush_protocol.DefaultMaxPushResponseSize)
-  )
-  let catchRes = catch:
-    node.switch.mount(node.protocols.mix)
-  catchRes.isOkOr:
-    return err(error.msg)
-
-  if dropped > 0:
-    warn "Dropped mix nodes that cannot be resolved", dropped = dropped
-
-  # In the background, so a slow or dead DNS server does not hold the start.
-  if names.len > 0:
-    node.protocols.mixNodeNames = names
-    node.protocols.mixNodeResolution = node.resolveMixNodeNames()
-  return ok()
 
 proc mountKademlia*(node: Kernel, config: KademliaDiscoveryConf): Result[void, string] =
   if not node.discovery.kademlia.isNil():

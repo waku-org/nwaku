@@ -1,9 +1,9 @@
 {.used.}
 
-import results, std/[sequtils, times]
-import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo]
+import results, std/[sequtils]
+import chronos, testutils/unittests, libp2p/[switch, peerinfo]
 import brokers/broker_context
-import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
+import ../testlib/[wakucore, wakunode, wakunodeconf, testasync]
 
 import
   logos_delivery,

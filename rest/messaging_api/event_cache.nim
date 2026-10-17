@@ -12,7 +12,7 @@
 
 {.push raises: [].}
 
-import std/[tables, deques, options]
+import std/[tables, deques]
 import results, metrics
 import logos_delivery/kernel/core/time
 import rest/messaging_api/types

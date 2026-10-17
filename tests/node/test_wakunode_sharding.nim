@@ -1,9 +1,9 @@
 {.used.}
 
-import results, std/[sequtils, tempfiles], testutils/unittests, chronos, chronicles
+import results, std/[sequtils], testutils/unittests, chronos
 
 import
-  std/[sequtils, sets, tables, tempfiles],
+  std/[sequtils, sets, tables],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -29,7 +29,7 @@ import
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
+  ../testlib/[assertions, wakucore, wakunode, testasync, futures, testutils]
 
 const
   listenIp = parseIpAddress("0.0.0.0")

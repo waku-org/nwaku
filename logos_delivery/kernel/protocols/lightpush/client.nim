@@ -1,13 +1,22 @@
 import libp2p/crypto/crypto
 {.push raises: [].}
 
-import results, chronicles, chronos, metrics, bearssl/rand, stew/byteutils
+import results, chronicles, chronos, metrics, stew/byteutils
 import libp2p/peerid, libp2p/stream/connection
 import
   logos_delivery/kernel/core/peers,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/common/utils/requests,
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic, time, message, peers], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/core/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/content_topic,
+    topics/pubsub_topic,
+    time,
+    message,
+    peers,
+  ],
+  logos_delivery/kernel/protocols/codecs,
   ./common,
   ./protocol_metrics,
   ./rpc,

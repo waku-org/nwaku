@@ -5,7 +5,6 @@
 import
   results,
   std/[sequtils, sets, tables],
-  stew/byteutils,
   chronicles,
   chronos,
   libp2p/peerid,
@@ -13,7 +12,17 @@ import
   libp2p/protocols/pubsub/timedcache
 import
   logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/core/[ topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, message, peers], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/core/[
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    topics/content_topic,
+    topics/pubsub_topic,
+    topics/sharding,
+    message,
+    peers,
+  ],
+  logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/common/rate_limit/per_peer_limiter,
   ./[common, protocol_metrics, rpc_codec, rpc, subscriptions]
 

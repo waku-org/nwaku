@@ -8,17 +8,24 @@
 {.push raises: [].}
 
 import std/[tables, strutils]
+import logos_delivery/kernel/api/mix
 import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 
 import logos_delivery/kernel/kernel_lifecycle
 import
   logos_delivery/kernel/[
-    core/topics/pubsub_topic, core/message, core/peers, protocols/codecs,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
     rln/rln_api,
     rln/rln_plugin,
-    node/node/lightpush,
+    api/lightpush,
     node/peer_manager/peer_manager,
-    rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, protocols/lightpush/common,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    protocols/lightpush/common,
     protocols/lightpush/rpc,
     protocols/lightpush/callbacks,
     protocols/mix/protocol,

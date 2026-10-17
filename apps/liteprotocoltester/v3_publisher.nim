@@ -2,7 +2,7 @@ import results, chronos
 import
   logos_delivery/kernel/[
     kernel,
-    node/node/lightpush,
+    api/lightpush,
     core/topics/pubsub_topic,
     core/message,
     core/peers,

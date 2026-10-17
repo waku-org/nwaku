@@ -1,6 +1,7 @@
 {.used.}
 
 import std/[sequtils, strutils]
+import logos_delivery/kernel/api/mix
 import testutils/unittests, chronos, results, metrics
 import libp2p/[crypto/crypto, peerid, multiaddress]
 import libp2p/nameresolving/nameresolver

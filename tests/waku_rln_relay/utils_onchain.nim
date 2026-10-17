@@ -31,7 +31,7 @@ import
     rln/rln_evm/wrappers,
     rln/rln_evm/retry_wrapper,
     kernel,
-    node/node/relay,
+    api/relay,
     persistency/persistency,
   ],
   ../testlib/common

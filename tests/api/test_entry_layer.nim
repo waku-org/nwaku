@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[options, net, sequtils, sets, strutils, uri]
+import std/[net, sequtils, sets, strutils, uri]
 import chronos, metrics, testutils/unittests, presto, presto/client as presto_client
 import brokers/broker_context
 import logos_delivery

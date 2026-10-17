@@ -24,9 +24,25 @@ import
   logos_delivery/api/types,
   logos_delivery/api/kernel_api,
   logos_delivery/kernel/[
-    core/topics, core/topics/content_topic, core/topics/pubsub_topic, core/message, core/peers, node/waku_switch, kernel, node/node/filter, node/node/lightpush, node/node/store, node/node/relay, node/node/peer_exchange, node/node/ping,
-    archive/common, archive/archive, archive/retention_policy,
-    rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    node/waku_switch,
+    kernel,
+    api/filter,
+    api/lightpush,
+    api/store,
+    api/relay,
+    api/peer_exchange,
+    api/ping,
+    archive/common,
+    archive/archive,
+    archive/retention_policy,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     protocols/store/common,
     protocols/store/protocol,
     protocols/filter/common,
@@ -36,12 +52,15 @@ import
     enr/sharding,
     common/logging,
     node/peer_manager/peer_manager,
-    node/health_monitor/node_health_monitor, node/health_monitor/protocol_health, node/health_monitor/health_status, node/health_monitor/health_report,
+    node/health_monitor/node_health_monitor,
+    node/health_monitor/protocol_health,
+    node/health_monitor/health_status,
+    node/health_monitor/health_report,
     node/enr_addresses,
     net/net_config,
     node/metrics as node_metrics,
     node/subscription_manager,
-    node/node/mix_rln,
+    api/mix,
     discovery/waku_dnsdisc,
     discovery/waku_discv5,
     discovery/discv5_peer_discovery,
@@ -50,7 +69,6 @@ import
     discovery/autonat_service,
     requests/health_requests,
     requests/node_state_requests,
-    factory/node_factory,
     factory/internal_config,
     factory/app_callbacks,
     persistency/persistency,
@@ -63,7 +81,62 @@ import
 
 # Surfaces the Kernel API interface to consumers of the Waku layer.
 # `MessageSeenEvent` now lives in `events/kernel_events` (surfaced by the concentrator).
-export kernel_api, kernel, waku_switch, filter, lightpush, store, relay, peer_exchange, ping
+import
+  results,
+  std/sequtils,
+  chronicles,
+  chronos,
+  libp2p/peerid,
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/connectivity/relay/relay,
+  libp2p/nameresolving/dnsresolver,
+  libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
+  libp2p/extended_peer_record,
+  libp2p_mix/mix_protocol,
+  libp2p_mix/spam_protection,
+  mix_rln_spam_protection/module_api
+import logos_delivery/kernel/api/mix
+
+import
+  logos_delivery/kernel/factory/internal_config,
+  logos_delivery/kernel/rln/rln_lez/transport,
+  logos_delivery/kernel/factory/networks_config,
+  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/builder,
+  logos_delivery/kernel/factory/validator_signed,
+  logos_delivery/kernel/enr/sharding,
+  logos_delivery/kernel/[
+    kernel, api/filter, api/lightpush, api/store, api/relay, api/peer_exchange, api/ping
+  ],
+  logos_delivery/kernel/net/net_config,
+  logos_delivery/kernel/net/nat_config,
+  logos_delivery/kernel/core/[topics/pubsub_topic, topics/pubsub_topic, peers],
+  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/
+    [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm],
+  logos_delivery/kernel/rln/rln_plugin,
+  logos_delivery/kernel/rln/rln_lez/rln_lez,
+  logos_delivery/kernel/discovery/waku_dnsdisc,
+  logos_delivery/kernel/archive/retention_policy as policy,
+  logos_delivery/kernel/archive/retention_policy/builder as policy_builder,
+  logos_delivery/kernel/archive/driver as driver,
+  logos_delivery/kernel/archive/driver/builder as driver_builder,
+  logos_delivery/kernel/protocols/store/[common],
+  logos_delivery/kernel/protocols/store/common as store_common,
+  logos_delivery/kernel/protocols/filter/[common],
+  logos_delivery/kernel/protocols/peer_exchange/[protocol, common],
+  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/service_discovery,
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/node/peer_manager/peer_store/waku_peer_storage,
+  logos_delivery/kernel/node/peer_manager/peer_store/migrations as
+    peer_store_sqlite_migrations,
+  logos_delivery/kernel/protocols/lightpush_legacy/common,
+  logos_delivery/kernel/common/rate_limit/setting
+
+export
+  kernel_api, kernel, waku_switch, filter, lightpush, store, relay, peer_exchange, ping
 
 logScope:
   topics = "wakunode waku"
@@ -148,6 +221,486 @@ proc setupAppCallbacks(
     healthMonitor.onConnectionStatusChange = appCallbacks.connectionStatusChangeHandler
 
   return ok()
+
+## Peer persistence
+
+const PeerPersistenceDbUrl = "peers.db"
+proc setupPeerStorage(): Result[Opt[WakuPeerStorage], string] =
+  let db = ?SqliteDatabase.new(PeerPersistenceDbUrl)
+
+  ?peer_store_sqlite_migrations.migrate(db)
+
+  let res = WakuPeerStorage.new(db).valueOr:
+    return err("failed to init peer store" & error)
+
+  return ok(Opt.some(res))
+
+## Init waku node instance
+
+proc initNode(
+    conf: WakuConf,
+    netConfig: NetConfig,
+    rng: crypto.Rng,
+    record: enr.Record,
+    peerStore: Opt[WakuPeerStorage],
+    relay: Relay,
+    dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[],
+): Result[Kernel, string] =
+  ## Setup a basic Waku v2 node based on a supplied configuration
+  ## file. Optionally include persistent peer storage.
+  ## No protocols are mounted yet.
+
+  let pStorage =
+    if peerStore.isNone():
+      nil
+    else:
+      peerStore.get()
+
+  let (secureKey, secureCert) =
+    if conf.webSocketConf.isSome() and conf.webSocketConf.get().secureConf.isSome():
+      let wssConf = conf.webSocketConf.get().secureConf.get()
+      (Opt.some(wssConf.keyPath), Opt.some(wssConf.certPath))
+    else:
+      (Opt.none(string), Opt.none(string))
+
+  let nameResolver =
+    DnsResolver.new(conf.dnsAddrsNameServers.mapIt(initTAddress(it, Port(53))))
+
+  # Build waku node instance
+  var builder = WakuNodeBuilder.init()
+  builder.withRng(rng)
+  builder.withNodeKey(conf.nodeKey)
+  builder.withRecord(record)
+  builder.withNetworkConfiguration(netConfig)
+  builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
+  builder.withSwitchConfiguration(
+    maxConnections = Opt.some(conf.maxConnections.int),
+    secureKey = secureKey,
+    secureCert = secureCert,
+    nameResolver = nameResolver,
+    sendSignedPeerRecord = conf.relayPeerExchange,
+      # We send our own signed peer record when peer exchange enabled
+    agentString = Opt.some(conf.agentString),
+  )
+  builder.withColocationLimit(conf.colocationLimit)
+  let natConf = natConfig(
+    conf.endpointConf.natStrategy,
+    conf.endpointConf.natDiscoveryTimeoutMs.int64.milliseconds,
+  )
+  if conf.endpointConf.extMultiAddrsOnly:
+    ## libp2p announces this list as is. Port mapping would target listed
+    ## ports that need not be bound, so leave it off.
+    if natConf.isSome():
+      info "Automatic NAT port mapping stays off under ext-multiaddr-only",
+        natStrategy = $conf.endpointConf.natStrategy
+  else:
+    builder.withNatConfig(natConf)
+  builder.withMaxPureLibp2pPeers(conf.maxPureLibp2pPeers)
+
+  if conf.maxRelayPeers.isSome():
+    let
+      maxRelayPeers = conf.maxRelayPeers.get()
+      maxConnections = conf.maxConnections
+      # Calculate the ratio as percentages
+      relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
+      serviceRatio = 100 - relayRatio
+
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
+    warn "maxRelayPeers is deprecated, use relayServiceRatio instead",
+      relayServiceRatio = $relayRatio & ":" & $serviceRatio
+  else:
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = conf.relayServiceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
+  builder.withRateLimit(conf.rateLimit)
+  builder.withCircuitRelay(relay)
+
+  let node = ?builder.build().mapErr(
+    proc(err: string): string =
+      "failed to create waku node instance: " & err
+  )
+
+  ok(node)
+
+## Mount protocols
+
+proc setupProtocols(
+    node: Kernel, conf: WakuConf
+): Future[Result[void, string]] {.async.} =
+  ## Setup configured protocols on an existing Waku v2 node.
+  ## Optionally include persistent message storage.
+  ## No protocols are started yet.
+
+  node.mountMetadata(conf.clusterId, conf.subscribeShards).isOkOr:
+    return err("failed to mount waku metadata protocol: " & error)
+
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+    ## Action to be taken when an internal error occurs during the node run.
+    ## e.g. the connection with the database is lost and not recovered.
+    error "Unrecoverable error occurred", error = msg
+    quit(QuitFailure)
+
+  #mount mix
+  if conf.mixConf.isSome():
+    let mixConf = conf.mixConf.get()
+    var protection = Opt.none(SpamProtection)
+    if mixConf.mixRlnConfig.isSome():
+      node.protocols.mixRln = ModuleRlnProtection.new(
+        mixConf.mixRlnConfig.get(), rlnMixCall
+      ).valueOr:
+        return err("failed to create Mix RLN adapter: " & error)
+      protection = Opt.some(SpamProtection(node.protocols.mixRln))
+    (await node.mountMix(conf.clusterId, mixConf.mixKey, mixConf.mixnodes, protection)).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
+
+  # Setup service discovery
+  if conf.kademliaDiscoveryConf.isSome():
+    var kadConf = conf.kademliaDiscoveryConf.get()
+
+    # Mix is no longer injected here: it is advertised at runtime through
+    # IPeerDiscovery (see advertiseMix), so plugin-hosted kademlia gets it too.
+
+    node.mountKademlia(kadConf).isOkOr:
+      return err("failed to setup service discovery: " & error)
+
+    node.attachDiscovery(ServicePeerDiscovery.create(node.discovery.kademlia))
+    # The ServicePeersRequest provider is set by Kernel.start and cleared by
+    # Kernel.stop (startProvidersAndListeners / stopProvidersAndListeners).
+
+  if conf.storeServiceConf.isSome():
+    let storeServiceConf = conf.storeServiceConf.get()
+
+    let archiveDriver = (
+      await driver.ArchiveDriver.new(
+        storeServiceConf.dbUrl, storeServiceConf.dbVacuum, storeServiceConf.dbMigration,
+        storeServiceConf.maxNumDbConnections, onFatalErrorAction,
+      )
+    ).valueOr:
+      return err("failed to setup archive driver: " & error)
+
+    let retPolicies = policy.RetentionPolicy.new(storeServiceConf.retentionPolicies).valueOr:
+      return err("failed to create retention policy: " & error)
+
+    node.mountArchive(archiveDriver, retPolicies).isOkOr:
+      return err("failed to mount waku archive protocol: " & error)
+
+    # Store setup
+    try:
+      await mountStore(node, node.rateLimitSettings.getSetting(STOREV3))
+    except CatchableError:
+      return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
+
+    if storeServiceConf.storeSyncConf.isSome():
+      let confStoreSync = storeServiceConf.storeSyncConf.get()
+
+      (
+        await node.mountStoreSync(
+          conf.clusterId,
+          conf.subscribeShards,
+          conf.contentTopics,
+          confStoreSync.rangeSec,
+          confStoreSync.intervalSec,
+          confStoreSync.relayJitterSec,
+          int(conf.maxMessageSizeBytes),
+        )
+      ).isOkOr:
+        return err("failed to mount waku store sync protocol: " & $error)
+
+      if conf.remoteStoreNode.isSome():
+        let storeNode = parsePeerInfo(conf.remoteStoreNode.get()).valueOr:
+          return err("failed to set node waku store-sync peer: " & error)
+
+        node.peerManager.addServicePeer(storeNode, WakuReconciliationCodec)
+        node.peerManager.addServicePeer(storeNode, WakuTransferCodec)
+
+  mountStoreClient(node, int(conf.maxMessageSizeBytes))
+  if conf.remoteStoreNode.isSome():
+    let storeNode = parsePeerInfo(conf.remoteStoreNode.get()).valueOr:
+      return err("failed to set node waku store peer: " & error)
+    node.peerManager.addServicePeer(storeNode, WakuStoreCodec)
+
+  if conf.storeServiceConf.isSome and conf.storeServiceConf.get().resume:
+    node.setupStoreResume()
+
+  if conf.shardingConf.kind == AutoSharding:
+    node.mountAutoSharding(conf.clusterId, conf.shardingConf.shards).isOkOr:
+      return err("failed to mount waku auto sharding: " & error)
+  else:
+    info "Auto sharding is disabled"
+
+  for shardId in conf.extraListenShards:
+    node.subscriptionManager.extraListenShards.add(
+      $RelayShard(clusterId: conf.clusterId, shardId: shardId)
+    )
+
+  # Mount relay on all nodes
+  var peerExchangeHandler = Opt.none(RoutingRecordsHandler)
+  if conf.relayPeerExchange:
+    proc handlePeerExchange(
+        peer: PeerId, topic: string, peers: seq[RoutingRecordsPair]
+    ) {.gcsafe.} =
+      ## Handle peers received via gossipsub peer exchange
+      # TODO: Only consider peers on pubsub topics we subscribe to
+      let exchangedPeers = peers.filterIt(it.record.isSome())
+        # only peers with populated records
+        .mapIt(toRemotePeerInfo(it.record.get()))
+
+      debug "adding exchanged peers",
+        src = peer, topic = topic, numPeers = exchangedPeers.len
+
+      for peer in exchangedPeers:
+        # Peers added are filtered by the peer manager
+        node.peerManager.addPeer(peer, PeerOrigin.PeerExchange)
+
+    peerExchangeHandler = Opt.some(handlePeerExchange)
+
+  let shards = conf.subscribeShards.mapIt(
+    RelayShard(clusterId: conf.clusterId, shardId: uint16(it))
+  )
+
+  if conf.relay:
+    debug "Setting max message size", num_bytes = conf.maxMessageSizeBytes
+
+    (
+      await mountRelay(
+        node, peerExchangeHandler = peerExchangeHandler, int(conf.maxMessageSizeBytes)
+      )
+    ).isOkOr:
+      return err("failed to mount waku relay protocol: " & $error)
+
+    # Add validation keys to protected topics
+    var subscribedProtectedShards: seq[ProtectedShard]
+    for shardKey in conf.protectedShards:
+      if shardKey.shard notin conf.subscribeShards:
+        warn "protected shard not in subscribed shards, skipping adding validator",
+          protectedShard = shardKey.shard, subscribedShards = shards
+        continue
+      subscribedProtectedShards.add(shardKey)
+      notice "routing only signed traffic",
+        protectedShard = shardKey.shard, publicKey = shardKey.key
+    node.protocols.relay.addSignedShardsValidator(
+      subscribedProtectedShards, conf.clusterId
+    )
+
+  if conf.rendezvous:
+    await node.mountRendezvous(conf.clusterId, shards)
+    await node.mountRendezvousClient(conf.clusterId)
+
+  # Keepalive mounted on all nodes
+  try:
+    await mountLibp2pPing(node)
+  except CatchableError:
+    return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
+
+  # RLN backend selected by configuration source: each descriptor probes
+  # whether its own source is present — host callbacks installed over the C
+  # ABI (`logosdelivery_rln_set_plugin`) for the external backend, CLI/preset
+  # configuration for the on-chain one. With no source present the node starts
+  # without RLN.
+  let rlnDescriptors = [
+    rlnLezDescriptor(),
+    rlnEvmDescriptor(conf.rlnEvmConf, onFatalErrorAction, node.brokerCtx),
+  ]
+
+  let selectedRln = selectRlnPlugin(rlnDescriptors).valueOr:
+    return err("failed call selectRlnPlugin: " & $error)
+
+  if selectedRln.isNone():
+    info "No RLN backend configured; RLN is off"
+  else:
+    when defined(disable_rln):
+      return
+        err("the configuration enables RLN relay, but this build has -d:disable_rln")
+    else:
+      let descriptor = selectedRln.get()
+      info "Mounting RLN backend", backend = descriptor.name
+      let mounted = (await descriptor.mount()).valueOr:
+        return err("failed to mount RLN backend" & $error)
+      node.mountRln(
+        mounted, RlnCommonConf(disableValidation: conf.rlnDisableValidation)
+      )
+
+  # NOTE Must be mounted after relay
+  if conf.lightPush:
+    try:
+      (await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))).isOkOr:
+        return err("failed to mount waku lightpush protocol: " & $error)
+
+      (await mountLegacyLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))).isOkOr:
+        return err("failed to mount waku legacy lightpush protocol: " & $error)
+    except CatchableError:
+      return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
+
+  mountLightPushClient(node)
+  mountLegacyLightPushClient(node)
+  if conf.remoteLightPushNode.isSome():
+    let lightPushNode = parsePeerInfo(conf.remoteLightPushNode.get()).valueOr:
+      return err("failed to set node waku lightpush peer: " & error)
+    node.peerManager.addServicePeer(lightPushNode, WakuLightPushCodec)
+    node.peerManager.addServicePeer(lightPushNode, WakuLegacyLightPushCodec)
+
+  # Filter setup. NOTE Must be mounted after relay
+  if conf.filterServiceConf.isSome():
+    let confFilter = conf.filterServiceConf.get()
+    try:
+      await mountFilter(
+        node,
+        subscriptionTimeout = chronos.seconds(confFilter.subscriptionTimeout),
+        maxFilterPeers = confFilter.maxPeersToServe,
+        maxFilterCriteriaPerPeer = confFilter.maxCriteria,
+        rateLimitSetting = node.rateLimitSettings.getSetting(FILTER),
+      )
+    except CatchableError:
+      return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
+
+  await node.mountFilterClient()
+  if conf.remoteFilterNode.isSome():
+    let filterNode = parsePeerInfo(conf.remoteFilterNode.get()).valueOr:
+      return err("failed to set node waku filter peer: " & error)
+    try:
+      node.peerManager.addServicePeer(filterNode, WakuFilterSubscribeCodec)
+    except CatchableError:
+      return
+        err("failed to mount waku filter client protocol: " & getCurrentExceptionMsg())
+
+  # waku peer exchange setup
+  if conf.peerExchangeService:
+    try:
+      await mountPeerExchange(
+        node, Opt.some(conf.clusterId), node.rateLimitSettings.getSetting(PEEREXCHG)
+      )
+    except CatchableError:
+      return
+        err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
+
+  if conf.remotePeerExchangeNode.isSome():
+    let peerExchangeNode = parsePeerInfo(conf.remotePeerExchangeNode.get()).valueOr:
+      return err("failed to set node waku peer-exchange peer: " & error)
+    node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
+
+  if conf.peerExchangeDiscovery:
+    await node.mountPeerExchangeClient()
+
+  return ok()
+
+## Start node
+
+proc startNode*(
+    node: Kernel, conf: WakuConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
+): Future[Result[void, string]] {.async: (raises: []).} =
+  ## Start a configured node and all mounted protocols.
+  ## Connect to static nodes and start keep-alive.
+
+  info "Running nwaku node", version = git_version
+
+  try:
+    await node.startProtocols()
+  except CatchableError:
+    return err("failed to start waku node: " & getCurrentExceptionMsg())
+
+  # Backend work that needs a running node, such as the external backend's
+  # membership check, its first call to the host. The backend handles its own
+  # failures, so the node starts regardless; only cancellation stops startup.
+  if node.protocols.rlnPlugin.isSome() and
+      not node.protocols.rlnPlugin.get().onNodeStarted.isNil():
+    try:
+      await node.protocols.rlnPlugin.get().onNodeStarted()
+    except CancelledError:
+      return err("cancelled during the RLN backend start hook")
+
+  # Connect to configured static nodes
+  if conf.staticNodes.len > 0:
+    try:
+      await connectToNodes(node, conf.staticNodes, "static")
+    except CatchableError:
+      return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
+
+  if dynamicBootstrapNodes.len > 0:
+    info "Connecting to dynamic bootstrap peers"
+    try:
+      await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
+    except CatchableError:
+      return
+        err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
+
+  # retrieve px peers and add the to the peer store
+  if conf.remotePeerExchangeNode.isSome():
+    var desiredOutDegree = DefaultPXNumPeersReq
+    if not node.protocols.relay.isNil() and
+        node.protocols.relay.parameters.d.uint64() > 0:
+      desiredOutDegree = node.protocols.relay.parameters.d.uint64()
+    (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
+      debug "error while fetching peers from peer exchange", error = error
+
+  # TODO: behavior described by comment is undesired. PX as client should be used in tandem with discv5.
+  #
+  # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
+  # periodic loop to find peers and px returned peers actually come from discv5
+  if conf.peerExchangeDiscovery and not conf.discv5Conf.isSome():
+    node.startPeerExchangeLoop()
+
+  # Maintain relay connections
+  if conf.relay:
+    node.peerManager.start()
+
+  return ok()
+
+proc setupNode*(
+    wakuConf: WakuConf, rng: crypto.Rng = crypto.newRng(), relay: Relay
+): Future[Result[Kernel, string]] {.async.} =
+  ## Libplum resolves an any strategy when the NAT service starts.
+  wakuConf.endpointConf.natStrategy =
+    await resolveNatStrategy(wakuConf.endpointConf.natStrategy)
+
+  let netConfig = (
+    await networkConfiguration(
+      wakuConf.clusterId, wakuConf.endpointConf, wakuConf.discv5Conf,
+      wakuConf.webSocketConf, wakuConf.quicConf, wakuConf.wakuFlags,
+      wakuConf.dnsAddrsNameServers,
+    )
+  ).valueOr:
+    error "failed to create internal config", error = error
+    return err("failed to create internal config: " & error)
+
+  let record = enrConfiguration(wakuConf, netConfig).valueOr:
+    error "failed to create record", error = error
+    return err("failed to create record: " & error)
+
+  if isClusterMismatched(record, wakuConf.clusterId):
+    error "cluster id mismatch configured shards"
+    return err("cluster id mismatch configured shards")
+
+  info "Setting up storage"
+
+  ## Peer persistence
+  var peerStore: Opt[WakuPeerStorage]
+  if wakuConf.peerPersistence:
+    peerStore = setupPeerStorage().valueOr:
+      error "Setting up storage failed", error = "failed to setup peer store " & error
+      return err("Setting up storage failed: " & error)
+
+  info "Initializing node"
+
+  let node = initNode(wakuConf, netConfig, rng, record, peerStore, relay).valueOr:
+    error "Initializing node failed", error = error
+    return err("Initializing node failed: " & error)
+
+  info "Mounting protocols"
+
+  try:
+    (await node.setupProtocols(wakuConf)).isOkOr:
+      error "Mounting protocols failed", error = error
+      return err("Mounting protocols failed: " & error)
+  except CatchableError:
+    return err("Exception setting up protocols: " & getCurrentExceptionMsg())
+
+  return ok(node)
 
 proc provideNodeState(kernel: Kernel) =
   ## Node-state getters for loosely-coupled components (discovery backends).

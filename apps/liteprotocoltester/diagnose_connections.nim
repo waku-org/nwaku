@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[net, strformat],
+  std/[strformat],
   chronicles,
   chronos,
   metrics,

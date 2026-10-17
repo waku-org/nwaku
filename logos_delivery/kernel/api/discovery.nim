@@ -1,16 +1,13 @@
 ## Waku layer API — discovery operations (DNS, discv5, peer exchange).
 {.push raises: [].}
 
-import std/[net, sequtils]
-import results, chronos, chronicles
+import std/[net]
+import results, chronos
 
 import logos_delivery/kernel/kernel_lifecycle
 import
-  logos_delivery/kernel/[
-    core/peers, node/node/peer_exchange,
-    discovery/waku_dnsdisc,
-    discovery/waku_discv5,
-  ]
+  logos_delivery/kernel/
+    [core/peers, api/peer_exchange, discovery/waku_dnsdisc, discovery/waku_discv5]
 
 proc dnsDiscovery*(
     self: Kernel, enrTreeUrl: string, nameServer: string, timeoutMs: int

@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[sequtils, sets]
-import chronos, chronicles, testutils/unittests, results, stew/byteutils
+import chronos, testutils/unittests, results, stew/byteutils
 
 import
   libp2p_mix,
@@ -10,7 +10,7 @@ import
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/protocols/protocols,
   logos_delivery/kernel/net/bound_ports,
-  logos_delivery/kernel/node/node/mix_rln,
+  logos_delivery/kernel/api/mix,
   libp2p/[peerid, multiaddress],
   libp2p/stream/connection,
   logos_delivery/kernel/kernel_lifecycle,
@@ -18,7 +18,7 @@ import
   logos_delivery/kernel/api/publish,
   logos_delivery/kernel/[node/peer_manager/peer_manager],
   logos_delivery/kernel/node/peer_manager/waku_peer_store,
-  logos_delivery/kernel/node/node/lightpush,
+  logos_delivery/kernel/api/lightpush,
   logos_delivery/kernel/rln/rln_plugin,
   logos_delivery/kernel/protocols/lightpush/common,
   logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message, peers],

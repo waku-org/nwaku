@@ -14,7 +14,7 @@ import logos_delivery/kernel/core/topics/content_topic
 import logos_delivery/kernel/core/topics/sharding
 import logos_delivery/kernel/core/topics/pubsub_topic
 import
-  logos_delivery/kernel/[kernel, node/node/relay],
+  logos_delivery/kernel/[kernel, api/relay],
   logos_delivery/kernel/protocols/relay/protocol,
   logos_delivery/kernel/
     [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],

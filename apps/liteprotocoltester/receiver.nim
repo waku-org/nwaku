@@ -16,7 +16,7 @@ import
     common/logging,
     node/peer_manager/peer_manager,
     kernel,
-    node/node/filter,
+    api/filter,
     core/topics/content_topic,
     core/topics/pubsub_topic,
     core/topics/sharding,
@@ -30,7 +30,6 @@ import
   ./tester_config,
   ./tester_message,
   ./statistics,
-  ./diagnose_connections,
   ./service_peer_management,
   ./lpt_metrics
 

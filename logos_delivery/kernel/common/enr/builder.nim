@@ -7,8 +7,6 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto as libp2p_crypto
 
-import ./typed_record
-
 ## Builder
 
 type EnrBuilder* = object

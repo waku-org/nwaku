@@ -9,9 +9,10 @@
 ## which spawn a full service Waku node
 ## that could be used also as a lightpush client, helping testing and development.
 
-import results, chronos, chronicles, metrics, stew/byteutils
+import results, chronos, chronicles, metrics
 import
-  logos_delivery/kernel/core/[ topics/pubsub_topic, topics/pubsub_topic, message], ./protocol,
+  logos_delivery/kernel/core/[topics/pubsub_topic, topics/pubsub_topic, message],
+  ./protocol,
   ./common,
   ./rpc,
   ./rpc_codec,

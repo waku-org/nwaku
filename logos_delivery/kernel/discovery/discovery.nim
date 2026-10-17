@@ -1,9 +1,11 @@
 {.push raises: [].}
 
-import chronos
+import chronos, libp2p/switch
 import
   logos_delivery/kernel/[
-    core/peers, protocols/peer_exchange/protocol,
+    core/peers,
+    node/peer_manager/peer_manager,
+    protocols/peer_exchange/protocol,
     protocols/peer_exchange/client,
     protocols/rendezvous/protocol,
     protocols/rendezvous/client as rendezvous_client,
@@ -15,6 +17,10 @@ import
   ]
 
 type Discovery* = ref object ## Peer discovery mechanisms mounted on the node.
+  peerManager*: PeerManager
+  switch*: Switch
+  isStarted*: proc(): bool {.gcsafe, raises: [].}
+    ## Whether the node that owns this Discovery has started.
   peerExchange*: WakuPeerExchange
   peerExchangeClient*: WakuPeerExchangeClient
   rendezvous*: WakuRendezVous

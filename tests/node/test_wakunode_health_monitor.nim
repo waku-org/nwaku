@@ -1,7 +1,7 @@
 {.used.}
 
-import
-  std/[json, sequtils, strutils, tables], testutils/unittests, chronos, results, metrics
+import std/[sequtils, tables], testutils/unittests, chronos, results, metrics
+import logos_delivery/kernel/api/mix
 import brokers/broker_context
 import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
@@ -20,10 +20,10 @@ import
     node/health_monitor/protocol_health,
     node/health_monitor/topic_health,
     node/health_monitor/node_health_monitor,
-    node/node/relay,
-    node/node/store,
-    node/node/lightpush,
-    node/node/filter,
+    api/relay,
+    api/store,
+    api/lightpush,
+    api/filter,
     api/events/health_events,
     api/events/peer_events,
     protocols/mix/protocol,

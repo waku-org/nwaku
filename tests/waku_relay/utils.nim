@@ -2,13 +2,11 @@
 
 import
   results,
-  std/[strutils, tempfiles],
+  std/[strutils],
   chronos,
   chronicles,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
-
-import brokers/broker_context
 
 import
   logos_delivery/kernel/[
@@ -20,7 +18,7 @@ import
     core/message,
     protocols/codecs,
     kernel,
-    node/node/relay,
+    api/relay,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,

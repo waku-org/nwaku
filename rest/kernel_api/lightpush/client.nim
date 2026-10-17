@@ -1,15 +1,12 @@
 {.push raises: [].}
 
 import
-  json,
-  std/sets,
   stew/byteutils,
-  strformat,
   chronicles,
   json_serialization,
   json_serialization/pkg/results,
   presto/[route, client, common]
-import rest/serdes, rest/responses, rest/rest_serdes, rest/kernel_api/lightpush/types
+import rest/serdes, rest/rest_serdes, rest/kernel_api/lightpush/types
 
 export types
 

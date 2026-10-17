@@ -4,7 +4,7 @@
 ## this information, but any other module can populate the information it needs to be
 ## accessible through the debug API.
 
-import std/[tables, sequtils, strutils]
+import std/[strutils]
 import metrics, eth/p2p/discoveryv5/enr, libp2p/peerid, stew/byteutils
 import logos_delivery/kernel/[kernel, net/bound_ports]
 import logos_delivery/kernel/factory/waku_conf

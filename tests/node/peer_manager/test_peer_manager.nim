@@ -7,7 +7,7 @@ import
   logos_delivery/kernel/core/
     [topics, topics/content_topic, topics/pubsub_topic, topics/sharding, peers],
   ../../waku_lightpush/[lightpush_utils],
-  ../../testlib/[wakucore, wakunode, futures, testasync],
+  ../../testlib/[wakucore, wakunode, testasync],
   logos_delivery/kernel/node/peer_manager/peer_manager
 
 suite "Peer Manager":

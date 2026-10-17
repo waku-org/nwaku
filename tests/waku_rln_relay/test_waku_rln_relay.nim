@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[os, sequtils, tempfiles, strutils, osproc, algorithm],
+  std/[os, osproc, algorithm],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -28,7 +28,7 @@ import
   ],
   ./rln/waku_rln_relay_utils,
   ./utils_onchain,
-  ../testlib/[wakucore, futures, wakunode, testutils]
+  ../testlib/[wakucore]
 
 from std/times import epochTime
 

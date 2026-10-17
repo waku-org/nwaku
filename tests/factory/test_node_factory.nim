@@ -37,7 +37,6 @@ import
   ],
   logos_delivery/kernel/node/subscription_manager,
   logos_delivery/kernel/factory/[
-    node_factory,
     internal_config,
     networks_config,
     conf_builder/waku_conf_builder,

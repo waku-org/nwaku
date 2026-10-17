@@ -1,17 +1,12 @@
 {.push raises: [].}
 
-import
-  std/[times, sequtils, algorithm],
-  stew/[byteutils],
-  chronicles,
-  chronos,
-  results,
-  metrics
+import std/[times, sequtils, algorithm], chronicles, chronos, results, metrics
 import
   ../common/paging,
   logos_delivery/kernel/archive/driver,
   logos_delivery/kernel/archive/retention_policy,
-  logos_delivery/kernel/core/[ topics/pubsub_topic, topics/pubsub_topic, time, message], logos_delivery/kernel/core/message,
+  logos_delivery/kernel/core/[topics/pubsub_topic, topics/pubsub_topic, time, message],
+  logos_delivery/kernel/core/message,
   logos_delivery/kernel/archive/common,
   logos_delivery/kernel/archive/archive_metrics,
   logos_delivery/kernel/archive/retention_policy/retention_policy_time

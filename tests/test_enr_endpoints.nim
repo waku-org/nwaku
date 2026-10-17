@@ -26,7 +26,7 @@ import
     enr/sharding,
   ],
   ../logos_delivery/kernel/core/peers
-import ./testlib/[common, wakucore, wakunode]
+import ./testlib/[wakucore, wakunode]
 
 proc tcpOf(record: enr.Record): Opt[uint16] =
   record.toTyped().expect("typed").tcp()

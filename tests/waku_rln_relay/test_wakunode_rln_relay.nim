@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[os, sequtils, tempfiles, strutils, osproc, importutils],
+  std/[osproc, importutils],
   stew/byteutils,
   testutils/unittests,
   chronicles,
@@ -27,7 +27,7 @@ import
     rln/rln_evm/protocol_types,
     rln/rln_evm/constants,
   ],
-  ../testlib/[wakucore, futures, wakunode, testasync, testutils],
+  ../testlib/[wakucore, wakunode, testasync, testutils],
   ./utils_onchain,
   ./rln/waku_rln_relay_utils
 

@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/sequtils,
   results,
   chronos,
   testutils/unittests,

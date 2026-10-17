@@ -5,7 +5,7 @@ from std/times import epochTime
 import chronos, testutils/unittests, stew/byteutils
 import brokers/broker_context
 
-import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
+import ../testlib/[wakucore, wakunodeconf]
 
 import logos_delivery
 import logos_delivery/kernel/[core/topics/content_topic, core/message]

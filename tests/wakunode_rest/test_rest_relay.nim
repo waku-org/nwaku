@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[json, sequtils, strformat, strutils, tempfiles, osproc, uri],
+  std/[json, sequtils, strformat, strutils, osproc, uri],
   stew/byteutils,
   testutils/unittests,
   presto,

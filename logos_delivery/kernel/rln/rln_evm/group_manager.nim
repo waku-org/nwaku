@@ -10,14 +10,15 @@ import
   chronicles,
   nimcrypto/keccak as keccak,
   stint,
-  json,
-  std/[strutils, tables, algorithm, strformat],
+  std/[algorithm],
   stew/byteutils,
   sequtils
 
 import
-  logos_delivery/kernel/[rln/keystore/keyfile, rln/keystore/keystore, rln/keystore/protocol_types],
-  logos_delivery/kernel/rln/rln_evm/librln_interface, logos_delivery/kernel/rln/rln_evm/wrappers,
+  logos_delivery/kernel/
+    [rln/keystore/keyfile, rln/keystore/keystore, rln/keystore/protocol_types],
+  logos_delivery/kernel/rln/rln_evm/librln_interface,
+  logos_delivery/kernel/rln/rln_evm/wrappers,
   ./librln_interface,
   ./conversion_utils,
   ./group_manager_base,
