@@ -2,7 +2,8 @@
 
 import results, stew/byteutils, testutils/unittests
 import
-  logos_delivery/waku/[common/protobuf, waku_lightpush/rpc, waku_lightpush/rpc_codec],
+  logos_delivery/kernel/
+    [common/protobuf, protocols/lightpush/rpc, protocols/lightpush/rpc_codec],
   ../testlib/protobuf_errors
 
 suite "Waku Lightpush - RPC codec":

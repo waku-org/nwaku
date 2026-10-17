@@ -1,15 +1,15 @@
 import results, testutils/unittests
 
 import
-  logos_delivery/waku/node/peer_manager/peer_store/migrations,
+  logos_delivery/kernel/node/peer_manager/peer_store/migrations,
   ../../waku_archive/archive_utils,
   ../../testlib/[simple_mock]
 
 import std/[tables, strutils, os], results, chronicles
 
 import
-  logos_delivery/waku/common/databases/db_sqlite,
-  logos_delivery/waku/common/databases/common
+  logos_delivery/kernel/common/databases/db_sqlite,
+  logos_delivery/kernel/common/databases/common
 
 suite "Migrations":
   test "migrate ok":

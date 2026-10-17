@@ -2,15 +2,14 @@ import std/tempfiles
 import results
 
 import
-  logos_delivery/waku/rln,
-  logos_delivery/waku/rln/[
+  logos_delivery/kernel/
+    [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm],
+  logos_delivery/kernel/rln/[
     rln_evm/group_manager,
-    rln_evm/bindings,
+    rln_evm/wrappers,
     rln_evm/conversion_utils,
     rln_evm/constants,
     rln_evm/protocol_types,
-    protocol_metrics,
-    rln_evm/nonce_manager,
   ]
 
 proc createRLNInstanceWrapper*(): Result[ptr RlnRaw, string] =

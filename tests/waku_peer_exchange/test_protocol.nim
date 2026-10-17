@@ -10,18 +10,19 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/[
-    kernel,
-    node/peer_manager,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
     discovery/waku_discv5,
-    waku_peer_exchange,
-    waku_peer_exchange/rpc,
-    waku_peer_exchange/rpc_codec,
-    waku_peer_exchange/protocol,
-    waku_peer_exchange/client,
-    waku_core,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    protocols/peer_exchange/common,
+    protocols/peer_exchange/client,
+    protocols/peer_exchange/rpc_codec,
+    core/peers,
+    protocols/codecs,
     common/enr/builder,
-    waku_enr/sharding,
+    enr/sharding,
   ],
   ../testlib/[wakucore, wakunode, assertions, testasync],
   ./utils.nim

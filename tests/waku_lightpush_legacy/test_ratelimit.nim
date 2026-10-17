@@ -3,12 +3,14 @@
 import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_lightpush_legacy,
-    waku_lightpush_legacy/client,
-    waku_lightpush_legacy/common,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/lightpush_legacy/common,
+    protocols/lightpush_legacy/client,
   ],
   ../testlib/wakucore,
   ./lightpush_utils

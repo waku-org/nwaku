@@ -8,7 +8,10 @@ import
   json_serialization/pkg/results,
   presto/[route, client, common],
   libp2p/peerid
-import logos_delivery/waku/common/base64, logos_delivery/waku/waku_core, rest/serdes
+import
+  logos_delivery/kernel/common/base64,
+  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message, peers],
+  rest/serdes
 
 #### Types
 

@@ -11,7 +11,7 @@ import
   json_serialization/std/net,
   json_serialization/std/sets,
   presto/common
-import logos_delivery/waku/common/base64
+import logos_delivery/kernel/common/base64
 
 logScope:
   topics = "waku node rest"

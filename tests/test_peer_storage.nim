@@ -2,11 +2,12 @@
 
 import results, testutils/unittests, eth/p2p/discoveryv5/enr, libp2p/crypto/crypto
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/databases/db_sqlite,
     node/peer_manager/peer_manager,
     node/peer_manager/peer_store/waku_peer_storage,
-    waku_enr,
+    common/enr/builder,
+    enr/sharding,
   ],
   ./testlib/wakucore
 

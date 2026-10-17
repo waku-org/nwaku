@@ -7,7 +7,7 @@ import brokers/broker_context
 import ../testlib/[wakucore, wakunodeconf]
 
 import logos_delivery
-import logos_delivery/waku/waku_core
+import logos_delivery/kernel/core/[topics/content_topic, message]
 import logos_delivery/api/events/messaging_client_events as waku_message_events
 import logos_delivery/api/messaging_client_api
 
@@ -109,7 +109,8 @@ template setupChannelNode() =
   var brokerCtx {.inject.}: BrokerContext
   lockNewGlobalBrokerContext:
     brokerCtx = globalBrokerContext()
-    kernel = (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+    kernel =
+      (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
     manager = kernel.reliableChannelManager
 
 template captureWire(sink: untyped) =

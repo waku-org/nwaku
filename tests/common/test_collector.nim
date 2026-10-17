@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests, metrics
-import logos_delivery/waku/utils/collector
+import logos_delivery/kernel/common/utils/collector
 
 declarePublicCounter test_collector_plain, "plain counter for collector tests"
 declarePublicCounter test_collector_labelled,

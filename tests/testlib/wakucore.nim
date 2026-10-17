@@ -7,7 +7,9 @@ import
   libp2p/builders,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
-import logos_delivery/waku/waku_core, ./common
+import
+  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, time, message],
+  ./common
 
 export switch
 
@@ -69,7 +71,7 @@ proc newTestSwitch*(
 
 # Waku message
 
-export waku_core.DefaultPubsubTopic, waku_core.DefaultContentTopic
+export DefaultPubsubTopic, DefaultContentTopic
 
 proc fakeWakuMessage*(
     payload: string | seq[byte] = "TEST-PAYLOAD",

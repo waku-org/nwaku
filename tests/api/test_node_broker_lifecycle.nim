@@ -12,10 +12,10 @@ import libp2p/[multiaddress, peerid], libp2p/crypto/crypto
 import brokers/broker_context
 import logos_delivery
 import
-  logos_delivery/waku/[waku_core, waku_node],
-  logos_delivery/waku/api/events/discovery_events,
-  logos_delivery/waku/requests/[node_state_requests, health_requests],
-  logos_delivery/waku/discovery/[peer_discovery_interface, external_service_discovery]
+  logos_delivery/kernel/[core/peers, kernel],
+  logos_delivery/kernel/api/events/discovery_events,
+  logos_delivery/kernel/requests/[node_state_requests, health_requests],
+  logos_delivery/kernel/discovery/[peer_discovery_interface, external_service_discovery]
 import tests/testlib/[testasync, wakunodeconf, rest_service]
 
 proc lifecycleConf(rest = false, plugin = false): LogosDeliveryNodeConf =

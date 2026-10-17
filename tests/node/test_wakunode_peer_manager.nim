@@ -14,13 +14,17 @@ import
 from times import getTime, toUnix
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    kernel,
+  logos_delivery/kernel/[
+    common/enr as waku_enr,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
     discovery/waku_discv5,
-    waku_filter_v2/common,
-    waku_relay/protocol,
+    protocols/filter/common,
+    protocols/relay/protocol,
   ],
   ../testlib/[wakucore, wakunode, testasync, testutils, comparisons],
   ../waku_enr/utils,

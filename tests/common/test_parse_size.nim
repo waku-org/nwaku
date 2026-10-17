@@ -1,7 +1,7 @@
 {.used.}
 
 import std/strutils, testutils/unittests, results
-import logos_delivery/waku/common/utils/parse_size_units
+import logos_delivery/kernel/common/utils/parse_size_units
 
 suite "Size serialization test":
   test "parse normal sizes":

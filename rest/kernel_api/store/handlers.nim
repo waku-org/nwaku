@@ -4,12 +4,17 @@ import std/options, std/[strformat, strutils, sugar], results
 
 import chronicles, uri, json_serialization, presto/route
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_store/common,
-    waku_store/self_req_handler,
-    waku_node,
-    node/peer_manager,
+  logos_delivery/kernel/[
+    core/topics/content_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/store/common,
+    protocols/store/self_req_handler,
+    kernel,
+    node/node/store,
+    node/peer_manager/peer_manager,
     common/paging,
   ]
 import rest/discovery_handler, rest/responses, rest/serdes, rest/kernel_api/store/types

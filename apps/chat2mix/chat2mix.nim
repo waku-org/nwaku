@@ -33,29 +33,36 @@ import
   ] # define DNS resolution
 import libp2p_mix/[curve25519, mix_protocol]
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/protobuf,
-    waku_core,
-    waku_core/peers,
-    waku_lightpush/common,
-    waku_lightpush/rpc,
-    waku_enr,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    common/enr,
+    enr/sharding,
     discovery/waku_dnsdisc,
     discovery/waku_kademlia,
-    kernel,
-    node/waku_metrics,
-    node/peer_manager,
+    kernel_lifecycle,
+    node/metrics,
+    node/peer_manager/peer_manager,
     factory/waku_conf,
     factory/builder,
     net/nat_config,
-    waku_store/common,
-    waku_filter_v2/client,
+    protocols/store/common,
+    protocols/filter/client,
     common/logging,
   ],
   ./config_chat2mix
 
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
-import ../../logos_delivery/waku/rln
+import logos_delivery/kernel/[rln/rln_evm/group_manager, rln/rln_evm/conversion_utils]
 
 logScope:
   topics = "chat2 mix"
@@ -84,7 +91,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_core.PubsubTopic
+  Topic* = PubsubTopic
 
 const MinMixNodePoolSize = 4
 

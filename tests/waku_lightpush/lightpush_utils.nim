@@ -3,12 +3,12 @@
 import results, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_core/topics/sharding,
-  logos_delivery/waku/waku_lightpush,
-  logos_delivery/waku/waku_lightpush/[client, common],
-  logos_delivery/waku/common/rate_limit/setting,
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/core/[topics/sharding, message],
+  logos_delivery/kernel/core/topics/sharding,
+  logos_delivery/kernel/protocols/lightpush/[protocol, common],
+  logos_delivery/kernel/protocols/lightpush/[client, common],
+  logos_delivery/kernel/common/rate_limit/setting,
   ../testlib/[common, wakucore]
 
 proc newTestWakuLightpushNode*(

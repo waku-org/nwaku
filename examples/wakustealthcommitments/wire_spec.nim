@@ -1,7 +1,19 @@
 import std/times
 import confutils, chronicles, chronos, results
 
-import logos_delivery/waku/[waku_core, common/protobuf]
+import
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    common/protobuf,
+  ]
 
 export times, confutils, chronicles, chronos, results, waku_core, protobuf
 

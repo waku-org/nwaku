@@ -12,10 +12,10 @@ import
   libp2p_mix/mix_protocol
 
 import
-  logos_delivery/waku/discovery/waku_kademlia,
-  logos_delivery/waku/discovery/signed_service_record,
-  logos_delivery/waku/waku_core/peers,
-  logos_delivery/waku/node/peer_manager/waku_peer_store
+  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/signed_service_record,
+  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/node/peer_manager/waku_peer_store
 import ../testlib/[wakucore, testasync, assertions, futures, testutils]
 import ./utils as kad_utils
 

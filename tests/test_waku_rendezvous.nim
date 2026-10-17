@@ -10,16 +10,16 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/waku/waku_core/peers,
-  logos_delivery/waku/waku_core/codecs,
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/node/peer_manager/peer_manager,
-  logos_delivery/waku/waku_rendezvous/protocol,
-  logos_delivery/waku/waku_rendezvous/common,
-  logos_delivery/waku/waku_rendezvous/waku_peer_record,
-  logos_delivery/waku/waku_rendezvous/client,
-  logos_delivery/waku/common/protobuf,
+  logos_delivery/kernel/core/peers,
+  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/core/[topics/pubsub_topic, peers],
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/protocols/rendezvous/protocol,
+  logos_delivery/kernel/protocols/rendezvous/common,
+  logos_delivery/kernel/protocols/rendezvous/waku_peer_record,
+  logos_delivery/kernel/protocols/rendezvous/client,
+  logos_delivery/kernel/common/protobuf,
   ./testlib/[protobuf_errors, wakucore, wakunode]
 
 suite "mixPubKeyFromHex":

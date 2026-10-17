@@ -1,0 +1,136 @@
+import libp2p/crypto/crypto
+{.push raises: [].}
+
+import
+  std/[tables, sequtils, algorithm, random],
+  results,
+  chronicles,
+  chronos,
+  metrics,
+  bearssl/rand
+import
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/common/utils/requests,
+  ./protocol_metrics,
+  ./common,
+  ./rpc_codec
+
+logScope:
+  topics = "waku store client"
+
+const DefaultPageSize*: uint = 20
+  # A recommended default number of waku messages per page
+
+const MaxQueryRetries = 5 # Maximum number of store peers to try before giving up
+
+type WakuStoreClient* = ref object
+  peerManager: PeerManager
+  rng: crypto.Rng
+  storeMsgMetricsPerShard*: Table[string, float64]
+  maxResponseSize*: int ## the largest response that the client reads
+
+proc new*(
+    T: type WakuStoreClient,
+    peerManager: PeerManager,
+    rng: crypto.Rng,
+    maxResponseSize = DefaultMaxQueryResponseSize,
+): T {.gcsafe.} =
+  WakuStoreClient(peerManager: peerManager, rng: rng, maxResponseSize: maxResponseSize)
+
+proc sendStoreRequest(
+    self: WakuStoreClient, request: StoreQueryRequest, connection: Connection
+): Future[StoreQueryResult] {.async, gcsafe.} =
+  var req = request
+
+  self.peerManager.addActiveStoreRequest(connection.peerId)
+  defer:
+    self.peerManager.removeActiveStoreRequest(connection.peerId)
+    asyncSpawn connection.close()
+
+  if req.requestId == "":
+    req.requestId = generateRequestId(self.rng)
+
+  try:
+    await connection.writeLP(req.encode())
+  except LPStreamError as exc:
+    return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: exc.msg))
+
+  let buf =
+    try:
+      await connection.readLp(self.maxResponseSize)
+    except LPStreamError as exc:
+      return err(StoreError(kind: ErrorCode.BAD_RESPONSE, cause: exc.msg))
+
+  let res = StoreQueryResponse.decode(buf).valueOr:
+    logos_delivery_store_errors.inc(labelValues = [DecodeRpcFailure])
+    return err(StoreError(kind: ErrorCode.BAD_RESPONSE, cause: DecodeRpcFailure))
+
+  if res.statusCode != uint32(StatusCode.SUCCESS):
+    logos_delivery_store_errors.inc(labelValues = [NoSuccessStatusCode])
+    return err(StoreError.new(res.statusCode, res.statusDesc))
+
+  if req.pubsubTopic.isSome():
+    let topic = req.pubsubTopic.get()
+    if not self.storeMsgMetricsPerShard.hasKey(topic):
+      self.storeMsgMetricsPerShard[topic] = 0
+    self.storeMsgMetricsPerShard[topic] += float64(req.encode().len)
+
+    logos_delivery_store_fleet_msg_size_bytes.inc(
+      self.storeMsgMetricsPerShard[topic], labelValues = [topic]
+    )
+    logos_delivery_store_fleet_msg_count.inc(1.0, labelValues = [topic])
+
+  return ok(res)
+
+proc query*(
+    self: WakuStoreClient, request: StoreQueryRequest, peer: RemotePeerInfo | PeerId
+): Future[StoreQueryResult] {.async, gcsafe.} =
+  if request.paginationCursor.isSome() and request.paginationCursor.get() == EmptyCursor:
+    return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: "invalid cursor"))
+
+  let connection = (await self.peerManager.dialPeer(peer, WakuStoreCodec)).valueOr:
+    logos_delivery_store_errors.inc(labelValues = [DialFailure])
+
+    return err(StoreError(kind: ErrorCode.PEER_DIAL_FAILURE, address: $peer))
+
+  return await self.sendStoreRequest(request, connection)
+
+proc queryToAny*(
+    self: WakuStoreClient, request: StoreQueryRequest, peerId = Opt.none(PeerId)
+): Future[StoreQueryResult] {.async.} =
+  ## we don't specify a particular peer and instead we get it from peer manager.
+  ## It will retry with different store peers if the dial fails.
+
+  if request.paginationCursor.isSome() and request.paginationCursor.get() == EmptyCursor:
+    return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: "invalid cursor"))
+
+  # Get all available store peers
+  var peers = self.peerManager.switch.peerStore.getPeersByProtocol(WakuStoreCodec)
+  # A configured Store peer sits in its service slot with no protocols recorded
+  # until a connection learns them; dial it too.
+  self.peerManager.serviceSlots.withValue(WakuStoreCodec, slot):
+    if not peers.anyIt(it.peerId == slot[].peerId):
+      peers.add(slot[])
+  if peers.len == 0:
+    return err(StoreError(kind: BAD_RESPONSE, cause: "no service store peer connected"))
+
+  # Shuffle to distribute load across store peers and limit retries
+  shuffle(peers)
+  let peersToTry = peers[0 ..< min(peers.len, MaxQueryRetries)]
+
+  var lastError: StoreError
+  for peer in peersToTry:
+    let connection = (await self.peerManager.dialPeer(peer, WakuStoreCodec)).valueOr:
+      logos_delivery_store_errors.inc(labelValues = [DialFailure])
+      debug "Failed to dial store peer, trying next"
+      lastError = StoreError(kind: ErrorCode.PEER_DIAL_FAILURE, address: $peer)
+      continue
+
+    let response = (await self.sendStoreRequest(request, connection)).valueOr:
+      debug "Store query failed, trying next peer", peerId = peer.peerId, error = $error
+      lastError = error
+      continue
+
+    return ok(response)
+
+  return err(lastError)

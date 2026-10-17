@@ -14,17 +14,21 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/waku/[
-    waku_core/topics,
-    waku_core/codecs,
-    waku_enr,
+  logos_delivery/kernel/[
+    protocols/codecs,
+    common/enr as waku_enr,
+    common/enr/builder,
+    common/enr/typed_record,
+    enr/capabilities,
+    enr/sharding,
     discovery/waku_discv5,
     net/auto_port,
-    waku_enr/capabilities,
-    factory/conf_builder/conf_builder,
+    factory/conf_builder/waku_conf_builder,
+    factory/conf_builder/discv5_conf_builder,
+    kernel_lifecycle,
     kernel,
-    waku_node,
-    node/peer_manager,
+    node/node/peer_exchange,
+    node/peer_manager/peer_manager,
   ],
   ../testlib/[wakucore, testasync, assertions, futures, wakunode, testutils],
   ../waku_enr/utils,

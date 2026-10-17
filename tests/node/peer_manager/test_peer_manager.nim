@@ -3,11 +3,12 @@
 import results, chronicles, std/tables, chronos, testutils/unittests
 
 import
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/core/
+    [topics, topics/content_topic, topics/pubsub_topic, topics/sharding, peers],
   ../../waku_lightpush/[lightpush_utils],
   ../../testlib/[wakucore, wakunode, futures, testasync],
-  logos_delivery/waku/node/peer_manager/peer_manager
+  logos_delivery/kernel/node/peer_manager/peer_manager
 
 suite "Peer Manager":
   suite "refreshPeerMetadata":

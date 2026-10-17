@@ -10,14 +10,20 @@ import
   libp2p/[peerstore, crypto/crypto]
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    kernel,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-    waku_filter_v2/rpc,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
+    protocols/filter/common as filter_common,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/filter/client,
+    protocols/filter/rpc,
   ],
   ../testlib/[common, wakucore, wakunode, testasync, futures, testutils],
   ../waku_filter_v2/waku_filter_utils

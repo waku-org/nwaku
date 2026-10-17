@@ -2,7 +2,7 @@
 
 import testutils/unittests, chronos
 
-import logos_delivery/waku/rln/rln_api
+import logos_delivery/kernel/rln/rln_api
 
 type StubRlnModule = ref object
   quota: EpochQuota

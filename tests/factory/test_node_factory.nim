@@ -15,29 +15,36 @@ import tools/confutils/cli_args
 
 import
   tests/testlib/[wakunode, wakucore],
-  logos_delivery/waku/[
-    waku_core,
-    kernel,
-    waku_store/common,
-    waku_store/client,
-    waku_store/rpc_codec,
+  logos_delivery/kernel/[
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/peers,
+    protocols/codecs,
+    kernel_lifecycle,
+    protocols/store/common,
+    protocols/store/client,
+    protocols/store/rpc_codec,
     net/net_config,
-    waku_enr,
-    net/auto_port,
+    common/enr/typed_record,
+    enr/multiaddr,
+    enr/sharding,
     discovery/waku_discv5,
-    node/peer_manager,
-    node/waku_metrics,
-    waku_metadata,
-    waku_filter_v2,
-    common/rate_limit/setting,
+    node/peer_manager/peer_manager,
+    node/metrics,
+    protocols/metadata/protocol,
+    protocols/filter/common,
+    protocols/filter/protocol,
   ],
-  logos_delivery/waku/node/subscription_manager,
-  logos_delivery/waku/factory/[
+  logos_delivery/kernel/node/subscription_manager,
+  logos_delivery/kernel/factory/[
     node_factory,
     internal_config,
     networks_config,
-    conf_builder/conf_builder,
-    conf_builder/web_socket_conf_builder,
+    conf_builder/waku_conf_builder,
+    conf_builder/filter_service_conf_builder,
+    conf_builder/store_service_conf_builder,
+    conf_builder/discv5_conf_builder,
+    conf_builder/metrics_server_conf_builder,
   ]
 
 proc servicePeerGauge(codec: string): float64 =

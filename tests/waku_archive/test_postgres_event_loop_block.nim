@@ -12,10 +12,19 @@ import
   chronos,
   db_connector/[db_postgres, postgres]
 import
-  logos_delivery/waku/[
-    waku_archive/driver/postgres_driver,
-    waku_core,
-    waku_core/message/digest,
+  logos_delivery/kernel/[
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
     common/databases/db_postgres/pgasyncpool,
   ],
   ../testlib/wakucore,

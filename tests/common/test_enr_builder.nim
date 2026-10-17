@@ -1,7 +1,7 @@
 {.used.}
 
 import std/net, results, testutils/unittests
-import logos_delivery/waku/common/enr, ../testlib/wakucore
+import logos_delivery/kernel/common/enr, ../testlib/wakucore
 
 suite "nim-eth ENR - builder and typed record":
   test "Non-supported private key (ECDSA)":

@@ -3,7 +3,7 @@ import chronos, results, ffi, stew/byteutils
 import libp2p/[peerid, multiaddress]
 import libp2p/crypto/[crypto, secp]
 import libp2p_mix/[mix_protocol, mix_node, curve25519, pool]
-import logos_delivery, logos_delivery/waku/node/peer_manager
+import logos_delivery, logos_delivery/kernel/[node/peer_manager/peer_manager]
 import library/declare_lib
 
 proc waku_mix_get_peer_record(

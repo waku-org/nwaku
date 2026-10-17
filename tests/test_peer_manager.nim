@@ -18,19 +18,22 @@ import
   libp2p/peerid
 from metrics import value, valueByName
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/databases/db_sqlite,
     node/delivery_dialer,
     node/peer_manager/peer_manager,
     node/peer_manager/peer_store/waku_peer_storage,
-    kernel,
-    waku_core,
-    waku_enr/capabilities,
-    waku_relay/protocol,
-    waku_filter_v2/common,
-    waku_store/common,
-    waku_peer_exchange,
-    waku_metadata,
+    kernel_lifecycle,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    enr/capabilities,
+    protocols/relay/protocol,
+    protocols/filter/common,
+    protocols/store/common,
+    protocols/peer_exchange/protocol,
+    protocols/metadata/protocol,
   ],
   ./testlib/common,
   ./testlib/testasync,

@@ -11,7 +11,17 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/mcache
 import
-  logos_delivery/waku/[waku_core, node/peer_manager, kernel, waku_relay],
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
+    protocols/relay/protocol,
+  ],
   ../testlib/futures,
   ../testlib/testasync,
   ../testlib/testutils,

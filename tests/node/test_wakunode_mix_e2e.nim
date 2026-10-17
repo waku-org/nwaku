@@ -18,12 +18,22 @@ import
   libp2p_mix/[curve25519, mix_protocol, mix_metrics]
 
 import
-  logos_delivery/waku/
-    [waku_core, node/peer_manager, waku_node, waku_mix, waku_lightpush],
-  logos_delivery/waku/node/peer_manager/waku_peer_store,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/publish,
-  logos_delivery/waku/factory/waku_conf,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    node/peer_manager/peer_manager,
+    kernel,
+    node/node/lightpush,
+    node/node/relay,
+    protocols/mix/protocol,
+    protocols/lightpush/common,
+  ],
+  logos_delivery/kernel/node/peer_manager/waku_peer_store,
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/publish,
   logos_delivery/api/types,
   logos_delivery/api/conf/modes,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,

@@ -12,18 +12,14 @@ import
 
 import
   tools/confutils/cli_args,
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/enr,
     common/logging,
-    kernel as waku_factory,
-    waku_node,
-    node/waku_metrics,
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/peers,
-    waku_core/multiaddrstr,
+    kernel_lifecycle as waku_factory,
+    node/peer_manager/peer_manager,
+    protocols/lightpush/common,
+    protocols/filter/common,
+    core/peers,
   ],
   ./tester_config,
   ./publisher,

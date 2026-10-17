@@ -14,7 +14,12 @@ import
 import
   ../../tools/confutils/
     [cli_args, envvar as confEnvvarDefs, envvar_net as confEnvvarNet],
-  logos_delivery/waku/[common/logging, waku_core, waku_core/topics/pubsub_topic]
+  logos_delivery/kernel/[
+    common/logging,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    protocols/codecs,
+  ]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 

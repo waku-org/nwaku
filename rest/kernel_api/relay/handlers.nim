@@ -10,19 +10,23 @@ import
   json_serialization/pkg/results,
   presto/route,
   presto/common
+import logos_delivery/kernel/core/topics/content_topic
+import logos_delivery/kernel/core/topics/sharding
+import logos_delivery/kernel/core/topics/pubsub_topic
 import
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/waku_relay/protocol,
-  logos_delivery/waku/rln,
-  logos_delivery/waku/rln/rln_plugin,
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/kernel/[kernel, node/node/relay],
+  logos_delivery/kernel/protocols/relay/protocol,
+  logos_delivery/kernel/
+    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
+  logos_delivery/kernel/rln/rln_plugin,
+  logos_delivery/kernel/kernel,
   rest/message_cache,
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   rest/kernel_api/relay/types
-from logos_delivery/waku/rln/types import RlnErrorKind
+from logos_delivery/kernel/rln/types import RlnErrorKind
 
 export types
 
@@ -240,10 +244,13 @@ proc installRelayApiHandlers*(
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(
+      node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true
+    )
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic = pubSubTopic, rln = node.protocols.rlnPlugin.isSome()
+    debug "Publishing message",
+      pubSubTopic = pubSubTopic, rln = node.protocols.rlnPlugin.isSome()
     if not (await node.publish(Opt.some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic = pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
@@ -373,7 +380,9 @@ proc installRelayApiHandlers*(
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(
+      node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true
+    )
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",

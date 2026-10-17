@@ -2,16 +2,18 @@
 
 import std/[sequtils, times], results, testutils/unittests, chronos
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_core/message/digest,
-    waku_archive,
-    waku_archive/retention_policy,
-    waku_archive/retention_policy/retention_policy_time,
-    waku_archive/retention_policy/retention_policy_capacity,
-    waku_archive/retention_policy/retention_policy_size,
+  logos_delivery/kernel/[
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    archive/driver,
+    archive/retention_policy,
+    archive/retention_policy/retention_policy_time,
+    archive/retention_policy/retention_policy_capacity,
+    archive/retention_policy/retention_policy_size,
   ],
-  ../waku_archive/archive_utils,
+  ./archive_utils,
   ../testlib/wakucore
 
 suite "Waku Archive - Retention policy":

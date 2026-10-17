@@ -13,9 +13,11 @@ import logos_delivery/messaging/delivery_service/recv_service/recv_service
 import logos_delivery/messaging/messaging_client_lifecycle
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/conf/logos_delivery_conf_json
-import logos_delivery/waku/[waku_core, waku_store/common]
-import logos_delivery/waku/persistency/persistency
-from logos_delivery/waku/waku_archive/archive import MaxMessageTimestampVariance
+import
+  logos_delivery/kernel/
+    [core/topics/pubsub_topic, core/time, core/message, protocols/store/common]
+import logos_delivery/kernel/persistency/persistency
+from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 const
   Base = 1_700_000_000_000_000_000'i64 ## 2023-11-14

@@ -3,8 +3,16 @@
 import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/
-    [node/peer_manager, waku_core, waku_lightpush, waku_lightpush/client],
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    protocols/lightpush/client,
+  ],
   ../testlib/wakucore,
   ./lightpush_utils
 

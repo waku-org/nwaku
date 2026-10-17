@@ -14,18 +14,23 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/paging,
-    waku_core,
-    waku_core/message/digest,
-    node/peer_manager,
-    waku_archive,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_store,
-    kernel,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    node/peer_manager/peer_manager,
+    archive/archive,
+    archive/driver,
+    protocols/filter/common,
+    protocols/filter/protocol,
+    protocols/filter/client,
+    protocols/store/common,
+    kernel_lifecycle,
   ],
-  ../waku_store/store_utils,
+  ./store_utils,
   ../waku_archive/archive_utils,
   ../testlib/wakucore,
   ../testlib/wakunode

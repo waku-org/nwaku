@@ -1,7 +1,7 @@
 import
   results,
-  logos_delivery/waku/
-    [node/peer_manager, node/waku_node, waku_enr/sharding, common/enr/typed_record],
+  logos_delivery/kernel/
+    [node/peer_manager, kernel, enr/sharding, common/enr/typed_record],
   ../testlib/[wakucore]
 
 proc relayShards*(node: Kernel): RelayShards =

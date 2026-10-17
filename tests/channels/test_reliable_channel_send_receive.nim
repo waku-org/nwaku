@@ -8,8 +8,7 @@ import brokers/broker_context
 import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
 
 import logos_delivery
-import logos_delivery/waku/[waku_node, waku_core]
-import logos_delivery/waku/factory/waku_conf
+import logos_delivery/kernel/[core/topics/content_topic, core/message]
 import logos_delivery/api/events/messaging_client_events as waku_message_events
 import logos_delivery/api/messaging_client_api
 import tools/confutils/cli_args
@@ -17,8 +16,8 @@ import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/conf/modes
 
 import logos_delivery/channels/reliable_channel_manager
-import logos_delivery/waku/persistency/keys
-import logos_delivery/waku/persistency/sds_persistency
+import logos_delivery/kernel/persistency/keys
+import logos_delivery/kernel/persistency/sds_persistency
 
 ## Full nim-sds API: ingress tests act as the remote peer producing real
 ## SDS envelopes; protocol-semantics tests decode wires and meta snapshots.
@@ -62,7 +61,8 @@ suite "Reliable Channel - ingress":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -126,7 +126,8 @@ suite "Reliable Channel - ingress":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -174,7 +175,8 @@ suite "Reliable Channel - ingress":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -232,7 +234,8 @@ suite "Reliable Channel - ingress":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     ## Gate decryption so the receive handler parks mid-pipeline.
@@ -320,7 +323,8 @@ suite "Reliable Channel - send state machine":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var sendCalls = 0
@@ -383,7 +387,8 @@ suite "Reliable Channel - send state machine":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
@@ -470,7 +475,8 @@ suite "Reliable Channel - send state machine":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
@@ -554,7 +560,8 @@ suite "Reliable Channel - send state machine":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
@@ -644,7 +651,8 @@ suite "Reliable Channel - send state machine":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
@@ -744,7 +752,8 @@ suite "Reliable Channel - SDS persistence":
     var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
@@ -815,7 +824,8 @@ suite "Reliable Channel - SDS lifecycle":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -884,7 +894,8 @@ suite "Reliable Channel - SDS lifecycle":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -939,7 +950,8 @@ suite "Reliable Channel - SDS lifecycle":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -998,7 +1010,8 @@ suite "Reliable Channel - SDS lifecycle":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
@@ -1081,7 +1094,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var capturedWires: seq[seq[byte]]
@@ -1146,7 +1160,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
@@ -1238,7 +1253,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -1311,7 +1327,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     discard manager
@@ -1382,7 +1399,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     var capturedWires: seq[seq[byte]]
@@ -1447,7 +1465,8 @@ suite "Reliable Channel - SDS protocol semantics":
     var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
     check (await manager.send(ChannelId("no-such-channel"), "x".toBytes())).isErr()
@@ -1467,7 +1486,8 @@ suite "Reliable Channel - content topic subscription":
     var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      kernel = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
       manager = kernel.reliableChannelManager
 
       ## Created before start: subscribed by `ReliableChannelManager.start`.
@@ -1534,8 +1554,9 @@ suite "Reliable Channel - a mix fail-fast reaches the sender":
       )
       .expect("listen ChannelMessageErrorEvent")
 
-    let channelReqId =
-      (await kernel.reliableChannelManager.send(channelId, "hi".toBytes())).expect("send")
+    let channelReqId = (
+      await kernel.reliableChannelManager.send(channelId, "hi".toBytes())
+    ).expect("send")
 
     check await errFut.withTimeout(TestTimeout)
     if errFut.finished():

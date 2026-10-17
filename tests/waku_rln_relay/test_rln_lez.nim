@@ -9,8 +9,8 @@
 import std/[strutils, json]
 import testutils/unittests, chronos
 
-import logos_delivery/waku/rln/rln_lez/rln_lez
-import logos_delivery/waku/rln/rln_lez/transport
+import logos_delivery/kernel/rln/rln_lez/rln_lez
+import logos_delivery/kernel/rln/rln_lez/transport
 
 const
   QuotaReply =

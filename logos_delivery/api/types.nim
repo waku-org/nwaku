@@ -2,8 +2,8 @@
 
 import libp2p/crypto/crypto, bearssl/rand, std/times, chronos
 import stew/byteutils
-import logos_delivery/waku/utils/requests as request_utils
-import logos_delivery/waku/waku_core/[topics/content_topic, message/message, time]
+import logos_delivery/kernel/common/utils/requests as request_utils
+import logos_delivery/kernel/core/[topics/content_topic, message, time]
 
 export content_topic, message
 

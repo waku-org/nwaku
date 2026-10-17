@@ -5,10 +5,10 @@ import chronos, chronos/threadsync, results, testutils/unittests
 import brokers/broker_context
 import libp2p/[peerid, peerinfo, multiaddress, crypto/crypto, extended_peer_record]
 import
-  logos_delivery/waku/discovery/external_service_discovery,
-  logos_delivery/waku/requests/node_state_requests,
-  logos_delivery/waku/node/peer_manager/peer_manager,
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/discovery/external_service_discovery,
+  logos_delivery/kernel/requests/node_state_requests,
+  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/core/[peers],
   ../testlib/common,
   ../testlib/wakucore
 

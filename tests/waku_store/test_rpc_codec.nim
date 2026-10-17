@@ -3,12 +3,15 @@
 import std/strutils, stew/byteutils
 import results, testutils/unittests, chronos, metrics
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/paging,
-    waku_core,
-    waku_store/common,
-    waku_store/protocol_metrics,
-    waku_store/rpc_codec,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    protocols/store/common,
+    protocols/store/protocol_metrics,
+    protocols/store/rpc_codec,
     common/protobuf,
   ],
   ../testlib/[wakucore, protobuf_errors]

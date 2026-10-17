@@ -18,14 +18,21 @@ import
   logos_delivery/api/events/kernel_events,
   logos_delivery/api/events/messaging_client_events, # MessageReceivedEvent
   logos_delivery/messaging/messaging_metrics,
-  logos_delivery/waku/persistency/persistency,
-  logos_delivery/waku/[waku_core, waku_core/topics, waku_store/common],
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/[store, subscriptions, health],
-  logos_delivery/waku/api/events/[health_events, peer_events],
-  logos_delivery/waku/requests/health_requests,
-  logos_delivery/waku/node/health_monitor/health_status
-from logos_delivery/waku/waku_archive/archive import MaxMessageTimestampVariance
+  logos_delivery/kernel/persistency/persistency,
+  logos_delivery/kernel/[
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/store/common,
+  ],
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/[store, subscriptions, health],
+  logos_delivery/kernel/api/events/[health_events, peer_events],
+  logos_delivery/kernel/requests/health_requests,
+  logos_delivery/kernel/node/health_monitor/health_status
+from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 const MaxMessageLife = chronos.minutes(7)
   ## The service keeps the hash of each received message this long. After an

@@ -11,14 +11,20 @@ import
   stew/byteutils,
   testutils/unittests
 import
-  logos_delivery/waku/factory/waku_conf,
-  logos_delivery/waku/factory/conf_builder/conf_builder,
-  logos_delivery/waku/factory/networks_config,
-  logos_delivery/waku/waku_mix,
-  logos_delivery/waku/waku_enr/capabilities,
-  logos_delivery/waku/common/rate_limit/setting,
-  logos_delivery/waku/common/utils/parse_size_units,
-  logos_delivery/waku/waku_core/message/default_values
+  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf_builder/waku_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/store_sync_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/store_service_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/discv5_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/rate_limit_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/rln_relay_conf_builder,
+  logos_delivery/kernel/factory/conf_builder/mix_conf_builder,
+  logos_delivery/kernel/factory/networks_config,
+  logos_delivery/kernel/protocols/mix/protocol,
+  logos_delivery/kernel/enr/capabilities,
+  logos_delivery/kernel/common/rate_limit/setting,
+  logos_delivery/kernel/common/utils/parse_size_units,
+  logos_delivery/kernel/core/message
 
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":

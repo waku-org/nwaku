@@ -17,10 +17,9 @@ import
   rest/kernel_api/debug/handlers as debug_rest_interface,
   rest/kernel_api/debug/client as debug_rest_client
 import
-  logos_delivery/waku/[
-    kernel,
-    node/waku_node as waku_node2,
-      # TODO: Remove after moving `git_version` to the app code.
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    kernel as waku_node2, # TODO: Remove after moving `git_version` to the app code.
   ],
   ../testlib/common,
   ../testlib/wakucore,

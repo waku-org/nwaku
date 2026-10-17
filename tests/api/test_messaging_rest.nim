@@ -15,7 +15,7 @@ import
   rest/messaging_api/client as messaging_rest_client,
   rest/messaging_api/event_cache,
   rest/client,
-  logos_delivery/waku/common/base64
+  logos_delivery/kernel/common/base64
 import tools/confutils/cli_args
 import tests/testlib/[wakucore, testasync, wakunodeconf, rest_requests, rest_service]
 

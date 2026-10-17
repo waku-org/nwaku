@@ -14,7 +14,7 @@
 
 import std/[tables, deques, options]
 import results, metrics
-import logos_delivery/waku/waku_core/time
+import logos_delivery/kernel/core/time
 import rest/messaging_api/types
 
 declarePublicCounter logos_delivery_rest_received_dropped,

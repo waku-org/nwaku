@@ -10,10 +10,10 @@ import
 
 import brokers/broker_context
 import
-  logos_delivery/waku/[
-    waku_enr,
+  logos_delivery/kernel/[
+    common/enr,
+    enr/sharding,
     discovery/waku_discv5,
-    waku_core,
     common/enr,
     net/auto_port,
     api/events/subscription_events,

@@ -7,9 +7,9 @@ import chronos, chronicles
 import brokers/broker_context
 import
   ./[send_processor, relay_processor, lightpush_processor, mix_processor, delivery_task],
-  logos_delivery/waku/[waku_core, waku_store/common],
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/[store, publish],
+  logos_delivery/kernel/[core/message, protocols/store/common],
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/[store, publish],
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/api/conf/modes

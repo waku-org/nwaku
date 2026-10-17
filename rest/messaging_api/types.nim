@@ -8,7 +8,7 @@ import
   json_serialization/pkg/results,
   presto/[route, client, common]
 import
-  logos_delivery/waku/common/base64,
+  logos_delivery/kernel/common/base64,
   rest/serdes,
   rest/kernel_api/relay/types as relay_types,
   logos_delivery/api/types

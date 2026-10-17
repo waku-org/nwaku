@@ -1,7 +1,10 @@
 {.used.}
 
 import std/[sets, random, sequtils], results, stew/byteutils, testutils/unittests
-import logos_delivery/waku/waku_core, rest/message_cache, ./testlib/wakucore
+import
+  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, message],
+  rest/message_cache,
+  ./testlib/wakucore
 
 randomize()
 

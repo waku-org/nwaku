@@ -1,0 +1,152 @@
+import libp2p/crypto/crypto
+{.push raises: [].}
+
+import results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
+import
+  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/core/[ time, message], logos_delivery/kernel/protocols/codecs,
+  ./common,
+  ./rpc,
+  ./rpc_codec,
+  ./protocol_metrics,
+  logos_delivery/kernel/common/rate_limit/request_limiter
+
+logScope:
+  topics = "waku lightpush legacy"
+
+type WakuLegacyLightPush* = ref object of LPProtocol
+  rng*: crypto.Rng
+  peerManager*: PeerManager
+  pushHandler*: PushMessageHandler
+  requestRateLimiter*: RequestRateLimiter
+  maxRpcSize: int
+
+proc handleRequest*(
+    wl: WakuLegacyLightPush, peerId: PeerId, buffer: seq[byte]
+): Future[PushRPC] {.async.} =
+  let reqDecodeRes = PushRPC.decode(buffer)
+  var
+    isSuccess = false
+    pushResponseInfo = ""
+    requestId = "N/A" # replaced by the id of a request that decodes
+
+  if reqDecodeRes.isErr():
+    pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
+  elif reqDecodeRes.get().request.isNone():
+    pushResponseInfo = emptyRequestBodyFailure
+  else:
+    let pushRpcRequest = reqDecodeRes.get()
+
+    requestId = pushRpcRequest.requestId
+
+    let
+      request = pushRpcRequest.request
+
+      pubSubTopic = request.get().pubSubTopic
+      message = request.get().message
+    let msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
+    logos_delivery_lightpush_messages.inc(labelValues = ["PushRequest"])
+
+    debug "Handling legacy lightpush request",
+      my_peer_id = wl.peerManager.switch.peerInfo.peerId,
+      peer_id = peerId,
+      requestId = requestId,
+      pubsubTopic = pubsubTopic,
+      contentTopic = message.contentTopic,
+      msg_hash = msg_hash,
+      receivedTime = getNowInNanosecondTime()
+
+    let handleRes = await wl.pushHandler(pubsubTopic, message)
+    isSuccess = handleRes.isOk()
+    pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
+
+  if not isSuccess:
+    logos_delivery_lightpush_errors.inc(labelValues = [messagePushFailure])
+    debug "Failed to push message", error = pushResponseInfo
+  let response = PushResponse(isSuccess: isSuccess, info: Opt.some(pushResponseInfo))
+  let rpc = PushRPC(requestId: requestId, response: Opt.some(response))
+  return rpc
+
+proc initProtocolHandler(wl: WakuLegacyLightPush) =
+  proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
+    var rpc: PushRPC
+    defer:
+      await conn.closeWithEOF()
+
+    wl.requestRateLimiter.checkUsageLimit(WakuLegacyLightPushCodec, conn):
+      block readAndHandle:
+        var buffer: seq[byte]
+        try:
+          buffer = await conn.readLp(wl.maxRpcSize)
+        except MaxSizeError:
+          # Only the length prefix was read, so the requestId is unknown.
+          debug "Lightpush legacy request too large",
+            peerId = conn.peerId, maxRpcSize = wl.maxRpcSize
+          rpc = PushRPC(
+            requestId: "N/A",
+            response: Opt.some(
+              PushResponse(
+                isSuccess: false,
+                info: Opt.some("request exceeds " & $wl.maxRpcSize & " bytes"),
+              )
+            ),
+          )
+          break readAndHandle
+        except LPStreamError:
+          debug "Lightpush legacy read stream failed", error = getCurrentExceptionMsg()
+          return
+
+        logos_delivery_service_network_bytes.inc(
+          amount = buffer.len().int64, labelValues = [WakuLegacyLightPushCodec, "in"]
+        )
+
+        try:
+          rpc = await handleRequest(wl, conn.peerId, buffer)
+        except CatchableError:
+          error "lightpush legacy handleRequest failed",
+            error = getCurrentExceptionMsg()
+    do:
+      debug "Lightpush request rejected due rate limit exceeded",
+        peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
+
+      rpc = static(
+        PushRPC(
+          ## We will not copy and decode RPC buffer from stream only for requestId
+          ## in reject case as it is comparably too expensive and opens possible
+          ## attack surface
+          requestId: "N/A",
+          response: Opt.some(
+            PushResponse(isSuccess: false, info: Opt.some(TooManyRequestsMessage))
+          ),
+        )
+      )
+
+    try:
+      await conn.writeLp(rpc.encode())
+    except LPStreamError:
+      debug "Lightpush legacy write stream failed", error = getCurrentExceptionMsg()
+
+    ## For lightpush might not worth to measure outgoing trafic as it is only
+    ## small respones about success/failure
+
+  wl.handler = handler
+  wl.codec = WakuLegacyLightPushCodec
+
+proc new*(
+    T: type WakuLegacyLightPush,
+    peerManager: PeerManager,
+    rng: crypto.Rng,
+    pushHandler: PushMessageHandler,
+    rateLimitSetting: Opt[RateLimitSetting] = Opt.none(RateLimitSetting),
+    maxMessageSize: int,
+): T =
+  let wl = WakuLegacyLightPush(
+    rng: rng,
+    peerManager: peerManager,
+    pushHandler: pushHandler,
+    requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
+    maxRpcSize: maxMessageSize + DefaultSafetyBufferProtocolOverhead,
+  )
+  wl.initProtocolHandler()
+  setServiceLimitMetric(WakuLegacyLightPushCodec, rateLimitSetting)
+  return wl

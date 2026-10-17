@@ -14,15 +14,17 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
-  logos_delivery/waku/[
-    kernel,
-    waku_core/topics,
-    waku_core,
-    node/peer_manager,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
     discovery/waku_discv5,
-    waku_metadata,
-    waku_metadata/rpc,
-    waku_relay/protocol,
+    protocols/metadata/protocol,
+    protocols/metadata/rpc,
+    protocols/relay/protocol,
   ],
   ./testlib/wakucore,
   ./testlib/wakunode,

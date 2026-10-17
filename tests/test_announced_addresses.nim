@@ -14,14 +14,15 @@ import libp2p/services/natservice
 import chronos/transports/osnet
 import libp2p/services/nat/portmapper
 import eth/p2p/discoveryv5/protocol as discv5_protocol
-import ../logos_delivery/waku/discovery/waku_discv5
+import ../logos_delivery/kernel/discovery/waku_discv5
 import eth/keys, eth/p2p/discoveryv5/enr
 import stew/byteutils
 import
-  ../logos_delivery/waku/net/net_config,
-  ../logos_delivery/waku/node/waku_node,
-  ../logos_delivery/waku/kernel,
-  ../logos_delivery/waku/waku_enr
+  ../logos_delivery/kernel/net/net_config,
+  ../logos_delivery/kernel/kernel,
+  ../logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/
+    [common/enr/builder, common/enr/typed_record, enr/multiaddr, enr/sharding]
 import ./testlib/[common, wakucore, wakunode]
 
 const LoopbackIp = parseIpAddress("127.0.0.1")

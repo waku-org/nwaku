@@ -12,11 +12,11 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
     discovery/waku_discv5,
-    waku_peer_exchange/rpc,
-    waku_peer_exchange/rpc_codec,
+    protocols/peer_exchange/rpc,
+    protocols/peer_exchange/rpc_codec,
   ],
   ../testlib/[wakucore]
 

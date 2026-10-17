@@ -18,10 +18,10 @@ import results, chronos, chronicles
 # stem, so they are imported under aliases.)
 
 # Waku layer
-import logos_delivery/waku/kernel
-export kernel
+import logos_delivery/kernel/kernel_lifecycle
+export kernel_lifecycle
 import
-  logos_delivery/waku/api/[
+  logos_delivery/kernel/api/[
     topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,
     debug, health, ping,
   ]
@@ -31,7 +31,7 @@ export
 # Kernel event surface (`MessageSeenEvent`) plus the remaining waku health events.
 import logos_delivery/api/events/kernel_events
 export kernel_events
-import logos_delivery/waku/api/events/health_events
+import logos_delivery/kernel/api/events/health_events
 export health_events
 
 # Messaging layer
@@ -56,10 +56,10 @@ export reliable_channel_manager_events
 
 import logos_delivery/api/logos_delivery_api
 export logos_delivery_api
-import logos_delivery/waku/factory/waku_conf
-import logos_delivery/waku/factory/app_callbacks
+import logos_delivery/kernel/factory/waku_conf
+import logos_delivery/kernel/factory/app_callbacks
 import tools/confutils/cli_args
-import logos_delivery/waku/node/health_monitor/online_monitor
+import logos_delivery/kernel/node/health_monitor/online_monitor
 import logos_delivery/api/conf/logos_delivery_conf
 export logos_delivery_conf
 

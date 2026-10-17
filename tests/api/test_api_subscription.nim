@@ -10,15 +10,19 @@ import logos_delivery/messaging/messaging_metrics
 
 import
   logos_delivery,
-  logos_delivery/waku/[
-    kernel,
-    waku_core,
-    waku_relay/protocol,
-    node/waku_node/filter,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    protocols/relay/protocol,
+    node/node/filter,
     node/subscription_manager,
-    waku_filter_v2/subscriptions,
+    protocols/filter/subscriptions,
   ]
-import logos_delivery/waku/factory/waku_conf
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 

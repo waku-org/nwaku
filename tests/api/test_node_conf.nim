@@ -6,10 +6,9 @@ import
   logos_delivery/api/conf/logos_delivery_conf_json,
   logos_delivery/api/conf/logos_delivery_conf,
   tools/confutils/cli_args,
-  logos_delivery/waku/factory/waku_conf,
-  logos_delivery/waku/factory/conf_builder/external_discovery_conf_builder,
-  logos_delivery/waku/factory/conf_builder/kademlia_discovery_conf_builder,
-  logos_delivery/waku/factory/networks_config
+  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/factory/conf_builder/kademlia_discovery_conf_builder,
+  logos_delivery/kernel/factory/networks_config
 
 suite "WakuNodeConf - preset integration":
   test "TWN preset applies TheWakuNetworkConf":

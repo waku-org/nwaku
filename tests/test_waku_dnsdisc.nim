@@ -12,9 +12,9 @@ import
   eth/keys,
   dnsdisc/builder
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/discovery/waku_dnsdisc,
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/discovery/waku_dnsdisc,
   ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode,

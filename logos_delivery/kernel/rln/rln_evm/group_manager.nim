@@ -1,0 +1,770 @@
+{.push raises: [].}
+
+import
+  results,
+  os,
+  web3,
+  web3/eth_api_types,
+  web3/primitives,
+  eth/keys as keys,
+  chronicles,
+  nimcrypto/keccak as keccak,
+  stint,
+  json,
+  std/[strutils, tables, algorithm, strformat],
+  stew/byteutils,
+  sequtils
+
+import
+  logos_delivery/kernel/[rln/keystore/keyfile, rln/keystore/keystore, rln/keystore/protocol_types],
+  logos_delivery/kernel/rln/rln_evm/librln_interface, logos_delivery/kernel/rln/rln_evm/wrappers,
+  ./librln_interface,
+  ./conversion_utils,
+  ./group_manager_base,
+  ./retry_wrapper,
+  ./rpc_wrapper
+
+export group_manager_base
+
+logScope:
+  topics = "waku rln group_manager"
+
+type
+  EthRpcError = object of CatchableError
+  WakuRlnContractWithSender = Sender[WakuRlnContract]
+  RlnEvmGroupManager* = ref object of RlnEvmGroupManagerBase
+    ethClientUrls*: seq[string]
+    ethPrivateKey*: Opt[string]
+    ethContractAddress*: string
+    ethRpc*: Opt[Web3]
+    wakuRlnContract*: Opt[WakuRlnContractWithSender]
+    registrationTxHash*: Opt[TxHash]
+    receiptRetryStrategy*: RetryStrategy = RetryStrategy.new()
+    chainId*: UInt256
+    keystorePath*: Opt[string]
+    keystorePassword*: Opt[string]
+    registrationHandler*: Opt[RegistrationHandler]
+    latestProcessedBlock*: BlockNumber
+    merkleProofCache*: seq[byte]
+    merkleProofCacheGeneration: uint64
+    proofPathRefreshInFlightFut*: Future[seq[byte]]
+    proofPathRefreshLoopFut: Future[void]
+    lastRootsRefreshMoment*: Moment
+    rootsRefreshInFlightFut*: Future[void]
+
+# The below code is not working with the latest web3 version due to chainId being null (specifically on linea-sepolia)
+# TODO: find better solution than this custom sendEthCallWithoutParams call
+
+proc fetchMerkleProofElements*(
+    g: RlnEvmGroupManager
+): Future[Result[seq[byte], string]] {.async.} =
+  let membershipIndex = g.membershipIndex.get()
+  let index40 = stuint(membershipIndex, 40)
+
+  let methodSig = "getMerkleProof(uint40)"
+  var paddedParam = newSeq[byte](32)
+  let indexBytes = index40.toBytesBE()
+  for i in 0 ..< min(indexBytes.len, paddedParam.len):
+    paddedParam[paddedParam.len - indexBytes.len + i] = indexBytes[i]
+
+  let response = await sendEthCallWithParams(
+    ethRpc = g.ethRpc.get(),
+    functionSignature = methodSig,
+    fromAddress = g.ethRpc.get().defaultAccount,
+    toAddress = fromHex(Address, g.ethContractAddress),
+    chainId = g.chainId,
+    params = paddedParam,
+  )
+
+  return response
+
+proc fetchMerkleRoot*(
+    g: RlnEvmGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  try:
+    let merkleRoot = await sendEthCallWithoutParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "root()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+    return merkleRoot
+  except CatchableError:
+    debug "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+    return err("Failed to fetch merkle root: " & getCurrentExceptionMsg())
+
+proc fetchMerkleRootsCache*(
+    g: RlnEvmGroupManager
+): Future[Result[seq[byte], string]] {.async.} =
+  let
+    # using sendEthCallWithParams to get return type of seq[bytes] for getRecentRoots() function which returns an array of bytes32
+    merkleRoots = await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "getRecentRoots()",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+    )
+  return merkleRoots
+
+proc fetchNextFreeIndex*(
+    g: RlnEvmGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  let nextFreeIndex = await sendEthCallWithoutParams(
+    ethRpc = g.ethRpc.get(),
+    functionSignature = "nextFreeIndex()",
+    fromAddress = g.ethRpc.get().defaultAccount,
+    toAddress = fromHex(Address, g.ethContractAddress),
+    chainId = g.chainId,
+  )
+  return nextFreeIndex
+
+proc fetchMembershipStatus*(
+    g: RlnEvmGroupManager, idCommitment: IDCommitment
+): Future[Result[bool, string]] {.async.} =
+  let params = idCommitment.reversed()
+  let responseBytes = (
+    await sendEthCallWithParams(
+      ethRpc = g.ethRpc.get(),
+      functionSignature = "isInMembershipSet(uint256)",
+      fromAddress = g.ethRpc.get().defaultAccount,
+      toAddress = fromHex(Address, g.ethContractAddress),
+      chainId = g.chainId,
+      params = params,
+    )
+  ).valueOr:
+    return err("Failed to check membership: " & error)
+
+  return ok(responseBytes.len == 32 and responseBytes[^1] == 1'u8)
+
+proc fetchMaxMembershipRateLimit*(
+    g: RlnEvmGroupManager
+): Future[Result[UInt256, string]] {.async.} =
+  let maxMembershipRateLimit = await sendEthCallWithoutParams(
+    ethRpc = g.ethRpc.get(),
+    functionSignature = "maxMembershipRateLimit()",
+    fromAddress = g.ethRpc.get().defaultAccount,
+    toAddress = fromHex(Address, g.ethContractAddress),
+    chainId = g.chainId,
+  )
+
+  return maxMembershipRateLimit
+
+proc checkInitialized(g: RlnEvmGroupManager): Result[void, string] =
+  if not g.initialized:
+    return err("RlnEvmGroupManager is not initialized")
+  return ok()
+
+proc updateRoots*(g: RlnEvmGroupManager): Future[bool] {.async.} =
+  let rootRes = (await g.fetchMerkleRoot()).valueOr:
+    return false
+
+  let merkleRoot = UInt256ToField(rootRes)
+
+  if g.validRoots.len == 0:
+    g.validRoots.addLast(merkleRoot)
+    return true
+
+  if g.validRoots[g.validRoots.len - 1] != merkleRoot:
+    if g.validRoots.len > AcceptableRootWindowSize:
+      discard g.validRoots.popFirst()
+    g.validRoots.addLast(merkleRoot)
+    return true
+
+  return false
+
+proc updateRecentRoots*(g: RlnEvmGroupManager): Future[bool] {.async.} =
+  ## Fetch recent roots from the contract roots cache and update the validRoots deque, ensuring we maintain a window of unique acceptable roots.
+  ## Contract returns array of uint256 roots, newest first, zero-padded to the cache size (e.g. 5).
+  let bytes = (await g.fetchMerkleRootsCache()).valueOr:
+    debug "Failed to fetch current Merkle root", error = error
+    return false
+
+  if (bytes.len mod 32) != 0:
+    debug "Invalid recent roots payload length", length = bytes.len
+    return false
+
+  let chunkCount = bytes.len div 32
+  if chunkCount != RlnContractRootCacheSize:
+    debug "Unexpected number of recent roots returned; proceeding anyway",
+      count = chunkCount
+
+  # Parse 32-byte chunks (contract returns newest-first) into MerkleNode values,
+  # reversing to oldest-first and skipping zero roots.
+  var newRootsDequeOrder: seq[MerkleNode] = @[]
+  for startIdx in countdown(bytes.len - 32, 0, 32):
+    let u = UInt256.fromBytesBE(bytes.toOpenArray(startIdx, startIdx + 31))
+    if u.isZero:
+      continue
+    newRootsDequeOrder.add(UInt256ToField(u))
+
+  if newRootsDequeOrder.len == 0:
+    trace "no non-zero recent roots to add; skipping update"
+    return false
+
+  # Determine overlap with existing tail so we only append truly new roots
+  let overlap = min(g.validRoots.len, newRootsDequeOrder.len)
+  var matchLen = 0
+  for startIdx in (g.validRoots.len - overlap) ..< g.validRoots.len:
+    if g.validRoots[startIdx] == newRootsDequeOrder[0]:
+      matchLen = g.validRoots.len - startIdx
+      break
+
+  let toAdd = newRootsDequeOrder[matchLen ..< newRootsDequeOrder.len]
+  if toAdd.len == 0:
+    return false
+
+  # Append new roots to the tail; trim happens below if we exceed the window.
+  for root in toAdd:
+    g.validRoots.addLast(root)
+  trace "appended recent roots to list of valid roots", count = toAdd.len, roots = toAdd
+
+  while g.validRoots.len > AcceptableRootWindowSize:
+    discard g.validRoots.popFirst()
+
+  return true
+
+proc updateMemberCount*(g: RlnEvmGroupManager): Future[Result[void, string]] {.async.} =
+  ## Refreshes the registered-memberships metric from on-chain `nextFreeIndex`.
+  ## Called whenever a root change is observed.
+  let nextFreeIndex = (await g.fetchNextFreeIndex()).valueOr:
+    return err("Failed to fetch next free index: " & error)
+  let memberCount = cast[int64](nextFreeIndex)
+  logos_delivery_rln_number_registered_memberships.set(float64(memberCount))
+  return ok()
+
+proc refreshRoots(g: RlnEvmGroupManager): Future[void] {.async.} =
+  ## On-demand refresh of validRoots from the on-chain root cache.
+  ## Throttled to at most one refresh per RootsRefreshMinInterval; concurrent
+  ## callers outside the throttle window coalesce onto a single in-flight
+  ## refresh, awaited via `join` so cancelling one caller never cancels it.
+  if Moment.now() - g.lastRootsRefreshMoment < RootsRefreshMinInterval:
+    return
+
+  if not g.rootsRefreshInFlightFut.isNil() and not g.rootsRefreshInFlightFut.finished():
+    await g.rootsRefreshInFlightFut.join()
+    return
+
+  proc doRefresh(): Future[void] {.async.} =
+    if await g.updateRecentRoots():
+      # Best-effort metric refresh - if there's a failure, it will update with the next root change
+      discard await g.updateMemberCount()
+    g.lastRootsRefreshMoment = Moment.now()
+
+  g.rootsRefreshInFlightFut = doRefresh()
+  await g.rootsRefreshInFlightFut.join()
+
+method validateRoot*(g: RlnEvmGroupManager, root: MerkleNode): Future[bool] {.async.} =
+  if g.indexOfRoot(root) >= 0:
+    return true
+
+  await g.refreshRoots()
+  return g.indexOfRoot(root) >= 0
+
+# Bounds refetches when invalidations keep landing mid-fetch, so a rejection
+# storm cannot pin the refresh loop to the eth client.
+const MerkleProofRefetchMaxAttempts = 3
+
+proc ensureFreshMerkleProofPath*(
+    g: RlnEvmGroupManager
+): Future[Result[seq[byte], string]] {.async.} =
+  ## Returns the merkle proof path, refetching from chain when the cache is
+  ## empty; suspected-stale callers invalidate first. Concurrent callers
+  ## coalesce onto one refetch, awaited via `join` so cancelling one caller
+  ## never cancels the shared refetch. Callers use the returned path, not the
+  ## cache field, so a concurrent invalidate cannot fail an in-flight proof-gen.
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+
+  if g.merkleProofCache.len > 0:
+    return ok(g.merkleProofCache)
+
+  proc doRefresh(): Future[seq[byte]] {.async.} =
+    var pathBytes: seq[byte]
+    for _ in 0 ..< MerkleProofRefetchMaxAttempts:
+      let generation = g.merkleProofCacheGeneration
+      pathBytes = (await g.fetchMerkleProofElements()).valueOr:
+        debug "Failed to refresh merkle proof path", error = error
+        return @[]
+      if g.merkleProofCacheGeneration == generation:
+        g.merkleProofCache = pathBytes
+        break
+      # An invalidate raced this fetch, so the fetched path may predate the
+      # change that triggered it: fetch again. If attempts run out the last
+      # path is returned uncached and the next publish refetches.
+    if pathBytes.len > 0:
+      # Best-effort metric refresh - if there's a failure, it will update with the next root change
+      discard await g.updateMemberCount()
+    return pathBytes
+
+  if g.proofPathRefreshInFlightFut.isNil() or g.proofPathRefreshInFlightFut.finished():
+    g.proofPathRefreshInFlightFut = doRefresh()
+
+  let refreshFut = g.proofPathRefreshInFlightFut
+  await refreshFut.join()
+  if not refreshFut.completed():
+    return err("merkle proof path refresh failed")
+
+  let pathBytes = refreshFut.read()
+  if pathBytes.len == 0:
+    return err("merkle proof path refresh failed")
+  return ok(pathBytes)
+
+method invalidateMerkleProofCache*(g: RlnEvmGroupManager) {.gcsafe, raises: [].} =
+  ## Empties the cache so the next `ensureFreshMerkleProofPath` refetches. The
+  ## generation bump makes a refetch already in flight fetch again rather than
+  ## serve a path that may predate this invalidate.
+  g.merkleProofCache = @[]
+  g.merkleProofCacheGeneration.inc()
+
+const MerkleProofRefreshRetryInterval = 5.seconds
+
+method scheduleMerkleProofRefresh*(g: RlnEvmGroupManager) {.gcsafe, raises: [].} =
+  ## Invalidates the cache and refetches in the background, retrying until a
+  ## path is cached: `isReady` depends on it, so a failed refetch must not
+  ## leave the node unready until its next publish.
+  g.invalidateMerkleProofCache()
+
+  if not g.proofPathRefreshLoopFut.isNil() and not g.proofPathRefreshLoopFut.finished():
+    return
+
+  proc refreshLoop() {.async.} =
+    while g.initialized and g.membershipIndex.isSome() and g.merkleProofCache.len == 0:
+      let res = await g.ensureFreshMerkleProofPath()
+      if res.isErr():
+        debug "merkle proof refresh failed, retrying", error = res.error
+      # A path can also come back uncached when invalidations keep racing the
+      # fetch, so back off whenever the cache is still empty.
+      if g.merkleProofCache.len == 0:
+        await sleepAsync(MerkleProofRefreshRetryInterval)
+
+  g.proofPathRefreshLoopFut = refreshLoop()
+
+method register*(
+    g: RlnEvmGroupManager, rateCommitment: RateCommitment
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  ?checkInitialized(g)
+
+  try:
+    let leaf = rateCommitment.toLeaf().get()
+    if g.registerCb.isSome():
+      let idx = g.latestIndex
+      debug "registering member via callback", rateCommitment = leaf, index = idx
+      await g.registerCb.get()(@[Membership(rateCommitment: leaf, index: idx)])
+    g.latestIndex.inc()
+  except CancelledError as e:
+    raise e
+  except CatchableError as e:
+    return err("Failed to call register callback: " & e.msg)
+
+  return ok()
+
+method register*(
+    g: RlnEvmGroupManager,
+    identityCredential: IdentityCredential,
+    userMessageLimit: UserMessageLimit,
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  ?checkInitialized(g)
+
+  let ethRpc = g.ethRpc.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
+
+  let gasPrice = (
+    await retryWrapper(
+      RetryStrategy.new(),
+      "Failed to get gas price",
+      proc(): Future[int] {.async.} =
+        let fetchedGasPrice = uint64(await ethRpc.provider.eth_gasPrice())
+        if fetchedGasPrice > uint64(high(int) div 2):
+          warn "Gas price overflow detected, capping at maximum int value",
+            fetchedGasPrice = fetchedGasPrice, maxInt = high(int)
+          return high(int)
+        else:
+          let calculatedGasPrice = int(fetchedGasPrice) * 2
+          trace "Gas price calculated",
+            fetchedGasPrice = fetchedGasPrice, gasPrice = calculatedGasPrice
+          return calculatedGasPrice,
+    )
+  ).valueOr:
+    return err("Failed to get gas price: " & error)
+
+  let idCommitment = identityCredential.idCommitment.toUInt256()
+  let idCommitmentsToErase: seq[UInt256] = @[]
+  info "registering the member",
+    idCommitment = idCommitment,
+    userMessageLimit = userMessageLimit,
+    idCommitmentsToErase = idCommitmentsToErase
+  let txHash = (
+    await retryWrapper(
+      RetryStrategy.new(),
+      "Failed to register the member",
+      proc(): Future[TxHash] {.async.} =
+        return await wakuRlnContract
+          .register(idCommitment, userMessageLimit.stuint(32), idCommitmentsToErase)
+          .send(gasPrice = gasPrice),
+    )
+  ).valueOr:
+    return err("Failed to register member: " & error)
+
+  # wait for the transaction to be mined and get the receipt
+  let tsReceipt = (
+    await retryWrapper(
+      g.receiptRetryStrategy,
+      "Failed to get the transaction receipt",
+      proc(): Future[ReceiptObject] {.async.} =
+        let r = await ethRpc.provider.eth_getTransactionReceipt(txHash)
+        if r.isNil():
+          raise newException(EthRpcError, "transaction not yet mined")
+        return r,
+    )
+  ).valueOr:
+    return err("Failed to get transaction receipt: " & error)
+  g.registrationTxHash = Opt.some(txHash)
+  # the receipt topic holds the hash of signature of the raised events
+  trace "registration receipt", receipt = tsReceipt[]
+
+  if tsReceipt.status.isNone():
+    return err("Transaction failed: status is None")
+  if tsReceipt.status.get() != 1.Quantity:
+    return err("Transaction failed with status: " & $tsReceipt.status.get())
+
+  ## Search through all transaction logs to find the MembershipRegistered event
+  let expectedEventSignature = cast[FixedBytes[32]](keccak.keccak256.digest(
+    "MembershipRegistered(uint256,uint256,uint32)"
+  ).data)
+
+  var membershipRegisteredLog: Opt[LogObject]
+  for log in tsReceipt.logs:
+    if log.topics.len > 0 and log.topics[0] == expectedEventSignature:
+      membershipRegisteredLog = Opt.some(log)
+      break
+
+  if membershipRegisteredLog.isNone():
+    return err("register: MembershipRegistered event not found in transaction logs")
+
+  let registrationLog = membershipRegisteredLog.get()
+
+  ## Parse MembershipRegistered event data: idCommitment(256) || membershipRateLimit(256) || index(32)
+  let arguments = registrationLog.data
+  trace "registration transaction log data", arguments = arguments
+  let
+    ## Extract membership index from transaction log data (big endian)
+    membershipIndex = UInt256.fromBytesBE(arguments[64 .. 95])
+
+  g.userMessageLimit = Opt.some(userMessageLimit)
+  g.membershipIndex = Opt.some(membershipIndex.toMembershipIndex())
+  g.idCredentials = Opt.some(identityCredential)
+
+  let rateCommitment = RateCommitment(
+      idCommitment: identityCredential.idCommitment, userMessageLimit: userMessageLimit
+    )
+    .toLeaf()
+    .get()
+
+  if g.registerCb.isSome():
+    let member = Membership(rateCommitment: rateCommitment, index: g.latestIndex)
+    try:
+      await g.registerCb.get()(@[member])
+    except CancelledError as e:
+      raise e
+    except CatchableError as e:
+      return err("Failed to call register callback: " & e.msg)
+  g.latestIndex.inc()
+
+  return ok()
+
+method withdraw*(
+    g: RlnEvmGroupManager, idCommitment: IDCommitment
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  checkInitialized(g).isOkOr:
+    return err(error)
+  return ok()
+
+method withdrawBatch*(
+    g: RlnEvmGroupManager, idCommitments: seq[IDCommitment]
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  checkInitialized(g).isOkOr:
+    return err(error)
+
+  return ok()
+
+proc getRootFromProofAndIndex(
+    g: RlnEvmGroupManager, elements: seq[byte], bits: seq[byte]
+): Result[array[32, byte], string] =
+  # this is a helper function to get root from merkle proof elements and index
+  # it's currently not used anywhere, but can be used to verify the root from the proof and index
+  # Compute leaf hash from idCommitment and messageLimit
+  let messageLimitField = uint64ToField(g.userMessageLimit.get())
+  var hash = poseidon(g.idCredentials.get().idCommitment, @messageLimitField).valueOr:
+    return err("Failed to compute leaf hash: " & error)
+
+  for i in 0 ..< bits.len:
+    let sibling = elements[i * 32 .. (i + 1) * 32 - 1]
+
+    let hashRes =
+      if bits[i] == 0:
+        poseidon(@hash, sibling)
+      else:
+        poseidon(sibling, @hash)
+
+    hash = hashRes.valueOr:
+      return err("Failed to compute poseidon hash: " & error)
+
+  return ok(hash)
+
+method generateProof*(
+    g: RlnEvmGroupManager,
+    data: seq[byte],
+    epoch: Epoch,
+    messageId: MessageId,
+    rlnIdentifier = DefaultRlnIdentifier,
+): Future[Result[RateLimitProof, string]] {.async.} =
+  ## Generates an RLN proof using the cached Merkle proof and custom witness
+  # Ensure identity credentials and membership index are set
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  if g.userMessageLimit.isNone():
+    return err("user message limit is not set")
+
+  debug "Generating RLN proof"
+  let merkleProofPath = ?(await g.ensureFreshMerkleProofPath())
+
+  if (merkleProofPath.len mod 32) != 0:
+    return err("Invalid merkle proof cache length")
+
+  let identity_secret = seqToField(g.idCredentials.get().idSecretHash)
+  let user_message_limit = uint64ToField(g.userMessageLimit.get())
+  let message_id = uint64ToField(messageId)
+  var path_elements = newSeq[byte](0)
+
+  let identity_path_index = uint64ToIndex(g.membershipIndex.get(), 20)
+  for i in 0 ..< merkleProofPath.len div 32:
+    let chunk = merkleProofPath[i * 32 .. (i + 1) * 32 - 1]
+    path_elements.add(chunk.reversed())
+
+  let xCfr = hashToFieldLe(data).valueOr:
+    return err("Failed to hash signal to field: " & error)
+  defer:
+    ffi_cfr_free(xCfr)
+  let x = cfrToBytesLe(xCfr).valueOr:
+    return err("Failed to serialize signal hash: " & error)
+
+  let extNullifier = generateExternalNullifier(epoch, rlnIdentifier).valueOr:
+    return err("Failed to compute external nullifier: " & error)
+
+  let witness = RLNWitnessInput(
+    identity_secret: identity_secret,
+    user_message_limit: user_message_limit,
+    message_id: message_id,
+    path_elements: path_elements,
+    identity_path_index: identity_path_index,
+    x: x,
+    external_nullifier: extNullifier,
+  )
+
+  logos_delivery_rln_proof_generation_duration_seconds.nanosecondTime:
+    let output = generateRlnProofWithWitness(
+      g.rlnInstance, witness, epoch, rlnIdentifier
+    ).valueOr:
+      return err("Failed to generate proof: " & error)
+
+  trace "Proof generated successfully", proof = output
+
+  logos_delivery_rln_remaining_proofs_per_epoch.dec()
+  logos_delivery_rln_total_generated_proofs.inc()
+  return ok(output)
+
+method verifyProof*(
+    g: RlnEvmGroupManager, input: seq[byte], proof: RateLimitProof
+): Result[bool, string] {.gcsafe.} =
+  let validProof = verifyRlnProof(
+    g.rlnInstance, proof, input, g.validRoots.items().toSeq()
+  ).valueOr:
+    return err("could not verify the proof: " & error)
+
+  trace "Proof verified", isValid = validProof
+  return ok(validProof)
+
+method onRegister*(g: RlnEvmGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+  g.registerCb = Opt.some(cb)
+
+method onWithdraw*(g: RlnEvmGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+  g.withdrawCb = Opt.some(cb)
+
+proc establishConnection(
+    g: RlnEvmGroupManager
+): Future[Result[Web3, string]] {.async.} =
+  let ethRpc = (
+    await retryWrapper(
+      RetryStrategy.new(),
+      "Failed to connect to the Ethereum client",
+      proc(): Future[Web3] {.async.} =
+        var innerEthRpc: Web3
+        var connected = false
+        for clientUrl in g.ethClientUrls:
+          ## We give a chance to the user to provide multiple clients
+          ## and we try to connect to each of them
+          try:
+            innerEthRpc = await newWeb3(clientUrl)
+            connected = true
+            break
+          except CatchableError:
+            debug "failed connect Eth client", error = getCurrentExceptionMsg()
+
+        ## this exception is handled by the retrywrapper
+        if not connected:
+          raise newException(EthRpcError, "all failed")
+
+        return innerEthRpc,
+    )
+  ).valueOr:
+    return err("Failed to establish Ethereum connection: " & error)
+
+  return ok(ethRpc)
+
+method init*(g: RlnEvmGroupManager): Future[Result[void, string]] {.async.} =
+  # check if the Ethereum client is reachable
+  let ethRpc: Web3 = (await establishConnection(g)).valueOr:
+    return err("failed to connect to Ethereum clients: " & $error)
+
+  let fetchedChainId = (
+    await retryWrapper(
+      RetryStrategy.new(),
+      "Failed to get the chain id",
+      proc(): Future[UInt256] {.async.} =
+        return await ethRpc.provider.eth_chainId(),
+    )
+  ).valueOr:
+    return err("Failed to get chain id: " & error)
+
+  # Set the chain id
+  if g.chainId == 0:
+    info "Chain ID not set in config, using RPC Provider's Chain ID",
+      providerChainId = fetchedChainId
+
+  if g.chainId != 0 and g.chainId != fetchedChainId:
+    return err(
+      "The RPC Provided a Chain ID which is different than the provided Chain ID: provided = " &
+        $g.chainId & ", actual = " & $fetchedChainId
+    )
+
+  g.chainId = fetchedChainId
+
+  if g.ethPrivateKey.isSome():
+    let pk = g.ethPrivateKey.get()
+    let parsedPk = keys.PrivateKey.fromHex(pk).valueOr:
+      return err("failed to parse the private key" & ": " & $error)
+    ethRpc.privateKey = Opt.some(parsedPk)
+    ethRpc.defaultAccount =
+      ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
+
+  let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
+  let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
+
+  g.ethRpc = Opt.some(ethRpc)
+  g.wakuRlnContract = Opt.some(wakuRlnContract)
+
+  if g.keystorePath.isSome() and g.keystorePassword.isSome():
+    if not fileExists(g.keystorePath.get()):
+      error "File provided as keystore path does not exist", path = g.keystorePath.get()
+      return err("File provided as keystore path does not exist")
+
+    var keystoreQuery = KeystoreMembership(
+      membershipContract:
+        MembershipContract(chainId: $g.chainId, address: g.ethContractAddress)
+    )
+    if g.membershipIndex.isSome():
+      keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
+    logos_delivery_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+      let keystoreCred = getMembershipCredentials(
+        path = g.keystorePath.get(),
+        password = g.keystorePassword.get(),
+        query = keystoreQuery,
+        appInfo = RLNAppInfo,
+      ).valueOr:
+        return err("failed to get the keystore credentials: " & $error)
+
+    g.membershipIndex = Opt.some(keystoreCred.treeIndex)
+    g.userMessageLimit = Opt.some(keystoreCred.userMessageLimit)
+
+    let idCommitment = keystoreCred.identityCredential.idCommitment
+    let membershipExists = (await g.fetchMembershipStatus(idCommitment)).valueOr:
+      return err("the commitment does not have a membership: " & error)
+
+    g.idCredentials = Opt.some(keystoreCred.identityCredential)
+
+  let maxMembershipRateLimitRes = await g.fetchMaxMembershipRateLimit()
+  let maxMembershipRateLimit = maxMembershipRateLimitRes.valueOr:
+    return err("failed to fetch max membership rate limit: " & error)
+
+  g.rlnRelayMaxMessageLimit = cast[uint64](maxMembershipRateLimit)
+
+  proc onDisconnect() {.async.} =
+    info "Ethereum client disconnected, reconnecting"
+
+    let newEthRpc: Web3 = (await g.establishConnection()).valueOr:
+      error "Fatal: failed to reconnect to Ethereum clients after disconnect",
+        error = error
+      g.onFatalErrorAction("failed to reconnect to Ethereum clients: " & error)
+      return
+
+    newEthRpc.ondisconnect = ethRpc.ondisconnect
+    g.ethRpc = Opt.some(newEthRpc)
+
+  ethRpc.ondisconnect = proc() =
+    asyncSpawn onDisconnect()
+
+  g.initialized = true
+  return ok()
+
+method stop*(
+    g: RlnEvmGroupManager
+): Future[void] {.async: (raises: [CancelledError]).} =
+  if not g.proofPathRefreshLoopFut.isNil():
+    await g.proofPathRefreshLoopFut.cancelAndWait()
+
+  if g.ethRpc.isSome():
+    g.ethRpc.get().ondisconnect = nil
+    try:
+      await g.ethRpc.get().close()
+    except CancelledError as e:
+      raise e
+    except CatchableError as e:
+      error "failed to close the Ethereum RPC connection", error = e.msg
+
+  if not g.rlnInstance.isNil:
+    ffi_rln_free(g.rlnInstance)
+    g.rlnInstance = nil
+
+  g.initialized = false
+
+proc isConfigured(g: RlnEvmGroupManager): bool =
+  checkInitialized(g).isOkOr:
+    return false
+
+  if g.ethRpc.isNone():
+    debug "Ethereum RPC client is not configured"
+    return false
+
+  if g.wakuRlnContract.isNone():
+    debug "Waku RLN contract is not configured"
+    return false
+  return true
+
+method isReady*(g: RlnEvmGroupManager): Future[bool] {.async.} =
+  ## A member is ready once it can generate a proof, i.e. its Merkle proof
+  ## path is cached. A node without credentials only validates, and
+  ## `validateRoot` fetches roots on demand, so being configured is enough.
+  if not g.isConfigured():
+    return false
+
+  if g.idCredentials.isNone():
+    return true
+
+  if g.membershipIndex.isNone() or g.merkleProofCache.len == 0:
+    debug "Merkle proof path is not fetched yet"
+    return false
+  return true

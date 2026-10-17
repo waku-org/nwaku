@@ -1,13 +1,13 @@
 import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
-  logos_delivery/waku/waku_core/message/message,
-  logos_delivery/waku/waku_core/topics/pubsub_topic,
-  logos_delivery/waku/waku_relay,
+  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/core/topics/pubsub_topic,
+  logos_delivery/kernel/protocols/relay/protocol,
+  logos_delivery/kernel/node/health_monitor/topic_health,
   logos_delivery,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/node/waku_node,
-  logos_delivery/waku/node/health_monitor/health_status,
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/kernel,
   ./events/json_message_event,
   ./declare_lib
 

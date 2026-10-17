@@ -2,8 +2,14 @@
 
 import std/sequtils, testutils/unittests, chronos
 import
-  logos_delivery/waku/[waku_archive, waku_archive/driver/sqlite_driver, waku_core],
-  ../waku_archive/archive_utils,
+  logos_delivery/kernel/[
+    archive/driver,
+    archive/driver/sqlite_driver/sqlite_driver,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+  ],
+  ./archive_utils,
   ../testlib/wakucore
 
 suite "SQLite driver":

@@ -7,7 +7,10 @@ import
   json_serialization,
   json_serialization/pkg/results,
   presto/[route, client, common]
-import logos_delivery/waku/common/base64, logos_delivery/waku/waku_core, rest/serdes
+import
+  logos_delivery/kernel/common/base64,
+  logos_delivery/kernel/core/[topics/content_topic, time, message],
+  rest/serdes
 
 #### Types
 

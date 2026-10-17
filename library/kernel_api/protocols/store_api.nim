@@ -3,11 +3,11 @@ import chronos, chronicles, results, ffi
 import
   logos_delivery,
   library/utils,
-  logos_delivery/waku/waku_core/message/digest,
-  logos_delivery/waku/waku_store/common,
+  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/store/common,
   rest/serdes,
   rest/kernel_api/store/types,
-  logos_delivery/waku/common/paging,
+  logos_delivery/kernel/common/paging,
   library/declare_lib
 
 func fromJsonNode(jsonContent: JsonNode): Result[StoreQueryRequest, string] =

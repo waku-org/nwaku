@@ -7,10 +7,11 @@ import
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/send,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/subscriptions,
-  logos_delivery/waku/persistency/persistency,
-  logos_delivery/messaging/delivery_service/[recv_service, send_service]
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/subscriptions,
+  logos_delivery/kernel/persistency/persistency,
+  logos_delivery/messaging/delivery_service/
+    [recv_service/recv_service, send_service/send_service]
 
 # Surfaces the messaging API interface (and its Message* events) to consumers.
 export messaging_client

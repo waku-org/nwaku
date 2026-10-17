@@ -12,12 +12,18 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/rln/types as rln_api_types,
-  logos_delivery/waku/[
-    waku_core,
-    kernel,
-    waku_relay,
-    rln,
+  logos_delivery/kernel/rln/types as rln_api_types,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    kernel_lifecycle,
+    protocols/relay/protocol,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_evm/protocol_types,
     rln/rln_evm/constants,
   ],

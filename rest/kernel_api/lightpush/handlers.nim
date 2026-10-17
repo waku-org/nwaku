@@ -13,10 +13,11 @@ import
   presto/common
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_lightpush/common,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/rln,
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/protocols/lightpush/common,
+  logos_delivery/kernel/[kernel, node/node/lightpush],
+  logos_delivery/kernel/
+    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
   rest/discovery_handler,
   rest/serdes,
   rest/responses,

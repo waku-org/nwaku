@@ -4,9 +4,11 @@ import results, chronos, chronicles
 import logos_delivery/api/types
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/messaging/messaging_client
-import logos_delivery/waku/kernel
-import logos_delivery/waku/api/subscriptions
-import logos_delivery/messaging/delivery_service/send_service
+import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/api/subscriptions
+import
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task
 import logos_delivery/messaging/delivery_service/send_service/delivery_task
 
 proc enqueueSend(

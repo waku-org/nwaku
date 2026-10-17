@@ -2,9 +2,9 @@ import std/[strutils, json]
 import chronicles, chronos, results, ffi
 import
   logos_delivery,
-  logos_delivery/waku/waku_core/topics/pubsub_topic,
-  logos_delivery/waku/waku_core/message,
-  logos_delivery/waku/waku_relay/protocol,
+  logos_delivery/kernel/core/topics/pubsub_topic,
+  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/protocols/relay/protocol,
   library/events/json_message_event,
   library/declare_lib
 
@@ -89,7 +89,9 @@ proc waku_relay_publish(
   let msg = json_message_event.toWakuMessage(jsonMessage).valueOr:
     return err("Problem building the WakuMessage: " & $error)
 
-  let msgHash = (await self.kernel.relayPublish(PubsubTopic(pubSubTopic), msg, timeoutMs)).valueOr:
+  let msgHash = (
+    await self.kernel.relayPublish(PubsubTopic(pubSubTopic), msg, timeoutMs)
+  ).valueOr:
     error "PUBLISH failed", error = error
     return err(error)
   return ok(msgHash)

@@ -10,9 +10,9 @@
 import std/[os, times]
 import chronos, results
 import testutils/unittests
-import logos_delivery/waku/persistency/persistency
-import logos_delivery/waku/persistency/keys
-import logos_delivery/waku/persistency/sds_persistency
+import logos_delivery/kernel/persistency/persistency
+import logos_delivery/kernel/persistency/keys
+import logos_delivery/kernel/persistency/sds_persistency
 
 proc tmpRoot(label: string): string =
   let p = getTempDir() / ("sds_persistency_test_" & label & "_" & $epochTime().int)

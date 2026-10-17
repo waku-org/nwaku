@@ -12,22 +12,24 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/waku/[
-    waku_core/topics/pubsub_topic,
-    waku_core/topics/sharding,
-    kernel,
+  logos_delivery/kernel/[
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    kernel_lifecycle,
     common/paging,
-    waku_core,
-    waku_store/common,
-    waku_lightpush_legacy/protocol_metrics,
-    node/peer_manager,
-    waku_filter_v2/client,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/store/common,
+    protocols/lightpush_legacy/protocol_metrics,
+    node/peer_manager/peer_manager,
+    protocols/filter/client,
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
-
-import logos_delivery/waku/waku_relay/protocol
 
 const
   listenIp = parseIpAddress("0.0.0.0")

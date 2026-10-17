@@ -9,12 +9,19 @@ import
   libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_lightpush,
-    waku_lightpush/client,
-    waku_lightpush/protocol_metrics,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/lightpush/protocol,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    protocols/lightpush/rpc_codec,
+    protocols/lightpush/client,
+    protocols/lightpush/protocol_metrics,
   ],
   ../testlib/[assertions, wakucore, testasync, futures],
   ./lightpush_utils,

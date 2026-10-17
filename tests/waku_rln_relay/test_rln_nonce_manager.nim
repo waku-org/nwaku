@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests, results
-import logos_delivery/waku/rln/rln_evm/nonce_manager, logos_delivery/waku/rln/types
+import logos_delivery/kernel/rln/rln_evm/nonce_manager, logos_delivery/kernel/rln/types
 
 suite "Nonce manager":
   test "starts with no ids drawn":

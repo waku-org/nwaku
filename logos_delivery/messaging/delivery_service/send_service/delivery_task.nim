@@ -1,9 +1,10 @@
 import results, std/times, chronos
 import brokers/broker_context
 import
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/core/
+    [topics/content_topic, topics/pubsub_topic, time, message, peers],
   logos_delivery/api/types,
-  logos_delivery/waku/requests/node_requests
+  logos_delivery/kernel/requests/node_requests
 
 type DeliveryState* {.pure.} = enum
   Entry

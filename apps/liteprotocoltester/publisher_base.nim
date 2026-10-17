@@ -1,5 +1,6 @@
 import chronos, results
-import logos_delivery/waku/[waku_node, waku_core]
+import
+  logos_delivery/kernel/[kernel, core/topics/pubsub_topic, core/message, core/peers]
 
 type PublisherBase* = ref object of RootObj
   kernel*: Kernel

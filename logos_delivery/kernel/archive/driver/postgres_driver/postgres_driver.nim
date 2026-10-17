@@ -1,0 +1,1966 @@
+{.push raises: [].}
+
+import
+  std/[sequtils, strutils, strformat, times, sugar, random],
+  stew/[byteutils, arrayops],
+  results,
+  chronos,
+  metrics,
+  db_connector/[postgres, db_common],
+  chronicles
+import
+  ../../../common/error_handling,
+  logos_delivery/kernel/core/[ topics, topics/content_topic, topics/pubsub_topic, topics/sharding, topics/content_topic, topics/pubsub_topic, topics/sharding, time, message, peers, multiaddrstr], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/archive/common,
+  logos_delivery/kernel/archive/driver,
+  logos_delivery/kernel/common/databases/db_postgres as waku_postgres,
+  logos_delivery/kernel/archive/driver/postgres_driver/postgres_healthcheck,
+  logos_delivery/kernel/archive/driver/postgres_driver/partitions_manager
+
+logScope:
+  topics = "postgres driver"
+
+declarePublicGauge logos_delivery_postgres_payload_size_bytes,
+  "Payload size in bytes of correctly stored messages"
+
+logScope:
+  topics = "postgres driver"
+
+type PostgresDriver* = ref object of ArchiveDriver
+  ## Establish a separate pools for read/write operations
+  writeConnPool: PgAsyncPool
+  readConnPool: PgAsyncPool
+
+  ## Partition container
+  partitionMngr: PartitionManager
+  futLoopPartitionFactory: Future[void]
+  ## Set once a partition factory pass has provisioned the current and next hour
+  partitionsProvisioned: bool
+
+  futLoopAnalyzeTable: Future[void]
+
+  ## Kept to be cancelled on close: a closed pool reopens connections on demand
+  futHealthChecks: seq[Future[void]]
+
+  ## Bounds the inserts only: the write pool also runs partition DDL, which can
+  ## legitimately wait on readers
+  writeLockTimeout: chronos.Duration
+
+const InsertRowStmtName = "InsertRow"
+const InsertRowStmtDefinition =
+  """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
+  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $8 = '' THEN NULL ELSE $8 END) ON CONFLICT DO NOTHING
+  RETURNING messageHash;"""
+
+const InsertRowInMessagesLookupStmtName = "InsertRowMessagesLookup"
+const InsertRowInMessagesLookupStmtDefinition =
+  """INSERT INTO messages_lookup (messageHash, timestamp) VALUES ($1, $2) ON CONFLICT DO NOTHING;"""
+
+const SelectClause =
+  """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta FROM messages """
+
+const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
+const SelectNoCursorAscStmtDef =
+  SelectClause & """WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          timestamp >= $4 AND
+          timestamp < $5
+    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
+
+const SelectNoCursorNoDataAscStmtName = "SelectWithoutCursorAndDataAsc"
+const SelectNoCursorNoDataAscStmtDef = """SELECT messageHash FROM messages
+    WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          timestamp >= $4 AND
+          timestamp < $5
+    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
+
+const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
+const SelectNoCursorDescStmtDef =
+  SelectClause & """WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          timestamp >= $4 AND
+          timestamp < $5
+    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
+
+const SelectNoCursorNoDataDescStmtName = "SelectWithoutCursorAndDataDesc"
+const SelectNoCursorNoDataDescStmtDef = """SELECT messageHash FROM messages
+    WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          timestamp >= $4 AND
+          timestamp < $5
+    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
+
+const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
+const SelectWithCursorDescStmtDef =
+  SelectClause & """WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          (timestamp, messageHash) < ($4,$5) AND
+          timestamp >= $6 AND
+          timestamp < $7
+    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
+
+const SelectWithCursorNoDataDescStmtName = "SelectWithCursorNoDataDesc"
+const SelectWithCursorNoDataDescStmtDef = """SELECT messageHash FROM messages
+    WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          (timestamp, messageHash) < ($4,$5) AND
+          timestamp >= $6 AND
+          timestamp < $7
+    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
+
+const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
+const SelectWithCursorAscStmtDef =
+  SelectClause & """WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          (timestamp, messageHash) > ($4,$5) AND
+          timestamp >= $6 AND
+          timestamp < $7
+    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
+
+const SelectWithCursorNoDataAscStmtName = "SelectWithCursorNoDataAsc"
+const SelectWithCursorNoDataAscStmtDef = """SELECT messageHash FROM messages
+    WHERE contentTopic IN ($1) AND
+          messageHash IN ($2) AND
+          pubsubTopic = $3 AND
+          (timestamp, messageHash) > ($4,$5) AND
+          timestamp >= $6 AND
+          timestamp < $7
+    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
+
+const SelectCursorByHashName = "SelectMessageByHashInMessagesLookup"
+const SelectCursorByHashDef = """SELECT timestamp FROM messages_lookup
+    WHERE messageHash = $1"""
+
+const
+  DefaultMaxNumConns = 50
+  MaxHashesPerQuery = 100
+  DefaultReadStatementTimeout* = chronos.minutes(5)
+  DefaultReadLockTimeout* = chronos.seconds(30)
+  DefaultWriteLockTimeout* = chronos.seconds(30)
+
+proc new*(
+    T: type PostgresDriver,
+    dbUrl: string,
+    maxConnections = DefaultMaxNumConns,
+    onFatalErrorAction: OnFatalErrorHandler = nil,
+    readStatementTimeout = DefaultReadStatementTimeout,
+    readLockTimeout = DefaultReadLockTimeout,
+    writeLockTimeout = DefaultWriteLockTimeout,
+): ArchiveDriverResult[T] =
+  ## Very simplistic split of max connections
+  let maxNumConnOnEachPool = int(maxConnections / 2)
+
+  ## Only the read pool gets server-side timeouts: the write pool also runs
+  ## migrations, partition DDL and ANALYZE, which can legitimately take long.
+  let readConnPool = PgAsyncPool.new(
+    dbUrl,
+    maxNumConnOnEachPool,
+    statementTimeout = readStatementTimeout,
+    lockTimeout = readLockTimeout,
+  ).valueOr:
+    return err("error creating read conn pool PgAsyncPool")
+
+  let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
+    return err("error creating write conn pool PgAsyncPool")
+
+  let driver = PostgresDriver(
+    writeConnPool: writeConnPool,
+    readConnPool: readConnPool,
+    partitionMngr: PartitionManager.new(),
+    writeLockTimeout: writeLockTimeout,
+  )
+
+  if not isNil(onFatalErrorAction):
+    for pool in [readConnPool, writeConnPool]:
+      let fut = checkConnectivity(pool, onFatalErrorAction)
+      fut.addCallback(
+        proc(udata: pointer) {.gcsafe, raises: [].} =
+          if fut.failed():
+            error "postgres health check loop failed", error = fut.error.msg
+      )
+      driver.futHealthChecks.add(fut)
+
+  return ok(driver)
+
+proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Clear the database partitions
+  let targetSize = 0
+  let forceRemoval = true
+  let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
+  return ret
+
+proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Opt[Timestamp]) =
+  ## Callback to get a timestamp out of the DB.
+  ## Used to get the cursor timestamp.
+
+  let numFields = pqResult.pqnfields()
+  if numFields != 1:
+    error "Wrong number of fields"
+    return
+
+  let rawTimestamp = $(pqgetvalue(pqResult, 0, 0))
+
+  trace "db output", rawTimestamp
+
+  if rawTimestamp.len < 1:
+    return
+
+  let catchable = catch:
+    parseBiggestInt(rawTimestamp)
+
+  let time = catchable.valueOr:
+    error "could not parse correctly", error = error.msg
+    return
+
+  timeCursor = Opt.some(time)
+
+proc hashCallbackImpl(
+    pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+) =
+  ## Callback to get a hash out of the DB.
+  ## Used when queries only ask for hashes
+
+  let numFields = pqResult.pqnfields()
+  if numFields != 1:
+    error "Wrong number of fields"
+    return
+
+  for iRow in 0 ..< pqResult.pqNtuples():
+    let rawHash = $(pqgetvalue(pqResult, iRow, 0))
+
+    trace "db output", rawHash
+
+    if rawHash.len < 1:
+      return
+
+    let catchable = catch:
+      parseHexStr(rawHash)
+
+    let hashHex = catchable.valueOr:
+      error "could not parse correctly", error = error.msg
+      return
+
+    let msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
+
+    rows.add((msgHash, "", WakuMessage()))
+
+proc rowCallbackImpl(
+    pqResult: ptr PGresult,
+    outRows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)],
+) =
+  ## Proc aimed to contain the logic of the callback passed to the `psasyncpool`.
+  ## That callback is used in "SELECT" queries.
+  ##
+  ## pqResult - contains the query results
+  ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
+
+  let numFields = pqResult.pqnfields()
+  if numFields != 7:
+    error "Wrong number of fields"
+    return
+
+  for iRow in 0 ..< pqResult.pqNtuples():
+    var
+      rawHash: string
+      rawPayload: string
+      rawVersion: string
+      rawTimestamp: string
+      rawMeta: string
+
+      hashHex: string
+      msgHash: WakuMessageHash
+
+      pubSubTopic: string
+
+      contentTopic: string
+      payload: string
+      version: uint
+      timestamp: Timestamp
+      meta: string
+      wakuMessage: WakuMessage
+
+    rawHash = $(pqgetvalue(pqResult, iRow, 0))
+    pubSubTopic = $(pqgetvalue(pqResult, iRow, 1))
+    contentTopic = $(pqgetvalue(pqResult, iRow, 2))
+    rawPayload = $(pqgetvalue(pqResult, iRow, 3))
+    rawVersion = $(pqgetvalue(pqResult, iRow, 4))
+    rawTimestamp = $(pqgetvalue(pqResult, iRow, 5))
+    rawMeta = $(pqgetvalue(pqResult, iRow, 6))
+
+    trace "db output",
+      rawHash, pubSubTopic, contentTopic, rawPayload, rawVersion, rawTimestamp, rawMeta
+
+    try:
+      hashHex = parseHexStr(rawHash)
+      payload = parseHexStr(rawPayload)
+      version = parseUInt(rawVersion)
+      timestamp = parseInt(rawTimestamp)
+      meta = parseHexStr(rawMeta)
+    except ValueError:
+      error "could not parse correctly", error = getCurrentExceptionMsg()
+
+    msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
+
+    wakuMessage.contentTopic = contentTopic
+    wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
+    wakuMessage.version = uint32(version)
+    wakuMessage.timestamp = timestamp
+    wakuMessage.meta = @(meta.toOpenArrayByte(0, meta.high))
+
+    outRows.add((msgHash, pubSubTopic, wakuMessage))
+
+method put*(
+    s: PostgresDriver,
+    messageHash: WakuMessageHash,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+): Future[ArchiveDriverResult[bool]] {.async.} =
+  let messageHash = byteutils.toHex(messageHash)
+
+  let contentTopic = message.contentTopic
+  let payload = byteutils.toHex(message.payload)
+  let version = $message.version
+  let timestamp = $message.timestamp
+  let meta = byteutils.toHex(message.meta)
+
+  trace "put PostgresDriver",
+    messageHash, contentTopic, payload, version, timestamp, meta
+
+  ## this is not needed for store-v3. Nevertheless, we will keep that temporarily
+  ## until we completely remove the store/archive-v2 logic
+  let fakeId = "0"
+
+  var written = false
+  proc insertCallback(pqResult: ptr PGresult) =
+    written = written or pqResult.pqNtuples() > 0
+
+  (
+    ## Add the row to the messages table
+    await s.writeConnPool.runStmt(
+      InsertRowStmtName,
+      InsertRowStmtDefinition,
+      @[
+        fakeId, messageHash, pubsubTopic, contentTopic, payload, version, timestamp,
+        meta,
+      ],
+      @[
+        int32(fakeId.len),
+        int32(messageHash.len),
+        int32(pubsubTopic.len),
+        int32(contentTopic.len),
+        int32(payload.len),
+        int32(version.len),
+        int32(timestamp.len),
+        int32(meta.len),
+      ],
+      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+      insertCallback,
+      lockTimeout = Opt.some(s.writeLockTimeout),
+    )
+  ).isOkOr:
+    return err("could not put msg in messages table: " & $error)
+
+  ## Now add the row to messages_lookup
+  (
+    await s.writeConnPool.runStmt(
+      InsertRowInMessagesLookupStmtName,
+      InsertRowInMessagesLookupStmtDefinition,
+      @[messageHash, timestamp],
+      @[int32(messageHash.len), int32(timestamp.len)],
+      @[int32(0), int32(0)],
+      lockTimeout = Opt.some(s.writeLockTimeout),
+    )
+  ).isOkOr:
+    return err("could not put msg in messages_lookup table: " & $error)
+
+  logos_delivery_postgres_payload_size_bytes.set(message.payload.len)
+  return ok(written)
+
+method getAllMessages*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## Retrieve all messages from the store.
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (
+    await s.readConnPool.pgQuery(
+      """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
+        FROM messages
+        ORDER BY timestamp ASC, messageHash ASC""",
+      newSeq[string](0),
+      rowCallback,
+    )
+  ).isOkOr:
+    return err("failed in query: " & $error)
+
+  return ok(rows)
+
+proc getPartitionsList*(
+    s: PostgresDriver, parentTable: string = "messages"
+): Future[ArchiveDriverResult[seq[string]]] {.async.} =
+  ## Retrieves the seq of partition table names attached to `parentTable`.
+  ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
+  var partitions: seq[string]
+  proc rowCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      let partitionName = $(pqgetvalue(pqResult, iRow, 0))
+      partitions.add(partitionName)
+
+  (
+    await s.readConnPool.pgQuery(
+      """
+                      SELECT child.relname       AS partition_name
+                          FROM pg_inherits
+                          JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                          JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                          JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                          JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                          WHERE parent.relname = ?
+                          ORDER BY partition_name ASC
+                          """,
+      @[parentTable],
+      rowCallback,
+    )
+  ).isOkOr:
+    return err("getPartitionsList failed in query: " & $error)
+
+  return ok(partitions)
+
+## fwd declaration. The implementation is below.
+proc dropPartition(
+  self: PostgresDriver, partitionName: string
+): Future[ArchiveDriverResult[void]] {.async.}
+
+proc dropOrphanPartitions(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Tries to remove partitions that weren't correctly removed during retention policy execution.
+  ## Orphan partition is a partition that is not attached to the main messages table.
+  ## Therefore, it is not used for queries and can be safely removed.
+  var partitions: seq[string]
+  proc rowCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      let partitionName = $(pqgetvalue(pqResult, iRow, 0))
+      partitions.add(partitionName)
+
+  (
+    await s.readConnPool.pgQuery(
+      """
+        SELECT c.relname AS partition_name
+          FROM pg_class c
+          LEFT JOIN pg_inherits i ON i.inhrelid = c.oid
+          WHERE c.relname LIKE 'messages_%'
+            AND c.relname != 'messages_lookup'
+            AND c.relkind = 'r'        -- only regular tables
+            AND i.inhrelid IS NULL     -- detached partition
+          ORDER BY partition_name
+      """,
+      newSeq[string](0),
+      rowCallback,
+    )
+  ).isOkOr:
+    return err("dropOrphanPartitions failed in query: " & $error)
+
+  for partition in partitions:
+    debug "Orphan partition found", partitionName = partition
+    (await s.dropPartition(partition)).isOkOr:
+      debug "Failed to drop orphan partition", partitionName = partition, error = $error
+      continue
+
+  return ok()
+
+proc getTimeCursor(
+    s: PostgresDriver, hashHex: string
+): Future[ArchiveDriverResult[Opt[Timestamp]]] {.async.} =
+  var timeCursor: Opt[Timestamp]
+
+  proc cursorCallback(pqResult: ptr PGresult) =
+    timeCursorCallbackImpl(pqResult, timeCursor)
+
+  ?await s.readConnPool.runStmt(
+    SelectCursorByHashName,
+    SelectCursorByHashDef,
+    @[hashHex],
+    @[int32(hashHex.len)],
+    @[int32(0)],
+    cursorCallback,
+  )
+
+  return ok(timeCursor)
+
+proc getMessagesArbitraryQuery(
+    s: PostgresDriver,
+    contentTopics: seq[ContentTopic] = @[],
+    pubsubTopic = Opt.none(PubsubTopic),
+    cursor = Opt.none(ArchiveCursor),
+    startTime = Opt.none(Timestamp),
+    endTime = Opt.none(Timestamp),
+    hexHashes: seq[string] = @[],
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## This proc allows to handle atypical queries. We don't use prepared statements for those.
+
+  var query = SelectClause
+  var statements: seq[string]
+  var args: seq[string]
+
+  if cursor.isSome():
+    let hashHex = byteutils.toHex(cursor.get())
+
+    let timeCursor = ?await s.getTimeCursor(hashHex)
+
+    if timeCursor.isNone():
+      return err("cursor not found")
+
+    let comp = if ascendingOrder: ">" else: "<"
+    statements.add("(timestamp, messageHash) " & comp & " (?,?)")
+
+    args.add($timeCursor.get())
+    args.add(hashHex)
+
+  if contentTopics.len > 0:
+    let cstmt = "contentTopic IN (" & "?".repeat(contentTopics.len).join(",") & ")"
+    statements.add(cstmt)
+    for t in contentTopics:
+      args.add(t)
+
+  if hexHashes.len > 0:
+    let cstmt = "messageHash IN (" & "?".repeat(hexHashes.len).join(",") & ")"
+    statements.add(cstmt)
+    for t in hexHashes:
+      args.add(t)
+
+  if pubsubTopic.isSome():
+    statements.add("pubsubTopic = ?")
+    args.add(pubsubTopic.get())
+
+  if startTime.isSome():
+    statements.add("timestamp >= ?")
+    args.add($startTime.get())
+
+  if endTime.isSome():
+    statements.add("timestamp < ?")
+    args.add($endTime.get())
+
+  if statements.len > 0:
+    query &= " WHERE " & statements.join(" AND ")
+
+  var direction: string
+  if ascendingOrder:
+    direction = "ASC"
+  else:
+    direction = "DESC"
+
+  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+
+  query &= " LIMIT ?"
+  args.add($maxPageSize)
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
+    return err("failed to run query: " & $error)
+
+  return ok(rows)
+
+proc getMessageHashesArbitraryQuery(
+    s: PostgresDriver,
+    contentTopics: seq[ContentTopic] = @[],
+    pubsubTopic = Opt.none(PubsubTopic),
+    cursor = Opt.none(ArchiveCursor),
+    startTime = Opt.none(Timestamp),
+    endTime = Opt.none(Timestamp),
+    hexHashes: seq[string] = @[],
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[(WakuMessageHash, PubsubTopic, WakuMessage)]]] {.
+    async
+.} =
+  ## This proc allows to handle atypical queries. We don't use prepared statements for those.
+  var query = """SELECT messageHash FROM messages"""
+
+  var statements: seq[string]
+  var args: seq[string]
+
+  if cursor.isSome():
+    let hashHex = byteutils.toHex(cursor.get())
+
+    let timeCursor = ?await s.getTimeCursor(hashHex)
+
+    if timeCursor.isNone():
+      return err("cursor not found")
+
+    let comp = if ascendingOrder: ">" else: "<"
+    statements.add("(timestamp, messageHash) " & comp & " (?,?)")
+
+    args.add($timeCursor.get())
+    args.add(hashHex)
+
+  if contentTopics.len > 0:
+    let cstmt = "contentTopic IN (" & "?".repeat(contentTopics.len).join(",") & ")"
+    statements.add(cstmt)
+    for t in contentTopics:
+      args.add(t)
+
+  if hexHashes.len > 0:
+    let cstmt = "messageHash IN (" & "?".repeat(hexHashes.len).join(",") & ")"
+    statements.add(cstmt)
+    for t in hexHashes:
+      args.add(t)
+
+  if pubsubTopic.isSome():
+    statements.add("pubsubTopic = ?")
+    args.add(pubsubTopic.get())
+
+  if startTime.isSome():
+    statements.add("timestamp >= ?")
+    args.add($startTime.get())
+
+  if endTime.isSome():
+    statements.add("timestamp < ?")
+    args.add($endTime.get())
+
+  if statements.len > 0:
+    query &= " WHERE " & statements.join(" AND ")
+
+  var direction: string
+  if ascendingOrder:
+    direction = "ASC"
+  else:
+    direction = "DESC"
+
+  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+
+  query &= " LIMIT ?"
+  args.add($maxPageSize)
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    hashCallbackImpl(pqResult, rows)
+
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
+    return err("failed to run query: " & $error)
+
+  return ok(rows)
+
+proc getMessagesPreparedStmt(
+    s: PostgresDriver,
+    contentTopic: string,
+    pubsubTopic: PubsubTopic,
+    cursor = Opt.none(ArchiveCursor),
+    startTime: Timestamp,
+    endTime: Timestamp,
+    hashes: string,
+    maxPageSize = DefaultPageSize,
+    ascOrder = true,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## This proc aims to run the most typical queries in a more performant way,
+  ## i.e. by means of prepared statements.
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  let startTimeStr = $startTime
+  let endTimeStr = $endTime
+  let limit = $maxPageSize
+
+  if cursor.isNone():
+    var stmtName =
+      if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
+    var stmtDef = if ascOrder: SelectNoCursorAscStmtDef else: SelectNoCursorDescStmtDef
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[contentTopic, hashes, pubsubTopic, startTimeStr, endTimeStr, limit],
+        @[
+          int32(contentTopic.len),
+          int32(pubsubTopic.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+        requestId,
+      )
+    ).isOkOr:
+      return err(stmtName & ": " & $error)
+
+    return ok(rows)
+
+  let hashHex = byteutils.toHex(cursor.get())
+
+  let timeCursor = ?await s.getTimeCursor(hashHex)
+
+  if timeCursor.isNone():
+    return err("cursor not found")
+
+  let timeString = $timeCursor.get()
+
+  var stmtName =
+    if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
+  var stmtDef =
+    if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
+
+  (
+    await s.readConnPool.runStmt(
+      stmtName,
+      stmtDef,
+      @[
+        contentTopic, hashes, pubsubTopic, hashHex, timeString, startTimeStr,
+        endTimeStr, limit,
+      ],
+      @[
+        int32(contentTopic.len),
+        int32(hashes.len),
+        int32(pubsubTopic.len),
+        int32(timeString.len),
+        int32(hashHex.len),
+        int32(startTimeStr.len),
+        int32(endTimeStr.len),
+        int32(limit.len),
+      ],
+      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+      rowCallback,
+      requestId,
+    )
+  ).isOkOr:
+    return err(stmtName & ": " & $error)
+
+  return ok(rows)
+
+proc getMessageHashesPreparedStmt(
+    s: PostgresDriver,
+    contentTopic: string,
+    pubsubTopic: PubsubTopic,
+    cursor = Opt.none(ArchiveCursor),
+    startTime: Timestamp,
+    endTime: Timestamp,
+    hashes: string,
+    maxPageSize = DefaultPageSize,
+    ascOrder = true,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## This proc aims to run the most typical queries in a more performant way,
+  ## i.e. by means of prepared statements.
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+
+  proc rowCallback(pqResult: ptr PGresult) =
+    hashCallbackImpl(pqResult, rows)
+
+  let startTimeStr = $startTime
+  let endTimeStr = $endTime
+  let limit = $maxPageSize
+
+  if cursor.isNone():
+    var stmtName =
+      if ascOrder: SelectNoCursorNoDataAscStmtName else: SelectNoCursorNoDataDescStmtName
+    var stmtDef =
+      if ascOrder: SelectNoCursorNoDataAscStmtDef else: SelectNoCursorNoDataDescStmtDef
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[contentTopic, hashes, pubsubTopic, startTimeStr, endTimeStr, limit],
+        @[
+          int32(contentTopic.len),
+          int32(hashes.len),
+          int32(pubsubTopic.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+        requestId,
+      )
+    ).isOkOr:
+      return err(stmtName & ": " & $error)
+
+    return ok(rows)
+
+  let hashHex = byteutils.toHex(cursor.get())
+
+  let timeCursor = ?await s.getTimeCursor(hashHex)
+
+  if timeCursor.isNone():
+    return err("cursor not found")
+
+  let timeString = $timeCursor.get()
+
+  var stmtName =
+    if ascOrder:
+      SelectWithCursorNoDataAscStmtName
+    else:
+      SelectWithCursorNoDataDescStmtName
+  var stmtDef =
+    if ascOrder: SelectWithCursorNoDataAscStmtDef else: SelectWithCursorNoDataDescStmtDef
+
+  (
+    await s.readConnPool.runStmt(
+      stmtName,
+      stmtDef,
+      @[
+        contentTopic, hashes, pubsubTopic, hashHex, timeString, startTimeStr,
+        endTimeStr, limit,
+      ],
+      @[
+        int32(contentTopic.len),
+        int32(hashes.len),
+        int32(pubsubTopic.len),
+        int32(timeString.len),
+        int32(hashHex.len),
+        int32(startTimeStr.len),
+        int32(endTimeStr.len),
+        int32(limit.len),
+      ],
+      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+      rowCallback,
+      requestId,
+    )
+  ).isOkOr:
+    return err(stmtName & ": " & $error)
+
+  return ok(rows)
+
+func messagesAtTimestampsQuery*(
+    hashes: string, timestamps: openArray[Timestamp], maxPageSize: uint
+): string =
+  ## Constant timestamps let the planner prune messages down to the
+  ## partitions that hold them.
+  return
+    fmt"""
+  SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
+  FROM messages
+  WHERE timestamp IN ({timestamps.join(",")}) AND messagehash IN ({hashes})
+  ORDER BY timestamp DESC, messagehash DESC
+  LIMIT {maxPageSize};
+  """
+
+proc getMessagesByMessageHashes(
+    s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## Retrieves information only filtering by a given messageHashes list.
+  ## Both tables are partitioned by time and a hash carries no time bound, so a
+  ## single statement joining them makes the planner open every partition of
+  ## both: tens of seconds and GBs of memory with thousands of partitions.
+  ## Resolving the timestamps first keeps the second statement pruned.
+  var timestamps: seq[Timestamp]
+  proc timestampsCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      let rawTimestamp = $(pqgetvalue(pqResult, iRow, 0))
+      let catchable = catch:
+        parseBiggestInt(rawTimestamp)
+      let timestamp = catchable.valueOr:
+        error "could not parse lookup timestamp", rawTimestamp, error = error.msg
+        continue
+      timestamps.add(Timestamp(timestamp))
+
+  (
+    await s.readConnPool.pgQuery(
+      query =
+        fmt"SELECT DISTINCT timestamp FROM messages_lookup WHERE messagehash IN ({hashes});",
+      rowCallback = timestampsCallback,
+      requestId = requestId,
+    )
+  ).isOkOr:
+    return err("failed to look up message timestamps: " & $error)
+
+  if timestamps.len == 0:
+    return ok(newSeq[ArchiveRow]())
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (
+    await s.readConnPool.pgQuery(
+      query = messagesAtTimestampsQuery(hashes, timestamps, maxPageSize),
+      rowCallback = rowCallback,
+      requestId = requestId,
+    )
+  ).isOkOr:
+    return err("failed to query messages by hash: " & $error)
+
+  return ok(rows)
+
+proc getMessagesWithinLimits(
+    self: PostgresDriver,
+    includeData: bool,
+    contentTopics: seq[ContentTopic],
+    pubsubTopic: Opt[PubsubTopic],
+    cursor: Opt[ArchiveCursor],
+    startTime: Opt[Timestamp],
+    endTime: Opt[Timestamp],
+    hashes: seq[WakuMessageHash],
+    maxPageSize: uint,
+    ascendingOrder: bool,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  if hashes.len > MaxHashesPerQuery:
+    return err(fmt"can not attend queries with more than {MaxHashesPerQuery} hashes")
+
+  let hexHashes = hashes.mapIt(toHex(it))
+
+  if cursor.isNone() and pubsubTopic.isNone() and contentTopics.len == 0 and
+      startTime.isNone() and endTime.isNone() and hexHashes.len > 0:
+    return await self.getMessagesByMessageHashes(
+      "'" & hexHashes.join("','") & "'", maxPageSize, requestId
+    )
+
+  if contentTopics.len > 0 and hexHashes.len > 0 and pubsubTopic.isSome() and
+      startTime.isSome() and endTime.isSome():
+    ## Considered the most common query. Therefore, we use prepared statements to optimize it.
+    if includeData:
+      return await self.getMessagesPreparedStmt(
+        contentTopics.join(","),
+        PubsubTopic(pubsubTopic.get()),
+        cursor,
+        startTime.get(),
+        endTime.get(),
+        hexHashes.join(","),
+        maxPageSize,
+        ascendingOrder,
+        requestId,
+      )
+    else:
+      return await self.getMessageHashesPreparedStmt(
+        contentTopics.join(","),
+        PubsubTopic(pubsubTopic.get()),
+        cursor,
+        startTime.get(),
+        endTime.get(),
+        hexHashes.join(","),
+        maxPageSize,
+        ascendingOrder,
+        requestId,
+      )
+  else:
+    if includeData:
+      ## We will run atypical query. In this case we don't use prepared statemets
+      return await self.getMessagesArbitraryQuery(
+        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+        ascendingOrder, requestId,
+      )
+    else:
+      return await self.getMessageHashesArbitraryQuery(
+        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+        ascendingOrder, requestId,
+      )
+
+method getMessages*(
+    s: PostgresDriver,
+    includeData = true,
+    contentTopics = newSeq[ContentTopic](0),
+    pubsubTopic = Opt.none(PubsubTopic),
+    cursor = Opt.none(ArchiveCursor),
+    startTime = Opt.none(Timestamp),
+    endTime = Opt.none(Timestamp),
+    hashes = newSeq[WakuMessageHash](0),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+    requestId = "",
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  let rows = collect(newSeq):
+    for i in countup(0, max(hashes.len - 1, 0), MaxHashesPerQuery):
+      let stop = min(i + MaxHashesPerQuery, hashes.len)
+
+      let splittedHashes = hashes[i ..< stop]
+
+      let subRows = ?await s.getMessagesWithinLimits(
+        includeData, contentTopics, pubsubTopic, cursor, startTime, endTime,
+        splittedHashes, maxPageSize, ascendingOrder, requestId,
+      )
+
+      for row in subRows:
+        row
+
+  return ok(rows)
+
+proc getStr(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[string]] {.async.} =
+  # Performs a query that is expected to return a single string
+
+  var ret: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in getStr"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in getStr"
+      return
+
+    ret = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("failed in getRow: " & $error)
+
+  return ok(ret)
+
+proc getInt(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[int64]] {.async.} =
+  # Performs a query that is expected to return a single numeric value (int64)
+
+  var retInt = 0'i64
+  let str = (await s.getStr(query)).valueOr:
+    return err("could not get str in getInt: " & $error)
+
+  try:
+    retInt = parseInt(str)
+  except ValueError:
+    return err(
+      "exception in getInt, parseInt, str: " & str & " query: " & query & " exception: " &
+        getCurrentExceptionMsg()
+    )
+
+  return ok(retInt)
+
+method getDatabaseSize*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
+  let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
+    return err("error in getDatabaseSize: " & error)
+
+  let databaseSize: int64 = int64(intRes)
+  return ok(databaseSize)
+
+method getMessagesCount*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
+  let intRes = (await s.getInt("SELECT COUNT(1) FROM messages")).valueOr:
+    return err("error in getMessagesCount: " & error)
+
+  return ok(intRes)
+
+method getOldestMessageTimestamp*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  ## In some cases it could happen that we have
+  ## empty partitions which are older than the current stored rows.
+  ## In those cases we want to consider those older partitions as the oldest considered timestamp.
+  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition: " & $error)
+
+  let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
+
+  let intRes = (await s.getInt("SELECT MIN(timestamp) FROM messages")).valueOr:
+    ## Just return the oldest partition time considering the partitions set
+    return ok(Timestamp(oldestPartitionTimeNanoSec))
+
+  return ok(Timestamp(min(intRes, oldestPartitionTimeNanoSec)))
+
+method getNewestMessageTimestamp*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  let intRes = (await s.getInt("SELECT MAX(timestamp) FROM messages")).valueOr:
+    return err("error in getNewestMessageTimestamp: " & error)
+
+  return ok(Timestamp(intRes))
+
+method deleteOldestMessagesNotWithinLimit*(
+    s: PostgresDriver, limit: int
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Known gap: capacity retention still row-deletes both tables, regrowing
+  ## index bloat under heavy use. Converting it to partition drops is a follow-up.
+  (
+    await s.writeConnPool.pgQuery(
+      """DELETE FROM messages WHERE messageHash NOT IN
+                          (
+                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
+                          );""",
+      @[$limit],
+    )
+  ).isOkOr:
+    return err("error in deleteOldestMessagesNotWithinLimit: " & error)
+
+  (
+    await s.writeConnPool.pgQuery(
+      """DELETE FROM messages_lookup WHERE messageHash NOT IN
+                          (
+                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
+                          );""",
+      @[$limit],
+    )
+  ).isOkOr:
+    return err("error in deleteOldestMessagesNotWithinLimit messages_lookup: " & error)
+
+  return ok()
+
+method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Cancel the partition factory loop
+  if not s.futLoopPartitionFactory.isNil():
+    s.futLoopPartitionFactory.cancelSoon()
+
+  ## Cancel analyze table loop
+  if not s.futLoopAnalyzeTable.isNil():
+    s.futLoopAnalyzeTable.cancelSoon()
+
+  for fut in s.futHealthChecks:
+    await fut.cancelAndWait()
+
+  ## Close the database connection
+  let writeCloseRes = await s.writeConnPool.close()
+  let readCloseRes = await s.readConnPool.close()
+
+  writeCloseRes.isOkOr:
+    return err("error closing write pool: " & $error)
+
+  readCloseRes.isOkOr:
+    return err("error closing read pool: " & $error)
+
+  return ok()
+
+proc sleep*(
+    s: PostgresDriver, seconds: int
+): Future[ArchiveDriverResult[void]] {.async.} =
+  # This is for testing purposes only. It is aimed to test the proper
+  # implementation of asynchronous requests. It merely triggers a sleep in the
+  # database for the amount of seconds given as a parameter.
+
+  proc rowCallback(result: ptr PGresult) =
+    ## We are not interested in any value in this case
+    discard
+
+  try:
+    let params = @[$seconds]
+    (await s.writeConnPool.pgQuery("SELECT pg_sleep(?)", params, rowCallback)).isOkOr:
+      return err("error in postgres_driver sleep: " & $error)
+  except DbError:
+    # This always raises an exception although the sleep works
+    return err("exception sleeping: " & getCurrentExceptionMsg())
+
+  return ok()
+
+const EXPECTED_LOCK_ERROR* = "another waku instance is currently executing a migration"
+proc acquireDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  ## This should only be used in the migrations module because this approach doesn't ensure
+  ## that the lock is acquired/released by the same connection. The preferable "lock"
+  ## approach is using the "performWriteQueryWithLock" proc. However, we can't use
+  ## "performWriteQueryWithLock" in the migrations process because we can't nest two PL/SQL
+  ## scripts.
+
+  let locked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_try_advisory_lock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error acquiring a lock: " & error)
+
+  if locked == "f":
+    return err(EXPECTED_LOCK_ERROR)
+
+  return ok()
+
+proc releaseDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Release an advisory lock (useful to avoid more than one application running migrations at the same time)
+  let unlocked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_advisory_unlock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error releasing a lock: " & error)
+
+  if unlocked == "f":
+    return err("could not release advisory lock")
+
+  return ok()
+
+proc performWriteQuery*(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Performs a query that somehow changes the state of the database
+
+  (await s.writeConnPool.pgQuery(query)).isOkOr:
+    return err("error in performWriteQuery: " & $error)
+
+  return ok()
+
+const COULD_NOT_ACQUIRE_ADVISORY_LOCK* = "could not acquire advisory lock"
+
+const PartitionAdvisoryLockId* = 123456789
+  ## Serializes the partition maintenance among the instances sharing a database
+
+const ConcurrentDdlOutcomes = [
+  # trying to add a partition constraint that another instance already added,
+  # e.g. constraint "messages_..._by_range_check" for relation "messages_..." already exists
+  "already exists",
+  # attaching a partition that another instance already attached,
+  # e.g. "messages_1720364735_1720364740" is already a partition
+  "is already a partition",
+  # dropping a constraint that another instance already dropped,
+  # e.g. constraint "..." of relation "messages_1720364735_1720364740" does not exist
+  "does not exist",
+  # CREATE TABLE IF NOT EXISTS is not atomic: when another instance creates the
+  # same partition concurrently, the loser gets a catalogue unique violation
+  # instead of the "already exists, skipping" notice
+  "pg_type_typname_nsp_index",
+  "pg_class_relname_nsp_index",
+]
+
+func isConcurrentDdlOutcome*(error: string): bool =
+  ## Tells the outcomes that merely mean "another instance got there first"
+  ## apart from genuine failures. Both nodes of a shared-database deployment
+  ## run the partition maintenance, so these are expected, not exceptional.
+  for signature in ConcurrentDdlOutcomes:
+    if error.contains(signature):
+      return true
+
+  return false
+
+type ProtectedQueryOutcome = enum
+  Executed ## this instance ran the statement
+  AlreadyDone ## another instance had already applied it
+  Deferred ## another instance holds the lock, so nothing was done
+
+proc performWriteQueryWithLock(
+    self: PostgresDriver, queryToProtect: string
+): Future[ArchiveDriverResult[ProtectedQueryOutcome]] {.async.} =
+  ## This wraps the original query in a script so that we make sure a pg_advisory lock protects it
+  let query =
+    fmt"""
+          DO $$
+          DECLARE
+              lock_acquired boolean;
+          BEGIN
+              -- Try to acquire the advisory lock
+              lock_acquired := pg_try_advisory_lock({PartitionAdvisoryLockId});
+
+              IF NOT lock_acquired THEN
+                  RAISE EXCEPTION '{COULD_NOT_ACQUIRE_ADVISORY_LOCK}';
+              END IF;
+
+              -- Perform the query
+              BEGIN
+                  {queryToProtect}
+              EXCEPTION WHEN OTHERS THEN
+                  -- Ensure the lock is released if an error occurs
+                  PERFORM pg_advisory_unlock({PartitionAdvisoryLockId});
+                  RAISE;
+              END;
+
+              -- Release the advisory lock after the query completes successfully
+              PERFORM pg_advisory_unlock({PartitionAdvisoryLockId});
+          END $$;
+"""
+  (await self.performWriteQuery(query)).isOkOr:
+    if error.contains(COULD_NOT_ACQUIRE_ADVISORY_LOCK):
+      ## We don't consider this as an error. Just someone else acquired the advisory lock
+      debug "Skip performWriteQuery because the advisory lock is acquired by other"
+      return ok(Deferred)
+
+    if error.isConcurrentDdlOutcome():
+      debug "Skip error already handled by another instance", error = error
+      return ok(AlreadyDone)
+
+    debug "Protected query ended with error", error = $error
+    return err("protected query ended with error:" & $error)
+
+  debug "Protected query ended correctly"
+  return ok(Executed)
+
+proc performPartitionDdlSteps(
+    self: PostgresDriver, steps: seq[(string, string)]
+): Future[ArchiveDriverResult[bool]] {.async.} =
+  ## Runs the given (query, error context) steps in order, each one protected by
+  ## the advisory lock. Returns false as soon as one of them is deferred because
+  ## another instance holds the lock: the rest of that instance's sequence is not
+  ## ours to repeat -- carrying on would, for example, drop a constraint that we
+  ## never created, which is a fatal error for this node. The next maintenance
+  ## pass re-checks what is missing.
+  for (query, errContext) in steps:
+    let outcome = (await self.performWriteQueryWithLock(query)).valueOr:
+      return err(errContext & ": " & $error)
+
+    if outcome == Deferred:
+      debug "partition maintenance deferred to another instance", query
+      return ok(false)
+
+  return ok(true)
+
+proc addPartition*(
+    self: PostgresDriver, beginning, `end`: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates a partition table that will store the messages that fall in the range
+  ## `beginning` <= timestamp < `end`, both measured in seconds since epoch.
+  if `end` <= beginning:
+    return err("addPartition: the end must be after the beginning")
+
+  let fromInSec: string = $beginning
+  let untilInSec: string = $`end`
+
+  let fromInNanoSec: string = fromInSec & "000000000"
+  let untilInNanoSec: string = untilInSec & "000000000"
+
+  let partitionName = "messages_" & fromInSec & "_" & untilInSec
+
+  ## Sibling first: a crash here leaves a stray that dropStrayLookupPartitions
+  ## removes; the brief ACCESS EXCLUSIVE on the small parent is acceptable.
+  let lookupPartitionName = "lookup_" & fromInSec & "_" & untilInSec
+  let createLookupQuery =
+    "CREATE TABLE IF NOT EXISTS " & lookupPartitionName &
+    " PARTITION OF messages_lookup FOR VALUES FROM (" & fromInNanoSec & ") TO (" &
+    untilInNanoSec & ");"
+
+  ## Create the partition table but not attach it yet to the main table
+  let createPartitionQuery =
+    "CREATE TABLE IF NOT EXISTS " & partitionName &
+    " (LIKE messages INCLUDING DEFAULTS INCLUDING CONSTRAINTS);"
+
+  ## Add constraint to the partition table so that EXCLUSIVE ACCESS is not performed when
+  ## the partition is attached to the main table.
+  let constraintName = partitionName & "_by_range_check"
+  let addTimeConstraintQuery =
+    "ALTER TABLE " & partitionName & " ADD CONSTRAINT " & constraintName &
+    " CHECK ( timestamp >= " & fromInNanoSec & " AND timestamp < " & untilInNanoSec &
+    " );"
+
+  ## Attaching the new created table as a new partition. That does not require EXCLUSIVE ACCESS.
+  let attachPartitionQuery =
+    "ALTER TABLE messages ATTACH PARTITION " & partitionName & " FOR VALUES FROM (" &
+    fromInNanoSec & ") TO (" & untilInNanoSec & ");"
+
+  ## Dropping the check constraint as it was only necessary to prevent full scan,
+  ## and EXCLUSIVE ACCESS, to the whole messages table, when the new partition was attached.
+  let dropConstraint =
+    "ALTER TABLE " & partitionName & " DROP CONSTRAINT " & constraintName & ";"
+
+  let completed = (
+    await self.performPartitionDdlSteps(
+      @[
+        (createLookupQuery, "error adding lookup partition: " & lookupPartitionName),
+        (createPartitionQuery, "error adding partition: " & partitionName),
+        (addTimeConstraintQuery, "error creating constraint: " & partitionName),
+        (attachPartitionQuery, "error attaching partition: " & partitionName),
+        (dropConstraint, "error dropping constraint: " & partitionName),
+      ]
+    )
+  ).valueOr:
+    return err("failed addPartition calling performPartitionDdlSteps: " & $error)
+
+  if not completed:
+    ## Another instance is midway through this very sequence. Nothing to track
+    ## yet, the next factory iteration will see the partition it created.
+    return ok()
+
+  debug "New partition added", query = createPartitionQuery
+
+  self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+  return ok()
+
+proc addPartition*(
+    self: PostgresDriver, startTime: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the partition from `startTime` (seconds since epoch) to the next
+  ## o'clock.
+  return await self.addPartition(startTime, calcEndPartitionTime(startTime))
+
+proc refreshPartitionsInfo(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
+  debug "refreshPartitionsInfo"
+  self.partitionMngr.clearPartitionInfo()
+
+  let partitionNames = (await self.getPartitionsList()).valueOr:
+    return err("could not get partitions list: " & $error)
+  for partitionName in partitionNames:
+    ## partitionName contains something like 'messages_1708449815_1708449875'
+    let bothTimes = partitionName.replace("messages_", "")
+    let times = bothTimes.split("_")
+    if times.len != 2:
+      return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
+
+    var beginning: int64
+    try:
+      beginning = parseInt(times[0])
+    except ValueError:
+      return err("Could not parse beginning time: " & getCurrentExceptionMsg())
+
+    var `end`: int64
+    try:
+      `end` = parseInt(times[1])
+    except ValueError:
+      return err("Could not parse end time: " & getCurrentExceptionMsg())
+
+    self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+
+  return ok()
+
+proc getAllLookupTableNames(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[seq[string]]] {.async.} =
+  ## Lookup-named tables, attached or left detached by an interrupted reconcile.
+  var names: seq[string]
+  proc rowCallback(pqResult: ptr PGresult) =
+    for iRow in 0 ..< pqResult.pqNtuples():
+      names.add($(pqgetvalue(pqResult, iRow, 0)))
+
+  (
+    await s.readConnPool.pgQuery(
+      """SELECT c.relname FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE c.relname LIKE 'lookup\_%' AND c.relkind = 'r' AND n.nspname = 'public'
+           ORDER BY c.relname ASC""",
+      newSeq[string](0),
+      rowCallback,
+    )
+  ).isOkOr:
+    return err("getAllLookupTableNames failed in query: " & $error)
+
+  return ok(names)
+
+proc dropStrayLookupPartitions*(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Drops lookup tables with no messages sibling (crash leftovers). Must run
+  ## before the factory's partition checks: a stray can overlap the next
+  ## sibling's range and make addPartition fail.
+  let messagesPartitions = (await self.getPartitionsList()).valueOr:
+    return
+      err("dropStrayLookupPartitions could not list messages partitions: " & $error)
+  let lookupTables = (await self.getAllLookupTableNames()).valueOr:
+    return err("dropStrayLookupPartitions could not list lookup tables: " & $error)
+
+  let messagesSuffixes = messagesPartitions.mapIt(it.replace("messages_", ""))
+
+  for lookupTableName in lookupTables:
+    if lookupTableName.replace("lookup_", "") in messagesSuffixes:
+      continue
+    info "dropping stray lookup partition", lookupTableName
+    (await self.performWriteQuery("DROP TABLE IF EXISTS " & lookupTableName)).isOkOr:
+      return err(fmt"error dropping stray [{lookupTableName}]: " & $error)
+
+  return ok()
+
+proc ensureLookupPartitions*(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates and backfills missing lookup siblings, newest-first, every loop
+  ## iteration. Detached create + backfill + brief ATTACH keeps parent locks
+  ## short; every step is idempotent and attach implies a completed backfill.
+  let messagesPartitions = (await self.getPartitionsList()).valueOr:
+    return err("ensureLookupPartitions could not list messages partitions: " & $error)
+  let lookupPartitions = (await self.getPartitionsList("messages_lookup")).valueOr:
+    return err("ensureLookupPartitions could not list lookup partitions: " & $error)
+
+  ## Newest-first, so the partition receiving current writes heals first.
+  for i in countdown(messagesPartitions.high, 0):
+    let partitionName = messagesPartitions[i]
+    let suffix = partitionName.replace("messages_", "") ## "<startSec>_<endSec>"
+    let lookupPartitionName = "lookup_" & suffix
+    if lookupPartitionName in lookupPartitions:
+      continue
+
+    let times = suffix.split("_")
+    if times.len != 2:
+      return err(fmt"ensureLookupPartitions wrong partition name {partitionName}")
+
+    let fromInNanoSec = times[0] & "000000000"
+    let untilInNanoSec = times[1] & "000000000"
+    let constraintName = lookupPartitionName & "_by_range_check"
+
+    ## INCLUDING INDEXES brings the PK, needed by ON CONFLICT and ATTACH.
+    let createQuery =
+      "CREATE TABLE IF NOT EXISTS " & lookupPartitionName &
+      " (LIKE messages_lookup INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);"
+    let created = (
+      await self.performPartitionDdlSteps(
+        @[(createQuery, "error creating lookup partition: " & lookupPartitionName)]
+      )
+    ).valueOr:
+      return
+        err("failed ensureLookupPartitions calling performPartitionDdlSteps: " & $error)
+
+    if not created:
+      ## Another instance is building this sibling, backfill included. Let it
+      ## finish; the next pass checks whether anything is still missing.
+      return ok()
+
+    ## Plain query on purpose: a failure must abort the pass, never be
+    ## skip-tolerated — the ATTACH below must imply a completed backfill.
+    let backfillQuery =
+      "INSERT INTO " & lookupPartitionName &
+      " (messageHash, timestamp) SELECT messageHash, timestamp FROM " & partitionName &
+      " ON CONFLICT DO NOTHING;"
+    (await self.performWriteQuery(backfillQuery)).isOkOr:
+      return err(fmt"error backfilling [{lookupPartitionName}]: " & $error)
+
+    ## The CHECK lets ATTACH validate without a scan, so its lock is brief.
+    let addConstraintQuery =
+      "ALTER TABLE " & lookupPartitionName & " ADD CONSTRAINT " & constraintName &
+      " CHECK ( timestamp >= " & fromInNanoSec & " AND timestamp < " & untilInNanoSec &
+      " );"
+    let attachQuery =
+      "ALTER TABLE messages_lookup ATTACH PARTITION " & lookupPartitionName &
+      " FOR VALUES FROM (" & fromInNanoSec & ") TO (" & untilInNanoSec & ");"
+
+    let dropConstraintQuery =
+      "ALTER TABLE " & lookupPartitionName & " DROP CONSTRAINT " & constraintName & ";"
+
+    let attached = (
+      await self.performPartitionDdlSteps(
+        @[
+          (addConstraintQuery, "error adding constraint: " & lookupPartitionName),
+          (attachQuery, "error attaching: " & lookupPartitionName),
+          (dropConstraintQuery, "error dropping constraint: " & lookupPartitionName),
+        ]
+      )
+    ).valueOr:
+      return
+        err("failed ensureLookupPartitions calling performPartitionDdlSteps: " & $error)
+
+    if not attached:
+      return ok()
+
+    info "created and backfilled lookup partition", lookupPartitionName
+
+  return ok()
+
+const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
+
+const MaxConsecutivePartitionMaintenanceFailures = 6
+
+const MaxPartitionCheckJitterSecs = 120
+
+const StartupLookbackSlots = 2
+  ## Partitions created before the current hour when the factory starts from an
+  ## empty database or after a downtime. Two cover the default store-sync-range
+  ## (3600 s) plus store-sync-relay-jitter (20 s) from any moment of the hour.
+
+proc addLookbackPartitions(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates the uncovered start of each of the `StartupLookbackSlots` hour
+  ## slots before the one containing `nowSec`, oldest first. A slot that fails
+  ## is logged and skipped: the current hour must never depend on these. The
+  ## tracked partitions are refreshed afterwards, because the new ones are
+  ## older than those already tracked and the oldest has to stay first.
+  let currentSlot = floorToHour(nowSec)
+  var createdAny = false
+  for i in countdown(StartupLookbackSlots, 1):
+    let slotStart = currentSlot - int64(i) * 3600
+    let prefix = self.partitionMngr.uncoveredPrefix(slotStart, slotStart + 3600).valueOr:
+      continue
+
+    (await self.addPartition(Timestamp(prefix.beginning), Timestamp(prefix.`end`))).isOkOr:
+      error "could not create a partition for an hour before start",
+        slotStart = prefix.beginning, slotEnd = prefix.`end`, error = $error
+      continue
+
+    createdAny = true
+
+  if createdAny:
+    ?await self.refreshPartitionsInfo()
+
+  return ok()
+
+proc runPartitionMaintenance(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## One pass of the partition factory: cleanup of what previous passes left
+  ## behind, refresh of the tracked partitions and, when needed, creation of the
+  ## partition that will hold the messages to come.
+
+  ## Must precede the partition checks (see dropStrayLookupPartitions).
+  (await self.dropStrayLookupPartitions()).isOkOr:
+    error "failed to drop stray lookup partitions", error = $error
+
+  (await self.dropOrphanPartitions()).isOkOr:
+    return err("error when dropping orphan partitions: " & $error)
+
+  trace "Check if a new partition is needed"
+
+  ## Let's make the 'partition_manager' aware of the current partitions
+  (await self.refreshPartitionsInfo()).isOkOr:
+    return err("issue refreshing the partitions info: " & $error)
+
+  let now = times.now().toTime().toUnix()
+
+  ## Set when no partition contains 'now': the hours before it get partitions
+  ## too, after the current and the next one (see addLookbackPartitions).
+  var startingUp = false
+
+  if self.partitionMngr.isEmpty():
+    debug "Adding partition because now there aren't more partitions"
+    (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
+      return err("error when creating a new partition from empty state: " & $error)
+    startingUp = true
+  else:
+    let newestPartition = self.partitionMngr.getNewestPartition().valueOr:
+      return err("could not get newest partition: " & $error)
+
+    if now >= newestPartition.getLastMoment():
+      debug "Creating a new partition to contain current messages"
+      ## There is no partition to contain the current time.
+      ## This happens if the node has been stopped for quite a long time.
+      ## Then, let's create the needed partition to contain 'now'.
+      (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
+        return err("could not add the next partition: " & $error)
+      startingUp = true
+
+  ## Also right after creating the partition for 'now' above: it ends at the next
+  ## o'clock, possibly within seconds, while the next pass is ten minutes away.
+  ## No partition tracked means that creation was deferred to another instance.
+  let newestPartition = self.partitionMngr.getNewestPartition()
+  if newestPartition.isOk() and newestPartition.get().containsMoment(now):
+    debug "Creating a new partition for the future"
+    (await self.addPartition(newestPartition.get().getLastMoment())).isOkOr:
+      return err("could not add the next partition for 'now': " & $error)
+
+  ## Last, and never failing the pass: the hours store sync fills back.
+  if startingUp:
+    (await self.addLookbackPartitions(now)).isOkOr:
+      error "could not refresh the partitions after the lookback", error = $error
+
+  self.partitionsProvisioned = true
+
+  ## After the partition checks, so a long backfill never gates builder.nim's
+  ## startup partition wait; non-fatal, the next pass retries.
+  (await self.ensureLookupPartitions()).isOkOr:
+    error "failed to ensure lookup partitions", error = $error
+
+  return ok()
+
+proc loopPartitionFactory(
+    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+) {.async.} =
+  ## Loop proc that continuously checks whether we need to create a new partition.
+  ## Notice that the deletion of partitions is mostly handled by the retention policy modules.
+  ## This loop only removes orphan partitions which were detached but not properly removed by the
+  ## retention policy module due to some error. However, the main task of this loop is to create
+  ## new partitions when needed.
+
+  debug "Starting loopPartitionFactory"
+
+  var consecutiveFailures = 0
+
+  ## The instances sharing a database are typically (re)started together, and a
+  ## fixed interval then keeps their maintenance passes locked to the very same
+  ## tick for as long as they run, so that they contend on every iteration.
+  var rng = initRand()
+
+  while true:
+    trace "loopPartitionFactory iteration started"
+
+    let passRes = await self.runPartitionMaintenance()
+    if passRes.isOk():
+      consecutiveFailures = 0
+    else:
+      ## Partitions are created an hour ahead of time and this loop runs every
+      ## ten minutes, so about six passes can fail before the messages arriving
+      ## have nowhere to land. A single failed pass is usually a race with the
+      ## other instances maintaining the same database, which is transient by
+      ## nature; only a persistent failure is worth bringing the node down for.
+      consecutiveFailures.inc()
+      error "partition maintenance pass failed, will retry",
+        error = passRes.error, consecutiveFailures
+
+      if consecutiveFailures >= MaxConsecutivePartitionMaintenanceFailures:
+        onFatalError(
+          "partition maintenance failed " & $consecutiveFailures & " consecutive times: " &
+            passRes.error
+        )
+
+    await sleepAsync(
+      DefaultDatabasePartitionCheckTimeInterval +
+        timer.seconds(rng.rand(MaxPartitionCheckJitterSecs))
+    )
+
+proc startPartitionFactory*(
+    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+) {.async.} =
+  self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
+
+proc getTableSize*(
+    self: PostgresDriver, tableName: string
+): Future[ArchiveDriverResult[string]] {.async.} =
+  ## Returns a human-readable representation of the size for the requested table.
+  ## tableName - table of interest.
+  let tableSize = (
+    await self.getStr(
+      fmt"""
+                SELECT pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
+                FROM pg_class C
+                where relname = '{tableName}'"""
+    )
+  ).valueOr:
+    return err("error in getDatabaseSize: " & error)
+
+  return ok(tableSize)
+
+proc dropPartition(
+    self: PostgresDriver, partitionName: string
+): Future[ArchiveDriverResult[void]] {.async.} =
+  let dropPartitionQuery = "DROP TABLE " & partitionName
+  debug "Drop partition", query = dropPartitionQuery
+  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
+    return err(fmt"error in dropPartition: {dropPartitionQuery}: " & $error)
+
+  return ok()
+
+proc detachAndDropPartition(
+    self: PostgresDriver, partition: Partition
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Detaches and drops the messages partition together with its lookup sibling.
+
+  let partitionName = partition.getName()
+  debug "Beginning of detachAndDropPartition", partitionName
+
+  ## Sibling first: a crash below leaves the messages partition, so the next
+  ## retention pass retries both.
+  let timeRange = partition.getTimeRange()
+  let lookupPartitionName = "lookup_" & $timeRange.beginning & "_" & $timeRange.`end`
+  (await self.performWriteQuery("DROP TABLE IF EXISTS " & lookupPartitionName)).isOkOr:
+    return err(fmt"error dropping lookup partition [{lookupPartitionName}]: " & $error)
+
+  let partSize = (await self.getTableSize(partitionName)).valueOr("")
+
+  ## Detach and remove the partition concurrently to not block the parent table (messages)
+  let detachPartitionQuery =
+    "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
+  debug "Removing oldest partition", query = detachPartitionQuery
+  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
+    debug "Detected error when trying to detach partition", error
+
+    if ($error).contains("FINALIZE") or ($error).contains("already pending"):
+      ## We assume "already pending detach in partitioned table ..." as possible error
+      debug "enforce detach with FINALIZE because of detected error", error
+
+      ## We assume the database is suggesting to use FINALIZE when detaching a partition
+      let detachPartitionFinalizeQuery =
+        "ALTER TABLE messages DETACH PARTITION " & partitionName & " FINALIZE;"
+      debug "Detaching oldest partition with FINALIZE",
+        query = detachPartitionFinalizeQuery
+      (await self.performWriteQuery(detachPartitionFinalizeQuery)).isOkOr:
+        return err(fmt"error in FINALIZE {detachPartitionFinalizeQuery}: " & $error)
+    else:
+      return err(fmt"error in {detachPartitionQuery}: " & $error)
+
+  ## Drop partition
+  ?(await self.dropPartition(partitionName))
+
+  debug "Removed partition", partition_name = partitionName, partition_size = partSize
+  self.partitionMngr.removeOldestPartitionName(partitionName)
+
+  return ok()
+
+proc removePartitionsOlderThan(
+    self: PostgresDriver, tsInNanoSec: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Removes old partitions that don't contain the specified timestamp
+
+  let tsInSec = Timestamp(float(tsInNanoSec) / 1_000_000_000)
+  debug "Beginning of removePartitionsOlderThan", tsInSec
+
+  var oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition in removePartitionOlderThan: " & $error)
+
+  debug "oldest partition info",
+    partitionName = oldestPartition.getName(),
+    partitionLastMoment = oldestPartition.getLastMoment(),
+    tsInSec
+
+  while oldestPartition.getLastMoment() < tsInSec:
+    debug "Start removing partition whose first record is older than the specified timestamp",
+      partitionName = oldestPartition.getName(),
+      partitionFirstMoment = oldestPartition.getLastMoment(),
+      tsInSec
+
+    (await self.detachAndDropPartition(oldestPartition)).isOkOr:
+      return err("issue in removePartitionsOlderThan: " & $error)
+
+    oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+      return err(
+        "could not get partition in removePartitionOlderThan in while loop: " & $error
+      )
+
+  ## We reached the partition that contains the target timestamp plus don't want to remove it
+  return ok()
+
+proc removeOldestPartition(
+    self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Indirectly called from the retention policy
+  let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    return err("could not remove oldest partition: " & $error)
+
+  if not forceRemoval:
+    let now = times.now().toTime().toUnix()
+    let currentPartitionRes = self.partitionMngr.getPartitionFromDateTime(now)
+    if currentPartitionRes.isOk():
+      ## The database contains a partition that would store current messages.
+
+      if currentPartitionRes.get() == oldestPartition:
+        debug "Skipping to remove the current partition"
+        return ok()
+
+  return await self.detachAndDropPartition(oldestPartition)
+
+proc containsAnyPartition*(self: PostgresDriver): bool =
+  return not self.partitionMngr.isEmpty()
+
+proc arePartitionsProvisioned*(self: PostgresDriver): bool =
+  return self.partitionsProvisioned
+
+method decreaseDatabaseSize*(
+    driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+): Future[ArchiveDriverResult[void]] {.async.} =
+  var dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("decreaseDatabaseSize failed to get database size: " & $error)
+
+  ## database size in bytes
+  var totalSizeOfDB: int64 = int64(dbSize)
+
+  if totalSizeOfDB <= targetSizeInBytes:
+    return ok()
+
+  debug "Start reducing database size",
+    targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+
+  while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
+    (await driver.removeOldestPartition(forceRemoval)).isOkOr:
+      return err(
+        "decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error
+      )
+
+    dbSize = (await driver.getDatabaseSize()).valueOr:
+      return
+        err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
+
+    let newCurrentSize = int64(dbSize)
+    if newCurrentSize == totalSizeOfDB:
+      return err("the previous partition removal didn't clear database size")
+
+    totalSizeOfDB = newCurrentSize
+
+    debug "Reducing database size",
+      targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+
+  return ok()
+
+method existsTable*(
+    s: PostgresDriver, tableName: string
+): Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string =
+    fmt"""
+  SELECT EXISTS (
+    SELECT FROM
+        pg_tables
+    WHERE
+        tablename  = '{tableName}'
+    );
+    """
+
+  var exists: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in existsTable"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in existsTable"
+      return
+
+    exists = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("existsTable failed in getRow: " & $error)
+
+  return ok(exists == "t")
+
+proc getCurrentVersion*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
+  let existsVersionTable = (await s.existsTable("version")).valueOr:
+    return err("error in getCurrentVersion-existsTable: " & $error)
+
+  if not existsVersionTable:
+    return ok(0)
+
+  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
+    return err("error in getMessagesCount: " & $error)
+
+  return ok(res)
+
+method deleteMessagesOlderThanTimestamp*(
+    s: PostgresDriver, tsNanoSec: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## First of all, let's remove the older partitions so that we can reduce
+  ## the database size.
+  (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
+    return err("error while removing older partitions: " & $error)
+
+  (
+    await s.writeConnPool.pgQuery(
+      "DELETE FROM messages WHERE timestamp < " & $tsNanoSec
+    )
+  ).isOkOr:
+    return err("error in deleteMessagesOlderThanTimestamp: " & $error)
+
+  return ok()
+
+############################################
+## TODO: start splitting code better
+
+const AnalyzeQuery = "ANALYZE messages"
+const AnalyzeTableLockId = 111111 ## An arbitrary and different lock id
+const RunAnalyzeInterval = timer.days(1)
+
+proc analyzeTableLoop(self: PostgresDriver) {.async.} =
+  ## The database stats should be calculated regularly so that the planner
+  ## picks up the proper indexes and we have better query performance.
+  while true:
+    debug "analyzeTableLoop lock db"
+    (await self.acquireDatabaseLock(AnalyzeTableLockId)).isOkOr:
+      if error != EXPECTED_LOCK_ERROR:
+        error "failed to acquire lock in analyzeTableLoop", error = error
+      await sleepAsync(RunAnalyzeInterval)
+      continue
+
+    debug "analyzeTableLoop start analysis"
+    (await self.performWriteQuery(AnalyzeQuery)).isOkOr:
+      error "failed to run ANALYZE messages", error = error
+
+    debug "analyzeTableLoop unlock db"
+    (await self.releaseDatabaseLock(AnalyzeTableLockId)).isOkOr:
+      error "failed to release lock analyzeTableLoop", error = error
+
+    debug "analyzeTableLoop analysis completed"
+
+    await sleepAsync(RunAnalyzeInterval)
+
+proc startAnalyzeTableLoop*(self: PostgresDriver) =
+  self.futLoopAnalyzeTable = self.analyzeTableLoop

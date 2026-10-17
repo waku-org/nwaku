@@ -8,14 +8,19 @@ import
   libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    kernel,
-    node/peer_manager,
-    waku_core,
-    waku_archive,
-    waku_archive/archive_metrics,
-    waku_archive/retention_policy/retention_policy_time,
-    waku_store_sync,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    archive/driver,
+    archive/retention_policy,
+    archive/archive_metrics,
+    archive/retention_policy/retention_policy_time,
+    protocols/store_sync/reconciliation,
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,

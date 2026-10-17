@@ -1,12 +1,13 @@
 import results, std/[tables, sets, algorithm], chronos, chronicles, os
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-    waku_core,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/filter/client,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
     common/rate_limit/setting,
   ],
   ../testlib/[common, wakucore]

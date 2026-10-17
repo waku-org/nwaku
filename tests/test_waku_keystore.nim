@@ -1,7 +1,14 @@
 {.used.}
 
 import std/[os, json], chronos, testutils/unittests
-import logos_delivery/waku/waku_keystore, ./testlib/common
+import
+  logos_delivery/kernel/[
+    rln/keystore/keyfile,
+    rln/keystore/keystore,
+    rln/keystore/protocol_types,
+    rln/keystore/utils,
+  ],
+  ./testlib/common
 
 procSuite "Credentials test suite":
   let testAppInfo = AppInfo(application: "test", appIdentifier: "1234", version: "0.1")

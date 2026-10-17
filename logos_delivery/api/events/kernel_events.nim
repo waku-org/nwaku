@@ -1,8 +1,8 @@
 import brokers/event_broker
 
 import logos_delivery/api/types
-import logos_delivery/waku/waku_core/topics/[pubsub_topic, content_topic]
-import logos_delivery/waku/waku_core/message
+import logos_delivery/kernel/core/topics/[pubsub_topic, content_topic]
+import logos_delivery/kernel/core/message
 
 export event_broker, pubsub_topic, content_topic, message
 

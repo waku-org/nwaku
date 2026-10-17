@@ -1,9 +1,9 @@
 import system, results, std/json, std/strutils
 import stew/byteutils
 import
-  ../../logos_delivery/waku/common/base64,
-  ../../logos_delivery/waku/waku_core/message,
-  ../../logos_delivery/waku/waku_core/message/message,
+  ../../logos_delivery/kernel/common/base64,
+  ../../logos_delivery/kernel/core/message,
+  ../../logos_delivery/kernel/core/message,
   ../utils,
   ./json_base_event
 

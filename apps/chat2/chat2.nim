@@ -30,26 +30,32 @@ import
     nameresolving/dnsresolver,
   ] # define DNS resolution
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/protobuf,
-    waku_core,
-    waku_lightpush_legacy/common,
-    waku_lightpush_legacy/rpc,
-    waku_enr,
+    core/topics,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/lightpush_legacy/rpc,
+    common/enr,
     discovery/waku_dnsdisc,
-    kernel,
-    node/waku_metrics,
-    node/peer_manager,
+    kernel_lifecycle,
+    node/metrics,
+    node/peer_manager/peer_manager,
     factory/builder,
     net/nat_config,
-    waku_relay,
-    waku_store/common,
+    protocols/relay/protocol,
+    protocols/store/common,
   ],
   ./config_chat2
 
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
-import logos_delivery/waku/rln
-import logos_delivery/waku/rln/rln_plugin
+import
+  logos_delivery/kernel/
+    [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm]
+import logos_delivery/kernel/rln/rln_plugin
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
@@ -75,7 +81,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_core.PubsubTopic
+  Topic* = PubsubTopic
 
 #####################
 ## chat2 protobufs ##

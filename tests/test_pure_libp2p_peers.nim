@@ -12,7 +12,13 @@ import
   libp2p/protocols/service_discovery/types,
   libp2p_mix/mix_protocol
 import
-  logos_delivery/waku/[kernel, waku_core, node/peer_manager, waku_metadata],
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
+    protocols/metadata/protocol,
+  ],
   ./testlib/testasync,
   ./testlib/wakucore,
   ./testlib/wakunode

@@ -13,7 +13,16 @@ import
   libp2p/multihash,
   secp256k1
 import
-  logos_delivery/waku/[waku_core, node/peer_manager, kernel, factory/validator_signed],
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
+    factory/validator_signed,
+  ],
   tools/confutils/cli_args,
   ../testlib/wakucore,
   ../testlib/wakunode

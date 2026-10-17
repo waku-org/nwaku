@@ -14,14 +14,14 @@ import
 
 import
   tools/confutils/cli_args,
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_relay,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/multiaddrstr,
-    waku_enr/capabilities,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    protocols/lightpush/common,
+    protocols/relay/protocol,
+    protocols/filter/common,
+    protocols/peer_exchange/protocol,
+    core/multiaddrstr,
+    enr/capabilities,
   ]
 logScope:
   topics = "diagnose connections"

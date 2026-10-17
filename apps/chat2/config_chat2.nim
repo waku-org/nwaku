@@ -11,7 +11,7 @@ import
   nimcrypto/utils,
   std/strutils,
   regex
-import logos_delivery/waku/waku_core
+import logos_delivery/kernel/core/[topics/content_topic, topics/sharding, peers]
 
 type
   Fleet* = enum

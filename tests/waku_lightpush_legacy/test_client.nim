@@ -3,14 +3,19 @@
 import std/[strscans, strutils], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_lightpush_legacy,
-    waku_lightpush_legacy/client,
-    waku_lightpush_legacy/common,
-    waku_lightpush_legacy/protocol_metrics,
-    waku_lightpush_legacy/rpc,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/lightpush_legacy/protocol,
+    protocols/lightpush_legacy/common,
+    protocols/lightpush_legacy/rpc,
+    protocols/lightpush_legacy/rpc_codec,
+    protocols/lightpush_legacy/client,
+    protocols/lightpush_legacy/protocol_metrics,
   ],
   ../testlib/[assertions, wakucore, testasync, futures],
   ./lightpush_utils,

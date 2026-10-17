@@ -3,8 +3,8 @@
 import results, testutils/unittests, chronos, web3, stint, tests/testlib/testasync
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/incentivization/[rpc, eligibility_manager],
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/incentivization/[rpc, eligibility_manager],
   ../waku_rln_relay/[utils_onchain, utils]
 
 const TxHashNonExisting =

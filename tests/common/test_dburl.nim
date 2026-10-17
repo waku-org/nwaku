@@ -1,7 +1,7 @@
 {.used.}
 
 import results, testutils/unittests
-import logos_delivery/waku/common/databases/dburl
+import logos_delivery/kernel/common/databases/dburl
 
 suite "DbUrl - engine resolution":
   test "sqlite scheme resolves to sqlite":

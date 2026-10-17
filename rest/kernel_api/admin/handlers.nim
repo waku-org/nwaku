@@ -11,17 +11,21 @@ import
   libp2p/[peerinfo, switch, peerid, protocols/pubsub/pubsubpeer]
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_core/topics/pubsub_topic,
-    waku_store/common,
-    waku_filter_v2,
-    waku_lightpush_legacy/common,
-    waku_relay,
-    waku_peer_exchange,
-    waku_node,
-    node/peer_manager,
-    waku_enr/sharding,
+  logos_delivery/kernel/[
+    core/topics/pubsub_topic,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    protocols/store/common,
+    protocols/filter/common,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/lightpush_legacy/common,
+    protocols/relay/protocol,
+    protocols/peer_exchange/protocol,
+    kernel,
+    node/peer_manager/peer_manager,
+    enr/sharding,
   ],
   rest/responses,
   rest/serdes,
@@ -108,8 +112,9 @@ proc getRelayPeers(node: Kernel): PeersOfShards =
       let relayShard = RelayShard.parse(topic).valueOr:
         debug "Invalid subscribed topic", error = error, topic = topic
         continue
-      let pubsubPeers =
-        node.protocols.relay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+      let pubsubPeers = node.protocols.relay.getConnectedPubSubPeers(topic).get(
+          initHashSet[PubSubPeer](0)
+        )
       relayPeers.add(
         PeersOfShard(
           shard: relayShard.shardId,
@@ -256,8 +261,9 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: Kernel) =
     let topic = toPubsubTopic(
       RelayShard(clusterId: node.protocols.metadata.clusterId.uint16, shardId: shard)
     )
-    let pubsubPeers =
-      node.protocols.relay.getConnectedPubSubPeers(topic).get(initHashSet[PubSubPeer](0))
+    let pubsubPeers = node.protocols.relay.getConnectedPubSubPeers(topic).get(
+        initHashSet[PubSubPeer](0)
+      )
     let relayPeer = PeersOfShard(
       shard: shard, peers: toSeq(pubsubPeers).mapIt(WakuPeer.init(it, node.peerManager))
     )
@@ -416,9 +422,9 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: Kernel) =
       filterCriteria: seq[FilterTopic]
 
     for peerId in node.protocols.filter.subscriptions.peersSubscribed.keys:
-      filterCriteria = node.protocols.filter.subscriptions.getPeerSubscriptions(peerId).mapIt(
-          FilterTopic(pubsubTopic: it[0], contentTopic: it[1])
-        )
+      filterCriteria = node.protocols.filter.subscriptions
+        .getPeerSubscriptions(peerId)
+        .mapIt(FilterTopic(pubsubTopic: it[0], contentTopic: it[1]))
 
       subscriptions.add(
         FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria)

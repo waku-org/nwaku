@@ -14,8 +14,15 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/
-    [kernel, discovery/waku_discv5, waku_peer_exchange, node/peer_manager, waku_core],
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    discovery/waku_discv5,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    node/peer_manager/peer_manager,
+    core/peers,
+    protocols/codecs,
+  ],
   ../waku_peer_exchange/utils,
   ../testlib/[wakucore, wakunode, testasync]
 

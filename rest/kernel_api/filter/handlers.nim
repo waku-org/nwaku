@@ -12,12 +12,14 @@ import
   presto/route,
   presto/common
 import
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_filter_v2,
-  logos_delivery/waku/waku_filter_v2/client as filter_protocol_client,
-  logos_delivery/waku/waku_filter_v2/common as filter_protocol_type,
+  logos_delivery/kernel/core/
+    [topics/content_topic, topics/pubsub_topic, topics/sharding, message, peers],
+  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[kernel, node/node/filter],
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/protocols/filter/[common],
+  logos_delivery/kernel/protocols/filter/client as filter_protocol_client,
+  logos_delivery/kernel/protocols/filter/common as filter_protocol_type,
   rest/message_cache,
   rest/discovery_handler,
   rest/serdes,

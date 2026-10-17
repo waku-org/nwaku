@@ -7,18 +7,19 @@ import libp2p/nameresolving/nameresolver
 import libp2p_mix, libp2p_mix/[curve25519, mix_metrics]
 
 import
-  logos_delivery/waku/[
-    waku_core,
+  logos_delivery/kernel/[
+    core/topics/pubsub_topic,
+    core/peers,
     common/waku_protocol,
     net/net_config,
     node/enr_addresses,
-    node/peer_manager,
-    kernel,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
     node/health_monitor/health_status,
     node/health_monitor/protocol_health,
     node/health_monitor/node_health_monitor,
-    waku_mix,
-    waku_mix/protocol_metrics,
+    protocols/mix/protocol,
+    protocols/mix/protocol_metrics,
   ],
   ../testlib/[wakucore, wakunode, testasync]
 

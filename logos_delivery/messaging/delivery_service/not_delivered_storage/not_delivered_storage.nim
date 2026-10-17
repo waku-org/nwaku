@@ -9,8 +9,8 @@
 
 import results
 import
-  logos_delivery/waku/common/databases/db_sqlite,
-  logos_delivery/waku/waku_core/message/message,
+  logos_delivery/kernel/common/databases/db_sqlite,
+  logos_delivery/kernel/core/message,
   ./migrations
 
 const NotDeliveredMessagesDbUrl = "not-delivered-messages.db"

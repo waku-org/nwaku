@@ -5,7 +5,7 @@ import
   libp2p/multicodec,
   nimcrypto/utils as ncrutils
 
-import logos_delivery/waku/waku_mix
+import logos_delivery/kernel/protocols/mix/protocol
 
 type LightPushMixConf* = object
   destPeerAddr* {.desc: "Destination peer address with peerId.", name: "dp-addr".}:

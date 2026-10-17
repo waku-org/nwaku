@@ -8,13 +8,19 @@ import
   results,
   json_serialization as js
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/logging,
-    waku_node,
-    node/peer_manager,
-    waku_core,
-    waku_lightpush/client,
-    waku_lightpush/common,
+    kernel,
+    node/node/lightpush,
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    protocols/lightpush/common,
     common/utils/parse_size_units,
   ],
   ./tester_config,

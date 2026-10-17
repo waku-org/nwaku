@@ -6,30 +6,32 @@ import brokers/broker_context
 import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
 import
-  logos_delivery/waku/[
-    waku_core,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
     common/waku_protocol,
-    node/waku_node,
-    node/peer_manager,
+    node/peer_manager/peer_manager,
     node/health_monitor/health_status,
     node/health_monitor/connection_status,
     node/health_monitor/protocol_health,
     node/health_monitor/topic_health,
     node/health_monitor/node_health_monitor,
-    node/waku_node/relay,
-    node/waku_node/store,
-    node/waku_node/lightpush,
-    node/waku_node/filter,
+    node/node/relay,
+    node/node/store,
+    node/node/lightpush,
+    node/node/filter,
     api/events/health_events,
     api/events/peer_events,
-    waku_archive,
-    waku_mix,
+    protocols/mix/protocol,
   ]
 
 import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
-import logos_delivery/waku/node/subscription_manager
-import logos_delivery/waku/kernel
-import logos_delivery/waku/factory/waku_state_info
+import logos_delivery/kernel/node/subscription_manager
+import logos_delivery/kernel/kernel_lifecycle
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_client_lifecycle
 

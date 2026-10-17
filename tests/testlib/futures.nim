@@ -1,6 +1,6 @@
 import chronos
 
-import logos_delivery/waku/[waku_core/message, waku_store]
+import logos_delivery/kernel/[core/message, protocols/store/common]
 
 const
   FUTURE_TIMEOUT* = 1.seconds

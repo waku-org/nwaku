@@ -3,14 +3,18 @@
 import results, std/[sequtils, sets], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/paging,
-    kernel,
-    node/peer_manager,
-    waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_archive,
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/store/common,
+    archive/archive,
+    archive/driver,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,

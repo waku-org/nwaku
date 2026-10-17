@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import tools/confutils/cli_args
-import logos_delivery/waku/[common/logging, kernel, factory/networks_config]
+import logos_delivery/kernel/[common/logging, kernel_lifecycle, factory/networks_config]
 import
   results,
   std/[strutils, os, sequtils],
@@ -11,11 +11,11 @@ import
   libp2p/crypto/crypto
 
 export
-  networks_config, kernel, logging, strutils, os, sequtils, stewNet, chronicles, chronos,
-  metrics, crypto
+  networks_config, kernel_lifecycle, logging, strutils, os, sequtils, stewNet,
+  chronicles, chronos, metrics, crypto
 
 proc setup*(): Kernel =
-  const versionString = "version / git commit hash: " & kernel.git_version
+  const versionString = "version / git commit hash: " & kernel_lifecycle.git_version
   let rng = crypto.newRng()
 
   let conf = WakuNodeConf.load(version = versionString).valueOr:

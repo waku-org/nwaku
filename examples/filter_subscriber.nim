@@ -9,16 +9,35 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_node,
-    waku_enr,
+    node/peer_manager/peer_manager,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    node/waku_switch,
+    kernel,
+    node/node/filter,
+    node/node/lightpush,
+    node/node/store,
+    node/node/relay,
+    node/node/peer_exchange,
+    node/node/ping,
+    common/enr/typed_record,
+    enr/capabilities,
+    enr/multiaddr,
+    enr/sharding,
     discovery/waku_discv5,
     factory/builder,
-    waku_relay,
-    waku_filter_v2/client,
+    protocols/relay/protocol,
+    node/health_monitor/topic_health,
+    protocols/filter/client,
   ]
 
 # careful if running pub and sub in the same machine

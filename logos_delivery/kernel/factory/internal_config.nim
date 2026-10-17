@@ -1,0 +1,173 @@
+import
+  chronicles,
+  chronos,
+  libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
+  libp2p/multiaddress,
+  libp2p/nameresolving/dnsresolver,
+  std/[sequtils, net],
+  results
+
+import logos_delivery/kernel/[net/net_config, common/enr, enr/capabilities, enr/multiaddr, enr/sharding, core/peers], ./waku_conf
+
+proc tryBuildEnrRecord(
+    conf: WakuConf, netConfig: NetConfig, multiaddrs: seq[MultiAddress], seqNum: uint64
+): Result[enr.Record, string] =
+  var enrBuilder = EnrBuilder.init(conf.nodeKey, seqNum)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp, netConfig.enrPort, netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  if multiaddrs.len > 0:
+    enrBuilder.withMultiaddrs(multiaddrs)
+
+  enrBuilder.withWakuRelaySharding(
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.subscribeShards)
+  ).isOkOr:
+    return err("could not initialize ENR with shards")
+
+  let record = enrBuilder.build().valueOr:
+    return err($error)
+
+  return ok(record)
+
+proc enrConfiguration*(
+    conf: WakuConf, netConfig: NetConfig, seqNum: uint64 = 1
+): Result[enr.Record, string] =
+  ## A record the node already published carries a higher `seqNum`, and a
+  ## lower one is ignored by every peer that cached it.
+  for retained in countdown(netConfig.enrMultiaddrs.len, 0):
+    let multiaddrs = netConfig.enrMultiaddrs[0 ..< retained]
+    let record = tryBuildEnrRecord(conf, netConfig, multiaddrs, seqNum).valueOr:
+      if retained > 0:
+        debug "Failed to create enr record, retrying with fewer multiaddrs",
+          error = error,
+          totalMultiaddrs = netConfig.enrMultiaddrs.len,
+          retainedMultiaddrs = retained - 1,
+          removedMultiaddr = multiaddrs[^1]
+        continue
+
+      error "failed to create enr record", error = error
+      return err($error)
+
+    if retained < netConfig.enrMultiaddrs.len:
+      debug "Created enr record after trimming multiaddrs",
+        totalMultiaddrs = netConfig.enrMultiaddrs.len, retainedMultiaddrs = retained
+
+    return ok(record)
+
+  return err("failed to create enr record")
+
+proc dnsResolve*(
+    domain: string, dnsAddrsNameServers: seq[IpAddress]
+): Future[Result[string, string]] {.async.} =
+  # Use conf's DNS servers
+  var nameServers: seq[TransportAddress]
+  for ip in dnsAddrsNameServers:
+    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+  let dnsResolver = DnsResolver.new(nameServers)
+
+  # Resolve domain IP
+  let resolved = await dnsResolver.resolveIp(domain, 0.Port, Domain.AF_UNSPEC)
+
+  if resolved.len > 0:
+    return ok(resolved[0].host) # Use only first answer
+  else:
+    return err("Could not resolve IP from DNS: empty response")
+
+# TODO: Reduce number of parameters, can be done once the same is done on Netconfig.init
+proc networkConfiguration*(
+    clusterId: uint16,
+    conf: EndpointConf,
+    discv5Conf: Opt[Discv5Conf],
+    webSocketConf: Opt[WebSocketConf],
+    quicConf: Opt[QuicConf],
+    wakuFlags: CapabilitiesBitfield,
+    dnsAddrsNameServers: seq[IpAddress],
+): Future[NetConfigResult] {.async.} =
+  let tcpBindPort = conf.p2pTcpPort
+
+  let (quicEnabled, quicBindPort) =
+    if quicConf.isSome():
+      let qConf = quicConf.get()
+      (true, Opt.some(qConf.port))
+    else:
+      (false, Opt.none(Port))
+
+  ## Only extip and the dns4 name vouch for an external IP here.
+  ## NATService mappings arrive later through the mapper chain.
+  var extIp =
+    if conf.natStrategy.kind == NatExtIp:
+      Opt.some(conf.natStrategy.extIp)
+    else:
+      Opt.none(IpAddress)
+
+  let
+    ## Port 0 is a placeholder; the rebuild at start writes the bound port.
+    discv5UdpPort =
+      if discv5Conf.isSome() and discv5Conf.get().udpPort != Port(0):
+        Opt.some(discv5Conf.get().udpPort)
+      else:
+        Opt.none(Port)
+
+    ## With extip or dns4 the operator vouches for the endpoint.
+    ## Without a manual port config the external ports are the bind ports.
+    extPort =
+      if extIp.isSome() or conf.dns4DomainName.isSome():
+        Opt.some(tcpBindPort)
+      else:
+        Opt.none(Port)
+
+    extQuicPort =
+      if extIp.isSome() or conf.dns4DomainName.isSome():
+        quicBindPort
+      else:
+        Opt.none(Port)
+
+  # Resolve and use DNS domain IP
+  if conf.dns4DomainName.isSome() and extIp.isNone():
+    try:
+      let dns = (await dnsResolve(conf.dns4DomainName.get(), dnsAddrsNameServers)).valueOr:
+        return err($error) # Pass error down the stack
+
+      extIp = Opt.some(parseIpAddress(dns))
+    except CatchableError:
+      return
+        err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
+
+  let (wsEnabled, wsBindPort, wssEnabled) =
+    if webSocketConf.isSome:
+      let wsConf = webSocketConf.get()
+      (true, Opt.some(wsConf.port), wsConf.secureConf.isSome)
+    else:
+      (false, Opt.none(Port), false)
+
+  # Wrap in none because NetConfig does not have a default constructor
+  # TODO: We could change bindIp in NetConfig to be something less restrictive
+  # than IpAddress, which doesn't allow default construction
+  let netConfigRes = NetConfig.init(
+    clusterId = clusterId,
+    bindIp = conf.p2pListenAddress,
+    bindPort = tcpBindPort,
+    extIp = extIp,
+    extPort = extPort,
+    extMultiAddrs = conf.extMultiAddrs,
+    extMultiAddrsOnly = conf.extMultiAddrsOnly,
+    wsBindPort = wsBindPort,
+    wsEnabled = wsEnabled,
+    wssEnabled = wssEnabled,
+    quicBindPort = quicBindPort,
+    quicEnabled = quicEnabled,
+    extQuicPort = extQuicPort,
+    dns4DomainName = conf.dns4DomainName,
+    discv5UdpPort = discv5UdpPort,
+    wakuFlags = Opt.some(wakuFlags),
+    dnsNameServers = dnsAddrsNameServers,
+  )
+
+  return netConfigRes

@@ -20,13 +20,20 @@ import
   rest/kernel_api/relay/handlers as relay_rest_interface,
   rest/kernel_api/relay/client as relay_rest_client
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/base64,
-    waku_core,
-    kernel,
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_relay,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
+    protocols/lightpush/common,
+    protocols/relay/protocol,
+    node/health_monitor/topic_health,
     common/rate_limit/setting,
   ],
   ../testlib/wakucore,

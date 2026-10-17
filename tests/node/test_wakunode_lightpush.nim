@@ -9,13 +9,23 @@ import
   libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_core/topics/sharding,
-    node/peer_manager,
-    kernel,
-    waku_lightpush,
-    rln,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
+    protocols/lightpush/protocol,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
   ],
   ../testlib/[wakucore, wakunode, testasync, futures],

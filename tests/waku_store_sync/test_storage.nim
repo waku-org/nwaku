@@ -3,9 +3,9 @@
 import results, std/[random, sequtils, packedsets], testutils/unittests, chronos
 
 import
-  ../../logos_delivery/waku/waku_core,
-  ../../logos_delivery/waku/waku_store_sync/common,
-  ../../logos_delivery/waku/waku_store_sync/storage/seq_storage,
+  logos_delivery/kernel/core/[topics/content_topic, topics/pubsub_topic, time],
+  logos_delivery/kernel/protocols/store_sync/common,
+  logos_delivery/kernel/protocols/store_sync/storage/seq_storage,
   ./sync_utils
 
 suite "Waku Sync Storage":

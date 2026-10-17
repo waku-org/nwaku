@@ -3,16 +3,16 @@ import chronos, chronicles, results, ffi
 import brokers/broker_context
 import libp2p/peerid # pull PeerId pretty string formatting
 import stew/byteutils
-import logos_delivery/waku/common/base64
+import logos_delivery/kernel/common/base64
 from ../events/json_message_event import `%` # base64 rendering for WakuMessage
 import
   logos_delivery,
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/kernel/kernel,
   logos_delivery/api/types,
-  logos_delivery/waku/api/events/health_events,
-  logos_delivery/waku/api/events/peer_events,
+  logos_delivery/kernel/api/events/health_events,
+  logos_delivery/kernel/api/events/peer_events,
   logos_delivery/api/conf/logos_delivery_conf_json,
-  logos_delivery/waku/rln/rln_lez/transport,
+  logos_delivery/kernel/rln/rln_lez/transport,
   rest/rest_service,
   ../declare_lib,
   ../json_event

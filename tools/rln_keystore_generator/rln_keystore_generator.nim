@@ -6,9 +6,11 @@ else:
 import chronicles, results, std/[tempfiles, sequtils]
 
 import
-  logos_delivery/waku/[
-    waku_keystore,
-    rln/rln_evm/bindings,
+  logos_delivery/kernel/[
+    rln/keystore/keyfile,
+    rln/keystore/keystore,
+    rln/keystore/protocol_types,
+    rln/rln_evm/wrappers,
     rln/rln_evm/conversion_utils,
     rln/rln_evm/group_manager,
   ]

@@ -1,7 +1,7 @@
 {.used.}
 
 import results, testutils/unittests
-import logos_delivery/waku/common/protobuf
+import logos_delivery/kernel/common/protobuf
 
 ## Fixtures
 

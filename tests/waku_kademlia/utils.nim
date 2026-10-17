@@ -9,8 +9,8 @@ import libp2p/protocols/service_discovery/types as sd_types
 import libp2p/crypto/crypto as libp2p_keys
 
 import
-  logos_delivery/waku/discovery/waku_kademlia,
-  logos_delivery/waku/node/peer_manager/peer_manager
+  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/node/peer_manager/peer_manager
 import ../testlib/[wakucore, common]
 
 export wakucore, common, peerid, multiaddress, switch, extended_peer_record, sd_types

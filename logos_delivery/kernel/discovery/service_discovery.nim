@@ -1,0 +1,191 @@
+{.push raises: [].}
+
+## IPeerDiscovery implementation for libp2p service discovery, wrapping
+## `WakuKademlia`. Phase 1: the wrapped entity keeps
+## feeding the PeerManager itself; this wrapper adds the interface surface
+## and bridges the node-level PeersDiscoveredEvent onto the instance event.
+
+import std/[sequtils, strutils]
+import chronos, chronicles, results
+import libp2p/[peerid, multiaddress, peerinfo, extended_peer_record]
+from libp2p/protocols/kademlia import updatePeers
+from libp2p/protocols/service_discovery import lookupRandom
+import brokers/broker_implement
+import logos_delivery/kernel/discovery/peer_discovery_interface
+import
+  logos_delivery/kernel/discovery/waku_kademlia,
+  logos_delivery/kernel/discovery/peer_discovery_conversion,
+  logos_delivery/kernel/discovery/signed_service_record,
+  logos_delivery/kernel/core/[ peers], logos_delivery/kernel/api/events/discovery_events
+
+export peer_discovery_interface
+
+logScope:
+  topics = "waku discovery service"
+
+const ServiceBackendId* = "service"
+
+type ServicePeerDiscovery* = ref object of IPeerDiscovery
+  inner*: WakuKademlia
+  running: bool
+  discoveredListener: Opt[PeersDiscoveredEventListener]
+    ## Bridge from the node's PeersDiscoveredEvent; held from startDiscovery
+    ## to stopDiscovery.
+
+proc serviceIdOf(key: string): Result[string, string] =
+  ## Any non-prefixed key and service:/topic:/cap: keys are literal service
+  ## ids; the service: prefix is stripped.
+  if key.len == 0:
+    return err("service backend: empty criteria key")
+  if key.startsWith(ServiceKeyPrefix):
+    return ok(key[ServiceKeyPrefix.len ..^ 1])
+  ok(key)
+
+BrokerImplement ServicePeerDiscovery of IPeerDiscovery:
+  proc new(
+      T: typedesc[ServicePeerDiscovery], inner: WakuKademlia
+  ): ServicePeerDiscovery =
+    ServicePeerDiscovery(inner: inner)
+
+  method backendInfo(
+      self: ServicePeerDiscovery
+  ): Future[Result[DiscoveryBackendInfo, string]] {.async.} =
+    ok(
+      DiscoveryBackendInfo(
+        id: ServiceBackendId,
+        running: self.running,
+        keyKinds: @["service", "topic", "cap"],
+        boundPorts: @[],
+      )
+    )
+
+  method startDiscovery(
+      self: ServicePeerDiscovery
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    if self.running:
+      return ok()
+    await self.inner.start()
+
+    # Bridge the node-level event onto the instance-scoped interface event,
+    # on the node's context only; dropped again in stopDiscovery.
+    self.discoveredListener = Opt.some(
+      ?PeersDiscoveredEvent.listen(
+        self.inner.brokerCtx,
+        proc(ev: PeersDiscoveredEvent): Future[void] {.async: (raises: []), gcsafe.} =
+          let mine = ev.peers.filterIt(it.origin == PeerOrigin.Kademlia)
+          if mine.len > 0:
+            let converted = mine.mapIt(it.toDiscoveredPeer())
+            PeersDiscovered.emit(
+              self.brokerCtx, origin = ServiceBackendId, key = "", peers = converted
+            )
+        ,
+      )
+    )
+    self.running = true
+    ok()
+
+  method stopDiscovery(
+      self: ServicePeerDiscovery
+  ): Future[Result[void, string]] {.async.} =
+    if not self.running:
+      return ok()
+    if self.discoveredListener.isSome():
+      await PeersDiscoveredEvent.dropListener(
+        self.inner.brokerCtx, self.discoveredListener.get()
+      )
+      self.discoveredListener = Opt.none(PeersDiscoveredEventListener)
+    await self.inner.stop()
+    self.running = false
+    ok()
+
+  method lookupServicePeers(
+      self: ServicePeerDiscovery, key: string, limit: int
+  ): Future[Result[seq[DiscoveredPeer], string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    let serviceId = ?serviceIdOf(key)
+    let peers = ?await self.inner.lookupServicePeers(serviceId)
+    var found = peers.mapIt(it.toDiscoveredPeer())
+    if limit > 0 and found.len > limit:
+      found.setLen(limit)
+    ok(found)
+
+  method startAdvertising(
+      self: ServicePeerDiscovery, key: string, data: seq[byte]
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    ## Same as the external backend: this node signs the record it advertises,
+    ## one service per record, and libp2p publishes it verbatim. The switch is
+    ## ours here, so identity and key are read from it directly.
+    let serviceId = ?serviceIdOf(key)
+    let peerInfo = self.inner.protocol.switch.peerInfo
+    let record = ?signedServiceRecord(peerInfo, peerInfo.privateKey, serviceId, data)
+    self.inner.addServiceToAdvertise(
+      ServiceInfo(id: serviceId, data: Opt.some(data)), record
+    )
+    ok()
+
+  method stopAdvertising(
+      self: ServicePeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    let serviceId = ?serviceIdOf(key)
+    let res = catch:
+      await self.inner.removeServiceToAdvertise(serviceId)
+    res.isOkOr:
+      return err("service backend: stop advertising failed: " & error.msg)
+    ok()
+
+  method registerInterest(
+      self: ServicePeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    let serviceId = ?serviceIdOf(key)
+    self.inner.addServiceToDiscover(serviceId)
+    ok()
+
+  method unregisterInterest(
+      self: ServicePeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    let serviceId = ?serviceIdOf(key)
+    self.inner.removeServiceToDiscover(serviceId)
+    ok()
+
+  method addBootstrapEntries(
+      self: ServicePeerDiscovery, entries: seq[string]
+  ): Future[Result[void, string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    var parsed: seq[(PeerId, seq[MultiAddress])]
+    for entry in entries:
+      let (peerId, ma) = parseFullAddress(entry).valueOr:
+        return
+          err("service backend: invalid bootstrap entry '" & entry & "': " & $error)
+      parsed.add((peerId, @[ma]))
+    if parsed.len > 0:
+      self.inner.protocol.updatePeers(parsed)
+    ok()
+
+  method lookupRandom(
+      self: ServicePeerDiscovery
+  ): Future[Result[seq[DiscoveredPeer], string]] {.async.} =
+    if self.inner.isNil():
+      return err("service backend: not mounted")
+    let recordsRes = catch:
+      await self.inner.protocol.lookupRandom()
+    let records = recordsRes.valueOr:
+      return err("service backend: random lookup failed: " & error.msg)
+
+    var found: seq[DiscoveredPeer]
+    for record in records:
+      let rpi = remotePeerInfoFrom(record).valueOr:
+        continue
+      found.add(rpi.toDiscoveredPeer())
+    ok(found)

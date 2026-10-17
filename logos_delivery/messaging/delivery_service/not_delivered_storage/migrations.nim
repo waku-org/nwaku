@@ -2,8 +2,8 @@
 
 import std/[tables, strutils, os], results, chronicles
 import
-  logos_delivery/waku/common/databases/db_sqlite,
-  logos_delivery/waku/common/databases/common
+  logos_delivery/kernel/common/databases/db_sqlite,
+  logos_delivery/kernel/common/databases/common
 
 logScope:
   topics = "waku node delivery_service"

@@ -13,10 +13,11 @@ import
   presto/common
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_lightpush_legacy/common,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/rln,
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/protocols/lightpush_legacy/common,
+  logos_delivery/kernel/[kernel, node/node/lightpush],
+  logos_delivery/kernel/
+    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
@@ -37,7 +38,8 @@ const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
 proc useSelfHostedLightPush(node: Kernel): bool =
-  return node.protocols.legacyLightPush != nil and node.protocols.legacyLightPushClient == nil
+  return
+    node.protocols.legacyLightPush != nil and node.protocols.legacyLightPushClient == nil
 
 #### Request handlers
 

@@ -1,8 +1,8 @@
 import results, testutils/unittests, chronos, web3
 
 import
-  logos_delivery/waku/incentivization/reputation_manager,
-  logos_delivery/waku/waku_lightpush_legacy/rpc
+  logos_delivery/kernel/incentivization/reputation_manager,
+  logos_delivery/kernel/protocols/lightpush_legacy/rpc
 
 suite "Waku Incentivization PoC Reputation":
   var manager {.threadvar.}: ReputationManager

@@ -11,8 +11,17 @@ import
 import brokers/broker_context
 
 import
-  logos_delivery/waku/
-    [waku_relay, node/waku_node, node/peer_manager, waku_core, waku_node],
+  logos_delivery/kernel/[
+    protocols/relay/protocol,
+    kernel,
+    node/peer_manager/peer_manager,
+    core/topics,
+    core/topics/pubsub_topic,
+    core/message,
+    protocols/codecs,
+    kernel,
+    node/node/relay,
+  ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../testlib/wakucore

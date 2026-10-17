@@ -9,8 +9,8 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/kernel,
+  logos_delivery/kernel/core/[topics, topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/kernel_lifecycle,
   ./testlib/wakucore,
   ./testlib/wakunode
 

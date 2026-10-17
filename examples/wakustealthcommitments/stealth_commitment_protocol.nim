@@ -2,7 +2,18 @@
 
 import
   results,
-  logos_delivery/waku/[common/logging, waku_node, rln/rln_plugin],
+  logos_delivery/kernel/[
+    common/logging,
+    node/waku_switch,
+    kernel,
+    node/node/filter,
+    node/node/lightpush,
+    node/node/store,
+    node/node/relay,
+    node/node/peer_exchange,
+    node/node/ping,
+    rln/rln_plugin,
+  ],
   ./erc_5564_interface as StealthCommitmentFFI,
   ./node_spec,
   ./wire_spec

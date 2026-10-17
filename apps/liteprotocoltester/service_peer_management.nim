@@ -12,18 +12,16 @@ import
 
 import
   tools/confutils/cli_args,
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/enr,
-    waku_node,
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_relay,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/multiaddrstr,
-    waku_core/topics/pubsub_topic,
-    waku_enr/capabilities,
-    waku_enr/sharding,
+    kernel,
+    node/node/peer_exchange,
+    node/peer_manager/peer_manager,
+    protocols/peer_exchange/protocol,
+    core/multiaddrstr,
+    core/topics/pubsub_topic,
+    enr/capabilities,
+    enr/sharding,
   ],
   ./tester_config,
   ./diagnose_connections,

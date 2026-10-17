@@ -9,12 +9,7 @@ import
   json_serialization,
   json_serialization/pkg/results,
   presto/[route, client, common]
-import
-  logos_delivery/waku/waku_core,
-  rest/serdes,
-  rest/responses,
-  rest/rest_serdes,
-  rest/kernel_api/lightpush/types
+import rest/serdes, rest/responses, rest/rest_serdes, rest/kernel_api/lightpush/types
 
 export types
 

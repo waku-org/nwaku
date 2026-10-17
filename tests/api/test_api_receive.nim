@@ -10,27 +10,35 @@ import ../waku_archive/archive_utils
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_metrics
 import logos_delivery/messaging/messaging_client_lifecycle
-import logos_delivery/messaging/delivery_service/recv_service
+import logos_delivery/messaging/delivery_service/recv_service/recv_service
 import logos_delivery/messaging/delivery_service/recv_service/backfill
-import logos_delivery/waku/persistency/persistency
-import logos_delivery/waku/requests/health_requests
-import logos_delivery/waku/node/health_monitor/health_status
-import logos_delivery/waku/api/health
+import logos_delivery/kernel/persistency/persistency
+import logos_delivery/kernel/requests/health_requests
+import logos_delivery/kernel/node/health_monitor/health_status
+import logos_delivery/kernel/api/health
 import logos_delivery/api/conf/modes
 import logos_delivery/api/conf/logos_delivery_conf
-from logos_delivery/waku/waku_store/common import WakuStoreCodec
-from logos_delivery/waku/waku_filter_v2/subscriptions import removePeer
+from logos_delivery/kernel/protocols/store/common import WakuStoreCodec
+from logos_delivery/kernel/protocols/filter/subscriptions import removePeer
 
 import
   logos_delivery,
-  logos_delivery/waku/[
-    kernel,
-    waku_core,
-    node/peer_manager,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
     api/events/health_events,
-    waku_relay/protocol,
-    waku_archive,
-    waku_archive/common as archive_common,
+    protocols/relay/protocol,
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/common as archive_common,
   ]
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf

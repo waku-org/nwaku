@@ -1,0 +1,123 @@
+{.push raises: [].}
+
+import
+  std/[tables, net],
+  chronos,
+  chronicles,
+  metrics,
+  results,
+  eth/keys,
+  eth/p2p/discoveryv5/enr,
+  libp2p/crypto/crypto,
+  libp2p/protocols/ping,
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/messages,
+  libp2p/builders,
+  libp2p/transports/tcptransport,
+  libp2p/transports/wstransport
+
+import
+  ../../kernel,
+  logos_delivery/kernel/node/metrics,
+  logos_delivery/kernel/protocols/peer_exchange/[protocol, rpc, common, client],
+  logos_delivery/kernel/core/[ peers], logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/node/peer_manager/peer_manager,
+  ../../common/rate_limit/setting
+
+logScope:
+  topics = "waku node peerexchange api"
+
+## Waku peer-exchange
+
+proc mountPeerExchange*(
+    node: Kernel,
+    cluster: Opt[uint16] = Opt.none(uint16),
+    rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
+) {.async: (raises: []).} =
+  info "mounting waku peer exchange"
+
+  node.discovery.peerExchange =
+    WakuPeerExchange.new(node.peerManager, cluster, Opt.some(rateLimit))
+
+  if node.started:
+    try:
+      await node.discovery.peerExchange.start()
+    except CatchableError:
+      error "failed to start wakuPeerExchange", error = getCurrentExceptionMsg()
+
+  try:
+    node.switch.mount(
+      node.discovery.peerExchange, protocolMatcher(WakuPeerExchangeCodec)
+    )
+  except LPError:
+    error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
+
+proc mountPeerExchangeClient*(node: Kernel) {.async: (raises: []).} =
+  info "mounting waku peer exchange client"
+  if node.discovery.peerExchangeClient.isNil():
+    node.discovery.peerExchangeClient = WakuPeerExchangeClient.new(node.peerManager)
+
+proc fetchPeerExchangePeers*(
+    node: Kernel, amount = DefaultPXNumPeersReq
+): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
+  if node.discovery.peerExchangeClient.isNil():
+    debug "Could not get peers from px, waku peer-exchange-client is nil"
+    return err(
+      (
+        status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        status_desc: Opt.some("PeerExchangeClient is not mounted"),
+      )
+    )
+
+  debug "Retrieving peer info via peer exchange protocol", amount
+  let pxPeersRes = await node.discovery.peerExchangeClient.request(amount)
+  if pxPeersRes.isOk():
+    var validPeers = 0
+    let peers = pxPeersRes.get().peerInfos
+    for pi in peers:
+      var record: enr.Record
+      if enr.fromBytes(record, pi.enr):
+        # A record without a dialable endpoint is legal, and nothing to dial.
+        let peerInfo = record.toRemotePeerInfo().valueOr:
+          debug "Skipping peer exchange record", error = error
+          continue
+        node.peerManager.addPeer(peerInfo, PeerExchange)
+        validPeers += 1
+    debug "Retrieved peer info via peer exchange protocol",
+      validPeers = validPeers, totalPeers = peers.len
+    return ok(validPeers)
+  else:
+    debug "Failed to retrieve peer info via peer exchange protocol",
+      error = pxPeersRes.error
+    return err(pxPeersRes.error)
+
+proc peerExchangeLoop(node: Kernel) {.async.} =
+  while true:
+    if not node.started:
+      await sleepAsync(5.seconds)
+      continue
+    (await node.fetchPeerExchangePeers()).isOkOr:
+      debug "Cannot fetch peers from peer exchange", cause = error
+    await sleepAsync(1.minutes)
+
+proc startPeerExchangeLoop*(node: Kernel) =
+  if node.discovery.peerExchangeClient.isNil():
+    debug "startPeerExchangeLoop: Peer Exchange is not mounted"
+    return
+  debug "Starting peer exchange loop"
+  node.discovery.peerExchangeClient.pxLoopHandle = node.peerExchangeLoop()
+
+# TODO: Move to application module (e.g., logosdeliverynode.nim)
+proc setPeerExchangePeer*(node: Kernel, peer: RemotePeerInfo | MultiAddress | string) =
+  if node.discovery.peerExchange.isNil():
+    debug "Could not set peer, waku peer-exchange is nil"
+    return
+
+  debug "Set peer-exchange peer", peer = peer
+
+  let remotePeer = parsePeerInfo(peer).valueOr:
+    debug "Could not parse peer info", error = error
+    return
+
+  node.peerManager.addPeer(remotePeer, PeerExchange)
+  logos_delivery_px_peers.inc()

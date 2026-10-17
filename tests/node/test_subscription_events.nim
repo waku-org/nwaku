@@ -3,8 +3,21 @@
 import std/sequtils
 import chronos, results, testutils/unittests
 import brokers/broker_context
-import logos_delivery/waku/[waku_core, waku_node, node/subscription_manager]
-import logos_delivery/waku/api/events/subscription_events
+import
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    kernel_lifecycle,
+    node/subscription_manager,
+  ]
+import logos_delivery/kernel/api/events/subscription_events
 import ../testlib/[wakucore, wakunode, testasync]
 
 const TestShard = PubsubTopic("/waku/2/rs/0/7")
@@ -36,7 +49,8 @@ suite "Shard subscription events":
   asyncTeardown:
     await ShardSubscribedEvent.dropAllListeners(node.brokerCtx)
     await ShardUnsubscribedEvent.dropAllListeners(node.brokerCtx)
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "relay subscribe and unsubscribe emit shard events":
     node.subscriptionManager.subscribeShard(TestShard).isOkOr:
@@ -75,7 +89,8 @@ suite "Extra listen shards":
     node.subscriptionManager.extraListenShards = @[PubsubTopic("/waku/2/rs/16/64")]
 
   asyncTeardown:
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a content topic is also subscribed and unsubscribed on the listen shard":
     const contentTopic = ContentTopic("/status/1/listen-shard/proto")

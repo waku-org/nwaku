@@ -1,11 +1,11 @@
 import std/[strutils, sequtils]
+import logos_delivery/kernel/protocols/filter/common
 import chronicles, chronos, results, ffi
 import
   logos_delivery,
-  logos_delivery/waku/waku_core/message/message,
-  logos_delivery/waku/waku_core/subscription/push_handler,
-  logos_delivery/waku/waku_core/topics/pubsub_topic,
-  logos_delivery/waku/waku_core/topics/content_topic,
+  logos_delivery/kernel/core/message,
+  logos_delivery/kernel/core/topics/pubsub_topic,
+  logos_delivery/kernel/core/topics/content_topic,
   library/events/json_message_event,
   library/declare_lib
 

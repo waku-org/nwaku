@@ -5,12 +5,19 @@ import std/[sequtils, times], results, chronos, chronicles
 import
   logos_delivery/api/conf/messaging_conf,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/[publish, health],
-  logos_delivery/waku/node/health_monitor,
-  logos_delivery/waku/factory/conf_builder/waku_conf_builder,
-  logos_delivery/waku/persistency/persistency,
-  logos_delivery/messaging/delivery_service/[recv_service, send_service],
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/[publish, health],
+  logos_delivery/kernel/[
+    node/health_monitor/node_health_monitor,
+    node/health_monitor/protocol_health,
+    node/health_monitor/online_monitor,
+    node/health_monitor/health_status,
+    node/health_monitor/connection_status,
+  ],
+  logos_delivery/kernel/factory/conf_builder/waku_conf_builder,
+  logos_delivery/kernel/persistency/persistency,
+  logos_delivery/messaging/delivery_service/
+    [recv_service/recv_service, send_service/send_service, send_service/delivery_task],
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager
 
 export messaging_client_api, messaging_conf
@@ -57,7 +64,8 @@ proc new*(
   let reliability = conf.reliabilityEnabled.get(DefaultP2pReliability)
   let anonymityLevel = conf.anonymityLevel.get(AnonymityLevel.None)
   let rateLimitConfig = conf.rateLimitConfig()
-  let rateLimitManager = ?RateLimitManager.new(rateLimitConfig, rlnQuotaProvider(kernel))
+  let rateLimitManager =
+    ?RateLimitManager.new(rateLimitConfig, rlnQuotaProvider(kernel))
   let maxParkedAgeSec = conf.maxParkedAgeSec.get(uint(DefaultMaxParkedAge.seconds()))
   if maxParkedAgeSec notin 1'u .. MaxParkedAgeSecLimit:
     return err("maxParkedAgeSec must be between 1 and " & $MaxParkedAgeSecLimit)

@@ -3,14 +3,17 @@
 import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/paging,
-    node/peer_manager,
-    waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_store/client,
-    waku_store/common,
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/store/common,
+    protocols/store/client,
   ],
   ../testlib/wakucore,
   ./store_utils

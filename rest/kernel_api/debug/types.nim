@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import results, chronicles, json_serialization, json_serialization/pkg/results
-import logos_delivery/waku/waku_node, rest/serdes
+import logos_delivery/kernel/[kernel], rest/serdes
 import std/typetraits
 
 #### Types

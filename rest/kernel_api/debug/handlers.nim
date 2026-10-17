@@ -2,7 +2,7 @@
 
 import chronicles, json_serialization, presto/route
 import
-  logos_delivery/waku/waku_node,
+  logos_delivery/kernel/[kernel],
   rest/responses,
   rest/serdes,
   rest/kernel_api/debug/types

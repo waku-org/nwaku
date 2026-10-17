@@ -1,6 +1,6 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/waku/waku_core, logos_delivery/waku/kernel
-import logos_delivery/waku/api/publish
+import logos_delivery/kernel/core/[message], logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/api/publish
 
 import ./[delivery_task, send_processor]
 

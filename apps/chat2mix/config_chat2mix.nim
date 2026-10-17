@@ -12,7 +12,9 @@ import
   confutils/defs,
   confutils/std/net
 
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku_mix
+import
+  logos_delivery/kernel/core/[topics/content_topic, topics/sharding, peers],
+  logos_delivery/kernel/protocols/mix/protocol
 
 type
   Fleet* = enum

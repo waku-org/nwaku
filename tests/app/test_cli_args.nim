@@ -14,11 +14,11 @@ import
 import tools/confutils/cli_args
 
 import
-  ../../logos_delivery/waku/factory/networks_config,
-  ../../logos_delivery/waku/factory/waku_conf,
-  ../../logos_delivery/waku/common/logging,
-  ../../logos_delivery/waku/common/utils/parse_size_units,
-  ../../logos_delivery/waku/waku_core/message/default_values
+  ../../logos_delivery/kernel/factory/networks_config,
+  ../../logos_delivery/kernel/factory/waku_conf,
+  ../../logos_delivery/kernel/common/logging,
+  ../../logos_delivery/kernel/common/utils/parse_size_units,
+  ../../logos_delivery/kernel/core/message
 
 suite "Waku external config - default values":
   test "Default sharding value":

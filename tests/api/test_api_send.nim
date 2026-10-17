@@ -11,27 +11,30 @@ import
 import ../waku_archive/archive_utils
 import
   logos_delivery,
-  logos_delivery/waku/[
-    kernel,
-    waku_core,
-    waku_relay/protocol,
-    waku_lightpush/common,
-    waku_lightpush/rpc,
-    waku_lightpush/protocol_metrics,
-    waku_archive,
-    waku_archive/archive_metrics,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    protocols/lightpush/protocol_metrics,
+    archive/common,
+    archive/archive,
+    archive/archive_metrics,
     common/base64,
   ],
   rest/server,
   rest/client,
   rest/kernel_api/relay/client as relay_rest_client
-import logos_delivery/waku/factory/waku_conf
-import logos_delivery/waku/api/subscriptions
+import logos_delivery/kernel/api/subscriptions
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/api/messaging_client_api
-import logos_delivery/messaging/delivery_service/send_service
+import logos_delivery/messaging/delivery_service/send_service/send_service
 
 type SendEventOutcome {.pure.} = enum
   Sent

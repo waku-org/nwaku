@@ -16,12 +16,13 @@ import presto
 import
   logos_delivery/logos_delivery,
   rest/rest_server_conf,
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/node/health_monitor,
-  logos_delivery/waku/discovery/waku_discv5,
-  logos_delivery/waku/waku_core/topics,
-  logos_delivery/waku/waku_relay/protocol
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/[kernel, node/node/relay],
+  logos_delivery/kernel/[node/health_monitor/node_health_monitor],
+  logos_delivery/kernel/discovery/waku_discv5,
+  logos_delivery/kernel/
+    [core/topics, core/topics/pubsub_topic, core/topics/sharding, core/topics/sharding],
+  logos_delivery/kernel/protocols/relay/protocol
 import
   rest/message_cache,
   rest/discovery_handler,
@@ -220,8 +221,10 @@ proc installKernelRoutes(
   ## Install it either if client is mounted)
   ## or install it to be used with self-hosted lightpush service
   ## We either get lightpushnode (lightpush service node) from config or discovered or self served
-  if (node.protocols.legacyLightPushClient != nil) or
-      (lightPushEnabled and node.protocols.legacyLightPush != nil and node.protocols.relay != nil):
+  if (node.protocols.legacyLightPushClient != nil) or (
+    lightPushEnabled and node.protocols.legacyLightPush != nil and
+    node.protocols.relay != nil
+  ):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))

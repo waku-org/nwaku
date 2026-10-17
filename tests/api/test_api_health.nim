@@ -7,14 +7,20 @@ import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
 
 import
   logos_delivery,
-  logos_delivery/waku/[kernel, waku_core, waku_relay/protocol],
-  logos_delivery/waku/node/health_monitor/
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/relay/protocol,
+  ],
+  logos_delivery/kernel/node/health_monitor/
     [topic_health, health_status, protocol_health, health_report],
-  logos_delivery/waku/requests/health_requests,
-  logos_delivery/waku/requests/node_requests,
-  logos_delivery/waku/api/events/health_events,
-  logos_delivery/waku/common/waku_protocol,
-  logos_delivery/waku/factory/waku_conf
+  logos_delivery/kernel/requests/health_requests,
+  logos_delivery/kernel/requests/node_requests,
+  logos_delivery/kernel/api/events/health_events,
+  logos_delivery/kernel/common/waku_protocol
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)

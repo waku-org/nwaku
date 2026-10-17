@@ -3,15 +3,21 @@
 import std/[options, osproc, sequtils, times]
 import chronos, testutils/unittests, results, stew/byteutils
 import
-  logos_delivery/waku/[kernel, waku_core, rln],
-  logos_delivery/waku/node/waku_node,
-  logos_delivery/waku/node/waku_node/relay,
-  logos_delivery/waku/api/publish,
-  logos_delivery/waku/factory/waku_conf,
-  logos_delivery/waku/rln/[rln_api, rln_plugin],
-  logos_delivery/waku/rln/rln_evm/message_id_store,
-  logos_delivery/waku/rln/rln_lez/[rln_lez, transport],
-  logos_delivery/waku/persistency/persistency,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    core/topics/pubsub_topic,
+    core/message,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
+  ],
+  logos_delivery/kernel/kernel,
+  logos_delivery/kernel/api/publish,
+  logos_delivery/kernel/factory/waku_conf,
+  logos_delivery/kernel/rln/[rln_api, rln_plugin],
+  logos_delivery/kernel/rln/rln_evm/message_id_store,
+  logos_delivery/kernel/rln/rln_lez/[rln_lez, transport],
+  logos_delivery/kernel/persistency/persistency,
   logos_delivery/api/events/messaging_client_events,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/

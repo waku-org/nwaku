@@ -20,8 +20,16 @@ import
   eth/p2p/discoveryv5/enr,
   eth/net/utils
 import
-  logos_delivery/waku/[waku_core, kernel, node/peer_manager],
-  logos_delivery/waku/factory/internal_config,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
+  ],
+  logos_delivery/kernel/factory/internal_config,
   ./testlib/wakucore,
   ./testlib/wakunode
 

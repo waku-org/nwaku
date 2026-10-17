@@ -1,10 +1,10 @@
 import chronos, results
 
 import logos_delivery/api/types as api_types
-import logos_delivery/waku/waku_core/topics/pubsub_topic
-import logos_delivery/waku/waku_core/message
-import logos_delivery/waku/waku_core/subscription/push_handler
-import logos_delivery/waku/waku_store/common as store_types
+import logos_delivery/kernel/core/topics/pubsub_topic
+import logos_delivery/kernel/core/message
+import logos_delivery/kernel/protocols/filter/common
+import logos_delivery/kernel/protocols/store/common as store_types
 
 export api_types, pubsub_topic, store_types
 

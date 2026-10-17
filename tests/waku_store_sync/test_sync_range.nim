@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests, chronos, results
-import ../../logos_delivery/waku/waku_store_sync/storage/range_processing
+import logos_delivery/kernel/protocols/store_sync/storage/range_processing
 
 suite "Waku Sync: sync range clamping":
   const

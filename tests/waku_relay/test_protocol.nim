@@ -11,12 +11,13 @@ import
   std/json
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_relay/protocol,
-    waku_relay,
-    waku_core,
-    waku_core/message/codec,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    protocols/relay/protocol,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
   ],
   ../testlib/[wakucore, wakunode, testasync, futures, sequtils],
   ./utils,

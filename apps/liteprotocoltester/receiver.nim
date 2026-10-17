@@ -12,14 +12,20 @@ import
   json_serialization as js
 
 import
-  logos_delivery/waku/[
+  logos_delivery/kernel/[
     common/logging,
-    node/peer_manager,
-    waku_node,
-    waku_core,
-    waku_filter_v2/client,
-    waku_filter_v2/common,
-    waku_core/multiaddrstr,
+    node/peer_manager/peer_manager,
+    kernel,
+    node/node/filter,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    protocols/filter/client,
+    protocols/filter/common,
   ],
   ./tester_config,
   ./tester_message,

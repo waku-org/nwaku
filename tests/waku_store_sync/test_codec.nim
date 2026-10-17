@@ -4,12 +4,12 @@ import results, stew/byteutils
 import std/[random, strutils], testutils/unittests, chronos
 
 import
-  ../../logos_delivery/waku/common/protobuf,
-  ../../logos_delivery/waku/waku_core,
-  ../../logos_delivery/waku/waku_core/message/digest,
-  ../../logos_delivery/waku/waku_core/time,
-  ../../logos_delivery/waku/waku_store_sync/common,
-  ../../logos_delivery/waku/waku_store_sync/codec,
+  ../../logos_delivery/kernel/common/protobuf,
+  logos_delivery/kernel/core/[topics/pubsub_topic, time, message],
+  ../../logos_delivery/kernel/core/message,
+  ../../logos_delivery/kernel/core/time,
+  logos_delivery/kernel/protocols/store_sync/common,
+  logos_delivery/kernel/protocols/store_sync/codec,
   ../testlib/protobuf_errors,
   ./sync_utils
 

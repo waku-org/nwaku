@@ -18,12 +18,21 @@ import
   rest/kernel_api/legacy_lightpush/handlers as lightpush_rest_interface,
   rest/kernel_api/legacy_lightpush/client as lightpush_rest_client
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_node,
-    node/peer_manager,
-    waku_lightpush_legacy/common,
-    waku_relay,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/topics/sharding,
+    core/time,
+    core/message,
+    core/peers,
+    core/multiaddrstr,
+    protocols/codecs,
+    kernel_lifecycle,
+    node/peer_manager/peer_manager,
+    protocols/lightpush_legacy/common,
+    protocols/relay/protocol,
+    node/health_monitor/topic_health,
     common/rate_limit/setting,
   ],
   ../testlib/wakucore,

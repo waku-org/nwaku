@@ -7,8 +7,8 @@ import
   json_serialization/pkg/results,
   presto/[route, client]
 import
-  logos_delivery/waku/waku_store/common,
-  logos_delivery/waku/waku_core/message/digest,
+  logos_delivery/kernel/protocols/store/common,
+  logos_delivery/kernel/core/message,
   rest/serdes,
   rest/responses,
   rest/kernel_api/store/types

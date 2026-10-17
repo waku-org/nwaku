@@ -4,7 +4,7 @@ import std/[os, strutils, times]
 import chronos, results
 import testutils/unittests
 import brokers/[request_broker, broker_context]
-import logos_delivery/waku/persistency/persistency
+import logos_delivery/kernel/persistency/persistency
 
 proc tmpRoot(label: string): string =
   let p = getTempDir() / ("persistency_instance_" & label & "_" & $epochTime().int)

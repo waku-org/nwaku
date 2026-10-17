@@ -17,15 +17,25 @@ import
   metrics/chronos_httpserver,
   presto/[route, server, client]
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    waku_node,
-    waku_enr,
+  logos_delivery/kernel/[
+    core/topics,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    node/peer_manager/peer_manager,
+    kernel,
+    node/node/relay,
+    node/node/ping,
+    common/enr/typed_record,
+    enr/capabilities,
+    enr/sharding,
     discovery/waku_discv5,
     discovery/waku_dnsdisc,
-    waku_relay,
-    rln,
+    protocols/relay/protocol,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
     factory/builder,
     factory/networks_config,
@@ -45,7 +55,7 @@ const MaxConnectedPeers = 150
 
 const git_version* {.strdefine.} = "n/a"
 
-proc setDiscoveredPeersCapabilities(routingTableNodes: seq[waku_enr.Record]) =
+proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Record]) =
   for capability in @[Relay, Store, Filter, Lightpush]:
     let nOfNodesWithCapability =
       routingTableNodes.countIt(it.supportsCapability(capability))
@@ -136,7 +146,7 @@ proc shouldReconnect(customPeerInfo: CustomPeerInfoRef): bool =
 
 # TODO: Split in discover, connect
 proc setConnectedPeersMetrics(
-    discoveredNodes: seq[waku_enr.Record],
+    discoveredNodes: seq[Record],
     node: Kernel,
     timeout: chronos.Duration,
     restClient: RestClientRef,

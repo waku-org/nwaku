@@ -9,15 +9,15 @@ import
   json_serialization/std/options
 import presto/[route, common]
 import
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/api/subscriptions,
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/subscriptions,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/subscription,
   logos_delivery/messaging/api/send,
-  logos_delivery/messaging/delivery_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/send_service,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
   rest/messaging_api/types,

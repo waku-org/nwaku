@@ -1,13 +1,16 @@
 import std/random, chronos, chronicles, metrics
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_store_sync/common,
-    waku_store_sync/reconciliation,
-    waku_store_sync/transfer,
-    waku_store_sync/protocols_metrics,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    protocols/store_sync/common,
+    protocols/store_sync/reconciliation,
+    protocols/store_sync/transfer,
+    protocols/store_sync/protocols_metrics,
   ],
   ../testlib/wakucore
 

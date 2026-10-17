@@ -4,14 +4,15 @@ import std/sequtils
 import chronos, chronicles, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/kernel,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/waku_store,
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/api/store,
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/[kernel],
+  logos_delivery/kernel/protocols/store/[common],
+  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/api/store,
+  logos_delivery/kernel/core/[topics/pubsub_topic, message, peers],
+  logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
-  logos_delivery/waku/factory/waku_conf,
+  logos_delivery/kernel/factory/waku_conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service, send_processor, delivery_task],

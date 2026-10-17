@@ -11,8 +11,8 @@ import
   eth/p2p/discoveryv5/enr,
   testutils/unittests
 import
-  logos_delivery/waku/
-    [node/peer_manager/peer_manager, node/peer_manager/waku_peer_store, waku_core/peers],
+  logos_delivery/kernel/
+    [node/peer_manager/peer_manager, node/peer_manager/waku_peer_store, core/peers],
   ./testlib/wakucore
 
 suite "Extended nim-libp2p Peer Store":

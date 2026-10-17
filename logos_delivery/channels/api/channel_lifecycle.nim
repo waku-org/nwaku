@@ -7,7 +7,7 @@ import logos_delivery/api/types
 import logos_delivery/api/messaging_client_api
 import logos_delivery/channels/reliable_channel_manager
 import logos_delivery/channels/reliable_channel
-import logos_delivery/waku/persistency/sds_persistency
+import logos_delivery/kernel/persistency/sds_persistency
 
 # ReliableChannel, config and wire-version markers.
 export reliable_channel

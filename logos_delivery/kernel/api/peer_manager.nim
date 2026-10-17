@@ -1,0 +1,113 @@
+## Waku layer API — peer management operations.
+{.push raises: [].}
+
+import std/[sequtils, strutils]
+import results, chronos, chronicles
+import libp2p/[peerid, peerstore]
+
+import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/[core/peers, node/peer_manager/peer_manager]
+
+# `PeerConnInfo` is defined in `api/types` (surfaced here via `import kernel`).
+
+proc connect*(
+    self: Kernel, peers: seq[string], timeoutMs: uint32
+): Future[Result[bool, string]] {.async.} =
+  try:
+    await self.connectToNodes(peers.mapIt(strip(it)), source = "static")
+    return ok(true)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc disconnectPeerById*(
+    self: Kernel, peerId: string
+): Future[Result[bool, string]] {.async.} =
+  try:
+    let pId = PeerId.init(peerId).valueOr:
+      return err($error)
+    await self.peerManager.disconnectNode(pId)
+    return ok(true)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc disconnectAllPeers*(self: Kernel): Future[Result[bool, string]] {.async.} =
+  try:
+    await self.peerManager.disconnectAllPeers()
+    return ok(true)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc dialPeer*(
+    self: Kernel, peerAddr: string, protocol: string, timeoutMs: int
+): Future[Result[bool, string]] {.async.} =
+  ## Dials one peer over `protocol`. `peerAddr` is one fully qualified
+  ## multiaddress, or several for the same peer separated by commas.
+  try:
+    let remotePeerInfo = parsePeerAddrList(peerAddr).valueOr:
+      return err($error)
+    let conn = await self.peerManager.dialPeer(remotePeerInfo, protocol)
+    if conn.isNone():
+      return err("failed dialing peer")
+    return ok(true)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc dialPeerById*(
+    self: Kernel, peerId: string, protocol: string, timeoutMs: int
+): Future[Result[bool, string]] {.async.} =
+  try:
+    let pId = PeerId.init(peerId).valueOr:
+      return err($error)
+    let conn = await self.peerManager.dialPeer(pId, protocol)
+    if conn.isNone():
+      return err("failed dialing peer")
+    return ok(true)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc peerIdsFromPeerstore*(
+    self: Kernel
+): Future[Result[seq[string], string]] {.async.} =
+  try:
+    return ok(self.peerManager.switch.peerStore.peers().mapIt($it.peerId))
+  except CatchableError as e:
+    return err(e.msg)
+
+proc connectedPeersInfo*(
+    self: Kernel
+): Future[Result[seq[PeerConnInfo], string]] {.async.} =
+  ## Structured info (protocols, addresses) for every connected peer.
+  try:
+    var infos: seq[PeerConnInfo]
+    for peer in self.peerManager.switch.peerStore.peers():
+      if peer.connectedness == Connected:
+        infos.add(
+          PeerConnInfo(
+            peerId: $peer.peerId,
+            protocols: peer.protocols,
+            addresses: peer.addrs.mapIt($it),
+          )
+        )
+    return ok(infos)
+  except CatchableError as e:
+    return err(e.msg)
+
+proc connectedPeers*(self: Kernel): Future[Result[seq[string], string]] {.async.} =
+  try:
+    let (inPeerIds, outPeerIds) = self.peerManager.connectedPeers()
+    return ok(concat(inPeerIds, outPeerIds).mapIt($it))
+  except CatchableError as e:
+    return err(e.msg)
+
+proc peerIdsByProtocol*(
+    self: Kernel, protocol: string
+): Future[Result[seq[string], string]] {.async.} =
+  try:
+    return ok(
+      self.peerManager.switch.peerStore
+        .peers(protocol)
+        .filterIt(it.connectedness == Connected)
+        .mapIt($it.peerId)
+    )
+  except CatchableError as e:
+    return err(e.msg)

@@ -1,5 +1,14 @@
 import results, chronos
-import logos_delivery/waku/[waku_node, waku_core, waku_lightpush, waku_lightpush/common]
+import
+  logos_delivery/kernel/[
+    kernel,
+    node/node/lightpush,
+    core/topics/pubsub_topic,
+    core/message,
+    core/peers,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+  ]
 import publisher_base
 
 type V3Publisher* = ref object of PublisherBase
@@ -18,9 +27,7 @@ method send*(
 ): Future[Result[void, string]] {.async.} =
   # when error it must return original error desc due the text is used for distinction between error types in metrics.
   discard (
-    await self.kernel.lightpushPublish(
-      Opt.some(topic), message, Opt.some(servicePeer)
-    )
+    await self.kernel.lightpushPublish(Opt.some(topic), message, Opt.some(servicePeer))
   ).valueOr:
     if error.code == LightPushErrorCode.NO_PEERS_TO_RELAY and
         error.desc != Opt.some("No peers for topic, skipping publish"):

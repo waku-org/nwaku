@@ -3,13 +3,18 @@
 import std/net, testutils/unittests, chronos, results
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    kernel,
-    waku_core,
-    waku_store/resume,
-    waku_store/common,
-    waku_archive/driver,
+  logos_delivery/kernel/[
+    node/peer_manager/peer_manager,
+    kernel_lifecycle,
+    core/topics/content_topic,
+    core/topics/pubsub_topic,
+    core/time,
+    core/message,
+    core/peers,
+    protocols/codecs,
+    protocols/store/resume,
+    protocols/store/common,
+    archive/driver,
   ],
   ../testlib/[wakucore, testasync, wakunode],
   ./store_utils,

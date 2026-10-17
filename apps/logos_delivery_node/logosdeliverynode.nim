@@ -10,7 +10,7 @@ import
 import
   tools/confutils/cli_args,
   logos_delivery/logos_delivery,
-  logos_delivery/waku/common/logging,
+  logos_delivery/kernel/common/logging,
   rest/rest_service
 
 logScope:
