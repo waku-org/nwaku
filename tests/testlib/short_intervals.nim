@@ -1,5 +1,6 @@
 import chronos
 import logos_delivery
+import logos_delivery/kernel/subscription_manager
 
 proc shortenIntervals*(node: LogosDelivery) =
   ## Shortens the receive, send and edge filter intervals of a node not started yet.
