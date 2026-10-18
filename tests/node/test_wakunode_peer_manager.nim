@@ -20,7 +20,7 @@ import
     base/peers,
     base/codecs,
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     discovery/discv5,
     protocols/filter/common,
     protocols/relay/protocol,

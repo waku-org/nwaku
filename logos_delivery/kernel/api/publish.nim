@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[tables, strutils]
-import logos_delivery/kernel/[ops/mix]
+import logos_delivery/kernel/[api/mix]
 import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 
 import logos_delivery/kernel/kernel
@@ -20,7 +20,7 @@ import
     base/codecs,
     rln/rln_api,
     rln/rln_plugin,
-    ops/lightpush,
+    api/lightpush,
     peer_manager/peer_manager,
     rln/markers,
     rln/rln_evm/group_manager,

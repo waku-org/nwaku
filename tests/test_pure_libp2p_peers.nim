@@ -13,7 +13,7 @@ import
   libp2p_mix/mix_protocol
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/peers,
     base/codecs,
     peer_manager/peer_manager,

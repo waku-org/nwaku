@@ -6,7 +6,7 @@ import
     base/topics/pubsub_topic,
     protocols/relay/protocol,
     base/health/topic_health,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     kernel,
   ],
   logos_delivery,

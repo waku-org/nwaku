@@ -10,7 +10,7 @@ import logos_delivery/messaging/messaging_metrics
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     subscription_manager,
     base/topics/content_topic,
     base/topics/pubsub_topic,
@@ -18,7 +18,7 @@ import
     base/message,
     base/peers,
     protocols/relay/protocol,
-    ops/filter,
+    api/filter,
     protocols/filter/subscriptions,
   ],
   logos_delivery

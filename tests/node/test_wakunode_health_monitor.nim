@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[sequtils, tables], testutils/unittests, chronos, results, metrics
-import logos_delivery/kernel/[ops/mix]
+import logos_delivery/kernel/[api/mix]
 import brokers/broker_context
 import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
@@ -19,17 +19,17 @@ import
     base/health/connection_status,
     base/health/topic_health,
     health_monitor/node_health_monitor,
-    ops/relay,
-    ops/store,
-    ops/lightpush,
-    ops/filter,
-    events/health_events,
-    events/peer_events,
+    api/relay,
+    api/store,
+    api/lightpush,
+    api/filter,
+    api/events/health_events,
+    api/events/peer_events,
     protocols/mix/protocol,
   ]
 import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
 import logos_delivery/kernel/subscription_manager
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/[api/kernel_lifecycle]
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_client_lifecycle
 

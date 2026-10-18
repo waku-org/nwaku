@@ -5,7 +5,7 @@ import std/net, testutils/unittests, chronos, results
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/topics/content_topic,
     base/topics/pubsub_topic,
     base/time,

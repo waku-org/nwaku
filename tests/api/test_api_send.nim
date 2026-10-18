@@ -11,7 +11,7 @@ import
 import ../waku_archive/archive_utils
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     subscription_manager,
     base/topics/content_topic,
     base/topics/pubsub_topic,
@@ -29,7 +29,7 @@ import
   rest/server,
   rest/client,
   rest/kernel_api/relay/client as relay_rest_client
-import logos_delivery/kernel/[ops/subscriptions]
+import logos_delivery/kernel/[api/subscriptions]
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events

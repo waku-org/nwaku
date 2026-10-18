@@ -5,7 +5,7 @@ import chronos, results, testutils/unittests
 import brokers/broker_implement
 import
   logos_delivery/kernel/[
-    ops/self_advertisement,
+    api/self_advertisement,
     discovery/peer_discovery_interface,
     config/conf,
     base/enr/capabilities,

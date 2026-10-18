@@ -14,7 +14,7 @@ import
     base/message,
     base/peers,
     subscription_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
   ],
   ./testlib/wakucore,
   ./testlib/wakunode

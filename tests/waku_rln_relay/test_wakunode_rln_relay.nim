@@ -19,7 +19,7 @@ import
     base/topics/pubsub_topic,
     base/message,
     base/peers,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/relay/protocol,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,

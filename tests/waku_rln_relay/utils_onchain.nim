@@ -30,7 +30,7 @@ import
     rln/rln_evm/wrappers,
     rln/rln_evm/retry_wrapper,
     kernel,
-    ops/relay,
+    api/relay,
     persistency/persistency,
   ]
 const CHAIN_ID* = 1234'u256

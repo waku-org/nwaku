@@ -20,7 +20,7 @@ import
     base/message,
     base/peers,
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     config/validator_signed,
   ],
   tools/confutils/cli_args,

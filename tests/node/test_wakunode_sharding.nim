@@ -15,7 +15,7 @@ import
   logos_delivery/kernel/[
     base/topics/pubsub_topic,
     base/enr/sharding,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/paging,
     subscription_manager,
     base/topics/content_topic,

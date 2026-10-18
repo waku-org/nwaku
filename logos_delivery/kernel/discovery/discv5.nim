@@ -23,8 +23,8 @@ import
     base/enr/capabilities,
     base/enr/multiaddr,
     base/enr/sharding,
-    events/discovery_events,
-    events/subscription_events,
+    api/events/discovery_events,
+    api/events/subscription_events,
   ]
 export protocol, enr, capabilities, multiaddr, sharding
 

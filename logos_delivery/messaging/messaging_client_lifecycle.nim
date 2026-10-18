@@ -4,7 +4,8 @@
 import results, chronos
 import chronicles
 import
-  logos_delivery/kernel/[kernel_lifecycle, ops/subscriptions, persistency/persistency],
+  logos_delivery/kernel/
+    [api/kernel_lifecycle, api/subscriptions, persistency/persistency],
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/send,
   logos_delivery/api/messaging_client_api,

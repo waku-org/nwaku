@@ -1,5 +1,5 @@
 import std/[json, strutils]
-import logos_delivery/kernel/[ops/state_info]
+import logos_delivery/kernel/[api/state_info]
 import tools/confutils/[cli_args, config_option_meta]
 
 proc logosdelivery_get_available_node_info_ids(

@@ -14,7 +14,7 @@ import
     base/peers,
     base/codecs,
     base/request_id,
-    events/filter_subscribe_events,
+    api/events/filter_subscribe_events,
   ],
   ./common,
   ./protocol_metrics,

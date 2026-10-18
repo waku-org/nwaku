@@ -15,7 +15,7 @@ import logos_delivery/messaging/delivery_service/recv_service/backfill
 import logos_delivery/kernel/persistency/persistency
 import logos_delivery/kernel/[base/health/health_requests]
 import logos_delivery/kernel/[base/health/health_status]
-import logos_delivery/kernel/[ops/health]
+import logos_delivery/kernel/[api/health]
 import logos_delivery/api/conf/modes
 import logos_delivery/api/conf/logos_delivery_conf
 from logos_delivery/kernel/protocols/store/common import WakuStoreCodec
@@ -23,7 +23,7 @@ from logos_delivery/kernel/protocols/filter/subscriptions import removePeer
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     subscription_manager,
     base/topics/content_topic,
     base/topics/pubsub_topic,
@@ -32,7 +32,7 @@ import
     base/peers,
     base/codecs,
     peer_manager/peer_manager,
-    events/health_events,
+    api/events/health_events,
     protocols/relay/protocol,
     archive/common,
     archive/archive,

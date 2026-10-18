@@ -12,7 +12,7 @@ import
   eth/p2p/discoveryv5/enr
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/topics/pubsub_topic,
     base/message,
     base/peers,

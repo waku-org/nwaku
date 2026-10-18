@@ -63,9 +63,9 @@ import
     protocols/peer_exchange/client,
     rln/rln_plugin,
     protocols/mix/protocol,
-    events/health_events,
-    events/discovery_events,
   ],
+  logos_delivery/kernel/api/events/health_events,
+  logos_delivery/kernel/api/events/discovery_events,
   logos_delivery/kernel/base/enr/sharding,
   logos_delivery/kernel/base/enr/typed_record,
   logos_delivery/kernel/base/enr/capabilities,
@@ -82,7 +82,7 @@ import
   logos_delivery/kernel/base/health/topic_health,
   logos_delivery/kernel/base/topics/relay_shard_request,
   logos_delivery/kernel/base/health/health_requests,
-  logos_delivery/kernel/events/kernel_events, # MessageSeenEvent
+  logos_delivery/kernel/api/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],

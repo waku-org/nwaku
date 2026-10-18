@@ -28,7 +28,7 @@ import
     config/conf_builder/store_service_conf_builder,
     config/conf_builder/rest_server_conf_builder,
     config/conf_builder/discv5_conf_builder,
-    ops/builder,
+    api/builder,
     base/logging,
     persistency/persistency,
   ],

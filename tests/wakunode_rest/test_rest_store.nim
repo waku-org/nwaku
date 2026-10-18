@@ -23,7 +23,7 @@ import
     base/topics/content_topic,
     base/topics/pubsub_topic,
     base/enr/sharding,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     archive/archive,
     archive/driver,

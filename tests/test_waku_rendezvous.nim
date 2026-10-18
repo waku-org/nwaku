@@ -14,7 +14,7 @@ import
     base/peers,
     base/codecs,
     base/topics/pubsub_topic,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     protocols/rendezvous/protocol,
     protocols/rendezvous/common,

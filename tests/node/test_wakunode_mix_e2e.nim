@@ -15,7 +15,7 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p_mix/[curve25519, mix_protocol, mix_metrics]
-import logos_delivery/kernel/[ops/mix]
+import logos_delivery/kernel/[api/mix]
 import
   logos_delivery/kernel/[
     subscription_manager,
@@ -25,13 +25,13 @@ import
     base/peers,
     peer_manager/peer_manager,
     kernel,
-    ops/lightpush,
-    ops/relay,
+    api/lightpush,
+    api/relay,
     protocols/mix/protocol,
     protocols/lightpush/common,
     peer_manager/peer_store,
-    kernel_lifecycle,
-    ops/publish,
+    api/kernel_lifecycle,
+    api/publish,
   ],
   logos_delivery/api/types,
   logos_delivery/api/conf/modes,

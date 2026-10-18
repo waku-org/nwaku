@@ -15,7 +15,7 @@ import
     base/codecs,
     base/enr/sharding,
     protocols/metadata/protocol,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/relay/protocol,
     protocols/store/common,
     protocols/filter/client,

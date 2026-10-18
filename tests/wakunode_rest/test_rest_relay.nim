@@ -27,7 +27,7 @@ import
     base/time,
     base/message,
     base/peers,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/relay/protocol,
     rln/markers,
     rln/rln_evm/group_manager,

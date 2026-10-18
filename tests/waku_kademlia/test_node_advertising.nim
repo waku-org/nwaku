@@ -6,10 +6,11 @@ import libp2p/extended_peer_record
 import libp2p/protocols/service_discovery/types as sd_types
 import libp2p/protocols/kademlia/types
 import
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/discovery/[kademlia, service_discovery],
-  ../testlib/[wakucore, wakunode, testasync]
-
+  logos_delivery/kernel/
+    [api/kernel_lifecycle, discovery/kademlia, discovery/service_discovery],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 ## The default deployment binds 0.0.0.0. switch.start resolves peerInfo.addrs
 ## before it starts ServiceDiscovery. The node advertises its services after.
 

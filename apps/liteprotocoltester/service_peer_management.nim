@@ -14,7 +14,7 @@ import
   logos_delivery/kernel/[
     base/enr,
     kernel,
-    ops/peer_exchange,
+    api/peer_exchange,
     peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     base/peers,

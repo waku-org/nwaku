@@ -18,7 +18,7 @@ import
     base/peers,
     base/codecs,
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/filter/common as filter_common,
     protocols/filter/protocol,
     protocols/filter/subscriptions,

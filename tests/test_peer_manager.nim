@@ -23,7 +23,7 @@ import
     net/delivery_dialer,
     peer_manager/peer_manager,
     peer_manager/peer_store/sqlite_peer_storage,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/topics/pubsub_topic,
     base/message,
     base/peers,

@@ -22,7 +22,7 @@ import
     base/topics/pubsub_topic,
     base/peers,
     peer_manager/peer_manager,
-    events/discovery_events,
+    api/events/discovery_events,
   ]
 # `WakuKademlia.new` is generic, so `ServiceDiscovery.new` instantiates in the
 # caller, which needs `hash`/`==` of the distinct kademlia `Key` in scope.

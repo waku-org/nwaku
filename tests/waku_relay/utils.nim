@@ -17,7 +17,7 @@ import
     base/topics/pubsub_topic,
     base/message,
     base/codecs,
-    ops/relay,
+    api/relay,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,

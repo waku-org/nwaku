@@ -7,7 +7,7 @@ when not (compileOption("threads")):
 {.push raises: [].}
 
 import std/[strformat, strutils, times, random, sequtils, sets]
-import logos_delivery/kernel/[ops/mix]
+import logos_delivery/kernel/[api/mix]
 import
   confutils,
   chronicles,
@@ -48,11 +48,11 @@ import
     base/enr,
     discovery/dnsdisc,
     discovery/kademlia,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     metrics_server,
     peer_manager/peer_manager,
     config/conf,
-    ops/builder,
+    api/builder,
     net/nat_config,
     protocols/store/common,
     protocols/filter/client,

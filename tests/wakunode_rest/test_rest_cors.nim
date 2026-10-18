@@ -10,11 +10,10 @@ import
   libp2p/crypto/crypto
 import rest/server, rest/kernel_api/debug/handlers as debug_rest_interface
 import
-  logos_delivery/kernel/[kernel_lifecycle, kernel as waku_node2],
+  logos_delivery/kernel/[api/kernel_lifecycle, kernel as waku_node2],
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../testlib/rest_requests
-
 const OriginHeader = "Origin"
 
 proc testWakuNode(): Kernel =

@@ -7,7 +7,7 @@ import logos_delivery/kernel/[base/base64]
 from ../events/json_message_event import `%` # base64 rendering for WakuMessage
 import
   logos_delivery/kernel/
-    [kernel, events/health_events, events/peer_events, rln/rln_lez/transport],
+    [kernel, api/events/health_events, api/events/peer_events, rln/rln_lez/transport],
   logos_delivery,
   logos_delivery/api/types,
   logos_delivery/api/conf/logos_delivery_conf_json,

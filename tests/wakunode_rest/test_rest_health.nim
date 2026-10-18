@@ -17,12 +17,12 @@ import
   rest/kernel_api/health/client as health_rest_client
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
     kernel as waku_node2, # TODO: Remove after moving `git_version` to the app code.
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,
     health_monitor/node_health_monitor,
   ],
+  logos_delivery/kernel/api/kernel_lifecycle,
   logos_delivery/kernel/base/health/protocol_health,
   logos_delivery/kernel/base/health/protocol_health,
   logos_delivery/kernel/base/health/health_status,

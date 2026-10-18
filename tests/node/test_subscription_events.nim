@@ -12,10 +12,10 @@ import
     base/message,
     base/peers,
     base/codecs,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     subscription_manager,
   ]
-import logos_delivery/kernel/[events/subscription_events]
+import logos_delivery/kernel/[api/events/subscription_events]
 import ../testlib/[wakucore, wakunode, testasync]
 
 const TestShard = PubsubTopic("/waku/2/rs/0/7")

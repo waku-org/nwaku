@@ -18,7 +18,7 @@ import
     base/peers,
     base/codecs,
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/lightpush/protocol,
     protocols/lightpush/common,
     protocols/lightpush/rpc,

@@ -10,13 +10,11 @@ import
   eth/keys,
   dnsdisc/builder
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/discovery/dnsdisc,
+  logos_delivery/kernel/
+    [peer_manager/peer_manager, api/kernel_lifecycle, discovery/dnsdisc],
   ./testlib/wakucore,
   ./testlib/wakunode,
   ./waku_enr/utils
-
 suite "Waku DNS Discovery":
   asyncTest "Waku DNS Discovery end-to-end":
     ## Tests integrated DNS discovery, from building

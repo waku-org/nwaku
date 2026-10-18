@@ -19,7 +19,7 @@ import
     base/message,
     base/peers,
     peer_manager/peer_manager,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/relay/protocol,
   ],
   ../testlib/futures,

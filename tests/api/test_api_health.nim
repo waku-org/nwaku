@@ -7,7 +7,7 @@ import ../testlib/[wakucore, wakunode, wakunodeconf, testasync]
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     base/topics/content_topic,
     base/topics/pubsub_topic,
     base/message,
@@ -19,7 +19,7 @@ import
     base/health/health_report,
     base/health/health_requests,
     base/topics/relay_shard_request,
-    events/health_events,
+    api/events/health_events,
   ],
   logos_delivery
 import tools/confutils/cli_args

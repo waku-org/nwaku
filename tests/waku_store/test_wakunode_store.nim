@@ -28,7 +28,7 @@ import
     protocols/filter/protocol,
     protocols/filter/client,
     protocols/store/common,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
   ],
   ./store_utils,
   ../waku_archive/archive_utils,

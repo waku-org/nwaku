@@ -21,7 +21,7 @@ import
     base/health/topic_health,
     base/enr/sharding,
     base/enr/capabilities,
-    events/peer_events,
+    api/events/peer_events,
     base/nimchronos,
     base/enr,
     base/callbacks,

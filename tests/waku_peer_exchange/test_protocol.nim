@@ -11,7 +11,7 @@ import
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     discovery/discv5,
     protocols/peer_exchange/protocol,

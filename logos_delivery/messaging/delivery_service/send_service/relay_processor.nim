@@ -7,7 +7,7 @@ import
     protocols/lightpush/common,
     protocols/lightpush/rpc,
   ]
-import logos_delivery/kernel/[kernel_lifecycle, ops/publish]
+import logos_delivery/kernel/[api/kernel_lifecycle, api/publish]
 import logos_delivery/kernel/[base/health/health_requests]
 import logos_delivery/api/types
 import ./[delivery_task, send_processor]

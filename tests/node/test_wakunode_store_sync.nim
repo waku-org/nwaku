@@ -9,7 +9,7 @@ import
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     subscription_manager,
     base/topics/content_topic,

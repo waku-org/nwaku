@@ -19,7 +19,7 @@ import
     base/topics/pubsub_topic,
     base/peers,
     base/codecs,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/store/common,
     protocols/store/client,
     protocols/store/rpc_codec,

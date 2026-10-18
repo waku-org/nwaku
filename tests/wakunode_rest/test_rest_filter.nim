@@ -30,7 +30,7 @@ import
     base/message,
     base/peers,
     base/codecs,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     metrics_server,
     peer_manager/peer_manager,
     protocols/relay/protocol,

@@ -24,7 +24,7 @@ import
     base/message,
     base/peers,
     base/codecs,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     protocols/filter/client,
     peer_manager/peer_manager,
     archive/driver/queue_driver/queue_driver,

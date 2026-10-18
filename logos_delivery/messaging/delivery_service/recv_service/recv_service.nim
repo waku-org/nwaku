@@ -15,7 +15,7 @@ import brokers/broker_context
 import
   ./backfill,
   logos_delivery/api/conf/messaging_conf,
-  logos_delivery/kernel/events/kernel_events,
+  logos_delivery/kernel/api/events/kernel_events,
   logos_delivery/api/events/messaging_client_events, # MessageReceivedEvent
   logos_delivery/messaging/messaging_metrics,
   logos_delivery/kernel/persistency/persistency,
@@ -25,11 +25,12 @@ import
   logos_delivery/kernel/base/topics/pubsub_topic,
   logos_delivery/kernel/base/message,
   logos_delivery/kernel/base/peers,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/ops/store,
-  logos_delivery/kernel/ops/subscriptions,
-  logos_delivery/kernel/ops/health,
-  logos_delivery/kernel/events/[health_events, peer_events],
+  logos_delivery/kernel/api/kernel_lifecycle,
+  logos_delivery/kernel/api/store,
+  logos_delivery/kernel/api/subscriptions,
+  logos_delivery/kernel/api/health,
+  logos_delivery/kernel/api/events/health_events,
+  logos_delivery/kernel/api/events/peer_events,
   logos_delivery/kernel/base/health/health_requests,
   logos_delivery/kernel/base/health/health_status
 from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance

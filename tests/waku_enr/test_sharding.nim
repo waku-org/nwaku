@@ -14,7 +14,7 @@ import
     base/enr/sharding,
     discovery/discv5,
     net/auto_port,
-    events/subscription_events,
+    api/events/subscription_events,
   ],
   ../testlib/wakucore,
   ../waku_discv5/utils,

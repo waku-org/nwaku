@@ -22,7 +22,7 @@ import
     [base/enr/builder, base/enr/typed_record, base/enr/multiaddr, base/enr/sharding],
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/kernel,
-  ../logos_delivery/kernel/kernel_lifecycle
+  ../logos_delivery/kernel/api/kernel_lifecycle
 import ./testlib/[common, wakucore, wakunode]
 
 const LoopbackIp = parseIpAddress("127.0.0.1")

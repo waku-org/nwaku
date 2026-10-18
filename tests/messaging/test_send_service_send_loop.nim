@@ -4,7 +4,7 @@ import std/[importutils, sequtils, tables]
 import chronos, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/api/kernel_lifecycle,
   logos_delivery/kernel/base/time,
   logos_delivery/kernel/base/topics/pubsub_topic,
   logos_delivery/kernel/base/message,

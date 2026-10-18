@@ -16,7 +16,7 @@ import
     base/logging,
     peer_manager/peer_manager,
     kernel,
-    ops/filter,
+    api/filter,
     base/topics/content_topic,
     base/topics/pubsub_topic,
     base/enr/sharding,

@@ -25,7 +25,7 @@ import
     base/topics/pubsub_topic,
     base/message,
     base/peers,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     config/internal_config,
   ],

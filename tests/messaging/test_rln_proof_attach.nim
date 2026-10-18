@@ -3,16 +3,13 @@
 import std/[osproc, sequtils, times]
 import chronos, testutils/unittests, results, stew/byteutils
 import
-  logos_delivery/kernel/[
-    kernel_lifecycle,
-    rln/rln_evm/group_manager,
-    rln/rln_evm/conversion_utils,
-    rln/rln_evm/rln_evm,
-  ],
+  logos_delivery/kernel/
+    [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm],
+  logos_delivery/kernel/api/kernel_lifecycle,
   logos_delivery/kernel/base/topics/pubsub_topic,
   logos_delivery/kernel/base/message,
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/ops/publish,
+  logos_delivery/kernel/api/publish,
   logos_delivery/kernel/config/conf,
   logos_delivery/kernel/rln/[rln_api, rln_plugin],
   logos_delivery/kernel/rln/rln_evm/message_id_store,

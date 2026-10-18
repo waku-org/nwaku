@@ -14,7 +14,7 @@ import
   logos_delivery/kernel/[
     base/enr,
     base/logging,
-    kernel_lifecycle as waku_factory,
+    api/kernel_lifecycle as waku_factory,
     peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/filter/common,

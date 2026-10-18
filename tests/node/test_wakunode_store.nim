@@ -5,7 +5,7 @@ import results, std/[sequtils, sets], testutils/unittests, chronos, libp2p/crypt
 import
   logos_delivery/kernel/[
     base/paging,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     base/topics/content_topic,
     base/topics/pubsub_topic,

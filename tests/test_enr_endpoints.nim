@@ -24,7 +24,7 @@ import
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/net/enr_addresses,
   ../logos_delivery/kernel/kernel,
-  ../logos_delivery/kernel/kernel_lifecycle,
+  ../logos_delivery/kernel/api/kernel_lifecycle,
   ../logos_delivery/kernel/base/peers
 import ./testlib/[wakucore, wakunode]
 

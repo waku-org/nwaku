@@ -27,7 +27,7 @@ import
     base/message,
     base/peers,
     base/codecs,
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     peer_manager/peer_manager,
     protocols/lightpush_legacy/common,
     protocols/relay/protocol,

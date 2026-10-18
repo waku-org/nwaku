@@ -11,7 +11,7 @@ import
   logos_delivery/kernel/[
     base/logging,
     kernel,
-    ops/lightpush,
+    api/lightpush,
     peer_manager/peer_manager,
     base/topics/content_topic,
     base/topics/pubsub_topic,

@@ -4,9 +4,9 @@
 import std/[sequtils, times], results, chronos, chronicles
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
-    ops/publish,
-    ops/health,
+    api/kernel_lifecycle,
+    api/publish,
+    api/health,
     health_monitor/node_health_monitor,
     base/health/protocol_health,
     peer_manager/online_monitor,

@@ -5,11 +5,11 @@ import chronos, testutils/unittests, results, stew/byteutils
 
 import
   logos_delivery/kernel/[
-    kernel_lifecycle,
+    api/kernel_lifecycle,
     kernel,
     protocols/store/common,
     peer_manager/peer_manager,
-    ops/store,
+    api/store,
     base/topics/pubsub_topic,
     base/message,
     base/peers,
