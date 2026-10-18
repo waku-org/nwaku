@@ -15,7 +15,7 @@ import
   logos_delivery/kernel/[
     base/peers,
     kernel,
-    api/events/discovery_events,
+    events/discovery_events,
     discovery/node_state_requests,
     base/health/health_requests,
     discovery/peer_discovery_interface,

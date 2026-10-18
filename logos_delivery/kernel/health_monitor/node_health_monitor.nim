@@ -10,7 +10,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p_mix/pool,
   logos_delivery/kernel/base/health/connection_status,
-  logos_delivery/kernel/api/events/kernel_events,
+  logos_delivery/kernel/events/kernel_events,
   # EventConnectionStatusChange
   logos_delivery/kernel/[
     protocols/relay/protocol,
@@ -25,8 +25,8 @@ import
     health_monitor/peer_ping,
     health_monitor/event_loop_monitor,
   ],
-  logos_delivery/kernel/api/events/health_events,
-  logos_delivery/kernel/api/events/peer_events,
+  logos_delivery/kernel/events/health_events,
+  logos_delivery/kernel/events/peer_events,
   logos_delivery/kernel/peer_manager/online_monitor,
   logos_delivery/kernel/base/health/health_status,
   logos_delivery/kernel/base/health/health_report,

@@ -35,7 +35,7 @@ import
     protocols/filter/client as filter_client,
     protocols/filter/subscriptions as filter_subscriptions,
     base/rate_limit/setting,
-    api/events/subscription_events,
+    events/subscription_events,
     peer_manager/peer_manager,
   ]
 logScope:

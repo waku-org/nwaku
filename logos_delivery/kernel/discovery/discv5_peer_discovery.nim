@@ -21,7 +21,7 @@ import
     base/enr,
     base/enr/capabilities,
     base/enr/sharding,
-    api/events/discovery_events,
+    events/discovery_events,
     discovery/node_state_requests,
   ]
 export peer_discovery_interface

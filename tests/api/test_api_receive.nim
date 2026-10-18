@@ -32,7 +32,7 @@ import
     base/peers,
     base/codecs,
     peer_manager/peer_manager,
-    api/events/health_events,
+    events/health_events,
     protocols/relay/protocol,
     archive/common,
     archive/archive,

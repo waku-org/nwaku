@@ -19,7 +19,7 @@ import
     base/health/health_report,
     base/health/health_requests,
     base/topics/relay_shard_request,
-    api/events/health_events,
+    events/health_events,
   ],
   logos_delivery
 import tools/confutils/cli_args

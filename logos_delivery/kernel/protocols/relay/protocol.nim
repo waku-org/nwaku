@@ -32,8 +32,8 @@ import
     base/codecs,
     base/health/topic_health,
     base/health/health_requests,
-    api/events/health_events,
-    api/events/peer_events,
+    events/health_events,
+    events/peer_events,
   ],
   ./message_id
 from logos_delivery/kernel/base/codecs import WakuRelayCodec

@@ -23,8 +23,8 @@ import
     api/store,
     api/lightpush,
     api/filter,
-    api/events/health_events,
-    api/events/peer_events,
+    events/health_events,
+    events/peer_events,
     protocols/mix/protocol,
   ]
 import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils

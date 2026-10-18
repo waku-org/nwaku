@@ -18,7 +18,7 @@ import
     discovery/peer_discovery_conversion,
     discovery/signed_service_record,
     base/peers,
-    api/events/discovery_events,
+    events/discovery_events,
   ]
 export peer_discovery_interface
 

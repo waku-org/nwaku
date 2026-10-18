@@ -38,9 +38,9 @@ export
   topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,
   debug, health, ping
 # Kernel event surface (`MessageSeenEvent`) plus the remaining waku health events.
-import logos_delivery/kernel/[api/events/kernel_events]
+import logos_delivery/kernel/[events/kernel_events]
 export kernel_events
-import logos_delivery/kernel/[api/events/health_events]
+import logos_delivery/kernel/[events/health_events]
 export health_events
 
 # Messaging layer
