@@ -18,12 +18,12 @@ import
   presto/[route, server, client]
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     kernel,
     api/relay,
     api/ping,

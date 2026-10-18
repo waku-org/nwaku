@@ -3,7 +3,7 @@
 import chronos, results
 import
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/node/peer_manager/peers,
+  logos_delivery/kernel/peer_manager/peers,
   logos_delivery/kernel/discovery/peer_exchange,
   logos_delivery/kernel/protocols/peer_exchange/[common, rpc],
   logos_delivery/kernel/common/rate_limit/setting

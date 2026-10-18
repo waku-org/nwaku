@@ -6,11 +6,11 @@ import results, chronos
 import logos_delivery/kernel/kernel_lifecycle
 import
   logos_delivery/kernel/[
-    node/health_monitor/node_health_monitor,
-    node/health_monitor/protocol_health,
-    node/health_monitor/online_monitor,
-    node/health_monitor/connection_status,
-    node/health_monitor/health_report,
+    health_monitor/node_health_monitor,
+    health_monitor/protocol_health,
+    health_monitor/online_monitor,
+    health_monitor/connection_status,
+    health_monitor/health_report,
   ]
 
 export protocol_health

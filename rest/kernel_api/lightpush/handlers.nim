@@ -13,7 +13,7 @@ import
   presto/common
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/protocols/lightpush/common,
   logos_delivery/kernel/[kernel, api/lightpush],
   logos_delivery/kernel/

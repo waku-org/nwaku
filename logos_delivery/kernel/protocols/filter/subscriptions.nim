@@ -11,8 +11,8 @@ import
   logos_delivery/kernel/[
     topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic
   ],
-  logos_delivery/kernel/common/utils/tableutils,
-  logos_delivery/kernel/[node/peer_manager/peer_manager]
+  logos_delivery/kernel/common/tableutils,
+  logos_delivery/kernel/[peer_manager/peer_manager]
 
 logScope:
   topics = "waku filter subscriptions"

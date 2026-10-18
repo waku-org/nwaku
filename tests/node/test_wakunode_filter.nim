@@ -11,13 +11,13 @@ import
 
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/filter/common as filter_common,
     protocols/filter/protocol,

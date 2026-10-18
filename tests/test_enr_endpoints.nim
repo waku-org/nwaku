@@ -25,7 +25,7 @@ import
     enr/multiaddr,
     enr/sharding,
   ],
-  ../logos_delivery/kernel/node/peer_manager/peers
+  ../logos_delivery/kernel/peer_manager/peers
 import ./testlib/[wakucore, wakunode]
 
 proc tcpOf(record: enr.Record): Opt[uint16] =

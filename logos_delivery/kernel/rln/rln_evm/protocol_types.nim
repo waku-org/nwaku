@@ -2,7 +2,7 @@
 
 import stint, chronos, web3, eth/keys
 import
-  logos_delivery/kernel/[common/time, protocols/message, node/peer_manager/peers],
+  logos_delivery/kernel/[common/time, protocols/message, peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[
     rln/keystore/keyfile,

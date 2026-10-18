@@ -15,10 +15,10 @@ import
 import metrics except collect
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/common/callbacks,
   logos_delivery/kernel/enr/capabilities,
-  logos_delivery/kernel/node/peer_manager/peers,
+  logos_delivery/kernel/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
   ./common,
   ./peer_record

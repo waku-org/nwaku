@@ -14,14 +14,14 @@ import
 import
   logos_delivery/kernel/[
     common/logging,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     kernel,
     api/filter,
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/filter/client,
     protocols/filter/common,

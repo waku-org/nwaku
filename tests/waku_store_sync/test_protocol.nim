@@ -15,11 +15,11 @@ from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
 import
   ../../logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     common/time,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/message,
     protocols/store_sync/common,

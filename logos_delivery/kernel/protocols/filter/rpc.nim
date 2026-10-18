@@ -8,7 +8,7 @@ import
     topics/pubsub_topic,
     topics/content_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ]
 
 type

@@ -1,12 +1,7 @@
 import chronos, results
 import
-  logos_delivery/kernel/[
-    kernel,
-    api/lightpush,
-    topics/pubsub_topic,
-    protocols/message,
-    node/peer_manager/peers,
-  ]
+  logos_delivery/kernel/
+    [kernel, api/lightpush, topics/pubsub_topic, protocols/message, peer_manager/peers]
 import publisher_base
 
 type LegacyPublisher* = ref object of PublisherBase

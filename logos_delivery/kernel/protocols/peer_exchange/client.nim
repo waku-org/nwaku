@@ -5,7 +5,7 @@ import
     protocols/peer_exchange/common,
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/rpc_codec,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
   ]
 
 from logos_delivery/kernel/protocols/codecs import WakuPeerExchangeCodec

@@ -16,7 +16,7 @@ import
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/discovery/peer_discovery_conversion,
   logos_delivery/kernel/discovery/signed_service_record,
-  logos_delivery/kernel/[node/peer_manager/peers],
+  logos_delivery/kernel/[peer_manager/peers],
   logos_delivery/kernel/api/events/discovery_events
 
 export peer_discovery_interface

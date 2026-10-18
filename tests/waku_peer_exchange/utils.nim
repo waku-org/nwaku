@@ -20,8 +20,8 @@ import
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
-    node/peer_manager/peer_manager,
-    node/peer_manager/peers,
+    peer_manager/peer_manager,
+    peer_manager/peers,
     protocols/codecs,
   ],
   ../testlib/[futures, wakucore, assertions]

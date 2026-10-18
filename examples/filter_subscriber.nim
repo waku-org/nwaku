@@ -11,15 +11,15 @@ import
 import
   logos_delivery/kernel/[
     common/logging,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/switch,
+    net/switch,
     kernel,
     api/filter,
     api/lightpush,
@@ -34,7 +34,7 @@ import
     discovery/discv5,
     factory/builder,
     protocols/relay/protocol,
-    node/health_monitor/topic_health,
+    health_monitor/topic_health,
     protocols/filter/client,
   ]
 

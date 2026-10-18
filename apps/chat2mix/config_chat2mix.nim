@@ -13,7 +13,7 @@ import
   confutils/std/net
 
 import
-  logos_delivery/kernel/[topics/content_topic, topics/sharding, node/peer_manager/peers],
+  logos_delivery/kernel/[topics/content_topic, topics/sharding, peer_manager/peers],
   logos_delivery/kernel/protocols/mix/protocol
 
 type

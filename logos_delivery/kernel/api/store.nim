@@ -18,14 +18,14 @@ import
 
 import
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/[common/time, protocols/message, node/peer_manager/peers],
+  logos_delivery/kernel/[common/time, protocols/message, peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/protocols/store/protocol as store,
   logos_delivery/kernel/protocols/store/client as store_client,
   logos_delivery/kernel/protocols/store/common as store_common,
   logos_delivery/kernel/protocols/store/rpc_codec as store_rpc_codec,
   logos_delivery/kernel/protocols/store/resume,
-  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/common/rate_limit/setting,
   logos_delivery/kernel/
     [archive/common, archive/archive, archive/driver, archive/retention_policy]
@@ -39,9 +39,9 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/store/common,
     protocols/store/client,
   ]

@@ -2,10 +2,10 @@
 
 import std/sets, chronicles, results, sqlite3_abi, stew/byteutils
 import
-  ../../../common/databases/db_sqlite,
-  ../../../common/protobuf,
-  logos_delivery/kernel/[protocols/message, node/peer_manager/peers],
-  ../peer_store,
+  logos_delivery/kernel/common/databases/db_sqlite,
+  logos_delivery/kernel/common/protobuf,
+  logos_delivery/kernel/[protocols/message, peer_manager/peers],
+  logos_delivery/kernel/peer_manager/peer_store,
   ./peer_storage
 
 export db_sqlite

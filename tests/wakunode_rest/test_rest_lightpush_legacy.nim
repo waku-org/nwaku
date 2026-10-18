@@ -19,19 +19,19 @@ import
   rest/kernel_api/legacy_lightpush/client as lightpush_rest_client
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/lightpush_legacy/common,
     protocols/relay/protocol,
-    node/health_monitor/topic_health,
+    health_monitor/topic_health,
     common/rate_limit/setting,
   ],
   ../testlib/wakucore,

@@ -10,7 +10,7 @@ import
   eth/keys,
   dnsdisc/builder
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/discovery/dnsdisc,
   ./testlib/wakucore,

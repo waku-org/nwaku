@@ -13,7 +13,7 @@ import
 import
   logos_delivery/kernel/[
     topics/pubsub_topic,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/filter/common,
@@ -23,7 +23,7 @@ import
     protocols/relay/protocol,
     protocols/peer_exchange/protocol,
     kernel,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     enr/sharding,
   ],
   rest/responses,

@@ -12,15 +12,15 @@ import
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/relay/protocol,
   ],
-  logos_delivery/kernel/node/health_monitor/
+  logos_delivery/kernel/health_monitor/
     [topic_health, health_status, protocol_health, health_report],
-  logos_delivery/kernel/requests/health_requests,
-  logos_delivery/kernel/requests/node_requests,
+  logos_delivery/kernel/health_monitor/health_requests,
+  logos_delivery/kernel/topics/relay_shard_request,
   logos_delivery/kernel/api/events/health_events,
-  logos_delivery/kernel/node/health_monitor/protocol_health
+  logos_delivery/kernel/health_monitor/protocol_health
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)

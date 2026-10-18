@@ -16,7 +16,7 @@ import
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   rest/serdes
 

@@ -20,13 +20,13 @@ import
   eth/net/utils
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
   ],
   logos_delivery/kernel/factory/internal_config,
   ./testlib/wakucore,

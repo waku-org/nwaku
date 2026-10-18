@@ -5,8 +5,7 @@ import
   rest/kernel_api/health/types,
   rest/serdes,
   rest/rest_serdes,
-  logos_delivery/kernel/
-    [node/health_monitor/protocol_health, node/health_monitor/health_report]
+  logos_delivery/kernel/[health_monitor/protocol_health, health_monitor/health_report]
 
 logScope:
   topics = "waku node rest health_api"

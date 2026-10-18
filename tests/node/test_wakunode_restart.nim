@@ -5,7 +5,7 @@ import libp2p/switch
 
 import
   logos_delivery/kernel/
-    [kernel_lifecycle, node/peer_manager/peers, node/peer_manager/peer_manager]
+    [kernel_lifecycle, peer_manager/peers, peer_manager/peer_manager]
 import ../testlib/[wakucore, wakunode]
 
 suite "Kernel - restart (#3979)":

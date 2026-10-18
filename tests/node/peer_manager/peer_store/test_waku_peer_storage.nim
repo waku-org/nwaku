@@ -11,8 +11,8 @@ import
   sqlite3_abi
 
 import
-  logos_delivery/kernel/node/peer_manager/peers,
-  logos_delivery/kernel/node/peer_manager/peer_store/sqlite_peer_storage
+  logos_delivery/kernel/peer_manager/peers,
+  logos_delivery/kernel/peer_manager/peer_store/sqlite_peer_storage
 
 proc `==`(a, b: RemotePeerInfo): bool =
   let comparisons = @[

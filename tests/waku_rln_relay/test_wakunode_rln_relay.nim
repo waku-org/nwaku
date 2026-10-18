@@ -14,11 +14,11 @@ import
 import
   logos_delivery/kernel/rln/types as rln_api_types,
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/rln_evm/group_manager,

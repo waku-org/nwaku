@@ -18,15 +18,15 @@ import
   rest/kernel_api/admin/client as admin_rest_client
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     protocols/filter/client,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     archive/driver/queue_driver/queue_driver,
     protocols/relay/protocol,
     protocols/peer_exchange/protocol,

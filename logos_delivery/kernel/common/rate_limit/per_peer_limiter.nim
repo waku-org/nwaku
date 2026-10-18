@@ -8,7 +8,8 @@
 
 import results, std/tables, libp2p/stream/connection
 
-import ./[single_token_limiter, service_metrics], logos_delivery/kernel/common/utils/tableutils
+import
+  ./[single_token_limiter, service_metrics], logos_delivery/kernel/common/tableutils
 
 export token_bucket, setting, service_metrics
 

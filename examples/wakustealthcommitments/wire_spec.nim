@@ -8,7 +8,7 @@ import
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     common/protobuf,
   ]

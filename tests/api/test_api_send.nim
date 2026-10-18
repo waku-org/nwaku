@@ -13,11 +13,11 @@ import
   logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     protocols/lightpush/protocol_metrics,

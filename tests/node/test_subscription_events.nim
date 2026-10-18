@@ -10,10 +10,10 @@ import
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
-    node/subscription_manager,
+    subscription_manager,
   ]
 import logos_delivery/kernel/api/events/subscription_events
 import ../testlib/[wakucore, wakunode, testasync]

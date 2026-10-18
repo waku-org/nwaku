@@ -5,11 +5,11 @@ import
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/lightpush/protocol,
     protocols/lightpush/common,

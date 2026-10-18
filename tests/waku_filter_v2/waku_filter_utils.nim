@@ -2,7 +2,7 @@ import results, std/[tables, sets, algorithm], chronos, chronicles, os
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/filter/protocol,
     protocols/filter/subscriptions,
     protocols/filter/client,

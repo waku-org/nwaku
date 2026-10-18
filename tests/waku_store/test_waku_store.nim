@@ -5,12 +5,12 @@ import results, testutils/unittests, chronos, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     common/paging,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/store/client,

@@ -18,9 +18,8 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/kernel/
-    [topics/pubsub_topic, topics/pubsub_topic, node/peer_manager/peers],
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[topics/pubsub_topic, topics/pubsub_topic, peer_manager/peers],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/api/events/discovery_events
 
 # `WakuKademlia.new` is generic, so `ServiceDiscovery.new` instantiates in the

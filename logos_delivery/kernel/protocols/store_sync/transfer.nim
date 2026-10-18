@@ -18,7 +18,7 @@ import
   logos_delivery/kernel/topics/pubsub_topic,
   logos_delivery/kernel/topics/content_topic,
   logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/[archive/common, archive/archive],
   logos_delivery/kernel/archive/common,
   ./common,

@@ -25,7 +25,7 @@ import
     topics/pubsub_topic,
     topics/sharding,
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     archive/archive,
     archive/driver,
     archive/driver/queue_driver/queue_driver,

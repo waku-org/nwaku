@@ -16,7 +16,7 @@ import
   ./common,
   ./rpc,
   ./rpc_codec,
-  logos_delivery/kernel/common/utils/requests
+  logos_delivery/kernel/protocols/request_id
 
 proc handleSelfLightPushRequest*(
     self: WakuLightPush, pubSubTopic: Opt[PubsubTopic], message: WakuMessage

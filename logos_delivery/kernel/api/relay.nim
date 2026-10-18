@@ -23,8 +23,8 @@ import
 import
   logos_delivery/kernel/[
     protocols/relay/protocol as relay_protocol,
-    node/health_monitor/topic_health,
-    node/subscription_manager,
+    health_monitor/topic_health,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
@@ -35,7 +35,7 @@ import
     rln/protocol_metrics,
     rln/rln_plugin,
     kernel,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     rln/types,
   ]
 import logos_delivery/api/events/kernel_events # MessageSeenEvent
@@ -52,7 +52,7 @@ import results, chronos, chronicles, secp256k1, stew/byteutils
 
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/pubsub_topic,
     protocols/message,
     protocols/relay/protocol,

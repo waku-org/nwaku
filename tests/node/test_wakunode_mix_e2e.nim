@@ -19,19 +19,19 @@ import logos_delivery/kernel/api/mix
 
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
-    node/peer_manager/peer_manager,
+    peer_manager/peers,
+    peer_manager/peer_manager,
     kernel,
     api/lightpush,
     api/relay,
     protocols/mix/protocol,
     protocols/lightpush/common,
   ],
-  logos_delivery/kernel/node/peer_manager/peer_store,
+  logos_delivery/kernel/peer_manager/peer_store,
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/api/publish,
   logos_delivery/api/types,

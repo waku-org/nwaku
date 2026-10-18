@@ -13,8 +13,8 @@ import
 import
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/discovery/signed_service_record,
-  logos_delivery/kernel/node/peer_manager/peers,
-  logos_delivery/kernel/node/peer_manager/peer_store
+  logos_delivery/kernel/peer_manager/peers,
+  logos_delivery/kernel/peer_manager/peer_store
 import ../testlib/[wakucore, futures]
 import ./utils as kad_utils
 

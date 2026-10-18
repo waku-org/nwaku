@@ -12,9 +12,9 @@ import
   testutils/unittests
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
-    node/peer_manager/peer_store as peer_store_mod,
-    node/peer_manager/peers,
+    peer_manager/peer_manager,
+    peer_manager/peer_store as peer_store_mod,
+    peer_manager/peers,
   ],
   ./testlib/wakucore
 

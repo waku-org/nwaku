@@ -20,13 +20,13 @@ from metrics import value, valueByName
 import
   logos_delivery/kernel/[
     common/databases/db_sqlite,
-    node/delivery_dialer,
-    node/peer_manager/peer_manager,
-    node/peer_manager/peer_store/sqlite_peer_storage,
+    net/delivery_dialer,
+    peer_manager/peer_manager,
+    peer_manager/peer_store/sqlite_peer_storage,
     kernel_lifecycle,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     enr/capabilities,
     protocols/relay/protocol,

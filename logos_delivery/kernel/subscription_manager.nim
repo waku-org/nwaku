@@ -9,11 +9,11 @@ import
     topics/pubsub_topic,
     topics/sharding,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/protocols,
     protocols/relay/protocol,
-    node/health_monitor/topic_health,
+    health_monitor/topic_health,
     archive/archive,
     protocols/store_sync/reconciliation,
     protocols/filter/common as filter_common,
@@ -22,9 +22,9 @@ import
     api/events/health_events,
     api/events/peer_events,
     api/events/subscription_events,
-    requests/health_requests,
-    node/peer_manager/peer_manager,
-    node/health_monitor/connection_status,
+    health_monitor/health_requests,
+    peer_manager/peer_manager,
+    health_monitor/connection_status,
   ]
 import logos_delivery/api/events/kernel_events
 

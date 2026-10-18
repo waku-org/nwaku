@@ -8,12 +8,13 @@ import
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
+    protocols/request_id,
     api/events/filter_subscribe_events,
   ],
   ./common,
@@ -29,11 +30,6 @@ type WakuFilterClient* = ref object of LPProtocol
   rng: crypto.Rng
   peerManager: PeerManager
   pushHandlers: seq[FilterPushHandler]
-
-func generateRequestId(rng: crypto.Rng): string =
-  var bytes: array[10, byte]
-  rng.generate(bytes)
-  return byteutils.toHex(bytes)
 
 proc sendSubscribeRequest(
     wfc: WakuFilterClient,

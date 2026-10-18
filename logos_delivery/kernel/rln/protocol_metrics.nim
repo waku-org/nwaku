@@ -1,6 +1,10 @@
 {.push raises: [].}
 
-import chronicles, metrics, metrics/chronos_httpserver, logos_delivery/kernel/common/utils/collector
+import
+  chronicles,
+  metrics,
+  metrics/chronos_httpserver,
+  logos_delivery/kernel/common/collector
 
 export metrics
 

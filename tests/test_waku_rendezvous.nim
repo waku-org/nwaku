@@ -10,11 +10,11 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/kernel/node/peer_manager/peers,
+  logos_delivery/kernel/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[topics/pubsub_topic, node/peer_manager/peers],
+  logos_delivery/kernel/[topics/pubsub_topic, peer_manager/peers],
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/protocols/rendezvous/protocol,
   logos_delivery/kernel/protocols/rendezvous/common,
   logos_delivery/kernel/protocols/rendezvous/peer_record,

@@ -21,7 +21,7 @@ import
   rest/rest_server_conf,
   ../discovery/discv5,
   ../discovery/kademlia,
-  ../node/metrics_server,
+  logos_delivery/kernel/metrics_server,
   ../common/logging,
   ../common/rate_limit/setting,
   logos_delivery/kernel/enr/capabilities,

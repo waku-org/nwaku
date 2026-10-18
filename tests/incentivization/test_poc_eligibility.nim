@@ -3,7 +3,7 @@
 import results, testutils/unittests, chronos, web3, stint, tests/testlib/testasync
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/incentivization/[rpc, eligibility_manager],
   ../waku_rln_relay/[utils_onchain, utils]
 

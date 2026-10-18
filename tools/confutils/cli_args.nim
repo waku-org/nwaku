@@ -50,7 +50,7 @@ import
     common/enr,
     enr/capabilities,
     enr/sharding,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/pubsub_topic,
     protocols/message,
     protocols/mix/protocol,

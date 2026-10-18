@@ -4,13 +4,13 @@ import std/net, testutils/unittests, chronos, results
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     kernel_lifecycle,
     topics/content_topic,
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/store/resume,
     protocols/store/common,

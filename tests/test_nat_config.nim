@@ -8,7 +8,7 @@ import libp2p/services/wildcardresolverservice
 import libp2p/protocols/connectivity/relay/relay
 import libp2p/services/nat/[portmapper, plum_mapper]
 import ../logos_delivery/kernel/net/nat_config
-import ../logos_delivery/kernel/node/switch
+import ../logos_delivery/kernel/net/switch
 import ./testlib/[common, wakucore]
 
 suite "NAT config - strategy parsing":

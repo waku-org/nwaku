@@ -43,10 +43,10 @@ import
     topics/pubsub_topic,
     topics/sharding,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/relay/protocol,
-    node/health_monitor/topic_health,
+    health_monitor/topic_health,
     archive/common,
     archive/archive,
     archive/retention_policy,
@@ -78,8 +78,8 @@ import
     common/callbacks,
     common/nimchronos,
     protocols/mix/protocol,
-    requests/node_requests,
-    requests/health_requests,
+    topics/relay_shard_request,
+    health_monitor/health_requests,
     api/events/health_events,
     api/events/discovery_events,
   ],
@@ -87,13 +87,13 @@ import
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],
-  logos_delivery/kernel/node/delivery_dialer,
+  logos_delivery/kernel/net/delivery_dialer,
   logos_delivery/kernel/enr/enr_addresses,
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/health_monitor/health_status,
-  logos_delivery/kernel/node/health_monitor/topic_health,
-  logos_delivery/kernel/node/subscription_manager,
-  logos_delivery/kernel/node/health_monitor/node_health_monitor
+  logos_delivery/kernel/[peer_manager/peer_manager],
+  logos_delivery/kernel/health_monitor/health_status,
+  logos_delivery/kernel/health_monitor/topic_health,
+  logos_delivery/kernel/subscription_manager,
+  logos_delivery/kernel/health_monitor/node_health_monitor
 
 logScope:
   topics = "waku node"
@@ -178,7 +178,7 @@ type
     discovery*: Discovery
     subscriptionManager*: SubscriptionManager
 
-import logos_delivery/kernel/node/subscription_manager
+import logos_delivery/kernel/subscription_manager
 import logos_delivery/kernel/protocols/mix/protocol_metrics
 
 proc deduceRelayShard(

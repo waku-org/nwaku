@@ -4,7 +4,7 @@ import std/sets, results, chronos, metrics, libp2p/crypto/crypto
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/pubsub_topic,
     protocols/message,
     archive/common,

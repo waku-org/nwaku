@@ -1,5 +1,3 @@
-# Request utils.
-
 {.push raises: [].}
 
 import libp2p/crypto/crypto, stew/byteutils

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/random, chronos, chronicles, results, libp2p/peerid, libp2p/protocols/ping
-import logos_delivery/kernel/node/peer_manager/peer_manager
+import logos_delivery/kernel/peer_manager/peer_manager
 
 logScope:
   topics = "waku node ping api"

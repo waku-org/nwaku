@@ -9,7 +9,7 @@ import
   std/[sequtils, unicode], stew/[byteutils, endians2, arrayops], nimcrypto/sha2, results
 import
   logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/common/utils/parse_size_units,
+  logos_delivery/kernel/common/parse_size_units,
   logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic],
   logos_delivery/kernel/common/time
 

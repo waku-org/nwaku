@@ -5,7 +5,7 @@ import
     api/lightpush,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
   ]

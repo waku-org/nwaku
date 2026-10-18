@@ -3,8 +3,8 @@
 import results, testutils/unittests
 
 import
-  logos_delivery/kernel/node/peer_manager/peer_store/peer_storage,
-  logos_delivery/kernel/node/peer_manager/peers
+  logos_delivery/kernel/peer_manager/peer_store/peer_storage,
+  logos_delivery/kernel/peer_manager/peers
 
 suite "PeerStorage":
   var peerStorage {.threadvar.}: PeerStorage

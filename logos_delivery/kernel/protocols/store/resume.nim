@@ -13,12 +13,12 @@ import
 
 import
   logos_delivery/kernel/common/databases/db_sqlite,
-  logos_delivery/kernel/[common/time, node/peer_manager/peers],
+  logos_delivery/kernel/[common/time, peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[archive/archive],
   logos_delivery/kernel/common/nimchronos,
   ./[client, common],
-  logos_delivery/kernel/node/peer_manager/peer_manager
+  logos_delivery/kernel/peer_manager/peer_manager
 
 logScope:
   topics = "waku store resume"

@@ -16,9 +16,9 @@ import brokers/[event_broker, broker_context]
 import
   logos_delivery/kernel/[
     net/auto_port,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/pubsub_topic,
-    node/peer_manager/peers,
+    peer_manager/peers,
     common/enr,
     enr/capabilities,
     enr/multiaddr,

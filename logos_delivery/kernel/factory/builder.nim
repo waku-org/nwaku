@@ -14,12 +14,12 @@ import
 import
   logos_delivery/kernel/[common/enr, enr/capabilities],
   ../discovery/discv5,
-  logos_delivery/kernel/[node/switch, kernel],
-  ../node/switch,
+  logos_delivery/kernel/[net/switch, kernel],
+  logos_delivery/kernel/net/switch,
   ../net/net_config,
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   ../common/rate_limit/setting,
-  ../common/utils/parse_size_units
+  ../common/parse_size_units
 
 type
   WakuNodeBuilder* = object # General

@@ -4,11 +4,11 @@ import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/lightpush_legacy/common,
     protocols/lightpush_legacy/client,
   ],

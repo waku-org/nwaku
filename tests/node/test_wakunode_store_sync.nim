@@ -10,12 +10,12 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
-    node/subscription_manager,
+    peer_manager/peer_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     archive/driver,
     archive/retention_policy,
     archive/archive_metrics,

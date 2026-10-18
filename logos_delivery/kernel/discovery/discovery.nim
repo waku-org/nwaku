@@ -3,8 +3,8 @@
 import chronos, libp2p/switch
 import
   logos_delivery/kernel/[
-    node/peer_manager/peers,
-    node/peer_manager/peer_manager,
+    peer_manager/peers,
+    peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/client,
     protocols/rendezvous/protocol,

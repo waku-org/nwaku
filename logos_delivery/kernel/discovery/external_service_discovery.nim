@@ -26,7 +26,7 @@ import
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/discovery/peer_discovery_conversion,
   logos_delivery/kernel/discovery/signed_service_record,
-  logos_delivery/kernel/requests/node_state_requests,
+  logos_delivery/kernel/discovery/node_state_requests,
   logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
   logos_delivery/kernel/discovery/plugin/service_discovery_worker,
   logos_delivery/kernel/[
@@ -34,9 +34,9 @@ import
     topics/pubsub_topic,
     topics/content_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
-  logos_delivery/kernel/node/peer_manager/peer_manager
+  logos_delivery/kernel/peer_manager/peer_manager
 
 export peer_discovery_interface, service_discovery_accessor
 

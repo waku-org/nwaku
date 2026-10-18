@@ -21,14 +21,14 @@ import
 
 import
   logos_delivery/kernel/kernel,
-  logos_delivery/kernel/node/metrics_server,
+  logos_delivery/kernel/metrics_server,
   logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     topics/content_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/topics/sharding,
@@ -37,7 +37,7 @@ import
   logos_delivery/kernel/protocols/filter/subscriptions as filter_subscriptions,
   logos_delivery/kernel/common/rate_limit/setting,
   logos_delivery/kernel/api/events/subscription_events,
-  logos_delivery/kernel/node/peer_manager/peer_manager
+  logos_delivery/kernel/peer_manager/peer_manager
 
 logScope:
   topics = "waku node filter api"
@@ -51,9 +51,9 @@ import
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/filter/client,
     protocols/filter/common,
   ]

@@ -28,7 +28,7 @@ import
     topics/sharding,
     topics/content_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/topics/sharding,
@@ -41,7 +41,7 @@ import
   logos_delivery/kernel/protocols/lightpush/callbacks as lightpush_callbacks,
   logos_delivery/kernel/protocols/lightpush/common as lightpush_common,
   logos_delivery/kernel/protocols/lightpush/[protocol, rpc, self_req_handler],
-  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/common/rate_limit/setting,
   logos_delivery/kernel/
     [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
@@ -58,7 +58,7 @@ import
     topics/pubsub_topic,
     protocols/message,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/lightpush_legacy/client,
   ]
 

@@ -43,9 +43,9 @@ import
   ],
   logos_delivery/api/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/node/delivery_dialer,
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
-  logos_delivery/kernel/node/subscription_manager
+  logos_delivery/kernel/net/delivery_dialer,
+  logos_delivery/kernel/[peer_manager/peer_manager],
+  logos_delivery/kernel/subscription_manager
 
 import logos_delivery/kernel/kernel
 import logos_delivery/kernel/protocols/mix/protocol_metrics

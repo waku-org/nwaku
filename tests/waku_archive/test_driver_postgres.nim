@@ -21,7 +21,7 @@ import
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     common/databases/db_postgres/dbconn,
     common/databases/db_postgres/dns_resolver,

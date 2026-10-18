@@ -14,11 +14,10 @@ import
   libp2p_mix/pool
 
 import
-  logos_delivery/kernel/[protocols/message, node/peer_manager/peers],
+  logos_delivery/kernel/[protocols/message, peer_manager/peers],
   logos_delivery/kernel/enr/sharding,
   logos_delivery/kernel/enr/capabilities,
-  ../../common/utils/sequence,
-  logos_delivery/kernel/node/peer_manager/peers
+  logos_delivery/kernel/peer_manager/peers
 
 export peerstore, builders
 
@@ -49,6 +48,12 @@ type
 
   # Keeps track of peer shards
   ShardBook* = ref object of PeerBook[seq[uint16]]
+
+proc flatten[T](a: seq[seq[T]]): seq[T] =
+  var aFlat = newSeq[T](0)
+  for subseq in a:
+    aFlat &= subseq
+  return aFlat
 
 const DiscoveredEnrTtl* = chronos.minutes(15)
   ## How long a discovered ENR is trusted without being rediscovered or connected.

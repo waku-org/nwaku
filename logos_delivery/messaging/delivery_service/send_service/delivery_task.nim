@@ -6,10 +6,10 @@ import
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   logos_delivery/api/types,
-  logos_delivery/kernel/requests/node_requests
+  logos_delivery/kernel/topics/relay_shard_request
 
 type DeliveryState* {.pure.} = enum
   Entry

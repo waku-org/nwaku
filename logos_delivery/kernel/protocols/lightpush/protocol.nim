@@ -3,7 +3,7 @@ import libp2p/crypto/crypto
 
 import std/strutils, results, chronicles, chronos, metrics
 import
-  logos_delivery/kernel/node/peer_manager/peer_manager,
+  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,

@@ -12,12 +12,12 @@ import
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/relay/protocol,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   ../testlib/[wakucore, wakunode, testasync, futures, sequtils],
   ./utils,

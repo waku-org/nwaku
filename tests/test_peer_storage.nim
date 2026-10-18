@@ -4,8 +4,8 @@ import results, testutils/unittests, eth/p2p/discoveryv5/enr, libp2p/crypto/cryp
 import
   logos_delivery/kernel/[
     common/databases/db_sqlite,
-    node/peer_manager/peer_manager,
-    node/peer_manager/peer_store/sqlite_peer_storage,
+    peer_manager/peer_manager,
+    peer_manager/peer_store/sqlite_peer_storage,
     common/enr/builder,
     enr/sharding,
   ],

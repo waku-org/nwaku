@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[tables, strutils, os], results, chronicles
-import ../../../common/databases/db_sqlite, ../../../common/databases/common
+import logos_delivery/kernel/common/databases/db_sqlite, logos_delivery/kernel/common/databases/common
 
 logScope:
   topics = "waku node peer_manager"

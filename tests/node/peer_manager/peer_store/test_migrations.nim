@@ -1,7 +1,7 @@
 import results, testutils/unittests
 
 import
-  logos_delivery/kernel/node/peer_manager/peer_store/migrations,
+  logos_delivery/kernel/peer_manager/peer_store/migrations,
   ../../waku_archive/archive_utils,
   ../../testlib/[simple_mock]
 

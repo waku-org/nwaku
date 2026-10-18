@@ -7,18 +7,18 @@ import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/health_monitor/protocol_health,
-    node/peer_manager/peer_manager,
-    node/health_monitor/health_status,
-    node/health_monitor/connection_status,
-    node/health_monitor/topic_health,
-    node/health_monitor/node_health_monitor,
+    health_monitor/protocol_health,
+    peer_manager/peer_manager,
+    health_monitor/health_status,
+    health_monitor/connection_status,
+    health_monitor/topic_health,
+    health_monitor/node_health_monitor,
     api/relay,
     api/store,
     api/lightpush,
@@ -29,7 +29,7 @@ import
   ]
 
 import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
-import logos_delivery/kernel/node/subscription_manager
+import logos_delivery/kernel/subscription_manager
 import logos_delivery/kernel/kernel_lifecycle
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_client_lifecycle

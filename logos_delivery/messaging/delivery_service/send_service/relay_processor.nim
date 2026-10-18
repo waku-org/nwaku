@@ -4,7 +4,7 @@ import
   logos_delivery/kernel/[topics/pubsub_topic, protocols/message],
   logos_delivery/kernel/protocols/lightpush/[common, rpc]
 import logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/api/publish
-import logos_delivery/kernel/requests/health_requests
+import logos_delivery/kernel/health_monitor/health_requests
 import logos_delivery/api/types
 import ./[delivery_task, send_processor]
 

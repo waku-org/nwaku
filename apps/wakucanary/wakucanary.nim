@@ -11,8 +11,8 @@ import
   logos_delivery/kernel/[
     common/enr,
     enr/sharding,
-    node/peer_manager/peer_manager,
-    node/peer_manager/peers,
+    peer_manager/peer_manager,
+    peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
     factory/builder,

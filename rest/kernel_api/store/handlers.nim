@@ -8,13 +8,13 @@ import
     topics/content_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     protocols/store/common,
     protocols/store/self_req_handler,
     kernel,
     api/store,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     common/paging,
   ]
 import rest/discovery_handler, rest/responses, rest/serdes, rest/kernel_api/store/types

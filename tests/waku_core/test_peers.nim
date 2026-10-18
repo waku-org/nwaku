@@ -10,7 +10,7 @@ import
   confutils/toml/std/net
 import
   logos_delivery/kernel/
-    [node/peer_manager/peers, protocols/codecs, common/enr, enr/capabilities],
+    [peer_manager/peers, protocols/codecs, common/enr, enr/capabilities],
   ../testlib/wakucore
 
 procSuite "Waku Core - Peers":

@@ -12,14 +12,14 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     discovery/discv5,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
     protocols/peer_exchange/rpc_codec,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     common/enr/builder,
     enr/sharding,

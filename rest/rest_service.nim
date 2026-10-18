@@ -18,10 +18,9 @@ import
   rest/rest_server_conf,
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[kernel, api/relay],
-  logos_delivery/kernel/[node/health_monitor/node_health_monitor],
+  logos_delivery/kernel/[health_monitor/node_health_monitor],
   logos_delivery/kernel/discovery/discv5,
-  logos_delivery/kernel/
-    [node/subscription_manager, topics/pubsub_topic, topics/sharding],
+  logos_delivery/kernel/[subscription_manager, topics/pubsub_topic, topics/sharding],
   logos_delivery/kernel/protocols/relay/protocol
 import
   rest/message_cache,

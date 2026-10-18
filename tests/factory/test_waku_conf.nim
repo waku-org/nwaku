@@ -22,7 +22,7 @@ import
   logos_delivery/kernel/protocols/mix/protocol,
   logos_delivery/kernel/enr/capabilities,
   logos_delivery/kernel/common/rate_limit/setting,
-  logos_delivery/kernel/common/utils/parse_size_units,
+  logos_delivery/kernel/common/parse_size_units,
   logos_delivery/kernel/protocols/message
 
 suite "Waku Conf - build with cluster conf":

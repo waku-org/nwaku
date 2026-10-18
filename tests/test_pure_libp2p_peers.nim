@@ -14,9 +14,9 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/metadata/protocol,
   ],
   ./testlib/testasync,

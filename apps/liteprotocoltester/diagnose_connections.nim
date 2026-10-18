@@ -15,12 +15,12 @@ import
 import
   tools/confutils/cli_args,
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/peer_exchange/protocol,
-    node/peer_manager/peers,
+    peer_manager/peers,
     enr/capabilities,
   ]
 logScope:

@@ -2,7 +2,7 @@ import std/random, chronos, metrics
 
 import
   logos_delivery/kernel/[
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     topics/content_topic,
     topics/pubsub_topic,
     common/time,

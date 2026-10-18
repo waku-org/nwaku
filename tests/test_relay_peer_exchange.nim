@@ -9,9 +9,8 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/kernel/
-    [topics/pubsub_topic, protocols/message, node/peer_manager/peers],
-  logos_delivery/kernel/node/subscription_manager,
+  logos_delivery/kernel/[topics/pubsub_topic, protocols/message, peer_manager/peers],
+  logos_delivery/kernel/subscription_manager,
   logos_delivery/kernel/kernel_lifecycle,
   ./testlib/wakucore,
   ./testlib/wakunode

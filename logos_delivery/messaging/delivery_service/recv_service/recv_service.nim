@@ -24,14 +24,14 @@ import
     topics/pubsub_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/store/common,
   ],
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/api/[store, subscriptions, health],
   logos_delivery/kernel/api/events/[health_events, peer_events],
-  logos_delivery/kernel/requests/health_requests,
-  logos_delivery/kernel/node/health_monitor/health_status
+  logos_delivery/kernel/health_monitor/health_requests,
+  logos_delivery/kernel/health_monitor/health_status
 from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 const MaxMessageLife = chronos.minutes(7)

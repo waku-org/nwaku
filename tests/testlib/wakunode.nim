@@ -11,14 +11,14 @@ import
   eth/keys as eth_keys
 import
   logos_delivery/kernel/[
-    node/switch,
+    net/switch,
     kernel,
     protocols/relay/protocol,
     net/net_config,
     topics/pubsub_topic,
-    node/switch,
-    node/peer_manager/peer_manager,
-    node/subscription_manager,
+    net/switch,
+    peer_manager/peer_manager,
+    subscription_manager,
     common/enr,
     enr/capabilities,
     enr/multiaddr,

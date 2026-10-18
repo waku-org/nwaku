@@ -3,7 +3,7 @@ import chronos, chronicles, results, ffi
 import
   logos_delivery,
   logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
-  logos_delivery/kernel/requests/node_state_requests,
+  logos_delivery/kernel/discovery/node_state_requests,
   ../declare_lib
 
 ## Registration entry points for the external service-discovery plugin

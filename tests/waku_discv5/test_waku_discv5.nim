@@ -26,7 +26,7 @@ import
     kernel_lifecycle,
     kernel,
     api/peer_exchange,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
   ],
   ../testlib/[wakucore, testasync, futures, wakunode, testutils],
   ../waku_enr/utils,

@@ -10,7 +10,7 @@ import libp2p/crypto/crypto as libp2p_keys
 
 import
   logos_delivery/kernel/discovery/kademlia,
-  logos_delivery/kernel/node/peer_manager/peer_manager
+  logos_delivery/kernel/peer_manager/peer_manager
 import ../testlib/[wakucore, common]
 
 export wakucore, common, peerid, multiaddress, switch, extended_peer_record, sd_types

@@ -17,17 +17,17 @@ import
   eth/common/keys
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/[
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     topics/content_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
-  logos_delivery/kernel/node/peer_manager/peer_store
+  logos_delivery/kernel/peer_manager/peer_store
 
 logScope:
   topics = "waku mix"

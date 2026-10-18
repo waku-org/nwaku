@@ -10,8 +10,7 @@ import
   libp2p/builders,
   libp2p/transports/tcptransport
 
-import
-  logos_delivery/kernel/kernel, logos_delivery/kernel/node/peer_manager/peer_manager
+import logos_delivery/kernel/kernel, logos_delivery/kernel/peer_manager/peer_manager
 
 logScope:
   topics = "waku node ping api"
@@ -20,7 +19,7 @@ import results, chronos, chronicles
 import libp2p/protocols/ping
 import libp2p/switch
 
-import logos_delivery/kernel/[node/peer_manager/peers]
+import logos_delivery/kernel/[peer_manager/peers]
 
 proc mountLibp2pPing*(self: Kernel) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"

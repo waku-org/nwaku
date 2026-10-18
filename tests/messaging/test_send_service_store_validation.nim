@@ -7,10 +7,9 @@ import
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[kernel],
   logos_delivery/kernel/protocols/store/[common],
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/api/store,
-  logos_delivery/kernel/
-    [topics/pubsub_topic, protocols/message, node/peer_manager/peers],
+  logos_delivery/kernel/[topics/pubsub_topic, protocols/message, peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
   logos_delivery/kernel/factory/conf,

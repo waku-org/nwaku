@@ -4,7 +4,7 @@ import chronos
 
 import
   logos_delivery/kernel/
-    [node/peer_manager/peer_manager, protocols/store/protocol, protocols/store/client],
+    [peer_manager/peer_manager, protocols/store/protocol, protocols/store/client],
   ../testlib/[common, wakucore]
 
 proc newTestWakuStore*(

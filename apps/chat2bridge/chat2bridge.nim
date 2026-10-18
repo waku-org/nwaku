@@ -16,16 +16,16 @@ import
   libp2p/crypto/crypto,
   libp2p/errors,
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     topics/sharding,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     protocols/filter/common,
     protocols/filter/protocol,
     protocols/filter/subscriptions,
@@ -33,12 +33,12 @@ import
     protocols/store/protocol,
     factory/builder,
     net/nat_config,
-    common/utils/matterbridge_client,
     common/rate_limit/setting,
   ],
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
+  ./matterbridge_client,
   ./config_chat2bridge
 
 declarePublicCounter logos_delivery_chat2_mb_transfers,

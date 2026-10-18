@@ -9,7 +9,7 @@ import
     topics/content_topic,
     common/time,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
   ],
   logos_delivery/kernel/archive/common,
   logos_delivery/kernel/archive/driver,

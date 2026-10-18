@@ -10,13 +10,13 @@ import
 
 import
   logos_delivery/kernel/[
-    node/subscription_manager,
+    subscription_manager,
     topics/content_topic,
     topics/pubsub_topic,
     protocols/message,
-    node/peer_manager/peers,
+    peer_manager/peers,
     protocols/codecs,
-    node/peer_manager/peer_manager,
+    peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/lightpush_legacy/protocol,
     protocols/lightpush_legacy/common,

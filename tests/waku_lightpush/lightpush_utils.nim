@@ -3,7 +3,7 @@
 import results, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/kernel/[node/peer_manager/peer_manager],
+  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/[topics/sharding, protocols/message],
   logos_delivery/kernel/topics/sharding,
   logos_delivery/kernel/protocols/lightpush/[protocol, common],
