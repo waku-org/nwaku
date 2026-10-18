@@ -25,9 +25,9 @@ import
     protocols/relay/protocol as relay_protocol,
     health_monitor/topic_health,
     subscription_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     common/time,
     protocols/message,
     protocols/codecs,
@@ -53,7 +53,7 @@ import results, chronos, chronicles, secp256k1, stew/byteutils
 import
   logos_delivery/kernel/[
     subscription_manager,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     protocols/relay/protocol,
     factory/conf,

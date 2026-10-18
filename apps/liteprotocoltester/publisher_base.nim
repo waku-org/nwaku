@@ -1,7 +1,7 @@
 import chronos, results
 import
   logos_delivery/kernel/
-    [kernel, topics/pubsub_topic, protocols/message, peer_manager/peers]
+    [kernel, protocols/topics/pubsub_topic, protocols/message, peer_manager/peers]
 
 type PublisherBase* = ref object of RootObj
   kernel*: Kernel

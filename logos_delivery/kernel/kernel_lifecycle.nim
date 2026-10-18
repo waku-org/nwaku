@@ -25,8 +25,8 @@ import
   logos_delivery/api/kernel_api,
   logos_delivery/kernel/[
     subscription_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     net/switch,
@@ -110,7 +110,8 @@ import
   ],
   logos_delivery/kernel/net/net_config,
   logos_delivery/kernel/net/nat_config,
-  logos_delivery/kernel/[topics/pubsub_topic, topics/pubsub_topic, peer_manager/peers],
+  logos_delivery/kernel/
+    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, peer_manager/peers],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/
     [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm],

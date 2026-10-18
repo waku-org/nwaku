@@ -3,7 +3,7 @@ import
   logos_delivery/kernel/[
     kernel,
     api/lightpush,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/lightpush/common,

@@ -4,9 +4,9 @@ import results, json_serialization
 import
   logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/content_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ]

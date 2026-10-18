@@ -12,7 +12,7 @@ import
 
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     peer_manager/peers,
     protocols/codecs,
     protocols/store/common,

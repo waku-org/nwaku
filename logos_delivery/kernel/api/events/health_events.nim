@@ -2,7 +2,8 @@ import brokers/event_broker
 
 import logos_delivery/api/types
 import logos_delivery/kernel/health_monitor/[protocol_health, topic_health]
-import logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic]
+import
+  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic]
 
 export event_broker, protocol_health, topic_health
 

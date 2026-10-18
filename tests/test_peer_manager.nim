@@ -24,7 +24,7 @@ import
     peer_manager/peer_manager,
     peer_manager/peer_store/sqlite_peer_storage,
     kernel_lifecycle,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/codecs,

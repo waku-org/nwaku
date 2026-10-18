@@ -16,9 +16,9 @@ import
 import
   logos_delivery/kernel/[
     common/paging,
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     protocols/message,
     peer_manager/peers,
     peer_manager/peer_manager,

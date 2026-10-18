@@ -15,7 +15,7 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     peer_manager/peers,

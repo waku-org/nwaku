@@ -23,15 +23,15 @@ import
 import
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
-    topics/content_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
+    protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/topics/sharding,
+  logos_delivery/kernel/enr/sharding,
   logos_delivery/kernel/protocols/lightpush_legacy/client as legacy_lightpush_client,
   logos_delivery/kernel/protocols/lightpush_legacy/callbacks as
     legacy_lightpush_callbacks,
@@ -55,7 +55,7 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     protocols/codecs,
     peer_manager/peer_manager,

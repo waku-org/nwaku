@@ -5,7 +5,7 @@ import std/options, std/[strformat, strutils], results
 import chronicles, uri, json_serialization, presto/route
 import
   logos_delivery/kernel/[
-    topics/content_topic,
+    protocols/topics/content_topic,
     common/time,
     protocols/message,
     peer_manager/peers,

@@ -3,9 +3,9 @@
 import results, chronos
 import
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/content_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/topics/content_topic,
     common/time,
     protocols/message,
   ],

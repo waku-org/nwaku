@@ -2,7 +2,7 @@ import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
   logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/topics/pubsub_topic,
+  logos_delivery/kernel/protocols/topics/pubsub_topic,
   logos_delivery/kernel/protocols/relay/protocol,
   logos_delivery/kernel/health_monitor/topic_health,
   logos_delivery,

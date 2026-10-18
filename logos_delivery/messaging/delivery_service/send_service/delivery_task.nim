@@ -2,14 +2,14 @@ import results, std/times, chronos
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     peer_manager/peers,
   ],
   logos_delivery/api/types,
-  logos_delivery/kernel/topics/relay_shard_request
+  logos_delivery/kernel/protocols/topics/relay_shard_request
 
 type DeliveryState* {.pure.} = enum
   Entry

@@ -8,7 +8,7 @@ import brokers/broker_context
 import ../testlib/[wakucore, wakunodeconf]
 
 import logos_delivery
-import logos_delivery/kernel/[topics/content_topic, protocols/message]
+import logos_delivery/kernel/[protocols/topics/content_topic, protocols/message]
 import logos_delivery/api/events/messaging_client_events as waku_message_events
 import logos_delivery/api/messaging_client_api
 import tools/confutils/cli_args

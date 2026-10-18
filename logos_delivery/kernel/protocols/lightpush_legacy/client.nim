@@ -7,8 +7,12 @@ import
   logos_delivery/kernel/peer_manager/peers,
   logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/protocols/request_id,
-  logos_delivery/kernel/
-    [topics/pubsub_topic, topics/pubsub_topic, protocols/message, peer_manager/peers],
+  logos_delivery/kernel/[
+    protocols/topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
+    protocols/message,
+    peer_manager/peers,
+  ],
   logos_delivery/kernel/protocols/codecs,
   ./common,
   ./protocol_metrics,

@@ -14,7 +14,7 @@ import
     kernel,
     peer_manager/peer_manager,
     subscription_manager,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     protocols/codecs,
     kernel,

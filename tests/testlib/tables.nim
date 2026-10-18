@@ -1,6 +1,8 @@
 import std/[tables, sequtils]
 
-import logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic], ./wakucore
+import
+  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic],
+  ./wakucore
 
 proc `==`*(
     table: Table[pubsub_topic.RelayShard, seq[NsContentTopic]],

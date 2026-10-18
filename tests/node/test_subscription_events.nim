@@ -5,9 +5,9 @@ import chronos, results, testutils/unittests
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     common/time,
     protocols/message,
     peer_manager/peers,

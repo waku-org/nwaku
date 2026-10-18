@@ -1,7 +1,9 @@
 import brokers/event_broker
 
 import logos_delivery/api/types
-import logos_delivery/kernel/topics/[pubsub_topic, content_topic]
+import
+  logos_delivery/kernel/protocols/topics/pubsub_topic,
+  logos_delivery/kernel/protocols/topics/content_topic
 import logos_delivery/kernel/protocols/message
 
 export event_broker, pubsub_topic, content_topic, message

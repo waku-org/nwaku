@@ -2,7 +2,8 @@
 
 import results, chronos, libp2p/peerid
 import
-  logos_delivery/kernel/[topics/pubsub_topic, topics/pubsub_topic, protocols/message],
+  logos_delivery/kernel/
+    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, protocols/message],
   logos_delivery/kernel/protocols/codecs
 
 from logos_delivery/kernel/protocols/codecs import WakuLegacyLightPushCodec

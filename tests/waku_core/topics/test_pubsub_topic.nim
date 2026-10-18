@@ -2,7 +2,7 @@
 
 import testutils/unittests, results
 
-import logos_delivery/kernel/topics/pubsub_topic, ../../testlib/[wakucore]
+import logos_delivery/kernel/protocols/topics/pubsub_topic, ../../testlib/[wakucore]
 
 suite "Static Sharding Functionality":
   test "Shard Cluster Identification":

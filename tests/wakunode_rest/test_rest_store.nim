@@ -21,9 +21,9 @@ import
   logos_delivery/kernel/[
     protocols/message,
     protocols/message,
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     kernel_lifecycle,
     peer_manager/peer_manager,
     archive/archive,

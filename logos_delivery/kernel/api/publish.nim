@@ -14,7 +14,7 @@ import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 import logos_delivery/kernel/kernel_lifecycle
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/codecs,

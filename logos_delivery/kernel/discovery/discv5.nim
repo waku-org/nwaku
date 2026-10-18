@@ -17,7 +17,7 @@ import
   logos_delivery/kernel/[
     net/auto_port,
     peer_manager/peer_manager,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     peer_manager/peers,
     common/enr,
     enr/capabilities,

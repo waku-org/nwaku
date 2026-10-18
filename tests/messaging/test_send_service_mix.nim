@@ -21,8 +21,12 @@ import
   logos_delivery/kernel/api/lightpush,
   logos_delivery/kernel/rln/rln_plugin,
   logos_delivery/kernel/protocols/lightpush/common,
-  logos_delivery/kernel/
-    [topics/content_topic, topics/pubsub_topic, protocols/message, peer_manager/peers],
+  logos_delivery/kernel/[
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/message,
+    peer_manager/peers,
+  ],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,

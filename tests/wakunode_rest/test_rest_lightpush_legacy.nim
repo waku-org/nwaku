@@ -20,9 +20,9 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     common/time,
     protocols/message,
     peer_manager/peers,

@@ -9,7 +9,10 @@ import
   stew/shims/sets
 import
   logos_delivery/kernel/[
-    topics/content_topic, topics/pubsub_topic, topics/content_topic, topics/pubsub_topic
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
   ],
   logos_delivery/kernel/common/tableutils,
   logos_delivery/kernel/[peer_manager/peer_manager]

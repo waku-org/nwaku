@@ -19,7 +19,7 @@ import
     peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     peer_manager/peers,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     enr/capabilities,
     enr/sharding,
   ],

@@ -8,8 +8,12 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  logos_delivery/kernel/
-    [topics/content_topic, topics/pubsub_topic, common/time, protocols/message],
+  logos_delivery/kernel/[
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    common/time,
+    protocols/message,
+  ],
   ./common
 
 export switch

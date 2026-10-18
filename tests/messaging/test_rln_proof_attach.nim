@@ -5,7 +5,7 @@ import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,

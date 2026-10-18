@@ -13,13 +13,13 @@ import
 
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     kernel_lifecycle,
     common/paging,
     subscription_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/store/common,

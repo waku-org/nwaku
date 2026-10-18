@@ -19,8 +19,12 @@ import
   dnsdisc/client
 import libp2p/nameresolving/dnsresolver
 import
-  logos_delivery/kernel/
-    [topics/content_topic, topics/sharding, topics/content_topic, peer_manager/peers]
+  logos_delivery/kernel/[
+    protocols/topics/content_topic,
+    enr/sharding,
+    protocols/topics/content_topic,
+    peer_manager/peers,
+  ]
 
 export client
 

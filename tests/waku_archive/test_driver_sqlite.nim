@@ -5,8 +5,8 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/driver/sqlite_driver/sqlite_driver,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
   ],
   ./archive_utils,

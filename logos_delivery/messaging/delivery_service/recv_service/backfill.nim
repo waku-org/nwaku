@@ -11,8 +11,8 @@ import std/[algorithm, sets]
 import chronos, chronicles, results
 import
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     protocols/store/common,

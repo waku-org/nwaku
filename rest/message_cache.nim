@@ -7,7 +7,8 @@ import
   chronos,
   libp2p/protocols/pubsub
 import
-  logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic, protocols/message]
+  logos_delivery/kernel/
+    [protocols/topics/content_topic, protocols/topics/pubsub_topic, protocols/message]
 
 logScope:
   topics = "waku node message_cache"

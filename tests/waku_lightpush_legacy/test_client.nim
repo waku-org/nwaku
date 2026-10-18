@@ -5,8 +5,8 @@ import std/[strscans, strutils], testutils/unittests, chronos, libp2p/crypto/cry
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/codecs,

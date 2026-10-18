@@ -15,7 +15,10 @@ import
   logos_delivery/kernel/discovery/discv5,
   logos_delivery/kernel/discovery/peer_discovery_conversion,
   logos_delivery/kernel/[
-    topics/content_topic, topics/pubsub_topic, topics/content_topic, peer_manager/peers
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/topics/content_topic,
+    peer_manager/peers,
   ],
   logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
   logos_delivery/kernel/api/events/discovery_events,

@@ -32,7 +32,7 @@ import
     discovery/external_service_discovery,
     factory/app_callbacks,
     protocols/protocols,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     protocols/codecs,
     protocols/lightpush/rpc_codec as lightpush_protocol,

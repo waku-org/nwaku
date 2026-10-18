@@ -1,8 +1,12 @@
 {.push raises: [].}
 
 import
-  logos_delivery/kernel/
-    [topics/pubsub_topic, topics/pubsub_topic, common/time, protocols/message]
+  logos_delivery/kernel/[
+    protocols/topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
+    common/time,
+    protocols/message,
+  ]
 
 type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages

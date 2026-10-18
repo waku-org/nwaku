@@ -3,7 +3,8 @@
 import results, std/[random, sequtils, packedsets], testutils/unittests, chronos
 
 import
-  logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic, common/time],
+  logos_delivery/kernel/
+    [protocols/topics/content_topic, protocols/topics/pubsub_topic, common/time],
   logos_delivery/kernel/protocols/store_sync/common,
   logos_delivery/kernel/protocols/store_sync/storage/seq_storage,
   ./sync_utils

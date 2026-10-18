@@ -30,9 +30,9 @@ import
   logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
   logos_delivery/kernel/discovery/plugin/service_discovery_worker,
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/content_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ],

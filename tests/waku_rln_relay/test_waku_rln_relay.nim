@@ -14,7 +14,7 @@ import brokers/broker_context
 
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,

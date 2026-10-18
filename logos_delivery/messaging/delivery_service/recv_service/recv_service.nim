@@ -20,8 +20,8 @@ import
   logos_delivery/messaging/messaging_metrics,
   logos_delivery/kernel/persistency/persistency,
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     peer_manager/peers,

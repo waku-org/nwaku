@@ -3,8 +3,12 @@
 import
   results,
   logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/
-    [topics/pubsub_topic, topics/pubsub_topic, protocols/message, peer_manager/peers]
+  logos_delivery/kernel/[
+    protocols/topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
+    protocols/message,
+    peer_manager/peers,
+  ]
 
 type LightPushStatusCode* = distinct uint32
 proc `==`*(a, b: LightPushStatusCode): bool {.borrow.}

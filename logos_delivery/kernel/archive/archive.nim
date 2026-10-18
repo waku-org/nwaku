@@ -5,8 +5,12 @@ import
   ../common/paging,
   logos_delivery/kernel/archive/driver,
   logos_delivery/kernel/archive/retention_policy,
-  logos_delivery/kernel/
-    [topics/pubsub_topic, topics/pubsub_topic, common/time, protocols/message],
+  logos_delivery/kernel/[
+    protocols/topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
+    common/time,
+    protocols/message,
+  ],
   logos_delivery/kernel/protocols/message,
   logos_delivery/kernel/archive/common,
   logos_delivery/kernel/archive/archive_metrics,

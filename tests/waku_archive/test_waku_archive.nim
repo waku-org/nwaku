@@ -6,8 +6,8 @@ import
   logos_delivery/kernel/[
     common/databases/db_postgres/dbconn,
     common/paging,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     archive/common,

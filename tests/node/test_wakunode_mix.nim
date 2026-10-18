@@ -9,7 +9,7 @@ import libp2p_mix, libp2p_mix/[curve25519, mix_metrics]
 
 import
   logos_delivery/kernel/[
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     peer_manager/peers,
     health_monitor/protocol_health,
     net/net_config,

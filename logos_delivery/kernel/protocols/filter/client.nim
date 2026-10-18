@@ -3,14 +3,13 @@ import results, libp2p/crypto/crypto
 
 {.push raises: [].}
 
-import
-  chronicles, chronos, libp2p/protocols/protocol, stew/byteutils, brokers/broker_context
+import chronicles, chronos, libp2p/protocols/protocol, brokers/broker_context
 
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/codecs,

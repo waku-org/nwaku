@@ -4,8 +4,12 @@ import results, chronicles, std/tables, chronos, testutils/unittests
 
 import
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/
-    [topics/content_topic, topics/pubsub_topic, topics/sharding, peer_manager/peers],
+  logos_delivery/kernel/[
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
+    peer_manager/peers,
+  ],
   logos_delivery/kernel/subscription_manager,
   ../../waku_lightpush/[lightpush_utils],
   ../../testlib/[wakucore, wakunode, testasync],

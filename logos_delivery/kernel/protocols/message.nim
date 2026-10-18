@@ -10,7 +10,7 @@ import
 import
   logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/common/parse_size_units,
-  logos_delivery/kernel/[topics/content_topic, topics/pubsub_topic],
+  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic],
   logos_delivery/kernel/common/time
 
 const MaxMetaAttrLength* = 64 # 64 bytes

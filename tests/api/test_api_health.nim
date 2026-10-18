@@ -9,8 +9,8 @@ import
   logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
     protocols/relay/protocol,
@@ -18,7 +18,7 @@ import
   logos_delivery/kernel/health_monitor/
     [topic_health, health_status, protocol_health, health_report],
   logos_delivery/kernel/health_monitor/health_requests,
-  logos_delivery/kernel/topics/relay_shard_request,
+  logos_delivery/kernel/protocols/topics/relay_shard_request,
   logos_delivery/kernel/api/events/health_events,
   logos_delivery/kernel/health_monitor/protocol_health
 import tools/confutils/cli_args

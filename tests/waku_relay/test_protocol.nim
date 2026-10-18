@@ -14,8 +14,8 @@ import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
     protocols/relay/protocol,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     peer_manager/peers,
   ],

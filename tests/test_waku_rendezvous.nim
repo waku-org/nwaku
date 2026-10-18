@@ -12,7 +12,7 @@ import
 import
   logos_delivery/kernel/peer_manager/peers,
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[topics/pubsub_topic, peer_manager/peers],
+  logos_delivery/kernel/[protocols/topics/pubsub_topic, peer_manager/peers],
   logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/protocols/rendezvous/protocol,

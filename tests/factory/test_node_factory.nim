@@ -16,8 +16,8 @@ import tools/confutils/cli_args
 import
   tests/testlib/[wakunode, wakucore],
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     peer_manager/peers,
     protocols/codecs,
     kernel_lifecycle,

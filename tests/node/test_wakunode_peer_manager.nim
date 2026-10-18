@@ -15,8 +15,8 @@ from times import getTime, toUnix
 import
   logos_delivery/kernel/[
     common/enr as waku_enr,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     peer_manager/peers,
     protocols/codecs,
     peer_manager/peer_manager,

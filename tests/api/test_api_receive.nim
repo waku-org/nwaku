@@ -26,8 +26,8 @@ import
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     peer_manager/peers,

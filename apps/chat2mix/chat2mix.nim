@@ -36,9 +36,9 @@ import libp2p_mix/[curve25519, mix_protocol]
 import
   logos_delivery/kernel/[
     common/protobuf,
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     common/time,
     protocols/message,
     peer_manager/peers,
@@ -46,7 +46,6 @@ import
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     common/enr,
-    enr/sharding,
     discovery/dnsdisc,
     discovery/kademlia,
     kernel_lifecycle,

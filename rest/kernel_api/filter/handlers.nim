@@ -13,9 +13,9 @@ import
   presto/common
 import
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
     protocols/message,
     peer_manager/peers,
   ],

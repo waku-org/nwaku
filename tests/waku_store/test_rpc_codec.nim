@@ -5,8 +5,8 @@ import results, testutils/unittests, chronos, metrics
 import
   logos_delivery/kernel/[
     common/paging,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
     protocols/store/common,

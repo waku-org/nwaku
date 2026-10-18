@@ -2,8 +2,12 @@
 
 import std/sequtils, stew/byteutils, stew/endians2, testutils/unittests
 import
-  logos_delivery/kernel/
-    [topics/content_topic, topics/pubsub_topic, common/time, protocols/message],
+  logos_delivery/kernel/[
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    common/time,
+    protocols/message,
+  ],
   ../testlib/wakucore
 
 suite "Waku Message - Deterministic hashing":

@@ -6,8 +6,8 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/driver/queue_driver/queue_driver,
-    topics/content_topic,
-    topics/pubsub_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
     common/time,
     protocols/message,
   ],

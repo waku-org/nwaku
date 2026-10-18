@@ -51,7 +51,7 @@ import
     enr/capabilities,
     enr/sharding,
     peer_manager/peer_manager,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     protocols/message,
     protocols/mix/protocol,
   ],

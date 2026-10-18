@@ -19,10 +19,10 @@ import
 import
   logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/[
-    topics/content_topic,
-    topics/pubsub_topic,
-    topics/sharding,
-    topics/content_topic,
+    protocols/topics/content_topic,
+    protocols/topics/pubsub_topic,
+    enr/sharding,
+    protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ],

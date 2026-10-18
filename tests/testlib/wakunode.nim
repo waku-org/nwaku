@@ -15,7 +15,7 @@ import
     kernel,
     protocols/relay/protocol,
     net/net_config,
-    topics/pubsub_topic,
+    protocols/topics/pubsub_topic,
     net/switch,
     peer_manager/peer_manager,
     subscription_manager,

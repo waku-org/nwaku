@@ -11,7 +11,8 @@
 
 import results, chronos, metrics
 import
-  logos_delivery/kernel/[topics/pubsub_topic, topics/pubsub_topic, protocols/message],
+  logos_delivery/kernel/
+    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, protocols/message],
   ./protocol,
   ./common,
   ./rpc,

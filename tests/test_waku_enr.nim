@@ -2,7 +2,7 @@
 
 import std/[sequtils, strutils], results, testutils/unittests
 import
-  logos_delivery/kernel/[topics/pubsub_topic],
+  logos_delivery/kernel/[protocols/topics/pubsub_topic],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/
     [common/enr as waku_enr, enr/capabilities, enr/multiaddr, enr/sharding],
