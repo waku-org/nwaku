@@ -6,17 +6,14 @@ import stew/byteutils
 import logos_delivery/kernel/common/base64
 from ../events/json_message_event import `%` # base64 rendering for WakuMessage
 import
+  logos_delivery/kernel/
+    [kernel, events/health_events, events/peer_events, rln/rln_lez/transport],
   logos_delivery,
-  logos_delivery/kernel/kernel,
   logos_delivery/api/types,
-  logos_delivery/kernel/api/events/health_events,
-  logos_delivery/kernel/api/events/peer_events,
   logos_delivery/api/conf/logos_delivery_conf_json,
-  logos_delivery/kernel/rln/rln_lez/transport,
   rest/rest_service,
   ../declare_lib,
   ../json_event
-
 # Add JSON serialization for RequestId
 proc `%`*(id: RequestId): JsonNode =
   %($id)

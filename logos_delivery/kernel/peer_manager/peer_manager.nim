@@ -23,7 +23,7 @@ import
     protocols/metadata/protocol,
     common/enr/sharding,
     common/enr/capabilities,
-    api/events/peer_events,
+    events/peer_events,
     common/nimchronos,
     common/enr,
     common/callbacks,
@@ -33,7 +33,6 @@ import
   ],
   ./peer_store/peer_storage,
   ./peer_store
-
 export peer_store, peer_storage, peers
 
 const KnownAgents = [

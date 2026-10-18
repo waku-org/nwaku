@@ -39,9 +39,9 @@ import
     rln/rln_plugin,
     common/nimchronos,
     protocols/mix/protocol,
-    api/events/health_events,
+    events/health_events,
   ],
-  logos_delivery/api/events/kernel_events, # MessageSeenEvent
+  logos_delivery/kernel/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/net/delivery_dialer,
   logos_delivery/kernel/[peer_manager/peer_manager],
@@ -50,7 +50,7 @@ import
 import logos_delivery/kernel/kernel
 import logos_delivery/kernel/protocols/mix/protocol_metrics
 import mix_rln_spam_protection/module_api
-import logos_delivery/api/events/kernel_events
+import logos_delivery/kernel/[events/kernel_events]
 import logos_delivery/kernel/api/[relay, lightpush]
 
 proc getMixNodePoolSize*(self: Kernel): int =

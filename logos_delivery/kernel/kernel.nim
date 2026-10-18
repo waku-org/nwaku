@@ -79,10 +79,10 @@ import
     protocols/mix/protocol,
     protocols/topics/relay_shard_request,
     health_monitor/health_requests,
-    api/events/health_events,
-    api/events/discovery_events,
+    events/health_events,
+    events/discovery_events,
   ],
-  logos_delivery/api/events/kernel_events, # MessageSeenEvent
+  logos_delivery/kernel/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],

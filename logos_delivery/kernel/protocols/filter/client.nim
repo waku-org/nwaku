@@ -14,13 +14,12 @@ import
     peer_manager/peers,
     protocols/codecs,
     protocols/request_id,
-    api/events/filter_subscribe_events,
+    events/filter_subscribe_events,
   ],
   ./common,
   ./protocol_metrics,
   ./rpc_codec,
   ./rpc
-
 logScope:
   topics = "waku filter client"
 

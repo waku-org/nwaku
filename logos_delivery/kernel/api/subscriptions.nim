@@ -8,7 +8,7 @@
 import std/sets
 import results
 
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/[
     protocols/topics/content_topic, protocols/topics/pubsub_topic, subscription_manager

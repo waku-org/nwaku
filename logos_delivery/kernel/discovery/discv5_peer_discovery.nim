@@ -12,18 +12,18 @@ import libp2p/crypto/crypto
 import brokers/broker_implement
 import logos_delivery/kernel/discovery/peer_discovery_interface
 import
-  logos_delivery/kernel/discovery/discv5,
-  logos_delivery/kernel/discovery/peer_discovery_conversion,
   logos_delivery/kernel/[
+    discovery/discv5,
+    discovery/peer_discovery_conversion,
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
     peer_manager/peers,
-  ],
-  logos_delivery/kernel/[common/enr, common/enr/capabilities, common/enr/sharding],
-  logos_delivery/kernel/api/events/discovery_events,
-  logos_delivery/kernel/discovery/node_state_requests
-
+    common/enr,
+    common/enr/capabilities,
+    common/enr/sharding,
+    events/discovery_events,
+    discovery/node_state_requests,
+  ]
 export peer_discovery_interface
 
 logScope:

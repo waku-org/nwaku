@@ -5,7 +5,7 @@ import std/[sequtils, strutils]
 import results, chronos
 import libp2p/[peerid]
 
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/kernel
 import logos_delivery/kernel/[peer_manager/peers, peer_manager/peer_manager]
 
 # `PeerConnInfo` is defined in `api/types` (surfaced here via `import kernel`).

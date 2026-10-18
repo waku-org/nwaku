@@ -27,6 +27,11 @@ import
   ],
   logos_delivery/kernel/common/protobuf
 
+type PeerConnInfo* = object ## structured connected-peer info for the api boundary
+  peerId*: string
+  protocols*: seq[string]
+  addresses*: seq[string]
+
 type
   Connectedness* = enum
     # NotConnected: default state for a new peer. No connection and no further information on connectedness.

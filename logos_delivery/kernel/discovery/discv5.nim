@@ -23,10 +23,9 @@ import
     common/enr/capabilities,
     common/enr/multiaddr,
     common/enr/sharding,
-    api/events/discovery_events,
-    api/events/subscription_events,
+    events/discovery_events,
+    events/subscription_events,
   ]
-
 export protocol, enr, capabilities, multiaddr, sharding
 
 declarePublicGauge logos_delivery_discv5_discovered_per_shard,

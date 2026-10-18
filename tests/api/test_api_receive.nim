@@ -22,7 +22,6 @@ from logos_delivery/kernel/protocols/store/common import WakuStoreCodec
 from logos_delivery/kernel/protocols/filter/subscriptions import removePeer
 
 import
-  logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
@@ -33,13 +32,14 @@ import
     peer_manager/peers,
     protocols/codecs,
     peer_manager/peer_manager,
-    api/events/health_events,
+    events/health_events,
     protocols/relay/protocol,
     archive/common,
     archive/archive,
     archive/driver,
     archive/common as archive_common,
-  ]
+  ],
+  logos_delivery
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 

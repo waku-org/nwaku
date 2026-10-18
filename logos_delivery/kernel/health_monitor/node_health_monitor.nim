@@ -10,13 +10,13 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p_mix/pool,
   logos_delivery/api/types,
-  logos_delivery/api/events/kernel_events,
+  logos_delivery/kernel/events/kernel_events,
   # EventConnectionStatusChange
   logos_delivery/kernel/[
     protocols/relay/protocol,
     protocols/mix/protocol,
-    api/events/health_events,
-    api/events/peer_events,
+    events/health_events,
+    events/peer_events,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,
     rln/rln_plugin,

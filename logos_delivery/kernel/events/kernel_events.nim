@@ -1,6 +1,6 @@
 import brokers/event_broker
 
-import logos_delivery/api/types
+import logos_delivery/kernel/health_monitor/connection_status
 import
   logos_delivery/kernel/protocols/topics/pubsub_topic,
   logos_delivery/kernel/protocols/topics/content_topic

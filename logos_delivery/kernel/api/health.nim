@@ -3,7 +3,7 @@
 
 import results, chronos
 
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/[
     health_monitor/node_health_monitor,

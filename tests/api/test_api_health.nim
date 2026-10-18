@@ -6,7 +6,6 @@ import brokers/broker_context
 import ../testlib/[wakucore, wakunode, wakunodeconf, testasync]
 
 import
-  logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
     protocols/topics/content_topic,
@@ -14,13 +13,15 @@ import
     protocols/message,
     peer_manager/peers,
     protocols/relay/protocol,
+    health_monitor/topic_health,
+    health_monitor/health_status,
+    health_monitor/protocol_health,
+    health_monitor/health_report,
+    health_monitor/health_requests,
+    protocols/topics/relay_shard_request,
+    events/health_events,
   ],
-  logos_delivery/kernel/health_monitor/
-    [topic_health, health_status, protocol_health, health_report],
-  logos_delivery/kernel/health_monitor/health_requests,
-  logos_delivery/kernel/protocols/topics/relay_shard_request,
-  logos_delivery/kernel/api/events/health_events,
-  logos_delivery/kernel/health_monitor/protocol_health
+  logos_delivery
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)

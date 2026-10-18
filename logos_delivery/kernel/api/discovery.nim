@@ -4,7 +4,7 @@
 import std/[net]
 import results, chronos
 
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/
     [peer_manager/peers, api/peer_exchange, discovery/dnsdisc, discovery/discv5]

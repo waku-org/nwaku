@@ -25,9 +25,8 @@ import
     protocols/lightpush/protocol,
     protocols/mix/protocol,
     rln/rln_plugin,
-  ],
-  logos_delivery/api/events/kernel_events
-
+    events/kernel_events,
+  ]
 type
   MixNodeName* = tuple[entry: MixNodePubInfo, address: MultiAddress]
 

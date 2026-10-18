@@ -38,7 +38,7 @@ import
     peer_manager/peer_manager,
     rln/types,
   ]
-import logos_delivery/api/events/kernel_events # MessageSeenEvent
+import logos_delivery/kernel/events/kernel_events # MessageSeenEvent
 
 export relay_protocol.WakuRelayHandler
 

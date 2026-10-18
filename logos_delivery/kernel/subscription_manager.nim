@@ -16,12 +16,11 @@ import
     protocols/filter/client as filter_client,
     protocols/filter/protocol as filter_protocol,
     protocols/filter/edge_subscriptions,
-    api/events/health_events,
-    api/events/subscription_events,
+    events/health_events,
+    events/subscription_events,
     peer_manager/peer_manager,
   ]
-import logos_delivery/api/events/kernel_events
-
+import logos_delivery/kernel/[events/kernel_events]
 {.push raises: [].}
 
 declarePublicCounter logos_delivery_node_messages,

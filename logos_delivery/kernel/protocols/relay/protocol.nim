@@ -25,18 +25,16 @@ import
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
     common/time,
     protocols/message,
     peer_manager/peers,
+    protocols/codecs,
+    health_monitor/topic_health,
+    health_monitor/health_requests,
+    events/health_events,
+    events/peer_events,
   ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/health_monitor/topic_health,
-  logos_delivery/kernel/health_monitor/health_requests,
-  logos_delivery/kernel/api/events/health_events,
-  ./message_id,
-  logos_delivery/kernel/api/events/peer_events
-
+  ./message_id
 from logos_delivery/kernel/protocols/codecs import WakuRelayCodec
 export WakuRelayCodec
 

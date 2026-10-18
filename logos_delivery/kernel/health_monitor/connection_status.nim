@@ -1,7 +1,8 @@
 import chronos, results, std/strutils
-from logos_delivery/api/types import ConnectionStatus
-
-export ConnectionStatus
+type ConnectionStatus* {.pure.} = enum
+  Disconnected
+  PartiallyConnected
+  Connected
 
 const HealthyThreshold* = 2
   ## Minimum peers required per service protocol for a "Connected" status (excluding Relay).

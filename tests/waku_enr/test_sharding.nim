@@ -13,14 +13,12 @@ import
     common/enr,
     common/enr/sharding,
     discovery/discv5,
-    common/enr,
     net/auto_port,
-    api/events/subscription_events,
+    events/subscription_events,
   ],
   ../testlib/wakucore,
   ../waku_discv5/utils,
   ./utils
-
 suite "Sharding":
   suite "topicsToRelayShards":
     asyncTest "get shards from topics":

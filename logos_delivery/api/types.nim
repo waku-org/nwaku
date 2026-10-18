@@ -6,7 +6,11 @@ import logos_delivery/kernel/protocols/request_id as request_utils
 import
   logos_delivery/kernel/[protocols/topics/content_topic, protocols/message, common/time]
 
-export content_topic, message
+import
+  logos_delivery/kernel/health_monitor/connection_status,
+  logos_delivery/kernel/peer_manager/peers
+
+export content_topic, message, connection_status, peers
 
 type
   MessageEnvelope* = object
@@ -20,19 +24,9 @@ type
 
   RequestId* = distinct string
 
-  ConnectionStatus* {.pure.} = enum
-    Disconnected
-    PartiallyConnected
-    Connected
-
   MessageSource* {.pure.} = enum
     Live = "live" ## delivered as it was published, over relay or filter
     History = "history" ## recovered from a Store peer, at start or after a gap
-
-  PeerConnInfo* = object ## structured connected-peer info for the api boundary
-    peerId*: string
-    protocols*: seq[string]
-    addresses*: seq[string]
 
 proc new*(T: typedesc[RequestId], rng: crypto.Rng): T =
   ## Generate a new RequestId using the provided RNG.

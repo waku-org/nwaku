@@ -18,11 +18,12 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/kernel/
-    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, peer_manager/peers],
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/api/events/discovery_events
-
+  logos_delivery/kernel/[
+    protocols/topics/pubsub_topic,
+    peer_manager/peers,
+    peer_manager/peer_manager,
+    events/discovery_events,
+  ]
 # `WakuKademlia.new` is generic, so `ServiceDiscovery.new` instantiates in the
 # caller, which needs `hash`/`==` of the distinct kademlia `Key` in scope.
 export key_value.hash, key_value.`==`

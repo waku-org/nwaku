@@ -11,7 +11,7 @@ import std/[tables, strutils]
 import logos_delivery/kernel/api/mix
 import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 
-import logos_delivery/kernel/kernel_lifecycle
+import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/[
     protocols/topics/pubsub_topic,

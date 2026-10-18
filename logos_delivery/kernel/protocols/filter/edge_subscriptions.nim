@@ -17,13 +17,12 @@ import
     health_monitor/topic_health,
     health_monitor/health_requests,
     health_monitor/connection_status,
-    api/events/health_events,
-    api/events/peer_events,
+    events/health_events,
+    events/peer_events,
     protocols/filter/common as filter_common,
     protocols/filter/client as filter_client,
     protocols/filter/protocol as filter_protocol,
   ]
-
 type
   EdgeFilterSubState* = object
     peers*: seq[RemotePeerInfo]
