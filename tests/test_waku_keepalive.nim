@@ -10,12 +10,10 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
-  logos_delivery/kernel/[peer_manager/peers],
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/[health_monitor/node_health_monitor],
+  logos_delivery/kernel/
+    [common/peers, kernel_lifecycle, health_monitor/node_health_monitor],
   ./testlib/wakucore,
   ./testlib/wakunode
-
 suite "Waku Keepalive":
   asyncTest "handle ping keepalives":
     let

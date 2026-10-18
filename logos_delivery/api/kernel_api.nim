@@ -1,8 +1,8 @@
 import chronos, results
 
 import logos_delivery/api/types as api_types
-import logos_delivery/kernel/protocols/topics/pubsub_topic
-import logos_delivery/kernel/protocols/message
+import logos_delivery/kernel/[common/topics/pubsub_topic]
+import logos_delivery/kernel/[common/message]
 import logos_delivery/kernel/protocols/filter/common
 import logos_delivery/kernel/protocols/store/common as store_types
 

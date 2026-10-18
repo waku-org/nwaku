@@ -5,12 +5,12 @@ import chronos, testutils/unittests, results, stew/byteutils
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    protocols/topics/pubsub_topic,
-    protocols/message,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,
     rln/rln_evm/rln_evm,
   ],
+  logos_delivery/kernel/common/topics/pubsub_topic,
+  logos_delivery/kernel/common/message,
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/api/publish,
   logos_delivery/kernel/factory/conf,

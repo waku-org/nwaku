@@ -18,8 +18,7 @@ import
   ../../logos_delivery/kernel/factory/conf,
   ../../logos_delivery/kernel/common/logging,
   ../../logos_delivery/kernel/common/parse_size_units,
-  ../../logos_delivery/kernel/protocols/message
-
+  ../../logos_delivery/kernel/common/message
 suite "Waku external config - default values":
   test "Default sharding value":
     ## Setup

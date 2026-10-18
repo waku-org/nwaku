@@ -3,23 +3,20 @@ import libp2p/crypto/crypto
 
 import std/strutils, results, chronicles, chronos, metrics
 import
-  logos_delivery/kernel/peer_manager/peer_manager,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    peer_manager/peer_manager,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
     common/time,
-    protocols/message,
+    common/message,
+    common/codecs,
+    common/rate_limit/request_limiter,
   ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/common/enr/sharding,
   ./common,
   ./rpc,
   ./rpc_codec,
-  ./protocol_metrics,
-  logos_delivery/kernel/common/rate_limit/request_limiter
-
+  ./protocol_metrics
 logScope:
   topics = "waku lightpush"
 

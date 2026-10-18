@@ -12,24 +12,26 @@ import
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
 import
-  logos_delivery/kernel/common/nimchronos,
-  logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/common/paging,
-  logos_delivery/kernel/[common/enr/sharding],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/common/time,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/topics/content_topic,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/[archive/common, archive/archive],
+  logos_delivery/kernel/[
+    common/nimchronos,
+    common/protobuf,
+    common/paging,
+    common/enr/sharding,
+    common/codecs,
+    common/time,
+    common/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/message,
+    peer_manager/peer_manager,
+    archive/common,
+    archive/archive,
+  ],
   ./common,
   ./codec,
   ./storage/storage,
   ./storage/seq_storage,
   ./storage/range_processing,
   ./protocols_metrics
-
 logScope:
   topics = "waku reconciliation"
 

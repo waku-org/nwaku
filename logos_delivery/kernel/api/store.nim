@@ -17,19 +17,24 @@ import
   libp2p/transports/wstransport
 
 import
-  logos_delivery/kernel/kernel,
-  logos_delivery/kernel/[common/time, protocols/message, peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/protocols/store/protocol as store,
-  logos_delivery/kernel/protocols/store/client as store_client,
-  logos_delivery/kernel/protocols/store/common as store_common,
-  logos_delivery/kernel/protocols/store/rpc_codec as store_rpc_codec,
-  logos_delivery/kernel/protocols/store/resume,
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/common/rate_limit/setting,
-  logos_delivery/kernel/
-    [archive/common, archive/archive, archive/driver, archive/retention_policy]
-
+  logos_delivery/kernel/[
+    kernel,
+    common/time,
+    common/message,
+    common/peers,
+    common/codecs,
+    protocols/store/protocol as store,
+    protocols/store/client as store_client,
+    protocols/store/common as store_common,
+    protocols/store/rpc_codec as store_rpc_codec,
+    protocols/store/resume,
+    peer_manager/peer_manager,
+    common/rate_limit/setting,
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/retention_policy,
+  ]
 logScope:
   topics = "waku node store api"
 
@@ -39,13 +44,12 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     protocols/store/common,
     protocols/store/client,
   ]
-
 proc mountArchive*(
     self: Kernel, driver: ArchiveDriver, retentionPolicies = newSeq[RetentionPolicy]()
 ): Result[void, string] =

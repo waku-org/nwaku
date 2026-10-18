@@ -3,17 +3,16 @@ import std/random, chronos, metrics
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
     protocols/store_sync/common,
     protocols/store_sync/reconciliation,
     protocols/store_sync/transfer,
     protocols/store_sync/protocols_metrics,
   ],
   ../testlib/wakucore
-
 randomize()
 
 type TransferDirection* {.pure.} = enum

@@ -5,8 +5,7 @@
 {.push raises: [].}
 
 import std/strutils, stew/base10, results
-import logos_delivery/kernel/protocols/topics/content_topic
-
+import logos_delivery/kernel/[common/topics/content_topic]
 export
   content_topic.ParsingErrorKind, content_topic.ParsingError,
   content_topic.ParsingResult, content_topic.invalidFormat, content_topic.missingPart,

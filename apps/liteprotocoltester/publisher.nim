@@ -13,12 +13,12 @@ import
     kernel,
     api/lightpush,
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/lightpush/common,
     common/parse_size_units,
   ],
@@ -29,7 +29,6 @@ import
   ./publisher_base,
   ./legacy_publisher,
   ./v3_publisher
-
 randomize()
 
 type SizeRange* = tuple[min: uint64, max: uint64]

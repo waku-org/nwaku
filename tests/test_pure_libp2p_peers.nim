@@ -14,15 +14,14 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     protocols/metadata/protocol,
   ],
   ./testlib/testasync,
   ./testlib/wakucore,
   ./testlib/wakunode
-
 const ClusterId = 42.uint16
 
 proc newPureLibp2pSwitch(): Switch =

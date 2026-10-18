@@ -14,11 +14,8 @@ import
   libp2p_mix/pool
 
 import
-  logos_delivery/kernel/[protocols/message, peer_manager/peers],
-  logos_delivery/kernel/common/enr/sharding,
-  logos_delivery/kernel/common/enr/capabilities,
-  logos_delivery/kernel/peer_manager/peers
-
+  logos_delivery/kernel/
+    [common/message, common/peers, common/enr/sharding, common/enr/capabilities]
 export peerstore, builders
 
 type

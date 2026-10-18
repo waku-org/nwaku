@@ -6,20 +6,21 @@ import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
     kernel_lifecycle,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/store/resume,
     protocols/store/common,
     archive/driver,
   ],
-  ../testlib/[wakucore, testasync, wakunode],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/wakunode,
   ./store_utils,
   ../waku_archive/archive_utils
-
 suite "Store Resume":
   var resume {.threadvar.}: StoreResume
 

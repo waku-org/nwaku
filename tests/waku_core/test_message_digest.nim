@@ -3,13 +3,9 @@
 import std/sequtils, stew/byteutils, stew/endians2, testutils/unittests
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    common/time,
-    protocols/message,
+    common/topics/content_topic, common/topics/pubsub_topic, common/time, common/message
   ],
   ../testlib/wakucore
-
 suite "Waku Message - Deterministic hashing":
   test "digest computation - empty meta field":
     ## Test vector:

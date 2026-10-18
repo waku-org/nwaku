@@ -13,14 +13,12 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
-    protocols/relay/protocol,
-    health_monitor/topic_health,
-    protocols/metadata/protocol,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
+    common/health/topic_health,
     common/enr/sharding,
     common/enr/capabilities,
     events/peer_events,
@@ -28,7 +26,7 @@ import
     common/enr,
     common/callbacks,
     common/parse_size_units,
-    health_monitor/online_monitor,
+    peer_manager/online_monitor,
     net/switch,
   ],
   ./peer_store/peer_storage,
@@ -110,10 +108,26 @@ type ConnectionChangeHandler* = proc(
   peerId: PeerId, peerEvent: PeerEventKind
 ): Future[void] {.gcsafe, raises: [Defect].}
 
+const RelayMeshHighWatermark* = 8
+  ## The GossipSub `dHigh` of the relay mesh (RFC 29). A node needs at least this
+  ## many relay slots, or it risks isolation. Relay uses the same value.
+
+type
+  PeerMetadata* = tuple[clusterId: Opt[uint32], shards: seq[uint32]]
+    ## What a peer reports about its cluster and shards.
+
+  MetadataSource* = object
+    ## The part of the metadata protocol the peer manager needs: our cluster id
+    ## and a way to ask a peer for its metadata.
+    clusterId*: uint32
+    request*:
+      proc(conn: Connection): Future[Result[PeerMetadata, string]] {.async, gcsafe.}
+
 type PeerManager* = ref object
   brokerCtx: BrokerContext
   switch*: Switch
-  wakuMetadata*: WakuMetadata
+  metadata*: Opt[MetadataSource]
+    ## How to ask a peer for its metadata; none on a node without the metadata protocol.
   initialBackoffInSec*: int
   backoffFactor*: int
   maxFailedAttempts*: int
@@ -796,7 +810,7 @@ proc refreshPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       reason = "dial failed: " & error.msg
       break guardClauses
 
-    let metadata = (await pm.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await pm.metadata.get().request(conn)).valueOr:
       reason = "waku metatdata request failed: " & error
       break guardClauses
 
@@ -804,9 +818,9 @@ proc refreshPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       reason = "empty cluster-id reported"
       break guardClauses
 
-    if pm.wakuMetadata.clusterId != clusterId:
+    if pm.metadata.get().clusterId != clusterId:
       reason =
-        "different clusterId reported: " & $pm.wakuMetadata.clusterId & " vs " &
+        "different clusterId reported: " & $pm.metadata.get().clusterId & " vs " &
         $clusterId
       break guardClauses
 
@@ -875,7 +889,7 @@ proc onPeerIdentified(pm: PeerManager, peerId: PeerId) {.async.} =
   ## Runs once identify has told us what the peer speaks. A node with no
   ## metadata protocol of its own has no membership to enforce and accepts
   ## everyone, as before.
-  if pm.wakuMetadata.isNil():
+  if pm.metadata.isNone():
     return
 
   case pm.classifyPeer(peerId)
@@ -1038,7 +1052,7 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     for shard in pm.getShards().items:
       # peers known for this shard
       let shardPeers =
-        peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), shard)
+        peerStore.getPeersByShard(uint16(pm.metadata.get().clusterId), shard)
 
       # keep only those that are physically connected right now
       let connectedInShard = shardPeers.filterIt(connectedPeerIds.contains(it.peerId))
@@ -1079,11 +1093,12 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   for shard in pm.getShards().items:
     # Filter out peer not on this shard
-    let connectedInPeers =
-      inPeers.filterIt(peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), shard))
+    let connectedInPeers = inPeers.filterIt(
+      peerStore.hasShard(it, uint16(pm.metadata.get().clusterId), shard)
+    )
 
     let connectedOutPeers = outPeers.filterIt(
-      peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), shard)
+      peerStore.hasShard(it, uint16(pm.metadata.get().clusterId), shard)
     )
 
     # Calculate the difference between current values and targets
@@ -1098,7 +1113,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     # Get all peers for this shard
     var connectablePeers =
-      peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      peerStore.getPeersByShard(uint16(pm.metadata.get().clusterId), uint16(shard))
 
     let shardCount = connectablePeers.len
 
@@ -1287,7 +1302,6 @@ proc stop*(pm: PeerManager) =
 proc new*(
     T: type PeerManager,
     switch: Switch,
-    wakuMetadata: WakuMetadata = nil,
     maxRelayPeers: Opt[int] = Opt.none(int),
     maxServicePeers: Opt[int] = Opt.none(int),
     relayServiceRatio: string = "50:50",
@@ -1315,7 +1329,7 @@ proc new*(
   var relayPeers = int(ceil(float(maxConnections) * relayRatio))
   var servicePeers = int(floor(float(maxConnections) * serviceRatio))
 
-  let minRelayPeers = WakuRelay.getDHigh()
+  let minRelayPeers = RelayMeshHighWatermark
 
   if relayPeers < minRelayPeers:
     let errorMsg =
@@ -1340,7 +1354,6 @@ proc new*(
   let pm = PeerManager(
     switch: switch,
     brokerCtx: brokerCtx,
-    wakuMetadata: wakuMetadata,
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,

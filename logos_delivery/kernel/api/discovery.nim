@@ -7,8 +7,7 @@ import results, chronos
 import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/
-    [peer_manager/peers, api/peer_exchange, discovery/dnsdisc, discovery/discv5]
-
+    [common/peers, api/peer_exchange, discovery/dnsdisc, discovery/discv5]
 proc dnsDiscovery*(
     self: Kernel, enrTreeUrl: string, nameServer: string, timeoutMs: int
 ): Future[Result[seq[string], string]] {.async.} =

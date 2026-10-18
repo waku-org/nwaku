@@ -1,12 +1,9 @@
 import std/[json]
 import chronos, results, ffi
 import
-  logos_delivery/kernel/common/base64,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/protocols/topics/content_topic,
+  logos_delivery/kernel/[common/base64, kernel_lifecycle, common/topics/content_topic],
   logos_delivery/api/types,
   ../declare_lib
-
 proc logosdelivery_subscribe(
     self: LogosDelivery, contentTopicStr: string
 ): Future[Result[string, string]] {.ffi.} =

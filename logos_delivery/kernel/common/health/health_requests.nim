@@ -1,12 +1,14 @@
 import brokers/request_broker
 
-import logos_delivery/api/types
+import logos_delivery/kernel/common/health/connection_status
 import
-  logos_delivery/kernel/health_monitor/[protocol_health, topic_health, health_report]
-import
-  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic]
-import logos_delivery/kernel/health_monitor/protocol_health
-
+  logos_delivery/kernel/[
+    common/health/protocol_health,
+    common/health/topic_health,
+    common/health/health_report,
+  ]
+import logos_delivery/kernel/[common/topics/content_topic, common/topics/pubsub_topic]
+import logos_delivery/kernel/[common/health/protocol_health]
 export protocol_health, topic_health
 
 # Get the overall node connectivity status

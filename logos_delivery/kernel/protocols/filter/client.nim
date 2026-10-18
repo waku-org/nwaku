@@ -8,12 +8,12 @@ import chronicles, chronos, libp2p/protocols/protocol, brokers/broker_context
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
-    protocols/request_id,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
+    common/request_id,
     events/filter_subscribe_events,
   ],
   ./common,

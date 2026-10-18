@@ -8,7 +8,7 @@ import
     peer_manager/peer_manager,
   ]
 
-from logos_delivery/kernel/protocols/codecs import WakuPeerExchangeCodec
+from logos_delivery/kernel/common/codecs import WakuPeerExchangeCodec
 
 declarePublicGauge logos_delivery_px_peers_received_total,
   "number of ENRs received via peer exchange"

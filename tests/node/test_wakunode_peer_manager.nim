@@ -15,22 +15,25 @@ from times import getTime, toUnix
 import
   logos_delivery/kernel/[
     common/enr as waku_enr,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     kernel_lifecycle,
     discovery/discv5,
     protocols/filter/common,
     protocols/relay/protocol,
   ],
-  ../testlib/[wakucore, wakunode, testasync, testutils, comparisons],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/testutils,
+  ../testlib/comparisons,
   ../waku_enr/utils,
   ../waku_archive/archive_utils,
   ../waku_discv5/utils,
   ./peer_manager/peer_store/utils
-
 const DEFAULT_PROTOCOLS: seq[string] =
   @["/ipfs/id/1.0.0", "/libp2p/autonat/1.0.0", "/libp2p/circuit/relay/0.2.0/hop"]
 

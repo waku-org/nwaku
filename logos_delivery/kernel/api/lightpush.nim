@@ -21,31 +21,32 @@ import
   libp2p_mix
 
 import
-  logos_delivery/kernel/kernel,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    kernel,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
-    protocols/message,
-    peer_manager/peers,
-  ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/common/enr/sharding,
-  logos_delivery/kernel/protocols/lightpush_legacy/client as legacy_lightpush_client,
-  logos_delivery/kernel/protocols/lightpush_legacy/callbacks as
-    legacy_lightpush_callbacks,
-  logos_delivery/kernel/protocols/lightpush_legacy/common as legacy_lightpush_common,
-  logos_delivery/kernel/protocols/lightpush_legacy/[protocol, self_req_handler],
-  logos_delivery/kernel/protocols/lightpush/client as lightpush_client,
-  logos_delivery/kernel/protocols/lightpush/callbacks as lightpush_callbacks,
-  logos_delivery/kernel/protocols/lightpush/common as lightpush_common,
-  logos_delivery/kernel/protocols/lightpush/[protocol, rpc, self_req_handler],
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/common/rate_limit/setting,
-  logos_delivery/kernel/
-    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
-  logos_delivery/kernel/rln/rln_plugin
+    common/message,
+    common/peers,
+    common/codecs,
+    protocols/lightpush_legacy/client as legacy_lightpush_client,
+    protocols/lightpush_legacy/callbacks as legacy_lightpush_callbacks,
+    protocols/lightpush_legacy/common as legacy_lightpush_common,
+    protocols/lightpush_legacy/protocol,
+    protocols/lightpush_legacy/self_req_handler,
+    protocols/lightpush/client as lightpush_client,
+    protocols/lightpush/callbacks as lightpush_callbacks,
+    protocols/lightpush/common as lightpush_common,
+    protocols/lightpush/protocol,
+    protocols/lightpush/rpc,
+    protocols/lightpush/self_req_handler,
+    peer_manager/peer_manager,
+    common/rate_limit/setting,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_plugin,
+  ]
 from logos_delivery/kernel/rln/types import RlnErrorKind
 
 logScope:
@@ -55,13 +56,12 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/message,
+    common/codecs,
     peer_manager/peer_manager,
     protocols/lightpush_legacy/client,
   ]
-
 const MountWithoutRelayError* = "cannot mount lightpush because relay is not mounted"
 
 const MixReplyTimeout* = chronos.seconds(5)

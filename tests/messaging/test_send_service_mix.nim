@@ -4,36 +4,39 @@ import std/[sequtils, sets]
 import chronos, testutils/unittests, results, stew/byteutils
 
 import
+  logos_delivery/kernel/[
+    kernel,
+    protocols/protocols,
+    net/bound_ports,
+    api/mix,
+    kernel_lifecycle,
+    protocols/mix/protocol,
+    api/publish,
+    peer_manager/peer_manager,
+    peer_manager/peer_store,
+    api/lightpush,
+    rln/rln_plugin,
+    protocols/lightpush/common,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
+    factory/conf,
+  ],
   libp2p_mix,
   libp2p_mix/curve25519,
   mix_rln_spam_protection/module_api,
-  logos_delivery/kernel/kernel,
-  logos_delivery/kernel/protocols/protocols,
-  logos_delivery/kernel/net/bound_ports,
-  logos_delivery/kernel/api/mix,
-  libp2p/[peerid, multiaddress],
+  libp2p/peerid,
+  libp2p/multiaddress,
   libp2p/stream/connection,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/protocols/mix/protocol,
-  logos_delivery/kernel/api/publish,
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/peer_manager/peer_store,
-  logos_delivery/kernel/api/lightpush,
-  logos_delivery/kernel/rln/rln_plugin,
-  logos_delivery/kernel/protocols/lightpush/common,
-  logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-  ],
-  logos_delivery/kernel/protocols/codecs,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
-  logos_delivery/kernel/factory/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
-  logos_delivery/messaging/delivery_service/send_service/
-    [send_service, send_processor, mix_processor, delivery_task]
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/send_processor,
+  logos_delivery/messaging/delivery_service/send_service/mix_processor,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task
 import ../testlib/[futures, testasync, wakucore, wakunodeconf]
 
 ## Tests for the anonymity levels of the send path. The first suite mounts no

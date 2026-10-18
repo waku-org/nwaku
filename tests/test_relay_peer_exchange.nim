@@ -9,13 +9,15 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/kernel/
-    [protocols/topics/pubsub_topic, protocols/message, peer_manager/peers],
-  logos_delivery/kernel/subscription_manager,
-  logos_delivery/kernel/kernel_lifecycle,
+  logos_delivery/kernel/[
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    subscription_manager,
+    kernel_lifecycle,
+  ],
   ./testlib/wakucore,
   ./testlib/wakunode
-
 procSuite "Relay (GossipSub) Peer Exchange":
   asyncTest "Mount relay without peer exchange handler":
     # Given two nodes

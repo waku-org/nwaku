@@ -23,12 +23,12 @@ import
   logos_delivery/kernel/[
     kernel,
     metrics_server,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/filter/common,
     protocols/filter/protocol,
     protocols/filter/subscriptions,
@@ -47,16 +47,15 @@ import results, chronos, chronicles
 
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     protocols/filter/client,
     protocols/filter/common,
   ]
-
 proc mountFilter*(
     self: Kernel,
     subscriptionTimeout: Duration =

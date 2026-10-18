@@ -2,14 +2,9 @@
 
 import libp2p/crypto/crypto, chronos
 import stew/byteutils
-import logos_delivery/kernel/protocols/request_id as request_utils
-import
-  logos_delivery/kernel/[protocols/topics/content_topic, protocols/message, common/time]
-
-import
-  logos_delivery/kernel/health_monitor/connection_status,
-  logos_delivery/kernel/peer_manager/peers
-
+import logos_delivery/kernel/[common/request_id as request_utils]
+import logos_delivery/kernel/[common/topics/content_topic, common/message, common/time]
+import logos_delivery/kernel/[common/health/connection_status, common/peers]
 export content_topic, message, connection_status, peers
 
 type

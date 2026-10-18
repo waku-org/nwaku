@@ -22,17 +22,17 @@ import
   logos_delivery/kernel/[
     common/base64,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     kernel_lifecycle,
     peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/relay/protocol,
-    health_monitor/topic_health,
+    common/health/topic_health,
     common/rate_limit/setting,
   ],
   ../testlib/wakucore,
@@ -40,7 +40,6 @@ import
   ../testlib/testasync,
   ../testlib/rest_requests,
   ../resources/payloads
-
 proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()

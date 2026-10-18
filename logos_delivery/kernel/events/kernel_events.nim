@@ -1,11 +1,8 @@
 import brokers/event_broker
 
-import logos_delivery/kernel/health_monitor/connection_status
-import
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/topics/content_topic
-import logos_delivery/kernel/protocols/message
-
+import logos_delivery/kernel/[common/health/connection_status]
+import logos_delivery/kernel/[common/topics/pubsub_topic, common/topics/content_topic]
+import logos_delivery/kernel/[common/message]
 export event_broker, pubsub_topic, content_topic, message
 
 EventBroker:

@@ -13,11 +13,11 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/relay/protocol,
@@ -27,7 +27,6 @@ import
   ../testlib/testutils,
   ../testlib/wakucore,
   ../testlib/wakunode
-
 template sourceDir(): string =
   currentSourcePath.parentDir()
 

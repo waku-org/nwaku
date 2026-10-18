@@ -5,16 +5,15 @@ import results, testutils/unittests, chronos, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
     protocols/lightpush_legacy/common,
     protocols/lightpush_legacy/client,
   ],
   ../testlib/wakucore,
   ./lightpush_utils
-
 suite "Rate limited push service":
   asyncTest "push message with rate limit not violated":
     ## Setup

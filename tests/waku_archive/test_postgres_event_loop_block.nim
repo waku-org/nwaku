@@ -16,19 +16,18 @@ import
     archive/driver/postgres_driver/postgres_driver,
     archive/driver/postgres_driver/partitions_manager,
     archive/driver/postgres_driver/postgres_healthcheck,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     common/databases/db_postgres/pgasyncpool,
   ],
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres
-
 const
   RawConnString =
     "user=postgres host=localhost port=5432 dbname=postgres password=test123"

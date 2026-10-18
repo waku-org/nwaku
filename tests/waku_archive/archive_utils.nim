@@ -5,8 +5,8 @@ import std/sets, results, chronos, metrics, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/pubsub_topic,
-    protocols/message,
+    common/topics/pubsub_topic,
+    common/message,
     archive/common,
     archive/archive,
     archive/driver,
@@ -15,8 +15,7 @@ import
     archive/driver/sqlite_driver/migrations,
     common/databases/db_sqlite,
   ],
-  ../testlib/[wakucore]
-
+  ../testlib/wakucore
 proc newSqliteDatabase*(path: Opt[string] = Opt.none(string)): SqliteDatabase =
   SqliteDatabase.new(path.get(":memory:")).tryGet()
 

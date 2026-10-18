@@ -1,6 +1,5 @@
 import libp2p/peerinfo, brokers/[event_broker, request_broker]
-import logos_delivery/kernel/[peer_manager/peers]
-
+import logos_delivery/kernel/[common/peers]
 EventBroker:
   # Event emitted when peers are discovered via random or service lookup
   type PeersDiscoveredEvent* = object

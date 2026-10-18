@@ -1,6 +1,5 @@
 import results, std/strformat
-import ./health_status
-
+import logos_delivery/kernel/[common/health/health_status]
 type ProtocolName* {.pure.} = enum
   RelayProtocol = "Relay"
   RlnRelayProtocol = "Rln Relay"

@@ -14,10 +14,10 @@ import results, chronos, libp2p/crypto/rng, libp2p_mix/pool
 import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     rln/rln_api,
     rln/rln_plugin,
     api/lightpush,
@@ -30,7 +30,6 @@ import
     protocols/lightpush/callbacks,
     protocols/mix/protocol,
   ]
-
 # WakuLightPushResult, PushMessageHandler, LightPushErrorCode (common) plus the
 # LightPushStatusCode `$`/`==` the send processors branch on (rpc).
 export common, rpc

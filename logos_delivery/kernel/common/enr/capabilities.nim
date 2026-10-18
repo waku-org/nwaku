@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
-import logos_delivery/kernel/common/enr, logos_delivery/kernel/protocols/codecs
+import logos_delivery/kernel/[common/enr, common/codecs]
 import libp2p_mix
 
 const CapabilitiesEnrField* = "waku2"

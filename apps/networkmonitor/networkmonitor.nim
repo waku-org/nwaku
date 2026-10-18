@@ -19,10 +19,10 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     kernel,
     api/relay,
@@ -37,13 +37,12 @@ import
     rln/rln_evm/conversion_utils,
     rln/rln_evm/rln_evm,
     rln/rln_plugin,
-    factory/builder,
+    api/builder,
     factory/networks_config,
   ],
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
-
 logScope:
   topics = "networkmonitor"
 

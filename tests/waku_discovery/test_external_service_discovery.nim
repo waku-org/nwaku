@@ -5,12 +5,13 @@ import chronos, chronos/threadsync, results, testutils/unittests
 import brokers/broker_context
 import libp2p/[peerid, peerinfo, multiaddress, crypto/crypto, extended_peer_record]
 import
-  logos_delivery/kernel/discovery/external_service_discovery,
-  logos_delivery/kernel/discovery/node_state_requests,
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/[peer_manager/peers],
+  logos_delivery/kernel/[
+    discovery/external_service_discovery,
+    discovery/node_state_requests,
+    peer_manager/peer_manager,
+    common/peers,
+  ],
   ../testlib/wakucore
-
 ## A fake plugin written the way a real one would be: plain C entry points
 ## over shared state. The entry points run on the discovery worker thread, so
 ## the state must live in shared memory (no Nim GC types) for the assertions

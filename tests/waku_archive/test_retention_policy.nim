@@ -3,10 +3,10 @@
 import std/[sequtils, times], results, testutils/unittests, chronos
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
     archive/driver,
     archive/retention_policy,
     archive/retention_policy/retention_policy_time,
@@ -15,7 +15,6 @@ import
   ],
   ./archive_utils,
   ../testlib/wakucore
-
 suite "Waku Archive - Retention policy":
   test "capacity retention policy - windowed message deletion":
     ## Given

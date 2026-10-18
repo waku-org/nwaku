@@ -23,21 +23,19 @@ import chronos, chronicles, results
 import brokers/broker_implement
 import libp2p/peerinfo
 import
-  logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/discovery/peer_discovery_conversion,
-  logos_delivery/kernel/discovery/signed_service_record,
-  logos_delivery/kernel/discovery/node_state_requests,
-  logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
-  logos_delivery/kernel/discovery/plugin/service_discovery_worker,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
-    protocols/message,
-    peer_manager/peers,
-  ],
-  logos_delivery/kernel/peer_manager/peer_manager
-
+    discovery/peer_discovery_interface,
+    discovery/peer_discovery_conversion,
+    discovery/signed_service_record,
+    discovery/node_state_requests,
+    discovery/plugin/service_discovery_accessor,
+    discovery/plugin/service_discovery_worker,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    peer_manager/peer_manager,
+  ]
 export peer_discovery_interface, service_discovery_accessor
 
 logScope:

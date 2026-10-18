@@ -11,14 +11,11 @@
 
 import results, chronos, metrics
 import
-  logos_delivery/kernel/
-    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, protocols/message],
+  logos_delivery/kernel/[common/topics/pubsub_topic, common/message, common/request_id],
   ./protocol,
   ./common,
   ./rpc,
-  ./rpc_codec,
-  logos_delivery/kernel/protocols/request_id
-
+  ./rpc_codec
 proc handleSelfLightPushRequest*(
     self: WakuLightPush, pubSubTopic: Opt[PubsubTopic], message: WakuMessage
 ): Future[WakuLightPushResult] {.async.} =

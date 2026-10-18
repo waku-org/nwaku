@@ -5,17 +5,17 @@ import results, testutils/unittests, chronos, metrics
 import
   logos_delivery/kernel/[
     common/paging,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
     protocols/store/common,
     protocols/store/protocol_metrics,
     protocols/store/rpc_codec,
     common/protobuf,
   ],
-  ../testlib/[wakucore, protobuf_errors]
-
+  ../testlib/wakucore,
+  ../testlib/protobuf_errors
 proc keyValueOf(hashByte: byte, message: WakuMessage): WakuMessageKeyValue =
   ## A key-value with the hash `hashByte` 00 .. and the default pubsub topic.
   var hash: WakuMessageHash

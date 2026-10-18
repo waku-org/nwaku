@@ -14,12 +14,11 @@ import
 import tools/confutils/cli_args
 
 import
-  tests/testlib/[wakunode, wakucore],
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/peers,
+    common/codecs,
     kernel_lifecycle,
     protocols/store/common,
     protocols/store/client,
@@ -34,18 +33,17 @@ import
     protocols/metadata/protocol,
     protocols/filter/common,
     protocols/filter/protocol,
+    subscription_manager,
+    factory/internal_config,
+    factory/networks_config,
+    factory/conf_builder/conf_builder,
+    factory/conf_builder/filter_service_conf_builder,
+    factory/conf_builder/store_service_conf_builder,
+    factory/conf_builder/discv5_conf_builder,
+    factory/conf_builder/metrics_server_conf_builder,
   ],
-  logos_delivery/kernel/subscription_manager,
-  logos_delivery/kernel/factory/[
-    internal_config,
-    networks_config,
-    conf_builder/conf_builder,
-    conf_builder/filter_service_conf_builder,
-    conf_builder/store_service_conf_builder,
-    conf_builder/discv5_conf_builder,
-    conf_builder/metrics_server_conf_builder,
-  ]
-
+  tests/testlib/wakunode,
+  tests/testlib/wakucore
 proc servicePeerGauge(codec: string): float64 =
   try:
     return logos_delivery_service_peers.value([codec])

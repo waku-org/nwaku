@@ -9,19 +9,19 @@ import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_metrics
 
 import
-  logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     protocols/relay/protocol,
     api/filter,
     protocols/filter/subscriptions,
-  ]
+  ],
+  logos_delivery
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 

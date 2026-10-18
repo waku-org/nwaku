@@ -3,18 +3,19 @@
 import results, chronicles, std/tables, chronos, testutils/unittests
 
 import
-  logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    kernel_lifecycle,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    peer_manager/peers,
+    common/peers,
+    subscription_manager,
+    peer_manager/peer_manager,
   ],
-  logos_delivery/kernel/subscription_manager,
-  ../../waku_lightpush/[lightpush_utils],
-  ../../testlib/[wakucore, wakunode, testasync],
-  logos_delivery/kernel/peer_manager/peer_manager
-
+  ../../waku_lightpush/lightpush_utils,
+  ../../testlib/wakucore,
+  ../../testlib/wakunode,
+  ../../testlib/testasync
 suite "Peer Manager":
   suite "refreshPeerMetadata":
     var

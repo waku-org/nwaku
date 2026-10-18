@@ -2,11 +2,9 @@
 
 import results, chronos, chronicles
 import
-  logos_delivery/kernel/[protocols/message],
-  logos_delivery/kernel/protocols/relay/protocol,
+  logos_delivery/kernel/[common/message, protocols/relay/protocol],
   ./common,
   ./protocol_metrics
-
 import libp2p/peerid
 
 proc getNilPushHandler*(): PushMessageHandler =

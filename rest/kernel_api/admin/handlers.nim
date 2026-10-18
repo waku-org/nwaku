@@ -12,9 +12,9 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/peers,
+    common/codecs,
     protocols/store/common,
     protocols/filter/common,
     protocols/filter/protocol,
@@ -30,7 +30,6 @@ import
   rest/serdes,
   rest/rest_serdes,
   rest/kernel_api/admin/types
-
 export types
 
 logScope:

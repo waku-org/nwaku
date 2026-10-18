@@ -14,15 +14,14 @@ import
     common/logging,
     common/parse_size_units,
     peer_manager/peer_manager,
-    protocols/message,
-    protocols/topics/pubsub_topic,
+    common/message,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/enr/capabilities,
     persistency/persistency,
     protocols/mix/protocol,
   ],
   tools/confutils/entry_nodes
-
 import
   ./filter_service_conf_builder,
   ./store_sync_conf_builder,

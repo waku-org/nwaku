@@ -1,10 +1,6 @@
 {.push raises: [].}
 
-import
-  results,
-  logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/[protocols/message]
-
+import logos_delivery/kernel/[common/protobuf, common/message], results
 type
   PushRequest* {.proto3.} = object
     pubSubTopic* {.fieldNumber: 1.}: string

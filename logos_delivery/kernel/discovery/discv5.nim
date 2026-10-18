@@ -17,8 +17,8 @@ import
   logos_delivery/kernel/[
     net/auto_port,
     peer_manager/peer_manager,
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
+    common/topics/pubsub_topic,
+    common/peers,
     common/enr,
     common/enr/capabilities,
     common/enr/multiaddr,

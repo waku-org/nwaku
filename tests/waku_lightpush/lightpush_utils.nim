@@ -3,14 +3,16 @@
 import results, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/[common/enr/sharding, protocols/message],
-  logos_delivery/kernel/common/enr/sharding,
-  logos_delivery/kernel/protocols/lightpush/[protocol, common],
-  logos_delivery/kernel/protocols/lightpush/[client, common],
-  logos_delivery/kernel/common/rate_limit/setting,
-  ../testlib/[wakucore]
-
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    common/enr/sharding,
+    common/message,
+    protocols/lightpush/protocol,
+    protocols/lightpush/common,
+    protocols/lightpush/client,
+    common/rate_limit/setting,
+  ],
+  ../testlib/wakucore
 proc newTestWakuLightpushNode*(
     switch: Switch,
     handler: PushMessageHandler,

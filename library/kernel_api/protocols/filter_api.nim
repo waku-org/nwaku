@@ -2,13 +2,11 @@ import std/[strutils, sequtils]
 import logos_delivery/kernel/protocols/filter/common
 import chronicles, chronos, results, ffi
 import
+  logos_delivery/kernel/
+    [common/message, common/topics/pubsub_topic, common/topics/content_topic],
   logos_delivery,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/topics/content_topic,
   library/events/json_message_event,
   library/declare_lib
-
 proc waku_filter_subscribe(
     self: LogosDelivery, pubSubTopic: string, contentTopics: string
 ): Future[Result[string, string]] {.ffi.} =

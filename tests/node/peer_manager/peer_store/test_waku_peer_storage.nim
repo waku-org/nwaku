@@ -10,10 +10,7 @@ import
   nimcrypto/utils,
   sqlite3_abi
 
-import
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/peer_manager/peer_store/sqlite_peer_storage
-
+import logos_delivery/kernel/[common/peers, peer_manager/peer_store/sqlite_peer_storage]
 proc `==`(a, b: RemotePeerInfo): bool =
   let comparisons = @[
     a.peerId == b.peerId,

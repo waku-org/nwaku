@@ -1,16 +1,17 @@
 import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/relay/protocol,
-  logos_delivery/kernel/health_monitor/topic_health,
+  logos_delivery/kernel/[
+    common/message,
+    common/topics/pubsub_topic,
+    protocols/relay/protocol,
+    common/health/topic_health,
+    kernel_lifecycle,
+    kernel,
+  ],
   logos_delivery,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/kernel,
   ./events/json_message_event,
   ./declare_lib
-
 ################################################################################
 ## Include different APIs, i.e. all procs with {.ffi.} pragma
 

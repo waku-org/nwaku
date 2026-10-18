@@ -5,21 +5,22 @@ import results, std/[sets, sequtils], testutils/unittests, chronos, libp2p/crypt
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/store/common,
     protocols/store/protocol,
     protocols/store/client,
     protocols/store/rpc_codec,
     common/paging,
   ],
-  ../testlib/[wakucore, testasync, futures],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./store_utils
-
 suite "Store Client":
   var message1 {.threadvar.}: WakuMessage
   var message2 {.threadvar.}: WakuMessage

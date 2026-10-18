@@ -3,15 +3,13 @@
 import chronos, stew/[byteutils]
 
 import
-  logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
+    common/protobuf,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
   ]
-
 const
   DefaultSyncInterval*: Duration = 5.minutes
   DefaultSyncRange*: Duration = 1.hours

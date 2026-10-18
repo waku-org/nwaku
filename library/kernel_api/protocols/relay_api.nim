@@ -1,13 +1,11 @@
 import std/[strutils, json]
 import chronicles, chronos, results, ffi
 import
+  logos_delivery/kernel/
+    [common/topics/pubsub_topic, common/message, protocols/relay/protocol],
   logos_delivery,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/relay/protocol,
   library/events/json_message_event,
   library/declare_lib
-
 proc waku_relay_get_peers_in_mesh(
     self: LogosDelivery, pubSubTopic: string
 ): Future[Result[string, string]] {.ffi.} =

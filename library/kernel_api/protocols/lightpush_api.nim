@@ -1,12 +1,10 @@
 import std/[json, strformat]
 import chronicles, chronos, results, ffi
 import
+  logos_delivery/kernel/[common/message, common/topics/pubsub_topic],
   logos_delivery,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
   library/events/json_message_event,
   library/declare_lib
-
 proc waku_lightpush_publish(
     self: LogosDelivery, pubSubTopic: string, jsonWakuMessage: string
 ): Future[Result[string, string]] {.ffi.} =

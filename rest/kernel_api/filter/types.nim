@@ -9,15 +9,14 @@ import
   presto/[route, client, common],
   libp2p/peerid
 import
-  logos_delivery/kernel/common/base64,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/base64,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
   ],
   rest/serdes
-
 #### Types
 
 type FilterWakuMessage* = object

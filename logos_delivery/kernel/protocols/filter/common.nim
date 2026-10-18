@@ -1,11 +1,8 @@
 {.push raises: [].}
 
 import chronos, results
-import
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/message
-
-from logos_delivery/kernel/protocols/codecs import
+import logos_delivery/kernel/[common/topics/pubsub_topic, common/message]
+from logos_delivery/kernel/common/codecs import
   WakuFilterSubscribeCodec, WakuFilterPushCodec
 export WakuFilterSubscribeCodec, WakuFilterPushCodec
 

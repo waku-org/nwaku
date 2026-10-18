@@ -16,11 +16,7 @@
 import chronos, results
 import libp2p/[switch, peerinfo, crypto/crypto]
 import brokers/request_broker
-import
-  logos_delivery/kernel/[peer_manager/peers],
-  logos_delivery/kernel/[common/enr],
-  logos_delivery/kernel/peer_manager/peer_manager
-
+import logos_delivery/kernel/[common/peers, common/enr, peer_manager/peer_manager]
 export request_broker
 
 RequestBroker(sync):

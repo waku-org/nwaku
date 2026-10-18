@@ -4,15 +4,18 @@ import results, stew/byteutils
 import std/[random, strutils], testutils/unittests, chronos
 
 import
+  logos_delivery/kernel/[
+    common/topics/pubsub_topic,
+    common/time,
+    common/message,
+    protocols/store_sync/common,
+    protocols/store_sync/codec,
+  ],
   ../../logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/[protocols/topics/pubsub_topic, common/time, protocols/message],
-  ../../logos_delivery/kernel/protocols/message,
+  ../../logos_delivery/kernel/common/message,
   ../../logos_delivery/kernel/common/time,
-  logos_delivery/kernel/protocols/store_sync/common,
-  logos_delivery/kernel/protocols/store_sync/codec,
   ../testlib/protobuf_errors,
   ./sync_utils
-
 proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
   var
     elements = newSeqOfCap[SyncID](count)

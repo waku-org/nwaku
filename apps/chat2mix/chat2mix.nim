@@ -36,13 +36,13 @@ import libp2p_mix/[curve25519, mix_protocol]
 import
   logos_delivery/kernel/[
     common/protobuf,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     common/enr,
@@ -52,14 +52,13 @@ import
     metrics_server,
     peer_manager/peer_manager,
     factory/conf,
-    factory/builder,
+    api/builder,
     net/nat_config,
     protocols/store/common,
     protocols/filter/client,
     common/logging,
   ],
   ./config_chat2mix
-
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
 import logos_delivery/kernel/[rln/rln_evm/group_manager, rln/rln_evm/conversion_utils]
 

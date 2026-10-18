@@ -14,15 +14,9 @@ import
 const MessageWindowInSec = 5 * 60 # +- 5 minutes
 
 import
-  ./conf,
-  logos_delivery/kernel/protocols/relay/protocol,
-  logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/topics/pubsub_topic,
-    common/time,
-    protocols/message,
-  ]
-
+  logos_delivery/kernel/
+    [protocols/relay/protocol, common/topics/pubsub_topic, common/time, common/message],
+  ./conf
 declarePublicCounter logos_delivery_msg_validator_signed_outcome,
   "number of messages for each validation outcome", ["result"]
 

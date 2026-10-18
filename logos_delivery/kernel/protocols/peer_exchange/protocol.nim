@@ -1,3 +1,4 @@
+import logos_delivery/kernel/common/enr/sharding
 import
   std/[sequtils, random],
   results,
@@ -9,17 +10,17 @@ import
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
 import
-  logos_delivery/kernel/common/nimchronos,
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/[peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/discovery/discv5,
+  logos_delivery/kernel/[
+    common/nimchronos,
+    peer_manager/peer_manager,
+    common/peers,
+    common/codecs,
+    common/rate_limit/request_limiter,
+  ],
   ./rpc,
   ./rpc_codec,
-  logos_delivery/kernel/common/rate_limit/request_limiter,
   ./common
-
-from logos_delivery/kernel/protocols/codecs import WakuPeerExchangeCodec
+from logos_delivery/kernel/common/codecs import WakuPeerExchangeCodec
 export WakuPeerExchangeCodec
 
 declarePublicGauge logos_delivery_px_peers_received_unknown,

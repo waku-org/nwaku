@@ -28,7 +28,7 @@ import
 
 import
   logos_delivery/kernel/
-    [common/error_handling, common/time, protocols/message, rln/keystore/keyfile]
+    [common/error_handling, common/time, common/message, rln/keystore/keyfile]
 import logos_delivery/kernel/rln/types as rln_api_types
 import logos_delivery/kernel/rln/rln_plugin
 

@@ -5,13 +5,12 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/driver/sqlite_driver/sqlite_driver,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
   ],
   ./archive_utils,
   ../testlib/wakucore
-
 suite "SQLite driver":
   test "init driver and database":
     ## Given

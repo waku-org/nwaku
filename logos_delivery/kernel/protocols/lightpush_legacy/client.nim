@@ -4,21 +4,18 @@ import libp2p/crypto/crypto
 import results, chronicles, chronos, metrics, stew/byteutils
 import libp2p/peerid
 import
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/protocols/request_id,
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/peers,
+    peer_manager/peer_manager,
+    common/request_id,
+    common/topics/pubsub_topic,
+    common/message,
+    common/codecs,
   ],
-  logos_delivery/kernel/protocols/codecs,
   ./common,
   ./protocol_metrics,
   ./rpc,
   ./rpc_codec
-
 logScope:
   topics = "waku lightpush legacy client"
 

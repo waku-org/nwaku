@@ -9,20 +9,21 @@ import libp2p_mix, libp2p_mix/[curve25519, mix_metrics]
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
-    health_monitor/protocol_health,
+    common/topics/pubsub_topic,
+    common/peers,
+    common/health/protocol_health,
     net/net_config,
-    common/enr/enr_addresses,
+    net/enr_addresses,
     peer_manager/peer_manager,
     kernel_lifecycle,
-    health_monitor/health_status,
+    common/health/health_status,
     health_monitor/node_health_monitor,
     protocols/mix/protocol,
     protocols/mix/protocol_metrics,
   ],
-  ../testlib/[wakucore, wakunode, testasync]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 ## Mix's own hop closes every reply path this node asks for. On every address
 ## commit the node sets it to the first address mix can encode: a direct address
 ## known from outside, the ENR endpoint, a relay route, then the resolved set.

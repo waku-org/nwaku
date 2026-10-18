@@ -4,6 +4,7 @@
 ## for spec.
 {.push raises: [].}
 
+import logos_delivery/kernel/peer_manager/peer_manager
 import
   std/[os, strformat, strutils, sets],
   stew/byteutils,
@@ -22,20 +23,20 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
-    health_monitor/topic_health,
-    health_monitor/health_requests,
+    common/message,
+    common/peers,
+    common/codecs,
+    common/health/topic_health,
+    common/health/health_requests,
     events/health_events,
     events/peer_events,
   ],
   ./message_id
-from logos_delivery/kernel/protocols/codecs import WakuRelayCodec
+from logos_delivery/kernel/common/codecs import WakuRelayCodec
 export WakuRelayCodec
 
 type ShardMetrics = object
@@ -112,7 +113,7 @@ const GossipsubParameters = GossipSubParams.init(
   gossipFactor = 0.25,
   d = 6,
   dLow = 4,
-  dHigh = 8,
+  dHigh = RelayMeshHighWatermark,
   dScore = 6,
   dOut = 3,
   dLazy = 6,
@@ -431,9 +432,6 @@ proc addValidator*(
 proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
   ## Observes when a message is sent/received from the GossipSub PoV
   procCall GossipSub(w).addObserver(observer)
-
-proc getDHigh*(T: type WakuRelay): int =
-  return GossipsubParameters.dHigh
 
 proc getPubSubPeersInMesh*(
     w: WakuRelay, pubsubTopic: PubsubTopic

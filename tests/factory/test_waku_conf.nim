@@ -10,21 +10,22 @@ import
   results,
   testutils/unittests
 import
-  logos_delivery/kernel/factory/conf,
-  logos_delivery/kernel/factory/conf_builder/conf_builder,
-  logos_delivery/kernel/factory/conf_builder/store_sync_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/store_service_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/discv5_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/rate_limit_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/rln_relay_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/mix_conf_builder,
-  logos_delivery/kernel/factory/networks_config,
-  logos_delivery/kernel/protocols/mix/protocol,
-  logos_delivery/kernel/common/enr/capabilities,
-  logos_delivery/kernel/common/rate_limit/setting,
-  logos_delivery/kernel/common/parse_size_units,
-  logos_delivery/kernel/protocols/message
-
+  logos_delivery/kernel/[
+    factory/conf,
+    factory/conf_builder/conf_builder,
+    factory/conf_builder/store_sync_conf_builder,
+    factory/conf_builder/store_service_conf_builder,
+    factory/conf_builder/discv5_conf_builder,
+    factory/conf_builder/rate_limit_conf_builder,
+    factory/conf_builder/rln_relay_conf_builder,
+    factory/conf_builder/mix_conf_builder,
+    factory/networks_config,
+    protocols/mix/protocol,
+    common/enr/capabilities,
+    common/rate_limit/setting,
+    common/parse_size_units,
+    common/message,
+  ]
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":
     var builder = WakuConfBuilder.init()

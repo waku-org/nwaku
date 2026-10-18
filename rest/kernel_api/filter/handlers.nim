@@ -13,25 +13,25 @@ import
   presto/common
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
+    common/codecs,
+    kernel,
+    api/filter,
+    peer_manager/peer_manager,
+    protocols/filter/common,
+    protocols/filter/client as filter_protocol_client,
+    protocols/filter/common as filter_protocol_type,
   ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[kernel, api/filter],
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/protocols/filter/[common],
-  logos_delivery/kernel/protocols/filter/client as filter_protocol_client,
-  logos_delivery/kernel/protocols/filter/common as filter_protocol_type,
   rest/message_cache,
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   rest/kernel_api/filter/types
-
 export types
 
 logScope:

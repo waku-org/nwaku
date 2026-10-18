@@ -2,14 +2,15 @@ import
   std/[algorithm, sequtils, tables, packedsets, sugar], results, chronos, stew/arrayops
 
 import
-  logos_delivery/kernel/common/time,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/topics/pubsub_topic,
-  logos_delivery/kernel/protocols/topics/content_topic,
-  logos_delivery/kernel/protocols/store_sync/common,
+  logos_delivery/kernel/[
+    common/time,
+    common/message,
+    common/topics/pubsub_topic,
+    common/topics/content_topic,
+    protocols/store_sync/common,
+  ],
   ./range_processing,
   ./storage
-
 type SeqStorage* = ref object of SyncStorage
   elements: seq[SyncID]
 

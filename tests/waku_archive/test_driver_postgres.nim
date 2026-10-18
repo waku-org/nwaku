@@ -16,13 +16,13 @@ import
     archive/driver/postgres_driver/postgres_driver,
     archive/driver/postgres_driver/partitions_manager,
     archive/driver/postgres_driver/postgres_healthcheck,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     common/databases/db_postgres/dbconn,
     common/databases/db_postgres/dns_resolver,
     common/databases/db_postgres/pgasyncpool,
@@ -31,7 +31,6 @@ import
   ../testlib/testasync,
   ../testlib/postgres,
   ./archive_utils
-
 proc noopFatalHandler(errMsg: string) {.gcsafe, raises: [].} =
   ## For the second driver instances the tests start: the factory only calls it
   ## after six failed passes, about an hour, so it is out of reach within a test.

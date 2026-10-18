@@ -2,8 +2,7 @@ import std/strutils
 
 import results, eth/p2p/discoveryv5/enr
 
-import logos_delivery/kernel/peer_manager/peers
-
+import logos_delivery/kernel/[common/peers]
 type EntryNodeType {.pure.} = enum
   EnrTree
   Enr

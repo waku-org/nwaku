@@ -1,10 +1,7 @@
 import brokers/event_broker
 
-import logos_delivery/api/types
-import logos_delivery/kernel/health_monitor/[protocol_health, topic_health]
-import
-  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic]
-
+import logos_delivery/kernel/[common/health/protocol_health, common/health/topic_health]
+import logos_delivery/kernel/[common/topics/content_topic, common/topics/pubsub_topic]
 export event_broker, protocol_health, topic_health
 
 # Notify health changes to a subscribed topic

@@ -3,16 +3,15 @@
 import std/sequtils, results
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-  ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/common/[paging, protobuf]
-
-from logos_delivery/kernel/protocols/codecs import WakuStoreCodec
+    common/message,
+    common/codecs,
+    common/paging,
+    common/protobuf,
+  ]
+from logos_delivery/kernel/common/codecs import WakuStoreCodec
 export WakuStoreCodec
 
 const

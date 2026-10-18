@@ -6,15 +6,14 @@ import
 import
   logos_delivery/kernel/[
     archive/driver,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
   ],
   ../testlib/common,
   ../testlib/wakucore,
   ./archive_utils
-
 logScope:
   topics = "test archive _driver"
 

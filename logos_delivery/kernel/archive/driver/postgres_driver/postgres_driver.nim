@@ -9,23 +9,21 @@ import
   db_connector/[postgres, db_common],
   chronicles
 import
-  ../../../common/error_handling,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
+    common/codecs,
+    archive/common,
+    archive/driver,
+    common/databases/db_postgres as waku_postgres,
+    archive/driver/postgres_driver/postgres_healthcheck,
+    archive/driver/postgres_driver/partitions_manager,
   ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/archive/common,
-  logos_delivery/kernel/archive/driver,
-  logos_delivery/kernel/common/databases/db_postgres as waku_postgres,
-  logos_delivery/kernel/archive/driver/postgres_driver/postgres_healthcheck,
-  logos_delivery/kernel/archive/driver/postgres_driver/partitions_manager
-
+  ../../../common/error_handling
 logScope:
   topics = "postgres driver"
 

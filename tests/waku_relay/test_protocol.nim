@@ -14,15 +14,18 @@ import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
     protocols/relay/protocol,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
   ],
-  ../testlib/[wakucore, wakunode, testasync, futures, sequtils],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/sequtils,
   ./utils,
   ../resources/payloads
-
 proc invalidMessages(stage: string): float64 =
   ## The count of `logos_delivery_relay_invalid_messages` for `stage`, 0 before
   ## its first increment.

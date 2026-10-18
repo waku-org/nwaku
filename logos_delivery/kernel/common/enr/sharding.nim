@@ -11,10 +11,8 @@ import
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto
 import
-  logos_delivery/kernel/common/enr,
-  logos_delivery/kernel/protocols/topics/content_topic,
-  logos_delivery/kernel/protocols/topics/pubsub_topic
-
+  logos_delivery/kernel/
+    [common/enr, common/topics/content_topic, common/topics/pubsub_topic]
 logScope:
   topics = "waku enr sharding"
 

@@ -6,18 +6,17 @@ import
   logos_delivery/kernel/[
     common/paging,
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/store/common,
     protocols/store/client,
   ],
   ../testlib/wakucore,
   ./store_utils
-
 suite "Waku Store - query handler":
   asyncTest "history query handler should be called":
     ## Setup

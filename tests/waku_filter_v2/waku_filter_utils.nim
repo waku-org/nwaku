@@ -6,12 +6,12 @@ import
     protocols/filter/protocol,
     protocols/filter/subscriptions,
     protocols/filter/client,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/rate_limit/setting,
   ],
-  ../testlib/[common, wakucore]
-
+  ../testlib/common,
+  ../testlib/wakucore
 proc newTestWakuFilter*(
     switch: Switch,
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,

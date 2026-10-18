@@ -14,28 +14,26 @@ import
 from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
 import
-  ../../logos_delivery/kernel/[
-    peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    common/time,
-    peer_manager/peers,
-    protocols/codecs,
-    protocols/message,
-    protocols/store_sync/common,
-    protocols/store_sync/codec,
-    protocols/store_sync/storage/range_processing,
-    protocols/store_sync/reconciliation,
-    protocols/store_sync/transfer,
-    protocols/store_sync/protocols_metrics,
-    archive/archive,
-    archive/driver,
-    archive/common,
-  ],
-  ../testlib/[wakucore, testasync],
+  ../../logos_delivery/kernel/peer_manager/peer_manager,
+  ../../logos_delivery/kernel/common/topics/content_topic,
+  ../../logos_delivery/kernel/common/topics/pubsub_topic,
+  ../../logos_delivery/kernel/common/time,
+  ../../logos_delivery/kernel/common/peers,
+  ../../logos_delivery/kernel/common/codecs,
+  ../../logos_delivery/kernel/common/message,
+  ../../logos_delivery/kernel/protocols/store_sync/common,
+  ../../logos_delivery/kernel/protocols/store_sync/codec,
+  ../../logos_delivery/kernel/protocols/store_sync/storage/range_processing,
+  ../../logos_delivery/kernel/protocols/store_sync/reconciliation,
+  ../../logos_delivery/kernel/protocols/store_sync/transfer,
+  ../../logos_delivery/kernel/protocols/store_sync/protocols_metrics,
+  ../../logos_delivery/kernel/archive/archive,
+  ../../logos_delivery/kernel/archive/driver,
+  ../../logos_delivery/kernel/archive/common,
+  ../testlib/wakucore,
+  ../testlib/testasync,
   ../waku_archive/archive_utils,
   ./sync_utils
-
 proc collectDiffs*(
     chan: var Channel[SyncID], diffCount: int
 ): HashSet[WakuMessageHash] =

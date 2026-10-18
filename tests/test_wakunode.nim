@@ -21,17 +21,16 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
     kernel_lifecycle,
     peer_manager/peer_manager,
+    factory/internal_config,
   ],
-  logos_delivery/kernel/factory/internal_config,
   ./testlib/wakucore,
   ./testlib/wakunode
-
 suite "Kernel":
   asyncTest "Protocol matcher works as expected":
     let

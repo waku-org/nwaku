@@ -39,14 +39,8 @@ import
     factory/app_callbacks,
     persistency/persistency,
     protocols/protocols,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
     protocols/relay/protocol,
-    health_monitor/topic_health,
     archive/common,
     archive/archive,
     archive/retention_policy,
@@ -77,20 +71,26 @@ import
     common/callbacks,
     common/nimchronos,
     protocols/mix/protocol,
-    protocols/topics/relay_shard_request,
-    health_monitor/health_requests,
     events/health_events,
     events/discovery_events,
   ],
+  logos_delivery/kernel/common/topics/content_topic,
+  logos_delivery/kernel/common/topics/pubsub_topic,
+  logos_delivery/kernel/common/message,
+  logos_delivery/kernel/common/peers,
+  logos_delivery/kernel/common/codecs,
+  logos_delivery/kernel/common/health/topic_health,
+  logos_delivery/kernel/common/topics/relay_shard_request,
+  logos_delivery/kernel/common/health/health_requests,
   logos_delivery/kernel/events/kernel_events, # MessageSeenEvent
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/discovery/kademlia,
   logos_delivery/kernel/net/[bound_ports, net_config],
   logos_delivery/kernel/net/delivery_dialer,
-  logos_delivery/kernel/common/enr/enr_addresses,
+  logos_delivery/kernel/net/enr_addresses,
   logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/health_monitor/health_status,
-  logos_delivery/kernel/health_monitor/topic_health,
+  logos_delivery/kernel/common/health/health_status,
+  logos_delivery/kernel/common/health/topic_health,
   logos_delivery/kernel/subscription_manager,
   logos_delivery/kernel/health_monitor/node_health_monitor
 
@@ -464,7 +464,7 @@ proc mountMetadata*(
   let metadata = WakuMetadata.new(clusterId, node.getShardsGetter(shards))
 
   node.protocols.metadata = metadata
-  node.peerManager.wakuMetadata = metadata
+  node.peerManager.metadata = Opt.some(metadata.asMetadataSource())
 
   let catchRes = catch:
     node.switch.mount(node.protocols.metadata, protocolMatcher(WakuMetadataCodec))

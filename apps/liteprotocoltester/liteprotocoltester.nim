@@ -11,7 +11,6 @@ import
   confutils
 
 import
-  tools/confutils/cli_args,
   logos_delivery/kernel/[
     common/enr,
     common/logging,
@@ -19,14 +18,14 @@ import
     peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/filter/common,
-    peer_manager/peers,
+    common/peers,
   ],
+  tools/confutils/cli_args,
   ./tester_config,
   ./publisher,
   ./receiver,
   ./diagnose_connections,
   ./service_peer_management
-
 logScope:
   topics = "liteprotocoltester main"
 

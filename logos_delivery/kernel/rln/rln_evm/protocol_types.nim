@@ -2,17 +2,18 @@
 
 import stint, chronos, web3, eth/keys
 import
-  logos_delivery/kernel/[common/time, protocols/message, peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/[
+    common/time,
+    common/message,
+    common/peers,
+    common/codecs,
     rln/keystore/keyfile,
     rln/keystore/keystore,
     rln/keystore/conversion_utils,
     rln/keystore/utils,
+    rln/keystore/protocol_types as keystore_protocol_types,
   ],
-  logos_delivery/kernel/rln/keystore/protocol_types as keystore_protocol_types,
   ../../common/protobuf
-
 export
   keyfile, keystore, conversion_utils, keystore_protocol_types, utils, time, message,
   peers, codecs

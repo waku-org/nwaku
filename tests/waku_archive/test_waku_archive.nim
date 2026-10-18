@@ -6,10 +6,10 @@ import
   logos_delivery/kernel/[
     common/databases/db_postgres/dbconn,
     common/paging,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
     archive/common,
     archive/archive,
     archive/driver,
@@ -21,7 +21,6 @@ import
   ],
   ./archive_utils,
   ../testlib/wakucore
-
 suite "Waku Archive - message handling":
   test "it should archive a valid and non-ephemeral message":
     ## Setup

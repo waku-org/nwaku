@@ -5,12 +5,11 @@ import rest/serdes
 import logos_delivery/api/types
 import
   logos_delivery/kernel/[
-    health_monitor/protocol_health,
-    health_monitor/health_status,
-    health_monitor/connection_status,
-    health_monitor/health_report,
+    common/health/protocol_health,
+    common/health/health_status,
+    common/health/connection_status,
+    common/health/health_report,
   ]
-
 #### Serialization and deserialization
 
 proc writeValue*(

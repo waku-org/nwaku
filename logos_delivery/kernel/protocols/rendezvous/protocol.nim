@@ -15,14 +15,15 @@ import
 import metrics except collect
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/common/callbacks,
-  logos_delivery/kernel/common/enr/capabilities,
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    common/callbacks,
+    common/enr/capabilities,
+    common/peers,
+    common/codecs,
+  ],
   ./common,
   ./peer_record
-
 logScope:
   topics = "waku rendezvous"
 

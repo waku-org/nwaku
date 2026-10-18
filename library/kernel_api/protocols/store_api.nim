@@ -1,15 +1,12 @@
 import std/[json, sugar]
 import chronos, chronicles, results, ffi
 import
+  logos_delivery/kernel/[common/message, protocols/store/common, common/paging],
   logos_delivery,
   library/utils,
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/protocols/store/common,
   rest/serdes,
   rest/kernel_api/store/types,
-  logos_delivery/kernel/common/paging,
   library/declare_lib
-
 func fromJsonNode(jsonContent: JsonNode): Result[StoreQueryRequest, string] =
   var contentTopics: seq[string]
   if jsonContent.contains("contentTopics"):

@@ -3,10 +3,9 @@
 import std/[sets, random, sequtils], results, stew/byteutils, testutils/unittests
 import
   logos_delivery/kernel/
-    [protocols/topics/content_topic, protocols/topics/pubsub_topic, protocols/message],
+    [common/topics/content_topic, common/topics/pubsub_topic, common/message],
   rest/message_cache,
   ./testlib/wakucore
-
 randomize()
 
 suite "MessageCache":

@@ -10,18 +10,21 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[protocols/topics/pubsub_topic, peer_manager/peers],
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/protocols/rendezvous/protocol,
-  logos_delivery/kernel/protocols/rendezvous/common,
-  logos_delivery/kernel/protocols/rendezvous/peer_record,
-  logos_delivery/kernel/protocols/rendezvous/client,
-  logos_delivery/kernel/common/protobuf,
-  ./testlib/[protobuf_errors, wakucore, wakunode]
-
+  logos_delivery/kernel/[
+    common/peers,
+    common/codecs,
+    common/topics/pubsub_topic,
+    kernel_lifecycle,
+    peer_manager/peer_manager,
+    protocols/rendezvous/protocol,
+    protocols/rendezvous/common,
+    protocols/rendezvous/peer_record,
+    protocols/rendezvous/client,
+    common/protobuf,
+  ],
+  ./testlib/protobuf_errors,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 suite "mixPubKeyFromHex":
   test "wrong decoded length returns none":
     check:

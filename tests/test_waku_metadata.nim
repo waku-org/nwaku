@@ -13,10 +13,10 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     discovery/discv5,
     protocols/metadata/protocol,
@@ -26,7 +26,6 @@ import
   ./testlib/wakucore,
   ./testlib/wakunode,
   ./testlib/testasync
-
 procSuite "Waku Metadata Protocol":
   asyncTest "request() returns the supported metadata of the peer":
     let clusterId = 10.uint16

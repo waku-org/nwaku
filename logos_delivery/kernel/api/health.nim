@@ -7,12 +7,11 @@ import logos_delivery/kernel/kernel
 import
   logos_delivery/kernel/[
     health_monitor/node_health_monitor,
-    health_monitor/protocol_health,
-    health_monitor/online_monitor,
-    health_monitor/connection_status,
-    health_monitor/health_report,
+    common/health/protocol_health,
+    peer_manager/online_monitor,
+    common/health/connection_status,
+    common/health/health_report,
   ]
-
 export protocol_health
 
 proc isOnline*(self: Kernel): Future[Result[bool, string]] {.async.} =

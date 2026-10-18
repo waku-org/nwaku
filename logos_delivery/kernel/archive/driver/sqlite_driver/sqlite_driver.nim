@@ -4,21 +4,18 @@
 
 import stew/byteutils, chronicles, chronos, results
 import
-  ../../../common/databases/db_sqlite,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
+    archive/common,
+    archive/driver,
+    archive/driver/sqlite_driver/queries,
   ],
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/archive/common,
-  logos_delivery/kernel/archive/driver,
-  logos_delivery/kernel/archive/driver/sqlite_driver/queries
-
+  ../../../common/databases/db_sqlite
 logScope:
   topics = "waku archive sqlite"
 

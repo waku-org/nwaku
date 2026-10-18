@@ -24,10 +24,10 @@ import
     peer_manager/peer_manager,
     peer_manager/peer_store/sqlite_peer_storage,
     kernel_lifecycle,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     common/enr/capabilities,
     protocols/relay/protocol,
     protocols/filter/common,
@@ -39,7 +39,6 @@ import
   ./testlib/testasync,
   ./testlib/wakucore,
   ./testlib/wakunode
-
 proc syncToBoundPort(node: Kernel, key: keys.PrivateKey) =
   let addrs = node.switch.peerInfo.listenAddrs
   node.switch.peerInfo.addrs = addrs

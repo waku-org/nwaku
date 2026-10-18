@@ -14,8 +14,8 @@ import brokers/broker_context
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/message,
+    common/topics/pubsub_topic,
+    common/message,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,
     rln/rln_evm/rln_evm,
@@ -28,8 +28,7 @@ import
   ],
   ./rln/waku_rln_relay_utils,
   ./utils_onchain,
-  ../testlib/[wakucore]
-
+  ../testlib/wakucore
 from std/times import epochTime
 
 suite "Waku rln relay":

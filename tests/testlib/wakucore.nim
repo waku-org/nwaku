@@ -9,13 +9,9 @@ import
   eth/keys as eth_keys
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    common/time,
-    protocols/message,
+    common/topics/content_topic, common/topics/pubsub_topic, common/time, common/message
   ],
   ./common
-
 export switch
 
 # Time

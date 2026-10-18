@@ -12,13 +12,13 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/kernel/rln/types as rln_api_types,
   logos_delivery/kernel/[
+    rln/types as rln_api_types,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/rln_evm/group_manager,
@@ -27,10 +27,12 @@ import
     rln/rln_evm/protocol_types,
     rln/rln_evm/constants,
   ],
-  ../testlib/[wakucore, wakunode, testasync, testutils],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/testutils,
   ./utils_onchain,
   ./rln/waku_rln_relay_utils
-
 proc waitForNullifierLog(rln: RlnEvm, expectedLen: int): Future[bool] {.async.} =
   ## Helper function
   for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)

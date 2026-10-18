@@ -12,14 +12,17 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/kernel/common/databases/db_sqlite,
-  logos_delivery/kernel/[common/time, peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[archive/archive],
-  logos_delivery/kernel/common/nimchronos,
-  ./[client, common],
-  logos_delivery/kernel/peer_manager/peer_manager
-
+  logos_delivery/kernel/[
+    common/databases/db_sqlite,
+    common/time,
+    common/peers,
+    common/codecs,
+    archive/archive,
+    common/nimchronos,
+    peer_manager/peer_manager,
+  ],
+  ./client,
+  ./common
 logScope:
   topics = "waku store resume"
 

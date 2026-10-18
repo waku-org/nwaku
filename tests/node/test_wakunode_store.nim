@@ -7,19 +7,21 @@ import
     common/paging,
     kernel_lifecycle,
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     protocols/store/common,
     archive/archive,
     archive/driver,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, testutils]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/testutils
 suite "Waku Store - End to End - Sorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic

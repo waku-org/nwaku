@@ -12,11 +12,11 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/filter/common as filter_common,
@@ -25,9 +25,13 @@ import
     protocols/filter/client,
     protocols/filter/rpc,
   ],
-  ../testlib/[common, wakucore, wakunode, testasync, futures, testutils],
+  ../testlib/common,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/testutils,
   ../waku_filter_v2/waku_filter_utils
-
 proc waitForTopicPeer(
     node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
 ) {.async.} =

@@ -3,14 +3,12 @@
 import results, chronos
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-  ],
-  logos_delivery/kernel/archive/common
-
+    common/message,
+    archive/common,
+  ]
 const DefaultPageSize*: uint = 25
 
 type

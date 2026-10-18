@@ -13,16 +13,16 @@ import
   libp2p/wire
 
 import
-  tools/confutils/cli_args,
   logos_delivery/kernel/[
     peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/peer_exchange/protocol,
-    peer_manager/peers,
+    common/peers,
     common/enr/capabilities,
-  ]
+  ],
+  tools/confutils/cli_args
 logScope:
   topics = "diagnose connections"
 

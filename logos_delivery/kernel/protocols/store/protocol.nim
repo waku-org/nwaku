@@ -13,14 +13,15 @@ import
   libp2p/stream/connection,
   metrics
 import
-  logos_delivery/kernel/[protocols/message],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/[peer_manager/peer_manager],
+  logos_delivery/kernel/[
+    common/message,
+    common/codecs,
+    peer_manager/peer_manager,
+    common/rate_limit/request_limiter,
+  ],
   ./common,
   ./rpc_codec,
-  ./protocol_metrics,
-  logos_delivery/kernel/common/rate_limit/request_limiter
-
+  ./protocol_metrics
 logScope:
   topics = "waku store"
 

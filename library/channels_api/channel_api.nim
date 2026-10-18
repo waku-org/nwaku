@@ -1,13 +1,11 @@
 import std/json
 import chronos, results, ffi
 import
-  logos_delivery/kernel/common/base64,
+  logos_delivery/kernel/[common/base64, common/topics/content_topic],
   logos_delivery,
-  logos_delivery/kernel/protocols/topics/content_topic,
   logos_delivery/api/types,
   ../declare_lib,
   ./channel_crypto
-
 proc logosdelivery_channel_create(
     self: LogosDelivery,
     channelIdStr: string,

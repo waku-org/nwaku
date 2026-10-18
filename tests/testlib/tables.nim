@@ -1,9 +1,8 @@
 import std/[tables, sequtils]
 
 import
-  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic],
+  logos_delivery/kernel/[common/topics/content_topic, common/topics/pubsub_topic],
   ./wakucore
-
 proc `==`*(
     table: Table[pubsub_topic.RelayShard, seq[NsContentTopic]],
     other: array[0 .. 0, (string, seq[string])],

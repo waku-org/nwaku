@@ -20,26 +20,29 @@ import logos_delivery/kernel/api/mix
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/pubsub_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     peer_manager/peer_manager,
     kernel,
     api/lightpush,
     api/relay,
     protocols/mix/protocol,
     protocols/lightpush/common,
+    peer_manager/peer_store,
+    kernel_lifecycle,
+    api/publish,
   ],
-  logos_delivery/kernel/peer_manager/peer_store,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/api/publish,
   logos_delivery/api/types,
   logos_delivery/api/conf/modes,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
-  logos_delivery/messaging/delivery_service/send_service/[send_service, delivery_task],
-  ../testlib/[testasync, wakucore, wakunode, wakunodeconf]
-
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task,
+  ../testlib/testasync,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/wakunodeconf
 const
   NumCore = 4
   BatchSize = 4 ## concurrent mixed sends in the batch test

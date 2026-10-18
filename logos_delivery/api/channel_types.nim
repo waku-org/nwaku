@@ -4,9 +4,11 @@ import std/hashes
 import results, chronos
 import logos_delivery/api/types as api_types
 
-import ./scalable_data_sync/scalable_data_sync
+import sds
+import message as sds_message
+import types/persistence as sds_persistence_types
 
-export scalable_data_sync
+export sds_message, sds_persistence_types
 export api_types
 
 type ChannelId* = SdsChannelID

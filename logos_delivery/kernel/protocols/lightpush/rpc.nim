@@ -1,15 +1,9 @@
 {.push raises: [].}
 
 import
-  results,
-  logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-  ]
-
+  logos_delivery/kernel/
+    [common/protobuf, common/topics/pubsub_topic, common/message, common/peers],
+  results
 type LightPushStatusCode* = distinct uint32
 proc `==`*(a, b: LightPushStatusCode): bool {.borrow.}
 proc `$`*(code: LightPushStatusCode): string {.borrow.}

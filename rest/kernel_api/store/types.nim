@@ -9,17 +9,16 @@ import
   json_serialization/pkg/results,
   presto/[route, client, common]
 import
-  logos_delivery/kernel/protocols/store/common,
-  logos_delivery/kernel/common/base64,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    protocols/store/common,
+    common/base64,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
   ],
   rest/serdes
-
 #### Types
 
 createJsonFlavor RestJson

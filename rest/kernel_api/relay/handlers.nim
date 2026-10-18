@@ -10,9 +10,9 @@ import
   json_serialization/pkg/results,
   presto/route,
   presto/common
-import logos_delivery/kernel/protocols/topics/content_topic
+import logos_delivery/kernel/[common/topics/content_topic]
 import logos_delivery/kernel/common/enr/sharding
-import logos_delivery/kernel/protocols/topics/pubsub_topic
+import logos_delivery/kernel/[common/topics/pubsub_topic]
 import
   logos_delivery/kernel/[kernel, api/relay],
   logos_delivery/kernel/protocols/relay/protocol,

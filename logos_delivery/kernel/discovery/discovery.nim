@@ -3,7 +3,7 @@
 import chronos, libp2p/switch
 import
   logos_delivery/kernel/[
-    peer_manager/peers,
+    common/peers,
     peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/client,
@@ -15,7 +15,6 @@ import
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
   ]
-
 type Discovery* = ref object ## Peer discovery mechanisms mounted on the node.
   peerManager*: PeerManager
   switch*: Switch

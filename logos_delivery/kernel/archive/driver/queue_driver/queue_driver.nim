@@ -3,18 +3,16 @@
 import results, stew/sorted_set, chronicles, chronos
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-  ],
-  logos_delivery/kernel/archive/common,
-  logos_delivery/kernel/archive/driver,
-  logos_delivery/kernel/archive/driver/queue_driver/index
-
+    common/message,
+    common/peers,
+    archive/common,
+    archive/driver,
+    archive/driver/queue_driver/index,
+  ]
 logScope:
   topics = "waku archive queue_store"
 

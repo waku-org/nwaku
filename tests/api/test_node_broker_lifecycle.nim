@@ -13,11 +13,11 @@ import brokers/broker_context
 import logos_delivery
 import
   logos_delivery/kernel/[
-    peer_manager/peers,
+    common/peers,
     kernel,
     events/discovery_events,
     discovery/node_state_requests,
-    health_monitor/health_requests,
+    common/health/health_requests,
     discovery/peer_discovery_interface,
     discovery/external_service_discovery,
   ]

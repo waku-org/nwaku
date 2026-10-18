@@ -8,11 +8,13 @@
 import
   std/[sequtils, unicode], stew/[byteutils, endians2, arrayops], nimcrypto/sha2, results
 import
-  logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/common/parse_size_units,
-  logos_delivery/kernel/[protocols/topics/content_topic, protocols/topics/pubsub_topic],
-  logos_delivery/kernel/common/time
-
+  logos_delivery/kernel/[
+    common/protobuf,
+    common/parse_size_units,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/time,
+  ]
 const MaxMetaAttrLength* = 64 # 64 bytes
 
 const

@@ -13,8 +13,8 @@ import logos_delivery/messaging/messaging_client_lifecycle
 import logos_delivery/messaging/delivery_service/recv_service/recv_service
 import logos_delivery/messaging/delivery_service/recv_service/backfill
 import logos_delivery/kernel/persistency/persistency
-import logos_delivery/kernel/health_monitor/health_requests
-import logos_delivery/kernel/health_monitor/health_status
+import logos_delivery/kernel/[common/health/health_requests]
+import logos_delivery/kernel/[common/health/health_status]
 import logos_delivery/kernel/api/health
 import logos_delivery/api/conf/modes
 import logos_delivery/api/conf/logos_delivery_conf
@@ -25,12 +25,12 @@ import
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     events/health_events,
     protocols/relay/protocol,

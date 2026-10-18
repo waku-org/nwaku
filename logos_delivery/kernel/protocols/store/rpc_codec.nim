@@ -2,17 +2,15 @@
 
 import results, chronicles, metrics
 import
-  logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/protobuf,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
   ],
   ./common,
   ./protocol_metrics
-
 logScope:
   topics = "waku store"
 

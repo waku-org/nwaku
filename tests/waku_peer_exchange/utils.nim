@@ -21,11 +21,12 @@ import
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
     peer_manager/peer_manager,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
   ],
-  ../testlib/[futures, wakucore, assertions]
-
+  ../testlib/futures,
+  ../testlib/wakucore,
+  ../testlib/assertions
 proc startDiscv5WithAutoPort*(
     node: Kernel,
     key: keys.PrivateKey,

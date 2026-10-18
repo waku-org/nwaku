@@ -13,13 +13,13 @@ import
   logos_delivery/kernel/[
     common/logging,
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     net/switch,
     kernel,
     api/filter,
@@ -32,9 +32,8 @@ import
     common/enr/capabilities,
     common/enr/multiaddr,
     discovery/discv5,
-    factory/builder,
+    api/builder,
   ]
-
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 

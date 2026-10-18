@@ -4,9 +4,10 @@ import results, std/tables, testutils/unittests
 
 import
   logos_delivery/kernel/
-    [protocols/topics/content_topic, protocols/topics/pubsub_topic, common/enr/sharding],
-  ../../testlib/[wakucore, tables, testutils]
-
+    [common/topics/content_topic, common/topics/pubsub_topic, common/enr/sharding],
+  ../../testlib/wakucore,
+  ../../testlib/tables,
+  ../../testlib/testutils
 const GenerationZeroShardsCount = 8
 const ClusterId = 1
 

@@ -43,3 +43,5 @@ proc checkWakuPeerRecord*(
   if signedEnv.data.peerId != peerId:
     return err("Bad Peer ID")
   return ok()
+
+type GetWakuPeerRecord* = proc(): WakuPeerRecord {.closure, gcsafe, raises: [].}

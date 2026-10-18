@@ -22,11 +22,11 @@ import
   logos_delivery/kernel/[
     common/base64,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/markers,
@@ -45,8 +45,8 @@ import
   ../testlib/rest_requests,
   ../resources/payloads,
   ../waku_archive/archive_utils,
-  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
-
+  ../waku_rln_relay/rln/waku_rln_relay_utils,
+  ../waku_rln_relay/utils_onchain
 proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()

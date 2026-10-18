@@ -15,10 +15,10 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/pubsub_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     peer_manager/peer_manager,
     kernel_lifecycle,
     factory/validator_signed,
@@ -26,7 +26,6 @@ import
   tools/confutils/cli_args,
   ../testlib/wakucore,
   ../testlib/wakunode
-
 suite "Node app - Validators":
   asyncTest "Spam protected topic accepts signed messages":
     # Create 5 nodes

@@ -13,7 +13,7 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/codecs,
+    common/codecs,
     common/enr as waku_enr,
     common/enr/builder,
     common/enr/typed_record,
@@ -28,10 +28,13 @@ import
     api/peer_exchange,
     peer_manager/peer_manager,
   ],
-  ../testlib/[wakucore, testasync, futures, wakunode, testutils],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/wakunode,
+  ../testlib/testutils,
   ../waku_enr/utils,
   ./utils as discv5_utils
-
 suite "Waku Discovery v5":
   const validEnr =
     "enr:-K64QGAvsATunmvMT5c3LFjKS0tG39zlQ1195Z2pWu6RoB5fWP3EXz9QPlRXN" &

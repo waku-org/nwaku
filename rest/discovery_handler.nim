@@ -2,11 +2,9 @@
 
 import chronos, std/sequtils, results
 import
-  logos_delivery/kernel/discovery/discv5,
-  logos_delivery/kernel/protocols/relay/protocol,
-  logos_delivery/kernel/[protocols/message, peer_manager/peers],
+  logos_delivery/kernel/
+    [discovery/discv5, protocols/relay/protocol, common/message, common/peers],
   rest/message_cache
-
 ### Discovery
 
 type DiscoveryHandler* =

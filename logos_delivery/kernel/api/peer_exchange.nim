@@ -2,12 +2,14 @@
 
 import chronos, results
 import
-  logos_delivery/kernel/kernel,
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/discovery/peer_exchange,
-  logos_delivery/kernel/protocols/peer_exchange/[common, rpc],
-  logos_delivery/kernel/common/rate_limit/setting
-
+  logos_delivery/kernel/[
+    kernel,
+    common/peers,
+    discovery/peer_exchange,
+    protocols/peer_exchange/common,
+    protocols/peer_exchange/rpc,
+    common/rate_limit/setting,
+  ]
 import libp2p/multiaddress
 
 proc mountPeerExchange*(

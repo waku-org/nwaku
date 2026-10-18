@@ -17,12 +17,12 @@ import
     peer_manager/peer_manager,
     kernel,
     api/filter,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/filter/client,
     protocols/filter/common,
   ],
@@ -31,7 +31,6 @@ import
   ./statistics,
   ./service_peer_management,
   ./lpt_metrics
-
 var actualFilterPeer {.threadvar.}: RemotePeerInfo
 
 proc unsubscribe(

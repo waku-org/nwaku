@@ -3,15 +3,17 @@ import libp2p/crypto/crypto
 
 import results, chronicles, chronos, metrics
 import
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/[common/time, protocols/message],
-  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    common/time,
+    common/message,
+    common/codecs,
+    common/rate_limit/request_limiter,
+  ],
   ./common,
   ./rpc,
   ./rpc_codec,
-  ./protocol_metrics,
-  logos_delivery/kernel/common/rate_limit/request_limiter
-
+  ./protocol_metrics
 logScope:
   topics = "waku lightpush legacy"
 

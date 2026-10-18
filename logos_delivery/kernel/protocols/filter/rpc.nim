@@ -2,15 +2,13 @@
 
 import results, json_serialization
 import
-  logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/protobuf,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
   ]
-
 type
   FilterSubscribeType* {.pure.} = enum
     # Indicates the type of request from client to service node

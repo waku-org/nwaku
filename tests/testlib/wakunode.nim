@@ -15,8 +15,7 @@ import
     kernel,
     protocols/relay/protocol,
     net/net_config,
-    protocols/topics/pubsub_topic,
-    net/switch,
+    common/topics/pubsub_topic,
     peer_manager/peer_manager,
     subscription_manager,
     common/enr,
@@ -29,12 +28,11 @@ import
     factory/conf_builder/store_service_conf_builder,
     factory/conf_builder/rest_server_conf_builder,
     factory/conf_builder/discv5_conf_builder,
-    factory/builder,
+    api/builder,
     common/logging,
     persistency/persistency,
   ],
   ./common
-
 # Waku node
 
 # TODO: migrate to usage of a test cluster conf

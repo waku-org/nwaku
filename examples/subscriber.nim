@@ -14,13 +14,13 @@ import
     common/logging,
     peer_manager/peer_manager,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     net/switch,
     kernel,
     api/filter,
@@ -33,11 +33,10 @@ import
     common/enr/capabilities,
     common/enr/multiaddr,
     discovery/discv5,
-    factory/builder,
+    api/builder,
     protocols/relay/protocol,
-    health_monitor/topic_health,
+    common/health/topic_health,
   ]
-
 # An accesible bootstrap node. See waku.sandbox fleets.status.im
 const bootstrapNode =
   "enr:-QEkuEB3WHNS-xA3RDpfu9A2Qycr3bN3u7VoArMEiDIFZJ6" &

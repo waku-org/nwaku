@@ -12,15 +12,15 @@ import
   secp256k1
 
 import
-  ../../tools/confutils/
-    [cli_args, envvar as confEnvvarDefs, envvar_net as confEnvvarNet],
   logos_delivery/kernel/[
     common/logging,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/codecs,
-  ]
-
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/codecs,
+  ],
+  ../../tools/confutils/cli_args,
+  ../../tools/confutils/envvar as confEnvvarDefs,
+  ../../tools/confutils/envvar_net as confEnvvarNet
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
 const

@@ -10,10 +10,8 @@ import results
 
 import logos_delivery/kernel/kernel
 import
-  logos_delivery/kernel/[
-    protocols/topics/content_topic, protocols/topics/pubsub_topic, subscription_manager
-  ]
-
+  logos_delivery/kernel/
+    [common/topics/content_topic, common/topics/pubsub_topic, subscription_manager]
 proc subscribe*(self: Kernel, contentTopic: ContentTopic): Result[void, string] =
   ## Subscribes to `contentTopic`, resolving its shard via autosharding.
   return self.subscriptionManager.subscribe(contentTopic)

@@ -3,20 +3,28 @@
 import std/[sequtils, json], testutils/unittests, results, chronos, metrics
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    peer_manager/peer_manager,
+    kernel_lifecycle,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    protocols/filter/common,
+    protocols/filter/client,
+    protocols/filter/subscriptions,
+    protocols/filter/protocol,
+    protocols/filter/protocol_metrics,
+    protocols/filter/rpc_codec,
   ],
-  logos_delivery/kernel/protocols/filter/
-    [common, client, subscriptions, protocol, protocol_metrics, rpc_codec],
-  ../testlib/[wakucore, testasync, testutils, futures, sequtils, wakunode],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/testutils,
+  ../testlib/futures,
+  ../testlib/sequtils,
+  ../testlib/wakunode,
   ./waku_filter_utils,
   ../resources/payloads
-
 suite "Waku Filter - End to End":
   suite "MessagePushHandler - Void":
     var serverSwitch {.threadvar.}: Switch

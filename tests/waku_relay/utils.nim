@@ -14,16 +14,14 @@ import
     kernel,
     peer_manager/peer_manager,
     subscription_manager,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    protocols/codecs,
-    kernel,
+    common/topics/pubsub_topic,
+    common/message,
+    common/codecs,
     api/relay,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../testlib/wakucore
-
 proc noopRawHandler*(): WakuRelayHandler =
   var handler: WakuRelayHandler
   handler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =

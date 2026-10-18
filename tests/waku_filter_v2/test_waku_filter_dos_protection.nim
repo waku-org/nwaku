@@ -11,15 +11,19 @@ import
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    protocols/filter/common,
+    protocols/filter/client,
+    protocols/filter/subscriptions,
+    protocols/filter/protocol,
   ],
-  logos_delivery/kernel/protocols/filter/[common, client, subscriptions, protocol],
-  ../testlib/[wakucore, testasync, futures],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./waku_filter_utils
-
 type AFilterClient = ref object of RootObj
   clientSwitch*: Switch
   wakuFilterClient*: WakuFilterClient

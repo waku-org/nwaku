@@ -11,13 +11,15 @@ import
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
 import
-  logos_delivery/kernel/common/nimchronos,
-  logos_delivery/kernel/[peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
-  ./rpc,
-  logos_delivery/kernel/common/callbacks
-
-from logos_delivery/kernel/protocols/codecs import WakuMetadataCodec
+  logos_delivery/kernel/[
+    common/nimchronos,
+    common/peers,
+    common/codecs,
+    common/callbacks,
+    peer_manager/peer_manager,
+  ],
+  ./rpc
+from logos_delivery/kernel/common/codecs import WakuMetadataCodec
 export WakuMetadataCodec
 
 logScope:
@@ -113,3 +115,15 @@ proc new*(T: type WakuMetadata, clusterId: uint32, getShards: GetShards): T =
     clusterId = wm.clusterId, shards = wm.getShards()
 
   return wm
+
+proc asMetadataSource*(m: WakuMetadata): MetadataSource =
+  ## The view of this protocol the peer manager uses.
+  return MetadataSource(
+    clusterId: m.clusterId,
+    request: proc(
+        conn: Connection
+    ): Future[Result[PeerMetadata, string]] {.async, gcsafe.} =
+      let response = (await m.request(conn)).valueOr:
+        return err(error)
+      return ok((clusterId: response.clusterId, shards: response.shards)),
+  )

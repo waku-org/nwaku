@@ -11,13 +11,9 @@ import
   eth/p2p/discoveryv5/enr,
   testutils/unittests
 import
-  logos_delivery/kernel/[
-    peer_manager/peer_manager,
-    peer_manager/peer_store as peer_store_mod,
-    peer_manager/peers,
-  ],
+  logos_delivery/kernel/
+    [peer_manager/peer_manager, peer_manager/peer_store as peer_store_mod, common/peers],
   ./testlib/wakucore
-
 suite "Extended nim-libp2p Peer Store":
   # Valid peerId missing the last digit. Useful for creating new peerIds
   # basePeerId & "1"

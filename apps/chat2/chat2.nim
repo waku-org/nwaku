@@ -33,24 +33,23 @@ import
   logos_delivery/kernel/[
     common/protobuf,
     subscription_manager,
-    protocols/topics/pubsub_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/lightpush_legacy/rpc,
     common/enr,
     discovery/dnsdisc,
     kernel_lifecycle,
     metrics_server,
     peer_manager/peer_manager,
-    factory/builder,
+    api/builder,
     net/nat_config,
     protocols/relay/protocol,
     protocols/store/common,
   ],
   ./config_chat2
-
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
 import
   logos_delivery/kernel/

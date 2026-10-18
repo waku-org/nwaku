@@ -19,10 +19,9 @@ import
   rest/kernel_api/store/types
 import
   logos_delivery/kernel/[
-    protocols/message,
-    protocols/message,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/message,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     kernel_lifecycle,
     peer_manager/peer_manager,
@@ -37,7 +36,6 @@ import
   ../testlib/wakunode,
   ../testlib/rest_requests,
   ../waku_archive/archive_utils
-
 logScope:
   topics = "waku node rest store_rest_interface test"
 

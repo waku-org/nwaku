@@ -7,8 +7,8 @@ import
     archive/driver/queue_driver/queue_driver {.all.},
     archive/driver/queue_driver/index,
     common/time,
-    protocols/message,
-  ]
+  ],
+  logos_delivery/kernel/common/message
 
 # Helper functions
 

@@ -4,7 +4,7 @@ import std/[base64, sequtils]
 import chronos, results, testutils/unittests
 import brokers/broker_implement
 import
-  logos_delivery/kernel/discovery/self_advertisement,
+  logos_delivery/kernel/factory/self_advertisement,
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/factory/conf,
   logos_delivery/kernel/common/enr/capabilities

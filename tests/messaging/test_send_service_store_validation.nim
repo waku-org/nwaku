@@ -4,19 +4,23 @@ import std/sequtils
 import chronos, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/[kernel],
-  logos_delivery/kernel/protocols/store/[common],
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/api/store,
-  logos_delivery/kernel/
-    [protocols/topics/pubsub_topic, protocols/message, peer_manager/peers],
-  logos_delivery/kernel/protocols/codecs,
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    kernel,
+    protocols/store/common,
+    peer_manager/peer_manager,
+    api/store,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
+    factory/conf,
+  ],
   logos_delivery/api/types,
-  logos_delivery/kernel/factory/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
-  logos_delivery/messaging/delivery_service/send_service/
-    [send_service, send_processor, delivery_task],
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/send_processor,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task,
   logos_delivery/api/events/messaging_client_events
 import ../testlib/[futures, testasync, wakunodeconf, wakucore, wakunode]
 import ../waku_store/store_utils

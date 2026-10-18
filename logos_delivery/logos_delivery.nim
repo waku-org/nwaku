@@ -59,7 +59,7 @@ export logos_delivery_api
 import logos_delivery/kernel/factory/conf
 import logos_delivery/kernel/factory/app_callbacks
 import tools/confutils/cli_args
-import logos_delivery/kernel/health_monitor/online_monitor
+import logos_delivery/kernel/[peer_manager/online_monitor]
 import logos_delivery/api/conf/logos_delivery_conf
 export logos_delivery_conf
 

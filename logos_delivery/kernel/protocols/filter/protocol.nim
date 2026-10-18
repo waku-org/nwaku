@@ -11,19 +11,21 @@ import
   libp2p/protocols/protocol,
   libp2p/protocols/pubsub/timedcache
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    peer_manager/peer_manager,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/topics/content_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
+    common/codecs,
+    common/rate_limit/per_peer_limiter,
   ],
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/common/rate_limit/per_peer_limiter,
-  ./[common, protocol_metrics, rpc_codec, rpc, subscriptions]
-
+  ./common,
+  ./protocol_metrics,
+  ./rpc_codec,
+  ./rpc,
+  ./subscriptions
 logScope:
   topics = "waku filter"
 

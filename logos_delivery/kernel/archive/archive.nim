@@ -2,20 +2,17 @@
 
 import std/[times, sequtils, algorithm], chronicles, chronos, results, metrics
 import
-  ../common/paging,
-  logos_delivery/kernel/archive/driver,
-  logos_delivery/kernel/archive/retention_policy,
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    protocols/topics/pubsub_topic,
+    archive/driver,
+    archive/retention_policy,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
+    archive/common,
+    archive/archive_metrics,
+    archive/retention_policy/retention_policy_time,
   ],
-  logos_delivery/kernel/protocols/message,
-  logos_delivery/kernel/archive/common,
-  logos_delivery/kernel/archive/archive_metrics,
-  logos_delivery/kernel/archive/retention_policy/retention_policy_time
-
+  ../common/paging
 logScope:
   topics = "waku archive"
 

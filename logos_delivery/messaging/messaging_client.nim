@@ -3,23 +3,24 @@
 ## `messaging/api.nim`.
 import std/[sequtils, times], results, chronos, chronicles
 import
+  logos_delivery/kernel/[
+    kernel_lifecycle,
+    api/publish,
+    api/health,
+    health_monitor/node_health_monitor,
+    common/health/protocol_health,
+    peer_manager/online_monitor,
+    common/health/health_status,
+    common/health/connection_status,
+    factory/conf_builder/conf_builder,
+    persistency/persistency,
+  ],
   logos_delivery/api/conf/messaging_conf,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/api/[publish, health],
-  logos_delivery/kernel/[
-    health_monitor/node_health_monitor,
-    health_monitor/protocol_health,
-    health_monitor/online_monitor,
-    health_monitor/health_status,
-    health_monitor/connection_status,
-  ],
-  logos_delivery/kernel/factory/conf_builder/conf_builder,
-  logos_delivery/kernel/persistency/persistency,
-  logos_delivery/messaging/delivery_service/
-    [recv_service/recv_service, send_service/send_service, send_service/delivery_task],
+  logos_delivery/messaging/delivery_service/recv_service/recv_service,
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager
-
 export messaging_client_api, messaging_conf
 
 type MessagingClient* = ref object

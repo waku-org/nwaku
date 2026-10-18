@@ -6,13 +6,15 @@ logScope:
   topics = "test waku_lightpush_legacy"
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/[protocols/message],
-  logos_delivery/kernel/protocols/lightpush_legacy/[protocol, common],
-  logos_delivery/kernel/protocols/lightpush_legacy/[client, common],
-  logos_delivery/kernel/common/rate_limit/setting,
-  ../testlib/[wakucore]
-
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    common/message,
+    protocols/lightpush_legacy/protocol,
+    protocols/lightpush_legacy/common,
+    protocols/lightpush_legacy/client,
+    common/rate_limit/setting,
+  ],
+  ../testlib/wakucore
 proc newTestWakuLegacyLightpushNode*(
     switch: Switch,
     handler: PushMessageHandler,

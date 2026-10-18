@@ -1,8 +1,7 @@
 import chronos, results
 
 import logos_delivery/api/types as api_types
-import logos_delivery/channels/types as channel_types
-
+import logos_delivery/api/channel_types as channel_types
 export api_types, channel_types
 
 # Structural API contract for the reliable-channel surface (ops in `channels/api/*`).

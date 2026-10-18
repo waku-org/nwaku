@@ -15,9 +15,9 @@ import
   logos_delivery/kernel/[
     discovery/discv5,
     discovery/peer_discovery_conversion,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/peers,
     common/enr,
     common/enr/capabilities,
     common/enr/sharding,

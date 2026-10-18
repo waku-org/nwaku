@@ -5,17 +5,14 @@ import chronos, metrics, testutils/unittests, presto, presto/client as presto_cl
 import brokers/broker_context
 import logos_delivery
 import
-  logos_delivery/api/conf/logos_delivery_conf,
-  rest/messaging_api/client as messaging_rest_client,
-  logos_delivery/messaging/delivery_service/send_service/send_service,
   logos_delivery/kernel/[
     common/base64,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     common/enr/sharding,
     protocols/metadata/protocol,
     kernel_lifecycle,
@@ -25,6 +22,9 @@ import
     peer_manager/peer_manager,
     factory/validator_signed,
   ],
+  logos_delivery/api/conf/logos_delivery_conf,
+  rest/messaging_api/client as messaging_rest_client,
+  logos_delivery/messaging/delivery_service/send_service/send_service,
   rest/client,
   rest/kernel_api/relay/types,
   rest/kernel_api/relay/client as relay_rest_client,

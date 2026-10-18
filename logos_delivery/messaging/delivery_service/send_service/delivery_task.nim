@@ -2,15 +2,14 @@ import results, std/times, chronos
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
+    common/topics/relay_shard_request,
   ],
-  logos_delivery/api/types,
-  logos_delivery/kernel/protocols/topics/relay_shard_request
-
+  logos_delivery/api/types
 type DeliveryState* {.pure.} = enum
   Entry
   SuccessfullyPropagated

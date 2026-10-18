@@ -10,14 +10,13 @@ import
   ]
 import ../waku_archive/archive_utils
 import
-  logos_delivery,
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     protocols/lightpush/protocol_metrics,
@@ -26,6 +25,7 @@ import
     archive/archive_metrics,
     common/base64,
   ],
+  logos_delivery,
   rest/server,
   rest/client,
   rest/kernel_api/relay/client as relay_rest_client

@@ -5,10 +5,10 @@ import brokers/broker_context
 
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
+    common/message,
     protocols/protocols,
     protocols/relay/protocol,
     archive/archive,

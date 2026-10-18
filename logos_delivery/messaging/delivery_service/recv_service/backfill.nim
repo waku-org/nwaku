@@ -11,14 +11,15 @@ import std/[algorithm, sets]
 import chronos, chronicles, results
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
+    common/message,
     protocols/store/common,
-  ],
-  logos_delivery/kernel/common/[paging, protobuf],
-  logos_delivery/kernel/persistency/persistency
+    common/paging,
+    common/protobuf,
+    persistency/persistency,
+  ]
 from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 logScope:

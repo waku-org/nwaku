@@ -16,19 +16,18 @@ import
     archive/driver/postgres_driver/postgres_driver,
     archive/driver/postgres_driver/partitions_manager,
     archive/driver/postgres_driver/postgres_healthcheck,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
   ],
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres
-
 logScope:
   topics = "test archive postgres driver"
 

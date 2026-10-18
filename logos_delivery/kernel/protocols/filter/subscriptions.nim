@@ -9,14 +9,11 @@ import
   stew/shims/sets
 import
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-  ],
-  logos_delivery/kernel/common/tableutils,
-  logos_delivery/kernel/[peer_manager/peer_manager]
-
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/tableutils,
+    peer_manager/peer_manager,
+  ]
 logScope:
   topics = "waku filter subscriptions"
 

@@ -3,17 +3,15 @@
 import std/sequtils, stew/byteutils, sqlite3_abi, results
 import chronicles
 import
-  ../../../common/databases/db_sqlite,
-  ../../../common/databases/common,
   logos_delivery/kernel/[
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/topics/content_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/time,
-    protocols/message,
-    peer_manager/peers,
-  ]
-
+    common/message,
+    common/peers,
+  ],
+  ../../../common/databases/db_sqlite,
+  ../../../common/databases/common
 const DbTable = "Message"
 
 type SqlQueryStr = string

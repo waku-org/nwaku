@@ -7,12 +7,11 @@ import brokers/broker_context
 import logos_delivery/api/conf/channels_conf
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/api/events/reliable_channel_manager_events
-import logos_delivery/channels/types
+import logos_delivery/api/channel_types
 import logos_delivery/channels/segmentation/channel_segmentation
 import logos_delivery/channels/reliable_channel_manager
 import logos_delivery/channels/api/channel_lifecycle
-import logos_delivery/kernel/[protocols/topics/content_topic, protocols/message]
-
+import logos_delivery/kernel/[common/topics/content_topic, common/message]
 ## Stand-in remote peer producing real SDS envelopes.
 import sds
 

@@ -3,9 +3,7 @@
 import testutils/unittests, chronos
 import libp2p/switch
 
-import
-  logos_delivery/kernel/
-    [kernel_lifecycle, peer_manager/peers, peer_manager/peer_manager]
+import logos_delivery/kernel/[kernel_lifecycle, common/peers, peer_manager/peer_manager]
 import ../testlib/[wakucore, wakunode]
 
 suite "Kernel - restart (#3979)":

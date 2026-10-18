@@ -19,8 +19,8 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
-    peer_manager/peers,
+    common/topics/pubsub_topic,
+    common/peers,
     peer_manager/peer_manager,
     events/discovery_events,
   ]

@@ -3,10 +3,9 @@
 import testutils/unittests, nimcrypto, std/sequtils
 import logos_delivery/kernel/protocols/store_sync/common
 import logos_delivery/kernel/protocols/store_sync/storage/seq_storage
-import ../../logos_delivery/kernel/protocols/message
-import ../../logos_delivery/kernel/protocols/topics/pubsub_topic
-import ../../logos_delivery/kernel/protocols/topics/content_topic
-
+import ../../logos_delivery/kernel/common/message
+import ../../logos_delivery/kernel/common/topics/pubsub_topic
+import ../../logos_delivery/kernel/common/topics/content_topic
 proc toDigest(s: string): WakuMessageHash =
   let d = nimcrypto.keccak256.digest((s & "").toOpenArrayByte(0, s.high))
   for i in 0 .. 31:

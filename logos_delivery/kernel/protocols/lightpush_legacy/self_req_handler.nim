@@ -11,15 +11,12 @@
 
 import results, chronos, chronicles, metrics
 import
-  logos_delivery/kernel/
-    [protocols/topics/pubsub_topic, protocols/topics/pubsub_topic, protocols/message],
+  logos_delivery/kernel/[common/topics/pubsub_topic, common/message, common/request_id],
   ./protocol,
   ./common,
   ./rpc,
   ./rpc_codec,
-  ./protocol_metrics,
-  logos_delivery/kernel/protocols/request_id
-
+  ./protocol_metrics
 proc handleSelfLightPushRequest*(
     self: WakuLegacyLightPush, pubSubTopic: PubsubTopic, message: WakuMessage
 ): Future[WakuLightPushResult[string]] {.async.} =

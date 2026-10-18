@@ -11,12 +11,12 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/message,
+    common/peers,
+    common/codecs,
     peer_manager/peer_manager,
     kernel_lifecycle,
     protocols/lightpush/protocol,
@@ -28,10 +28,12 @@ import
     rln/rln_evm/rln_evm,
     rln/rln_plugin,
   ],
-  ../testlib/[wakucore, wakunode, testasync],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
   ../resources/payloads,
-  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
-
+  ../waku_rln_relay/rln/waku_rln_relay_utils,
+  ../waku_rln_relay/utils_onchain
 const PublishedToOnePeer = 1
 
 suite "Waku Lightpush - End To End":

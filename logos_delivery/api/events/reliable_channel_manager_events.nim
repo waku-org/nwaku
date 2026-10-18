@@ -1,7 +1,6 @@
 import brokers/event_broker
 
-import logos_delivery/channels/types as channel_types
-
+import logos_delivery/api/channel_types as channel_types
 export event_broker, channel_types
 
 EventBroker:

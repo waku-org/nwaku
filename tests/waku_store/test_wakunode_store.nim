@@ -16,11 +16,11 @@ import
 import
   logos_delivery/kernel/[
     common/paging,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
-    protocols/message,
-    peer_manager/peers,
+    common/message,
+    common/peers,
     peer_manager/peer_manager,
     archive/archive,
     archive/driver,
@@ -34,7 +34,6 @@ import
   ../waku_archive/archive_utils,
   ../testlib/wakucore,
   ../testlib/wakunode
-
 procSuite "Kernel - Store":
   ## Fixtures
   let timeOrigin = now()

@@ -23,14 +23,14 @@ import
 import
   logos_delivery/kernel/[
     protocols/relay/protocol as relay_protocol,
-    health_monitor/topic_health,
+    common/health/topic_health,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     common/time,
-    protocols/message,
-    protocols/codecs,
+    common/message,
+    common/codecs,
     rln/markers,
     rln/protocol_metrics,
     rln/rln_plugin,
@@ -53,13 +53,12 @@ import results, chronos, chronicles, secp256k1, stew/byteutils
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/pubsub_topic,
-    protocols/message,
+    common/topics/pubsub_topic,
+    common/message,
     protocols/relay/protocol,
     factory/conf,
     factory/validator_signed,
   ]
-
 proc getTopicOfSubscriptionEvent(
     self: Kernel, subscription: SubscriptionEvent
 ): Result[(PubsubTopic, Opt[ContentTopic]), string] =

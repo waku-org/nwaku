@@ -12,10 +12,10 @@ import
     kernel_lifecycle,
     peer_manager/peer_manager,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
     archive/driver,
     archive/retention_policy,
     archive/archive_metrics,
@@ -25,8 +25,9 @@ import
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
   ../waku_store_sync/sync_utils,
-  ../testlib/[wakucore, wakunode, testasync]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)

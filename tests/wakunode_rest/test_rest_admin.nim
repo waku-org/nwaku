@@ -19,11 +19,11 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     kernel_lifecycle,
     protocols/filter/client,
     peer_manager/peer_manager,
@@ -36,7 +36,6 @@ import
   ../testlib/wakunode,
   ../testlib/rest_requests,
   ../testlib/testasync
-
 suite "Waku v2 Rest API - Admin":
   var node1 {.threadvar.}: Kernel
   var node2 {.threadvar.}: Kernel

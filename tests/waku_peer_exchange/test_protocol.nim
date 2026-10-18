@@ -19,14 +19,16 @@ import
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
     protocols/peer_exchange/rpc_codec,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
     common/enr/builder,
     common/enr/sharding,
   ],
-  ../testlib/[wakucore, wakunode, assertions, testasync],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/assertions,
+  ../testlib/testasync,
   ./utils.nim
-
 suite "Waku Peer Exchange":
   # Some of this tests use node.discovery.peerExchange instead of just a standalone PeerExchange.
   # This is because attempts to connect the switches for two standalones PeerExchanges failed.

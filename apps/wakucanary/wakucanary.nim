@@ -7,20 +7,19 @@ import
   libp2p/nameresolving/dnsresolver,
   libp2p/multicodec
 import
-  ./certsgenerator,
   logos_delivery/kernel/[
     common/enr,
     common/enr/sharding,
     peer_manager/peer_manager,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
     kernel_lifecycle,
-    factory/builder,
+    api/builder,
+    net/net_config,
+    protocols/metadata/protocol,
+    common/callbacks,
   ],
-  logos_delivery/kernel/net/net_config,
-  logos_delivery/kernel/protocols/metadata/protocol,
-  logos_delivery/kernel/common/callbacks
-
+  ./certsgenerator
 # protocols and their tag
 const ProtocolsTable = {
   "store": "/vac/waku/store-query/3",
@@ -268,7 +267,7 @@ proc main(rng: Rng): Future[int] {.async.} =
 
   let metadata = WakuMetadata.new(conf.clusterId, shardsGetter)
   node.protocols.metadata = metadata
-  node.peerManager.wakuMetadata = metadata
+  node.peerManager.metadata = Opt.some(metadata.asMetadataSource())
   let mountRes = catch:
     node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
   mountRes.isOkOr:

@@ -1,20 +1,29 @@
 {.used.}
 
 import
-  std/[json, net, sequtils, strutils],
+  logos_delivery/kernel/[
+    factory/conf_builder/conf_builder,
+    factory/conf_builder/discv5_conf_builder,
+    factory/conf_builder/web_socket_conf_builder,
+    factory/conf_builder/quic_conf_builder,
+    factory/conf_builder/metrics_server_conf_builder,
+    api/state_info,
+  ],
+  std/json,
+  std/net,
+  std/sequtils,
+  std/strutils,
   testutils/unittests,
   chronicles,
   chronos,
-  libp2p/[crypto/crypto, crypto/secp, multiaddress, peerinfo, switch],
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
+  libp2p/multiaddress,
+  libp2p/peerinfo,
+  libp2p/switch,
   libp2p/services/natservice,
-  tests/testlib/[wakucore, wakunode],
-  logos_delivery/kernel/factory/conf_builder/conf_builder,
-  logos_delivery/kernel/factory/conf_builder/discv5_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/web_socket_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/quic_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/metrics_server_conf_builder,
-  logos_delivery/kernel/factory/state_info
-
+  tests/testlib/wakucore,
+  tests/testlib/wakunode
 include
   logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/common/enr/typed_record
 

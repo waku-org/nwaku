@@ -6,11 +6,11 @@ import
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
-    protocols/codecs,
+    common/topics/content_topic,
+    common/topics/pubsub_topic,
+    common/message,
+    common/peers,
+    common/codecs,
     protocols/lightpush/protocol,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
@@ -18,10 +18,14 @@ import
     protocols/lightpush/client,
     protocols/lightpush/protocol_metrics,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures],
+  ../testlib/assertions,
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./lightpush_utils,
-  ../resources/[pubsub_topics, content_topics, payloads]
-
+  ../resources/pubsub_topics,
+  ../resources/content_topics,
+  ../resources/payloads
 suite "Waku Lightpush Client":
   var
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]

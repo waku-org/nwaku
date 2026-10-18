@@ -11,13 +11,17 @@ import
   libp2p/builders
 
 import
-  logos_delivery/kernel/discovery/discovery,
-  logos_delivery/kernel/protocols/peer_exchange/[protocol, rpc, common, client],
-  logos_delivery/kernel/peer_manager/peers,
-  logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/peer_manager/peer_manager,
-  logos_delivery/kernel/common/rate_limit/setting
-
+  logos_delivery/kernel/[
+    discovery/discovery,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    protocols/peer_exchange/common,
+    protocols/peer_exchange/client,
+    common/peers,
+    common/codecs,
+    peer_manager/peer_manager,
+    common/rate_limit/setting,
+  ]
 declarePublicGauge logos_delivery_px_peers,
   "number of peers (in the node's peerManager) supporting the peer exchange protocol"
 

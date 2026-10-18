@@ -7,12 +7,10 @@ import
   json_serialization/pkg/results,
   presto/[route, client]
 import
-  logos_delivery/kernel/protocols/store/common,
-  logos_delivery/kernel/protocols/message,
+  logos_delivery/kernel/[protocols/store/common, common/message],
   rest/serdes,
   rest/responses,
   rest/kernel_api/store/types
-
 export types
 
 logScope:

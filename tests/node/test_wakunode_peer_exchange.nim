@@ -20,12 +20,13 @@ import
     protocols/peer_exchange/protocol,
     protocols/peer_exchange/rpc,
     peer_manager/peer_manager,
-    peer_manager/peers,
-    protocols/codecs,
+    common/peers,
+    common/codecs,
   ],
   ../waku_peer_exchange/utils,
-  ../testlib/[wakucore, wakunode, testasync]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 suite "Waku Peer Exchange":
   let
     bindIp: IPAddress = parseIpAddress("0.0.0.0")

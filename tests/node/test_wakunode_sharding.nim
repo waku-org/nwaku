@@ -13,15 +13,14 @@ import
 
 import
   logos_delivery/kernel/[
-    protocols/topics/pubsub_topic,
+    common/topics/pubsub_topic,
     common/enr/sharding,
     kernel_lifecycle,
     common/paging,
     subscription_manager,
-    protocols/topics/content_topic,
-    protocols/topics/pubsub_topic,
-    protocols/message,
-    peer_manager/peers,
+    common/topics/content_topic,
+    common/message,
+    common/peers,
     protocols/store/common,
     protocols/lightpush_legacy/protocol_metrics,
     peer_manager/peer_manager,
@@ -29,8 +28,12 @@ import
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
-  ../testlib/[assertions, wakucore, wakunode, testasync, futures, testutils]
-
+  ../testlib/assertions,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/testutils
 const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)

@@ -19,8 +19,7 @@ import results, chronos, chronicles
 import libp2p/protocols/ping
 import libp2p/switch
 
-import logos_delivery/kernel/[peer_manager/peers]
-
+import logos_delivery/kernel/[common/peers]
 proc mountLibp2pPing*(self: Kernel) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"
 
