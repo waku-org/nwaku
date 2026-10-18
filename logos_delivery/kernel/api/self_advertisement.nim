@@ -18,10 +18,8 @@ import std/base64
 import chronos, chronicles, results
 import libp2p_mix/mix_protocol
 import
-  logos_delivery/kernel/discovery/peer_discovery_interface,
-  logos_delivery/kernel/factory/conf,
-  logos_delivery/kernel/common/enr/capabilities
-
+  logos_delivery/kernel/
+    [discovery/peer_discovery_interface, config/conf, common/enr/capabilities]
 logScope:
   topics = "waku discovery advertise"
 

@@ -4,7 +4,7 @@ import std/net, results, chronos, testutils/unittests
 import brokers/broker_context
 import logos_delivery
 import logos_delivery/api/conf/logos_delivery_conf_json
-import logos_delivery/kernel/factory/[conf, networks_config]
+import logos_delivery/kernel/[config/conf, config/networks_config]
 import tools/confutils/cli_args
 import logos_delivery/kernel/common/logging
 import ../testlib/wakunodeconf

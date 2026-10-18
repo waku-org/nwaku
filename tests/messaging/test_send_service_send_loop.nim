@@ -12,7 +12,7 @@ import
   logos_delivery/kernel/rln/[rln_api, rln_plugin],
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
-  logos_delivery/kernel/factory/conf,
+  logos_delivery/kernel/config/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service {.all.}, send_processor, delivery_task]

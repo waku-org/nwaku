@@ -495,7 +495,7 @@ Language: Nim 2.x | License: MIT or Apache 2.0
 - `nimble.lock` - Pinned dependency versions resolved into `nimbledeps/`
 - `logos_delivery/kernel/kernel.nim` - Core node implementation
 - `apps/logos_delivery_node/logosdeliverynode.nim` - Main CLI application
-- `logos_delivery/kernel/factory/conf.nim` - Configuration types
+- `logos_delivery/kernel/config/conf.nim` - Configuration types
 - `library/liblogosdelivery.nim` - C bindings entry point
 
 ### Testing Entry Points

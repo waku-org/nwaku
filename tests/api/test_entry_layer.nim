@@ -20,7 +20,7 @@ import
     protocols/store/common,
     protocols/filter/client,
     peer_manager/peer_manager,
-    factory/validator_signed,
+    config/validator_signed,
   ],
   logos_delivery/api/conf/logos_delivery_conf,
   rest/messaging_api/client as messaging_rest_client,

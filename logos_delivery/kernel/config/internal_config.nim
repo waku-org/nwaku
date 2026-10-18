@@ -15,9 +15,8 @@ import
     common/enr/capabilities,
     common/enr/multiaddr,
     common/enr/sharding,
-  ],
-  ./conf
-
+    config/conf,
+  ]
 proc tryBuildEnrRecord(
     conf: WakuConf, netConfig: NetConfig, multiaddrs: seq[MultiAddress], seqNum: uint64
 ): Result[enr.Record, string] =

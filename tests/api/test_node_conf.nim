@@ -3,13 +3,14 @@
 import std/strutils
 import chronos, results, testutils/unittests
 import
+  logos_delivery/kernel/[
+    config/conf,
+    config/conf_builder/kademlia_discovery_conf_builder,
+    config/networks_config,
+  ],
   logos_delivery/api/conf/logos_delivery_conf_json,
   logos_delivery/api/conf/logos_delivery_conf,
-  tools/confutils/cli_args,
-  logos_delivery/kernel/factory/conf,
-  logos_delivery/kernel/factory/conf_builder/kademlia_discovery_conf_builder,
-  logos_delivery/kernel/factory/networks_config
-
+  tools/confutils/cli_args
 suite "WakuNodeConf - preset integration":
   test "TWN preset applies TheWakuNetworkConf":
     ## Given

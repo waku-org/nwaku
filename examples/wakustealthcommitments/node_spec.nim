@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import tools/confutils/cli_args
-import logos_delivery/kernel/[common/logging, kernel_lifecycle, factory/networks_config]
+import logos_delivery/kernel/[common/logging, kernel_lifecycle, config/networks_config]
 import
   results,
   std/[strutils, os, sequtils],

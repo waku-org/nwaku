@@ -21,7 +21,7 @@ import
     common/peers,
     peer_manager/peer_manager,
     kernel_lifecycle,
-    factory/validator_signed,
+    config/validator_signed,
   ],
   tools/confutils/cli_args,
   ../testlib/wakucore,

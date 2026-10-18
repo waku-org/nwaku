@@ -51,7 +51,7 @@ import
     kernel_lifecycle,
     metrics_server,
     peer_manager/peer_manager,
-    factory/conf,
+    config/conf,
     api/builder,
     net/nat_config,
     protocols/store/common,

@@ -1,6 +1,5 @@
 import chronicles, results
-import ../conf
-
+import logos_delivery/kernel/[config/conf]
 logScope:
   topics = "waku conf builder store sync"
 

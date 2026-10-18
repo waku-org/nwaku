@@ -1,6 +1,5 @@
 import chronicles, std/net, results
-import logos_delivery/kernel/factory/conf
-
+import logos_delivery/kernel/[config/conf]
 logScope:
   topics = "waku conf builder websocket"
 

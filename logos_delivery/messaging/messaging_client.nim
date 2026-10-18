@@ -12,7 +12,7 @@ import
     peer_manager/online_monitor,
     common/health/health_status,
     common/health/connection_status,
-    factory/conf_builder/conf_builder,
+    config/conf_builder/conf_builder,
     persistency/persistency,
   ],
   logos_delivery/api/conf/messaging_conf,

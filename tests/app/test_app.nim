@@ -2,11 +2,11 @@
 
 import
   logos_delivery/kernel/[
-    factory/conf_builder/conf_builder,
-    factory/conf_builder/discv5_conf_builder,
-    factory/conf_builder/web_socket_conf_builder,
-    factory/conf_builder/quic_conf_builder,
-    factory/conf_builder/metrics_server_conf_builder,
+    config/conf_builder/conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/web_socket_conf_builder,
+    config/conf_builder/quic_conf_builder,
+    config/conf_builder/metrics_server_conf_builder,
     api/state_info,
   ],
   std/json,

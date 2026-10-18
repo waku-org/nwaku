@@ -13,7 +13,7 @@ import
   logos_delivery/kernel/common/message,
   logos_delivery/kernel/kernel,
   logos_delivery/kernel/api/publish,
-  logos_delivery/kernel/factory/conf,
+  logos_delivery/kernel/config/conf,
   logos_delivery/kernel/rln/[rln_api, rln_plugin],
   logos_delivery/kernel/rln/rln_evm/message_id_store,
   logos_delivery/kernel/rln/rln_lez/[rln_lez, transport],

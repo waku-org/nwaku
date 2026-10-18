@@ -14,20 +14,21 @@ import
   results
 
 import
-  ../net/nat_strategy,
-  ../net/net_config,
-  ../rln/rln_evm/rln_evm,
-  ../rln/rln_plugin,
-  rest/rest_server_conf,
-  ../discovery/discv5,
-  ../discovery/kademlia,
-  logos_delivery/kernel/metrics_server,
-  ../common/logging,
-  ../common/rate_limit/setting,
-  logos_delivery/kernel/common/enr/capabilities,
-  ./networks_config,
-  logos_delivery/kernel/protocols/mix/protocol
-
+  logos_delivery/kernel/[
+    net/nat_strategy,
+    net/net_config,
+    rln/rln_evm/rln_evm,
+    rln/rln_plugin,
+    discovery/discv5,
+    discovery/kademlia,
+    metrics_server,
+    common/logging,
+    common/rate_limit/setting,
+    common/enr/capabilities,
+    config/networks_config,
+    protocols/mix/protocol,
+  ],
+  rest/rest_server_conf
 export RlnConf, RlnCreds, RlnCommonConf, RestServerConf, Discv5Conf, MetricsServerConf
 # Export only the NatStrategy type and its parse and render procs.
 # The mapper machinery stays in net/nat_config.

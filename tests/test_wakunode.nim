@@ -27,7 +27,7 @@ import
     common/peers,
     kernel_lifecycle,
     peer_manager/peer_manager,
-    factory/internal_config,
+    config/internal_config,
   ],
   ./testlib/wakucore,
   ./testlib/wakunode

@@ -3,10 +3,13 @@
 import results, testutils/unittests, chronos, web3, stint, tests/testlib/testasync
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/incentivization/[rpc, eligibility_manager],
-  ../waku_rln_relay/[utils_onchain, utils]
-
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/lightpush/incentivization/rpc,
+    protocols/lightpush/incentivization/eligibility_manager,
+  ],
+  ../waku_rln_relay/utils_onchain,
+  ../waku_rln_relay/utils
 const TxHashNonExisting =
   TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
 

@@ -14,7 +14,7 @@ import
     common/message,
     common/peers,
     common/codecs,
-    factory/conf,
+    config/conf,
   ],
   logos_delivery/api/types,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,

@@ -1,6 +1,5 @@
 import chronicles, std/[net, sequtils], results
-import ../conf
-
+import logos_delivery/kernel/[config/conf]
 logScope:
   topics = "waku conf builder rest server"
 

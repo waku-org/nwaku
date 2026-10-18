@@ -22,7 +22,7 @@ import
     common/message,
     common/peers,
     common/codecs,
-    factory/conf,
+    config/conf,
   ],
   libp2p_mix,
   libp2p_mix/curve25519,

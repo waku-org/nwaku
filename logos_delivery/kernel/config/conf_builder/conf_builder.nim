@@ -9,8 +9,8 @@ import
 
 import
   logos_delivery/kernel/[
-    factory/conf,
-    factory/networks_config,
+    config/conf,
+    config/networks_config,
     common/logging,
     common/parse_size_units,
     peer_manager/peer_manager,
@@ -23,21 +23,22 @@ import
   ],
   tools/confutils/entry_nodes
 import
-  ./filter_service_conf_builder,
-  ./store_sync_conf_builder,
-  ./store_service_conf_builder,
-  ./rest_server_conf_builder,
-  ./dns_discovery_conf_builder,
-  ./discv5_conf_builder,
-  ./web_socket_conf_builder,
-  ./quic_conf_builder,
-  ./metrics_server_conf_builder,
-  ./rate_limit_conf_builder,
-  ./rln_relay_conf_builder,
-  ./mix_conf_builder,
-  ./kademlia_discovery_conf_builder,
-  ./external_discovery_conf_builder
-
+  logos_delivery/kernel/[
+    config/conf_builder/filter_service_conf_builder,
+    config/conf_builder/store_sync_conf_builder,
+    config/conf_builder/store_service_conf_builder,
+    config/conf_builder/rest_server_conf_builder,
+    config/conf_builder/dns_discovery_conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/web_socket_conf_builder,
+    config/conf_builder/quic_conf_builder,
+    config/conf_builder/metrics_server_conf_builder,
+    config/conf_builder/rate_limit_conf_builder,
+    config/conf_builder/rln_relay_conf_builder,
+    config/conf_builder/mix_conf_builder,
+    config/conf_builder/kademlia_discovery_conf_builder,
+    config/conf_builder/external_discovery_conf_builder,
+  ]
 logScope:
   topics = "waku conf builder"
 

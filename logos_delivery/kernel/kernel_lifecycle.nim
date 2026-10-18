@@ -42,12 +42,12 @@ import
     discovery/discv5,
     discovery/discv5_peer_discovery,
     discovery/external_service_discovery,
-    factory/self_advertisement,
+    api/self_advertisement,
     discovery/autonat_service,
     common/health/health_requests,
     discovery/node_state_requests,
-    factory/internal_config,
-    factory/app_callbacks,
+    config/internal_config,
+    config/app_callbacks,
     persistency/persistency,
     protocols/lightpush/client,
     protocols/lightpush_legacy/client,
@@ -76,7 +76,7 @@ import
   brokers/broker_context,
   logos_delivery/api/types,
   logos_delivery/api/kernel_api,
-  ./factory/conf
+  logos_delivery/kernel/config/conf
 # Surfaces the Kernel API interface to consumers of the Waku layer.
 # `MessageSeenEvent` now lives in `events/kernel_events` (surfaced by the concentrator).
 import
@@ -98,12 +98,12 @@ import logos_delivery/kernel/api/mix
 
 import
   logos_delivery/kernel/[
-    factory/internal_config,
+    config/internal_config,
     rln/rln_lez/transport,
-    factory/networks_config,
-    factory/conf,
+    config/networks_config,
+    config/conf,
     api/builder,
-    factory/validator_signed,
+    config/validator_signed,
     common/enr/sharding,
     kernel,
     api/filter,

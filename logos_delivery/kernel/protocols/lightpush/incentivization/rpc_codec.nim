@@ -1,5 +1,6 @@
-import results, ../common/protobuf, ./rpc
-
+import
+  logos_delivery/kernel/[common/protobuf, protocols/lightpush/incentivization/rpc],
+  results
 protobufCodec(EligibilityProof)
 proc validateDecoded(status: EligibilityStatus): ProtobufResult[void] =
   if status.statusCode == 0:

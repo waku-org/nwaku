@@ -1,8 +1,7 @@
 import chronicles, results, chronos
 import libp2p/peerinfo
-import logos_delivery/kernel/factory/conf
-import ./kademlia_discovery_conf_builder
-
+import logos_delivery/kernel/[config/conf]
+import logos_delivery/kernel/[config/conf_builder/kademlia_discovery_conf_builder]
 logScope:
   topics = "waku conf builder external discovery"
 

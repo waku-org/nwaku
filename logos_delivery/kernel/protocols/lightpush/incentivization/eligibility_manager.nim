@@ -2,8 +2,9 @@ import std/sets, chronos, web3, stew/byteutils, stint, results
 
 import chronicles
 
-import logos_delivery/kernel/incentivization/rpc, tests/waku_rln_relay/utils_onchain
-
+import
+  logos_delivery/kernel/[protocols/lightpush/incentivization/rpc],
+  tests/waku_rln_relay/utils_onchain
 const SimpleTransferGasUsed = Quantity(21000)
 const TxReceiptQueryTimeout = 3.seconds
 

@@ -7,13 +7,10 @@ import chronos, confutils/toml/std/net, libp2p/multiaddress, testutils/unittests
 import ./testlib/wakunode, logos_delivery/kernel/common/enr/capabilities
 
 include
-  logos_delivery/kernel/net/net_config,
-  logos_delivery/kernel/factory/conf_builder/web_socket_conf_builder
-
+  logos_delivery/kernel/[net/net_config, config/conf_builder/web_socket_conf_builder]
 import
-  logos_delivery/kernel/factory/conf_builder/web_socket_conf_builder,
-  logos_delivery/kernel/factory/conf_builder/conf_builder
-
+  logos_delivery/kernel/
+    [config/conf_builder/web_socket_conf_builder, config/conf_builder/conf_builder]
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(
     lightpush = false, filter = false, store = false, relay = true

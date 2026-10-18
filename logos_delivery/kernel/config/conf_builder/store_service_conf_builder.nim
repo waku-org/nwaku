@@ -1,6 +1,5 @@
 import std/[strutils, sequtils], chronicles, results, chronos
-import ../conf, ./store_sync_conf_builder
-
+import logos_delivery/kernel/[config/conf, config/conf_builder/store_sync_conf_builder]
 logScope:
   topics = "waku conf builder store service"
 

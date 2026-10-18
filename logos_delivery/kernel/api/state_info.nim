@@ -7,8 +7,7 @@
 import std/[strutils]
 import metrics, eth/p2p/discoveryv5/enr, libp2p/peerid, stew/byteutils
 import logos_delivery/kernel/[kernel, net/bound_ports]
-import logos_delivery/kernel/factory/conf
-
+import logos_delivery/kernel/[config/conf]
 type NodeInfoId* {.pure.} = enum
   Version
   Metrics

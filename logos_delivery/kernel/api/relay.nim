@@ -56,8 +56,8 @@ import
     common/topics/pubsub_topic,
     common/message,
     protocols/relay/protocol,
-    factory/conf,
-    factory/validator_signed,
+    config/conf,
+    config/validator_signed,
   ]
 proc getTopicOfSubscriptionEvent(
     self: Kernel, subscription: SubscriptionEvent

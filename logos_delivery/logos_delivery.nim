@@ -56,8 +56,8 @@ export reliable_channel_manager_events
 
 import logos_delivery/api/logos_delivery_api
 export logos_delivery_api
-import logos_delivery/kernel/factory/conf
-import logos_delivery/kernel/factory/app_callbacks
+import logos_delivery/kernel/[config/conf]
+import logos_delivery/kernel/[config/app_callbacks]
 import tools/confutils/cli_args
 import logos_delivery/kernel/[peer_manager/online_monitor]
 import logos_delivery/api/conf/logos_delivery_conf

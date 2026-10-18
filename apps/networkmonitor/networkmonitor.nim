@@ -38,7 +38,7 @@ import
     rln/rln_evm/rln_evm,
     rln/rln_plugin,
     api/builder,
-    factory/networks_config,
+    config/networks_config,
   ],
   ./networkmonitor_metrics,
   ./networkmonitor_config,

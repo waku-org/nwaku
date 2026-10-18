@@ -15,7 +15,7 @@ logos_delivery/kernel/common/rate_limit/request_limiter.nim::proto
 logos_delivery/kernel/common/rate_limit/service_metrics.nim::service
 logos_delivery/kernel/common/rate_limit/single_token_limiter.nim::proto
 logos_delivery/kernel/discovery/discv5.nim::$shardId
-logos_delivery/kernel/factory/validator_signed.nim::$outcome
+logos_delivery/kernel/config/validator_signed.nim::$outcome
 logos_delivery/kernel/peer_manager/peer_manager.nim::$Direction.In
 logos_delivery/kernel/peer_manager/peer_manager.nim::$Direction.Out
 logos_delivery/kernel/peer_manager/peer_manager.nim::$proto
