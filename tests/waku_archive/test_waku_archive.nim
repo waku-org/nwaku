@@ -647,6 +647,29 @@ suite "Waku Archive - insert metrics":
       errorCount(insertFailure) == failuresBefore
       duplicateCount(relayIngress) == duplicatesBefore + 1
 
+  test "messages a retention policy deletes stay counted per shard":
+    # TODO: logos-delivery#4589
+    let
+      shardBefore = messagesPerShard("0")
+      driver = newSqliteArchiveDriver()
+      archive = newWakuArchive(driver)
+
+    waitFor archive.handleMessage(
+      DefaultPubSubTopic, fakeWakuMessage("first", ts = now())
+    )
+    waitFor archive.handleMessage(
+      DefaultPubSubTopic, fakeWakuMessage("second", ts = now())
+    )
+    waitFor archive.handleMessage(
+      DefaultPubSubTopic, fakeWakuMessage("third", ts = now())
+    )
+
+    check (waitFor CapacityRetentionPolicy.new(capacity = 1).execute(driver)).isOk()
+
+    check:
+      (waitFor driver.getMessagesCount()) == ArchiveDriverResult[int64].ok(1)
+      messagesPerShard("0") == shardBefore + 3
+
   test "a message already held is reported as not written by the sqlite driver":
     let
       driver = newSqliteArchiveDriver()

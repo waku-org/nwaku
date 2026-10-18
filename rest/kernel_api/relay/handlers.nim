@@ -49,12 +49,24 @@ const ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1* = "/relay/v1/auto/subscriptions"
 const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{contentTopic}"
 const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
 
-proc validatePubSubTopics(topics: seq[PubsubTopic]): Result[void, RestApiResponse] =
+proc validatePubSubTopics(
+    node: Kernel, topics: seq[PubsubTopic]
+): Result[void, RestApiResponse] =
   let badPubSubTopics = topics.filterIt(RelayShard.parseStaticSharding(it).isErr())
   if badPubSubTopics.len > 0:
     error "Invalid pubsub topic(s)", PubSubTopics = $badPubSubTopics
     return
       err(RestApiResponse.badRequest("Invalid pubsub topic(s): " & $badPubSubTopics))
+
+  let outOfNodeShards = topics.filterIt(node.validateShardOfNode(it).isErr())
+  if outOfNodeShards.len > 0:
+    debug "Pubsub topic(s) outside the node's cluster or shards",
+      PubSubTopics = $outOfNodeShards
+    return err(
+      RestApiResponse.badRequest(
+        "Pubsub topic(s) outside the node's cluster or shards: " & $outOfNodeShards
+      )
+    )
 
   return ok()
 
@@ -134,7 +146,7 @@ proc installRelayApiHandlers*(
     let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
       return error
 
-    validatePubSubTopics(req).isOkOr:
+    node.validatePubSubTopics(req).isOkOr:
       return error
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
@@ -163,7 +175,7 @@ proc installRelayApiHandlers*(
     let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
       return error
 
-    validatePubSubTopics(req).isOkOr:
+    node.validatePubSubTopics(req).isOkOr:
       return error
 
     # Unsubscribe all handlers from requested topics

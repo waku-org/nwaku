@@ -93,6 +93,26 @@ class StepsMessaging(StepsCommon, StepsMetrics):
         assert set(kinds) <= seen, f"send events for {request_id}: saw {sorted(seen)}, expected {kinds}"
         return seen
 
+    def collect_send_events(self, node, request_id, timeout=30):
+        """Polls the send events of `request_id` until a "sent" or "error" event comes, the last one of a send.
+
+        Returns the (kind, error) pair of each event, in order; only an "error" event has an error text.
+        A 404 means that nothing is buffered yet.
+        """
+        events = []
+        deadline = time() + timeout
+        while not any(kind in ("sent", "error") for kind, _ in events) and time() < deadline:
+            try:
+                status = node.messaging_send_events_by_id(request_id)
+                events.extend((event["kind"], event.get("error")) for event in status["events"])
+            except Exception as ex:
+                if not str(ex).startswith("Error: 404 "):
+                    raise
+            if not any(kind in ("sent", "error") for kind, _ in events):
+                sleep(0.5)
+        assert any(kind in ("sent", "error") for kind, _ in events), f"send events for {request_id}: saw {events}, no sent or error"
+        return events
+
     def collect_sent_request_ids(self, node, count, timeout=60):
         """Polls all send events until `count` request ids have a "sent" event."""
         sent = set()

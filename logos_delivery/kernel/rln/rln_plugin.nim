@@ -44,6 +44,9 @@ type
     .}
       ## Proof for an outgoing message, as the bytes its `proof` field carries.
       ## Each backend derives the epoch its own way.
+    proofSize*: Opt[int]
+      ## The exact encoded length of a generated proof. Size checks use this
+      ## value before generation reserves a message id.
     onNodeStarted*: proc(): Future[void] {.async: (raises: [CancelledError]), gcsafe.}
       ## Called once the node has started. The backend handles its own
       ## failures; only cancellation reaches the caller. Nil for backends with
@@ -96,6 +99,20 @@ func needsProof*(plugin: Opt[RlnPlugin], message: WakuMessage): bool =
   let backend = plugin.valueOr:
     return false
   return not backend.generateProof.isNil()
+
+proc messageForSizeCheck*(
+    plugin: Opt[RlnPlugin], message: WakuMessage
+): Result[WakuMessage, RlnError] =
+  ## Returns a message with the generated proof length. It reserves no message id.
+  if not plugin.needsProof(message):
+    return ok(message)
+  let size = plugin.get().proofSize.valueOr:
+    return err(RlnError.permanent("the RLN backend does not declare its proof size"))
+  if size <= 0:
+    return err(RlnError.permanent("the RLN backend declares an invalid proof size"))
+  var sizedMessage = message
+  sizedMessage.proof = newSeq[byte](size)
+  return ok(sizedMessage)
 
 proc attachProof*(
     plugin: Opt[RlnPlugin], message: WakuMessage

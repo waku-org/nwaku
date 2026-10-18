@@ -20,7 +20,14 @@ type MetricsServerConf* = object
   httpPort*: Port
   logging*: bool
 
+var metricsLogStarted {.threadvar.}: bool
+  ## The log runs until its thread stops, so a restart of the node on that
+  ## thread does not start a second log.
+
 proc startMetricsLog*() =
+  if metricsLogStarted:
+    return
+  metricsLogStarted = true
   var logMetrics: CallbackFunc
 
   var cumulativeErrors = 0.float64
@@ -65,9 +72,9 @@ proc startMetricsServer(
 
     try:
       await server.start()
-    except CatchableError:
-      return
-        err("exception while startMetricsServer, attempt: " & getCurrentExceptionMsg())
+    except CatchableError as exc:
+      await server.close()
+      return err("exception while startMetricsServer, attempt: " & exc.msg)
 
     debug "Metrics HTTP server started", serverIp = $serverIp, serverPort = $port
     return ok((server: server, port: port))
@@ -80,7 +87,7 @@ proc startMetricsServerAndLogging*(
     conf: MetricsServerConf
 ): Future[Result[StartedMetricsServer, string]] {.async.} =
   let started = (await (startMetricsServer(conf.httpAddress, conf.httpPort))).valueOr:
-    return err("Starting metrics server failed. Continuing in current state:" & $error)
+    return err("Starting metrics server failed: " & $error)
 
   if conf.logging:
     startMetricsLog()

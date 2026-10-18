@@ -142,6 +142,29 @@ suite "LogosDelivery - broker lifecycle":
         raiseAssert error
       check not rest.isListeningToMessagingEvents()
 
+  asyncTest "REST binds its port again after a stop":
+    lockNewGlobalBrokerContext:
+      let node = (await LogosDelivery.new(lifecycleConf(rest = true))).valueOr:
+        raiseAssert error
+      let rest = (await node.startWithRest()).valueOr:
+        raiseAssert error
+      let port = rest.server.httpServer.address.port
+      await rest.stop(node)
+      (await node.stop()).isOkOr:
+        raiseAssert error
+
+      # The library starts REST again before the node, on the bound port.
+      let restarted = rest.start(node)
+      check restarted.isOk()
+      if restarted.isOk():
+        check rest.server.httpServer.address.port == port
+        (await node.start()).isOkOr:
+          raiseAssert "restart: " & error
+        check rest.mount(node).isOk()
+        await rest.stop(node)
+        (await node.stop()).isOkOr:
+          raiseAssert error
+
   asyncTest "plugin install verbs stay registered while stopped":
     lockNewGlobalBrokerContext:
       let ctx = globalBrokerContext()

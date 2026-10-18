@@ -69,6 +69,11 @@ func needsRlnProof*(self: Kernel, message: WakuMessage): bool =
   ## message id.
   return self.protocols.rlnPlugin.needsProof(message)
 
+proc messageForSizeCheck*(
+    self: Kernel, message: WakuMessage
+): Result[WakuMessage, RlnError] =
+  return self.protocols.rlnPlugin.messageForSizeCheck(message)
+
 func isRlnRejection*(error: ErrorStatus): bool =
   ## True when a publish failure means "the RLN proof was not accepted", so the
   ## message is worth retrying with a freshly generated proof rather than being
@@ -144,6 +149,13 @@ proc mixSelfHopUsable*(self: Kernel): bool =
   ## True when mix is mounted and can encode this node's own hop. `mixReady`
   ## also checks this; the send path reads it alone to name the reason.
   return not self.protocols.mix.isNil() and self.protocols.mix.selfHopUsable()
+
+proc mixLightpushSize*(
+    self: Kernel, shard: PubsubTopic, message: WakuMessage
+): tuple[size, limit: int] =
+  ## The bytes of a lightpush request over mix for `message`, and the limit of
+  ## one mix message.
+  return lightpush.mixLightpushSize(shard, message)
 
 proc lightpushPublishToAny*(
     self: Kernel, shard: PubsubTopic, message: WakuMessage, mixify: bool = false

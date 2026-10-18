@@ -406,7 +406,6 @@ proc setupProtocols(
         await node.mountStoreSync(
           conf.clusterId,
           conf.subscribeShards,
-          conf.contentTopics,
           confStoreSync.rangeSec,
           confStoreSync.intervalSec,
           confStoreSync.relayJitterSec,
@@ -982,6 +981,48 @@ proc closePersistency(kernel: Kernel) =
     kernel.persistency.close()
     kernel.persistency = nil
 
+proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
+  if not kernel.started:
+    debug "stop: attempting to stop node that isn't running"
+
+  try:
+    if not kernel.healthMonitor.isNil():
+      kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+
+    kernel.closePersistency()
+
+    if not kernel.metricsServer.isNil():
+      await kernel.metricsServer.close()
+      kernel.metricsServer = nil
+
+    # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
+
+    await kernel.stopMixRln()
+    await kernel.stopProtocols()
+
+    if not kernel.discovery.dnsRetryLoopHandle.isNil():
+      await kernel.discovery.dnsRetryLoopHandle.cancelAndWait()
+
+    if not kernel.enrReconcileLoopHandle.isNil():
+      await kernel.enrReconcileLoopHandle.cancelAndWait()
+
+    if not kernel.healthMonitor.isNil():
+      await kernel.healthMonitor.stopHealthMonitor()
+
+    ## Clear all providers registered in start() so a later start() can re-set them.
+    RequestConnectionStatus.clearProvider(kernel.brokerCtx)
+    RequestProtocolHealth.clearProvider(kernel.brokerCtx)
+    RequestHealthReport.clearProvider(kernel.brokerCtx)
+    ## Node-state getters: provided again by the next start(). Cleared after
+    ## node.stop() because discovery backends read them while stopping.
+    ## GetDiscoveryRequirements stays (see new): it is config-only.
+    kernel.clearNodeState()
+  except Exception:
+    error "Waku stop failed", error = getCurrentExceptionMsg()
+    return err("waku stop failed: " & getCurrentExceptionMsg())
+
+  return ok()
+
 proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
   if kernel.started:
     debug "start: waku node already started"
@@ -1013,8 +1054,14 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   var startSucceeded = false
   defer:
     if not startSucceeded:
-      await kernel.stopMixRln()
-      kernel.closePersistency()
+      if kernel.started:
+        # Stop the node, so the next start does not return early as "already started".
+        (await kernel.stop()).isOkOr:
+          error "Failed to stop after a failed start", error = error
+      else:
+        # The node did not start, but mix RLN and the persistency can run.
+        await kernel.stopMixRln()
+        kernel.closePersistency()
 
   if conf.dnsDiscoveryConf.isSome():
     let dnsDiscoveryConf = kernel.conf.dnsDiscoveryConf.get()
@@ -1091,8 +1138,10 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   except CatchableError:
     return err("Caught exception in start: " & getCurrentExceptionMsg())
 
-  kernel.subscriptionManager.subscribeAllAutoshards().isOkOr:
-    return err("failed to auto-subscribe autosharding shards: " & $error)
+  kernel.subscriptionManager.subscribeConfiguredShards(
+    kernel.conf.clusterId, kernel.conf.subscribeShards
+  ).isOkOr:
+    return err("failed to subscribe relay to configured shards: " & $error)
 
   kernel.logEnrReachability()
 
@@ -1173,47 +1222,6 @@ proc start*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).
   kernel.healthMonitor.setOverallHealth(HealthStatus.READY)
 
   startSucceeded = true
-  return ok()
-
-proc stop*(kernel: Kernel): Future[Result[void, string]] {.async: (raises: []).} =
-  if not kernel.started:
-    debug "stop: attempting to stop node that isn't running"
-
-  try:
-    if not kernel.healthMonitor.isNil():
-      kernel.healthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
-
-    kernel.closePersistency()
-
-    if not kernel.metricsServer.isNil():
-      await kernel.metricsServer.stop()
-
-    # discv5 (as attached IPeerDiscovery backend) is stopped by node.stop()
-
-    await kernel.stopMixRln()
-    await kernel.stopProtocols()
-
-    if not kernel.discovery.dnsRetryLoopHandle.isNil():
-      await kernel.discovery.dnsRetryLoopHandle.cancelAndWait()
-
-    if not kernel.enrReconcileLoopHandle.isNil():
-      await kernel.enrReconcileLoopHandle.cancelAndWait()
-
-    if not kernel.healthMonitor.isNil():
-      await kernel.healthMonitor.stopHealthMonitor()
-
-    ## Clear all providers registered in start() so a later start() can re-set them.
-    RequestConnectionStatus.clearProvider(kernel.brokerCtx)
-    RequestProtocolHealth.clearProvider(kernel.brokerCtx)
-    RequestHealthReport.clearProvider(kernel.brokerCtx)
-    ## Node-state getters: provided again by the next start(). Cleared after
-    ## node.stop() because discovery backends read them while stopping.
-    ## GetDiscoveryRequirements stays (see new): it is config-only.
-    kernel.clearNodeState()
-  except Exception:
-    error "Waku stop failed", error = getCurrentExceptionMsg()
-    return err("waku stop failed: " & getCurrentExceptionMsg())
-
   return ok()
 
 {.pop.}

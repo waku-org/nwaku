@@ -94,6 +94,18 @@ suite "Waku Sync Storage":
     check:
       toSend == diffs
 
+  test "a fingerprint over a pubsub topic with no local message is empty":
+    var rng = initRand()
+    let
+      element = SyncID(time: Timestamp(1000), hash: randomHash(rng))
+      storage = SeqStorage.new(@[element], @["/waku/2/rs/0/1"], @[DefaultContentTopic])
+      bounds =
+        SyncID(time: Timestamp(0), hash: EmptyFingerprint) ..
+        SyncID(time: Timestamp(2000), hash: EmptyFingerprint)
+
+    check storage.computeFingerprint(bounds, @["/waku/2/rs/0/2"], @[]) ==
+      EmptyFingerprint
+
   test "insert new element":
     var rng = initRand()
 

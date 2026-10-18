@@ -415,8 +415,7 @@ suite "Waku v2 Rest API - lightpush":
       received.mapIt(it.ephemeral) == @[sent.ephemeral]
       received.mapIt(it.proof) == @[sent.proof]
 
-  asyncTest "A message pushed twice is answered 505 the second time and handed to the service node's handlers both times - POST /lightpush/v3/message":
-    # TODO: logos-delivery#4453
+  asyncTest "A message pushed twice is answered 400 the second time and handed to the service node's handlers once - POST /lightpush/v3/message":
     # Given the service node and its relay peer subscribed over REST
     let restLightPushTest = await RestLightPushTest.init()
     defer:
@@ -465,9 +464,8 @@ suite "Waku v2 Rest API - lightpush":
     let sentAfterFirst = relayNetworkBytes(netOut)
     let secondResponse = await restLightPushTest.restClient.sendPushRequest(requestBody)
 
-    # Then the second push is answered 505, and the service node returns the message again without sending it to its relay peer
-    let secondOnService =
-      await serviceClient.waitForRelayMessages(DefaultPubsubTopic, 1)
+    # Then the second push is answered as a duplicate, and the service node neither returns the message again nor sends it to its relay peer
+    let secondOnService = await serviceClient.relayGetMessagesV1(DefaultPubsubTopic)
     let secondOnConsumer = await consumerClient.relayGetMessagesV1(DefaultPubsubTopic)
     check:
       firstResponse.status == 200
@@ -475,10 +473,11 @@ suite "Waku v2 Rest API - lightpush":
       firstOnService.mapIt(it.payload) == @[message.payload]
       onConsumer.mapIt(it.payload) == @[message.payload]
       sentAfterFirst > sentBefore
-      secondResponse.status == 505
-      secondResponse.data.statusDesc == Opt.some("No peers for topic, skipping publish")
+      secondResponse.status == 400
+      secondResponse.data.statusDesc == Opt.some("Dropping already-seen message")
       secondResponse.data.relayPeerCount == Opt.none(uint32)
-      secondOnService.mapIt(it.payload) == @[message.payload]
+      secondOnService.status == 200
+      secondOnService.data.len == 0
       relayNetworkBytes(netOut) == sentAfterFirst
       secondOnConsumer.status == 200
       secondOnConsumer.data.len == 0
@@ -652,6 +651,76 @@ suite "Waku v2 Rest API - lightpush":
       response.data.statusDesc ==
         Opt.some("decode_rpc_failure: (kind: InvalidLengthField, field: \"meta\")")
       response.data.relayPeerCount == Opt.none(uint32)
+
+  asyncTest "A push of a message encoded at the maximum size is relayed - POST /lightpush/v3/message":
+    # Given
+    let restLightPushTest = await RestLightPushTest.init()
+    defer:
+      await restLightPushTest.shutdown()
+
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    restLightPushTest.consumerNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+    restLightPushTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
+    # When
+    let message = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize))
+    check message.encode().len == int(DefaultMaxWakuMessageSize)
+
+    let response = await restLightPushTest.restClient.sendPushRequest(
+      PushRequest(
+        pubsubTopic: Opt.some(DefaultPubsubTopic), message: message.toRelayWakuMessage()
+      )
+    )
+
+    # Then the service node relays it to its one relay peer
+    check:
+      response.status == 200
+      response.data.relayPeerCount == Opt.some(1.uint32)
+
+  asyncTest "A push of a message encoded at the maximum size is relayed by a node running the lightpush service - POST /lightpush/v3/message":
+    # Given
+    let restLightPushTest = await RestLightPushTest.init(selfHostedLightPush = true)
+    defer:
+      await restLightPushTest.shutdown()
+
+    let simpleHandler = proc(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      await sleepAsync(0.milliseconds)
+
+    restLightPushTest.consumerNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+    restLightPushTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler
+    ).isOkOr:
+      assert false, "Failed to subscribe to relay: " & $error
+
+    # When
+    let message = fakeWakuMessageEncodedAt(int(DefaultMaxWakuMessageSize))
+    check message.encode().len == int(DefaultMaxWakuMessageSize)
+
+    let response = await restLightPushTest.restClient.sendPushRequest(
+      PushRequest(
+        pubsubTopic: Opt.some(DefaultPubsubTopic), message: message.toRelayWakuMessage()
+      )
+    )
+
+    # Then the service node relays it to its one relay peer
+    check:
+      response.status == 200
+      response.data.relayPeerCount == Opt.some(1.uint32)
 
   asyncTest "Push a message over the size limit - POST /lightpush/v3/message":
     # Given

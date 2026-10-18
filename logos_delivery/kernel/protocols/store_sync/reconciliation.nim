@@ -42,8 +42,8 @@ const DefaultMaxPayloadSize = 64 * 1024 * 1024
   ## takes at most 41 bytes, so this is about 1.6 million entries in one round.
 
 type SyncReconciliation* = ref object of LPProtocol
-  pubsubTopics: HashSet[PubsubTopic] # Empty set means accept all. See spec.
-  contentTopics: HashSet[ContentTopic] # Empty set means accept all. See spec.
+  cluster: uint16
+  shards: HashSet[uint16] # Empty set means all shards.
 
   peerManager: PeerManager
 
@@ -117,31 +117,23 @@ proc messageIngress*(
 proc preProcessPayload*(
     self: SyncReconciliation, payload: RangesData, lowerBound: Timestamp
 ): Opt[RangesData] =
-  ## Check the received payload for topics and/or time mismatch.
+  ## Check the received payload for cluster, shards and/or time mismatch.
 
   var payload = payload
 
-  # Always use the smallest pubsub topic scope possible
-  if payload.pubsubTopics.len > 0 and self.pubsubTopics.len > 0:
-    let pubsubIntersection = self.pubsubTopics * payload.pubsubTopics.toHashSet()
+  if payload.cluster != self.cluster:
+    return Opt.none(RangesData)
 
-    if pubsubIntersection.len < 1:
+  # Always use the smallest shard scope possible
+  if payload.shards.len > 0 and self.shards.len > 0:
+    let shardIntersection = self.shards * payload.shards.toHashSet()
+
+    if shardIntersection.len < 1:
       return Opt.none(RangesData)
 
-    payload.pubsubTopics = pubsubIntersection.toSeq()
-  elif self.pubsubTopics.len > 0:
-    payload.pubsubTopics = self.pubsubTopics.toSeq()
-
-  # Always use the smallest content topic scope possible
-  if payload.contentTopics.len > 0 and self.contentTopics.len > 0:
-    let contentIntersection = self.contentTopics * payload.contentTopics.toHashSet()
-
-    if contentIntersection.len < 1:
-      return Opt.none(RangesData)
-
-    payload.contentTopics = contentIntersection.toSeq()
-  elif self.contentTopics.len > 0:
-    payload.contentTopics = self.contentTopics.toSeq()
+    payload.shards = shardIntersection.toSeq()
+  elif self.shards.len > 0:
+    payload.shards = self.shards.toSeq()
 
   # for non skip ranges check if they happen before any of our ranges
   # convert to skip range before processing.
@@ -213,6 +205,20 @@ proc processRequest(
       remote = conn.peerId,
       payload = recvPayload
 
+    # A peer on another cluster or with no shared shard answers with its header
+    # alone, which would otherwise end the session like one that is in sync.
+    if recvPayload.ranges.len == 0 and (
+      recvPayload.cluster != self.cluster or (
+        self.shards.len > 0 and recvPayload.shards.len > 0 and
+        (self.shards * recvPayload.shards.toHashSet()).len == 0
+      )
+    ):
+      await conn.close()
+      return err(
+        "remote " & $conn.peerId & " is outside the sync scope: cluster " &
+          $recvPayload.cluster & ", shards " & $recvPayload.shards
+      )
+
     if recvPayload.ranges.len == 0 or recvPayload.ranges.allIt(it[1] == RangeType.Skip):
       break
 
@@ -220,11 +226,13 @@ proc processRequest(
       hashToRecv: seq[WakuMessageHash]
       hashToSend: seq[WakuMessageHash]
       sendPayload: RangesData
-      rawPayload: seq[byte]
+      # the scope the reply's ranges cover; ours when there is none
+      replyShards = self.shards.toSeq()
 
     let preProcessedPayloadRes = self.preProcessPayload(recvPayload, lowerBound)
     if preProcessedPayloadRes.isSome():
       let preProcessedPayload = preProcessedPayloadRes.get()
+      replyShards = preProcessedPayload.shards
 
       trace "pre-processed payload",
         local = self.peerManager.switch.peerInfo.peerId,
@@ -237,17 +245,25 @@ proc processRequest(
       trace "sync payload processed",
         hash_to_send = hashToSend, hash_to_recv = hashToRecv
 
-      sendPayload.pubsubTopics = self.pubsubTopics.toSeq()
-      sendPayload.contentTopics = self.contentTopics.toSeq()
-
       for hash in hashToSend:
         self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
         diffs.inc()
 
       for hash in hashToRecv:
         diffs.inc()
+    else:
+      debug "Sync scope mismatch",
+        remote = conn.peerId,
+        remote_cluster = recvPayload.cluster,
+        remote_shards = recvPayload.shards,
+        local_cluster = self.cluster,
+        local_shards = self.shards
 
-      rawPayload = sendPayload.deltaEncode()
+    # On another cluster or with no shared shard, the reply has no ranges: the
+    # header alone is the empty payload of WAKU-SYNC.
+    sendPayload.cluster = self.cluster
+    sendPayload.shards = replyShards
+    let rawPayload = sendPayload.deltaEncode()
 
     logos_delivery_total_bytes_exchanged.inc(
       rawPayload.len, labelValues = [Reconciliation, Sending]
@@ -284,20 +300,20 @@ proc initiate(
     connection: Connection,
     offset: Duration,
     syncRange: Duration,
-    pubsubTopics: seq[PubsubTopic],
-    contentTopics: seq[ContentTopic],
+    shards: seq[uint16],
 ): Future[Result[void, string]] {.async.} =
   let
     timeRange = calculateTimeRange(self.clock(), offset, syncRange)
     lower = SyncID(time: timeRange.a, hash: EmptyFingerprint)
     upper = SyncID(time: timeRange.b, hash: FullFingerprint)
     bounds = lower .. upper
+    pubsubTopics = shards.mapIt($RelayShard(clusterId: self.cluster, shardId: it))
 
-    fingerprint = self.storage.computeFingerprint(bounds, pubsubTopics, contentTopics)
+    fingerprint = self.storage.computeFingerprint(bounds, pubsubTopics, @[])
 
     initPayload = RangesData(
-      pubsubTopics: pubsubTopics,
-      contentTopics: contentTopics,
+      cluster: self.cluster,
+      shards: shards,
       ranges: @[(bounds, RangeType.Fingerprint)],
       fingerprints: @[fingerprint],
       itemSets: @[],
@@ -329,8 +345,7 @@ proc storeSynchronization*(
     peerInfo: Opt[RemotePeerInfo] = Opt.none(RemotePeerInfo),
     offset: Duration = self.relayJitter,
     syncRange: Duration = self.syncRange,
-    pubsubTopics: HashSet[PubsubTopic] = self.pubsubTopics,
-    contentTopics: HashSet[ContentTopic] = self.contentTopics,
+    shards: HashSet[uint16] = self.shards,
 ): Future[Result[void, string]] {.async.} =
   let peer = peerInfo.valueOr:
     self.peerManager.selectPeer(WakuReconciliationCodec).valueOr:
@@ -344,11 +359,7 @@ proc storeSynchronization*(
   debug "Sync session initialized",
     local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId
 
-  (
-    await self.initiate(
-      conn, offset, syncRange, pubsubTopics.toSeq(), contentTopics.toSeq()
-    )
-  ).isOkOr:
+  (await self.initiate(conn, offset, syncRange, shards.toSeq())).isOkOr:
     debug "Sync session failed",
       local = self.peerManager.switch.peerInfo.peerId, remote = conn.peerId, err = error
 
@@ -405,8 +416,8 @@ proc initFillStorage(
 
 proc new*(
     T: type SyncReconciliation,
-    pubsubTopics: seq[PubSubTopic],
-    contentTopics: seq[ContentTopic],
+    cluster: uint16,
+    shards: seq[uint16],
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     syncRange: timer.Duration = DefaultSyncRange,
@@ -440,8 +451,8 @@ proc new*(
       res.get()
 
   var sync = SyncReconciliation(
-    pubsubTopics: pubsubTopics.toHashSet(),
-    contentTopics: contentTopics.toHashSet(),
+    cluster: cluster,
+    shards: shards.toHashSet(),
     peerManager: peerManager,
     storage: storage,
     syncRange: effectiveRange,

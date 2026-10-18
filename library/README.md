@@ -123,8 +123,7 @@ int logosdelivery_ctx_start_node(const LogosDeliveryCtx *ctx, LogosDeliveryStart
 ```
 
 #### `logosdelivery_ctx_stop_node`
-Stops the node and removes the event listeners. A second call is a no-op that
-reports `RET_OK`.
+Stops the node. A second call is a no-op that reports `RET_OK`. The event listeners stay registered, and they receive the events of the node again after a later `logosdelivery_ctx_start_node`. `logosdelivery_ctx_destroy` removes them.
 
 ```c
 int logosdelivery_ctx_stop_node(const LogosDeliveryCtx *ctx, LogosDeliveryStopNodeReplyFn onReply, void *userData);
@@ -170,6 +169,8 @@ The buffer belongs to the calling thread and stays valid until that thread calls
 `logosdelivery_version` again, so copy the bytes.
 
 ### Messaging
+
+`logosdelivery_ctx_subscribe`, `logosdelivery_ctx_unsubscribe` and `logosdelivery_ctx_send` answer `RET_ERR` until the reply of `logosdelivery_ctx_start_node` gives `RET_OK`, and again from `logosdelivery_ctx_stop_node` on. The error message ends with `node is not started`.
 
 #### `logosdelivery_ctx_subscribe`
 Subscribe to a content topic to receive messages.

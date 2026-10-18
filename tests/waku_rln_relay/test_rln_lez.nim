@@ -11,6 +11,8 @@ import testutils/unittests, chronos
 
 import logos_delivery/kernel/rln/rln_lez/rln_lez
 import logos_delivery/kernel/rln/rln_lez/transport
+import logos_delivery/kernel/base/message
+import logos_delivery/kernel/rln/rln_plugin
 
 const
   QuotaReply =
@@ -36,6 +38,7 @@ let
 var
   gQuotaReply = QuotaReply
   gValidateReply = ViolationReply
+  gGenerateReply = GenerateReply
 
 proc fakeGetState(reqId: uint64, userData: pointer) {.cdecl, gcsafe, raises: [].} =
   {.cast(gcsafe), cast(raises: []).}:
@@ -51,7 +54,7 @@ proc fakeGenerate(
     reqId: uint64, signalHex: cstring, timestamp: uint64, userData: pointer
 ) {.cdecl, gcsafe, raises: [].} =
   {.cast(gcsafe), cast(raises: []).}:
-    discard logosdelivery_rln_response(reqId, GenerateReply.cstring)
+    discard logosdelivery_rln_response(reqId, gGenerateReply.cstring)
 
 proc fakeValidate(
     reqId: uint64,
@@ -129,6 +132,45 @@ suite "RlnLez - RlnInterface over the RLN plugin FFI crossing":
     check:
       proof.proof[0] == 0xab'u8
       proof.proof[RlnProofSize - 1] == 0xab'u8
+
+  test "the external plugin declares the generated canonical proof length":
+    let plugin = rlnLez.toRlnPlugin()
+    let message =
+      WakuMessage(payload: @[1'u8], timestamp: int64(timestamp) * 1_000_000_000)
+    let preview =
+      Opt.some(plugin).messageForSizeCheck(message).expect("messageForSizeCheck")
+    let proven = (waitFor plugin.generateProof(message)).expect("generateProof")
+    check:
+      preview.proof.len == proven.len
+      message.proof.len == 0
+
+  test "both external proof paths reject malformed host responses":
+    defer:
+      gGenerateReply = GenerateReply
+    let plugin = RlnLez.init().toRlnPlugin()
+    let message =
+      WakuMessage(payload: @[1'u8], timestamp: int64(timestamp) * 1_000_000_000)
+    for (proofHex, reason) in [
+      (repeat("ab", RlnProofSize - 1), "bytes, expected " & $RlnProofSize),
+      (repeat("ab", RlnProofSize + 1), "bytes, expected " & $RlnProofSize),
+      ("", "no proof_canonical"),
+      ("zz", "not valid hex"),
+    ]:
+      gGenerateReply = $(%*{"success": true, "value": {"proof_canonical": proofHex}})
+      let typed = waitFor rlnLez.generateProof(@[1'u8], timestamp)
+      let adapted = waitFor plugin.generateProof(message)
+      check:
+        typed.isErr()
+        adapted.isErr()
+        message.proof.len == 0
+      if typed.isErr():
+        check:
+          typed.error.kind == RlnErrorKind.Transient
+          reason in typed.error.message
+      if adapted.isErr():
+        check:
+          adapted.error.kind == RlnErrorKind.Transient
+          reason in adapted.error.message
 
   test "validateProof decodes verdict and recovered secret":
     let generated = (waitFor rlnLez.generateProof(@[1'u8, 2, 3], timestamp)).valueOr:

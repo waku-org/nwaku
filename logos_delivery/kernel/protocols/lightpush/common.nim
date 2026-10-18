@@ -70,8 +70,10 @@ func lighpushErrorResult*(
   return err((statusCode, Opt.some(desc)))
 
 func mapPubishingErrorToPushResult*(
-    publishOutcome: PublishOutcome
+    publishOutcome: PublishOutcome, maxMessageSize: int
 ): WakuLightPushResult =
+  ## `maxMessageSize` is the max size of an encoded message, for the
+  ## `MessageTooLarge` text.
   case publishOutcome
   of NoTopicSpecified:
     return err(
@@ -100,5 +102,12 @@ func mapPubishingErrorToPushResult*(
       (
         LightPushErrorCode.INVALID_MESSAGE,
         Opt.some("Invalid message, skipping publish"),
+      )
+    )
+  of MessageTooLarge:
+    return err(
+      (
+        LightPushErrorCode.PAYLOAD_TOO_LARGE,
+        Opt.some("Message size exceeded maximum of: " & $maxMessageSize & " bytes"),
       )
     )

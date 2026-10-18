@@ -25,6 +25,7 @@ import
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)
+const NegativeTestTimeout = chronos.seconds(1)
 const DefaultShard = PubsubTopic("/waku/2/rs/3/0")
 const TestContentTopic = ContentTopic("/waku/2/default-content/proto")
 
@@ -77,6 +78,17 @@ proc waitForShardHealthy(
       raiseAssert "Timeout waiting for shard health event"
   finally:
     await EventShardTopicHealthChange.dropListener(brokerCtx, handle)
+
+proc listenShardHealth(
+    brokerCtx: BrokerContext, healths: ref seq[TopicHealth]
+): EventShardTopicHealthChangeListener =
+  let handler: EventShardTopicHealthChangeListenerProc = proc(
+      e: EventShardTopicHealthChange
+  ) {.async: (raises: []), gcsafe.} =
+    healths[].add(e.health)
+
+  return EventShardTopicHealthChange.listen(brokerCtx, handler).valueOr:
+    raiseAssert error
 
 suite "LM API health checking":
   var
@@ -228,6 +240,58 @@ suite "LM API health checking":
     let event = await healthEventFuture
     check event.topic == DefaultShard
 
+  asyncTest "EventShardTopicHealthChange, no health degradation after a restart":
+    (await client.stop()).isOkOr:
+      raiseAssert error
+    (await client.start()).isOkOr:
+      raiseAssert error
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
+
+    let connectFuture = waitForConnectionStatus(
+      client.kernel.brokerCtx, ConnectionStatus.PartiallyConnected
+    )
+    await client.kernel.connectToNodes(@[servicePeerInfo])
+    await connectFuture
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+
+    let disconnectFuture =
+      waitForConnectionStatus(client.kernel.brokerCtx, ConnectionStatus.Disconnected)
+    await client.kernel.disconnectNode(servicePeerInfo)
+    await disconnectFuture
+
+    # The restarted node reports UNHEALTHY once its mesh is empty.
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
+    check:
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)
+
+  asyncTest "EventShardTopicHealthChange, no health reported before a peer meshes":
+    # TODO: logos-delivery#4544
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
+
+    # The node reports no UNHEALTHY although its mesh is empty.
+    await sleepAsync(NegativeTestTimeout)
+    check:
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)
+      healths[].len == 0
+
+    await client.kernel.connectToNodes(@[servicePeerInfo])
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+
   asyncTest "RequestHealthReport, check aggregate report":
     let req = await RequestHealthReport.request(client.kernel.brokerCtx)
 
@@ -303,3 +367,56 @@ suite "LM API health checking":
       check not edgeWaku.kernel.protocols.filterClient.isNil()
 
       discard await edgeWaku.stop()
+
+suite "LM API health checking at stop":
+  asyncTest "EventShardTopicHealthChange, no health degradation at stop":
+    var serviceNode: Kernel
+    lockNewGlobalBrokerContext:
+      serviceNode = newTestWakuNode(generateSecp256k1Key())
+      (await serviceNode.mountRelay()).isOkOr:
+        raiseAssert error
+      serviceNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
+        raiseAssert error
+      await serviceNode.mountLibp2pPing()
+      (await serviceNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+    defer:
+      (await serviceNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+    serviceNode.protocols.relay.subscribe(DefaultShard, dummyHandler)
+
+    let serviceHealths = new seq[TopicHealth]
+    let serviceHandle = listenShardHealth(serviceNode.brokerCtx, serviceHealths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(
+        serviceNode.brokerCtx, serviceHandle
+      )
+
+    var client: LogosDelivery
+    lockNewGlobalBrokerContext:
+      client = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      (await client.start()).isOkOr:
+        raiseAssert error
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
+
+    let healths = new seq[TopicHealth]
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
+    defer:
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
+
+    await client.kernel.connectToNodes(@[serviceNode.peerInfo.toRemotePeerInfo()])
+    checkUntilTimeout:
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY]
+
+    (await client.stop()).isOkOr:
+      raiseAssert error
+
+    # The stopped node reports UNHEALTHY, like its peer does for the same mesh.
+    checkUntilTimeout:
+      serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
+      healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
+    check:
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
+        Result[int, string].ok(0)

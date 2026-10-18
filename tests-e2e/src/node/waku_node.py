@@ -602,6 +602,9 @@ class WakuNode:
         matches = self._docker_manager.search_log_for_keywords(self._log_path, keywords, False)
         assert not matches, f"Found errors {matches}"
 
+    def search_log_for_keywords(self, keywords, use_regex=False):
+        return self._docker_manager.search_log_for_keywords(self._log_path, keywords, use_regex)
+
     def set_log_level(self, log_level):
         return self._api.set_log_level(log_level)
 

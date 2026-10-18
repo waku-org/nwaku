@@ -68,7 +68,7 @@ type MessagingClientConf* = object
     ## Disable RLN message proof validation.
   reliabilityEnabled* {.name: "reliability".}: Opt[bool]
     ## Enable store-based send reliability.
-  anonymityLevel*: Opt[AnonymityLevel]
+  anonymityLevel* {.name: "anonymity-level".}: Opt[AnonymityLevel]
     ## Sender anonymity level. A level above `None` mounts and uses mix.
   store*: Opt[bool] ## Enable the store protocol.
   storenode* {.name: "storenode".}: Opt[string]

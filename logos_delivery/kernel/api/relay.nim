@@ -76,6 +76,33 @@ proc getTopicOfSubscriptionEvent(
   else:
     return err("Unsupported subscription type in relay getTopicOfSubscriptionEvent")
 
+proc validateShardOfNode*(
+    node: Kernel, pubsubTopic: PubsubTopic
+): Result[void, string] =
+  ## A node stays on its own cluster and, under autosharding, on the cluster's shards.
+  ## Topics that are not shards are not this check's concern.
+  let shard = RelayShard.parseStaticSharding(pubsubTopic).valueOr:
+    return ok()
+
+  if node.wakuAutoSharding.isSome():
+    let sharding = node.wakuAutoSharding.get()
+    if uint32(shard.clusterId) != uint32(sharding.clusterId):
+      return err(
+        "shard of another cluster: " & $shard.clusterId & " vs " & $sharding.clusterId
+      )
+    if shard.shardId notin sharding.shards:
+      return err(
+        "shard outside the cluster shards: " & $shard.shardId & " vs " & $sharding.shards
+      )
+  elif not node.protocols.metadata.isNil():
+    if uint32(shard.clusterId) != node.protocols.metadata.clusterId:
+      return err(
+        "shard of another cluster: " & $shard.clusterId & " vs " &
+          $node.protocols.metadata.clusterId
+      )
+
+  return ok()
+
 proc subscribe*(
     self: Kernel, subscription: SubscriptionEvent, handler: WakuRelayHandler
 ): Result[void, string] =
@@ -89,32 +116,34 @@ proc subscribe*(
     debug "Invalid API call to `subscribe`. WakuRelay not mounted."
     return err("Invalid API call to `subscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
+  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
     debug "Failed to decode subscription event", error = error
     return err("Failed to decode subscription event: " & error)
 
-  # strict version
-  #if contentTopicOp.isSome():
-  #  return
-  #    node.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
+  self.validateShardOfNode(pubsubTopic).isOkOr:
+    return err("could not subscribe to: " & pubsubTopic & ": " & error)
+
+  if contentTopicOp.isSome():
+    return
+      self.subscriptionManager.subscribe(pubsubTopic, contentTopicOp.get(), handler)
   return self.subscriptionManager.subscribeShard(pubsubTopic, handler)
 
 proc unsubscribe*(self: Kernel, subscription: SubscriptionEvent): Result[void, string] =
   ## Unsubscribes from a specific PubSub or Content topic.
-  ## This will both unsubscribe from the relay mesh and remove the app handler, if any.
+  ## A content topic only drops its own interest: the shard is left, and its app handler
+  ## removed, once no other content topic or direct shard subscription wants it.
   ## NOTE: This works because using MAPI and Kernel API at the same time is unsupported.
 
   if isNil(self.protocols.relay):
     debug "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return err("Invalid API call to `unsubscribe`. WakuRelay not mounted.")
 
-  let (pubsubTopic, _) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
+  let (pubsubTopic, contentTopicOp) = getTopicOfSubscriptionEvent(self, subscription).valueOr:
     debug "Failed to decode unsubscribe event", error = error
     return err("Failed to decode unsubscribe event: " & error)
 
-  # strict version
-  #if contentTopicOp.isSome():
-  #  return node.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
+  if contentTopicOp.isSome():
+    return self.subscriptionManager.unsubscribe(pubsubTopic, contentTopicOp.get())
   return self.subscriptionManager.unsubscribeAll(pubsubTopic)
 
 proc isSubscribed*(

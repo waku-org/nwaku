@@ -405,7 +405,7 @@ suite "Sharding":
         )
         assertResultOk(await serverHandlers[i].waitForResult(FUTURE_TIMEOUT))
 
-    asyncTest "Unsubscribing one content topic silences other content topics on its shard":
+    asyncTest "Unsubscribing one content topic keeps other content topics on its shard":
       # Given a one-shard network, so both content topics resolve to the same shard
       for node in [server, client]:
         node.mountAutoSharding(DefaultClusterId, 1).isOkOr:
@@ -440,14 +440,13 @@ suite "Sharding":
         node.unsubscribe((kind: ContentUnsub, topic: contentTopic2)).isOkOr:
           raiseAssert "Failed to unsubscribe from " & contentTopic2 & ": " & error
 
-      # Then contentTopic1 stops delivering too: unsubscribing one content topic
-      # drops the whole shard subscription
+      # Then contentTopic1 keeps delivering
       serverHandler1.reset()
       discard await client.publish(
         Opt.some(shard),
         WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic1),
       )
-      check (await serverHandler1.waitForResult(FUTURE_TIMEOUT)).isErr()
+      assertResultOk(await serverHandler1.waitForResult(FUTURE_TIMEOUT))
 
     asyncTest "Unsubscribing from all content topics stops delivery":
       # Given a connected server and client delivering on every content topic

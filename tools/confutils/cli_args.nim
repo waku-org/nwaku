@@ -175,8 +175,9 @@ type WakuNodeConf* = object
 
   maxMessageSize* {.
     desc:
-      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
-    defaultValue: DefaultMaxWakuMessageSizeStr,
+      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc. Default: " &
+      DefaultMaxWakuMessageSizeStr & ", or the one of the preset.",
+    defaultValue: "",
     name: "max-msg-size"
   .}: string
 
@@ -435,7 +436,7 @@ hence would have reachability issues.""",
 
   storeMessageRetentionPolicy* {.
     desc:
-      "Message store retention policy. Multiple policies may be provided as a semicolon-separated string and are applied as a union. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'. Size retention policy: 'size:<xMB/xGB>'. Set to 'none' to disable. Example: 'time:3600;size:1GB;capacity:100'. (requires --store)",
+      "Message store retention policy. Multiple policies may be provided as a semicolon-separated string and are applied as a union. Time retention policy: 'time:<seconds>'. Size retention policy: 'size:<xMB/xGB>'. Capacity retention policy (deprecated): 'capacity:<count>'. Set to 'none' to disable. Example: 'time:3600;size:1GB'. (requires --store)",
     defaultValue: "time:" & $2.days.seconds,
     name: "store-message-retention-policy"
   .}: string
@@ -1151,11 +1152,6 @@ proc toNetworkPresetConf*(
       "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
     )
     lcPreset = "twn"
-  if clusterId.isSome() and clusterId.get() == 2:
-    warn(
-      "Logos.dev - Logos.dev configuration will not be applied when `--cluster-id=2` is passed in future releases. Use `--preset=logos.dev` instead."
-    )
-    lcPreset = "logos.dev"
 
   case lcPreset
   of "":

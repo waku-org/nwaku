@@ -188,7 +188,7 @@ appears below.
   --ports-shift:1 \
   --store:true \
   --store-message-db-url:sqlite:///mnt/nwaku/data/db1/store.sqlite3 \
-  --store-message-retention-policy:capacity:150000 \
+  --store-message-retention-policy:size:25GB \
   --dns-discovery:true \
   --dns-discovery-url:enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im \
   --discv5-discovery:true

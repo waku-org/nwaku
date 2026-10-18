@@ -14,6 +14,7 @@ import
   logos_delivery/kernel/[
     base/nimchronos,
     base/protobuf,
+    base/rate_limit/timed_map,
     base/enr/sharding,
     base/codecs,
     base/topics/pubsub_topic,
@@ -28,6 +29,11 @@ import
   ./protocols_metrics
 logScope:
   topics = "waku transfer"
+
+# A node at the default --max-msg-size never archives a message above this, so
+# only larger messages can be refused by a peer at or above the default.
+const DefaultReadCap =
+  int(DefaultMaxWakuMessageSize) + DefaultSafetyBufferProtocolOverhead
 
 type SyncTransfer* = ref object of LPProtocol
   wakuArchive: WakuArchive
@@ -45,6 +51,11 @@ type SyncTransfer* = ref object of LPProtocol
   remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)]
   remoteNeedsRxFut: Future[void]
   outSessions: Table[PeerId, Connection]
+
+  # Hashes above DefaultReadCap written into the open session to each peer
+  largeSent: Table[PeerId, seq[WakuMessageHash]]
+  # Not sent again until they leave the sync window
+  refusedByPeer: TimedMap[(PeerId, WakuMessageHash), bool]
 
   # Largest encoded WakuMessageAndTopic the handler reads from a peer
   maxRpcSize: int
@@ -93,6 +104,14 @@ proc wantsReceiverLoop(self: SyncTransfer) {.async.} =
 
   return
 
+proc markRefused(self: SyncTransfer, peerId: PeerId) =
+  ## A receiver resets the session on a message above its limit without saying
+  ## which one, so any large message of an ended session may be it.
+  var hashes: seq[WakuMessageHash]
+  if self.largeSent.pop(peerId, hashes):
+    for hash in hashes:
+      discard self.refusedByPeer.mgetOrPut((peerId, hash), true)
+
 proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   ## Waits for message hashes,
   ## open connection to the other peers,
@@ -101,10 +120,24 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
   while true: # infinite loop
     let (peerId, fingerprint) = await self.remoteNeedsRx.popFirst()
 
-    if (not self.outSessions.hasKey(peerId)) or self.outSessions[peerId].closed() or
+    # Before the skip check, so a hash refused in the ended session is skipped
+    # even when it is the first one queued again for that peer.
+    if self.outSessions.hasKey(peerId) and (
+      self.outSessions[peerId].closed() or
       ## sanity check, should not be possible
-    self.outSessions[peerId].isClosedRemotely:
+      self.outSessions[peerId].isClosedRemotely
+    ):
       ## quite possibly remote end has closed the connection, believing transfer to be done
+      self.markRefused(peerId)
+      self.outSessions.del(peerId)
+
+    self.refusedByPeer.expire()
+    if (peerId, fingerprint) in self.refusedByPeer:
+      debug "Skipping message the peer refused",
+        remote_peer_id = peerId, msg_hash = fingerprint.to0xHex()
+      continue
+
+    if not self.outSessions.hasKey(peerId):
       debug "Opening transfer connection to remote peer",
         my_peer_id = self.peerManager.switch.peerInfo.peerId, remote_peer_id = peerId
 
@@ -136,7 +169,13 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       remote_peer_id = peerId,
       msg = msg
 
+    # Recorded before the write: a message larger than the flow-control window
+    # fails on its own write, and is then marked with the rest of the session.
+    if msg.encode().len > DefaultReadCap:
+      self.largeSent.mgetOrPut(peerId, @[]).add(fingerprint)
+
     (await sendMessage(connection, msg)).isOkOr:
+      self.markRefused(peerId)
       self.outSessions.del(peerId)
       await connection.close()
       debug "Failed to send message", error = error
@@ -227,6 +266,7 @@ proc new*(
     localWantsRx: AsyncQueue[PeerId],
     remoteNeedsRx: AsyncQueue[(PeerId, WakuMessageHash)],
     maxMessageSize: int,
+    syncRange: Duration = DefaultSyncRange,
 ): T =
   var transfer = SyncTransfer(
     peerManager: peerManager,
@@ -234,6 +274,7 @@ proc new*(
     idsTx: idsTx,
     localWantsRx: localWantsRx,
     remoteNeedsRx: remoteNeedsRx,
+    refusedByPeer: TimedMap[(PeerId, WakuMessageHash), bool].init(syncRange),
     maxRpcSize: maxMessageSize + DefaultSafetyBufferProtocolOverhead,
   )
 

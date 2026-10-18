@@ -439,14 +439,14 @@ class TestChannelDelivery:
             assert receiver_result.is_ok(), f"Failed to create receiver: {receiver_result.err()}"
 
             with receiver_result.ok_value as receiver:
-                subscribe_result = receiver.subscribe_content_topic(RC09_CONTENT_TOPIC)
-                assert subscribe_result.is_ok(), f"receiver subscribe_content_topic failed: {subscribe_result.err()}"
-
                 receiver_create = receiver.channel_create(channel_id, RC09_CONTENT_TOPIC, SENDER_B)
                 assert receiver_create.is_ok(), f"receiver channel_create failed: {receiver_create.err()}"
 
                 start_result = receiver.start_node()
                 assert start_result.is_ok(), f"Failed to start receiver: {start_result.err()}"
+
+                subscribe_result = receiver.subscribe_content_topic(RC09_CONTENT_TOPIC)
+                assert subscribe_result.is_ok(), f"receiver subscribe_content_topic failed: {subscribe_result.err()}"
                 assert wait_for_connected(receiver_collector) is not None, "Receiver did not reach Connected/PartiallyConnected state"
                 assert wait_for_mesh(receiver_collector), "receiver gossipsub mesh has no peer"
 

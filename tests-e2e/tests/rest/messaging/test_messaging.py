@@ -1,5 +1,6 @@
 import pytest
-from src.env_vars import NODE_1
+from src.env_vars import NODE_1, NODE_2
+from src.libs.common import wait_until
 from src.node.waku_node import WakuNode
 from src.steps.messaging import StepsMessaging
 
@@ -76,3 +77,25 @@ class TestMessagingRestNodeConfig(StepsMessaging):
         node.start(relay="true")
         with pytest.raises(Exception, match=r"^Error: 404 .*--entry-layer"):
             node.messaging_subscribe([self.test_content_topic])
+
+    def test_store_validation_timeout_error_is_logged_at_debug_only(self):
+        # TODO: logos-delivery#4564
+        # node1 is the relay peer of node2 and runs no Store service.
+        self.node1 = WakuNode(NODE_1, f"node1_{self.test_id}")
+        self.node1.start(**self.messaging_args())
+        self.node2 = WakuNode(NODE_2, f"node2_{self.test_id}")
+        self.node2.start(**self.messaging_args(staticnode=self.node1.get_multiaddr_with_id()))
+        self.wait_for_autoconnection([self.node1, self.node2])
+        request_id = self.send_and_get_request_id(self.node2)
+        assert self.collect_send_events(self.node2, request_id, timeout=90) == [
+            ("propagated", None),
+            ("error", "Propagated but not confirmed by a store node within the store validation window"),
+        ]
+        wait_until(
+            lambda: self.node2.search_log_for_keywords(
+                [rf"^DBG .*Message propagated but not validated by a store node within time window; stop trying\..*requestId={request_id}"],
+                use_regex=True,
+            ),
+            message=f"Expected the DEBUG line of the store validation timeout of {request_id}",
+        )
+        assert self.node2.search_log_for_keywords([rf"^(WRN|ERR) .*requestId={request_id}"], use_regex=True) is None

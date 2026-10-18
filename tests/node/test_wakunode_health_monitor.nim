@@ -27,9 +27,10 @@ import
     events/peer_events,
     protocols/mix/protocol,
   ]
-import ../testlib/[wakunode, wakucore], ../waku_archive/archive_utils
+import ../testlib/[wakunode, wakucore, testasync], ../waku_archive/archive_utils
 import logos_delivery/kernel/subscription_manager
 import logos_delivery/kernel/[api/kernel_lifecycle]
+import logos_delivery/kernel/api/state_info
 import logos_delivery/messaging/messaging_client
 import logos_delivery/messaging/messaging_client_lifecycle
 
@@ -521,6 +522,57 @@ suite "Health Monitor - events":
       raiseAssert "failed to stop kernel: " & error
     (await nodeA.stop()).isOkOr:
       raiseAssert "failed to stop kernel: " & error
+
+  asyncTest "Edge reports Filter Client READY for a shard no peer serves":
+    # TODO: logos-delivery#4590
+    var nodeA: Kernel
+    lockNewGlobalBrokerContext:
+      let nodeAKey = generateSecp256k1Key()
+      nodeA = newTestWakuNode(nodeAKey, parseIpAddress("127.0.0.1"), Port(0))
+      await nodeA.mountFilterClient()
+      check nodeA.mountAutoSharding(1, 8).isOk
+      nodeA.mountMetadata(1, @[0'u16]).expect("Node A failed to mount metadata")
+      (await nodeA.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+    defer:
+      (await nodeA.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+
+    let monitorA = NodeHealthMonitor.new(nodeA)
+    monitorA.startHealthMonitor().expect("Health monitor failed to start")
+    defer:
+      await monitorA.stopHealthMonitor()
+
+    let contentTopic = ContentTopic("/waku/2/default-content/proto")
+    let shard = PubsubTopic("/waku/2/rs/1/1")
+    nodeA.subscriptionManager.subscribe(contentTopic).expect("Failed to subscribe")
+
+    var nodeB: Kernel
+    lockNewGlobalBrokerContext:
+      let nodeBKey = generateSecp256k1Key()
+      nodeB = newTestWakuNode(nodeBKey, parseIpAddress("127.0.0.1"), Port(0))
+      (await nodeB.mountRelay()).expect("Node B failed to mount relay")
+      await nodeB.mountFilter()
+      check nodeB.mountAutoSharding(1, 8).isOk
+      # Node B serves shard 0 only, and the content topic is on shard 1.
+      nodeB.mountMetadata(1, @[0'u16]).expect("Node B failed to mount metadata")
+      (await nodeB.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+    defer:
+      (await nodeB.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+
+    let peerB = nodeB.switch.peerInfo.toRemotePeerInfo()
+    await nodeA.connectToNodes(@[peerB])
+
+    checkUntilTimeout:
+      nodeA.switch.peerStore.hasShard(peerB.peerId, 1, 0)
+      monitorA.reportedProtocolHealth(FilterClientProtocol).health == HealthStatus.READY
+
+    check:
+      nodeA.subscriptionManager.isContentSubscribed(shard, contentTopic)
+      nodeA.peerManager.selectPeers(WakuFilterSubscribeCodec, Opt.some(shard)).len == 0
+      nodeA.subscriptionManager.edgeFilterPeerCount(shard) == 0
 
   asyncTest "protocol health changes are published, identify included":
     ## The Store client is READY once the peer's identify lists Store. libp2p

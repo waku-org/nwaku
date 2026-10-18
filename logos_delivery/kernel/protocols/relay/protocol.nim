@@ -14,8 +14,8 @@ import
   chronicles,
   metrics,
   libp2p/multihash,
-  libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/messages,
+  libp2p/protocols/pubsub/[floodsub, gossipsub, timedcache],
+  libp2p/protocols/pubsub/rpc/[messages, protobuf],
   libp2p/stream/connection,
   libp2p/switch,
   libp2p/utils/opt,
@@ -54,6 +54,9 @@ declareCounter logos_delivery_relay_network_bytes,
 
 declarePublicCounter logos_delivery_relay_invalid_messages,
   "messages that the WakuMessage decoder refuses, per stage", labels = ["stage"]
+
+declarePublicCounter logos_delivery_relay_too_large_messages,
+  "messages encoded above the max message size, per stage", labels = ["stage"]
 
 declarePublicGauge(
   logos_delivery_relay_total_msg_bytes_per_shard,
@@ -187,6 +190,25 @@ type
     topicHealthCheckAll: bool
       # true if all topics need to have their health status refreshed in the update event
     msgMetricsPerShard*: Table[string, ShardMetrics]
+    triggerOwnHandlers*: bool
+      ## Whether a message this node publishes is also handed to the handlers
+      ## it registered with `subscribe`, as if it had come from the network.
+      ## `publish` does it, at most once per message id, after the gossipsub
+      ## publish and even when there is no relay peer. A message over the max
+      ## size is never handled. A message retried while there is no relay peer
+      ## is not handled twice, and one published again gets `DuplicateMessage`.
+      ## Gossipsub's own `triggerSelf` stays off, because it would hand the
+      ## message to the handlers on every publish, duplicates included.
+      ## Turn it off on a node that must not see its own messages, as the
+      ## chat2 bridge does to avoid echoing them back.
+    selfHandled: TimedCache[MessageId]
+      ## Ids of the messages `publish` already handed to the node's own
+      ## handlers. Entries expire with gossipsub's seen TTL, the same window in
+      ## which `publish` refuses a duplicate.
+    maxEncodedMessageSize*: int
+      ## The max size of an encoded `WakuMessage`, from `--max-msg-size`.
+      ## Gossipsub's `maxMessageSize` is the read cap of one RPC message, this
+      ## limit plus `DefaultSafetyBufferProtocolOverhead`.
 
 # predefinition for more detailed results from publishing new message
 type PublishOutcome* {.pure.} = enum
@@ -195,6 +217,7 @@ type PublishOutcome* {.pure.} = enum
   NoPeersToPublish
   CannotGenerateMessageId
   InvalidMessage ## The `WakuMessage` decoder refuses the message.
+  MessageTooLarge ## The encoded `WakuMessage` is above `maxEncodedMessageSize`.
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async: (raises: [CancelledError]).} =
@@ -385,7 +408,9 @@ proc initRelayObservers(w: WakuRelay) =
 proc new*(
     T: type WakuRelay, switch: Switch, maxMessageSize = int(DefaultMaxWakuMessageSize)
 ): WakuRelayResult[T] =
-  ## maxMessageSize: max num bytes that are allowed for the WakuMessage
+  ## maxMessageSize: max num bytes that are allowed for the encoded WakuMessage.
+  ## Gossipsub gets this limit plus `DefaultSafetyBufferProtocolOverhead` as the
+  ## read cap of one RPC message.
 
   var w: WakuRelay
   try:
@@ -394,31 +419,26 @@ proc new*(
       anonymize = true,
       verifySignature = false,
       sign = false,
-      triggerSelf = true,
+      triggerSelf = false,
       msgIdProvider = defaultMessageIdProvider,
-      maxMessageSize = maxMessageSize,
+      maxMessageSize = maxMessageSize + DefaultSafetyBufferProtocolOverhead,
       rng = switch.rng,
       parameters = GossipsubParameters,
     )
+    w.maxEncodedMessageSize = maxMessageSize
     w.brokerCtx = globalBrokerContext()
 
     procCall GossipSub(w).initPubSub()
+    w.triggerOwnHandlers = true
+    w.selfHandled = TimedCache[MessageId].init(
+      GossipsubParameters.seenTTL, maxSize = GossipsubParameters.seenMaxSize
+    )
     w.topicsHealth = initTable[string, TopicHealth]()
     w.topicHealthUpdateEvent = newAsyncEvent()
     w.topicHealthDirty = initHashSet[string]()
     w.topicHealthCheckAll = false
     w.initProtocolHandler()
     w.initRelayObservers()
-
-    w.peerEventListener = WakuPeerEvent.listen(
-      w.brokerCtx,
-      proc(evt: WakuPeerEvent): Future[void] {.async: (raises: []), gcsafe.} =
-        if evt.kind == WakuPeerEventKind.EventDisconnected:
-          w.topicHealthCheckAll = true
-          w.topicHealthUpdateEvent.fire()
-      ,
-    ).valueOr:
-      return err("Failed to subscribe to peer events: " & error)
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
@@ -548,6 +568,17 @@ proc topicsHealthLoop(w: WakuRelay) {.async.} =
 method start*(w: WakuRelay) {.async: (raises: [CancelledError]).} =
   info "start"
   await procCall GossipSub(w).start()
+
+  w.peerEventListener = WakuPeerEvent.listen(
+    w.brokerCtx,
+    proc(evt: WakuPeerEvent): Future[void] {.async: (raises: []), gcsafe.} =
+      if evt.kind == WakuPeerEventKind.EventDisconnected:
+        w.topicHealthCheckAll = true
+        w.topicHealthUpdateEvent.fire()
+    ,
+  ).valueOr:
+    error "could not listen to peer events", error = error
+    WakuPeerEventListener()
   w.topicHealthLoopHandle = w.topicsHealthLoop()
 
 method stop*(w: WakuRelay) {.async: (raises: []).} =
@@ -559,11 +590,27 @@ method stop*(w: WakuRelay) {.async: (raises: []).} =
   if not w.topicHealthLoopHandle.isNil():
     await w.topicHealthLoopHandle.cancelAndWait()
 
+  # GossipSub.stop emptied the meshes without waking the health loop
+  for topic in toSeq(w.topicsHealth.keys):
+    let currentHealth = w.calculateTopicHealth(topic)
+    if w.topicsHealth.getOrDefault(topic, TopicHealth.UNHEALTHY) != currentHealth:
+      w.topicsHealth[topic] = currentHealth
+      EventShardTopicHealthChange.emit(w.brokerCtx, topic, currentHealth)
+
 proc generateOrderedValidator(w: WakuRelay): ValidatorHandler {.gcsafe.} =
   # rejects messages that are not WakuMessage
   let wrappedValidator = proc(
       pubsubTopic: string, message: messages.Message
   ): Future[ValidationResult] {.async.} =
+    # Gossipsub caps only the RPC read, so the WakuMessage limit is applied here.
+    if message.payloadBytes.len > w.maxEncodedMessageSize:
+      logos_delivery_relay_too_large_messages.inc(labelValues = ["receive"])
+      trace "Rejecting relay message, too large",
+        pubsubTopic = pubsubTopic,
+        messageSizeBytes = message.payloadBytes.len,
+        maxMessageSize = w.maxEncodedMessageSize
+      return ValidationResult.Reject
+
     # can be optimized by checking if the message is a WakuMessage without allocating memory
     # see nim-libp2p protobuf library
     let msg = WakuMessage.decode(message.payloadBytes).valueOr:
@@ -601,13 +648,14 @@ proc validateMessage*(
     debug "Waku message that the decoder refuses", msg_hash = msgHash, error = $error
     return err($error)
 
-  if messageSizeBytes > w.maxMessageSize:
-    let message = fmt"Message size exceeded maximum of {w.maxMessageSize} bytes"
+  if messageSizeBytes > w.maxEncodedMessageSize:
+    logos_delivery_relay_too_large_messages.inc(labelValues = ["validate"])
+    let message = fmt"Message size exceeded maximum of {w.maxEncodedMessageSize} bytes"
     debug "Too large Waku message",
       msg_hash = msgHash,
       error = message,
       messageSizeBytes = messageSizeBytes,
-      maxMessageSize = w.maxMessageSize
+      maxMessageSize = w.maxEncodedMessageSize
 
     return err(message)
 
@@ -632,7 +680,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data).valueOr:
-      # fine if triggerSelf enabled, since validators are bypassed
+      # fine if triggerOwnHandlers enabled, since validators are bypassed
       debug "Failed to decode WakuMessage, validator passed a wrong message",
         pubsubTopic = pubsubTopic, error = error
       let fut = newFuture[void]()
@@ -721,10 +769,35 @@ proc publish*(
   let data = message.encode()
 
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+  if data.len > w.maxEncodedMessageSize:
+    logos_delivery_relay_too_large_messages.inc(labelValues = ["publish"])
+    debug "Not publishing a message that is too large",
+      msg_hash = msgHash,
+      pubsubTopic = pubsubTopic,
+      messageSizeBytes = data.len,
+      maxMessageSize = w.maxEncodedMessageSize
+    return err(MessageTooLarge)
+
   trace "Start publish Waku message",
     msg_hash = msgHash, pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
 
+  let pubsubMessage = Message(data: data, topic: pubsubTopic)
+  let msgId = w.msgIdProvider(pubsubMessage).valueOr:
+    return err(CannotGenerateMessageId)
+
+  if w.hasSeen(w.salt(msgId)):
+    return err(DuplicateMessage)
+
+  let fitsMaxSize = RPCMsg.withMessages(pubsubMessage).encodedSize() <= w.maxMessageSize
+
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
+
+  # A lone node still hands its own message to its handlers (store, REST cache),
+  # so this does not wait for a peer. The id is consumed only for a topic that
+  # has a handler, and a retry after `NoPeersToPublish` is not handled twice.
+  if w.triggerOwnHandlers and fitsMaxSize and w.topicHandlers.hasKey(pubsubTopic) and
+      not w.selfHandled.put(msgId):
+    await procCall PubSub(w).handleData(pubsubTopic, data)
 
   if relayedPeerCount <= 0:
     return err(NoPeersToPublish)

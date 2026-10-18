@@ -32,16 +32,17 @@ type
     ItemSet = 2
 
   RangesData* = object
-    pubsubTopics*: seq[PubsubTopic]
-    contentTopics*: seq[ContentTopic]
+    cluster*: uint16
+    shards*: seq[uint16]
 
     ranges*: seq[(Slice[SyncID], RangeType)]
     fingerprints*: seq[Fingerprint] # Range type fingerprint stored here in order
     itemSets*: seq[ItemSet] # Range type itemset stored here in order
 
+  # Fields in field number order: the library writes them in declaration order.
   WakuMessageAndTopic* {.proto3.} = object
-    pubsub* {.fieldNumber: 1.}: PubSubTopic
-    message* {.fieldNumber: 2.}: WakuMessage
+    message* {.fieldNumber: 1.}: WakuMessage
+    pubsub* {.fieldNumber: 2.}: PubSubTopic
 
 const EmptyFingerprint*: Fingerprint = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

@@ -11,10 +11,16 @@ import logos_delivery/kernel/[config/conf]
 type NodeInfoId* {.pure.} = enum
   Version
   Metrics
+  Multiaddrs
+  ENR
+  PeerId
+  MixPubKey
+  MyBoundPorts
+  # TODO: ask for removal of the deprecated `My*` aliases below once the
+  # non-`My` ids (Multiaddrs, ENR, PeerId, MixPubKey) land in all consumers.
   MyMultiaddresses
   MyENR
   MyPeerId
-  MyBoundPorts
   MyMixPubKey
   MaxMessageSize
   IsRunning
@@ -37,15 +43,15 @@ proc getNodeInfoItem*(self: Kernel, infoItemId: NodeInfoId): string =
     return git_version
   of NodeInfoId.Metrics:
     return getMetrics()
-  of NodeInfoId.MyMultiaddresses:
+  of NodeInfoId.Multiaddrs, NodeInfoId.MyMultiaddresses:
     return self.info().listenAddresses.join(",")
-  of NodeInfoId.MyENR:
+  of NodeInfoId.ENR, NodeInfoId.MyENR:
     return self.enr.toURI()
-  of NodeInfoId.MyPeerId:
+  of NodeInfoId.PeerId, NodeInfoId.MyPeerId:
     return $PeerId(self.peerId())
   of NodeInfoId.MyBoundPorts:
     return $self.ports
-  of NodeInfoId.MyMixPubKey:
+  of NodeInfoId.MixPubKey, NodeInfoId.MyMixPubKey:
     ## Empty when the mix protocol is not mounted on this node.
     if self.protocols.mix.isNil():
       return ""

@@ -29,6 +29,8 @@ proc getMessagingJob(brokerCtx: BrokerContext): persistency.Job =
 proc start*(self: MessagingClient): Result[void, string] =
   if self.started:
     return ok()
+  if self.stopping:
+    return err("MessagingClient is stopping")
   self.persistencyJob = getMessagingJob(self.brokerCtx)
   self.recvService.startRecvService(self.persistencyJob)
   self.sendService.startSendService()
@@ -57,6 +59,11 @@ proc start*(self: MessagingClient): Result[void, string] =
 proc stop*(self: MessagingClient) {.async.} =
   if not self.started:
     return
+  # The API calls fail from this point, also while the services below stop.
+  self.started = false
+  self.stopping = true
+  defer:
+    self.stopping = false
   MessagingSend.clearProvider(self.brokerCtx)
   MessagingSubscribe.clearProvider(self.brokerCtx)
   MessagingUnsubscribe.clearProvider(self.brokerCtx)
@@ -67,4 +74,3 @@ proc stop*(self: MessagingClient) {.async.} =
     if persistency.isOk():
       persistency.get().closeJob(MessagingJobId)
     self.persistencyJob = nil
-  self.started = false

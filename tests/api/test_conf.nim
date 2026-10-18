@@ -1,6 +1,6 @@
 {.used.}
 
-import std/net, results, chronos, testutils/unittests
+import std/[net, strutils], results, chronos, testutils/unittests
 import brokers/broker_context
 import logos_delivery
 import logos_delivery/api/conf/logos_delivery_conf_json
@@ -161,6 +161,13 @@ suite "MessagingClientConf - rate-limit config":
       rl.epochPeriodSec == DefaultRateLimitConfig.epochPeriodSec
       rl.messagesPerEpoch == DefaultRateLimitConfig.messagesPerEpoch
 
+proc warningsOf(lc: LogosDeliveryConf): seq[string] =
+  let conf = WakuNodeConf(lc.kernelConf)
+  let defaults = defaultKernelConf(ModeProtocolFlags()).get()
+  let wakuConf = conf.toWakuConf().valueOr:
+    raiseAssert error
+  return ignoredFlagWarnings(conf, defaults, wakuConf)
+
 suite "parseLogosDeliveryConf - JSON parsing":
   test "empty object resolves to a full Core node conf":
     let lc = parseLogosDeliveryConf("{}").valueOr:
@@ -221,8 +228,7 @@ suite "parseLogosDeliveryConf - JSON parsing":
     require lc.messagingConf.isSome()
     check lc.messagingConf.get().reliabilityEnabled.isSome()
 
-  test "a clusterId override of 2 replaces the logos.test preset with the logos.dev one":
-    # TODO: logos-delivery#4454
+  test "a clusterId override of 2 keeps the logos.test preset":
     let lc = parseLogosDeliveryConf(
       """{"preset": "logos.test", "messagingOverrides": {"clusterId": 2}}"""
     ).valueOr:
@@ -231,7 +237,7 @@ suite "parseLogosDeliveryConf - JSON parsing":
         raiseAssert error
     check:
       wakuConf.clusterId == 2
-      wakuConf.staticNodes == NetworkPresetConf.LogosDevConf().entryNodes
+      wakuConf.staticNodes == NetworkPresetConf.LogosTestConf().entryNodes
 
   test "an anonymity override reaches the messaging record and mounts mix":
     let lc = parseLogosDeliveryConf(
@@ -341,6 +347,31 @@ suite "parseLogosDeliveryConf - JSON parsing":
       lc.messagingConf.get().reliabilityEnabled == Opt.some(true) # messaging-only
       kc.tcpPort == Port(1234)
 
+  test "the anonymity-level switch name is accepted as an override key":
+    let lc = parseLogosDeliveryConf(
+      """{"messagingOverrides": {"anonymity-level": "Required"}}"""
+    ).valueOr:
+      raiseAssert error
+    check:
+      lc.messagingConf.get(MessagingClientConf()).anonymityLevel ==
+        Opt.some(AnonymityLevel.Required)
+      WakuNodeConf(lc.kernelConf).mix == Opt.some(true)
+
+  test "the anonymity-level switch name in a flat blob is lifted to the messaging record":
+    let lc = parseLogosDeliveryConf("""{"anonymity-level": "Preferred"}""").valueOr:
+      raiseAssert error
+    check:
+      lc.messagingConf.get(MessagingClientConf()).anonymityLevel ==
+        Opt.some(AnonymityLevel.Preferred)
+      WakuNodeConf(lc.kernelConf).mix == Opt.some(true)
+
+  test "anonymityLevel set via both its name and its switch name is rejected":
+    check "was set twice" in
+      parseLogosDeliveryConf(
+        """{"messagingOverrides": {"anonymityLevel": "Required", "anonymity-level": "Required"}}"""
+      )
+      .errorOr("accepted")
+
   test "unknown keys inside an overrides body are rejected":
     check parseLogosDeliveryConf("""{"messagingOverrides": {"bogusKey": 1}}""").isErr()
     check parseLogosDeliveryConf("""{"channelsOverrides": {"bogusKey": 1}}""").isErr()
@@ -434,6 +465,13 @@ suite "parseLogosDeliveryConf - JSON parsing":
     # neither consumed by the structured path nor a flat kernel field, so it must
     # surface as an unknown key.
     check parseLogosDeliveryConf("""{"mode": "core", "kernelConf": {}}""").isErr()
+
+  test "an empty config warns about the websocket port":
+    # TODO: logos-delivery#4553
+    let lc = parseLogosDeliveryConf("{}").valueOr:
+      raiseAssert error
+    check warningsOf(lc) ==
+      @["--websocket-port is ignored: --websocket-support is not enabled"]
 
 suite "LogosDelivery.new - construction (the app-dev entry)":
   asyncTest "builds the full messaging stack from mode + overrides":

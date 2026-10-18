@@ -1,6 +1,6 @@
 {.used.}
 
-import results, std/[os, sequtils, sets, tempfiles]
+import results, std/[importutils, os, sequtils, strutils, sets, tempfiles]
 import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo], metrics
 import brokers/broker_context
 import
@@ -11,6 +11,7 @@ import
 import ../waku_archive/archive_utils
 import
   logos_delivery/kernel/[
+    peer_manager/peer_store,
     api/kernel_lifecycle,
     subscription_manager,
     base/topics/content_topic,
@@ -33,6 +34,10 @@ import logos_delivery/kernel/[api/subscriptions]
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events
+import logos_delivery/messaging/messaging_client_lifecycle
+import logos_delivery/messaging/delivery_service/send_service/send_service
+
+privateAccess(SendService) # the test reads `attempts`
 import logos_delivery/api/messaging_client_api
 import logos_delivery/messaging/delivery_service/send_service/send_service
 
@@ -304,10 +309,11 @@ suite "Waku API - Send":
     )
     check sendResult.isOk()
 
-    # The send is retried while the node has no relay peer, and each retry
-    # reaches the archive as a message it already holds.
+    # The send is retried while the node has no relay peer, and no retry
+    # reaches the archive again.
+    let sendService = node.messagingClient.sendService
     checkUntilTimeout:
-      duplicateCount(relayIngress) >= duplicatesBefore + 2
+      sendService.attempts >= 3
 
     let stored = (
       await node.kernel.protocols.archive.findMessages(
@@ -318,6 +324,7 @@ suite "Waku API - Send":
     check:
       stored.hashes.len == 1
       insertCount(relayIngress) == insertsBefore + 1
+      duplicateCount(relayIngress) == duplicatesBefore
       errorCount(insertFailure) == failuresBefore
 
   asyncTest "Send fully validated":
@@ -698,8 +705,7 @@ suite "Waku API - Send":
         @["decode_rpc_failure: (kind: InvalidLengthField, field: \"meta\")"]
       rejected == 1.0
 
-  asyncTest "A send retried while the node has no relay peer is handed to the relay handlers on every attempt and received once":
-    # TODO: logos-delivery#4453
+  asyncTest "A send retried while the node has no relay peer is handed to the relay handlers once and received once":
     # Given a core node with REST that is connected to no peer
     var node: LogosDelivery
     var rest: RestService
@@ -739,27 +745,68 @@ suite "Waku API - Send":
     ).valueOr:
       raiseAssert error
 
-    # Then the relay cache returns the message again after a later attempt
+    # Then the relay cache returns the message once
     let first = await client.waitForRelayAutoMessages(contentTopic, 1)
-    let handledAtFirstRead = nodeMessagesCount(["relay"])
-    checkUntilTimeout:
-      nodeMessagesCount(["relay"]) > handledAtFirstRead
-    let again = await client.waitForRelayAutoMessages(contentTopic, 1)
 
-    # Then the send ends with an error event, and the message was received once
+    # Then the send ends with an error event, and the message was handled and received once
     check await eventManager.errorFuture.withTimeout(30.seconds)
     eventManager.validate({SendEventOutcome.Error}, requestId)
+    let again = await client.relayGetAutoMessagesV1(contentTopic)
     check:
       subscribeResponse.status == 200
       first.mapIt(it.payload) == @[base64.encode(payload)]
-      again.mapIt(it.payload) == @[base64.encode(payload)]
-      nodeMessagesCount(["relay"]) >= handledBefore + 2
+      again.status == 200
+      again.data.len == 0
+      nodeMessagesCount(["relay"]) == handledBefore + 1
       receivedHashes.len == 1
 
     await rest.stop(node)
 
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
+
+  asyncTest "Own message is received as live with no relay peer":
+    # TODO: logos-delivery#4563
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    node.messagingClient.sendService.maxDeliveryTime = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    var received: seq[MessageReceivedEvent]
+    let receivedListener = MessageReceivedEvent.listen(
+      node.kernel.brokerCtx,
+      proc(event: MessageReceivedEvent) {.async: (raises: []).} =
+        received.add(event),
+    ).valueOr:
+      raiseAssert error
+    defer:
+      await MessageReceivedEvent.dropListener(node.kernel.brokerCtx, receivedListener)
+
+    let payload = "test payload"
+    let requestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(ContentTopic("/waku/2/default-content/proto"), payload)
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await eventManager.errorFuture.withTimeout(10.seconds)
+    eventManager.validate({SendEventOutcome.Error}, requestId)
+    check:
+      eventManager.errorDescs == @["Unable to send within retry time window"]
+      received.mapIt(it.source) == @[MessageSource.Live]
+      received.mapIt(it.message.payload) == @[payload.toBytes()]
 
   asyncTest "Store validation times out with an error event":
     ## The message propagates, but the only reachable store node is outside the
@@ -818,6 +865,173 @@ suite "Waku API - Send":
       raiseAssert "failed to stop kernel: " & error
     (await node.stop()).isOkOr:
       raiseAssert "Failed to stop node: " & error
+
+  asyncTest "A late store node never gets an earlier message":
+    # TODO: logos-delivery#4511
+    ## A propagated message is not sent again, so a store node that joins the
+    ## mesh after it cannot confirm it.
+    var lateStoreNode: Kernel
+    lockNewGlobalBrokerContext:
+      lateStoreNode = newTestWakuNode(generateSecp256k1Key())
+      lateStoreNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
+        raiseAssert "Failed to mount metadata: " & error
+      (await lateStoreNode.mountRelay()).isOkOr:
+        raiseAssert "Failed to mount relay"
+      let archiveDriver = newSqliteArchiveDriver()
+      lateStoreNode.mountArchive(archiveDriver).isOkOr:
+        raiseAssert "Failed to mount archive: " & error
+      await lateStoreNode.mountStore()
+      await lateStoreNode.mountLibp2pPing()
+      (await lateStoreNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+    defer:
+      (await lateStoreNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+    let lateStoreNodePeerInfo = lateStoreNode.peerInfo.toRemotePeerInfo()
+    proc dummyHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      discard
+
+    lateStoreNode.subscribe(
+      (kind: PubsubSub, topic: PubsubTopic("/waku/2/rs/3/0")), dummyHandler
+    ).isOkOr:
+      raiseAssert "Failed to subscribe lateStoreNode: " & error
+
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+
+      await node.kernel.connectToNodes(@[relayNode1PeerInfo])
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    node.messagingClient.sendService.maxValidationAge = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    let contentTopic = ContentTopic("/waku/2/default-content/proto")
+
+    let requestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(contentTopic, "test payload")
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await eventManager.propagatedFuture.withTimeout(10.seconds)
+
+    await node.kernel.connectToNodes(@[lateStoreNodePeerInfo])
+    checkUntilTimeout:
+      lateStoreNode.hasMeshPeer(
+        PubsubTopic("/waku/2/rs/3/0"), node.kernel.peerInfo.peerId
+      )
+    check eventManager.errorCount == 0
+
+    check await eventManager.errorFuture.withTimeout(30.seconds)
+
+    eventManager.validate(
+      {SendEventOutcome.Propagated, SendEventOutcome.Error}, requestId
+    )
+    check eventManager.errorDescs ==
+      @[
+        "Propagated but not confirmed by a store node within the store validation window"
+      ]
+
+    let stored = (
+      await lateStoreNode.protocols.archive.findMessages(
+        ArchiveQuery(contentTopics: @[contentTopic])
+      )
+    ).valueOr:
+      ArchiveResponse()
+    check stored.hashes.len == 0
+
+    let laterEventManager = newSendEventListenerManager(node.kernel.brokerCtx)
+    defer:
+      await laterEventManager.teardown()
+
+    let laterRequestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(contentTopic, "later test payload")
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await laterEventManager.sentFuture.withTimeout(10.seconds)
+
+    laterEventManager.validate(
+      {SendEventOutcome.Propagated, SendEventOutcome.Sent}, laterRequestId
+    )
+
+  asyncTest "Edge sender never sends through a static node down at start":
+    # TODO: logos-delivery#4510
+    let lightpushNodeAddr =
+      $lightpushNodePeerInfo.addrs[0] & "/p2p/" & $lightpushNodePeerId
+    (await lightpushNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.staticnodes = @[lightpushNodeAddr]
+    var node: LogosDelivery
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(conf)).valueOr:
+        raiseAssert error
+      node.shortenIntervals()
+      (await node.start()).isOkOr:
+        raiseAssert "Failed to start Waku node: " & error
+    defer:
+      (await node.stop()).expect("Failed to stop node")
+
+    (await lightpushNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    await lightpushNode.connectToNodes(@[relayNode2PeerInfo])
+
+    # The retry time window outlasts the backoff.
+    node.kernel.peerManager.initialBackoffInSec = 1
+    node.messagingClient.sendService.maxDeliveryTime = 5.seconds
+
+    let eventManager = newSendEventListenerManager(node.kernel.brokerCtx)
+    defer:
+      await eventManager.teardown()
+
+    let envelope = MessageEnvelope.init(
+      ContentTopic("/waku/2/default-content/proto"), "test payload"
+    )
+
+    let requestId = (await node.messagingClient.send(envelope)).valueOr:
+      raiseAssert error
+
+    check await eventManager.errorFuture.withTimeout(30.seconds)
+
+    eventManager.validate({SendEventOutcome.Error}, requestId)
+    check:
+      eventManager.errorDescs == @["Unable to send within retry time window"]
+      node.kernel.peerManager.switch.peerStore.connectedness(lightpushNodePeerId) ==
+        CannotConnect
+
+    await node.kernel.connectToNodes(@[lightpushNodeAddr])
+
+    let laterEventManager = newSendEventListenerManager(node.kernel.brokerCtx)
+    defer:
+      await laterEventManager.teardown()
+
+    let laterRequestId = (
+      await node.messagingClient.send(
+        MessageEnvelope.init(
+          ContentTopic("/waku/2/default-content/proto"), "later test payload"
+        )
+      )
+    ).valueOr:
+      raiseAssert error
+
+    check await laterEventManager.propagatedFuture.withTimeout(10.seconds)
+
+    laterEventManager.validate({SendEventOutcome.Propagated}, laterRequestId)
 
 ## Checks that the caller gets the request id before any event of the send. The
 ## node has a budget of 0, so each send emits an event with no network call. A
@@ -942,3 +1156,64 @@ suite "Messaging API - the request id comes before the events":
       log.ids.len == 12
       RequestId("") notin log.ids # each send got an id
       log.early.len == 0
+
+suite "Messaging API - a node that is not started":
+  asyncTest "send, subscribe and unsubscribe fail, and leave no subscription":
+    const
+      SendTopic = ContentTopic("/test/1/not-started-send/proto")
+      SubscribeTopic = ContentTopic("/test/1/not-started-subscribe/proto")
+      UnsubscribeTopic = ContentTopic("/test/1/not-started-unsubscribe/proto")
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      let client = node.messagingClient
+
+      # The loop runs once on a node never started, and once on a stopped node.
+      for stopped in [false, true]:
+        if stopped:
+          (await node.start()).expect("start")
+          (await node.stop()).expect("stop")
+        check:
+          (await client.send(MessageEnvelope.init(SendTopic, "payload"))).errorOr(
+            "accepted"
+          ) == "node is not started"
+          (await client.subscribe(SubscribeTopic)).errorOr("accepted") ==
+            "node is not started"
+          client.unsubscribe(UnsubscribeTopic).errorOr("accepted") ==
+            "node is not started"
+
+      (await node.start()).expect("start")
+      check:
+        not node.kernel.isSubscribed(SendTopic).valueOr(true)
+        not node.kernel.isSubscribed(SubscribeTopic).valueOr(true)
+      (await node.stop()).expect("stop")
+
+  asyncTest "a send during a stop fails and subscribes nothing":
+    const StopTopic = ContentTopic("/test/1/during-stop/proto")
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      (await node.start()).expect("start")
+      let client = node.messagingClient
+
+      # `stop` runs up to its first wait before it returns its future.
+      let stopping = client.stop()
+      check:
+        (await client.send(MessageEnvelope.init(StopTopic, "payload"))).errorOr(
+          "accepted"
+        ) == "node is not started"
+      await stopping
+      check not node.kernel.isSubscribed(StopTopic).valueOr(true)
+      (await node.stop()).expect("stop")
+
+  asyncTest "MessagingClient.start refuses to run while its stop runs":
+    lockNewGlobalBrokerContext:
+      let node =
+        (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+      (await node.start()).expect("start")
+      let client = node.messagingClient
+
+      let stopping = client.stop()
+      check client.start().errorOr("accepted") == "MessagingClient is stopping"
+      await stopping
+      (await node.stop()).expect("stop")

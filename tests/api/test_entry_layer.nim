@@ -1,6 +1,6 @@
 {.used.}
 
-import std/[net, sequtils, sets, strutils, uri]
+import std/[importutils, options, net, sequtils, sets, strutils, tables, uri]
 import chronos, metrics, testutils/unittests, presto, presto/client as presto_client
 import brokers/broker_context
 import logos_delivery
@@ -143,6 +143,50 @@ suite "LogosDelivery - entry layer selection":
     (await node.stop()).isOkOr:
       raiseAssert "stop failed: " & error
 
+  asyncTest "messaging + rest: a REST restart keeps the message caches that the node fills":
+    privateAccess(WakuFilterClient)
+    var node: LogosDelivery
+    var rest: RestService
+    lockNewGlobalBrokerContext:
+      node = (await LogosDelivery.new(nodeConf(EntryLayer.messaging, rest = true))).valueOr:
+        raiseAssert error
+      rest = (await node.startWithRest()).valueOr:
+        raiseAssert "start failed: " & error
+    let filterClient = node.kernel.protocols.filterClient
+    let pushHandlerCount =
+      if filterClient.isNil(): 0 else: filterClient.pushHandlers.len
+
+    # The library restarts a node this way.
+    await rest.stop(node)
+    (await node.stop()).isOkOr:
+      raiseAssert "stop failed: " & error
+    rest.start(node).isOkOr:
+      raiseAssert "REST restart failed: " & error
+    (await node.start()).isOkOr:
+      raiseAssert "node restart failed: " & error
+    rest.mount(node).isOkOr:
+      raiseAssert "REST mount failed: " & error
+
+    # The node keeps the relay handler of the first mount for each shard.
+    let shard = $RelayShard(
+      clusterId: node.kernel.conf.clusterId,
+      shardId: node.kernel.conf.subscribeShards[0],
+    )
+    let message = fakeWakuMessage(payload = "after-restart")
+    check node.kernel.protocols.legacyAppHandlers.hasKey(shard)
+    if node.kernel.protocols.legacyAppHandlers.hasKey(shard):
+      await node.kernel.protocols.legacyAppHandlers[shard](shard, message)
+    let response = await restClientFor(rest).relayGetMessagesV1(shard)
+    check:
+      response.status == 200
+      response.data.mapIt(it.payload) == @[toRelayWakuMessage(message).payload]
+      # The node start adds its own push handler. The REST mount adds none.
+      filterClient.isNil() or filterClient.pushHandlers.len == pushHandlerCount + 1
+
+    await rest.stop(node)
+    (await node.stop()).isOkOr:
+      raiseAssert "stop failed: " & error
+
   asyncTest "kernel + rest: messaging REST endpoints are NOT installed":
     ## Gating check: a kernel-only node still starts a REST server, but the
     ## messaging endpoints must be absent (no messaging client to mount them).
@@ -245,8 +289,7 @@ suite "LogosDelivery - relay REST API":
       contentTopicMessages.mapIt(it.payload) ==
         @[base64.encode(contentTopicMessage.payload)]
 
-  asyncTest "a shard outside the configured shards is archived and takes a publish, while reading its messages answers 404":
-    # TODO: logos-delivery#4455
+  asyncTest "a shard outside the configured shards is not joined by the relay, so its messages are not archived and a publish answers 400":
     let
       configuredShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
       otherShard = $RelayShard(clusterId: TestClusterId, shardId: 0)
@@ -285,54 +328,41 @@ suite "LogosDelivery - relay REST API":
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
 
-    var otherShardReceived: seq[WakuMessage]
-    proc otherShardHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-      otherShardReceived.add(msg)
-
-    publisher.subscribe((kind: PubsubSub, topic: configuredShard), dummyHandler).isOkOr:
-      raiseAssert error
-    publisher.subscribe((kind: PubsubSub, topic: otherShard), otherShardHandler).isOkOr:
-      raiseAssert error
+    for shard in [configuredShard, otherShard]:
+      publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
+        raiseAssert error
 
     await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
       publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
-      publisher.hasGossipsubPeer(otherShard, node.kernel.peerId)
 
     let
       configuredShardMessage = fakeWakuMessage("on the configured shard")
       otherShardMessage = fakeWakuMessage("on another shard")
-      restMessage = fakeWakuMessage("published over REST")
-    (await publisher.publish(Opt.some(configuredShard), configuredShardMessage)).isOkOr:
-      raiseAssert error
     (await publisher.publish(Opt.some(otherShard), otherShardMessage)).isOkOr:
+      discard
+    (await publisher.publish(Opt.some(configuredShard), configuredShardMessage)).isOkOr:
       raiseAssert error
 
     let client = restClientFor(rest)
-    let otherShardHash =
-      computeMessageHash(otherShard, otherShardMessage).toRestStringWakuMessageHash()
-    checkUntilTimeout:
-      (await client.getStoreMessagesV3(pubsubTopic = encodeUrl(otherShard))).data.messages.mapIt(
-        it.messageHash
-      ) == @[otherShardHash]
-
     let configuredShardMessages = await client.waitForRelayMessages(configuredShard, 1)
     let otherShardRead = await issueRequest(
       rest.server.getAddress("/relay/v1/messages/" & encodeUrl(otherShard))
     )
-    let otherShardPublish =
-      await client.relayPostMessagesV1(otherShard, toRelayWakuMessage(restMessage))
+    let otherShardPublish = await client.relayPostMessagesV1(
+      otherShard, toRelayWakuMessage(fakeWakuMessage("published over REST"))
+    )
+    let otherShardStore =
+      await client.getStoreMessagesV3(pubsubTopic = encodeUrl(otherShard))
     check:
       configuredShardMessages.mapIt(it.payload) ==
         @[base64.encode(configuredShardMessage.payload)]
       otherShardRead.status == 404
-      otherShardPublish.status == 200
-    checkUntilTimeout:
-      restMessage.payload in otherShardReceived.mapIt(it.payload)
+      otherShardPublish.status == 400
+      otherShardStore.data.messages.len == 0
 
 suite "LogosDelivery - configured shards":
   asyncTest "under static sharding the relay is on the configured shard only, and a publish to another shard answers 400":
-    # TODO: logos-delivery#4455
     let
       configuredShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
       otherShard = $RelayShard(clusterId: TestClusterId, shardId: 0)
@@ -360,8 +390,7 @@ suite "LogosDelivery - configured shards":
       node.kernel.protocols.relay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
-  asyncTest "under static sharding without REST the relay is on no shard, while the ENR and metadata report the configured shard":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the relay is on the configured shard, which the ENR and metadata report":
     var conf = nodeConf(EntryLayer.kernel)
     conf.kernel.numShardsInNetwork = 0
     conf.kernel.shards = @[1'u16]
@@ -397,13 +426,13 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
 
     check:
-      node.kernel.protocols.relay.subscribedTopics().len == 0
+      node.kernel.protocols.relay.subscribedTopics() ==
+        @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
       toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
         @[1'u16]
       metadata.shards == @[1'u32]
 
-  asyncTest "under static sharding without REST the node is no relay peer on the configured shard, and a peer's message there is neither archived nor pushed to a filter subscriber":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the node is a relay peer on the configured shard, and a peer's message there is archived and pushed to a filter subscriber":
     let
       configuredShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
       contentTopic = ContentTopic("/toychat/2/huilong/proto")
@@ -508,12 +537,11 @@ suite "LogosDelivery - configured shards":
       raiseAssert $error
     check:
       filterSubscribe.isOk()
-      not publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
-      stored.messages.len == 0
-      pushed.len == 0
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
+      stored.messages.len == 1
+      pushed.len == 1
 
-  asyncTest "under static sharding without REST the messaging entry layer leaves the relay on no shard":
-    # TODO: logos-delivery#3446
+  asyncTest "under static sharding without REST the messaging entry layer puts the relay on the configured shard":
     var conf = nodeConf(EntryLayer.messaging)
     conf.kernel.numShardsInNetwork = 0
     conf.kernel.shards = @[1'u16]
@@ -529,11 +557,13 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.kernel.protocols.relay.subscribedTopics().len == 0
+      node.kernel.protocols.relay.subscribedTopics() ==
+        @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
 
-  asyncTest "an unsigned message on a protected shard outside the configured shards is archived":
-    # TODO: logos-delivery#4455
-    let protectedShard = $RelayShard(clusterId: TestClusterId, shardId: 0)
+  asyncTest "an unsigned message on a protected shard outside the configured shards is not received":
+    let
+      protectedShard = $RelayShard(clusterId: TestClusterId, shardId: 0)
+      configuredShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
 
     var conf = nodeConf(EntryLayer.kernel, rest = true)
     conf.kernel.numShardsInNetwork = 8
@@ -574,27 +604,36 @@ suite "LogosDelivery - configured shards":
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
 
-    publisher.subscribe((kind: PubsubSub, topic: protectedShard), dummyHandler).isOkOr:
-      raiseAssert error
+    for shard in [protectedShard, configuredShard]:
+      publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
+        raiseAssert error
 
     await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(protectedShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
 
-    let unsignedMessage = fakeWakuMessage("unsigned")
+    let
+      unsignedMessage = fakeWakuMessage("unsigned")
+      laterMessage = fakeWakuMessage("published after the unsigned message")
     (await publisher.publish(Opt.some(protectedShard), unsignedMessage)).isOkOr:
+      discard
+    (await publisher.publish(Opt.some(configuredShard), laterMessage)).isOkOr:
       raiseAssert error
 
     let client = restClientFor(rest)
-    let unsignedHash =
-      computeMessageHash(protectedShard, unsignedMessage).toRestStringWakuMessageHash()
+    let laterHash =
+      computeMessageHash(configuredShard, laterMessage).toRestStringWakuMessageHash()
     checkUntilTimeout:
-      (await client.getStoreMessagesV3(pubsubTopic = encodeUrl(protectedShard))).data.messages.mapIt(
+      (await client.getStoreMessagesV3(pubsubTopic = encodeUrl(configuredShard))).data.messages.mapIt(
         it.messageHash
-      ) == @[unsignedHash]
+      ) == @[laterHash]
+
+    let protectedShardMessages =
+      await client.getStoreMessagesV3(pubsubTopic = encodeUrl(protectedShard))
+    check:
+      protectedShardMessages.data.messages.len == 0
 
   asyncTest "a protected shard among the configured shards rejects an unsigned message":
-    # TODO: logos-delivery#4455
     let
       protectedShard = $RelayShard(clusterId: TestClusterId, shardId: 0)
       unprotectedShard = $RelayShard(clusterId: TestClusterId, shardId: 1)
@@ -670,8 +709,7 @@ suite "LogosDelivery - configured shards":
     check:
       protectedShardMessages.data.messages.len == 0
 
-  asyncTest "without discv5 the ENR lists the configured shard while metadata reports every shard":
-    # TODO: logos-delivery#4455
+  asyncTest "without discv5 the ENR and metadata list the configured shard":
     var conf = nodeConf(EntryLayer.kernel)
     conf.kernel.numShardsInNetwork = 8
     conf.kernel.shards = @[1'u16]
@@ -710,10 +748,9 @@ suite "LogosDelivery - configured shards":
     check:
       toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
         @[1'u16]
-      metadata.shards.toHashSet() == toSeq(0'u32 ..< 8'u32).toHashSet()
+      metadata.shards == @[1'u32]
 
-  asyncTest "with discv5 the ENR lists every shard":
-    # TODO: logos-delivery#4455
+  asyncTest "with discv5 the ENR lists the configured shard only":
     var conf = nodeConf(EntryLayer.kernel)
     conf.kernel.numShardsInNetwork = 8
     conf.kernel.shards = @[1'u16]
@@ -729,5 +766,11 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    checkUntilTimeout:
-      toSeq(0'u16 ..< 8'u16).allIt(node.kernel.enr.containsShard(TestClusterId, it))
+    discard reconcileEnrAddrs(
+      node.kernel, node.kernel.conf.nodeKey, node.kernel.discovery.discv5
+    ).valueOr:
+      raiseAssert "reconcile failed: " & error
+
+    check:
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]

@@ -412,7 +412,14 @@ proc parseRlnGeneratedProof*(resultJson: string): Result[seq[byte], RlnError] =
   if hexStr.len == 0:
     return err(RlnError.transient("generate_proof reply carries no proof_canonical"))
   try:
-    return ok(hexToSeqByte(hexStr))
+    let blob = hexToSeqByte(hexStr)
+    if blob.len != RlnProofSize:
+      return err(
+        RlnError.transient(
+          "proof_canonical is " & $blob.len & " bytes, expected " & $RlnProofSize
+        )
+      )
+    return ok(blob)
   except ValueError as e:
     return err(RlnError.transient("proof_canonical is not valid hex: " & e.msg))
 

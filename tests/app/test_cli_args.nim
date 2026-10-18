@@ -82,6 +82,24 @@ suite "Waku external config - default values":
       devRes.get().maxPureLibp2pPeers == 50
       twnRes.get().maxPureLibp2pPeers == 0
 
+  test "Max message size follows the preset when not given":
+    ## Given
+    var statusConfig = defaultKernelConf().get()
+    statusConfig.preset = "status.prod"
+    var explicitConfig = statusConfig
+    explicitConfig.maxMessageSize = "200KiB"
+
+    ## When
+    let statusRes = statusConfig.toWakuConf()
+    assert statusRes.isOk(), $statusRes.error
+    let explicitRes = explicitConfig.toWakuConf()
+    assert explicitRes.isOk(), $explicitRes.error
+
+    ## Then
+    check:
+      statusRes.get().maxMessageSizeBytes == 1024'u64 * 1024
+      explicitRes.get().maxMessageSizeBytes == 200'u64 * 1024
+
   test "Default entry layer is kernel":
     ## Given
     let preConfig = defaultLogosDeliveryNodeConf().get()

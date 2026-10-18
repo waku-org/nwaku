@@ -53,8 +53,8 @@ proc setup*(): Kernel =
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  # set triggerSelf to false, we don't want to process our own stealthCommitments
-  kernel.protocols.relay.triggerSelf = false
+  # set triggerOwnHandlers to false, we don't want to process our own stealthCommitments
+  kernel.protocols.relay.triggerOwnHandlers = false
 
   info "Node setup complete"
   return kernel
