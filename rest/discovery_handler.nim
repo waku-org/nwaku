@@ -2,8 +2,7 @@
 
 import chronos, std/sequtils, results
 import
-  logos_delivery/kernel/
-    [discovery/discv5, protocols/relay/protocol, base/message, base/peers],
+  logos_delivery/kernel/[discovery/discv5, protocols/relay/protocol, base/message, base/peers],
   rest/message_cache
 ### Discovery
 

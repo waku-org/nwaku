@@ -17,7 +17,7 @@ import
     peer_manager/peer_manager,
     protocols/lightpush/common,
     kernel,
-    ops/lightpush,
+    api/lightpush,
     rln/markers,
     rln/rln_evm/group_manager,
     rln/rln_evm/conversion_utils,

@@ -13,7 +13,7 @@ import
     protocols/store/common,
     protocols/store/self_req_handler,
     kernel,
-    ops/store,
+    api/store,
     peer_manager/peer_manager,
     base/paging,
   ]

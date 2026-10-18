@@ -13,20 +13,7 @@
 import std/[net, strutils, tables]
 import results, chronicles, chronos
 import presto
-import
-  logos_delivery/kernel/[
-    kernel_lifecycle,
-    kernel,
-    ops/relay,
-    health_monitor/node_health_monitor,
-    discovery/discv5,
-    subscription_manager,
-    base/topics/pubsub_topic,
-    base/enr/sharding,
-    protocols/relay/protocol,
-  ],
-  logos_delivery/logos_delivery,
-  rest/rest_server_conf
+import logos_delivery/kernel/[api/kernel_lifecycle, kernel, api/relay, health_monitor/node_health_monitor, discovery/discv5, subscription_manager, base/topics/pubsub_topic, base/enr/sharding, protocols/relay/protocol], logos_delivery/logos_delivery, rest/rest_server_conf
 import
   rest/message_cache,
   rest/discovery_handler,

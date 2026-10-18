@@ -20,7 +20,7 @@ import
     base/peers,
     base/codecs,
     kernel,
-    ops/filter,
+    api/filter,
     peer_manager/peer_manager,
     protocols/filter/common,
     protocols/filter/client as filter_protocol_client,

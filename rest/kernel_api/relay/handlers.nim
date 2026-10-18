@@ -16,7 +16,7 @@ import logos_delivery/kernel/[base/topics/pubsub_topic]
 import
   logos_delivery/kernel/[
     kernel,
-    ops/relay,
+    api/relay,
     protocols/relay/protocol,
     subscription_manager,
     rln/markers,
