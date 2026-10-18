@@ -2,8 +2,8 @@ import std/[json, macros, os, strutils]
 import chronos, chronicles, results, ffi
 import
   logos_delivery,
-  logos_delivery/waku/discovery/plugin/service_discovery_accessor,
-  logos_delivery/waku/requests/node_state_requests,
+  logos_delivery/kernel/discovery/plugin/service_discovery_accessor,
+  logos_delivery/kernel/discovery/node_state_requests,
   ../declare_lib
 
 ## Registration entry points for the external service-discovery plugin
@@ -67,7 +67,7 @@ proc logosdelivery_set_service_discovery_plugin(
     return err("plugin pointer is null")
 
   let plugin = cast[ptr ServiceDiscoveryPlugin](pluginPtr)[]
-  (await SetServiceDiscoveryPlugin.request(self.waku.brokerCtx, plugin)).isOkOr:
+  (await SetServiceDiscoveryPlugin.request(self.kernel.brokerCtx, plugin)).isOkOr:
     error "SET_SERVICE_DISCOVERY_PLUGIN failed", err = error
     return err(error)
   return ok("service discovery plugin installed")
@@ -79,7 +79,7 @@ proc logosdelivery_get_discovery_requirements(
   ## expected from a plugin, and the DHT bootstrap peers the node's
   ## configuration resolves to, presets included. Reply JSON:
   ## {"externalServiceDiscovery": bool, "bootstrapNodes": ["/dns4/.../p2p/16Uiu..."]}
-  let req = GetDiscoveryRequirements.request(self.waku.brokerCtx).valueOr:
+  let req = GetDiscoveryRequirements.request(self.kernel.brokerCtx).valueOr:
     error "GET_DISCOVERY_REQUIREMENTS failed", err = error
     return err(error)
   return ok(
@@ -95,7 +95,7 @@ proc logosdelivery_clear_service_discovery_plugin(
     self: LogosDelivery
 ): Future[Result[string, string]] {.ffi.} =
   ## Removes the installed plugin; discovery verbs fail until a new one arrives.
-  (await ClearServiceDiscoveryPlugin.request(self.waku.brokerCtx)).isOkOr:
+  (await ClearServiceDiscoveryPlugin.request(self.kernel.brokerCtx)).isOkOr:
     error "CLEAR_SERVICE_DISCOVERY_PLUGIN failed", err = error
     return err(error)
   return ok("service discovery plugin cleared")

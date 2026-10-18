@@ -2,10 +2,9 @@ import std/net
 import results, libp2p/crypto/crypto
 
 import logos_delivery/api/conf/kernel_conf
-import logos_delivery/waku/common/logging
-import logos_delivery/waku/factory/networks_config
-import logos_delivery/messaging/rate_limit_manager/rate_limit_config
-
+import logos_delivery/kernel/[base/logging]
+import logos_delivery/kernel/[config/networks_config]
+import logos_delivery/api/conf/rate_limit_config
 export kernel_conf, rate_limit_config
 
 # `LogosDeliveryMode` and `EntryLayer` are defined in the leaf module `modes`, so

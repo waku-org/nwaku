@@ -9,18 +9,33 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
-    common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/builder,
-    waku_relay,
-    waku_filter_v2/client,
+  logos_delivery/kernel/[
+    base/logging,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    net/switch,
+    kernel,
+    api/filter,
+    api/lightpush,
+    api/store,
+    api/relay,
+    api/peer_exchange,
+    api/ping,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    discovery/discv5,
+    api/builder,
+    protocols/relay/protocol,
+    base/health/topic_health,
+    protocols/filter/client,
   ]
-
 # careful if running pub and sub in the same machine
 const wakuPort = 50000
 
@@ -81,19 +96,19 @@ proc setupAndSubscribe(rng: crypto.Rng) {.async.} =
 
   node.peerManager.start()
 
-  node.wakuFilterClient.registerPushHandler(messagePushHandler)
+  node.protocols.filterClient.registerPushHandler(messagePushHandler)
 
   let filterPeer = parsePeerInfo(FilterPeer).get()
 
   while true:
     notice "maintaining subscription"
     # First use filter-ping to check if we have an active subscription
-    if (await node.wakuFilterClient.ping(filterPeer)).isErr():
+    if (await node.protocols.filterClient.ping(filterPeer)).isErr():
       # No subscription found. Let's subscribe.
       notice "no subscription found. Sending subscribe request"
 
       (
-        await node.wakuFilterClient.subscribe(
+        await node.protocols.filterClient.subscribe(
           filterPeer, FilterPubsubTopic, @[FilterContentTopic]
         )
       ).isOkOr:

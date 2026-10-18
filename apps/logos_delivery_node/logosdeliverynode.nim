@@ -8,11 +8,10 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
+  logos_delivery/kernel/[base/logging],
   tools/confutils/cli_args,
   logos_delivery/logos_delivery,
-  logos_delivery/waku/common/logging,
   rest/rest_service
-
 logScope:
   topics = "logosdeliverynode main"
 
@@ -49,7 +48,7 @@ when isMainModule:
   # `LogosDelivery` derives the per-layer config from `LogosDeliveryNodeConf` itself
   # (it runs `toWakuConf` internally), then builds the layers bottom-up:
   #   Waku <- MessagingClient <- ReliableChannelManager
-  # How far up it goes is set by `--entry-layer` (default `kernel`: Waku only).
+  # How far up it goes is set by `--entry-layer` (default `kernel`: Kernel only).
   var node = (waitFor LogosDelivery.new(nodeConf)).valueOr:
     error "LogosDelivery initialization failed", error = error
     quit(QuitFailure)

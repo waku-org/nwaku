@@ -2,32 +2,41 @@
 
 import
   results,
-  std/[tempfiles, net, osproc, strutils],
+  std/[net, osproc, strutils],
   testutils/unittests,
   chronos,
   std/strformat,
   libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    waku_node,
-    waku_lightpush_legacy,
-    waku_lightpush_legacy/common,
-    waku_lightpush_legacy/protocol_metrics,
-    rln,
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    peer_manager/peer_manager,
+    api/kernel_lifecycle,
+    protocols/lightpush_legacy/protocol,
+    protocols/lightpush_legacy/common,
+    protocols/lightpush_legacy/protocol_metrics,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
-    rln/rln_evm/constants,
   ],
-  ../testlib/[wakucore, wakunode, testasync, futures, testutils],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
   ../resources/payloads,
-  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
-
+  ../waku_rln_relay/rln/waku_rln_relay_utils,
+  ../waku_rln_relay/utils_onchain
 suite "Waku Legacy Lightpush - End To End":
   var
-    server {.threadvar.}: WakuNode
-    client {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
+    client {.threadvar.}: Kernel
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     pubsubTopic {.threadvar.}: PubsubTopic
@@ -43,7 +52,8 @@ suite "Waku Legacy Lightpush - End To End":
     client = newTestWakuNode(clientKey)
 
     await allFutures(server.start(), client.start())
-    await server.start()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -57,7 +67,8 @@ suite "Waku Legacy Lightpush - End To End":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
@@ -99,9 +110,9 @@ suite "Waku Legacy Lightpush - End To End":
 
 suite "RLN Proofs as a Lightpush Service":
   var
-    server {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
     serverRln {.threadvar.}: RlnEvm
-    client {.threadvar.}: WakuNode
+    client {.threadvar.}: Kernel
     anvilProc {.threadvar.}: Process
     manager {.threadvar.}: RlnEvmGroupManager
     wakuRlnConfig {.threadvar.}: WakuRlnConfig
@@ -132,7 +143,8 @@ suite "RLN Proofs as a Lightpush Service":
     )
 
     await allFutures(server.start(), client.start())
-    await server.start()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     (await server.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
@@ -161,7 +173,8 @@ suite "RLN Proofs as a Lightpush Service":
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await server.stop()
+    (await server.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     stopAnvil(anvilProc)
 
   suite "Lightpush attaching RLN proofs":
@@ -173,7 +186,7 @@ suite "RLN Proofs as a Lightpush Service":
       # Attach the RLN proof. In production the client mounts RLN and generates the
       # proof in legacyLightpushPublish; here we generate it using the server's RLN
       # plugin since both ends share group state via the in-memory manager.
-      let msgWithProof = (await attachProof(server.rlnPlugin, message)).get()
+      let msgWithProof = (await attachProof(server.protocols.rlnPlugin, message)).get()
 
       # When the client publishes a message
       let publishResponse = await lightpushClient.legacyLightpushPublish(
@@ -188,7 +201,7 @@ suite "RLN Proofs as a Lightpush Service":
       check publishResponse.error == protocol_metrics.notPublishedAnyPeer
 
     # The tests below drive `server.legacyLightpushPublish(...)` against the
-    # server node. Because `server.wakuLegacyLightPush` is mounted (and no
+    # server node. Because `server.protocols.legacyLightPush` is mounted (and no
     # legacy client is), the call takes the self-request path — it runs the
     # full client-side flow (proof gen, RLN-rejection detection via the
     # RlnValidatorErrorMsg substring), but the request lands in the local
@@ -207,7 +220,7 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err(RlnValidatorErrorMsg & ": simulated stale merkle path")
-      server.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()
@@ -226,7 +239,7 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err("unrelated failure")
-      server.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()
@@ -241,8 +254,8 @@ suite "RLN Proofs as a Lightpush Service":
       # Detach the RLN backend so there is no refresh hook to call, even when
       # the error string carries RlnValidatorErrorMsg. Restore before teardown
       # so server.stop() stops the backend it was constructed with.
-      let savedPlugin = server.rlnPlugin
-      reset(server.rlnPlugin)
+      let savedPlugin = server.protocols.rlnPlugin
+      reset(server.protocols.rlnPlugin)
 
       var callCount = 0
       let stub: PushMessageHandler = proc(
@@ -250,13 +263,13 @@ suite "RLN Proofs as a Lightpush Service":
       ): Future[WakuLightPushResult[void]] {.async.} =
         inc callCount
         return err(RlnValidatorErrorMsg & ": simulated")
-      server.wakuLegacyLightPush.pushHandler = stub
+      server.protocols.legacyLightPush.pushHandler = stub
 
       let response = await server.legacyLightpushPublish(
         Opt.some(pubsubTopic), message, server.peerInfo.toRemotePeerInfo()
       )
 
-      server.rlnPlugin = savedPlugin
+      server.protocols.rlnPlugin = savedPlugin
 
       check:
         callCount == 1
@@ -326,7 +339,7 @@ suite "Waku Legacy Lightpush mounting behavior":
       node = newTestWakuNode(key)
 
     # Do not mount Relay on purpose
-    check node.wakuRelay.isNil()
+    check node.protocols.relay.isNil()
 
     ## Then mounting Legacy Lightpush must fail
     let res = await node.mountLegacyLightPush()

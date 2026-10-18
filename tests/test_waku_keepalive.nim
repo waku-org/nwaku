@@ -10,12 +10,10 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/node/health_monitor,
+  logos_delivery/kernel/
+    [base/peers, api/kernel_lifecycle, health_monitor/node_health_monitor],
   ./testlib/wakucore,
   ./testlib/wakunode
-
 suite "Waku Keepalive":
   asyncTest "handle ping keepalives":
     let
@@ -33,12 +31,14 @@ suite "Waku Keepalive":
       # complete the future with the comparison and check it below.
       completionFut.complete(peerId == node1.switch.peerInfo.peerId)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     await node1.mountLibp2pPing()
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -55,5 +55,7 @@ suite "Waku Keepalive":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await node2.stop()
-    await node1.stop()
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

@@ -1,8 +1,6 @@
 import
+  logos_delivery/kernel/[peer_manager, kernel, base/enr/sharding, base/enr/typed_record],
   results,
-  logos_delivery/waku/
-    [node/peer_manager, node/waku_node, waku_enr/sharding, common/enr/typed_record],
-  ../testlib/[wakucore]
-
-proc relayShards*(node: WakuNode): RelayShards =
+  ../testlib/wakucore
+proc relayShards*(node: Kernel): RelayShards =
   return node.enr.toTyped().get().relayShardingIndicesList().get()

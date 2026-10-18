@@ -2,14 +2,14 @@
 
 import results, testutils/unittests, eth/p2p/discoveryv5/enr, libp2p/crypto/crypto
 import
-  logos_delivery/waku/[
-    common/databases/db_sqlite,
-    node/peer_manager/peer_manager,
-    node/peer_manager/peer_store/waku_peer_storage,
-    waku_enr,
+  logos_delivery/kernel/[
+    base/databases/db_sqlite,
+    peer_manager/peer_manager,
+    peer_manager/peer_store/sqlite_peer_storage,
+    base/enr/builder,
+    base/enr/sharding,
   ],
   ./testlib/wakucore
-
 suite "Peer Storage":
   test "Store, replace and retrieve from persistent peer storage":
     let

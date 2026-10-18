@@ -3,18 +3,24 @@
 import std/net, testutils/unittests, chronos, results
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_node,
-    waku_core,
-    waku_store/resume,
-    waku_store/common,
-    waku_archive/driver,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    api/kernel_lifecycle,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/store/resume,
+    protocols/store/common,
+    archive/driver,
   ],
-  ../testlib/[wakucore, testasync, wakunode],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/wakunode,
   ./store_utils,
   ../waku_archive/archive_utils
-
 suite "Store Resume":
   var resume {.threadvar.}: StoreResume
 
@@ -43,8 +49,8 @@ suite "Store Resume":
     assert getTs == ts, "wrong timestamp"
 
 suite "Store Resume - End to End":
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverDriver {.threadvar.}: ArchiveDriver
   var clientDriver {.threadvar.}: ArchiveDriver
@@ -87,7 +93,8 @@ suite "Store Resume - End to End":
 
     client.setupStoreResume()
 
-    await server.start()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
@@ -103,7 +110,8 @@ suite "Store Resume - End to End":
     check:
       countRes.get() == 0
 
-    await client.start()
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     countRes = await clientDriver.getMessagesCount()
     assert countRes.isOk(), $countRes.error
@@ -112,8 +120,8 @@ suite "Store Resume - End to End":
       countRes.get() == 10
 
 suite "Store Resume - pages":
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
   var serverDriver {.threadvar.}: ArchiveDriver
   var clientDriver {.threadvar.}: ArchiveDriver
 
@@ -156,7 +164,8 @@ suite "Store Resume - pages":
     client.mountStoreClient()
     client.setupStoreResume()
 
-    await server.start()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     client.peerManager.addServicePeer(
       server.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
@@ -167,7 +176,8 @@ suite "Store Resume - pages":
   asyncTest "resume reads the pages after a page with a dropped message":
     check (await serverDriver.getMessagesCount()).get(0) == 150
 
-    await client.start()
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let count = await clientDriver.getMessagesCount()
     check:

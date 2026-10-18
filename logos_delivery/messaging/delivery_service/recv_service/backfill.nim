@@ -10,10 +10,17 @@
 import std/[algorithm, sets]
 import chronos, chronicles, results
 import
-  logos_delivery/waku/[waku_core, waku_store/common],
-  logos_delivery/waku/common/[paging, protobuf],
-  logos_delivery/waku/persistency/persistency
-from logos_delivery/waku/waku_archive/archive import MaxMessageTimestampVariance
+  logos_delivery/kernel/[
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    protocols/store/common,
+    base/paging,
+    base/protobuf,
+    persistency/persistency,
+  ]
+from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 logScope:
   topics = "recv backfill"

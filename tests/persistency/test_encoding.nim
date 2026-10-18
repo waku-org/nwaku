@@ -3,7 +3,7 @@
 import std/[algorithm, os, times]
 import chronos, results
 import testutils/unittests
-import logos_delivery/waku/persistency/persistency
+import logos_delivery/kernel/persistency/persistency
 
 # Reusable byte-wise comparator (Key has its own `<`, but we sometimes
 # want to sort `seq[Key]` here without relying on it for double-checking).

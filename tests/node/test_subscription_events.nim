@@ -3,14 +3,25 @@
 import std/sequtils
 import chronos, results, testutils/unittests
 import brokers/broker_context
-import logos_delivery/waku/[waku_core, waku_node, node/subscription_manager]
-import logos_delivery/waku/api/events/subscription_events
+import
+  logos_delivery/kernel/[
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    api/kernel_lifecycle,
+    subscription_manager,
+  ]
+import logos_delivery/kernel/[events/subscription_events]
 import ../testlib/[wakucore, wakunode, testasync]
 
 const TestShard = PubsubTopic("/waku/2/rs/0/7")
 
 suite "Shard subscription events":
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
   var subscribed {.threadvar.}: seq[PubsubTopic]
   var unsubscribed {.threadvar.}: seq[PubsubTopic]
 
@@ -36,7 +47,8 @@ suite "Shard subscription events":
   asyncTeardown:
     await ShardSubscribedEvent.dropAllListeners(node.brokerCtx)
     await ShardUnsubscribedEvent.dropAllListeners(node.brokerCtx)
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "relay subscribe and unsubscribe emit shard events":
     node.subscriptionManager.subscribeShard(TestShard).isOkOr:
@@ -64,7 +76,7 @@ suite "Shard subscription events":
     check subscribed == @[TestShard]
 
 suite "Extra listen shards":
-  var node {.threadvar.}: WakuNode
+  var node {.threadvar.}: Kernel
 
   asyncSetup:
     node = newTestWakuNode(generateSecp256k1Key())
@@ -75,7 +87,8 @@ suite "Extra listen shards":
     node.subscriptionManager.extraListenShards = @[PubsubTopic("/waku/2/rs/16/64")]
 
   asyncTeardown:
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a content topic is also subscribed and unsubscribed on the listen shard":
     const contentTopic = ContentTopic("/status/1/listen-shard/proto")

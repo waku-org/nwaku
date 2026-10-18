@@ -1,0 +1,232 @@
+{.push raises: [].}
+
+## IPeerDiscovery implementation wrapping `WakuDiscoveryV5`. Phase 1: the
+## wrapped entity keeps its ENR/subscription plumbing and feeds the
+## PeerManager itself; this wrapper owns construction and lifecycle,
+## resolving node state through the getter brokers instead of constructor
+## injection.
+
+import std/[sequtils, strutils]
+import chronos, chronicles, results
+import libp2p/crypto/crypto
+import brokers/broker_implement
+import logos_delivery/kernel/discovery/peer_discovery_interface
+import
+  logos_delivery/kernel/[
+    discovery/discv5,
+    discovery/peer_discovery_conversion,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/sharding,
+    events/discovery_events,
+    discovery/node_state_requests,
+  ]
+export peer_discovery_interface
+
+logScope:
+  topics = "waku discovery discv5"
+
+const
+  Discv5BackendId* = "discv5"
+  CapKeyPrefix = "cap:"
+  TopicKeyPrefix = "topic:"
+
+type Discv5PeerDiscovery* = ref object of IPeerDiscovery
+  conf: Discv5Conf
+  listenAddress: IpAddress
+  rng: crypto.Rng
+  nodeCtx: BrokerContext
+    ## Captured from globalBrokerContext() at construction — the node's
+    ## context, where the node-state getter providers live (the instance's
+    ## own brokerCtx scopes the interface brokers).
+  inner*: WakuDiscoveryV5
+  running: bool
+  discoveredListener: Opt[PeersDiscoveredEventListener]
+    ## Bridge from the node's PeersDiscoveredEvent; held from startDiscovery
+    ## to stopDiscovery.
+
+proc topicOf(key: string): Result[RelayShard, string] =
+  ## "topic:/waku/2/rs/<cluster>/<shard>": the payload is the pubsub topic
+  ## itself, only checked to be a static-sharding one.
+  if not key.startsWith(TopicKeyPrefix):
+    return err("discv5 backend: only topic: keys map to shards, got: " & key)
+  let shard = RelayShard.parse(key[TopicKeyPrefix.len ..^ 1]).valueOr:
+    return err("discv5 backend: invalid topic key: " & key & ": " & $error)
+  ok(shard)
+
+proc keyPredicate(key: string): Result[Opt[WakuDiscv5Predicate], string] =
+  ## Maps a criteria key onto an ENR record predicate.
+  if key.len == 0:
+    return ok(Opt.none(WakuDiscv5Predicate))
+
+  if key.startsWith(CapKeyPrefix):
+    let capName = key[CapKeyPrefix.len ..^ 1]
+    var wanted: Opt[Capabilities]
+    for cap in Capabilities:
+      if cmpIgnoreCase($cap, capName) == 0:
+        wanted = Opt.some(cap)
+        break
+    let cap = wanted.valueOr:
+      return err("discv5 backend: unknown capability: " & capName)
+    let pred = proc(record: enr.Record): bool {.closure, gcsafe, raises: [].} =
+      record.supportsCapability(cap)
+    return ok(Opt.some(WakuDiscv5Predicate(pred)))
+
+  if key.startsWith(TopicKeyPrefix):
+    let shard = ?topicOf(key)
+    let pred = proc(record: enr.Record): bool {.closure, gcsafe, raises: [].} =
+      record.containsShard(shard)
+    return ok(Opt.some(WakuDiscv5Predicate(pred)))
+
+  err("discv5 backend: unsupported criteria key: " & key)
+
+BrokerImplement Discv5PeerDiscovery of IPeerDiscovery:
+  proc new(
+      T: typedesc[Discv5PeerDiscovery],
+      conf: Discv5Conf,
+      listenAddress: IpAddress,
+      rng: crypto.Rng,
+  ): Discv5PeerDiscovery =
+    Discv5PeerDiscovery(
+      conf: conf, listenAddress: listenAddress, rng: rng, nodeCtx: globalBrokerContext()
+    )
+
+  method backendInfo(
+      self: Discv5PeerDiscovery
+  ): Future[Result[DiscoveryBackendInfo, string]] {.async.} =
+    let boundPorts =
+      if self.running:
+        @[self.inner.udpPort().uint16]
+      else:
+        newSeq[uint16]()
+    ok(
+      DiscoveryBackendInfo(
+        id: Discv5BackendId,
+        running: self.running,
+        keyKinds: @["topic", "cap", ""],
+        boundPorts: boundPorts,
+      )
+    )
+
+  method startDiscovery(
+      self: Discv5PeerDiscovery
+  ): Future[Result[void, string]] {.async.} =
+    if self.running:
+      return ok()
+
+    ## Node state is resolved through the getter brokers; by the time the
+    ## node start sequence reaches discovery the providers are installed.
+    let enrRecord = ?GetNodeEnr.request(self.nodeCtx)
+    let peerManager = ?GetNodePeerManager.request(self.nodeCtx)
+    let dynamicBootstrapNodes = ?GetDynamicBootstrapNodes.request(self.nodeCtx)
+    let nodeKey = ?GetNodeKey.request(self.nodeCtx)
+
+    self.inner = ?await setupAndStartDiscv5(
+      enrRecord, peerManager, self.conf, dynamicBootstrapNodes, self.rng, nodeKey,
+      self.listenAddress,
+    )
+
+    # Bridge the node-level event onto the instance-scoped interface event,
+    # on the node's context only; dropped again in stopDiscovery.
+    self.discoveredListener = Opt.some(
+      ?PeersDiscoveredEvent.listen(
+        self.nodeCtx,
+        proc(ev: PeersDiscoveredEvent): Future[void] {.async: (raises: []), gcsafe.} =
+          let mine = ev.peers.filterIt(it.origin == PeerOrigin.Discv5)
+          if mine.len > 0:
+            let converted = mine.mapIt(it.toDiscoveredPeer())
+            PeersDiscovered.emit(
+              self.brokerCtx, origin = Discv5BackendId, key = "", peers = converted
+            )
+        ,
+      )
+    )
+    self.running = true
+    ok()
+
+  method stopDiscovery(
+      self: Discv5PeerDiscovery
+  ): Future[Result[void, string]] {.async.} =
+    if not self.running:
+      return ok()
+    self.running = false
+    if self.discoveredListener.isSome():
+      await PeersDiscoveredEvent.dropListener(
+        self.nodeCtx, self.discoveredListener.get()
+      )
+      self.discoveredListener = Opt.none(PeersDiscoveredEventListener)
+    try:
+      await self.inner.stop()
+    except CatchableError:
+      return err("discv5 backend: stop failed: " & getCurrentExceptionMsg())
+    ok()
+
+  method lookupServicePeers(
+      self: Discv5PeerDiscovery, key: string, limit: int
+  ): Future[Result[seq[DiscoveredPeer], string]] {.async.} =
+    if not self.running:
+      return err("discv5 backend: not running")
+    let pred = ?keyPredicate(key)
+
+    let records =
+      try:
+        await self.inner.findRandomPeers(pred)
+      except CatchableError:
+        return err("discv5 backend: lookup failed: " & getCurrentExceptionMsg())
+
+    var found: seq[DiscoveredPeer]
+    for record in records:
+      let peer = record.toDiscoveredPeer().valueOr:
+        continue
+      found.add(peer)
+      if limit > 0 and found.len >= limit:
+        break
+    ok(found)
+
+  method lookupRandom(
+      self: Discv5PeerDiscovery
+  ): Future[Result[seq[DiscoveredPeer], string]] {.async.} =
+    await self.lookupServicePeers("", 0)
+
+  method startAdvertising(
+      self: Discv5PeerDiscovery, key: string, data: seq[byte]
+  ): Future[Result[void, string]] {.async.} =
+    ## Advertising for discv5 = mutating our own ENR; only topic: keys map.
+    if not self.running:
+      return err("discv5 backend: not running")
+    let shard = ?topicOf(key)
+    self.inner.updateShards(@[$shard], add = true)
+
+  method stopAdvertising(
+      self: Discv5PeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    if not self.running:
+      return err("discv5 backend: not running")
+    let shard = ?topicOf(key)
+    # updateShards refuses to remove the last remaining shard.
+    self.inner.updateShards(@[$shard], add = false)
+
+  method registerInterest(
+      self: Discv5PeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    err("discv5 backend: interest registration not supported for key: " & key)
+
+  method unregisterInterest(
+      self: Discv5PeerDiscovery, key: string
+  ): Future[Result[void, string]] {.async.} =
+    err("discv5 backend: interest registration not supported for key: " & key)
+
+  method addBootstrapEntries(
+      self: Discv5PeerDiscovery, entries: seq[string]
+  ): Future[Result[void, string]] {.async.} =
+    if not self.running:
+      return err("discv5 backend: not running")
+    var records: seq[enr.Record]
+    for entry in entries:
+      addBootstrapNode(entry, records) # logs and skips invalid entries
+    if records.len > 0:
+      self.inner.updateBootstrapRecords(self.inner.protocol.bootstrapRecords & records)
+    ok()

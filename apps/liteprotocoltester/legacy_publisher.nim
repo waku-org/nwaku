@@ -1,14 +1,16 @@
 import chronos, results
-import logos_delivery/waku/[waku_node, waku_core]
+import
+  logos_delivery/kernel/
+    [kernel, api/lightpush, base/topics/pubsub_topic, base/message, base/peers]
 import publisher_base
 
 type LegacyPublisher* = ref object of PublisherBase
 
-proc new*(T: type LegacyPublisher, wakuNode: WakuNode): T =
-  if isNil(wakuNode.wakuLegacyLightpushClient):
-    wakuNode.mountLegacyLightPushClient()
+proc new*(T: type LegacyPublisher, kernel: Kernel): T =
+  if isNil(kernel.protocols.legacyLightPushClient):
+    kernel.mountLegacyLightPushClient()
 
-  return LegacyPublisher(wakuNode: wakuNode)
+  return LegacyPublisher(kernel: kernel)
 
 method send*(
     self: LegacyPublisher,
@@ -18,7 +20,7 @@ method send*(
 ): Future[Result[void, string]] {.async.} =
   # when error it must return original error desc due the text is used for distinction between error types in metrics.
   discard (
-    await self.wakuNode.legacyLightpushPublish(Opt.some(topic), message, servicePeer)
+    await self.kernel.legacyLightpushPublish(Opt.some(topic), message, servicePeer)
   ).valueOr:
     return err(error)
   return ok()

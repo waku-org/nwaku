@@ -8,8 +8,8 @@ import std/[os, times]
 import chronos, results
 import testutils/unittests
 import brokers/request_broker
-import logos_delivery/waku/persistency/persistency
-import logos_delivery/waku/persistency/backend_comm
+import logos_delivery/kernel/persistency/persistency
+import logos_delivery/kernel/persistency/backend_comm
 
 const FdDir =
   when defined(linux):

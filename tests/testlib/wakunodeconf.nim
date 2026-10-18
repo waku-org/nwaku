@@ -6,7 +6,7 @@
 import std/net, results
 import
   logos_delivery/api/conf/messaging_conf,
-  logos_delivery/waku/persistency/persistency,
+  logos_delivery/kernel/persistency/persistency,
   tools/confutils/cli_args
 
 export cli_args

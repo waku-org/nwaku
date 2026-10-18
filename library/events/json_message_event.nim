@@ -1,12 +1,10 @@
-import system, results, std/json, std/strutils
+import system, results, std/json
 import stew/byteutils
 import
-  ../../logos_delivery/waku/common/base64,
-  ../../logos_delivery/waku/waku_core/message,
-  ../../logos_delivery/waku/waku_core/message/message,
+  ../../logos_delivery/kernel/base/base64,
+  ../../logos_delivery/kernel/base/message,
   ../utils,
   ./json_base_event
-
 type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type
   payload*: Base64String
   contentTopic*: string

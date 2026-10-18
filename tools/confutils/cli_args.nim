@@ -22,21 +22,37 @@ import
   mix_rln_spam_protection/[constants, module_api]
 
 import
+  logos_delivery/kernel/[
+    net/nat_strategy,
+    config/conf,
+    config/conf_builder/conf_builder,
+    config/conf_builder/filter_service_conf_builder,
+    config/conf_builder/store_sync_conf_builder,
+    config/conf_builder/store_service_conf_builder,
+    config/conf_builder/rest_server_conf_builder,
+    config/conf_builder/dns_discovery_conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/web_socket_conf_builder,
+    config/conf_builder/quic_conf_builder,
+    config/conf_builder/metrics_server_conf_builder,
+    config/conf_builder/rate_limit_conf_builder,
+    config/conf_builder/rln_relay_conf_builder,
+    config/conf_builder/mix_conf_builder,
+    config/conf_builder/kademlia_discovery_conf_builder,
+    config/conf_builder/external_discovery_conf_builder,
+    config/networks_config,
+    base/logging,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/sharding,
+    peer_manager/peer_manager,
+    base/topics/pubsub_topic,
+    base/message,
+    protocols/mix/protocol,
+  ],
   logos_delivery/api/conf/modes,
   logos_delivery/api/conf/messaging_node_conf,
-  logos_delivery/waku/net/nat_strategy,
-  logos_delivery/waku/factory/[waku_conf, conf_builder/conf_builder, networks_config],
-  logos_delivery/waku/factory/conf_builder/rest_server_conf_builder,
-  logos_delivery/waku/common/[logging],
-  logos_delivery/waku/[
-    waku_enr,
-    node/peer_manager,
-    waku_core/topics/pubsub_topic,
-    waku_core/message/default_values,
-    waku_mix,
-  ],
   ./entry_nodes
-
 import ./envvar as confEnvvarDefs, ./envvar_net as confEnvvarNet
 
 export

@@ -7,7 +7,7 @@ import brokers/broker_context
 import ../testlib/[wakucore, wakunodeconf]
 
 import logos_delivery
-import logos_delivery/waku/waku_core
+import logos_delivery/kernel/[base/topics/content_topic, base/message]
 import logos_delivery/api/events/messaging_client_events as waku_message_events
 import logos_delivery/api/messaging_client_api
 
@@ -104,13 +104,14 @@ proc encryptedInbound(
 template setupChannelNode() =
   ## Every test needs a node with the channels layer up, plus the broker
   ## context its channels are bound to.
-  var waku {.inject.}: LogosDelivery
+  var kernel {.inject.}: LogosDelivery
   var manager {.inject.}: ReliableChannelManager
   var brokerCtx {.inject.}: BrokerContext
   lockNewGlobalBrokerContext:
     brokerCtx = globalBrokerContext()
-    waku = (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
-    manager = waku.reliableChannelManager
+    kernel =
+      (await LogosDelivery.new(defaultTestNodeConf())).expect("LogosDelivery.new")
+    manager = kernel.reliableChannelManager
 
 template captureWire(sink: untyped) =
   ## Stands in for the messaging layer, recording what reaches the wire.
@@ -183,7 +184,7 @@ suite "Channel encryption - egress":
       check not wire[0].containsRun(oneSegment(appPayload))
       check not wire[0].containsRun(string(channelId).toBytes())
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "a failing encrypt aborts the send with nothing on the wire":
     ## Fail closed: this is the property the whole design exists to hold.
@@ -219,7 +220,7 @@ suite "Channel encryption - egress":
       check "no key today" in res.error
     check sendCalls == 0
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "an unregistered channel sends its payload unchanged":
     ## Back-compat with the removed noop providers.
@@ -242,7 +243,7 @@ suite "Channel encryption - egress":
       await sleepAsync(5.milliseconds)
     check plainWire.len == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Channel encryption - ingress":
   asyncTest "receive decrypts the whole SDS message":
@@ -284,7 +285,7 @@ suite "Channel encryption - ingress":
     check await received.withTimeout(TestTimeout)
     check received.read().payload == appPayload
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "a message that does not decrypt is dropped without an event":
     ## On a shared topic, failing to decrypt is how a channel recognises
@@ -342,7 +343,7 @@ suite "Channel encryption - ingress":
 
     check events.len == 0
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "channels sharing a topic tell their traffic apart by decrypting":
     ## The SDS channelId is sealed, so each channel trial-decrypts and only
@@ -406,4 +407,4 @@ suite "Channel encryption - ingress":
     check deliveredTo == @[channelA]
     check bRejected == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")

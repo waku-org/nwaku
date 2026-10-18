@@ -3,20 +3,24 @@
 import results, std/sequtils, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    common/databases/db_postgres/dbconn,
-    common/paging,
-    waku_core,
-    waku_core/message/digest,
-    waku_archive,
-    waku_archive/archive_metrics,
-    waku_archive/retention_policy/retention_policy_capacity,
-    waku_archive/retention_policy/retention_policy_time,
-    waku_archive/driver/queue_driver,
+  logos_delivery/kernel/[
+    archive/driver/postgres_driver/dbconn,
+    base/paging,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/retention_policy,
+    archive/archive_metrics,
+    archive/retention_policy/retention_policy_capacity,
+    archive/retention_policy/retention_policy_time,
+    archive/driver/queue_driver/queue_driver,
   ],
-  ../waku_archive/archive_utils,
+  ./archive_utils,
   ../testlib/wakucore
-
 suite "Waku Archive - message handling":
   test "it should archive a valid and non-ephemeral message":
     ## Setup

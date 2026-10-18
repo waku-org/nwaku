@@ -1,16 +1,18 @@
 {.used.}
 
-import results, chronos, chronicles, libp2p/crypto/crypto
+import results, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_core/topics/sharding,
-  logos_delivery/waku/waku_lightpush,
-  logos_delivery/waku/waku_lightpush/[client, common],
-  logos_delivery/waku/common/rate_limit/setting,
-  ../testlib/[common, wakucore]
-
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/enr/sharding,
+    base/message,
+    protocols/lightpush/protocol,
+    protocols/lightpush/common,
+    protocols/lightpush/client,
+    base/rate_limit/setting,
+  ],
+  ../testlib/wakucore
 proc newTestWakuLightpushNode*(
     switch: Switch,
     handler: PushMessageHandler,

@@ -3,16 +3,19 @@
 import std/strutils, stew/byteutils
 import results, testutils/unittests, chronos, metrics
 import
-  logos_delivery/waku/[
-    common/paging,
-    waku_core,
-    waku_store/common,
-    waku_store/protocol_metrics,
-    waku_store/rpc_codec,
-    common/protobuf,
+  logos_delivery/kernel/[
+    base/paging,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    protocols/store/common,
+    protocols/store/protocol_metrics,
+    protocols/store/rpc_codec,
+    base/protobuf,
   ],
-  ../testlib/[wakucore, protobuf_errors]
-
+  ../testlib/wakucore,
+  ../testlib/protobuf_errors
 proc keyValueOf(hashByte: byte, message: WakuMessage): WakuMessageKeyValue =
   ## A key-value with the hash `hashByte` 00 .. and the default pubsub topic.
   var hash: WakuMessageHash

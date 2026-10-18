@@ -8,8 +8,9 @@ import
   libp2p/peerid,
   libp2p/errors,
   confutils/toml/std/net
-import logos_delivery/waku/[waku_core, waku_enr], ../testlib/wakucore
-
+import
+  logos_delivery/kernel/[base/peers, base/codecs, base/enr, base/enr/capabilities],
+  ../testlib/wakucore
 procSuite "Waku Core - Peers":
   test "Peer info parses correctly":
     ## Given
@@ -273,7 +274,7 @@ procSuite "Waku Core - Peers":
   test "Peer address list tolerates whitespace and empty entries":
     ## Given
     let addresses =
-      " /ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc , ," &
+      " /ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ," &
       " /ip4/10.0.0.1/tcp/65003/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc "
 
     ## Then

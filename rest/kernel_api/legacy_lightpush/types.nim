@@ -9,8 +9,9 @@ import
   presto/[route, client]
 
 import
-  logos_delivery/waku/waku_core, rest/kernel_api/relay/types as relay_types, rest/serdes
-
+  logos_delivery/kernel/[base/topics/pubsub_topic],
+  rest/kernel_api/relay/types as relay_types,
+  rest/serdes
 export relay_types
 
 #### Types

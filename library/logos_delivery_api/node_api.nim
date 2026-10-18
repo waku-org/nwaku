@@ -3,20 +3,17 @@ import chronos, chronicles, results, ffi
 import brokers/broker_context
 import libp2p/peerid # pull PeerId pretty string formatting
 import stew/byteutils
-import logos_delivery/waku/common/base64
+import logos_delivery/kernel/[base/base64]
 from ../events/json_message_event import `%` # base64 rendering for WakuMessage
 import
+  logos_delivery/kernel/
+    [kernel, events/health_events, events/peer_events, rln/rln_lez/transport],
   logos_delivery,
-  logos_delivery/waku/node/waku_node,
   logos_delivery/api/types,
-  logos_delivery/waku/api/events/health_events,
-  logos_delivery/waku/api/events/peer_events,
   logos_delivery/api/conf/logos_delivery_conf_json,
-  logos_delivery/waku/rln/rln_lez/transport,
   rest/rest_service,
   ../declare_lib,
   ../json_event
-
 # Add JSON serialization for RequestId
 proc `%`*(id: RequestId): JsonNode =
   %($id)
@@ -27,7 +24,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
   ## the context-scoped C listener registry, so they share its create-to-
   ## destroy lifetime. `teardownFFIEventScope` is the other end.
   MessageSentEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: MessageSentEvent) {.async: (raises: []).} =
       emitEvent("onMessageSent"):
         $newJsonEvent("message_sent", event),
@@ -36,7 +33,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("MessageSentEvent.listen failed: " & $error)
 
   MessageErrorEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: MessageErrorEvent) {.async: (raises: []).} =
       emitEvent("onMessageError"):
         $newJsonEvent("message_error", event),
@@ -45,7 +42,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("MessageErrorEvent.listen failed: " & $error)
 
   MessageQueuedEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: MessageQueuedEvent) {.async: (raises: []).} =
       emitEvent("onMessageQueued"):
         $newJsonEvent("message_queued", event),
@@ -54,7 +51,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("MessageQueuedEvent.listen failed: " & $error)
 
   MessagePropagatedEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: MessagePropagatedEvent) {.async: (raises: []).} =
       emitEvent("onMessagePropagated"):
         $newJsonEvent("message_propagated", event),
@@ -63,7 +60,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("MessagePropagatedEvent.listen failed: " & $error)
 
   MessageReceivedEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: MessageReceivedEvent) {.async: (raises: []).} =
       emitEvent("onMessageReceived"):
         $newJsonEvent("message_received", event),
@@ -72,7 +69,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("MessageReceivedEvent.listen failed: " & $error)
 
   EventConnectionStatusChange.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: EventConnectionStatusChange) {.async: (raises: []).} =
       emitEvent("onConnectionStatusChange"):
         $newJsonEvent("connection_status_change", event),
@@ -81,7 +78,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("ConnectionStatusChange.listen failed: " & $error)
 
   EventShardTopicHealthChange.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: EventShardTopicHealthChange) {.async: (raises: []).} =
       emitEvent("onTopicHealthChange"):
         $(
@@ -96,7 +93,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("EventShardTopicHealthChange.listen failed: " & $error)
 
   WakuPeerEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: WakuPeerEvent) {.async: (raises: []).} =
       emitEvent("onConnectionChange"):
         $(
@@ -111,7 +108,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("WakuPeerEvent.listen failed: " & $error)
 
   ChannelMessageReceivedEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: ChannelMessageReceivedEvent) {.async: (raises: []).} =
       emitEvent("onChannelMessageReceived"):
         $(
@@ -127,7 +124,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("ChannelMessageReceivedEvent.listen failed: " & $error)
 
   ChannelMessageSentEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: ChannelMessageSentEvent) {.async: (raises: []).} =
       emitEvent("onChannelMessageSent"):
         $newJsonEvent("channel_message_sent", event),
@@ -136,7 +133,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("ChannelMessageSentEvent.listen failed: " & $error)
 
   ChannelMessageErrorEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: ChannelMessageErrorEvent) {.async: (raises: []).} =
       emitEvent("onChannelMessageError"):
         $newJsonEvent("channel_message_error", event),
@@ -145,7 +142,7 @@ proc registerFFIEventListeners(self: LogosDelivery): Result[void, string] =
     return err("ChannelMessageErrorEvent.listen failed: " & $error)
 
   ChannelMessageLostEvent.listen(
-    self.waku.brokerCtx,
+    self.kernel.brokerCtx,
     proc(event: ChannelMessageLostEvent) {.async: (raises: []).} =
       emitEvent("onChannelMessageLost"):
         $(
@@ -166,18 +163,18 @@ proc teardownFFIEventScope(self: LogosDelivery) {.async.} =
   ## The node's broker scope dies with the node. Dropping all listeners of
   ## an instance context also deletes its per-event buckets, so an FFI
   ## thread reused for a later node starts with clean broker state.
-  await MessageSentEvent.dropAllListeners(self.waku.brokerCtx)
-  await MessageErrorEvent.dropAllListeners(self.waku.brokerCtx)
-  await MessageQueuedEvent.dropAllListeners(self.waku.brokerCtx)
-  await MessagePropagatedEvent.dropAllListeners(self.waku.brokerCtx)
-  await MessageReceivedEvent.dropAllListeners(self.waku.brokerCtx)
-  await EventConnectionStatusChange.dropAllListeners(self.waku.brokerCtx)
-  await EventShardTopicHealthChange.dropAllListeners(self.waku.brokerCtx)
-  await WakuPeerEvent.dropAllListeners(self.waku.brokerCtx)
-  await ChannelMessageReceivedEvent.dropAllListeners(self.waku.brokerCtx)
-  await ChannelMessageSentEvent.dropAllListeners(self.waku.brokerCtx)
-  await ChannelMessageErrorEvent.dropAllListeners(self.waku.brokerCtx)
-  await ChannelMessageLostEvent.dropAllListeners(self.waku.brokerCtx)
+  await MessageSentEvent.dropAllListeners(self.kernel.brokerCtx)
+  await MessageErrorEvent.dropAllListeners(self.kernel.brokerCtx)
+  await MessageQueuedEvent.dropAllListeners(self.kernel.brokerCtx)
+  await MessagePropagatedEvent.dropAllListeners(self.kernel.brokerCtx)
+  await MessageReceivedEvent.dropAllListeners(self.kernel.brokerCtx)
+  await EventConnectionStatusChange.dropAllListeners(self.kernel.brokerCtx)
+  await EventShardTopicHealthChange.dropAllListeners(self.kernel.brokerCtx)
+  await WakuPeerEvent.dropAllListeners(self.kernel.brokerCtx)
+  await ChannelMessageReceivedEvent.dropAllListeners(self.kernel.brokerCtx)
+  await ChannelMessageSentEvent.dropAllListeners(self.kernel.brokerCtx)
+  await ChannelMessageErrorEvent.dropAllListeners(self.kernel.brokerCtx)
+  await ChannelMessageLostEvent.dropAllListeners(self.kernel.brokerCtx)
 
 # The REST service is an adapter above the node: the library keeps it beside the
 # node it wraps. Each node lives on its own FFI thread, so this table is only
@@ -185,7 +182,7 @@ proc teardownFFIEventScope(self: LogosDelivery) {.async.} =
 var restServices {.threadvar.}: Table[string, RestService]
 
 proc restOf(self: LogosDelivery): RestService =
-  let key = $self.waku.brokerCtx
+  let key = $self.kernel.brokerCtx
   if key notin restServices:
     restServices[key] = RestService.new()
   return restServices[key]
@@ -276,5 +273,5 @@ proc logosdelivery_destroy(self: LogosDelivery) {.ffiDtor.} =
   ## broker scope; `teardownFFIEventScope` is the other end of create.
   (await self.stopNode()).isOkOr:
     chronicles.error "DESTROY failed", err = error
-  restServices.del($self.waku.brokerCtx)
+  restServices.del($self.kernel.brokerCtx)
   await self.teardownFFIEventScope()

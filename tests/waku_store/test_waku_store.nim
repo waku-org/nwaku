@@ -3,18 +3,20 @@
 import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    common/paging,
-    node/peer_manager,
-    waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_store/client,
-    waku_store/common,
+  logos_delivery/kernel/[
+    base/paging,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/store/common,
+    protocols/store/client,
   ],
   ../testlib/wakucore,
   ./store_utils
-
 suite "Waku Store - query handler":
   asyncTest "history query handler should be called":
     ## Setup

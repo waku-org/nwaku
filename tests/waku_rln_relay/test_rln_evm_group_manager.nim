@@ -3,7 +3,7 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, deques, random, locks, osproc, algorithm, exitprocs],
+  std/[sequtils, deques, random, osproc, algorithm, exitprocs],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -12,19 +12,17 @@ import
   stint,
   web3,
   libp2p/crypto/crypto,
-  eth/keys,
-  tests/testlib/testasync,
-  tests/testlib/testutils
+  eth/keys
 
 import
-  logos_delivery/waku/[
-    rln,
+  logos_delivery/kernel/[
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
     rln/rln_evm/protocol_types,
     rln/protocol_metrics,
     rln/rln_evm/constants,
-    rln/rln_evm/bindings,
-    rln/rln_evm/conversion_utils,
-    rln/rln_evm/group_manager,
+    rln/rln_evm/librln_interface,
+    rln/rln_evm/wrappers,
   ],
   ../testlib/wakucore,
   ./utils_onchain

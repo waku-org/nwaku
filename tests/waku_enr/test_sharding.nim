@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/sequtils,
   results,
   chronos,
   testutils/unittests,
@@ -10,18 +9,16 @@ import
 
 import brokers/broker_context
 import
-  logos_delivery/waku/[
-    waku_enr,
-    discovery/waku_discv5,
-    waku_core,
-    common/enr,
+  logos_delivery/kernel/[
+    base/enr,
+    base/enr/sharding,
+    discovery/discv5,
     net/auto_port,
-    api/events/subscription_events,
+    events/subscription_events,
   ],
   ../testlib/wakucore,
   ../waku_discv5/utils,
   ./utils
-
 suite "Sharding":
   suite "topicsToRelayShards":
     asyncTest "get shards from topics":

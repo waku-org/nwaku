@@ -16,7 +16,7 @@ private communication.
 - Examples.
 - Tests for all of the above.
 
-For more details see the [source code](logos_delivery/waku/README.md)
+For more details see the [source code](logos_delivery/kernel/README.md)
 
 ## How to Build & Run ( Linux, MacOS & WSL )
 
@@ -57,7 +57,7 @@ make logosdeliverynode NIMFLAGS="-d:chronicles_colors:none -d:disableMarchNative
 ./build/logosdeliverynode --help
 ```
 To join the network, you need to know the address of at least one bootstrap node.
-Please refer to the [Waku README](https://github.com/logos-messaging/logos-delivery/blob/master/logos_delivery/waku/README.md) for more information.
+Please refer to the [Waku README](https://github.com/logos-messaging/logos-delivery/blob/master/logos_delivery/kernel/README.md) for more information.
 
 For more on running a node, refer to the guides below. They were written for nwaku and still use the old `wakunode2` binary name:
 - [Run using binaries](https://docs.waku.org/run-node/build-source)
@@ -152,7 +152,7 @@ To format a single file, run `make nph/<path to the .nim file>`.
 For example:
 
 ```
-make nph/logos_delivery/waku/waku_core.nim
+make nph/logos_delivery/kernel/base/message.nim
 ```
 
 A pre-commit hook is provided to format staged files at commit time.

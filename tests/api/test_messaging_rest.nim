@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, net, sequtils, strutils],
+  std/[net, sequtils, strutils],
   chronos,
   metrics,
   testutils/unittests,
@@ -11,13 +11,13 @@ import
 import brokers/broker_context
 import logos_delivery
 import
+  logos_delivery/kernel/[base/base64],
   logos_delivery/api/conf/logos_delivery_conf,
   rest/messaging_api/client as messaging_rest_client,
   rest/messaging_api/event_cache,
-  rest/client,
-  logos_delivery/waku/common/base64
+  rest/client
 import tools/confutils/cli_args
-import tests/testlib/[wakucore, testasync, wakunodeconf, rest_requests, rest_service]
+import tests/testlib/[wakucore, wakunodeconf, rest_requests, rest_service]
 
 ## Integration test for the messaging REST endpoints and their event cache.
 ##
@@ -129,7 +129,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     let reqA = RequestId("req-A")
     let reqB = RequestId("req-B")
@@ -294,7 +294,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     # Emit more than the cache capacity (50); oldest must be dropped. Odd
     # messages come from Store, so the source travels with each record.
@@ -383,7 +383,7 @@ suite "Messaging REST API":
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "Failed to start node: " & error
     let client = restClientFor(rest)
-    let brokerCtx = node.waku.brokerCtx
+    let brokerCtx = node.kernel.brokerCtx
 
     const total = 8
     let droppedBefore = logos_delivery_rest_received_dropped.value()

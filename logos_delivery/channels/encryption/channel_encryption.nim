@@ -16,7 +16,7 @@
 
 import results, chronos
 
-import ../types
+import logos_delivery/api/channel_types
 
 type ChannelCrypto* = object
   ## Only constructible through `init`, which rejects a half-nil pair, so a

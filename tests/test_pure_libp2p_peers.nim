@@ -12,11 +12,16 @@ import
   libp2p/protocols/service_discovery/types,
   libp2p_mix/mix_protocol
 import
-  logos_delivery/waku/[waku_node, waku_core, node/peer_manager, waku_metadata],
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    base/peers,
+    base/codecs,
+    peer_manager/peer_manager,
+    protocols/metadata/protocol,
+  ],
   ./testlib/testasync,
   ./testlib/wakucore,
   ./testlib/wakunode
-
 const ClusterId = 42.uint16
 
 proc newPureLibp2pSwitch(): Switch =
@@ -38,17 +43,18 @@ proc newMixSwitch(): Switch =
   switch.mount(mix)
   switch
 
-proc newMemberNode(mountMeta = true): Future[WakuNode] {.async.} =
+proc newMemberNode(mountMeta = true): Future[Kernel] {.async.} =
   let node = newTestWakuNode(generateSecp256k1Key(), clusterId = ClusterId)
   if mountMeta:
     discard node.mountMetadata(ClusterId, @[])
-  await node.start()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
   node
 
 # identify, classification, and an asyncSpawned disconnect all have to land
 const Settle = 1.seconds
 
-proc connectExpectingDrop(peer: Switch, node: WakuNode) {.async.} =
+proc connectExpectingDrop(peer: Switch, node: Kernel) {.async.} =
   ## A rejected peer may be cut off while its own upgrade is still running, in
   ## which case its `connect` raises rather than returns. Either is a drop.
   try:
@@ -56,7 +62,7 @@ proc connectExpectingDrop(peer: Switch, node: WakuNode) {.async.} =
   except DialFailedError:
     discard
 
-proc isDisconnected(node: WakuNode, peer: Switch): bool =
+proc isDisconnected(node: Kernel, peer: Switch): bool =
   ## Neither side holds a connection to the other.
   return
     not node.switch.isConnected(peer.peerInfo.peerId) and
@@ -199,7 +205,8 @@ suite "Peer manager - pure-libp2p peers":
       node.peerManager.pureLibp2pPeers.len == 0
     check node.peerManager.pureLibp2pPeers.len == 0
 
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a node without metadata mounted still accepts everyone":
     let node = await newMemberNode(mountMeta = false)

@@ -10,19 +10,27 @@ import
   json_serialization/pkg/results,
   presto/route,
   presto/common
+import logos_delivery/kernel/[base/topics/content_topic]
+import logos_delivery/kernel/[base/enr/sharding]
+import logos_delivery/kernel/[base/topics/pubsub_topic]
 import
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/waku_relay/protocol,
-  logos_delivery/waku/rln,
-  logos_delivery/waku/rln/rln_plugin,
-  logos_delivery/waku/node/waku_node,
+  logos_delivery/kernel/[
+    kernel,
+    api/relay,
+    protocols/relay/protocol,
+    subscription_manager,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_plugin,
+  ],
   rest/message_cache,
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   rest/kernel_api/relay/types
-from logos_delivery/waku/rln/types import RlnErrorKind
+from logos_delivery/kernel/rln/types import RlnErrorKind
 
 export types
 
@@ -42,7 +50,7 @@ const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{contentTopic}"
 const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
 
 proc validatePubSubTopics(
-    node: WakuNode, topics: seq[PubsubTopic]
+    node: Kernel, topics: seq[PubsubTopic]
 ): Result[void, RestApiResponse] =
   let badPubSubTopics = topics.filterIt(RelayShard.parseStaticSharding(it).isErr())
   if badPubSubTopics.len > 0:
@@ -119,7 +127,7 @@ proc attachRlnProofAndValidate(
   )
 
 proc installRelayApiHandlers*(
-    router: var RestRouter, node: WakuNode, cache: MessageCache
+    router: var RestRouter, node: Kernel, cache: MessageCache
 ) =
   router.api(MethodOptions, ROUTE_RELAY_SUBSCRIPTIONSV1) do() -> RestApiResponse:
     return RestApiResponse.ok()
@@ -216,7 +224,7 @@ proc installRelayApiHandlers*(
 
     # ensure the node is subscribed to the topic. otherwise it risks publishing
     # to a topic with no connected peers
-    if pubSubTopic notin node.wakuRelay.subscribedTopics():
+    if pubSubTopic notin node.protocols.relay.subscribedTopics():
       return RestApiResponse.badRequest(
         "Failed to publish: Node not subscribed to topic: " & pubsubTopic
       )
@@ -233,11 +241,11 @@ proc installRelayApiHandlers*(
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest($error)
 
-    let rlnPlugin = node.rlnPlugin
+    let rlnPlugin = node.protocols.rlnPlugin
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -248,14 +256,17 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(
+      node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true
+    )
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic = pubSubTopic, rln = node.rlnPlugin.isSome()
+    debug "Publishing message",
+      pubSubTopic = pubSubTopic, rln = node.protocols.rlnPlugin.isSome()
     if not (await node.publish(Opt.some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic = pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
@@ -366,11 +377,11 @@ proc installRelayApiHandlers*(
         error "publish error", err = msg
         return RestApiResponse.badRequest("Failed to publish. " & msg)
 
-    let rlnPlugin = node.rlnPlugin
+    let rlnPlugin = node.protocols.rlnPlugin
     if rlnPlugin.isSome() and not rlnPlugin.get().generateProof.isNil():
       message = (
         await attachRlnProofAndValidate(
-          rlnPlugin.get(), node.wakuRelay, pubsubTopic, message
+          rlnPlugin.get(), node.protocols.relay, pubsubTopic, message
         )
       ).valueOr:
         case error.kind
@@ -381,15 +392,17 @@ proc installRelayApiHandlers*(
         of StaleProofSuspected:
           return RestApiResponse.serviceUnavailable("Failed to publish: " & error.desc)
     else:
-      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      (await node.protocols.relay.validateMessage(pubsubTopic, message)).isOkOr:
         return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # Log for message tracking purposes
-    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+    logMessageInfo(
+      node.protocols.relay, "rest", pubsubTopic, "none", message, onRecv = true
+    )
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
-      contentTopic = message.contentTopic, rln = node.rlnPlugin.isSome()
+      contentTopic = message.contentTopic, rln = node.protocols.rlnPlugin.isSome()
 
     var publishFut = node.publish(Opt.some($pubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):

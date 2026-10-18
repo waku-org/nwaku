@@ -2,12 +2,13 @@
 
 import results, testutils/unittests
 import
-  logos_delivery/waku/[
-    waku_archive,
-    waku_archive/driver/queue_driver/queue_driver {.all.},
-    waku_archive/driver/queue_driver/index,
-    waku_core,
-  ]
+  logos_delivery/kernel/[
+    archive/archive,
+    archive/driver/queue_driver/queue_driver {.all.},
+    archive/driver/queue_driver/index,
+  ],
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/message
 
 # Helper functions
 

@@ -10,25 +10,35 @@ import
   libp2p/[peerstore, crypto/crypto]
 
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    waku_node,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-    waku_filter_v2/rpc,
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    peer_manager/peer_manager,
+    api/kernel_lifecycle,
+    protocols/filter/common as filter_common,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/filter/client,
+    protocols/filter/rpc,
   ],
-  ../testlib/[common, wakucore, wakunode, testasync, futures, testutils],
+  ../testlib/common,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/testutils,
   ../waku_filter_v2/waku_filter_utils
-
 proc waitForTopicPeer(
-    node: WakuNode, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
+    node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = FUTURE_TIMEOUT_LONG
 ) {.async.} =
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in node.wakuRelay.gossipsub.getOrDefault(topic):
+    for p in node.protocols.relay.gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
@@ -54,10 +64,10 @@ proc createRequest(
   )
 
 suite "Waku Filter - End to End":
-  var client {.threadvar.}: WakuNode
+  var client {.threadvar.}: Kernel
   var clientPeerId {.threadvar.}: PeerId
-  var clientClone {.threadvar.}: WakuNode
-  var server {.threadvar.}: WakuNode
+  var clientClone {.threadvar.}: Kernel
+  var server {.threadvar.}: Kernel
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic
@@ -90,13 +100,13 @@ suite "Waku Filter - End to End":
     await server.mountFilter()
     await client.mountFilterClient()
 
-    client.wakuFilterClient.registerPushHandler(messagePushHandler)
+    client.protocols.filterClient.registerPushHandler(messagePushHandler)
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
 
     # Prepare the clone but do not start it
     await clientClone.mountFilterClient()
-    clientClone.wakuFilterClient.registerPushHandler(messagePushHandler)
+    clientClone.protocols.filterClient.registerPushHandler(messagePushHandler)
 
   asyncTeardown:
     await allFutures(client.stop(), clientClone.stop(), server.stop())
@@ -110,8 +120,8 @@ suite "Waku Filter - End to End":
     # Then the subscription is successful
     check:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
-      server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.isSubscribed(clientPeerId)
 
     # When sending a message to the subscribed content topic
     let msg1 = fakeWakuMessage(contentTopic = contentTopic)
@@ -132,7 +142,7 @@ suite "Waku Filter - End to End":
     # Then the unsubscription is successful
     check:
       unsubscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 0
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 0
 
     # When sending a message to the previously subscribed content topic
     pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -154,7 +164,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # When a server node gets a Relay message
     let msg1 = fakeWakuMessage(contentTopic = contentTopic)
@@ -180,9 +190,11 @@ suite "Waku Filter - End to End":
     let
       publisherKey = generateSecp256k1Key()
       publisher = newTestWakuNode(publisherKey)
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     (await publisher.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
@@ -193,7 +205,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     await publisher.connectToNodes(@[serverRemotePeerInfo])
     await publisher.waitForTopicPeer(pubsubTopic, serverRemotePeerInfo.peerId)
@@ -216,7 +228,8 @@ suite "Waku Filter - End to End":
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey)
 
-    await server.start()
+    (await server.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await server.mountRelay()).isOkOr:
       assert false, "error mounting relay: " & $error
 
@@ -242,7 +255,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
     await client.stop()
@@ -250,11 +263,13 @@ suite "Waku Filter - End to End":
     ## is not prepare for restarts and maybe we don't need that restart feature.
 
     client = newTestWakuNode(clientKey)
-    await client.start() # Mimic restart by starting the clone
+    # Mimic restart by starting the clone
+    (await client.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # pushHandlerFuture = newFuture[(string, WakuMessage)]()
     await client.mountFilterClient()
-    client.wakuFilterClient.registerPushHandler(messagePushHandler)
+    client.protocols.filterClient.registerPushHandler(messagePushHandler)
 
     ## connect both switches
     await client.switch.connect(
@@ -267,7 +282,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # When a message is sent to the subscribed content topic, via Filter; without refreshing the subscription
     let msg = fakeWakuMessage(contentTopic = contentTopic)
@@ -290,11 +305,14 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # And the client node reboots
-    await client.stop()
-    await clientClone.start() # Mimic restart by starting the clone
+    (await client.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    # Mimic restart by starting the clone
+    (await clientClone.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # When a message is sent to the subscribed content topic, via Relay
     let msg = fakeWakuMessage(contentTopic = contentTopic)
@@ -309,7 +327,7 @@ suite "Waku Filter - End to End":
     )
     check:
       subscribeResponse2.isOk()
-      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.protocols.filter.subscriptions.subscribedPeerCount() == 1
 
     # When a message is sent to the subscribed content topic, via Relay
     pushHandlerFuture = newPushHandlerFuture()
@@ -322,7 +340,7 @@ suite "Waku Filter - End to End":
   asyncTest "ping subscriber":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       pingRequest =
@@ -363,7 +381,7 @@ suite "Waku Filter - End to End":
   asyncTest "simple subscribe and unsubscribe request":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       filterSubscribeRequest = createRequest(
@@ -407,7 +425,7 @@ suite "Waku Filter - End to End":
   asyncTest "simple subscribe and unsubscribe all for multiple content topics":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
@@ -453,7 +471,7 @@ suite "Waku Filter - End to End":
   asyncTest "subscribe and unsubscribe to multiple content topics":
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
@@ -546,7 +564,7 @@ suite "Waku Filter - End to End":
 
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
       peerManager = server.peerManager
@@ -641,12 +659,13 @@ suite "Waku Filter - End to End":
     await wakuFilter.subscriptions.removePeer(clientPeerId)
     wakuFilter.subscriptions.cleanUp()
 
-    var peers = newSeq[WakuNode](MaxFilterPeers)
+    var peers = newSeq[Kernel](MaxFilterPeers)
 
     for index in 0 ..< MaxFilterPeers:
       peers[index] = newTestWakuNode(generateSecp256k1Key())
 
-      await peers[index].start()
+      (await peers[index].start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await peers[index].mountFilterClient()
 
       ## connect switches
@@ -691,7 +710,7 @@ suite "Waku Filter - End to End":
 
     # Given
     let
-      wakuFilter = server.wakuFilter
+      wakuFilter = server.protocols.filter
       clientPeerId = client.switch.peerInfo.peerId
       serverPeerId = server.switch.peerInfo.peerId
 
@@ -788,7 +807,7 @@ suite "Waku Filter - End to End":
     asyncTest "simple maintenance":
       # Given
       let
-        wakuFilter = server.wakuFilter
+        wakuFilter = server.protocols.filter
         clientPeerId = client.switch.peerInfo.peerId
         serverPeerId = server.switch.peerInfo.peerId
         peerManager = server.peerManager
@@ -808,14 +827,20 @@ suite "Waku Filter - End to End":
       await client2.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
       await client3.switch.connect(serverPeerId, server.switch.peerInfo.listenAddrs)
 
-      await client1.start()
-      await client2.start()
-      await client3.start()
+      (await client1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await client2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await client3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       defer:
-        await client1.stop()
-        await client2.stop()
-        await client3.stop()
+        (await client1.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
+        (await client2.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
+        (await client3.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
       await client1.mountFilterClient()
       await client2.mountFilterClient()

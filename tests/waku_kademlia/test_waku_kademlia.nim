@@ -1,8 +1,7 @@
 import
-  std/[sequtils, strutils],
+  std/[strutils],
   results,
   chronos,
-  chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
   libp2p/crypto/curve25519,
@@ -12,11 +11,13 @@ import
   libp2p_mix/mix_protocol
 
 import
-  logos_delivery/waku/discovery/waku_kademlia,
-  logos_delivery/waku/discovery/signed_service_record,
-  logos_delivery/waku/waku_core/peers,
-  logos_delivery/waku/node/peer_manager/waku_peer_store
-import ../testlib/[wakucore, testasync, assertions, futures, testutils]
+  logos_delivery/kernel/[
+    discovery/kademlia,
+    discovery/signed_service_record,
+    base/peers,
+    peer_manager/peer_store,
+  ]
+import ../testlib/[wakucore, futures]
 import ./utils as kad_utils
 
 suite "Waku Kademlia service discovery":

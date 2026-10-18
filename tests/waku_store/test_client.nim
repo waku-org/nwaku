@@ -3,17 +3,24 @@
 import results, std/[sets, sequtils], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_store,
-    waku_store/client,
-    waku_store/rpc_codec,
-    common/paging,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/store/common,
+    protocols/store/protocol,
+    protocols/store/client,
+    protocols/store/rpc_codec,
+    base/paging,
   ],
-  ../testlib/[wakucore, testasync, futures],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./store_utils
-
 suite "Store Client":
   var message1 {.threadvar.}: WakuMessage
   var message2 {.threadvar.}: WakuMessage

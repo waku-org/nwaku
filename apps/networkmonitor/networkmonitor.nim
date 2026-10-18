@@ -17,23 +17,32 @@ import
   metrics/chronos_httpserver,
   presto/[route, server, client]
 import
-  logos_delivery/waku/[
-    waku_core,
-    node/peer_manager,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    discovery/waku_dnsdisc,
-    waku_relay,
-    rln,
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    peer_manager/peer_manager,
+    kernel,
+    api/relay,
+    api/ping,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/sharding,
+    discovery/discv5 as discv5_module,
+    discovery/dnsdisc,
+    protocols/relay/protocol,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
-    factory/builder,
-    factory/networks_config,
+    api/builder,
+    config/networks_config,
   ],
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
-
 logScope:
   topics = "networkmonitor"
 
@@ -45,7 +54,7 @@ const MaxConnectedPeers = 150
 
 const git_version* {.strdefine.} = "n/a"
 
-proc setDiscoveredPeersCapabilities(routingTableNodes: seq[waku_enr.Record]) =
+proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Record]) =
   for capability in @[Relay, Store, Filter, Lightpush]:
     let nOfNodesWithCapability =
       routingTableNodes.countIt(it.supportsCapability(capability))
@@ -77,7 +86,7 @@ proc setDiscoveredPeersCluster(routingTableNodes: seq[Node]) =
 proc analyzePeer(
     customPeerInfo: CustomPeerInfoRef,
     peerInfo: RemotePeerInfo,
-    node: WakuNode,
+    node: Kernel,
     timeout: chronos.Duration,
 ): Future[Result[string, string]] {.async.} =
   var pingDelay: chronos.Duration
@@ -85,7 +94,7 @@ proc analyzePeer(
   proc ping(): Future[Result[void, string]] {.async, gcsafe.} =
     try:
       let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-      pingDelay = await node.libp2pPing.ping(conn)
+      pingDelay = await node.protocols.libp2pPing.ping(conn)
       return ok()
     except CatchableError:
       var msg = getCurrentExceptionMsg()
@@ -136,8 +145,8 @@ proc shouldReconnect(customPeerInfo: CustomPeerInfoRef): bool =
 
 # TODO: Split in discover, connect
 proc setConnectedPeersMetrics(
-    discoveredNodes: seq[waku_enr.Record],
-    node: WakuNode,
+    discoveredNodes: seq[Record],
+    node: Kernel,
     timeout: chronos.Duration,
     restClient: RestClientRef,
     allPeers: CustomPeersTableRef,
@@ -311,7 +320,7 @@ proc populateInfoFromIp(
 # crawls the network discovering peers and trying to connect to them
 # metrics are processed and exposed
 proc crawlNetwork(
-    node: WakuNode,
+    node: Kernel,
     wakuDiscv5: WakuDiscoveryV5,
     restClient: RestClientRef,
     conf: NetworkMonitorConf,
@@ -415,7 +424,7 @@ proc getBootstrapFromDiscDns(
 
 proc initAndStartApp(
     conf: NetworkMonitorConf
-): Future[Result[(WakuNode, WakuDiscoveryV5), string]] {.async.} =
+): Future[Result[(Kernel, WakuDiscoveryV5), string]] {.async.} =
   let bindIp =
     try:
       parseIpAddress("0.0.0.0")
@@ -523,7 +532,7 @@ proc startRestApiServer(
 # handles rx of messages over a topic (see subscribe)
 # counts the number of messages per content topic
 proc subscribeAndHandleMessages(
-    node: WakuNode,
+    node: Kernel,
     pubsubTopic: PubsubTopic,
     msgPerContentTopic: ContentTopicMessageTableRef,
 ) =

@@ -15,20 +15,30 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
-  logos_delivery/waku/[
-    waku_core,
-    waku_node,
-    node/peer_manager,
-    waku_filter_v2,
-    waku_store,
-    factory/builder,
+  logos_delivery/kernel/[
+    subscription_manager,
+    peer_manager/peer_manager,
+    protocols/filter/common,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/store/common,
+    protocols/store/protocol,
     net/nat_config,
-    common/utils/matterbridge_client,
-    common/rate_limit/setting,
   ],
+  logos_delivery/kernel/api/kernel_lifecycle,
+  logos_delivery/kernel/base/enr/sharding,
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/rate_limit/setting,
+  logos_delivery/kernel/api/builder,
+  logos_delivery/kernel/base/topics/content_topic,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
+  logos_delivery/kernel/base/peers,
+  logos_delivery/kernel/base/codecs,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
+  ./matterbridge_client,
   ./config_chat2bridge
 
 declarePublicCounter logos_delivery_chat2_mb_transfers,
@@ -52,7 +62,7 @@ const DeduplQSize = 20 # Maximum number of seen messages to keep in deduplicatio
 type
   Chat2MatterBridge* = ref object of RootObj
     mbClient*: MatterbridgeClient
-    nodev2*: WakuNode
+    nodev2*: Kernel
     running: bool
     pollPeriod: chronos.Duration
     seen: seq[Hash] #FIFO queue
@@ -209,7 +219,8 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Start Waku v2 node
   info "Start listening on Waku v2"
-  await cmb.nodev2.start()
+  (await cmb.nodev2.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   # Always mount relay for bridge
   # `triggerOwnHandlers` is false on a `bridge` to avoid duplicates
@@ -217,7 +228,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     error "failed to mount relay", error = error
     return
 
-  cmb.nodev2.wakuRelay.triggerOwnHandlers = false
+  cmb.nodev2.protocols.relay.triggerOwnHandlers = false
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
@@ -237,7 +248,8 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [CancelledError]).} =
   cmb.running = false
 
   try:
-    await cmb.nodev2.stop()
+    (await cmb.nodev2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
   except CancelledError as e:
     raise e
   except CatchableError as e:

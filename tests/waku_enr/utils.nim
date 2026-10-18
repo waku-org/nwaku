@@ -2,9 +2,9 @@ import
   sequtils, results, chronos, libp2p/crypto/crypto as libp2p_keys, eth/keys as eth_keys
 
 import
-  logos_delivery/waku/[waku_enr, discovery/waku_discv5, waku_enr/sharding],
+  logos_delivery/kernel/
+    [base/enr as waku_enr, base/enr/capabilities, base/enr/sharding, discovery/discv5],
   ../testlib/wakucore
-
 proc newTestEnrRecord*(
     privKey: libp2p_keys.PrivateKey,
     extIp: string,

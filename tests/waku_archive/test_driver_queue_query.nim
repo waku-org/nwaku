@@ -3,12 +3,16 @@
 import
   results, std/[sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 import
-  logos_delivery/waku/[
-    waku_archive, waku_archive/driver/queue_driver, waku_core, waku_core/message/digest
+  logos_delivery/kernel/[
+    archive/driver,
+    archive/driver/queue_driver/queue_driver,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
   ],
   ../testlib/common,
   ../testlib/wakucore
-
 logScope:
   topics = "test archive queue_driver"
 

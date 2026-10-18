@@ -7,8 +7,10 @@ import
   json_serialization,
   json_serialization/pkg/results,
   presto/[route, client, common]
-import logos_delivery/waku/common/base64, logos_delivery/waku/waku_core, rest/serdes
-
+import
+  logos_delivery/kernel/
+    [base/base64, base/topics/content_topic, base/time, base/message],
+  rest/serdes
 #### Types
 
 type RelayWakuMessage* = object

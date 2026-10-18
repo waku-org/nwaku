@@ -15,14 +15,19 @@ import std/[net, strutils, tables]
 import results, chronicles, chronos
 import presto
 import
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    kernel,
+    api/relay,
+    health_monitor/node_health_monitor,
+    discovery/discv5,
+    subscription_manager,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    protocols/relay/protocol,
+  ],
   logos_delivery/logos_delivery,
-  rest/rest_server_conf,
-  logos_delivery/waku/waku,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/node/health_monitor,
-  logos_delivery/waku/discovery/waku_discv5,
-  logos_delivery/waku/waku_core/topics,
-  logos_delivery/waku/waku_relay/protocol
+  rest/rest_server_conf
 import
   rest/message_cache,
   rest/discovery_handler,
@@ -128,7 +133,7 @@ proc startRestServerEssentials(
 
 proc installKernelRoutes(
     restServer: WakuRestServerRef,
-    node: WakuNode,
+    node: Kernel,
     wakuDiscv5: WakuDiscoveryV5,
     conf: rest_server_conf.RestServerConf,
     relayEnabled: bool,
@@ -194,7 +199,7 @@ proc installKernelRoutes(
     )
 
   ## Filter REST API
-  if node.wakuFilterClient != nil:
+  if node.protocols.filterClient != nil:
     let filterDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Filter))
@@ -222,8 +227,10 @@ proc installKernelRoutes(
   ## Install it either if client is mounted)
   ## or install it to be used with self-hosted lightpush service
   ## We either get lightpushnode (lightpush service node) from config or discovered or self served
-  if (node.wakuLegacyLightpushClient != nil) or
-      (lightPushEnabled and node.wakuLegacyLightPush != nil and node.wakuRelay != nil):
+  if (node.protocols.legacyLightPushClient != nil) or (
+    lightPushEnabled and node.protocols.legacyLightPush != nil and
+    node.protocols.relay != nil
+  ):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
         Opt.some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))
@@ -263,19 +270,19 @@ proc new*(T: type RestService): T =
 proc start*(self: RestService, node: LogosDelivery): Result[void, string] =
   ## Starts the HTTP server with the health route. No-op when REST is disabled
   ## in the node's configuration.
-  if node.waku.conf.restServerConf.isNone() or not self.server.isNil():
+  if node.kernel.conf.restServerConf.isNone() or not self.server.isNil():
     return ok()
 
-  let waku = node.waku
+  let kernel = node.kernel
   let server = startRestServerEssentials(
-    waku.healthMonitor, waku.conf.restServerConf.get()
+    kernel.healthMonitor, kernel.conf.restServerConf.get()
   ).valueOr:
     return err("could not start the essential REST server: " & error)
 
   # Port 0 resolves on bind; keep the bound port so a restart reuses it.
   let boundPort = server.httpServer.address.port
-  waku.node.ports.rest = boundPort.uint16
-  waku.conf.restServerConf.get().port = boundPort
+  kernel.ports.rest = boundPort.uint16
+  kernel.conf.restServerConf.get().port = boundPort
   self.server = server
   return ok()
 
@@ -289,7 +296,7 @@ proc mountMessaging(self: RestService, node: LogosDelivery): Result[void, string
     )
     return ok()
 
-  let capacity = int(node.waku.conf.restServerConf.get().messagingCacheCapacity)
+  let capacity = int(node.kernel.conf.restServerConf.get().messagingCacheCapacity)
   self.messagingEvents =
     MessagingRestEvents.new(MessagingEventCache.new(maxReceived = capacity))
   var router = self.server.router
@@ -306,8 +313,8 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
   if self.server.isNil():
     return ok()
 
-  let waku = node.waku
-  let conf = waku.conf
+  let kernel = node.kernel
+  let conf = kernel.conf
   let firstMount = self.relayCache.isNil()
   if firstMount:
     self.relayCache =
@@ -315,8 +322,8 @@ proc mount*(self: RestService, node: LogosDelivery): Result[void, string] =
     self.filterCache = MessageCache.init()
   installKernelRoutes(
     self.server,
-    waku.node,
-    waku.wakuDiscv5,
+    kernel,
+    kernel.discovery.discv5,
     conf.restServerConf.get(),
     conf.relay,
     conf.lightPush,

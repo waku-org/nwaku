@@ -1,12 +1,13 @@
 {.used.}
 
-import testutils/unittests, chronos, chronicles
+import testutils/unittests, chronos
 import libp2p/switch
 
-import logos_delivery/waku/[waku_node, waku_core, node/peer_manager]
-import ../testlib/[wakucore, wakunode, testasync]
+import
+  logos_delivery/kernel/[api/kernel_lifecycle, base/peers, peer_manager/peer_manager]
+import ../testlib/[wakucore, wakunode]
 
-suite "WakuNode - restart (#3979)":
+suite "Kernel - restart (#3979)":
   asyncTest "start -> stop -> start re-opens the listener promptly":
     ## A restart must not block on the relay-reconnect backoff.
     let
@@ -23,7 +24,8 @@ suite "WakuNode - restart (#3979)":
     # node1 learns node2 as a relay peer, so a restart triggers reconnectRelayPeers.
     await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
-    await node1.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
     # The restart must complete promptly and yield a usable, listening node.
     let startFut = node1.start()

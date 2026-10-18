@@ -1,7 +1,7 @@
 {.used.}
 
 import std/sets
-import chronos, chronicles, results
+import chronos, results
 import libp2p/[peerid, multiaddress, switch]
 import libp2p/protocols/service_discovery/types
 import libp2p/extended_peer_record
@@ -9,8 +9,8 @@ import libp2p/protocols/service_discovery/types as sd_types
 import libp2p/crypto/crypto as libp2p_keys
 
 import
-  logos_delivery/waku/discovery/waku_kademlia,
-  logos_delivery/waku/node/peer_manager/peer_manager
+  logos_delivery/kernel/discovery/kademlia,
+  logos_delivery/kernel/peer_manager/peer_manager
 import ../testlib/[wakucore, common]
 
 export wakucore, common, peerid, multiaddress, switch, extended_peer_record, sd_types

@@ -12,29 +12,32 @@ import
   json_serialization as js
 
 import
-  logos_delivery/waku/[
-    common/logging,
-    node/peer_manager,
-    waku_node,
-    waku_core,
-    waku_filter_v2/client,
-    waku_filter_v2/common,
-    waku_core/multiaddrstr,
+  logos_delivery/kernel/[
+    base/logging,
+    peer_manager/peer_manager,
+    kernel,
+    api/filter,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/filter/client,
+    protocols/filter/common,
   ],
   ./tester_config,
   ./tester_message,
   ./statistics,
-  ./diagnose_connections,
   ./service_peer_management,
   ./lpt_metrics
-
 var actualFilterPeer {.threadvar.}: RemotePeerInfo
 
 proc unsubscribe(
-    wakuNode: WakuNode, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
+    kernel: Kernel, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
 ) {.async.} =
   notice "unsubscribing from filter"
-  let unsubscribeRes = await wakuNode.wakuFilterClient.unsubscribe(
+  let unsubscribeRes = await kernel.protocols.filterClient.unsubscribe(
     actualFilterPeer, filterPubsubTopic, @[filterContentTopic]
   )
   if unsubscribeRes.isErr:
@@ -43,7 +46,7 @@ proc unsubscribe(
     notice "unsubscribe request successful"
 
 proc maintainSubscription(
-    wakuNode: WakuNode,
+    kernel: Kernel,
     filterPubsubTopic: PubsubTopic,
     filterContentTopic: ContentTopic,
     preventPeerSwitch: bool,
@@ -58,7 +61,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await kernel.protocols.filterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenanceMs)
       info "subscription is live."
       continue
@@ -72,7 +75,7 @@ proc maintainSubscription(
     trace "no subscription found. Sending subscribe request"
 
     let subscribeErr = (
-      await wakuNode.filterSubscribe(
+      await kernel.filterSubscribe(
         Opt.some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
@@ -90,7 +93,7 @@ proc maintainSubscription(
       err = subscribeErr, peer = actualFilterPeer, failCount = noFailedSubscribes
 
     # TODO: disconnet from failed actualFilterPeer
-    # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+    # asyncSpawn(kernel.peerManager.switch.disconnect(p))
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
@@ -98,7 +101,7 @@ proc maintainSubscription(
     elif not preventPeerSwitch:
       # try again with new peer without delay
       actualFilterPeer = selectRandomServicePeer(
-        wakuNode.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
+        kernel.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
       ).valueOr:
         error "Failed to find new service peer. Exiting."
         noFailedServiceNodeSwitches += 1
@@ -114,12 +117,12 @@ proc maintainSubscription(
       await sleepAsync(SubscriptionMaintenanceMs)
 
 proc setupAndListen*(
-    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+    kernel: Kernel, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
-  if isNil(wakuNode.wakuFilterClient):
+  if isNil(kernel.protocols.filterClient):
     # if we have not yet initialized lightpush client, then do it as the only way we can get here is
     # by having a service peer discovered.
-    waitFor wakuNode.mountFilterClient()
+    waitFor kernel.mountFilterClient()
 
   info "Start receiving messages to service node using filter",
     servicePeer = servicePeer
@@ -146,7 +149,7 @@ proc setupAndListen*(
       pubsubTopic = pubsubTopic,
       hash = msgHash
 
-  wakuNode.wakuFilterClient.registerPushHandler(pushHandler)
+  kernel.protocols.filterClient.registerPushHandler(pushHandler)
 
   let interval = millis(20000)
   var printStats: CallbackFunc
@@ -162,7 +165,7 @@ proc setupAndListen*(
 
       if conf.numMessages > 0 and
           waitFor stats.checkIfAllMessagesReceived(maxWaitForLastMessage):
-        waitFor unsubscribe(wakuNode, conf.getPubsubTopic(), conf.contentTopics[0])
+        waitFor unsubscribe(kernel, conf.getPubsubTopic(), conf.contentTopics[0])
         info "All messages received. Exiting."
 
         ## for gracefull shutdown through signal hooks
@@ -175,5 +178,5 @@ proc setupAndListen*(
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(
-    wakuNode, conf.getPubsubTopic(), conf.contentTopics[0], conf.fixedServicePeer
+    kernel, conf.getPubsubTopic(), conf.contentTopics[0], conf.fixedServicePeer
   )

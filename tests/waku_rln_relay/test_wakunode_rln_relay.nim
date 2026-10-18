@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[os, sequtils, tempfiles, strutils, osproc, importutils],
+  std/[osproc, importutils],
   stew/byteutils,
   testutils/unittests,
   chronicles,
@@ -12,21 +12,27 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/rln/types as rln_api_types,
-  logos_delivery/waku/[
-    waku_core,
-    waku_node,
-    waku_relay,
-    rln,
+  logos_delivery/kernel/[
+    rln/types as rln_api_types,
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    api/kernel_lifecycle,
+    protocols/relay/protocol,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_evm/protocol_types,
     rln/rln_evm/constants,
   ],
-  ../testlib/[wakucore, futures, wakunode, testasync, testutils],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/testutils,
   ./utils_onchain,
   ./rln/waku_rln_relay_utils
-
-from std/times import epochTime
-
 proc waitForNullifierLog(rln: RlnEvm, expectedLen: int): Future[bool] {.async.} =
   ## Helper function
   for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)
@@ -35,7 +41,7 @@ proc waitForNullifierLog(rln: RlnEvm, expectedLen: int): Future[bool] {.async.} 
     await sleepAsync(500.millis)
   return false
 
-procSuite "WakuNode - RLN relay":
+procSuite "Kernel - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
   var anvilProc {.threadVar.}: Process
   var manager {.threadVar.}: RlnEvmGroupManager
@@ -48,7 +54,7 @@ procSuite "WakuNode - RLN relay":
     stopAnvil(anvilProc)
 
   asyncTest "testing rln-relay with valid proof":
-    var node1, node2, node3: WakuNode # publisher node
+    var node1, node2, node3: Kernel # publisher node
     var rln1, rln2, rln3: RlnEvm
     let contentTopic = ContentTopic("/waku/2/default-content/proto")
     # set up three nodes
@@ -63,7 +69,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      (await node1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       # Registration is mandatory before sending messages with rln-relay
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
@@ -87,7 +94,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      (await node2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let rootUpdated2 = await manager2.updateRoots()
@@ -105,7 +113,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      (await node3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let rootUpdated3 = await manager3.updateRoots()
@@ -162,13 +171,16 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(Opt.some(DefaultPubsubTopic), message)
     assert (await completionFut.withTimeout(15.seconds)), "completionFut timed out"
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
-    var node1, node2, node3: WakuNode
+    var node1, node2, node3: Kernel
     var rln1, rln2, rln3: RlnEvm
     lockNewGlobalBrokerContext:
       let nodeKey1 = generateSecp256k1Key()
@@ -178,7 +190,8 @@ procSuite "WakuNode - RLN relay":
       let wakuRlnConfig1 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      (await node1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
       let idCredentials1 = generateCredentials()
 
@@ -195,7 +208,8 @@ procSuite "WakuNode - RLN relay":
       let wakuRlnConfig2 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      (await node2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let idCredentials2 = generateCredentials()
 
@@ -212,7 +226,8 @@ procSuite "WakuNode - RLN relay":
       let wakuRlnConfig3 =
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      (await node3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let idCredentials3 = generateCredentials()
 
@@ -318,12 +333,15 @@ procSuite "WakuNode - RLN relay":
       rxMessagesTopic1 == 3
       rxMessagesTopic2 == 3
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay with invalid proof":
-    var node1, node2, node3: WakuNode
+    var node1, node2, node3: Kernel
     var rln1, rln2, rln3: RlnEvm
     let contentTopic = ContentTopic("/waku/2/default-content/proto")
     lockNewGlobalBrokerContext:
@@ -338,7 +356,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      (await node1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
       let idCredentials1 = generateCredentials()
@@ -359,7 +378,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      (await node2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
       let rootUpdated2 = await manager2.updateRoots()
@@ -375,7 +395,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      (await node3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
       let rootUpdated3 = await manager3.updateRoots()
@@ -431,12 +452,15 @@ procSuite "WakuNode - RLN relay":
       # the relayHandler of node3 never gets called
       (await completionFut.withTimeout(10.seconds)) == false
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "testing rln-relay double-signaling detection":
-    var node1, node2, node3: WakuNode
+    var node1, node2, node3: Kernel
     var rln1, rln2, rln3: RlnEvm
     let contentTopic = ContentTopic("/waku/2/default-content/proto")
     lockNewGlobalBrokerContext:
@@ -451,7 +475,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln1 = await node1.mountOnchainRln(wakuRlnConfig1)
-      await node1.start()
+      (await node1.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       # Registration is mandatory before sending messages with rln-relay
       let manager1 = cast[RlnEvmGroupManager](rln1.groupManager)
@@ -474,7 +499,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(2))
 
       rln2 = await node2.mountOnchainRln(wakuRlnConfig2)
-      await node2.start()
+      (await node2.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       # Registration is mandatory before sending messages with rln-relay
       let manager2 = cast[RlnEvmGroupManager](rln2.groupManager)
@@ -492,7 +518,8 @@ procSuite "WakuNode - RLN relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(3))
 
       rln3 = await node3.mountOnchainRln(wakuRlnConfig3)
-      await node3.start()
+      (await node3.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       # Registration is mandatory before sending messages with rln-relay
       let manager3 = cast[RlnEvmGroupManager](rln3.groupManager)
@@ -604,14 +631,17 @@ procSuite "WakuNode - RLN relay":
       (await res3) == true
       (await res4) == false
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
     ## This is skipped because is flaky and made CI randomly fail but is useful to run manually
     # Given two nodes
-    var node1, node2: WakuNode
+    var node1, node2: Kernel
     var rln1, rln2: RlnEvm
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -795,7 +825,8 @@ procSuite "WakuNode - RLN relay":
         userMessageLimit = 20,
       )
       let rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.start()
+      (await node.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
       let rlnManager = cast[RlnEvmGroupManager](rln.groupManager)
       let idCredentials = generateCredentials()
@@ -816,7 +847,7 @@ procSuite "WakuNode - RLN relay":
       rlnManager.merkleProofCache = newSeq[byte](goodCache.len)
 
       let msg = fakeWakuMessage()
-      let proofResult = await node.rlnPlugin.get().generateProof(msg)
+      let proofResult = await node.protocols.rlnPlugin.get().generateProof(msg)
 
       check proofResult.isOk()
       # The force-refresh inside the generator restored the correct path
@@ -826,15 +857,16 @@ procSuite "WakuNode - RLN relay":
       let rootValid = await rln.groupManager.validateRoot(rlnProof.merkleRoot)
       check rootValid
 
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
 proc relayVerdict(
-    node: WakuNode, msg: WakuMessage
+    node: Kernel, msg: WakuMessage
 ): Future[pubsub.ValidationResult] {.async.} =
   ## Runs the node's relay validators in order, as gossipsub does on receipt,
   ## to observe the verdict that scores the forwarding peer.
   privateAccess(WakuRelay)
-  for (handler, _) in node.wakuRelay.wakuValidators:
+  for (handler, _) in node.protocols.relay.wakuValidators:
     let verdict = await handler(DefaultPubsubTopic, msg)
     if verdict != pubsub.ValidationResult.Accept:
       return verdict
@@ -875,7 +907,7 @@ proc messageOnNewRoot(
     raiseAssert "Failed to append rln proof: " & $error
   return (sender, proven)
 
-suite "WakuNode - RLN relay unknown root":
+suite "Kernel - RLN relay unknown root":
   ## A valid proof on a root the receiver cannot see yet must be ignored, not
   ## rejected: the forwarding peer did nothing wrong. Uses its own ports so it
   ## does not clash with other anvil instances on the default one.
@@ -893,7 +925,7 @@ suite "WakuNode - RLN relay unknown root":
     stopAnvil(anvilProc)
 
   asyncTest "root newer than the last refresh is ignored within the throttle window":
-    var receiver: WakuNode
+    var receiver: Kernel
     var receiverRln: RlnEvm
     lockNewGlobalBrokerContext:
       receiver = newTestWakuNode(generateSecp256k1Key())
@@ -923,7 +955,7 @@ suite "WakuNode - RLN relay unknown root":
     # The fork never sees blocks mined on the main chain after it started.
     let laggingAnvilProc = runAnvil(port = 8562, forkUrl = Opt.some(MainEthClient))
 
-    var receiver: WakuNode
+    var receiver: Kernel
     var receiverRln: RlnEvm
     lockNewGlobalBrokerContext:
       receiver = newTestWakuNode(generateSecp256k1Key())

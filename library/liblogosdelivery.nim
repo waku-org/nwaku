@@ -1,16 +1,17 @@
 import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
-  logos_delivery/waku/waku_core/message/message,
-  logos_delivery/waku/waku_core/topics/pubsub_topic,
-  logos_delivery/waku/waku_relay,
+  logos_delivery/kernel/[
+    base/message,
+    base/topics/pubsub_topic,
+    protocols/relay/protocol,
+    base/health/topic_health,
+    api/kernel_lifecycle,
+    kernel,
+  ],
   logos_delivery,
-  logos_delivery/waku/waku,
-  logos_delivery/waku/node/waku_node,
-  logos_delivery/waku/node/health_monitor/health_status,
   ./events/json_message_event,
   ./declare_lib
-
 ################################################################################
 ## Include different APIs, i.e. all procs with {.ffi.} pragma
 

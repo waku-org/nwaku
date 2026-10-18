@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[os, sequtils, tempfiles, strutils, osproc, algorithm],
+  std/[os, osproc, algorithm],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -13,12 +13,22 @@ import
 import brokers/broker_context
 
 import
-  logos_delivery/waku/
-    [waku_core, rln, rln/rln_evm/bindings, rln/protocol_metrics, waku_keystore],
+  logos_delivery/kernel/[
+    base/topics/pubsub_topic,
+    base/message,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
+    rln/rln_evm/librln_interface,
+    rln/rln_evm/wrappers,
+    rln/protocol_metrics,
+    rln/keystore/keyfile,
+    rln/keystore/keystore,
+    rln/keystore/protocol_types,
+  ],
   ./rln/waku_rln_relay_utils,
   ./utils_onchain,
-  ../testlib/[wakucore, futures, wakunode, testutils]
-
+  ../testlib/wakucore
 from std/times import epochTime
 
 suite "Waku rln relay":

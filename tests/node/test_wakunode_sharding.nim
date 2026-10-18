@@ -1,9 +1,9 @@
 {.used.}
 
-import results, std/[sequtils, tempfiles], testutils/unittests, chronos, chronicles
+import results, std/[sequtils], testutils/unittests, chronos
 
 import
-  std/[sequtils, sets, tables, tempfiles],
+  std/[sequtils, sets, tables],
   stew/byteutils,
   testutils/unittests,
   chronos,
@@ -12,23 +12,28 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/waku/[
-    waku_core/topics/pubsub_topic,
-    waku_core/topics/sharding,
-    waku_node,
-    common/paging,
-    waku_core,
-    waku_store/common,
-    waku_lightpush_legacy/protocol_metrics,
-    node/peer_manager,
-    waku_filter_v2/client,
+  logos_delivery/kernel/[
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    api/kernel_lifecycle,
+    base/paging,
+    subscription_manager,
+    base/topics/content_topic,
+    base/message,
+    base/peers,
+    protocols/store/common,
+    protocols/lightpush_legacy/protocol_metrics,
+    peer_manager/peer_manager,
+    protocols/filter/client,
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
-
-import logos_delivery/waku/waku_relay/protocol
-
+  ../testlib/assertions,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/testutils
 const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
@@ -49,19 +54,19 @@ const
   ]
 
 proc waitForTopicPeer(
-    node: WakuNode, topic: PubsubTopic, peer: PeerId, timeout = 5.seconds
+    node: Kernel, topic: PubsubTopic, peer: PeerId, timeout = 5.seconds
 ) {.async.} =
   ## Waits until node's gossipsub has learnt that peer subscribes to topic.
   let deadline = Moment.now() + timeout
   while Moment.now() < deadline:
-    for p in GossipSub(node.wakuRelay).gossipsub.getOrDefault(topic):
+    for p in GossipSub(node.protocols.relay).gossipsub.getOrDefault(topic):
       if p.peerId == peer:
         return
     await sleepAsync(10.milliseconds)
   raiseAssert $peer & " never announced a subscription to " & topic
 
 proc subscribeToAllContentTopics(
-    server, client: WakuNode
+    server, client: Kernel
 ): Future[seq[Future[bool]]] {.async.} =
   ## Connects the client to the server, both subscribed to every content topic,
   ## and checks each one delivers.
@@ -85,8 +90,8 @@ proc subscribeToAllContentTopics(
 
 suite "Sharding":
   var
-    server {.threadvar.}: WakuNode
-    client {.threadvar.}: WakuNode
+    server {.threadvar.}: Kernel
+    client {.threadvar.}: Kernel
 
   asyncSetup:
     let
@@ -527,7 +532,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.filterClient.registerPushHandler(messagePushHandler)
         let
           pubsubTopic = "/waku/2/rs/0/1"
           contentTopic = "myContentTopic"
@@ -625,7 +630,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.filterClient.registerPushHandler(messagePushHandler)
         let
           contentTopicShort = "/toychat/2/huilong/proto"
           contentTopicFull = "/0/toychat/2/huilong/proto"
@@ -684,7 +689,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.filterClient.registerPushHandler(messagePushHandler)
         let
           contentTopic = "/toychat/2/huilong/proto"
           pubsubTopic = "/waku/2/rs/0/58355"
@@ -844,7 +849,7 @@ suite "Sharding":
         ): Future[void] {.async, closure, gcsafe.} =
           pushHandlerFuture.complete((pubsubTopic, message))
 
-        client.wakuFilterClient.registerPushHandler(messagePushHandler)
+        client.protocols.filterClient.registerPushHandler(messagePushHandler)
         let
           contentTopic1 = "/toychat/2/huilong/proto"
           pubsubTopic1 = "/waku/2/rs/0/58355"
@@ -1288,8 +1293,8 @@ suite "Sharding":
         if topic2 == pubsubTopic:
           pushHandlerFuture2.complete((pubsubTopic, message))
 
-      client.wakuFilterClient.registerPushHandler(messagePushHandler1)
-      client.wakuFilterClient.registerPushHandler(messagePushHandler2)
+      client.protocols.filterClient.registerPushHandler(messagePushHandler1)
+      client.protocols.filterClient.registerPushHandler(messagePushHandler2)
 
       let
         subscribeResponse1 = await client.filterSubscribe(

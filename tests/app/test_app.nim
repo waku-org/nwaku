@@ -1,27 +1,41 @@
 {.used.}
 
 import
-  std/[json, net, os, sequtils, strutils],
+  logos_delivery/kernel/[
+    config/conf_builder/conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/web_socket_conf_builder,
+    config/conf_builder/quic_conf_builder,
+    config/conf_builder/metrics_server_conf_builder,
+    api/state_info,
+  ],
+  std/json,
+  std/os,
+  std/net,
+  std/sequtils,
+  std/strutils,
   testutils/unittests,
   chronicles,
   chronos,
-  libp2p/[crypto/crypto, crypto/secp, multiaddress, peerinfo, switch],
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
+  libp2p/multiaddress,
+  libp2p/peerinfo,
+  libp2p/switch,
   libp2p/services/natservice,
-  tests/testlib/[wakucore, wakunode],
-  logos_delivery/waku/factory/conf_builder/conf_builder
-
-include logos_delivery/waku/waku, logos_delivery/waku/common/enr/typed_record
-
+  tests/testlib/wakucore,
+  tests/testlib/wakunode
+include logos_delivery/kernel/[api/kernel_lifecycle, base/enr/typed_record]
 suite "Node app - Waku":
   test "compilation version should be reported":
     ## Given
     let conf = defaultTestWakuConf()
 
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     ## When
-    let version = waku.stateInfo.getNodeInfoItem(NodeInfoId.Version)
+    let version = kernel.getNodeInfoItem(NodeInfoId.Version)
 
     ## Then
     check:
@@ -31,11 +45,11 @@ suite "Node app - Waku":
     ## Given
     let conf = defaultTestWakuConf()
 
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     ## When
-    let maxMessageSize = waku.stateInfo.getNodeInfoItem(NodeInfoId.MaxMessageSize)
+    let maxMessageSize = kernel.getNodeInfoItem(NodeInfoId.MaxMessageSize)
 
     ## Then
     check:
@@ -45,17 +59,17 @@ suite "Node app - Waku":
     ## Given
     let conf = defaultTestWakuConf()
 
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     ## When
-    let beforeStart = waku.stateInfo.getNodeInfoItem(NodeInfoId.IsRunning)
-    (waitFor waku.start()).isOkOr:
+    let beforeStart = kernel.getNodeInfoItem(NodeInfoId.IsRunning)
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
-    let afterStart = waku.stateInfo.getNodeInfoItem(NodeInfoId.IsRunning)
-    (waitFor waku.stop()).isOkOr:
+    let afterStart = kernel.getNodeInfoItem(NodeInfoId.IsRunning)
+    (waitFor kernel.stop()).isOkOr:
       raiseAssert error
-    let afterStop = waku.stateInfo.getNodeInfoItem(NodeInfoId.IsRunning)
+    let afterStop = kernel.getNodeInfoItem(NodeInfoId.IsRunning)
 
     ## Then
     check:
@@ -69,34 +83,34 @@ suite "Node app - Waku initialization":
     var conf = defaultTestWakuConf()
     conf.peerPersistence = true
 
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     check:
-      not waku.node.peerManager.storage.isNil()
+      not kernel.peerManager.storage.isNil()
 
   test "node setup is successful with default configuration":
     ## Given
     var conf = defaultTestWakuConf()
 
     ## When
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
     ## Then
-    let node = waku.node
+    let node = kernel
     check:
       not node.isNil()
-      node.wakuArchive.isNil()
-      node.wakuStore.isNil()
-      not node.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      not node.protocols.storeClient.isNil()
+      not node.discovery.rendezvous.isNil()
 
     ## Cleanup
-    (waitFor waku.stop()).isOkOr:
+    (waitFor kernel.stop()).isOkOr:
       raiseAssert error
 
   test "production service composition carries NATService":
@@ -104,9 +118,9 @@ suite "Node app - Waku initialization":
     ## The autonat append must keep NATService in switch.services.
     var conf = defaultTestWakuConf()
     conf.endpointConf.natStrategy = parseNatStrategy("upnp").expect("upnp")
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
-    let services = waku.node.switch.services
+    let services = kernel.switch.services
     check:
       services.filterIt(it of NATService).len == 1
 
@@ -117,36 +131,36 @@ suite "Node app - Waku initialization":
       @[MultiAddress.init("/ip4/203.0.113.44/tcp/60123").get()]
     conf.endpointConf.extMultiAddrsOnly = true
     conf.endpointConf.natStrategy = parseNatStrategy("upnp").expect("upnp")
-    let waku = (waitFor Waku.new(conf)).valueOr:
+    let kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
-    check waku.node.switch.services.filterIt(it of NATService).len == 0
+    check kernel.switch.services.filterIt(it of NATService).len == 0
 
   test "a post-start commit reaches the ENR through the production hook":
     ## Deleting the onCommittedAddresses callback fails this.
     ## So does setting it after the first refresh.
     var conf = defaultTestWakuConf()
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
     let extra = MultiAddress.init("/ip4/203.0.113.55/tcp/60555").get()
-    waku.node.switch.peerInfo.addressMappers.add(
+    kernel.switch.peerInfo.addressMappers.add(
       proc(
           addrs: seq[MultiAddress]
       ): Future[seq[MultiAddress]] {.gcsafe, async: (raises: [CancelledError]).} =
         return addrs & @[extra]
     )
-    let fieldBefore = waku.node.enr.tryGet(MultiaddrEnrField, seq[byte])
-    waitFor waku.node.switch.peerInfo.update()
+    let fieldBefore = kernel.enr.tryGet(MultiaddrEnrField, seq[byte])
+    waitFor kernel.switch.peerInfo.update()
 
-    let fieldAfter = waku.node.enr.tryGet(MultiaddrEnrField, seq[byte])
+    let fieldAfter = kernel.enr.tryGet(MultiaddrEnrField, seq[byte])
     check:
-      extra in waku.node.announcedAddresses
+      extra in kernel.announcedAddresses
       fieldAfter.isSome()
       fieldAfter != fieldBefore
 
-    (waitFor waku.stop()).isOkOr:
+    (waitFor kernel.stop()).isOkOr:
       raiseAssert error
 
   test "app properly handles dynamic port configuration":
@@ -155,15 +169,15 @@ suite "Node app - Waku initialization":
     conf.endpointConf.p2pTcpPort = Port(0)
 
     ## When
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
     ## Then
     let
-      node = waku.node
+      node = kernel
       typedNodeEnr = node.enr.toTyped()
 
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
@@ -174,16 +188,16 @@ suite "Node app - Waku initialization":
     check:
       # Waku started properly
       not node.isNil()
-      node.wakuArchive.isNil()
-      node.wakuStore.isNil()
-      not node.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      node.protocols.archive.isNil()
+      node.protocols.store.isNil()
+      not node.protocols.storeClient.isNil()
+      not node.discovery.rendezvous.isNil()
 
       # DS structures are updated with dynamic ports
       typedNodeEnr.get().tcp.get() != 0
 
     ## Cleanup
-    (waitFor waku.stop()).isOkOr:
+    (waitFor kernel.stop()).isOkOr:
       raiseAssert error
 
   test "explicit port=0 triggers auto-bind across all services":
@@ -205,16 +219,16 @@ suite "Node app - Waku initialization":
       conf.metricsServerConf.get().httpPort == Port(0)
       conf.webSocketConf.get().port == Port(0)
 
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor waku.stop()).isOkOr:
+      (waitFor kernel.stop()).isOkOr:
         raiseAssert error
 
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
-    let portsJson = waku.stateInfo.getNodeInfoItem(NodeInfoId.MyBoundPorts)
+    let portsJson = kernel.getNodeInfoItem(NodeInfoId.MyBoundPorts)
     let parsed = parseJson(portsJson)
 
     check:
@@ -233,7 +247,7 @@ suite "Node app - Waku initialization":
     let conf = builder.build().valueOr:
       raiseAssert error
 
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var waku = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     (waitFor waku.start()).isOkOr:
@@ -246,7 +260,7 @@ suite "Node app - Waku initialization":
       (waitFor waku.start()).isOk()
       waku.conf.metricsServerConf.get().httpPort == port
       (waitFor waku.stop()).isOk()
-      not waku.node.started
+      not waku.started
 
   test "a start that fails after the node starts stops the node":
     # Take the metrics port, so the metrics server fails to start.
@@ -262,12 +276,12 @@ suite "Node app - Waku initialization":
     let conf = builder.build().valueOr:
       raiseAssert error
 
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var waku = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
 
     check:
       (waitFor waku.start()).isErr()
-      not waku.node.started
+      not waku.started
 
     # The port is free again, so the next start starts the node and the metrics server.
     waitFor taken.closeWait()
@@ -321,19 +335,19 @@ suite "Node app - Waku initialization":
       raiseAssert error
     check conf.quicConf.get().port == Port(0)
 
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor waku.stop()).isOkOr:
+      (waitFor kernel.stop()).isOkOr:
         raiseAssert error
 
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
-    let parsed = parseJson(waku.stateInfo.getNodeInfoItem(NodeInfoId.MyBoundPorts))
+    let parsed = parseJson(kernel.getNodeInfoItem(NodeInfoId.MyBoundPorts))
     check parsed["quic"].getInt() != 0
 
-    let quicAddrs = waku.node.announcedAddresses.filterIt("/quic-v1" in $it)
+    let quicAddrs = kernel.announcedAddresses.filterIt("/quic-v1" in $it)
     check:
       quicAddrs.len >= 1
       quicAddrs.allIt("/udp/0/quic-v1" notin $it)
@@ -359,20 +373,20 @@ suite "Node app - Waku initialization":
     let conf = builder.build().valueOr:
       raiseAssert error
 
-    var waku = (waitFor Waku.new(conf)).valueOr:
+    var kernel = (waitFor Kernel.new(conf)).valueOr:
       raiseAssert error
     defer:
-      (waitFor waku.stop()).isOkOr:
+      (waitFor kernel.stop()).isOkOr:
         raiseAssert error
 
-    (waitFor waku.start()).isOkOr:
+    (waitFor kernel.start()).isOkOr:
       raiseAssert error
 
-    let typedEnr = waku.node.enr.toTyped().valueOr:
+    let typedEnr = kernel.enr.toTyped().valueOr:
       raiseAssert $error
     let announcedTcp = typedEnr.tcp()
 
     check:
       announcedTcp.isSome()
-      waku.node.ports.tcp == boundTarget.uint16
-      announcedTcp.get() == waku.node.ports.tcp
+      kernel.ports.tcp == boundTarget.uint16
+      announcedTcp.get() == kernel.ports.tcp

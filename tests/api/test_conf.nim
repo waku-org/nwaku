@@ -4,9 +4,9 @@ import std/[net, strutils], results, chronos, testutils/unittests
 import brokers/broker_context
 import logos_delivery
 import logos_delivery/api/conf/logos_delivery_conf_json
-import logos_delivery/waku/factory/[waku_conf, networks_config]
+import logos_delivery/kernel/[config/conf, config/networks_config]
 import tools/confutils/cli_args
-import logos_delivery/waku/common/logging
+import logos_delivery/kernel/[base/logging]
 import ../testlib/wakunodeconf
 
 suite "MessagingClientConf - mode expansion (toWakuNodeConf)":
@@ -491,7 +491,7 @@ suite "LogosDelivery.new - construction (the app-dev entry)":
       ).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       not node.messagingClient.isNil()
       not node.reliableChannelManager.isNil()
     (await node.stop()).expect("stop")
@@ -508,7 +508,7 @@ suite "LogosDelivery.new - construction (the app-dev entry)":
         )
       ).valueOr:
         raiseAssert error
-    check not node.waku.isNil()
+    check not node.kernel.isNil()
     (await node.stop()).expect("stop")
 
 suite "MessagingClientConf - store override":
@@ -568,7 +568,7 @@ suite "LogosDelivery.new - raw kernel construction":
       node = (await LogosDelivery.new(KernelConf(kernel))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       node.messagingClient.isNil() # no messaging client on a fleet node
       node.reliableChannelManager.isNil() # no channel manager either
     # start()/stop() must skip the nil messaging + channel layers, not deref them

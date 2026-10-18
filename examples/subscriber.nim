@@ -10,17 +10,33 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
-    common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/builder,
-    waku_relay,
+  logos_delivery/kernel/[
+    base/logging,
+    peer_manager/peer_manager,
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    net/switch,
+    kernel,
+    api/filter,
+    api/lightpush,
+    api/store,
+    api/relay,
+    api/peer_exchange,
+    api/ping,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    discovery/discv5,
+    api/builder,
+    protocols/relay/protocol,
+    base/health/topic_health,
   ]
-
 # An accesible bootstrap node. See waku.sandbox fleets.status.im
 const bootstrapNode =
   "enr:-QEkuEB3WHNS-xA3RDpfu9A2Qycr3bN3u7VoArMEiDIFZJ6" &

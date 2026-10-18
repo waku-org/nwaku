@@ -1,20 +1,27 @@
 {.used.}
 
-import results, std/[sequtils, times]
-import chronos, testutils/unittests, stew/byteutils, libp2p/[switch, peerinfo]
+import results, std/[sequtils]
+import chronos, testutils/unittests, libp2p/[switch, peerinfo]
 import brokers/broker_context
-import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
+import ../testlib/[wakucore, wakunode, wakunodeconf, testasync]
 
 import
-  logos_delivery,
-  logos_delivery/waku/[waku_node, waku_core, waku_relay/protocol],
-  logos_delivery/waku/node/health_monitor/
-    [topic_health, health_status, protocol_health, health_report],
-  logos_delivery/waku/requests/health_requests,
-  logos_delivery/waku/requests/node_requests,
-  logos_delivery/waku/api/events/health_events,
-  logos_delivery/waku/common/waku_protocol,
-  logos_delivery/waku/factory/waku_conf
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    protocols/relay/protocol,
+    base/health/topic_health,
+    base/health/health_status,
+    base/health/protocol_health,
+    base/health/health_report,
+    base/health/health_requests,
+    base/topics/relay_shard_request,
+    events/health_events,
+  ],
+  logos_delivery
 import tools/confutils/cli_args
 
 const TestTimeout = chronos.seconds(10)
@@ -85,7 +92,7 @@ proc listenShardHealth(
 
 suite "LM API health checking":
   var
-    serviceNode {.threadvar.}: WakuNode
+    serviceNode {.threadvar.}: Kernel
     client {.threadvar.}: LogosDelivery
     servicePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -97,10 +104,11 @@ suite "LM API health checking":
       serviceNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
         raiseAssert error
       await serviceNode.mountLibp2pPing()
-      await serviceNode.start()
+      (await serviceNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
 
     servicePeerInfo = serviceNode.peerInfo.toRemotePeerInfo()
-    serviceNode.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    serviceNode.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     lockNewGlobalBrokerContext:
       client = (await LogosDelivery.new(defaultTestNodeConf())).valueOr:
@@ -110,16 +118,19 @@ suite "LM API health checking":
 
   asyncTeardown:
     discard await client.stop()
-    await serviceNode.stop()
+    (await serviceNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RequestShardTopicsHealth, check PubsubTopic health":
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
+    await client.kernel.connectToNodes(@[servicePeerInfo])
 
     var isHealthy = false
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
-      let req = RequestShardTopicsHealth.request(client.waku.brokerCtx, @[DefaultShard]).valueOr:
+      let req = RequestShardTopicsHealth.request(
+        client.kernel.brokerCtx, @[DefaultShard]
+      ).valueOr:
         raiseAssert "RequestShardTopicsHealth failed"
 
       if req.topicHealth.len > 0:
@@ -133,22 +144,22 @@ suite "LM API health checking":
 
   asyncTest "RequestShardTopicsHealth, check disconnected PubsubTopic":
     const GhostShard = PubsubTopic("/waku/2/rs/1/666")
-    client.waku.node.wakuRelay.subscribe(GhostShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(GhostShard, dummyHandler)
 
-    let req = RequestShardTopicsHealth.request(client.waku.brokerCtx, @[GhostShard]).valueOr:
+    let req = RequestShardTopicsHealth.request(client.kernel.brokerCtx, @[GhostShard]).valueOr:
       raiseAssert "Request failed"
 
     check req.topicHealth.len > 0
     check req.topicHealth[0].health == TopicHealth.UNHEALTHY
 
   asyncTest "RequestProtocolHealth, check relay status":
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
 
     var isReady = false
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
       let relayReq = await RequestProtocolHealth.request(
-        client.waku.brokerCtx, WakuProtocol.RelayProtocol
+        client.kernel.brokerCtx, ProtocolName.RelayProtocol
       )
       if relayReq.isOk() and relayReq.get().healthStatus.health == HealthStatus.READY:
         isReady = true
@@ -158,14 +169,14 @@ suite "LM API health checking":
     check isReady == true
 
     let storeReq = await RequestProtocolHealth.request(
-      client.waku.brokerCtx, WakuProtocol.StoreProtocol
+      client.kernel.brokerCtx, ProtocolName.StoreProtocol
     )
     if storeReq.isOk():
       check storeReq.get().healthStatus.health != HealthStatus.READY
 
   asyncTest "RequestProtocolHealth, check unmounted protocol":
     let req = await RequestProtocolHealth.request(
-      client.waku.brokerCtx, WakuProtocol.StoreProtocol
+      client.kernel.brokerCtx, ProtocolName.StoreProtocol
     )
     check req.isOk()
 
@@ -174,16 +185,16 @@ suite "LM API health checking":
     check status.desc.isNone()
 
   asyncTest "RequestConnectionStatus, check connectivity state":
-    let initialReq = RequestConnectionStatus.request(client.waku.brokerCtx).valueOr:
+    let initialReq = RequestConnectionStatus.request(client.kernel.brokerCtx).valueOr:
       raiseAssert "RequestConnectionStatus failed"
     check initialReq.connectionStatus == ConnectionStatus.Disconnected
 
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
 
     var isConnected = false
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
-      let req = RequestConnectionStatus.request(client.waku.brokerCtx).valueOr:
+      let req = RequestConnectionStatus.request(client.kernel.brokerCtx).valueOr:
         raiseAssert "RequestConnectionStatus failed"
 
       if req.connectionStatus == ConnectionStatus.PartiallyConnected or
@@ -198,9 +209,9 @@ suite "LM API health checking":
     check (await client.getConnectionStatus()).get() == ConnectionStatus.Disconnected
 
     let connectFuture = waitForConnectionStatus(
-      client.waku.brokerCtx, ConnectionStatus.PartiallyConnected
+      client.kernel.brokerCtx, ConnectionStatus.PartiallyConnected
     )
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
     await connectFuture
 
     check (await client.getConnectionStatus()).get() ==
@@ -208,23 +219,23 @@ suite "LM API health checking":
 
   asyncTest "EventConnectionStatusChange, detect connect and disconnect":
     let connectFuture = waitForConnectionStatus(
-      client.waku.brokerCtx, ConnectionStatus.PartiallyConnected
+      client.kernel.brokerCtx, ConnectionStatus.PartiallyConnected
     )
 
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
     await connectFuture
 
     let disconnectFuture =
-      waitForConnectionStatus(client.waku.brokerCtx, ConnectionStatus.Disconnected)
-    await client.waku.node.disconnectNode(servicePeerInfo)
+      waitForConnectionStatus(client.kernel.brokerCtx, ConnectionStatus.Disconnected)
+    await client.kernel.disconnectNode(servicePeerInfo)
     await disconnectFuture
 
   asyncTest "EventShardTopicHealthChange, detect health improvement":
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
-    let healthEventFuture = waitForShardHealthy(client.waku.brokerCtx)
+    let healthEventFuture = waitForShardHealthy(client.kernel.brokerCtx)
 
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
 
     let event = await healthEventFuture
     check event.topic == DefaultShard
@@ -234,68 +245,68 @@ suite "LM API health checking":
       raiseAssert error
     (await client.start()).isOkOr:
       raiseAssert error
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]
-    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
     defer:
-      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
 
     let connectFuture = waitForConnectionStatus(
-      client.waku.brokerCtx, ConnectionStatus.PartiallyConnected
+      client.kernel.brokerCtx, ConnectionStatus.PartiallyConnected
     )
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
     await connectFuture
     checkUntilTimeout:
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
 
     let disconnectFuture =
-      waitForConnectionStatus(client.waku.brokerCtx, ConnectionStatus.Disconnected)
-    await client.waku.node.disconnectNode(servicePeerInfo)
+      waitForConnectionStatus(client.kernel.brokerCtx, ConnectionStatus.Disconnected)
+    await client.kernel.disconnectNode(servicePeerInfo)
     await disconnectFuture
 
     # The restarted node reports UNHEALTHY once its mesh is empty.
     checkUntilTimeout:
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
     check:
-      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
 
   asyncTest "EventShardTopicHealthChange, no health reported before a peer meshes":
     # TODO: logos-delivery#4544
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]
-    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
     defer:
-      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
 
     # The node reports no UNHEALTHY although its mesh is empty.
     await sleepAsync(NegativeTestTimeout)
     check:
-      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)
       healths[].len == 0
 
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
     checkUntilTimeout:
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
 
   asyncTest "RequestHealthReport, check aggregate report":
-    let req = await RequestHealthReport.request(client.waku.brokerCtx)
+    let req = await RequestHealthReport.request(client.kernel.brokerCtx)
 
     check req.isOk()
 
     let report = req.get().healthReport
     check report.nodeHealth == HealthStatus.READY
     check report.protocolsHealth.len > 0
-    check report.protocolsHealth.anyIt(it.protocol == $WakuProtocol.RelayProtocol)
+    check report.protocolsHealth.anyIt(it.protocol == $ProtocolName.RelayProtocol)
 
   asyncTest "RequestContentTopicsHealth, smoke test":
     let fictionalTopic = ContentTopic("/waku/2/this-does-not-exist/proto")
 
     let req =
-      RequestContentTopicsHealth.request(client.waku.brokerCtx, @[fictionalTopic])
+      RequestContentTopicsHealth.request(client.kernel.brokerCtx, @[fictionalTopic])
 
     check req.isOk()
 
@@ -308,20 +319,20 @@ suite "LM API health checking":
     let cTopic = ContentTopic("/waku/2/my-content-topic/proto")
 
     let shardReq =
-      RequestRelayShard.request(client.waku.brokerCtx, Opt.none(PubsubTopic), cTopic)
+      RequestRelayShard.request(client.kernel.brokerCtx, Opt.none(PubsubTopic), cTopic)
 
     check shardReq.isOk()
     let targetShard = $shardReq.get().relayShard
 
-    client.waku.node.wakuRelay.subscribe(targetShard, dummyHandler)
-    serviceNode.wakuRelay.subscribe(targetShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(targetShard, dummyHandler)
+    serviceNode.protocols.relay.subscribe(targetShard, dummyHandler)
 
-    await client.waku.node.connectToNodes(@[servicePeerInfo])
+    await client.kernel.connectToNodes(@[servicePeerInfo])
 
     var isHealthy = false
     let start = Moment.now()
     while Moment.now() - start < TestTimeout:
-      let req = RequestContentTopicsHealth.request(client.waku.brokerCtx, @[cTopic]).valueOr:
+      let req = RequestContentTopicsHealth.request(client.kernel.brokerCtx, @[cTopic]).valueOr:
         raiseAssert "Request failed"
 
       if req.contentTopicHealth.len > 0:
@@ -348,18 +359,18 @@ suite "LM API health checking":
         raiseAssert "Failed to start edge waku: " & error
 
       let relayReq = await RequestProtocolHealth.request(
-        edgeWaku.waku.brokerCtx, WakuProtocol.RelayProtocol
+        edgeWaku.kernel.brokerCtx, ProtocolName.RelayProtocol
       )
       check relayReq.isOk()
       check relayReq.get().healthStatus.health == HealthStatus.NOT_MOUNTED
 
-      check not edgeWaku.waku.node.wakuFilterClient.isNil()
+      check not edgeWaku.kernel.protocols.filterClient.isNil()
 
       discard await edgeWaku.stop()
 
 suite "LM API health checking at stop":
   asyncTest "EventShardTopicHealthChange, no health degradation at stop":
-    var serviceNode: WakuNode
+    var serviceNode: Kernel
     lockNewGlobalBrokerContext:
       serviceNode = newTestWakuNode(generateSecp256k1Key())
       (await serviceNode.mountRelay()).isOkOr:
@@ -367,10 +378,12 @@ suite "LM API health checking at stop":
       serviceNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
         raiseAssert error
       await serviceNode.mountLibp2pPing()
-      await serviceNode.start()
+      (await serviceNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await serviceNode.stop()
-    serviceNode.wakuRelay.subscribe(DefaultShard, dummyHandler)
+      (await serviceNode.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+    serviceNode.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     let serviceHealths = new seq[TopicHealth]
     let serviceHandle = listenShardHealth(serviceNode.brokerCtx, serviceHealths)
@@ -385,14 +398,14 @@ suite "LM API health checking at stop":
         raiseAssert error
       (await client.start()).isOkOr:
         raiseAssert error
-    client.waku.node.wakuRelay.subscribe(DefaultShard, dummyHandler)
+    client.kernel.protocols.relay.subscribe(DefaultShard, dummyHandler)
 
     let healths = new seq[TopicHealth]
-    let handle = listenShardHealth(client.waku.brokerCtx, healths)
+    let handle = listenShardHealth(client.kernel.brokerCtx, healths)
     defer:
-      await EventShardTopicHealthChange.dropListener(client.waku.brokerCtx, handle)
+      await EventShardTopicHealthChange.dropListener(client.kernel.brokerCtx, handle)
 
-    await client.waku.node.connectToNodes(@[serviceNode.peerInfo.toRemotePeerInfo()])
+    await client.kernel.connectToNodes(@[serviceNode.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY]
       serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY]
@@ -405,5 +418,5 @@ suite "LM API health checking at stop":
       serviceHealths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
       healths[] == @[TopicHealth.MINIMALLY_HEALTHY, TopicHealth.UNHEALTHY]
     check:
-      client.waku.node.wakuRelay.getNumPeersInMesh(DefaultShard) ==
+      client.kernel.protocols.relay.getNumPeersInMesh(DefaultShard) ==
         Result[int, string].ok(0)

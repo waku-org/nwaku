@@ -1,10 +1,15 @@
 import chronicles, chronos
 import
-  logos_delivery/waku/[
-    waku_archive,
-    waku_archive/driver as driver_module,
-    waku_archive/driver/builder,
-    waku_archive/driver/postgres_driver,
+  logos_delivery/kernel/[
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/retention_policy,
+    archive/driver as driver_module,
+    archive/driver/builder,
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
   ]
 
 const storeMessageDbUrl* = "postgres://postgres:test123@localhost:5432/postgres"

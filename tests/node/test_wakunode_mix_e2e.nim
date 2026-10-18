@@ -8,7 +8,6 @@ import
   std/[net, strutils, sequtils],
   testutils/unittests,
   chronos,
-  chronicles,
   results,
   metrics,
   stew/byteutils,
@@ -16,20 +15,33 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p_mix/[curve25519, mix_protocol, mix_metrics]
-
+import logos_delivery/kernel/[api/mix]
 import
-  logos_delivery/waku/
-    [waku_core, node/peer_manager, waku_node, waku_mix, waku_lightpush],
-  logos_delivery/waku/node/peer_manager/waku_peer_store,
-  logos_delivery/waku/waku,
-  logos_delivery/waku/api/publish,
-  logos_delivery/waku/factory/waku_conf,
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    peer_manager/peer_manager,
+    kernel,
+    api/lightpush,
+    api/relay,
+    protocols/mix/protocol,
+    protocols/lightpush/common,
+    peer_manager/peer_store,
+    api/kernel_lifecycle,
+    api/publish,
+  ],
   logos_delivery/api/types,
   logos_delivery/api/conf/modes,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
-  logos_delivery/messaging/delivery_service/send_service/[send_service, delivery_task],
-  ../testlib/[testasync, wakucore, wakunode, wakunodeconf]
-
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task,
+  ../testlib/testasync,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/wakunodeconf
 const
   NumCore = 4
   BatchSize = 4 ## concurrent mixed sends in the batch test
@@ -38,10 +50,10 @@ const
     ## reply: the gossipsub hop only, with room for a loaded CI host.
 
 type MixNet = object
-  nodes: seq[WakuNode] # 0 ..< NumCore are core, NumCore is the sender
+  nodes: seq[Kernel] # 0 ..< NumCore are core, NumCore is the sender
   pubInfos: seq[MixNodePubInfo]
 
-proc sender(mixnet: MixNet): WakuNode =
+proc sender(mixnet: MixNet): Kernel =
   mixnet.nodes[NumCore]
 
 type HopCounts = object
@@ -147,7 +159,8 @@ proc setupMixNet(
       raiseAssert "mountMix " & $i & ": " & $error
 
   for n in mixnet.nodes:
-    await n.start()
+    (await n.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
   for i in 0 .. NumCore:
     let peers = (0 .. NumCore).toSeq().filterIt(it != i).mapIt(
@@ -159,7 +172,8 @@ proc setupMixNet(
 
 proc teardownMixNet(mixnet: MixNet) {.async.} =
   for n in mixnet.nodes:
-    await n.stop()
+    (await n.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
 suite "Waku Mix - end to end transport":
   asyncTest "a message crosses the mixnet and the reply comes back":
@@ -263,7 +277,7 @@ suite "Waku Mix - end to end transport":
     let after = hopCounts()
     check:
       arrivals.len == BatchSize
-      mixnet.sender().wakuMix.surbCredsLen() == 0
+      mixnet.sender().protocols.mix.surbCredsLen() == 0
       # Four packets crossed the exit: the four open sends never crossed.
       after.exited - before.exited >= float64(BatchSize)
       # These fail only if the node's 5 s deadline stops preempting the library's
@@ -311,7 +325,7 @@ suite "Waku Mix - end to end transport":
 
     check:
       mixnet.sender().announcedAddresses.allIt("/dns4/" in $it)
-      $mixnet.sender().wakuMix.localMixPubInfo().multiAddr ==
+      $mixnet.sender().protocols.mix.localMixPubInfo().multiAddr ==
         "/ip4/127.0.0.1/tcp/" & $(23890 + NumCore)
 
     let shard = DefaultPubsubTopic
@@ -331,7 +345,7 @@ suite "Waku Mix - end to end transport":
       Opt.some(shard), msg, Opt.some(dest), mixify = true
     )
     check res.isOk()
-    check mixnet.sender().wakuMix.surbCredsLen() == 0
+    check mixnet.sender().protocols.mix.surbCredsLen() == 0
     # The packet went through mix, and the SURB build did not reject the hop.
     let after = hopCounts()
     check:
@@ -354,41 +368,42 @@ suite "Waku Mix - end to end transport":
     nodeConf.clusterId = Opt.some(DefaultClusterId)
     let conf = nodeConf.toWakuConf().valueOr:
       raiseAssert error
-    let waku = (await Waku.new(conf)).expect("Waku.new")
+    let kernel = (await Kernel.new(conf)).expect("Kernel.new")
     defer:
-      discard await waku.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let kp = generateKeyPair().expect("mix key pair")
     (
-      await waku.node.mountMix(
+      await kernel.mountMix(
         DefaultClusterId, kp.privateKey, mixnet.pubInfos[0 ..< NumCore]
       )
     ).isOkOr:
       raiseAssert "mountMix sender: " & $error
-    (await waku.start()).expect("start")
-    await waku.node.connectToNodes(
+    (await kernel.start()).expect("start")
+    await kernel.connectToNodes(
       (0 ..< NumCore).toSeq().mapIt(mixnet.nodes[it].peerInfo.toRemotePeerInfo())
     )
     # Identify fills this from waku-metadata too; set it here so the exit scan
     # does not wait for that round trip.
     let shardInfo = RelayShard.parse(shard).expect("shard")
     for i in 0 ..< NumCore:
-      waku.node.peerManager.switch.peerStore.setShardInfo(
+      kernel.peerManager.switch.peerStore.setShardInfo(
         mixnet.nodes[i].peerInfo.peerId, @[shardInfo.shardId]
       )
     # Identify fills the lightpush codec on connect; wait for the exit scan.
     let deadline = Moment.now() + chronos.seconds(5)
-    while not (waku.mixReady() and waku.selectMixLightpushPeer(shard).isSome()) and
+    while not (kernel.mixReady() and kernel.selectMixLightpushPeer(shard).isSome()) and
         Moment.now() < deadline:
       await sleepAsync(chronos.milliseconds(50))
     check:
-      waku.mixReady()
-      waku.selectMixLightpushPeer(shard).isSome()
+      kernel.mixReady()
+      kernel.selectMixLightpushPeer(shard).isSome()
 
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let chain = setupSendProcessorChain(waku, AnonymityLevel.Required).expect("chain")
+    let chain = setupSendProcessorChain(kernel, AnonymityLevel.Required).expect("chain")
     let service = SendService
-      .new(false, waku, manager, chain, AnonymityLevel.Required)
+      .new(false, kernel, manager, chain, AnonymityLevel.Required)
       .expect("SendService.new")
     let msg = WakuMessage(
       payload: toBytes("mix-e2e-send-service over mix"),

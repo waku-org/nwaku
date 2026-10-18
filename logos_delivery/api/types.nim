@@ -1,11 +1,11 @@
 {.push raises: [].}
 
-import libp2p/crypto/crypto, bearssl/rand, std/times, chronos
+import libp2p/crypto/crypto, chronos
 import stew/byteutils
-import logos_delivery/waku/utils/requests as request_utils
-import logos_delivery/waku/waku_core/[topics/content_topic, message/message, time]
-
-export content_topic, message
+import logos_delivery/kernel/[base/request_id as request_utils]
+import logos_delivery/kernel/[base/topics/content_topic, base/message, base/time]
+import logos_delivery/kernel/[base/health/connection_status, base/peers]
+export content_topic, message, connection_status, peers
 
 type
   MessageEnvelope* = object
@@ -19,19 +19,9 @@ type
 
   RequestId* = distinct string
 
-  ConnectionStatus* {.pure.} = enum
-    Disconnected
-    PartiallyConnected
-    Connected
-
   MessageSource* {.pure.} = enum
     Live = "live" ## delivered as it was published, over relay or filter
     History = "history" ## recovered from a Store peer, at start or after a gap
-
-  PeerConnInfo* = object ## structured connected-peer info for the api boundary
-    peerId*: string
-    protocols*: seq[string]
-    addresses*: seq[string]
 
 proc new*(T: typedesc[RequestId], rng: crypto.Rng): T =
   ## Generate a new RequestId using the provided RNG.

@@ -1,12 +1,10 @@
 import std/[json, strformat]
 import chronicles, chronos, results, ffi
 import
+  logos_delivery/kernel/[base/message, base/topics/pubsub_topic],
   logos_delivery,
-  logos_delivery/waku/waku_core/message,
-  logos_delivery/waku/waku_core/topics/pubsub_topic,
   library/events/json_message_event,
   library/declare_lib
-
 proc waku_lightpush_publish(
     self: LogosDelivery, pubSubTopic: string, jsonWakuMessage: string
 ): Future[Result[string, string]] {.ffi.} =
@@ -21,7 +19,7 @@ proc waku_lightpush_publish(
   let msg = json_message_event.toWakuMessage(jsonMessage).valueOr:
     return err("Problem building the WakuMessage: " & $error)
 
-  let msgHashHex = (await self.waku.lightpushPublish(PubsubTopic(pubSubTopic), msg)).valueOr:
+  let msgHashHex = (await self.kernel.lightpushPublish(PubsubTopic(pubSubTopic), msg)).valueOr:
     error "PUBLISH failed", error = error
     return err(error)
 

@@ -1,0 +1,33 @@
+{.push raises: [].}
+
+import std/times, results, chronicles, chronos
+import logos_delivery/kernel/[base/time, archive/driver, archive/retention_policy]
+logScope:
+  topics = "waku archive retention_policy"
+
+type TimeRetentionPolicy* = ref object of RetentionPolicy
+  retentionTime: chronos.Duration
+
+proc new*(T: type TimeRetentionPolicy, retentionTime: int64): T =
+  TimeRetentionPolicy(retentionTime: retentionTime.seconds)
+
+func getRetentionTime*(p: TimeRetentionPolicy): chronos.Duration =
+  p.retentionTime
+
+method `$`*(p: TimeRetentionPolicy): string =
+  "time:" & $p.retentionTime.seconds
+
+method execute*(
+    p: TimeRetentionPolicy, driver: ArchiveDriver
+): Future[RetentionPolicyResult[void]] {.async.} =
+  ## Delete messages that exceed the retention time
+  debug "Beginning of executing message retention policy - time"
+
+  let now = getNanosecondTime(getTime().toUnixFloat())
+  let retentionTimestamp = now - p.retentionTime.nanoseconds
+
+  (await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)).isOkOr:
+    return err("failed to delete oldest messages: " & error)
+
+  debug "End of executing message retention policy - time"
+  return ok()

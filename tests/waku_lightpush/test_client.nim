@@ -1,25 +1,31 @@
 {.used.}
 
 import
-  results,
-  std/[strscans, strutils],
-  testutils/unittests,
-  chronos,
-  chronicles,
-  libp2p/crypto/crypto
+  results, std/[strscans, strutils], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_lightpush,
-    waku_lightpush/client,
-    waku_lightpush/protocol_metrics,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/lightpush/protocol,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    protocols/lightpush/rpc_codec,
+    protocols/lightpush/client,
+    protocols/lightpush/protocol_metrics,
   ],
-  ../testlib/[assertions, wakucore, testasync, futures],
+  ../testlib/assertions,
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./lightpush_utils,
-  ../resources/[pubsub_topics, content_topics, payloads]
-
+  ../resources/pubsub_topics,
+  ../resources/content_topics,
+  ../resources/payloads
 suite "Waku Lightpush Client":
   var
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]

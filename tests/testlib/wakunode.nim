@@ -10,25 +10,29 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  logos_delivery/waku/[
-    waku_node,
-    waku_relay,
+  logos_delivery/kernel/[
+    net/switch,
+    kernel,
+    protocols/relay/protocol,
     net/net_config,
-    waku_core/topics,
-    node/waku_switch,
-    node/peer_manager,
-    node/node_telemetry,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/internal_config,
-    factory/waku_conf,
-    factory/conf_builder/conf_builder,
-    factory/builder,
-    common/logging,
+    base/topics/pubsub_topic,
+    peer_manager/peer_manager,
+    subscription_manager,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
+    discovery/discv5,
+    config/conf,
+    config/conf_builder/conf_builder,
+    config/conf_builder/store_service_conf_builder,
+    config/conf_builder/rest_server_conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    api/builder,
+    base/logging,
     persistency/persistency,
   ],
   ./common
-
 # Waku node
 
 # TODO: migrate to usage of a test cluster conf
@@ -85,7 +89,7 @@ proc newTestWakuNode*(
     peerStoreCapacity = Opt.none(int),
     clusterId = DefaultClusterId,
     subscribeShards = @[DefaultShardId],
-): WakuNode =
+): Kernel =
   logging.setupLog(enabledLogLevel, logging.LogFormat.TEXT)
 
   # quic won't bind 0.0.0.0 wildcard, use loopback for tests
@@ -176,7 +180,7 @@ proc newTestWakuNode*(
 
   return builder.build().get()
 
-proc boundTcpPort*(node: WakuNode): Port =
+proc boundTcpPort*(node: Kernel): Port =
   let ports = getPorts(node.switch.peerInfo.listenAddrs).valueOr:
     raiseAssert "getPorts failed: " & error
   if ports.tcpPort.isNone():
@@ -189,8 +193,8 @@ proc hasMeshPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
       return true
   false
 
-proc hasMeshPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.wakuRelay.hasMeshPeer(topic, peer)
+proc hasMeshPeer*(node: Kernel, topic: PubsubTopic, peer: PeerId): bool =
+  node.protocols.relay.hasMeshPeer(topic, peer)
 
 proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool =
   for p in relay.gossipsub.getOrDefault(topic):
@@ -198,8 +202,8 @@ proc hasGossipsubPeer*(relay: WakuRelay, topic: PubsubTopic, peer: PeerId): bool
       return true
   false
 
-proc hasGossipsubPeer*(node: WakuNode, topic: PubsubTopic, peer: PeerId): bool =
-  node.wakuRelay.hasGossipsubPeer(topic, peer)
+proc hasGossipsubPeer*(node: Kernel, topic: PubsubTopic, peer: PeerId): bool =
+  node.protocols.relay.hasGossipsubPeer(topic, peer)
 
 proc nodeMessagesCount*(labelValues: openArray[string]): float64 =
   try:

@@ -11,26 +11,21 @@ import
   confutils
 
 import
-  tools/confutils/cli_args,
-  logos_delivery/waku/[
-    common/enr,
-    common/logging,
-    waku as waku_factory,
-    waku_node,
-    node/waku_metrics,
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/peers,
-    waku_core/multiaddrstr,
+  logos_delivery/kernel/[
+    base/enr,
+    base/logging,
+    api/kernel_lifecycle as waku_factory,
+    peer_manager/peer_manager,
+    protocols/lightpush/common,
+    protocols/filter/common,
+    base/peers,
   ],
+  tools/confutils/cli_args,
   ./tester_config,
   ./publisher,
   ./receiver,
   ./diagnose_connections,
   ./service_peer_management
-
 logScope:
   topics = "liteprotocoltester main"
 
@@ -119,18 +114,18 @@ when isMainModule:
     error "Issue converting toWakuConf", error = $error
     quit(QuitFailure)
 
-  var waku = (waitFor Waku.new(wakuConf)).valueOr:
+  var kernel = (waitFor Kernel.new(wakuConf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  (waitFor waku.start()).isOkOr:
+  (waitFor kernel.start()).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
   info "Setting up shutdown hooks"
 
-  proc asyncStopper(waku: Waku) {.async: (raises: []).} =
-    (await waku.stop()).isOkOr:
+  proc asyncStopper(kernel: Kernel) {.async: (raises: []).} =
+    (await kernel.stop()).isOkOr:
       error "Waku shutdown failed", error = error
     quit(QuitSuccess)
 
@@ -140,7 +135,7 @@ when isMainModule:
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     notice "Shutting down after receiving SIGINT"
-    asyncSpawn asyncStopper(waku)
+    asyncSpawn asyncStopper(kernel)
 
   setControlCHook(handleCtrlC)
 
@@ -148,7 +143,7 @@ when isMainModule:
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
       notice "Shutting down after receiving SIGTERM"
-      asyncSpawn asyncStopper(waku)
+      asyncSpawn asyncStopper(kernel)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
 
@@ -161,7 +156,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      (waitFor waku.stop()).isOkOr:
+      (waitFor kernel.stop()).isOkOr:
         error "Waku shutdown failed", error = error
       quit(QuitFailure)
 
@@ -181,7 +176,7 @@ when isMainModule:
   if conf.serviceNode.len == 0:
     if conf.bootstrapNode.len > 0:
       info "Bootstrapping with PeerExchange to gather random service node"
-      let futForServiceNode = pxLookupServiceNode(waku.node, conf)
+      let futForServiceNode = pxLookupServiceNode(kernel, conf)
       if not (waitFor futForServiceNode.withTimeout(20.minutes)):
         error "Service node not found in time via PX"
         quit(QuitFailure)
@@ -191,7 +186,7 @@ when isMainModule:
         quit(QuitFailure)
 
       serviceNodePeerInfo = selectRandomServicePeer(
-        waku.node.peerManager, Opt.none(RemotePeerInfo), codec
+        kernel.peerManager, Opt.none(RemotePeerInfo), codec
       ).valueOr:
         error "Service node selection failed"
         quit(QuitFailure)
@@ -206,11 +201,11 @@ when isMainModule:
 
   info "Service node to be used", serviceNode = $serviceNodePeerInfo
 
-  logSelfPeers(waku.node.peerManager)
+  logSelfPeers(kernel.peerManager)
 
   if conf.testFunc == TesterFunctionality.SENDER:
-    setupAndPublish(waku.node, conf, serviceNodePeerInfo)
+    setupAndPublish(kernel, conf, serviceNodePeerInfo)
   else:
-    setupAndListen(waku.node, conf, serviceNodePeerInfo)
+    setupAndListen(kernel, conf, serviceNodePeerInfo)
 
   runForever()

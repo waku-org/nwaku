@@ -12,16 +12,22 @@ import
   chronos,
   db_connector/[db_postgres, postgres]
 import
-  logos_delivery/waku/[
-    waku_archive/driver/postgres_driver,
-    waku_core,
-    waku_core/message/digest,
-    common/databases/db_postgres/pgasyncpool,
+  logos_delivery/kernel/[
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    archive/driver/postgres_driver/pgasyncpool,
   ],
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres
-
 const
   RawConnString =
     "user=postgres host=localhost port=5432 dbname=postgres password=test123"

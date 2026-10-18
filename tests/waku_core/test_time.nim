@@ -1,8 +1,7 @@
 {.used.}
 
 import testutils/unittests
-import logos_delivery/waku/waku_core/time
-
+import logos_delivery/kernel/[base/time]
 suite "Waku Core - Time":
   test "Test timestamp conversion":
     ## Given

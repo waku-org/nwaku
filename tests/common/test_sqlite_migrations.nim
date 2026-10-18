@@ -2,7 +2,7 @@
 
 import std/[strutils, os], results, testutils/unittests
 import
-  logos_delivery/waku/common/databases/db_sqlite {.all.}, ../waku_archive/archive_utils
+  logos_delivery/kernel/base/databases/db_sqlite {.all.}, ../waku_archive/archive_utils
 
 template sourceDir(): string =
   currentSourcePath.rsplit(DirSep, 1)[0]

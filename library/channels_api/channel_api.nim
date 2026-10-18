@@ -1,13 +1,11 @@
 import std/json
 import chronos, results, ffi
 import
-  logos_delivery/waku/common/base64,
+  logos_delivery/kernel/[base/base64, base/topics/content_topic],
   logos_delivery,
-  logos_delivery/waku/waku_core/topics/content_topic,
   logos_delivery/api/types,
   ../declare_lib,
   ./channel_crypto
-
 proc logosdelivery_channel_create(
     self: LogosDelivery,
     channelIdStr: string,

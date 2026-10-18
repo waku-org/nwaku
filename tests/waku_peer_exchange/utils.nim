@@ -12,21 +12,23 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
-    waku_node,
-    discovery/waku_discv5,
+  logos_delivery/kernel/[
+    kernel,
+    discovery/discv5,
     net/auto_port,
-    waku_peer_exchange,
-    waku_peer_exchange/rpc,
-    waku_peer_exchange/protocol,
-    waku_peer_exchange/client,
-    node/peer_manager,
-    waku_core,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    protocols/peer_exchange/common,
+    protocols/peer_exchange/client,
+    peer_manager/peer_manager,
+    base/peers,
+    base/codecs,
   ],
-  ../testlib/[futures, wakucore, assertions]
-
+  ../testlib/futures,
+  ../testlib/wakucore,
+  ../testlib/assertions
 proc startDiscv5WithAutoPort*(
-    node: WakuNode,
+    node: Kernel,
     key: keys.PrivateKey,
     bindIp: IpAddress,
     bootstrapRecords: seq[enr.Record] = @[],
@@ -54,7 +56,7 @@ proc startDiscv5WithAutoPort*(
   return await tryWithAutoPort[WakuDiscoveryV5](Port(0), attempt)
 
 proc dialForPeerExchange*(
-    client: WakuNode,
+    client: Kernel,
     peerInfo: RemotePeerInfo,
     requestedPeers: uint64 = 1,
     minimumPeers: uint64 = 0,
@@ -72,7 +74,7 @@ proc dialForPeerExchange*(
     await sleepAsync(FUTURE_TIMEOUT_SHORT)
 
     let response =
-      await client.wakuPeerExchangeClient.request(requestedPeers, connOpt.get())
+      await client.discovery.peerExchangeClient.request(requestedPeers, connOpt.get())
     assertResultOk(response)
 
     if uint64(response.get().peerInfos.len) > minimumPeers:

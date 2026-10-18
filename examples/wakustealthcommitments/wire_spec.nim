@@ -1,8 +1,17 @@
 import std/times
 import confutils, chronicles, chronos, results
 
-import logos_delivery/waku/[waku_core, common/protobuf]
-
+import
+  logos_delivery/kernel/[
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/protobuf,
+  ]
 export times, confutils, chronicles, chronos, results, waku_core, protobuf
 
 type SerializedKey* = seq[byte]

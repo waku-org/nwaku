@@ -9,20 +9,18 @@ import
   json_serialization/std/options
 import presto/[route, common]
 import
-  logos_delivery/waku/waku,
-  logos_delivery/waku/api/subscriptions,
+  logos_delivery/kernel/[api/kernel_lifecycle, api/subscriptions],
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/subscription,
   logos_delivery/messaging/api/send,
-  logos_delivery/messaging/delivery_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/send_service,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
   rest/messaging_api/types,
   rest/messaging_api/event_cache
-
 export types
 
 logScope:
@@ -73,7 +71,7 @@ proc installMessagingApiHandlers*(
   # cache are the `MessagingRestEvents`, started and stopped with it.
 
   # Without autosharding, content topics resolve to no shard: answer 503.
-  let autoshardingConfigured = client.waku.isAutoshardingConfigured()
+  let autoshardingConfigured = client.kernel.isAutoshardingConfigured()
   if not autoshardingConfigured:
     warn "Messaging REST API mounted without autosharding; subscribe and send will be refused",
       hint = "set --preset or --num-shards-in-network"
@@ -84,7 +82,7 @@ proc installMessagingApiHandlers*(
   router.api(MethodGet, ROUTE_MESSAGING_SUBSCRIPTIONSV1) do() -> RestApiResponse:
     ## Returns the content topics that the messaging client subscribes to, sorted.
     var topics: seq[ContentTopic]
-    for (_, contentTopics) in client.waku.subscribedContentTopics():
+    for (_, contentTopics) in client.kernel.subscribedContentTopics():
       for contentTopic in contentTopics:
         topics.add(contentTopic)
     topics.sort()

@@ -17,26 +17,29 @@ import
   rest/kernel_api/admin/handlers as admin_rest_interface,
   rest/kernel_api/admin/client as admin_rest_client
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_node,
-    waku_filter_v2/client,
-    node/peer_manager,
-    waku_archive,
-    waku_archive/driver/queue_driver,
-    waku_relay,
-    waku_peer_exchange,
-    waku_store,
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    api/kernel_lifecycle,
+    protocols/filter/client,
+    peer_manager/peer_manager,
+    archive/driver/queue_driver/queue_driver,
+    protocols/relay/protocol,
+    protocols/peer_exchange/protocol,
+    protocols/store/common,
   ],
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../testlib/rest_requests,
   ../testlib/testasync
-
 suite "Waku v2 Rest API - Admin":
-  var node1 {.threadvar.}: WakuNode
-  var node2 {.threadvar.}: WakuNode
-  var node3 {.threadvar.}: WakuNode
+  var node1 {.threadvar.}: Kernel
+  var node2 {.threadvar.}: Kernel
+  var node3 {.threadvar.}: Kernel
   var peerInfo1 {.threadvar.}: RemotePeerInfo
   var peerInfo2 {.threadvar.}: RemotePeerInfo
   var peerInfo3 {.threadvar.}: RemotePeerInfo
@@ -213,10 +216,10 @@ suite "Waku v2 Rest API - Admin":
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
 
     let
-      subscribeResponse2 = await node2.wakuFilterClient.subscribe(
+      subscribeResponse2 = await node2.protocols.filterClient.subscribe(
         peerInfo1, pubsubTopicNode2, contentFiltersNode2
       )
-      subscribeResponse3 = await node3.wakuFilterClient.subscribe(
+      subscribeResponse3 = await node3.protocols.filterClient.subscribe(
         peerInfo1, pubsubTopicNode3, contentFiltersNode3
       )
 
@@ -378,9 +381,11 @@ suite "Waku v2 Rest API - Admin":
     # A peer without relay
     let node4 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(0))
     check node4.mountMetadata(1, @[0.uint16]).isOk()
-    await node4.start()
+    (await node4.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node4.stop()
+      (await node4.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let peerInfo4 = node4.peerInfo.toRemotePeerInfo()
 
     # Connect to nodes 2, 3 and 4 using the Admin API
@@ -436,8 +441,8 @@ suite "Waku v2 Rest API - Admin":
 
     let pubsubTopic = $RelayShard(clusterId: 1, shardId: 5)
     checkUntilTimeout:
-      node1.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
-      node1.wakuRelay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
+      node1.protocols.relay.hasMeshPeer(pubsubTopic, peerInfo2.peerId)
+      node1.protocols.relay.hasMeshPeer(pubsubTopic, peerInfo3.peerId)
 
     let meshPeerMultiaddrs =
       @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)].sorted()

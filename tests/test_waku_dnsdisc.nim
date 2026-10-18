@@ -1,4 +1,3 @@
-import libp2p/crypto/rng
 {.used.}
 
 import
@@ -6,20 +5,16 @@ import
   results,
   stew/base32,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto,
   eth/keys,
   dnsdisc/builder
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/discovery/waku_dnsdisc,
-  ./testlib/common,
+  logos_delivery/kernel/
+    [peer_manager/peer_manager, api/kernel_lifecycle, discovery/dnsdisc],
   ./testlib/wakucore,
   ./testlib/wakunode,
   ./waku_enr/utils
-
 suite "Waku DNS Discovery":
   asyncTest "Waku DNS Discovery end-to-end":
     ## Tests integrated DNS discovery, from building
@@ -82,7 +77,8 @@ suite "Waku DNS Discovery":
 
     (await node4.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node4.start()
+    (await node4.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 

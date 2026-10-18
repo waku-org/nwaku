@@ -10,16 +10,30 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  logos_delivery/waku/[
-    common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/builder,
+  logos_delivery/kernel/[
+    base/logging,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    net/switch,
+    kernel,
+    api/filter,
+    api/lightpush,
+    api/store,
+    api/relay,
+    api/peer_exchange,
+    api/ping,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    discovery/discv5,
+    api/builder,
   ]
-
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 

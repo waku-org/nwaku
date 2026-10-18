@@ -4,15 +4,18 @@ import results, stew/byteutils
 import std/[random, strutils], testutils/unittests, chronos
 
 import
-  ../../logos_delivery/waku/common/protobuf,
-  ../../logos_delivery/waku/waku_core,
-  ../../logos_delivery/waku/waku_core/message/digest,
-  ../../logos_delivery/waku/waku_core/time,
-  ../../logos_delivery/waku/waku_store_sync/common,
-  ../../logos_delivery/waku/waku_store_sync/codec,
+  logos_delivery/kernel/[
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    protocols/store_sync/common,
+    protocols/store_sync/codec,
+  ],
+  ../../logos_delivery/kernel/base/protobuf,
+  ../../logos_delivery/kernel/base/message,
+  ../../logos_delivery/kernel/base/time,
   ../testlib/protobuf_errors,
   ./sync_utils
-
 proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
   var
     elements = newSeqOfCap[SyncID](count)

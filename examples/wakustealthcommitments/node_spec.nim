@@ -1,7 +1,8 @@
 {.push raises: [].}
 
 import tools/confutils/cli_args
-import logos_delivery/waku/[common/logging, waku, factory/networks_config]
+import
+  logos_delivery/kernel/[base/logging, api/kernel_lifecycle, config/networks_config]
 import
   results,
   std/[strutils, os, sequtils],
@@ -11,11 +12,11 @@ import
   libp2p/crypto/crypto
 
 export
-  networks_config, waku, logging, strutils, os, sequtils, stewNet, chronicles, chronos,
-  metrics, crypto
+  networks_config, kernel_lifecycle, logging, strutils, os, sequtils, stewNet,
+  chronicles, chronos, metrics, crypto
 
-proc setup*(): Waku =
-  const versionString = "version / git commit hash: " & waku.git_version
+proc setup*(): Kernel =
+  const versionString = "version / git commit hash: " & kernel_lifecycle.git_version
   let rng = crypto.newRng()
 
   let conf = WakuNodeConf.load(version = versionString).valueOr:
@@ -44,16 +45,16 @@ proc setup*(): Waku =
     conf.rlnRelay = Opt.some(twnNetworkConf.rlnRelay)
 
   info "Starting node"
-  var waku = (waitFor Waku.new(conf)).valueOr:
+  var kernel = (waitFor Kernel.new(conf)).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  (waitFor waku.start()).isOkOr:
+  (waitFor kernel.start()).isOkOr:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
   # set triggerOwnHandlers to false, we don't want to process our own stealthCommitments
-  waku.node.wakuRelay.triggerOwnHandlers = false
+  kernel.protocols.relay.triggerOwnHandlers = false
 
   info "Node setup complete"
-  return waku
+  return kernel

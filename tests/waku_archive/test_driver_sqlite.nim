@@ -2,10 +2,15 @@
 
 import std/sequtils, testutils/unittests, chronos
 import
-  logos_delivery/waku/[waku_archive, waku_archive/driver/sqlite_driver, waku_core],
-  ../waku_archive/archive_utils,
+  logos_delivery/kernel/[
+    archive/driver,
+    archive/driver/sqlite_driver/sqlite_driver,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+  ],
+  ./archive_utils,
   ../testlib/wakucore
-
 suite "SQLite driver":
   test "init driver and database":
     ## Given

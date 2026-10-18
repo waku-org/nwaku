@@ -1,15 +1,12 @@
 import std/[json, sugar]
 import chronos, chronicles, results, ffi
 import
+  logos_delivery/kernel/[base/message, protocols/store/common, base/paging],
   logos_delivery,
   library/utils,
-  logos_delivery/waku/waku_core/message/digest,
-  logos_delivery/waku/waku_store/common,
   rest/serdes,
   rest/kernel_api/store/types,
-  logos_delivery/waku/common/paging,
   library/declare_lib
-
 func fromJsonNode(jsonContent: JsonNode): Result[StoreQueryRequest, string] =
   var contentTopics: seq[string]
   if jsonContent.contains("contentTopics"):
@@ -78,7 +75,7 @@ proc waku_store_query(
   let storeQueryRequest = ?fromJsonNode(jsonContentRes.get())
 
   let queryResponse = (
-    await self.waku.storeQuery(storeQueryRequest, peerAddr, int(timeoutMs))
+    await self.kernel.storeQuery(storeQueryRequest, peerAddr, int(timeoutMs))
   ).valueOr:
     return err("StoreRequest failed store query: " & error)
 

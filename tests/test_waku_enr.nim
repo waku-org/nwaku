@@ -1,8 +1,16 @@
 {.used.}
 
 import std/[sequtils, strutils], results, testutils/unittests
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku_enr, ./testlib/wakucore
-
+import
+  logos_delivery/kernel/[
+    base/topics/pubsub_topic,
+    base/codecs,
+    base/enr as waku_enr,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
+  ],
+  ./testlib/wakucore
 suite "Waku ENR -  Capabilities bitfield":
   test "check capabilities support":
     ## Given

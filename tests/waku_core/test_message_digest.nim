@@ -1,8 +1,10 @@
 {.used.}
 
 import std/sequtils, stew/byteutils, stew/endians2, testutils/unittests
-import logos_delivery/waku/waku_core, ../testlib/wakucore
-
+import
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/topics/pubsub_topic, base/time, base/message],
+  ../testlib/wakucore
 suite "Waku Message - Deterministic hashing":
   test "digest computation - empty meta field":
     ## Test vector:

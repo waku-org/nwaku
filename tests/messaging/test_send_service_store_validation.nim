@@ -1,20 +1,26 @@
 {.used.}
 
 import std/sequtils
-import chronos, chronicles, testutils/unittests, results, stew/byteutils
+import chronos, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/waku,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/waku_store,
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/api/store,
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    kernel,
+    protocols/store/common,
+    peer_manager/peer_manager,
+    api/store,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    config/conf,
+  ],
   logos_delivery/api/types,
-  logos_delivery/waku/factory/waku_conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
-  logos_delivery/messaging/delivery_service/send_service/
-    [send_service, send_processor, delivery_task],
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/send_processor,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task,
   logos_delivery/api/events/messaging_client_events
 import ../testlib/[futures, testasync, wakunodeconf, wakucore, wakunode]
 import ../waku_store/store_utils
@@ -49,20 +55,22 @@ proc propagatedAt(id: string, time: Moment): DeliveryTask =
   return task
 
 suite "SendService - store validation and mix":
-  var waku {.threadvar.}: Waku
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc service(reliability: bool): SendService =
     ## The policy under test never sends, so the plain chain is enough.
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
-    let chain = setupSendProcessorChain(waku, AnonymityLevel.None).expect("chain")
-    return SendService.new(reliability, waku, manager, chain).expect("SendService.new")
+    let chain = setupSendProcessorChain(kernel, AnonymityLevel.None).expect("chain")
+    return
+      SendService.new(reliability, kernel, manager, chain).expect("SendService.new")
 
   proc propagatedTask(overMix: bool, ephemeral = false): DeliveryTask =
     let task = propagatedAt("t", Moment.now())
@@ -73,7 +81,7 @@ suite "SendService - store validation and mix":
   asyncTest "the store client is mounted even on a node that serves no store":
     ## `checkStoreForMessages` is `preferP2PReliability and isStoreMounted()`,
     ## and every node mounts the store client, so reliability alone decides.
-    check waku.isStoreMounted()
+    check kernel.isStoreMounted()
 
   asyncTest "a plainly propagated message is confirmed against a store node":
     check service(reliability = true).awaitsStoreValidation(
@@ -127,7 +135,7 @@ const FastLoop = chronos.milliseconds(10)
   ## The loop interval of a test service. It keeps each wait for a loop short.
 
 proc reliableService(
-    waku: Waku, processor: BaseSendProcessor, maxValidationAge = DeliveryWindow
+    kernel: Kernel, processor: BaseSendProcessor, maxValidationAge = DeliveryWindow
 ): SendService =
   ## A service with Store-based reliability on and fast loops.
   let manager =
@@ -135,7 +143,7 @@ proc reliableService(
   return SendService
     .new(
       true,
-      waku,
+      kernel,
       manager,
       processor,
       maxValidationAge = maxValidationAge,
@@ -198,18 +206,19 @@ proc waitEvent(
       return task.requestId in log.ids[event]
 
 suite "SendService - mix completion":
-  var waku {.threadvar.}: Waku
+  var kernel {.threadvar.}: Kernel
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
 
   asyncTeardown:
-    discard await waku.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc countSent(counter: EventCounter): MessageSentEventListener =
     return MessageSentEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(e: MessageSentEvent) {.async: (raises: []).} =
           counter.inc(),
       )
@@ -220,11 +229,11 @@ suite "SendService - mix completion":
     let sent = EventCounter()
     let listener = countSent(sent)
     defer:
-      await MessageSentEvent.dropListener(waku.brokerCtx, listener)
+      await MessageSentEvent.dropListener(kernel.brokerCtx, listener)
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     let service = SendService
-      .new(true, waku, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred)
+      .new(true, kernel, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred)
       .expect("SendService.new") # reliability = on
     let task = newTask("mixed-once")
 
@@ -241,11 +250,13 @@ suite "SendService - mix completion":
     let sent = EventCounter()
     let listener = countSent(sent)
     defer:
-      await MessageSentEvent.dropListener(waku.brokerCtx, listener)
+      await MessageSentEvent.dropListener(kernel.brokerCtx, listener)
     let manager =
       RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
     let service = SendService
-      .new(false, waku, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred)
+      .new(
+        false, kernel, manager, ScriptedProc(overMix: true), AnonymityLevel.Preferred
+      )
       .expect("SendService.new") # reliability = false
     let task = newTask("mixed-no-reliability")
     check service.enqueue(task).isOk()
@@ -257,22 +268,23 @@ suite "SendService - mix completion":
     check not await sent.waitCount(1).withTimeout(FUTURE_TIMEOUT_SHORT)
 
 suite "SendService - Store validation window":
-  var waku {.threadvar.}: Waku
+  var kernel {.threadvar.}: Kernel
   var log {.threadvar.}: SendEventLog
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    log = newSendEventLog(waku.brokerCtx)
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    log = newSendEventLog(kernel.brokerCtx)
 
   asyncTeardown:
     await log.teardown()
-    discard await waku.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "the time while the service is stopped does not count against the window":
     ## The task propagates, then the service stops for longer than the window.
     ## After the restart the task still waits for its Store confirmation.
     let window = chronos.milliseconds(500)
-    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let service = reliableService(kernel, ScriptedProc(), maxValidationAge = window)
     let task = newTask("restart")
     check service.enqueue(task).isOk()
     service.startSendService()
@@ -298,7 +310,7 @@ suite "SendService - Store validation window":
   asyncTest "the waits of a task add up to the window":
     ## A task that already waited most of the window fails soon after a restart.
     let window = chronos.milliseconds(500)
-    let service = reliableService(waku, ScriptedProc(), maxValidationAge = window)
+    let service = reliableService(kernel, ScriptedProc(), maxValidationAge = window)
     let task = newTask("adds-up")
     task.storeValidationWaited = window - chronos.milliseconds(50)
     check service.enqueue(task).isOk()
@@ -311,15 +323,16 @@ suite "SendService - Store validation window":
       task.storeValidationWaited >= window
 
 suite "SendService - Store validation batches":
-  var waku {.threadvar.}: Waku
+  var kernel {.threadvar.}: Kernel
   var service {.threadvar.}: SendService
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    service = reliableService(waku, ScriptedProc())
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    service = reliableService(kernel, ScriptedProc())
 
   asyncTeardown:
-    discard await waku.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "a batch holds one Store page, and the tasks that waited longest come first":
     let now = Moment.now()
@@ -358,8 +371,8 @@ suite "SendService - Store validation batches":
 suite "SendService - Store validation loop":
   ## The Store node answers only after `allowAnswer` completes, with the hashes listed in
   ## `storedHashes`. It mounts metadata so the peer manager accepts its cluster.
-  var waku {.threadvar.}: Waku
-  var storeNode {.threadvar.}: WakuNode
+  var kernel {.threadvar.}: Kernel
+  var storeNode {.threadvar.}: Kernel
   var allowAnswer {.threadvar.}: Future[void]
   var queryStarted {.threadvar.}: Future[void]
   var answered {.threadvar.}: AsyncEvent
@@ -382,20 +395,21 @@ suite "SendService - Store validation loop":
     return ok(resp)
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    (await waku.start()).isOkOr:
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    (await kernel.start()).isOkOr:
       raiseAssert "waku.start: " & error
     allowAnswer = newFuture[void]("allow-answer")
     queryStarted = newFuture[void]("query started")
     answered = newAsyncEvent()
     storedHashes = @[]
-    log = newSendEventLog(waku.brokerCtx)
+    log = newSendEventLog(kernel.brokerCtx)
     storeNode = newTestWakuNode(generateSecp256k1Key())
     storeNode.mountMetadata(TestClusterId, @[0'u16]).isOkOr:
       raiseAssert "mountMetadata: " & error
     discard await newTestWakuStore(storeNode.switch, delayedStoreHandler)
-    await storeNode.start()
-    waku.node.peerManager.addServicePeer(
+    (await storeNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    kernel.peerManager.addServicePeer(
       storeNode.peerInfo.toRemotePeerInfo(), WakuStoreCodec
     )
 
@@ -403,11 +417,13 @@ suite "SendService - Store validation loop":
     if not allowAnswer.finished():
       allowAnswer.complete()
     await log.teardown()
-    await storeNode.stop()
-    discard await waku.stop()
+    (await storeNode.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc startedService(processor: BaseSendProcessor = ScriptedProc()): SendService =
-    let service = reliableService(waku, processor)
+    let service = reliableService(kernel, processor)
     service.startSendService()
     return service
 
@@ -442,7 +458,7 @@ suite "SendService - Store validation loop":
     check:
       service.enqueue(taskB).isOk()
       await log.waitEvent(SendEvent.Propagated, taskB)
-      waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
+      kernel.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
       processor.calls == 3
 
     allowAnswer.complete()
@@ -453,7 +469,7 @@ suite "SendService - Store validation loop":
   asyncTest "an answer for a task whose validation window ended is ignored":
     ## A's confirmation arrives after its validation window ended and the service
     ## failed A.
-    let service = reliableService(waku, ScriptedProc(), chronos.seconds(2))
+    let service = reliableService(kernel, ScriptedProc(), chronos.seconds(2))
     service.startSendService()
     defer:
       await service.stopSendService()
@@ -479,7 +495,7 @@ suite "SendService - Store validation loop":
     let stopping = service.stopSendService()
     check:
       await stopping.join().withTimeout(chronos.seconds(3))
-      not waku.node.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
+      not kernel.peerManager.hasActiveStoreRequest(storeNode.peerInfo.peerId)
 
   asyncTest "a restart during the Store wait sends nothing again, and the Store confirms the send":
     let processor = ScriptedProc()

@@ -6,8 +6,9 @@ import
   chronicles,
   chronos,
   libp2p/protocols/pubsub
-import logos_delivery/waku/waku_core
-
+import
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/topics/pubsub_topic, base/message]
 logScope:
   topics = "waku node message_cache"
 

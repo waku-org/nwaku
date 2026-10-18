@@ -10,24 +10,27 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/[
-    waku_node,
-    node/peer_manager,
-    discovery/waku_discv5,
-    waku_peer_exchange,
-    waku_peer_exchange/rpc,
-    waku_peer_exchange/rpc_codec,
-    waku_peer_exchange/protocol,
-    waku_peer_exchange/client,
-    waku_core,
-    common/enr/builder,
-    waku_enr/sharding,
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    peer_manager/peer_manager,
+    discovery/discv5,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    protocols/peer_exchange/common,
+    protocols/peer_exchange/client,
+    protocols/peer_exchange/rpc_codec,
+    base/peers,
+    base/codecs,
+    base/enr/builder,
+    base/enr/sharding,
   ],
-  ../testlib/[wakucore, wakunode, assertions, testasync],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/assertions,
+  ../testlib/testasync,
   ./utils.nim
-
 suite "Waku Peer Exchange":
-  # Some of this tests use node.wakuPeerExchange instead of just a standalone PeerExchange.
+  # Some of this tests use node.discovery.peerExchange instead of just a standalone PeerExchange.
   # This is because attempts to connect the switches for two standalones PeerExchanges failed.
   # TODO: Try to make the tests work with standalone PeerExchanges
 
@@ -94,7 +97,7 @@ suite "Waku Peer Exchange":
           response.get().peerInfos[0].enr == disc2.protocol.localNode.record.raw
 
         await allFutures(
-          [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
+          node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()
         )
 
     asyncTest "Request returns some discovered peers":
@@ -126,10 +129,11 @@ suite "Waku Peer Exchange":
       node1.peerManager.addPeer(info4, PeerOrigin.Discv5)
 
       # Request 2 peer from px. Test all request variants
-      let response1 = await node2.wakuPeerExchangeClient.request(2)
-      let response2 =
-        await node2.wakuPeerExchangeClient.request(2, node1.peerInfo.toRemotePeerInfo())
-      let response3 = await node2.wakuPeerExchangeClient.request(2, connOpt.get())
+      let response1 = await node2.discovery.peerExchangeClient.request(2)
+      let response2 = await node2.discovery.peerExchangeClient.request(
+        2, node1.peerInfo.toRemotePeerInfo()
+      )
+      let response3 = await node2.discovery.peerExchangeClient.request(2, connOpt.get())
 
       # Check the response or dont even continue
       require:
@@ -151,7 +155,7 @@ suite "Waku Peer Exchange":
           response3.get().peerInfos.anyIt(it.enr == node4.enr.raw)
 
       # A request for more peers than the cache holds gets the peers it has.
-      let response4 = await node2.wakuPeerExchangeClient.request(uint64.high)
+      let response4 = await node2.discovery.peerExchangeClient.request(uint64.high)
       check:
         response4.get(PeerExchangeResponse()).peerInfos.len == 2
 
@@ -180,8 +184,9 @@ suite "Waku Peer Exchange":
       node1.peerManager.switch.peerStore[ConnectionBook][info4.peerId] = CannotConnect
 
       # When node2 requests two peers from node1
-      let response =
-        await node2.wakuPeerExchangeClient.request(2, node1.peerInfo.toRemotePeerInfo())
+      let response = await node2.discovery.peerExchangeClient.request(
+        2, node1.peerInfo.toRemotePeerInfo()
+      )
       let returnedEnrs = response.get(PeerExchangeResponse()).peerInfos.mapIt(it.enr)
 
       # Then only node3 is returned
@@ -208,7 +213,7 @@ suite "Waku Peer Exchange":
       await connOpt.get().close()
 
       # Request 2 peer from px
-      let response = await node1.wakuPeerExchangeClient.request(2, connOpt.get())
+      let response = await node1.discovery.peerExchangeClient.request(2, connOpt.get())
 
       # Check that it failed gracefully
       check:
@@ -290,7 +295,7 @@ suite "Waku Peer Exchange":
       node1.peerManager.addPeer(info3, PeerOrigin.Discv5)
 
       # When requesting 0 peers
-      let response = await node2.wakuPeerExchangeClient.request(0)
+      let response = await node2.discovery.peerExchangeClient.request(0)
 
       # Then the response should be empty
       assertResultOk(response)
@@ -309,7 +314,8 @@ suite "Waku Peer Exchange":
       # When making any request with an invalid peer info
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
-      let response = await node1.wakuPeerExchangeClient.request(1, remotePeerInfo2)
+      let response =
+        await node1.discovery.peerExchangeClient.request(1, remotePeerInfo2)
 
       # Then the response should be an error
       check:
@@ -326,7 +332,7 @@ suite "Waku Peer Exchange":
 
       # Multiple nodes request to node 0
       for i in 1 ..< 3:
-        let resp = await nodes[i].wakuPeerExchangeClient.request(
+        let resp = await nodes[i].discovery.peerExchangeClient.request(
           2, nodes[0].switch.peerInfo.toRemotePeerInfo()
         )
         require resp.isOk
@@ -411,19 +417,20 @@ suite "Waku Peer Exchange":
       await sleepAsync(150.milliseconds)
 
       # Request 2 peer from px. Test all request variants
-      let response1 = await node2.wakuPeerExchangeClient.request(1)
+      let response1 = await node2.discovery.peerExchangeClient.request(1)
       check:
         response1.isOk
         response1.get().peerInfos.len == 1
 
-      let response2 =
-        await node2.wakuPeerExchangeClient.request(1, node1.peerInfo.toRemotePeerInfo())
+      let response2 = await node2.discovery.peerExchangeClient.request(
+        1, node1.peerInfo.toRemotePeerInfo()
+      )
       check:
         response2.isErr
         response2.error().status_code == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
 
       await sleepAsync(150.milliseconds)
-      let response3 = await node2.wakuPeerExchangeClient.request(1, connOpt.get())
+      let response3 = await node2.discovery.peerExchangeClient.request(1, connOpt.get())
       check:
         response3.isOk
         response3.get().peerInfos.len == 1

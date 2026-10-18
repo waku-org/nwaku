@@ -1,9 +1,10 @@
 {.used.}
 
-import chronos, chronicles
+import chronos
 
 import
-  logos_delivery/waku/[node/peer_manager, waku_store, waku_store/client],
+  logos_delivery/kernel/
+    [peer_manager/peer_manager, protocols/store/protocol, protocols/store/client],
   ../testlib/[common, wakucore]
 
 proc newTestWakuStore*(

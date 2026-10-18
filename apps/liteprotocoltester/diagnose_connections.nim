@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[net, strformat],
+  std/[strformat],
   chronicles,
   chronos,
   metrics,
@@ -13,16 +13,16 @@ import
   libp2p/wire
 
 import
-  tools/confutils/cli_args,
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_relay,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/multiaddrstr,
-    waku_enr/capabilities,
-  ]
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/lightpush/common,
+    protocols/relay/protocol,
+    protocols/filter/common,
+    protocols/peer_exchange/protocol,
+    base/peers,
+    base/enr/capabilities,
+  ],
+  tools/confutils/cli_args
 logScope:
   topics = "diagnose connections"
 

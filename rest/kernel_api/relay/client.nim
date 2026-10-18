@@ -2,11 +2,10 @@
 
 import stew/byteutils, chronicles, json_serialization, presto/[route, client, common]
 import
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/[base/topics/content_topic, base/topics/pubsub_topic],
   rest/serdes,
   rest/rest_serdes,
   rest/kernel_api/relay/types
-
 export types
 
 logScope:

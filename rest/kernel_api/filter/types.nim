@@ -8,8 +8,15 @@ import
   json_serialization/pkg/results,
   presto/[route, client, common],
   libp2p/peerid
-import logos_delivery/waku/common/base64, logos_delivery/waku/waku_core, rest/serdes
-
+import
+  logos_delivery/kernel/[
+    base/base64,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+  ],
+  rest/serdes
 #### Types
 
 type FilterWakuMessage* = object

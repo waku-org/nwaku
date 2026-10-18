@@ -1,7 +1,7 @@
 {.used.}
 
 import results, testutils/unittests, chronos
-import logos_delivery/waku/waku_metadata/rpc, ./testlib/wakucore
+import logos_delivery/kernel/protocols/metadata/rpc, ./testlib/wakucore
 
 procSuite "Waku Protobufs":
   # TODO: Missing test coverage in many encode/decode protobuf functions

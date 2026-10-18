@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[json, os], stew/byteutils, testutils/unittests, chronos, eth/keys
-import logos_delivery/waku/waku_keystore, ./testlib/common
+import logos_delivery/kernel/[rln/keystore/keyfile], ./testlib/common
 
 suite "KeyFile test suite":
   test "Create/Save/Load single keyfile":

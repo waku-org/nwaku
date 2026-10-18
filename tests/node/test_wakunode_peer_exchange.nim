@@ -14,93 +14,103 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/waku/
-    [waku_node, discovery/waku_discv5, waku_peer_exchange, node/peer_manager, waku_core],
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    discovery/discv5,
+    protocols/peer_exchange/protocol,
+    protocols/peer_exchange/rpc,
+    peer_manager/peer_manager,
+    base/peers,
+    base/codecs,
+  ],
   ../waku_peer_exchange/utils,
-  ../testlib/[wakucore, wakunode, testasync]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 suite "Waku Peer Exchange":
   let
     bindIp: IPAddress = parseIpAddress("0.0.0.0")
     bindPort: Port = Port(0)
 
-  var node {.threadvar.}: WakuNode
+  var kernel {.threadvar.}: Kernel
 
   suite "mountPeerExchange":
     asyncSetup:
-      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
+      kernel = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
     asyncTest "Started node mounts peer exchange":
       # Given a started node without peer exchange mounted
-      await node.start()
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       check:
-        node.wakuPeerExchange == nil
+        kernel.discovery.peerExchange == nil
 
       # When mounting peer exchange
-      await node.mountPeerExchange()
+      await kernel.mountPeerExchange()
 
       # Then peer exchange is mounted
       check:
-        node.wakuPeerExchange != nil
-        node.wakuPeerExchange.started == true
+        kernel.discovery.peerExchange != nil
+        kernel.discovery.peerExchange.started == true
 
       # Cleanup
-      await node.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Stopped node mounts peer exchange":
       # Given a stopped node without peer exchange mounted
       check:
-        node.wakuPeerExchange == nil
+        kernel.discovery.peerExchange == nil
 
       # When mounting peer exchange
-      await node.mountPeerExchange()
+      await kernel.mountPeerExchange()
 
       # Then peer exchange is mounted
       check:
-        node.wakuPeerExchange != nil
-        node.wakuPeerExchange.started == false
+        kernel.discovery.peerExchange != nil
+        kernel.discovery.peerExchange.started == false
 
   suite "fetchPeerExchangePeers":
-    var node2 {.threadvar.}: WakuNode
-    var node3 {.threadvar.}: WakuNode
+    var node2 {.threadvar.}: Kernel
+    var node3 {.threadvar.}: Kernel
 
     asyncSetup:
-      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
+      kernel = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node3 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(node.start(), node2.start(), node3.start())
+      await allFutures(kernel.start(), node2.start(), node3.start())
 
     asyncTeardown:
-      await allFutures(node.stop(), node2.stop(), node3.stop())
+      await allFutures(kernel.stop(), node2.stop(), node3.stop())
 
     asyncTest "Node fetches without mounting peer exchange":
       # When a node, without peer exchange mounted, fetches peers
-      let res = await node.fetchPeerExchangePeers(1)
+      let res = await kernel.fetchPeerExchangePeers(1)
 
       # Then no peers are fetched
       check:
-        node.peerManager.switch.peerStore.peers.len == 0
+        kernel.peerManager.switch.peerStore.peers.len == 0
         res.error.status_code == SERVICE_UNAVAILABLE
         res.error.status_desc == Opt.some("PeerExchangeClient is not mounted")
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
-      await node.mountPeerExchangeClient()
+      await kernel.mountPeerExchangeClient()
 
       # When a node fetches peers
-      let res = await node.fetchPeerExchangePeers(1)
+      let res = await kernel.fetchPeerExchangePeers(1)
       check:
         res.error.status_code == SERVICE_UNAVAILABLE
         res.error.status_desc == Opt.some("peer_not_found_failure")
 
       # Then no peers are fetched
-      check node.peerManager.switch.peerStore.peers.len == 0
+      check kernel.peerManager.switch.peerStore.peers.len == 0
 
     asyncTest "Node succesfully exchanges px peers with faked discv5":
       # Given both nodes mount peer exchange
-      await allFutures([node.mountPeerExchangeClient(), node2.mountPeerExchange()])
-      check node.peerManager.switch.peerStore.peers.len == 0
+      await allFutures([kernel.mountPeerExchangeClient(), node2.mountPeerExchange()])
+      check kernel.peerManager.switch.peerStore.peers.len == 0
 
       # Simulate node2 discovering node3 via Discv5
       var rpInfo = node3.peerInfo.toRemotePeerInfo()
@@ -108,38 +118,39 @@ suite "Waku Peer Exchange":
       node2.peerManager.addPeer(rpInfo, PeerOrigin.Discv5)
 
       # Set node2 as service peer (default one) for px protocol
-      node.peerManager.addServicePeer(
+      kernel.peerManager.addServicePeer(
         node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
       )
 
       # Request 1 peer from peer exchange protocol
-      let res = await node.fetchPeerExchangePeers(1)
+      let res = await kernel.fetchPeerExchangePeers(1)
       check res.tryGet() == 1
 
       # Check that the peer ended up in the peerstore
       check:
-        node.peerManager.switch.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
+        kernel.peerManager.switch.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
 
     asyncTest "PX does not serve an ENR that was not rediscovered recently":
-      await allFutures([node.mountPeerExchangeClient(), node2.mountPeerExchange()])
+      await allFutures([kernel.mountPeerExchangeClient(), node2.mountPeerExchange()])
 
       var rpInfo = node3.peerInfo.toRemotePeerInfo()
       rpInfo.enr = Opt.some(node3.enr)
       node2.peerManager.addPeer(rpInfo, PeerOrigin.Discv5)
-      await node3.stop()
+      (await node3.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-      node.peerManager.addServicePeer(
+      kernel.peerManager.addServicePeer(
         node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
       )
 
       # Rediscovery refreshes the ENR, so it is served while fresh
-      check (await node.fetchPeerExchangePeers(1)).tryGet() == 1
+      check (await kernel.fetchPeerExchangePeers(1)).tryGet() == 1
 
       # Not rediscovered within the TTL: no longer served
       let node2Store = node2.peerManager.switch.peerStore
       node2Store[ENRAliveBook][rpInfo.peerId] =
         Moment.now() - DiscoveredEnrTtl - 1.seconds
-      check (await node.fetchPeerExchangePeers(1)).tryGet() == 0
+      check (await kernel.fetchPeerExchangePeers(1)).tryGet() == 0
 
       # Pruning drops the ENR but keeps the peer
       check:
@@ -148,62 +159,62 @@ suite "Waku Peer Exchange":
         node2Store[AddressBook][rpInfo.peerId].len > 0
 
   suite "setPeerExchangePeer":
-    var node2 {.threadvar.}: WakuNode
+    var node2 {.threadvar.}: Kernel
 
     asyncSetup:
-      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
+      kernel = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(node.start(), node2.start())
+      await allFutures(kernel.start(), node2.start())
 
     asyncTeardown:
-      await allFutures(node.stop(), node2.stop())
+      await allFutures(kernel.stop(), node2.stop())
 
     asyncTest "peer set successfully":
       # Given a node with peer exchange mounted
-      await node.mountPeerExchange()
-      let initialPeers = node.peerManager.switch.peerStore.peers.len
+      await kernel.mountPeerExchange()
+      let initialPeers = kernel.peerManager.switch.peerStore.peers.len
 
       # And a valid peer info
       let remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
 
       # When making a request with a valid peer info
-      node.setPeerExchangePeer(remotePeerInfo2)
+      kernel.setPeerExchangePeer(remotePeerInfo2)
 
       # Then the peer is added to the peer store
       check:
-        node.peerManager.switch.peerStore.peers.len == (initialPeers + 1)
+        kernel.peerManager.switch.peerStore.peers.len == (initialPeers + 1)
 
     asyncTest "peer exchange not mounted":
       # Given a node without peer exchange mounted
-      check node.wakuPeerExchange == nil
-      let initialPeers = node.peerManager.switch.peerStore.peers.len
+      check kernel.discovery.peerExchange == nil
+      let initialPeers = kernel.peerManager.switch.peerStore.peers.len
 
       # And a valid peer info
       let invalidMultiAddress = MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
 
       # When making any request with an invalid peer info
-      node.setPeerExchangePeer(invalidMultiAddress)
+      kernel.setPeerExchangePeer(invalidMultiAddress)
 
       # Then no peer is added to the peer store
       check:
-        node.peerManager.switch.peerStore.peers.len == initialPeers
+        kernel.peerManager.switch.peerStore.peers.len == initialPeers
 
     asyncTest "peer info parse error":
       # Given a node with peer exchange mounted
-      await node.mountPeerExchange()
-      let initialPeers = node.peerManager.switch.peerStore.peers.len
+      await kernel.mountPeerExchange()
+      let initialPeers = kernel.peerManager.switch.peerStore.peers.len
 
       # And given a peer info with an invalid peer id
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
 
       # When making any request with an invalid peer info
-      node.setPeerExchangePeer("invalidpeerinfo")
+      kernel.setPeerExchangePeer("invalidpeerinfo")
 
       # Then no peer is added to the peer store
       check:
-        node.peerManager.switch.peerStore.peers.len == initialPeers
+        kernel.peerManager.switch.peerStore.peers.len == initialPeers
 
 suite "Waku Peer Exchange with discv5":
   asyncTest "Node successfully exchanges px peers with real discv5":
@@ -271,5 +282,5 @@ suite "Waku Peer Exchange with discv5":
         node3.peerManager.switch.peerStore.peers.len == currentPeers + requestPeers
 
       await allFutures(
-        [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
+        node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()
       )

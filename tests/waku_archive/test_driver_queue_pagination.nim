@@ -2,12 +2,15 @@
 
 import results, std/[sequtils, algorithm], testutils/unittests
 import
-  logos_delivery/waku/[
-    waku_archive,
-    waku_archive/driver/queue_driver/queue_driver {.all.},
-    waku_archive/driver/queue_driver/index,
-    waku_core,
+  logos_delivery/kernel/[
+    archive/archive,
+    archive/driver/queue_driver/queue_driver {.all.},
+    archive/driver/queue_driver/index,
   ],
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/content_topic,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
   ../testlib/wakucore
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

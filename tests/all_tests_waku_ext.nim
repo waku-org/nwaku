@@ -1,10 +1,10 @@
-## Built on the Waku protocol packages: logos_delivery/waku/{node,net,discovery,
+## Built on the Waku protocol packages: logos_delivery/kernel/{node,net,discovery,
 ## factory,rln,incentivization,persistency} and the LogosDelivery entry
 ## point
 ##
 ## The node that runs the protocols: its assembly and configuration, networking,
 ## peer management, discovery and REST API, and the services composed from
-## several protocols. Suites for a logos_delivery/waku/waku_* package go in
+## several protocols. Suites for a logos_delivery/kernel/waku_* package go in
 ## all_tests_waku instead.
 ##
 ## Split out of all_tests_waku because refc caps a binary at 3500 GC-traced

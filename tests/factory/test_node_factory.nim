@@ -14,32 +14,36 @@ import
 import tools/confutils/cli_args
 
 import
-  tests/testlib/[wakunode, wakucore],
-  logos_delivery/waku/[
-    waku_core,
-    waku_node,
-    waku_store/common,
-    waku_store/client,
-    waku_store/rpc_codec,
+  logos_delivery/kernel/[
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/codecs,
+    api/kernel_lifecycle,
+    protocols/store/common,
+    protocols/store/client,
+    protocols/store/rpc_codec,
     net/net_config,
-    waku_enr,
-    net/auto_port,
-    discovery/waku_discv5,
-    node/peer_manager,
-    node/waku_metrics,
-    waku_metadata,
-    waku_filter_v2,
-    common/rate_limit/setting,
+    base/enr/typed_record,
+    base/enr/multiaddr,
+    base/enr/sharding,
+    discovery/discv5,
+    peer_manager/peer_manager,
+    metrics_server,
+    protocols/metadata/protocol,
+    protocols/filter/common,
+    protocols/filter/protocol,
+    subscription_manager,
+    config/internal_config,
+    config/networks_config,
+    config/conf_builder/conf_builder,
+    config/conf_builder/filter_service_conf_builder,
+    config/conf_builder/store_service_conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/metrics_server_conf_builder,
   ],
-  logos_delivery/waku/node/subscription_manager,
-  logos_delivery/waku/factory/[
-    node_factory,
-    internal_config,
-    networks_config,
-    conf_builder/conf_builder,
-    conf_builder/web_socket_conf_builder,
-  ]
-
+  tests/testlib/wakunode,
+  tests/testlib/wakucore
 proc servicePeerGauge(codec: string): float64 =
   try:
     return logos_delivery_service_peers.value([codec])
@@ -50,25 +54,26 @@ suite "Node Factory":
   asynctest "Set up a node based on default configurations":
     let conf = defaultTestWakuConf()
 
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     check:
-      not node.isNil()
-      node.wakuArchive.isNil()
-      node.wakuStore.isNil()
-      node.wakuFilter.isNil()
-      not node.wakuStoreClient.isNil()
-      not node.wakuRendezvous.isNil()
+      not kernel.isNil()
+      kernel.protocols.archive.isNil()
+      kernel.protocols.store.isNil()
+      kernel.protocols.filter.isNil()
+      not kernel.protocols.storeClient.isNil()
+      not kernel.discovery.rendezvous.isNil()
 
   asynctest "The store client reads a full page of the configured message size":
     var conf = defaultTestWakuConf()
     conf.maxMessageSizeBytes = 1024 * 1024
 
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
-    check node.wakuStoreClient.maxResponseSize == maxQueryResponseSize(1024 * 1024)
+    check kernel.protocols.storeClient.maxResponseSize ==
+      maxQueryResponseSize(1024 * 1024)
 
   asynctest "Set up a node with Store enabled":
     var confBuilder = defaultTestWakuConfBuilder()
@@ -76,13 +81,13 @@ suite "Node Factory":
     confBuilder.storeServiceConf.withDbUrl("sqlite://store.sqlite3")
     let conf = confBuilder.build().value
 
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     check:
-      not node.isNil()
-      not node.wakuStore.isNil()
-      not node.wakuArchive.isNil()
+      not kernel.isNil()
+      not kernel.protocols.store.isNil()
+      not kernel.protocols.archive.isNil()
 
   asynctest "The command line default rate limits reach the mounted protocols":
     # Given the configuration of a binary started without --rate-limit
@@ -90,14 +95,14 @@ suite "Node Factory":
         raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then each protocol is mounted with the limit the command line assigns
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      filterLimit = kernel.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = kernel.protocols.lightPush.requestRateLimiter.setting
+      peerExchangeLimit = kernel.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -112,14 +117,14 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then only lightpush changes, filter and peer exchange keep their defaults
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      filterLimit = kernel.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = kernel.protocols.lightPush.requestRateLimiter.setting
+      peerExchangeLimit = kernel.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -134,14 +139,14 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then every protocol takes the global limit
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      filterLimit = kernel.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = kernel.protocols.lightPush.requestRateLimiter.setting
+      peerExchangeLimit = kernel.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -156,14 +161,14 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then filter, lightpush and peer exchange keep their defaults
     let
-      filterLimit = node.wakuFilter.peerRequestRateLimiter.setting
-      lightPushLimit = node.wakuLightPush.requestRateLimiter.setting
-      peerExchangeLimit = node.wakuPeerExchange.requestRateLimiter.setting
+      filterLimit = kernel.protocols.filter.peerRequestRateLimiter.setting
+      lightPushLimit = kernel.protocols.lightPush.requestRateLimiter.setting
+      peerExchangeLimit = kernel.discovery.peerExchange.requestRateLimiter.setting
 
     check:
       filterLimit == Opt.some((volume: 100, period: 1.seconds))
@@ -176,18 +181,18 @@ suite "Node Factory":
     cliConf.tcpPort = Port(0)
     let conf = cliConf.toWakuConf().valueOr:
       raiseAssert error
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # And a filter client
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(kernel.start(), client.start())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(kernel.stop(), client.stop())
     await client.mountFilterClient()
-    let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
+    let serverRemotePeerInfo = kernel.switch.peerInfo.toRemotePeerInfo()
 
     # When the client sends 31 subscribes in a row
     var subscribeResults: seq[FilterSubscribeResult]
@@ -208,18 +213,18 @@ suite "Node Factory":
     cliConf.rateLimits = @["lightpush:100/1s"]
     let conf = cliConf.toWakuConf().valueOr:
       raiseAssert error
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # And a filter client
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(kernel.start(), client.start())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(kernel.stop(), client.stop())
     await client.mountFilterClient()
-    let serverRemotePeerInfo = node.switch.peerInfo.toRemotePeerInfo()
+    let serverRemotePeerInfo = kernel.switch.peerInfo.toRemotePeerInfo()
 
     # When the client sends 31 subscribes in a row
     var subscribeResults: seq[FilterSubscribeResult]
@@ -244,12 +249,12 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then that peer holds the store service slot
     check:
-      node.peerManager.serviceSlots[WakuStoreCodec].peerId == storePeerId
+      kernel.peerManager.serviceSlots[WakuStoreCodec].peerId == storePeerId
       servicePeerGauge(WakuStoreCodec) == 1
 
   asynctest "The storenode command line option fills the store sync service slots":
@@ -266,13 +271,13 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then that peer holds the reconciliation and transfer service slots
     check:
-      node.peerManager.serviceSlots[WakuReconciliationCodec].peerId == storePeerId
-      node.peerManager.serviceSlots[WakuTransferCodec].peerId == storePeerId
+      kernel.peerManager.serviceSlots[WakuReconciliationCodec].peerId == storePeerId
+      kernel.peerManager.serviceSlots[WakuTransferCodec].peerId == storePeerId
 
   asynctest "The filternode command line option fills the filter service slot":
     # Given the configuration of a binary started with --filternode
@@ -285,12 +290,12 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then that peer holds the filter service slot
     check:
-      node.peerManager.serviceSlots[WakuFilterSubscribeCodec].peerId == filterPeerId
+      kernel.peerManager.serviceSlots[WakuFilterSubscribeCodec].peerId == filterPeerId
       servicePeerGauge(WakuFilterSubscribeCodec) == 1
 
   asynctest "The lightpushnode command line option fills the lightpush service slot":
@@ -304,12 +309,12 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
 
     # Then that peer holds the lightpush service slot
     check:
-      node.peerManager.serviceSlots[WakuLightPushCodec].peerId == lightPushPeerId
+      kernel.peerManager.serviceSlots[WakuLightPushCodec].peerId == lightPushPeerId
       servicePeerGauge(WakuLightPushCodec) == 1
 
   asynctest "The peer-exchange-node command line option fills the peer exchange service slot and fetches its peers at start":
@@ -339,18 +344,19 @@ suite "Node Factory":
       raiseAssert error
 
     # When the node is set up and started
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
-    let startResult = await startNode(node, conf)
+    let startResult = await startNode(kernel, conf)
     defer:
-      await node.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     # Then the responder holds the peer exchange service slot, and the peer it discovered is in the peer store
     check:
       startResult.isOk()
-      node.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId ==
+      kernel.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId ==
         responder.peerInfo.peerId
-      node.peerManager.switch.peerStore.peers.anyIt(
+      kernel.peerManager.switch.peerStore.peers.anyIt(
         it.peerId == discoveredPeer.peerId and it.origin == PeerExchange
       )
 
@@ -362,27 +368,27 @@ suite "Node Factory":
     let conf = confBuilder.build().valueOr:
       raiseAssert error
 
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
     let client = newTestWakuNode(generateSecp256k1Key(), clusterId = conf.clusterId)
     client.mountMetadata(conf.clusterId, @[]).isOkOr:
       raiseAssert error
-    await allFutures(node.start(), client.start())
+    await allFutures(kernel.start(), client.start())
     defer:
-      await allFutures(node.stop(), client.stop())
+      await allFutures(kernel.stop(), client.stop())
 
     # When a peer asks for its metadata
     let conn = (
       await client.peerManager.dialPeer(
-        node.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
+        kernel.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await client.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await client.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     # Then both the ENR and the metadata advertise the content topic's shard
-    let enrShards = node.enr.toTyped().get().relaySharding().get()
+    let enrShards = kernel.enr.toTyped().get().relaySharding().get()
     check:
       enrShards.shardIds == @[0'u16, 3'u16]
       metadata.shards == @[0'u32, 3'u32]
@@ -395,18 +401,18 @@ suite "Node Factory":
     let conf = confBuilder.build().valueOr:
       raiseAssert error
 
-    let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+    let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
       raiseAssert error
     let listenShard = $RelayShard(clusterId: conf.clusterId, shardId: 64)
 
-    check node.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
+    check kernel.subscriptionManager.extraListenShards == @[PubsubTopic(listenShard)]
 
-    node.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
+    kernel.subscriptionManager.subscribe(ContentTopic("/toychat/2/huilong/proto")).isOkOr:
       raiseAssert error
     check:
       PubsubTopic($RelayShard(clusterId: conf.clusterId, shardId: 32)) in
-        node.subscriptionManager.shards
-      PubsubTopic(listenShard) in node.subscriptionManager.shards
+        kernel.subscriptionManager.shards
+      PubsubTopic(listenShard) in kernel.subscriptionManager.shards
 
   test "Extra listen shards need auto-sharding":
     var confBuilder = defaultTestWakuConfBuilder()
@@ -459,41 +465,42 @@ asynctest "Set up a node with Filter enabled":
   confBuilder.filterServiceConf.withEnabled(true)
   let conf = confBuilder.build().value
 
-  let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+  let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
     raiseAssert error
 
   check:
-    not node.isNil()
-    not node.wakuFilter.isNil()
+    not kernel.isNil()
+    not kernel.protocols.filter.isNil()
   echo "TEST END"
 
 asynctest "Start a node based on default test configuration":
   let conf = defaultTestWakuConf()
 
-  let node = (await setupNode(conf, relay = Relay.new())).valueOr:
+  let kernel = (await setupNode(conf, relay = Relay.new())).valueOr:
     raiseAssert error
 
-  assert not node.isNil(), "Node can't be nil"
+  assert not kernel.isNil(), "Node can't be nil"
 
   let startRes = catch:
-    (await startNode(node, conf))
+    (await startNode(kernel, conf))
 
   assert not startRes.isErr(), "Exception starting node"
   assert startRes.get().isOk(), "Error starting node " & startRes.get().error
 
   check:
-    node.started == true
+    kernel.started == true
 
   # Default conf has p2pTcpPort=0, so the OS must have assigned a real port.
   var hasNonZeroTcp = false
-  for a in node.switch.peerInfo.listenAddrs:
+  for a in kernel.switch.peerInfo.listenAddrs:
     let s = $a
     if ("/tcp/" in s) and not ("/tcp/0" in s):
       hasNonZeroTcp = true
   check hasNonZeroTcp
 
   ## Cleanup
-  await node.stop()
+  (await kernel.stop()).isOkOr:
+    raiseAssert "failed to stop kernel: " & error
 
 suite "Auto-port retry":
   asynctest "metrics binds on free TCP port, fails on taken":
@@ -531,10 +538,12 @@ suite "Auto-port retry":
       discard
 
     let nodeKey = generateSecp256k1Key()
-    let node = newTestWakuNode(nodeKey)
-    await node.start()
+    let kernel = newTestWakuNode(nodeKey)
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await kernel.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let takenUdp =
       newDatagramTransport(dummyCb, local = initTAddress("0.0.0.0", Port(0)))
@@ -556,22 +565,22 @@ suite "Auto-port retry":
       b.build().value.get()
 
     let failRes = await setupAndStartDiscv5(
-      node.enr,
-      node.peerManager,
+      kernel.enr,
+      kernel.peerManager,
       buildDiscv5Conf(takenPort),
       @[],
-      node.rng,
+      kernel.rng,
       nodeKey,
       parseIpAddress("0.0.0.0"),
     )
     check failRes.isErr()
 
     let okRes = await setupAndStartDiscv5(
-      node.enr,
-      node.peerManager,
+      kernel.enr,
+      kernel.peerManager,
       buildDiscv5Conf(freePort),
       @[],
-      node.rng,
+      kernel.rng,
       nodeKey,
       parseIpAddress("0.0.0.0"),
     )

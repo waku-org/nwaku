@@ -10,14 +10,13 @@ import
   libp2p/crypto/crypto
 import rest/server, rest/kernel_api/debug/handlers as debug_rest_interface
 import
-  logos_delivery/waku/[waku_node, node/waku_node as waku_node2],
+  logos_delivery/kernel/[api/kernel_lifecycle, kernel as waku_node2],
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../testlib/rest_requests
-
 const OriginHeader = "Origin"
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -55,9 +54,10 @@ proc checkResponse(
 suite "Waku v2 REST API CORS Handling":
   asyncTest "AllowedOrigin matches":
     # Given
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -73,7 +73,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -114,13 +114,15 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "AllowedOrigin reject":
     # Given
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -136,7 +138,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -181,13 +183,15 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "AllowedOrigin allmatches":
     # Given
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -197,7 +201,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -238,13 +242,15 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "No origin goes through":
     # Given
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -260,7 +266,7 @@ suite "Waku v2 REST API CORS Handling":
       .tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    installDebugApiHandlers(restServer.router, node)
+    installDebugApiHandlers(restServer.router, kernel)
     restServer.start()
 
     let srvAddr = restServer.localAddress()
@@ -272,4 +278,5 @@ suite "Waku v2 REST API CORS Handling":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

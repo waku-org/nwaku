@@ -9,11 +9,15 @@ import
   libp2p/protocols/pubsub/gossipsub
 
 import
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_node,
+  logos_delivery/kernel/[
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    subscription_manager,
+    api/kernel_lifecycle,
+  ],
   ./testlib/wakucore,
   ./testlib/wakunode
-
 procSuite "Relay (GossipSub) Peer Exchange":
   asyncTest "Mount relay without peer exchange handler":
     # Given two nodes
@@ -34,10 +38,10 @@ procSuite "Relay (GossipSub) Peer Exchange":
 
     # Then the relays are mounted without a handler
     check:
-      node1.wakuRelay.parameters.enablePX == false
-      node1.wakuRelay.routingRecordsHandler.len == 0
-      node2.wakuRelay.parameters.enablePX == false
-      node2.wakuRelay.routingRecordsHandler.len == 0
+      node1.protocols.relay.parameters.enablePX == false
+      node1.protocols.relay.routingRecordsHandler.len == 0
+      node2.protocols.relay.parameters.enablePX == false
+      node2.protocols.relay.routingRecordsHandler.len == 0
 
   asyncTest "Mount relay with peer exchange handler":
     ## Given three nodes
@@ -87,7 +91,7 @@ procSuite "Relay (GossipSub) Peer Exchange":
       assert false, "Failed to mount relay"
 
     # Ensure that node1 prunes all peers after the first connection
-    node1.wakuRelay.parameters.dHigh = 1
+    node1.protocols.relay.parameters.dHigh = 1
 
     await allFutures([node1.start(), node2.start(), node3.start()])
 

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, parseutils],
+  std/[typetraits],
   results,
   stew/[byteutils, base10],
   chronicles,
@@ -11,8 +11,7 @@ import
   json_serialization/std/net,
   json_serialization/std/sets,
   presto/common
-import logos_delivery/waku/common/base64
-
+import logos_delivery/kernel/[base/base64]
 logScope:
   topics = "waku node rest"
 

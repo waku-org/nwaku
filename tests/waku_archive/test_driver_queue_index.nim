@@ -2,9 +2,7 @@
 
 import std/random, testutils/unittests
 import
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/waku_archive/driver/queue_driver/index
-
+  logos_delivery/kernel/[base/time, base/message, archive/driver/queue_driver/index]
 var rng = initRand()
 
 ## Helpers

@@ -5,15 +5,33 @@ import chronos, results, testutils/unittests
 import libp2p/[crypto/crypto, peerinfo, switch]
 import libp2p_mix/curve25519
 import
-  logos_delivery/waku/[waku_core, waku_node, waku_mix],
-  logos_delivery/waku/net/bound_ports,
+  logos_delivery/kernel/[
+    kernel,
+    subscription_manager,
+    api/relay,
+    protocols/protocols,
+    net/bound_ports,
+    api/mix,
+    api/kernel_lifecycle,
+    protocols/mix/protocol,
+    api/publish,
+    peer_manager/peer_manager,
+    api/lightpush,
+    protocols/lightpush/common,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    config/conf,
+  ],
   ./[wakucore, wakunode, testasync]
 
 type MixSizeNetwork* = object
-  nodes*: seq[WakuNode]
+  nodes*: seq[Kernel]
   infos*: seq[MixNodePubInfo]
 
-proc exit*(net: MixSizeNetwork): WakuNode =
+proc exit*(net: MixSizeNetwork): Kernel =
   net.nodes[0]
 
 proc meshFormed(net: MixSizeNetwork): bool =
@@ -36,7 +54,7 @@ proc startMixNodes*(): Future[MixSizeNetwork] {.async.} =
     node.mountMetadata(uint32(DefaultClusterId), @[0'u16]).expect("mount metadata")
     let keys = generateKeyPair().expect("mix keys")
     (await node.mountMix(DefaultClusterId, keys.privateKey, @[])).expect("mount mix")
-    await node.start()
+    (await node.start()).expect("start")
     net.nodes.add(node)
     net.infos.add(
       MixNodePubInfo(
@@ -46,7 +64,7 @@ proc startMixNodes*(): Future[MixSizeNetwork] {.async.} =
       )
     )
   for i, node in net.nodes:
-    node.wakuMix.addBootNodes(
+    node.protocols.mix.addBootNodes(
       (0 ..< net.nodes.len).toSeq().filterIt(it != i).mapIt(net.infos[it])
     )
     proc receive(topic: PubsubTopic, message: WakuMessage) {.async.} =
@@ -64,8 +82,8 @@ proc startMixNodes*(): Future[MixSizeNetwork] {.async.} =
     net.meshFormed()
   return net
 
-proc stop*(net: MixSizeNetwork, senders: seq[WakuNode]) {.async.} =
+proc stop*(net: MixSizeNetwork, senders: seq[Kernel]) {.async.} =
   for node in senders:
-    await node.stop()
+    (await node.stop()).expect("stop")
   for node in net.nodes:
-    await node.stop()
+    (await node.stop()).expect("stop")

@@ -13,7 +13,7 @@
 
 import results, chronos
 
-import ./rate_limit_config, ./quota_source
+import logos_delivery/api/conf/rate_limit_config, ./quota_source
 
 export rate_limit_config, quota_source
 

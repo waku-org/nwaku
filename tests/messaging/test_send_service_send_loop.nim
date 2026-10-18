@@ -1,16 +1,18 @@
 {.used.}
 
 import std/[importutils, sequtils, tables]
-import chronos, chronicles, testutils/unittests, results, stew/byteutils
+import chronos, testutils/unittests, results, stew/byteutils
 
 import
-  logos_delivery/waku/waku,
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/node/waku_node,
-  logos_delivery/waku/rln/[rln_api, rln_plugin],
+  logos_delivery/kernel/api/kernel_lifecycle,
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
+  logos_delivery/kernel/kernel,
+  logos_delivery/kernel/rln/[rln_api, rln_plugin],
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
-  logos_delivery/waku/factory/waku_conf,
+  logos_delivery/kernel/config/conf,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
   logos_delivery/messaging/delivery_service/send_service/
     [send_service {.all.}, send_processor, delivery_task]
@@ -238,16 +240,17 @@ proc fixedEpochQuota(epoch: ref uint64, userMessageLimit: uint64): QuotaProvider
     )
 
 suite "SendService - deliver":
-  var waku {.threadvar.}: Waku
+  var kernel {.threadvar.}: Kernel
   var log {.threadvar.}: OutcomeLog
 
   asyncSetup:
-    waku = (await Waku.new(testConf())).expect("Waku.new")
-    log = newOutcomeLog(waku.brokerCtx)
+    kernel = (await Kernel.new(testConf())).expect("Kernel.new")
+    log = newOutcomeLog(kernel.brokerCtx)
 
   asyncTeardown:
     await log.teardown()
-    discard await waku.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   proc buildTask(
       id: string, timestamp: Timestamp = getNowInNanosecondTime(), ephemeral = false
@@ -278,7 +281,7 @@ suite "SendService - deliver":
     return SendService
       .new(
         false,
-        waku,
+        kernel,
         manager,
         processor,
         sendQueueCapacity = sendQueueCapacity,
@@ -300,7 +303,7 @@ suite "SendService - deliver":
       )
       .expect("RateLimitManager.new")
     return SendService
-      .new(false, waku, manager, processor, retryInterval = interval)
+      .new(false, kernel, manager, processor, retryInterval = interval)
       .expect("SendService.new")
 
   proc names(prefix: string, count: int): seq[string] =
@@ -365,7 +368,7 @@ suite "SendService - deliver":
     let service = SendService
       .new(
         false,
-        waku,
+        kernel,
         RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new"),
         processor,
         retryInterval = FastRetryInterval,
@@ -394,7 +397,8 @@ suite "SendService - deliver":
       await reply
       return ok(@[4'u8, 5, 6])
 
-    waku.node.rlnPlugin = Opt.some(RlnPlugin(name: "fake", generateProof: generate))
+    kernel.protocols.rlnPlugin =
+      Opt.some(RlnPlugin(name: "fake", generateProof: generate))
     let processor = newScripted()
     let service = newService(processor)
     let proven = processor.admitted(buildTask("proven-retry"))
@@ -450,7 +454,7 @@ suite "SendService - deliver":
       .expect("RateLimitManager.new")
     let processor = newScripted()
     let service = SendService
-      .new(false, waku, manager, processor, retryInterval = chronos.minutes(10))
+      .new(false, kernel, manager, processor, retryInterval = chronos.minutes(10))
       .expect("SendService.new")
 
     let first = buildTask("in-budget")
@@ -610,7 +614,7 @@ suite "SendService - deliver":
     let results = new seq[Result[RequestId, string]]
     let listener = MessagePropagatedEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(event: MessagePropagatedEvent) {.async: (raises: []).} =
           if event.requestId == first.requestId:
             results[].add(service.enqueue(second))
@@ -618,7 +622,7 @@ suite "SendService - deliver":
       )
       .expect("listen")
     defer:
-      await MessagePropagatedEvent.dropListener(waku.brokerCtx, listener)
+      await MessagePropagatedEvent.dropListener(kernel.brokerCtx, listener)
 
     check service.enqueue(first).isOk()
     service.startSendService()
@@ -640,14 +644,14 @@ suite "SendService - deliver":
       .new(RateLimitConfig(enabled: true, epochPeriodSec: 600, messagesPerEpoch: 0))
       .expect("RateLimitManager.new")
     let service = SendService
-      .new(false, waku, manager, FakePropagatingProcessor())
+      .new(false, kernel, manager, FakePropagatingProcessor())
       .expect("SendService.new")
     let hook = SendOnErrorHook(
       limit: chronos.seconds(1), done: newFuture[void]("send-on-error-done")
     )
     let listener = MessageErrorEvent
       .listen(
-        waku.brokerCtx,
+        kernel.brokerCtx,
         proc(event: MessageErrorEvent) {.async: (raises: []).} =
           if hook.done.finished():
             return
@@ -668,7 +672,7 @@ suite "SendService - deliver":
       )
       .expect("listen")
     defer:
-      await MessageErrorEvent.dropListener(waku.brokerCtx, listener)
+      await MessageErrorEvent.dropListener(kernel.brokerCtx, listener)
 
     check service.enqueue(buildTask("on-error-start", ephemeral = true)).isOk()
     service.startSendService()

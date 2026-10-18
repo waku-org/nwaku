@@ -12,12 +12,24 @@ import
   libp2p/[peerid, peerinfo, switch],
   libp2p_mix/curve25519
 import
-  logos_delivery/waku/[waku, waku_core, waku_node, waku_mix],
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/node/waku_node/lightpush,
-  logos_delivery/waku/waku_lightpush/common,
-  logos_delivery/waku/api/publish,
-  logos_delivery/waku/factory/waku_conf,
+  logos_delivery/kernel/[
+    kernel,
+    protocols/protocols,
+    net/bound_ports,
+    api/mix,
+    api/kernel_lifecycle,
+    protocols/mix/protocol,
+    api/publish,
+    peer_manager/peer_manager,
+    api/lightpush,
+    protocols/lightpush/common,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    config/conf,
+  ],
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
   logos_delivery/messaging/rate_limit_manager/rate_limit_manager,
@@ -31,7 +43,7 @@ proc senderConf(): WakuConf =
   return nodeConf.toWakuConf().valueOr:
     raiseAssert error
 
-proc newService(waku: Waku, level: AnonymityLevel): SendService =
+proc newService(waku: Kernel, level: AnonymityLevel): SendService =
   ## Each accepted task runs through the scheduler.
   let manager =
     RateLimitManager.new(DefaultRateLimitConfig).expect("RateLimitManager.new")
@@ -63,18 +75,18 @@ suite "Waku Mix - the size of a mix send":
     let net = await startMixNodes()
     defer:
       await net.stop(@[])
-    var waku: Waku
+    var waku: Kernel
     lockNewGlobalBrokerContext:
-      waku = (await Waku.new(senderConf())).expect("Waku.new")
+      waku = (await Kernel.new(senderConf())).expect("Kernel.new")
       let keys = generateKeyPair().expect("mix key pair")
-      (await waku.node.mountMix(DefaultClusterId, keys.privateKey, net.infos)).isOkOr:
+      (await waku.mountMix(DefaultClusterId, keys.privateKey, net.infos)).isOkOr:
         raiseAssert "mountMix: " & $error
       (await waku.start()).expect("start")
     defer:
       discard await waku.stop()
     for node in net.nodes:
-      await waku.node.switch.connect(node.peerInfo.peerId, node.peerInfo.addrs)
-    waku.node.peerManager.addServicePeer(
+      await waku.switch.connect(node.peerInfo.peerId, node.peerInfo.addrs)
+    waku.peerManager.addServicePeer(
       net.exit.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
     )
     checkUntilTimeout:

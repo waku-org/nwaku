@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[json, sequtils, strformat, strutils, tempfiles, osproc, uri],
+  std/[json, sequtils, strformat, strutils, osproc, uri],
   stew/byteutils,
   testutils/unittests,
   presto,
@@ -19,16 +19,25 @@ import
   rest/kernel_api/relay/handlers as relay_rest_interface,
   rest/kernel_api/relay/client as relay_rest_client
 import
-  logos_delivery/waku/[
-    common/base64,
-    waku_core,
-    waku_node,
-    waku_relay,
-    rln,
+  logos_delivery/kernel/[
+    base/base64,
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    api/kernel_lifecycle,
+    protocols/relay/protocol,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
     rln/types as rln_types,
-    waku_archive,
-    waku_archive/archive_metrics,
+    archive/archive,
+    archive/driver,
+    archive/archive_metrics,
   ],
   ../testlib/wakucore,
   ../testlib/wakunode,
@@ -36,9 +45,9 @@ import
   ../testlib/rest_requests,
   ../resources/payloads,
   ../waku_archive/archive_utils,
-  ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
-
-proc testWakuNode(): WakuNode =
+  ../waku_rln_relay/rln/waku_rln_relay_utils,
+  ../waku_rln_relay/utils_onchain
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -47,11 +56,11 @@ proc testWakuNode(): WakuNode =
 
   newTestWakuNode(privkey, bindIp, port, Opt.some(extIp), Opt.some(port))
 
-proc rejectFirstMessageAsRlnInvalid(node: WakuNode) =
+proc rejectFirstMessageAsRlnInvalid(node: Kernel) =
   ## Registers a relay validator that rejects the first message it sees with
   ## the RLN validator's error marker, then accepts everything.
   var rejected = false
-  node.wakuRelay.addValidator(
+  node.protocols.relay.addValidator(
     proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
     ): Future[pubsub.ValidationResult] {.async.} =
@@ -67,7 +76,7 @@ type StubRlnCalls = ref object
   generateCalls: int
   refreshCalls: int
 
-proc mountStubRln(node: WakuNode, validProof: seq[byte]): StubRlnCalls =
+proc mountStubRln(node: Kernel, validProof: seq[byte]): StubRlnCalls =
   ## Mounts an RLN backend that accepts only `validProof` and cannot generate
   ## proofs, like a node without a usable membership.
   let calls = StubRlnCalls()
@@ -111,7 +120,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of pubsub topics - POST /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -165,16 +175,18 @@ suite "Waku v2 Rest API - Relay":
       cache.isPubsubSubscribed($shard2)
 
     check:
-      toSeq(node.wakuRelay.subscribedTopics).len == shards.len
+      toSeq(node.protocols.relay.subscribedTopics).len == shards.len
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Unsubscribe a node from an array of pubsub topics - DELETE /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let
       shard0 = RelayShard(clusterId: DefaultClusterId, shardId: 0)
@@ -224,24 +236,26 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       not cache.isPubsubSubscribed($shard0)
-      not node.wakuRelay.isSubscribed($shard0)
+      not node.protocols.relay.isSubscribed($shard0)
       not cache.isPubsubSubscribed($shard1)
-      not node.wakuRelay.isSubscribed($shard1)
+      not node.protocols.relay.isSubscribed($shard1)
       not cache.isPubsubSubscribed($shard2)
-      not node.wakuRelay.isSubscribed($shard2)
+      not node.protocols.relay.isSubscribed($shard2)
       cache.isPubsubSubscribed($shard3)
-      node.wakuRelay.isSubscribed($shard3)
+      node.protocols.relay.isSubscribed($shard3)
       not cache.isPubsubSubscribed($shard4)
-      not node.wakuRelay.isSubscribed($shard4)
+      not node.protocols.relay.isSubscribed($shard4)
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Get the latest messages for a pubsub topic - GET /relay/v1/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -311,7 +325,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message to a pubsub topic - POST /relay/v1/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
@@ -322,7 +337,8 @@ suite "Waku v2 Rest API - Relay":
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
     let idCredentials = generateCredentials()
@@ -361,7 +377,7 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to subscribe to pubsub topic"
 
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.relay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -381,14 +397,16 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message to a not subscribed pubsub topic - POST /relay/v1/messages/{topic}":
     # Given
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # RPC server setup
     var restPort = Port(0)
@@ -404,11 +422,12 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    check node.wakuRelay.subscribedTopics.toSeq().len == 0
+    check node.protocols.relay.subscribedTopics.toSeq().len == 0
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -434,9 +453,11 @@ suite "Waku v2 Rest API - Relay":
     check:
       (await node.mountRelay()).isOk()
       node.mountArchive(driver).isOk()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restServer = WakuRestServerRef.init(parseIpAddress("0.0.0.0"), Port(0)).tryGet()
     installRelayApiHandlers(restServer.router, node, MessageCache.init())
@@ -477,7 +498,8 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of content topics - POST /relay/v1/auto/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
@@ -516,17 +538,19 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       # Node should be subscribed to all shards
-      node.wakuRelay.subscribedTopics ==
+      node.protocols.relay.subscribedTopics ==
         @["/waku/2/rs/1/5", "/waku/2/rs/1/7", "/waku/2/rs/1/2"]
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Unsubscribe a node from an array of content topics - DELETE /relay/v1/auto/subscriptions":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check node.mountAutoSharding(1, 8).isOk
@@ -562,7 +586,7 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
-      node.wakuRelay.subscribedTopics.toSeq().len == 1
+      node.protocols.relay.subscribedTopics.toSeq().len == 1
 
     response = await client.relayDeleteAutoSubscriptionsV1(contentTopics)
 
@@ -578,7 +602,7 @@ suite "Waku v2 Rest API - Relay":
       not cache.isContentSubscribed(contentTopics[2])
       not cache.isContentSubscribed(contentTopics[3])
       cache.isContentSubscribed("/waku/2/default-contentY/proto")
-      node.wakuRelay.subscribedTopics.toSeq().len == 0
+      node.protocols.relay.subscribedTopics.toSeq().len == 0
 
     # When unsubscribing from a content topic never subscribed
     response = await client.relayDeleteAutoSubscriptionsV1(
@@ -594,7 +618,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Unsubscribing one content topic keeps the other content topics on its shard - DELETE /relay/v1/auto/subscriptions":
     # Given two relay nodes with autosharding over 8 shards, each behind its own REST server
@@ -602,19 +627,23 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -686,7 +715,7 @@ suite "Waku v2 Rest API - Relay":
     let stillReceived = await receiverClient.waitForRelayAutoMessages(presenceTopic, 2)
     check:
       deleteResponse.status == 200
-      receiver.wakuRelay.isSubscribed(shard)
+      receiver.protocols.relay.isSubscribed(shard)
       publisher.hasGossipsubPeer(shard, receiver.peerInfo.peerId)
       publishResponse.status == 200
       stillReceived.mapIt(it.payload).contains(stillDelivered.payload)
@@ -698,7 +727,7 @@ suite "Waku v2 Rest API - Relay":
       )
     )
     check:
-      receiver.wakuRelay.isSubscribed(otherShard)
+      receiver.protocols.relay.isSubscribed(otherShard)
       otherAppPublish.status == 200
 
   asyncTest "Subscribing again after unsubscribing another content topic keeps the shard - POST /relay/v1/auto/subscriptions":
@@ -707,19 +736,23 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -769,7 +802,7 @@ suite "Waku v2 Rest API - Relay":
       deleteResponse.status == 200
       repostResponse.status == 200
       rejoinResponse.status == 200
-      receiver.wakuRelay.isSubscribed(shard)
+      receiver.protocols.relay.isSubscribed(shard)
       deliveredPublish.status == 200
       received.mapIt(it.payload) == @[delivered.payload]
 
@@ -779,19 +812,23 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(1, 8).isOk
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(1, 8).isOk
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -835,14 +872,15 @@ suite "Waku v2 Rest API - Relay":
     let received = await receiverClient.waitForRelayAutoMessages(chatTopic, 1)
     check:
       deleteResponse.status == 200
-      receiver.wakuRelay.isSubscribed(shard)
+      receiver.protocols.relay.isSubscribed(shard)
       publishResponse.status == 200
       received.mapIt(it.payload) == @[delivered.payload]
 
   asyncTest "Get the latest messages for a content topic - GET /relay/v1/auto/messages/{topic}":
     # Given
     let node = testWakuNode()
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     require node.mountAutoSharding(1, 8).isOk
@@ -901,12 +939,13 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message to a content topic - POST /relay/v1/auto/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
     # Given
-    var meshNode: WakuNode
+    var meshNode: Kernel
     lockNewGlobalBrokerContext:
       meshNode = testWakuNode()
       (await meshNode.mountRelay()).isOkOr:
@@ -917,7 +956,8 @@ suite "Waku v2 Rest API - Relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       discard await meshNode.mountOnchainRln(wakuRlnConfig)
-      await meshNode.start()
+      (await meshNode.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       const testPubsubTopic = PubsubTopic("/waku/2/rs/1/0")
       proc dummyHandler(
           topic: PubsubTopic, msg: WakuMessage
@@ -927,7 +967,7 @@ suite "Waku v2 Rest API - Relay":
       meshNode.subscribe((kind: ContentSub, topic: DefaultContentTopic), dummyHandler).isOkOr:
         raiseAssert "Failed to subscribe meshNode: " & error
 
-    var node: WakuNode
+    var node: Kernel
     var rln: RlnEvm
     lockNewGlobalBrokerContext:
       node = testWakuNode()
@@ -939,7 +979,8 @@ suite "Waku v2 Rest API - Relay":
         getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
 
       rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.start()
+      (await node.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await node.connectToNodes(@[meshNode.peerInfo.toRemotePeerInfo()])
 
     # Registration is mandatory before sending messages with rln-relay
@@ -978,7 +1019,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: ContentSub, topic: DefaultContentTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to content topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.relay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostAutoMessagesV1(
@@ -997,7 +1038,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message to an invalid content topic - POST /relay/v1/auto/messages/{topic}":
     ## "Relay API: publish and subscribe/unsubscribe":
@@ -1009,7 +1051,8 @@ suite "Waku v2 Rest API - Relay":
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1059,7 +1102,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message larger than maximum size - POST /relay/v1/messages/{topic}":
     # Given
@@ -1068,7 +1112,8 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1107,7 +1152,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.relay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -1129,7 +1174,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message larger than maximum size - POST /relay/v1/auto/messages/{topic}":
     # Given
@@ -1140,7 +1186,8 @@ suite "Waku v2 Rest API - Relay":
 
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1181,7 +1228,7 @@ suite "Waku v2 Rest API - Relay":
     ).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.relay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostAutoMessagesV1(
@@ -1202,7 +1249,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Post a message timestamped outside the RLN bound returns 400 - POST /relay/v1/messages/{topic}":
     ## Proof generation refuses a timestamp further from the clock than the
@@ -1214,7 +1262,8 @@ suite "Waku v2 Rest API - Relay":
       assert false, "Failed to mount relay"
     let wakuRlnConfig = getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Registration is mandatory before sending messages with rln-relay
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1253,7 +1302,7 @@ suite "Waku v2 Rest API - Relay":
     node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), simpleHandler).isOkOr:
       assert false, "Failed to subscribe to pubsub topic: " & $error
     require:
-      toSeq(node.wakuRelay.subscribedTopics).len == 1
+      toSeq(node.protocols.relay.subscribedTopics).len == 1
 
     # When
     let response = await client.relayPostMessagesV1(
@@ -1276,7 +1325,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RLN rejection returns 503 and schedules a refresh - POST /relay/v1/messages/{topic}":
     ## When the local validator rejects the published message as RLN-invalid,
@@ -1295,7 +1345,8 @@ suite "Waku v2 Rest API - Relay":
       userMessageLimit = 20,
     )
     let rln = await node.mountOnchainRln(wakuRlnConfig)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
     let idCredentials = generateCredentials()
@@ -1365,7 +1416,8 @@ suite "Waku v2 Rest API - Relay":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RLN rejection returns 503 and schedules a refresh - POST /relay/v1/auto/messages/{topic}":
     ## Same fail-fast behavior as the static-sharding handler, exercised via
@@ -1378,7 +1430,8 @@ suite "Waku v2 Rest API - Relay":
     (await meshNode.mountRelay()).isOkOr:
       assert false, "Failed to mount relay on mesh node"
     require meshNode.mountAutoSharding(1, 8).isOk
-    await meshNode.start()
+    (await meshNode.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     let meshHandler = proc(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
@@ -1386,7 +1439,7 @@ suite "Waku v2 Rest API - Relay":
     meshNode.subscribe((kind: ContentSub, topic: DefaultContentTopic), meshHandler).isOkOr:
       assert false, "Failed to subscribe mesh node"
 
-    var node: WakuNode
+    var node: Kernel
     var rln: RlnEvm
     lockNewGlobalBrokerContext:
       node = testWakuNode()
@@ -1401,7 +1454,8 @@ suite "Waku v2 Rest API - Relay":
         userMessageLimit = 20,
       )
       rln = await node.mountOnchainRln(wakuRlnConfig)
-      await node.start()
+      (await node.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       await node.connectToNodes(@[meshNode.peerInfo.toRemotePeerInfo()])
 
     let manager = cast[RlnEvmGroupManager](rln.groupManager)
@@ -1480,7 +1534,8 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let rlnCalls = node.mountStubRln(validProof = clientProof)
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -1492,7 +1547,8 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let simpleHandler = proc(
@@ -1527,7 +1583,8 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     let rlnCalls = node.mountStubRln(validProof = @[1'u8, 2, 3])
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -1539,7 +1596,8 @@ suite "Waku v2 Rest API - Relay":
     defer:
       await restServer.stop()
       await restServer.closeWait()
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let simpleHandler = proc(
@@ -1573,18 +1631,22 @@ suite "Waku v2 Rest API - Relay":
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -1665,9 +1727,11 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1702,9 +1766,11 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1789,9 +1855,11 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1822,9 +1890,11 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1872,9 +1942,11 @@ suite "Waku v2 Rest API - Relay":
     )
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1896,7 +1968,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       emptyPost.status == 200
       emptyDelete.status == 200
-      toSeq(node.wakuRelay.subscribedTopics).len == 0
+      toSeq(node.protocols.relay.subscribedTopics).len == 0
 
     # When subscribing to the same topic twice
     let firstPost = await client.relayPostSubscriptionsV1(@[DefaultPubsubTopic])
@@ -1906,7 +1978,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       firstPost.status == 200
       secondPost.status == 200
-      toSeq(node.wakuRelay.subscribedTopics) == @[DefaultPubsubTopic]
+      toSeq(node.protocols.relay.subscribedTopics) == @[DefaultPubsubTopic]
 
     # When unsubscribing with an invalid topic in the list
     let invalidTopic = "/test/2/this/is/a/content/topic/1"
@@ -1919,7 +1991,7 @@ suite "Waku v2 Rest API - Relay":
       $invalidDelete.contentType == $MIMETYPE_TEXT
       invalidDelete.data ==
         "Invalid pubsub topic(s): @[\"/test/2/this/is/a/content/topic/1\"]"
-      node.wakuRelay.isSubscribed(DefaultPubsubTopic)
+      node.protocols.relay.isSubscribed(DefaultPubsubTopic)
       cache.isPubsubSubscribed(DefaultPubsubTopic)
 
     # When subscribing to a shard of another cluster
@@ -1929,7 +2001,7 @@ suite "Waku v2 Rest API - Relay":
     # Then the request is refused and the relay is not on it
     check:
       otherClusterPost.status == 400
-      not node.wakuRelay.isSubscribed(otherClusterShard)
+      not node.protocols.relay.isSubscribed(otherClusterShard)
       not cache.isPubsubSubscribed(otherClusterShard)
 
   asyncTest "A shard beyond the autosharding shard count is refused - POST /relay/v1/subscriptions":
@@ -1938,9 +2010,11 @@ suite "Waku v2 Rest API - Relay":
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check node.mountAutoSharding(DefaultClusterId, 8).isOk
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()
@@ -1963,28 +2037,32 @@ suite "Waku v2 Rest API - Relay":
     # Then shard 8 is refused and shard 7 is subscribed
     check:
       beyondResponse.status == 400
-      not node.wakuRelay.isSubscribed(beyondShard)
+      not node.protocols.relay.isSubscribed(beyondShard)
       not cache.isPubsubSubscribed(beyondShard)
       lastResponse.status == 200
-      node.wakuRelay.isSubscribed(lastShard)
+      node.protocols.relay.isSubscribed(lastShard)
 
   asyncTest "A message posted again after it is read is not returned again by the publisher nor by its relay peer - POST /relay/v1/messages/{topic}":
     # Given two relay nodes, each behind its own REST server
     let publisher = testWakuNode()
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -2046,9 +2124,11 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     (await node.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await node.stop()
+      (await node.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restServer = WakuRestServerRef.init(parseIpAddress("0.0.0.0"), Port(0)).tryGet()
     installRelayApiHandlers(restServer.router, node, MessageCache.init())
@@ -2089,19 +2169,23 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(DefaultClusterId, 8).isOk
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(DefaultClusterId, 8).isOk
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let restAddress = parseIpAddress("0.0.0.0")
     let
@@ -2157,20 +2241,22 @@ suite "Waku v2 Rest API - Relay":
     (await publisher.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     check publisher.mountAutoSharding(DefaultClusterId, 8).isOk
-    await publisher.start()
+    (await publisher.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
-
-    var receiver: WakuNode
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = testWakuNode()
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       check receiver.mountAutoSharding(DefaultClusterId, 8).isOk
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
-
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
     let restAddress = parseIpAddress("0.0.0.0")
     let
       publisherServer = WakuRestServerRef.init(restAddress, Port(0)).tryGet()

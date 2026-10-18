@@ -4,7 +4,14 @@
 import stint
 
 import
-  logos_delivery/waku/[waku_keystore/protocol_types, rln, rln/rln_evm/protocol_types]
+  logos_delivery/kernel/[
+    rln/keystore/protocol_types,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
+    rln/rln_evm/protocol_types,
+  ]
 
 func fromStrToBytesLe*(v: string): seq[byte] =
   try:

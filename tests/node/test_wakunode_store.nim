@@ -3,19 +3,25 @@
 import results, std/[sequtils, sets], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    common/paging,
-    waku_node,
-    node/peer_manager,
-    waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_archive,
+  logos_delivery/kernel/[
+    base/paging,
+    api/kernel_lifecycle,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    protocols/store/common,
+    archive/archive,
+    archive/driver,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, testutils]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/testutils
 suite "Waku Store - End to End - Sorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic
@@ -24,8 +30,8 @@ suite "Waku Store - End to End - Sorted Archive":
   var archiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
   var storeQuery {.threadvar.}: StoreQueryRequest
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var archiveDriver {.threadvar.}: ArchiveDriver
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
@@ -480,7 +486,8 @@ suite "Waku Store - End to End - Sorted Archive":
 
         await otherServer.mountStore()
 
-        await otherServer.start()
+        (await otherServer.start()).isOkOr:
+          raiseAssert "failed to start kernel: " & error
         let otherServerRemotePeerInfo = otherServer.peerInfo.toRemotePeerInfo()
 
         # When making a history query to the first server node
@@ -510,7 +517,8 @@ suite "Waku Store - End to End - Sorted Archive":
           otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
-        await otherServer.stop()
+        (await otherServer.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
 
 suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -520,8 +528,8 @@ suite "Waku Store - End to End - Unsorted Archive":
   var storeQuery {.threadvar.}: StoreQueryRequest
   var unsortedArchiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -737,8 +745,8 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
   var storeQuery {.threadvar.}: StoreQueryRequest
   var unsortedArchiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -869,8 +877,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
   var originTs {.threadvar.}: proc(offset: int): Timestamp {.gcsafe, raises: [].}
   var archiveMessages {.threadvar.}: seq[WakuMessageKeyValue]
 
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
+  var server {.threadvar.}: Kernel
+  var client {.threadvar.}: Kernel
 
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
@@ -1246,7 +1254,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       assert mountEmptyArchiveResult.isOk()
 
       await emptyServer.mountStore()
-      await emptyServer.start()
+      (await emptyServer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let emptyServerRemotePeerInfo = emptyServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with an empty archive
@@ -1257,7 +1266,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      await emptyServer.stop()
+      (await emptyServer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
@@ -1286,7 +1296,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       assert mountVoluminousArchiveResult.isOk()
 
       await voluminousServer.mountStore()
-      await voluminousServer.start()
+      (await voluminousServer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
       let voluminousServerRemotePeerInfo = voluminousServer.peerInfo.toRemotePeerInfo()
 
       # Given the following history query
@@ -1308,7 +1319,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ]
 
       # Cleanup
-      await voluminousServer.stop()
+      (await voluminousServer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10

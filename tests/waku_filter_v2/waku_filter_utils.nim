@@ -1,16 +1,17 @@
 import results, std/[tables, sets, algorithm], chronos, chronicles, os
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-    waku_core,
-    common/rate_limit/setting,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/filter/protocol,
+    protocols/filter/subscriptions,
+    protocols/filter/client,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/rate_limit/setting,
   ],
-  ../testlib/[common, wakucore]
-
+  ../testlib/common,
+  ../testlib/wakucore
 proc newTestWakuFilter*(
     switch: Switch,
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,

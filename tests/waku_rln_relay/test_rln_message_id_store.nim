@@ -3,12 +3,13 @@
 import std/times
 import chronos, results, testutils/unittests
 import brokers/[broker_context, request_broker]
-import logos_delivery/waku/persistency/persistency
-import logos_delivery/waku/rln/rln_evm/[message_id_store, nonce_manager, proof, rln_evm]
-import logos_delivery/waku/rln/rln_evm/group_manager_base
-import logos_delivery/waku/rln/rln_plugin
-import logos_delivery/waku/rln/rln_evm/types as rln_evm_types
-import logos_delivery/waku/rln/types as rln_api_types
+import logos_delivery/kernel/persistency/persistency
+import
+  logos_delivery/kernel/rln/rln_evm/[message_id_store, nonce_manager, proof, rln_evm]
+import logos_delivery/kernel/rln/rln_evm/group_manager_base
+import logos_delivery/kernel/rln/rln_plugin
+import logos_delivery/kernel/rln/rln_evm/types as rln_evm_types
+import logos_delivery/kernel/rln/types as rln_api_types
 
 const TestEpochSizeSec = 3600'u64
   ## Long epochs, so a test does not cross a boundary between computing the

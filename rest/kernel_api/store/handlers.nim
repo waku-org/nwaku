@@ -1,16 +1,21 @@
 {.push raises: [].}
 
-import std/options, std/[strformat, strutils, sugar], results
+import std/options, std/[strformat, strutils], results
 
 import chronicles, uri, json_serialization, presto/route
 import
-  logos_delivery/waku/[
-    waku_core,
-    waku_store/common,
-    waku_store/self_req_handler,
-    waku_node,
-    node/peer_manager,
-    common/paging,
+  logos_delivery/kernel/[
+    base/topics/content_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/store/common,
+    protocols/store/self_req_handler,
+    kernel,
+    api/store,
+    peer_manager/peer_manager,
+    base/paging,
   ]
 import rest/discovery_handler, rest/responses, rest/serdes, rest/kernel_api/store/types
 
@@ -70,7 +75,7 @@ proc storeErrorResponse(code: ErrorCode, desc: string): RestApiResponse =
 # Queries the store-node with the query parameters and
 # returns a RestApiResponse that is sent back to the api client.
 proc performStoreQuery(
-    selfNode: WakuNode, storeQuery: StoreQueryRequest, storePeer: RemotePeerInfo
+    selfNode: Kernel, storeQuery: StoreQueryRequest, storePeer: RemotePeerInfo
 ): Future[RestApiResponse] {.async.} =
   let queryFut = selfNode.query(storeQuery, storePeer)
 
@@ -195,14 +200,14 @@ proc toOpt(self: Option[Result[string, cstring]]): Opt[string] =
     return Opt.some(self.get().value)
 
 proc retrieveMsgsFromSelfNode(
-    self: WakuNode, storeQuery: StoreQueryRequest
+    self: Kernel, storeQuery: StoreQueryRequest
 ): Future[RestApiResponse] {.async.} =
   ## Performs a "store" request to the local node (self node.)
   ## Notice that this doesn't follow the regular store libp2p channel because a node
   ## it is not allowed to libp2p-dial a node to itself, by default.
   ##
 
-  let storeResp = (await self.wakuStore.handleSelfStoreRequest(storeQuery)).valueOr:
+  let storeResp = (await self.protocols.store.handleSelfStoreRequest(storeQuery)).valueOr:
     return storeErrorResponse(error.kind, $error)
 
   return storeResponse(storeResp)
@@ -210,7 +215,7 @@ proc retrieveMsgsFromSelfNode(
 # Subscribes the rest handler to attend "/store/v1/messages" requests
 proc installStoreApiHandlers*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   # Handles the store-query request according to the passed parameters
@@ -251,7 +256,7 @@ proc installStoreApiHandlers*(
     storeQuery.validate().isOkOr:
       return RestApiResponse.badRequest(error)
 
-    if peer.isNone() and not node.wakuStore.isNil():
+    if peer.isNone() and not node.protocols.store.isNil():
       ## The user didn't specify a peer address and self-node is configured as a store node.
       ## In this case we assume that the user is willing to retrieve the messages stored by
       ## the local/self store node.

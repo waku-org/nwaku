@@ -1,7 +1,8 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/waku/waku_core, logos_delivery/waku/waku
-import logos_delivery/waku/api/publish
-import logos_delivery/waku/waku_mix
+import
+  logos_delivery/kernel/[base/topics/pubsub_topic, base/message, api/kernel_lifecycle]
+import logos_delivery/kernel/[api/publish]
+import logos_delivery/kernel/protocols/mix/protocol
 import logos_delivery/api/conf/modes
 
 import ./[delivery_task, send_processor]
@@ -35,7 +36,7 @@ type
     NoExit
 
   MixSendProcessor* = ref object of BaseSendProcessor
-    waku: Waku
+    kernel: Kernel
     fallbackAllowed: bool
     mixWindow: timer.Duration
     fellBackReason: MixUnusable
@@ -57,13 +58,13 @@ proc fellBackFor*(self: MixSendProcessor): MixUnusable =
 
 proc new*(
     T: typedesc[MixSendProcessor],
-    waku: Waku,
+    kernel: Kernel,
     brokerCtx: BrokerContext,
     anonymityLevel: AnonymityLevel,
     mixWindow: timer.Duration,
 ): T =
   return T(
-    waku: waku,
+    kernel: kernel,
     brokerCtx: brokerCtx,
     fallbackAllowed: anonymityLevel == AnonymityLevel.Preferred,
     mixWindow: mixWindow,
@@ -81,11 +82,11 @@ proc mixUnusable(self: MixSendProcessor, task: DeliveryTask): MixUnusable =
   ## Why mix cannot attempt `task` now, with no network call. It splits
   ## `mixReady()` into the self hop and the pool, then checks the exit with
   ## `selectMixLightpushPeer`, as `lightpushPublishToAny(mixify = true)` does.
-  if not self.waku.mixReady():
-    if self.waku.mixMounted() and not self.waku.mixSelfHopUsable():
+  if not self.kernel.mixReady():
+    if self.kernel.mixMounted() and not self.kernel.mixSelfHopUsable():
       return MixUnusable.SelfHop
     return MixUnusable.Unavailable
-  if self.waku.selectMixLightpushPeer(task.pubsubTopic).isNone():
+  if self.kernel.selectMixLightpushPeer(task.pubsubTopic).isNone():
     return MixUnusable.NoExit
   return MixUnusable.None
 
@@ -96,7 +97,7 @@ proc decideWithoutMix(
   ## with the reason, once its admission is older than `MixUnusableGrace` while
   ## mix is mounted.
   if not self.fallbackAllowed:
-    if self.waku.mixMounted() and task.admissionAge() <= MixUnusableGrace:
+    if self.kernel.mixMounted() and task.admissionAge() <= MixUnusableGrace:
       task.errorDesc = unusable.reason()
       task.state = DeliveryState.NextRoundRetry
       return
@@ -140,11 +141,11 @@ method checkBeforeAdmission*(
 ): bool {.gcsafe, raises: [].} =
   if self.fallbackAllowed:
     return true
-  let message = self.waku.messageForSizeCheck(task.msg).valueOr:
+  let message = self.kernel.messageForSizeCheck(task.msg).valueOr:
     task.state = DeliveryState.FailedToDeliver
     task.errorDesc = "Failed to determine RLN proof size: " & $error
     return false
-  let (size, limit) = self.waku.mixLightpushSize(task.pubsubTopic, message)
+  let (size, limit) = self.kernel.mixLightpushSize(task.pubsubTopic, message)
   if size > limit:
     self.decideTooLarge(task, size, limit)
     return false
@@ -154,7 +155,7 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
   # No wait can make the message fit, so check the size before the reasons that
   # a wait can clear. A task that is too large has no mix attempt, so it must not
   # get the `anonymized` mark.
-  let (size, limit) = self.waku.mixLightpushSize(task.pubsubTopic, task.msg)
+  let (size, limit) = self.kernel.mixLightpushSize(task.pubsubTopic, task.msg)
   if size > limit:
     self.decideTooLarge(task, size, limit)
     return
@@ -192,12 +193,12 @@ method sendImpl*(self: MixSendProcessor, task: DeliveryTask): Future[void] {.asy
     tryCount = task.tryCount
 
   let numLightpushServers = (
-    await self.waku.lightpushPublishToAny(task.pubsubTopic, task.msg, mixify = true)
+    await self.kernel.lightpushPublishToAny(task.pubsubTopic, task.msg, mixify = true)
   ).valueOr:
     debug "MixSendProcessor.sendImpl failed", error = error.desc.get($error.code)
 
     if error.isRlnRejection():
-      task.parkForRlnProofRefresh(self.waku, error.desc.get($error.code))
+      task.parkForRlnProofRefresh(self.kernel, error.desc.get($error.code))
       return
 
     case error.code

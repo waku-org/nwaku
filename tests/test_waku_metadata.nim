@@ -1,33 +1,33 @@
 {.used.}
 
 import
-  std/[algorithm, sequtils, tables],
+  std/[algorithm, sequtils],
   testutils/unittests,
   stew/byteutils,
   chronos,
-  chronicles,
   libp2p/switch,
   libp2p/peerId,
   libp2p/crypto/crypto,
-  libp2p/multistream,
-  libp2p/muxers/muxer,
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
-  logos_delivery/waku/[
-    waku_node,
-    waku_core/topics,
-    waku_core,
-    node/peer_manager,
-    discovery/waku_discv5,
-    waku_metadata,
-    waku_metadata/rpc,
-    waku_relay/protocol,
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    subscription_manager,
+    api/relay,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    peer_manager/peer_manager,
+    discovery/discv5,
+    protocols/metadata/protocol,
+    protocols/metadata/rpc,
+    protocols/relay/protocol,
   ],
   ./testlib/wakucore,
   ./testlib/wakunode,
   ./testlib/testasync
-
 procSuite "Waku Metadata Protocol":
   asyncTest "request() returns the supported metadata of the peer":
     let clusterId = 10.uint16
@@ -52,8 +52,8 @@ procSuite "Waku Metadata Protocol":
     ): Future[void] {.async.} =
       discard
 
-    node1.wakuRelay.subscribe("/waku/2/rs/10/7", noOpHandler)
-    node1.wakuRelay.subscribe("/waku/2/rs/10/6", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/7", noOpHandler)
+    node1.protocols.relay.subscribe("/waku/2/rs/10/6", noOpHandler)
 
     # Create connection
     let connOpt = await node2.peerManager.dialPeer(
@@ -63,7 +63,7 @@ procSuite "Waku Metadata Protocol":
       connOpt.isSome()
 
     # Request metadata
-    let response1 = await node2.wakuMetadata.request(connOpt.get())
+    let response1 = await node2.protocols.metadata.request(connOpt.get())
 
     # Check the response or dont even continue
     require:
@@ -101,7 +101,7 @@ procSuite "Waku Metadata Protocol":
     require:
       connOpt.isSome
 
-    let response = await node2.wakuMetadata.request(connOpt.get())
+    let response = await node2.protocols.metadata.request(connOpt.get())
 
     ## Then: Response contains configured shards even without relay subscriptions
     require:
@@ -144,7 +144,7 @@ procSuite "Waku Metadata Protocol":
     ## Then: It is refused
     check:
       otherClusterRes.isErr()
-      not node1.wakuRelay.isSubscribed("/waku/2/rs/199/0")
+      not node1.protocols.relay.isSubscribed("/waku/2/rs/199/0")
 
     ## When: Node2 connects to it
     let connected =

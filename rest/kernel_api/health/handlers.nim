@@ -2,8 +2,7 @@
 
 import chronicles, json_serialization, presto/route
 import
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/node/health_monitor,
+  logos_delivery/kernel/[health_monitor/node_health_monitor],
   rest/responses,
   rest/serdes,
   rest/kernel_api/health/types

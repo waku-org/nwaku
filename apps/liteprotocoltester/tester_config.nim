@@ -12,10 +12,11 @@ import
   secp256k1
 
 import
-  ../../tools/confutils/
-    [cli_args, envvar as confEnvvarDefs, envvar_net as confEnvvarNet],
-  logos_delivery/waku/[common/logging, waku_core, waku_core/topics/pubsub_topic]
-
+  logos_delivery/kernel/
+    [base/logging, base/topics/content_topic, base/topics/pubsub_topic, base/codecs],
+  ../../tools/confutils/cli_args,
+  ../../tools/confutils/envvar as confEnvvarDefs,
+  ../../tools/confutils/envvar_net as confEnvvarNet
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
 const

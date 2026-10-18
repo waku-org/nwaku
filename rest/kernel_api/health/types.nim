@@ -3,8 +3,13 @@
 import results, chronicles, json_serialization, json_serialization/pkg/results
 import rest/serdes
 import logos_delivery/api/types
-import logos_delivery/waku/[waku_node, node/health_monitor]
-
+import
+  logos_delivery/kernel/[
+    base/health/protocol_health,
+    base/health/health_status,
+    base/health/connection_status,
+    base/health/health_report,
+  ]
 #### Serialization and deserialization
 
 proc writeValue*(

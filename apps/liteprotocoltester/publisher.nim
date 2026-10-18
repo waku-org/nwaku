@@ -8,24 +8,27 @@ import
   results,
   json_serialization as js
 import
-  logos_delivery/waku/[
-    common/logging,
-    waku_node,
-    node/peer_manager,
-    waku_core,
-    waku_lightpush/client,
-    waku_lightpush/common,
-    common/utils/parse_size_units,
+  logos_delivery/kernel/[
+    base/logging,
+    kernel,
+    api/lightpush,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/lightpush/common,
+    base/parse_size_units,
   ],
   ./tester_config,
   ./tester_message,
   ./lpt_metrics,
-  ./diagnose_connections,
   ./service_peer_management,
   ./publisher_base,
   ./legacy_publisher,
   ./v3_publisher
-
 randomize()
 
 type SizeRange* = tuple[min: uint64, max: uint64]
@@ -106,7 +109,7 @@ proc reportSentMessages() =
   sentMessages.clear()
 
 proc publishMessages(
-    wakuNode: WakuNode,
+    kernel: Kernel,
     publisher: PublisherBase,
     servicePeer: RemotePeerInfo,
     lightpushPubsubTopic: PubsubTopic,
@@ -130,7 +133,7 @@ proc publishMessages(
   var noFailedPush = 0
   var noFailedServiceNodeSwitches = 0
 
-  let selfPeerId = $wakuNode.switch.peerInfo.peerId
+  let selfPeerId = $kernel.switch.peerInfo.peerId
   failedToSendCount = 0
   numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
   messagesSent = 0
@@ -197,7 +200,7 @@ proc publishMessages(
         if not preventPeerSwitch and noFailedPush > maxFailedPush:
           info "Max push failure limit reached, Try switching peer."
           actualServicePeer = selectRandomServicePeer(
-            wakuNode.peerManager, Opt.some(actualServicePeer), WakuLightPushCodec
+            kernel.peerManager, Opt.some(actualServicePeer), WakuLightPushCodec
           ).valueOr:
             error "Failed to find new service peer. Exiting."
             noFailedServiceNodeSwitches += 1
@@ -215,15 +218,15 @@ proc publishMessages(
     await sleepAsync(messageInterval)
 
 proc setupAndPublish*(
-    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+    kernel: Kernel, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
 ) =
   var publisher: PublisherBase
   if conf.lightpushVersion == LightpushVersion.LEGACY:
     info "Using legacy lightpush protocol for publishing messages"
-    publisher = LegacyPublisher.new(wakuNode)
+    publisher = LegacyPublisher.new(kernel)
   else:
     info "Using lightpush v3 protocol for publishing messages"
-    publisher = V3Publisher.new(wakuNode)
+    publisher = V3Publisher.new(kernel)
 
   # give some time to receiver side to set up
   let waitTillStartTesting = conf.startPublishingAfter.seconds
@@ -263,7 +266,7 @@ proc setupAndPublish*(
 
   # Start maintaining subscription
   asyncSpawn publishMessages(
-    wakuNode,
+    kernel,
     publisher,
     servicePeer,
     conf.getPubsubTopic(),

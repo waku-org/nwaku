@@ -5,22 +5,26 @@ import chronos, metrics, testutils/unittests, presto, presto/client as presto_cl
 import brokers/broker_context
 import logos_delivery
 import
+  logos_delivery/kernel/[
+    base/base64,
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/enr/sharding,
+    protocols/metadata/protocol,
+    api/kernel_lifecycle,
+    protocols/relay/protocol,
+    protocols/store/common,
+    protocols/filter/client,
+    peer_manager/peer_manager,
+    config/validator_signed,
+  ],
   logos_delivery/api/conf/logos_delivery_conf,
   rest/messaging_api/client as messaging_rest_client,
   logos_delivery/messaging/delivery_service/send_service/send_service,
-  logos_delivery/waku/[
-    common/base64,
-    waku_core,
-    waku_enr,
-    waku_metadata,
-    waku_node,
-    waku_relay/protocol,
-    waku_store/common,
-    waku_filter_v2/client,
-    node/peer_manager,
-    factory/validator_signed,
-    waku,
-  ],
   rest/client,
   rest/kernel_api/relay/types,
   rest/kernel_api/relay/client as relay_rest_client,
@@ -61,7 +65,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.kernel))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       node.messagingClient.isNil()
       node.reliableChannelManager.isNil()
       node.ensureMessaging().isErr()
@@ -75,7 +79,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.messaging))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       not node.messagingClient.isNil()
       node.reliableChannelManager.isNil()
       node.ensureMessaging().isOk()
@@ -89,7 +93,7 @@ suite "LogosDelivery - entry layer selection":
       node = (await LogosDelivery.new(nodeConf(EntryLayer.channels))).valueOr:
         raiseAssert error
     check:
-      not node.waku.isNil()
+      not node.kernel.isNil()
       not node.messagingClient.isNil()
       not node.reliableChannelManager.isNil()
       node.ensureMessaging().isOk()
@@ -148,7 +152,7 @@ suite "LogosDelivery - entry layer selection":
         raiseAssert error
       rest = (await node.startWithRest()).valueOr:
         raiseAssert "start failed: " & error
-    let filterClient = node.waku.node.wakuFilterClient
+    let filterClient = node.kernel.protocols.filterClient
     let pushHandlerCount =
       if filterClient.isNil(): 0 else: filterClient.pushHandlers.len
 
@@ -165,12 +169,13 @@ suite "LogosDelivery - entry layer selection":
 
     # The node keeps the relay handler of the first mount for each shard.
     let shard = $RelayShard(
-      clusterId: node.waku.conf.clusterId, shardId: node.waku.conf.subscribeShards[0]
+      clusterId: node.kernel.conf.clusterId,
+      shardId: node.kernel.conf.subscribeShards[0],
     )
     let message = fakeWakuMessage(payload = "after-restart")
-    check node.waku.node.legacyAppHandlers.hasKey(shard)
-    if node.waku.node.legacyAppHandlers.hasKey(shard):
-      await node.waku.node.legacyAppHandlers[shard](shard, message)
+    check node.kernel.protocols.legacyAppHandlers.hasKey(shard)
+    if node.kernel.protocols.legacyAppHandlers.hasKey(shard):
+      await node.kernel.protocols.legacyAppHandlers[shard](shard, message)
     let response = await restClientFor(rest).relayGetMessagesV1(shard)
     check:
       response.status == 200
@@ -242,16 +247,18 @@ suite "LogosDelivery - relay REST API":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.start()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -260,10 +267,10 @@ suite "LogosDelivery - relay REST API":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.node.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
-      publisher.hasGossipsubPeer(contentTopicShard, node.waku.node.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(contentTopicShard, node.kernel.peerId)
 
     let
       shardMessage = fakeWakuMessage("on the configured shard")
@@ -305,16 +312,18 @@ suite "LogosDelivery - relay REST API":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.start()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -323,9 +332,9 @@ suite "LogosDelivery - relay REST API":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.node.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
 
     let
       configuredShardMessage = fakeWakuMessage("on the configured shard")
@@ -378,7 +387,7 @@ suite "LogosDelivery - configured shards":
       otherShard, toRelayWakuMessage(fakeWakuMessage("published over REST"))
     )
     check:
-      node.waku.node.wakuRelay.subscribedTopics() == @[configuredShard]
+      node.kernel.protocols.relay.subscribedTopics() == @[configuredShard]
       otherShardPublish.status == 400
 
   asyncTest "under static sharding without REST the relay is on the configured shard, which the ENR and metadata report":
@@ -396,30 +405,31 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var peer: WakuNode
+    var peer: Kernel
     lockNewGlobalBrokerContext:
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.start()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await peer.stop()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
-        node.waku.node.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
+        node.kernel.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics() ==
+      node.kernel.protocols.relay.subscribedTopics() ==
         @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.waku.node.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards == @[1'u32]
 
   asyncTest "under static sharding without REST the node is a relay peer on the configured shard, and a peer's message there is archived and pushed to a filter subscriber":
@@ -443,7 +453,7 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, @[1'u16]).isOkOr:
@@ -451,30 +461,36 @@ suite "LogosDelivery - configured shards":
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
       publisher.mountStoreClient()
-      await publisher.start()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var receiver: WakuNode
+    var receiver: Kernel
     lockNewGlobalBrokerContext:
       receiver = newTestWakuNode(generateSecp256k1Key())
       receiver.mountMetadata(TestClusterId, @[1'u16]).isOkOr:
         raiseAssert error
       (await receiver.mountRelay()).isOkOr:
         raiseAssert error
-      await receiver.start()
+      (await receiver.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await receiver.stop()
+      (await receiver.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
-    var subscriber: WakuNode
+    var subscriber: Kernel
     lockNewGlobalBrokerContext:
       subscriber = newTestWakuNode(generateSecp256k1Key())
       subscriber.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
       await subscriber.mountFilterClient()
-      await subscriber.start()
+      (await subscriber.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await subscriber.stop()
+      (await subscriber.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -493,14 +509,14 @@ suite "LogosDelivery - configured shards":
       raiseAssert error
     receiver.subscribe((kind: PubsubSub, topic: configuredShard), receiverHandler).isOkOr:
       raiseAssert error
-    subscriber.wakuFilterClient.registerPushHandler(pushHandler)
+    subscriber.protocols.filterClient.registerPushHandler(pushHandler)
     let filterSubscribe = await subscriber.filterSubscribe(
       Opt.some(configuredShard),
       @[contentTopic],
-      node.waku.node.peerInfo.toRemotePeerInfo(),
+      node.kernel.peerInfo.toRemotePeerInfo(),
     )
 
-    await node.waku.node.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     await receiver.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
       publisher.hasGossipsubPeer(configuredShard, receiver.peerId)
@@ -515,13 +531,13 @@ suite "LogosDelivery - configured shards":
     let stored = (
       await publisher.query(
         StoreQueryRequest(includeData: true, pubsubTopic: Opt.some(configuredShard)),
-        node.waku.node.peerInfo.toRemotePeerInfo(),
+        node.kernel.peerInfo.toRemotePeerInfo(),
       )
     ).valueOr:
       raiseAssert $error
     check:
       filterSubscribe.isOk()
-      publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
       stored.messages.len == 1
       pushed.len == 1
 
@@ -541,7 +557,7 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     check:
-      node.waku.node.wakuRelay.subscribedTopics() ==
+      node.kernel.protocols.relay.subscribedTopics() ==
         @[$RelayShard(clusterId: TestClusterId, shardId: 1)]
 
   asyncTest "an unsigned message on a protected shard outside the configured shards is not received":
@@ -572,16 +588,18 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.start()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -590,9 +608,9 @@ suite "LogosDelivery - configured shards":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.node.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(configuredShard, node.waku.node.peerId)
+      publisher.hasGossipsubPeer(configuredShard, node.kernel.peerId)
 
     let
       unsignedMessage = fakeWakuMessage("unsigned")
@@ -643,16 +661,18 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var publisher: WakuNode
+    var publisher: Kernel
     lockNewGlobalBrokerContext:
       publisher = newTestWakuNode(generateSecp256k1Key())
       publisher.mountMetadata(TestClusterId, toSeq(0'u16 ..< 8'u16)).isOkOr:
         raiseAssert error
       (await publisher.mountRelay()).isOkOr:
         raiseAssert error
-      await publisher.start()
+      (await publisher.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await publisher.stop()
+      (await publisher.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     proc dummyHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       discard
@@ -661,10 +681,10 @@ suite "LogosDelivery - configured shards":
       publisher.subscribe((kind: PubsubSub, topic: shard), dummyHandler).isOkOr:
         raiseAssert error
 
-    await node.waku.node.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
+    await node.kernel.connectToNodes(@[publisher.peerInfo.toRemotePeerInfo()])
     checkUntilTimeout:
-      publisher.hasGossipsubPeer(protectedShard, node.waku.node.peerId)
-      publisher.hasGossipsubPeer(unprotectedShard, node.waku.node.peerId)
+      publisher.hasGossipsubPeer(protectedShard, node.kernel.peerId)
+      publisher.hasGossipsubPeer(unprotectedShard, node.kernel.peerId)
 
     let
       unsignedMessage = fakeWakuMessage("unsigned")
@@ -705,28 +725,29 @@ suite "LogosDelivery - configured shards":
       (await node.stop()).isOkOr:
         raiseAssert "stop failed: " & error
 
-    var peer: WakuNode
+    var peer: Kernel
     lockNewGlobalBrokerContext:
       peer = newTestWakuNode(generateSecp256k1Key())
       peer.mountMetadata(TestClusterId, @[]).isOkOr:
         raiseAssert error
-      await peer.start()
+      (await peer.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
     defer:
-      await peer.stop()
+      (await peer.stop()).isOkOr:
+        raiseAssert "failed to stop kernel: " & error
 
     let conn = (
       await peer.peerManager.dialPeer(
-        node.waku.node.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
+        node.kernel.peerInfo.toRemotePeerInfo(), WakuMetadataCodec
       )
     ).valueOr:
       raiseAssert "could not dial metadata"
-    let metadata = (await peer.wakuMetadata.request(conn)).valueOr:
+    let metadata = (await peer.protocols.metadata.request(conn)).valueOr:
       raiseAssert error
 
     check:
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.waku.node.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]
       metadata.shards == @[1'u32]
 
   asyncTest "with discv5 the ENR lists the configured shard only":
@@ -746,11 +767,10 @@ suite "LogosDelivery - configured shards":
         raiseAssert "stop failed: " & error
 
     discard reconcileEnrAddrs(
-      node.waku.node, node.waku.conf.nodeKey, node.waku.wakuDiscv5
+      node.kernel, node.kernel.conf.nodeKey, node.kernel.discovery.discv5
     ).valueOr:
       raiseAssert "reconcile failed: " & error
 
     check:
-      toSeq(0'u16 ..< 8'u16).filterIt(
-        node.waku.node.enr.containsShard(TestClusterId, it)
-      ) == @[1'u16]
+      toSeq(0'u16 ..< 8'u16).filterIt(node.kernel.enr.containsShard(TestClusterId, it)) ==
+        @[1'u16]

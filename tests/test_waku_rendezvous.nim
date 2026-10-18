@@ -10,19 +10,23 @@ import
   libp2p/protocols/rendezvous
 
 import
-  logos_delivery/waku/waku_core/peers,
-  logos_delivery/waku/waku_core/codecs,
-  logos_delivery/waku/waku_core,
-  logos_delivery/waku/node/waku_node,
-  logos_delivery/waku/node/peer_manager/peer_manager,
-  logos_delivery/waku/waku_rendezvous/protocol,
-  logos_delivery/waku/waku_rendezvous/common,
-  logos_delivery/waku/waku_rendezvous/waku_peer_record,
-  logos_delivery/waku/waku_rendezvous/client,
-  logos_delivery/waku/common/protobuf,
-  ./testlib/[protobuf_errors, wakucore, wakunode]
+  logos_delivery/kernel/[
+    base/peers,
+    base/codecs,
+    base/topics/pubsub_topic,
+    api/kernel_lifecycle,
+    peer_manager/peer_manager,
+    protocols/rendezvous/protocol,
+    protocols/rendezvous/common,
+    protocols/rendezvous/peer_record,
+    protocols/rendezvous/client,
+    base/protobuf,
+  ],
+  ./testlib/protobuf_errors,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
-proc addRendezvousPeer(node: WakuNode, listener: StreamServer) =
+proc addRendezvousPeer(node: Kernel, listener: StreamServer) =
   ## A rendezvous peer at `listener`'s address in `node`'s peer store.
   node.peerManager.addPeer(
     RemotePeerInfo.init(
@@ -104,7 +108,7 @@ procSuite "Waku Rendezvous":
     node2.peerManager.addPeer(peerInfo3)
     node3.peerManager.addPeer(peerInfo2)
 
-    let res = await node1.wakuRendezvous.advertiseAll()
+    let res = await node1.discovery.rendezvous.advertiseAll()
     assert res.isOk(), $res.error
     # Rendezvous Request API requires dialing first
     let connOpt =
@@ -115,7 +119,7 @@ procSuite "Waku Rendezvous":
     var records: seq[WakuPeerRecord]
     try:
       records = await rendezvous.request[WakuPeerRecord](
-        node3.wakuRendezvous,
+        node3.discovery.rendezvous,
         Opt.some(computeMixNamespace(clusterId)),
         Opt.some(1),
         Opt.some(@[peerInfo2.peerId]),
@@ -126,7 +130,7 @@ procSuite "Waku Rendezvous":
     check:
       records.len == 1
       records[0].peerId == peerInfo1.peerId
-      #records[0].mixPubKey == $node1.wakuMix.pubKey
+      #records[0].mixPubKey == $node1.protocols.mix.pubKey
 
   asyncTest "Rendezvous advertises configured shards before relay is active":
     ## Given: A node with configured shards but no relay subscriptions yet
@@ -134,17 +138,18 @@ procSuite "Waku Rendezvous":
       clusterId = 10.uint16
       configuredShards = @[RelayShard(clusterId: clusterId, shardId: 0)]
 
-    let node = newTestWakuNode(
+    let kernel = newTestWakuNode(
       generateSecp256k1Key(), clusterId = clusterId, subscribeShards = @[0'u16]
     )
 
     ## When: Node mounts rendezvous with configured shards (before relay)
-    await node.mountRendezvous(clusterId, configuredShards)
-    await node.start()
+    await kernel.mountRendezvous(clusterId, configuredShards)
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: The rendezvous protocol should be mounted successfully
     check:
-      node.wakuRendezvous != nil
+      kernel.discovery.rendezvous != nil
 
     # Verify that the protocol is running without errors
     # (shards are used internally by the getShardsGetter closure)
@@ -152,7 +157,8 @@ procSuite "Waku Rendezvous":
     check:
       namespace.len > 0
 
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Rendezvous uses configured shards when relay not mounted":
     ## Given: A light client node with no relay protocol
@@ -167,21 +173,23 @@ procSuite "Waku Rendezvous":
 
     ## When: Node mounts rendezvous with configured shards (no relay mounted)
     await lightClient.mountRendezvous(clusterId, configuredShards)
-    await lightClient.start()
+    (await lightClient.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     ## Then: Rendezvous should be mounted successfully without relay
     check:
-      lightClient.wakuRendezvous != nil
-      lightClient.wakuRelay == nil # Verify relay is not mounted
+      lightClient.discovery.rendezvous != nil
+      lightClient.protocols.relay == nil # Verify relay is not mounted
 
     # Verify the protocol is working (doesn't fail immediately)
     # advertiseAll requires peers,so we just check the protocol is initialized
     await sleepAsync(100.milliseconds)
 
     check:
-      lightClient.wakuRendezvous != nil
+      lightClient.discovery.rendezvous != nil
 
-    await lightClient.stop()
+    (await lightClient.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Stop hangs during a rendezvous dial that never answers":
     # TODO: logos-delivery#4555
@@ -203,7 +211,8 @@ procSuite "Waku Rendezvous":
       listener.stop()
       await listener.closeWait()
 
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     node.addRendezvousPeer(listener)
     check await accepted.wait().withTimeout(DefaultRegistrationInterval + 5.seconds)
 
@@ -211,5 +220,5 @@ procSuite "Waku Rendezvous":
     check not await stopping.join().withTimeout(3.seconds)
 
     # A second cancel reaches periodicRegistration, which now waits for its next registration.
-    await node.wakuRendezvous.stop()
+    await node.discovery.rendezvous.stop()
     check await stopping.join().withTimeout(5.seconds)

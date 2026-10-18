@@ -2,21 +2,26 @@
 
 import
   results,
-  std/[strutils, tempfiles],
+  std/[strutils],
   chronos,
   chronicles,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 
-import brokers/broker_context
-
 import
-  logos_delivery/waku/
-    [waku_relay, node/waku_node, node/peer_manager, waku_core, waku_node],
+  logos_delivery/kernel/[
+    protocols/relay/protocol,
+    kernel,
+    peer_manager/peer_manager,
+    subscription_manager,
+    base/topics/pubsub_topic,
+    base/message,
+    base/codecs,
+    api/relay,
+  ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../testlib/wakucore
-
 proc noopRawHandler*(): WakuRelayHandler =
   var handler: WakuRelayHandler
   handler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
@@ -36,7 +41,7 @@ proc newTestWakuRelay*(
   return proto
 
 proc subscribeToContentTopicWithHandler*(
-    node: WakuNode, contentTopic: string
+    node: Kernel, contentTopic: string
 ): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
@@ -48,7 +53,7 @@ proc subscribeToContentTopicWithHandler*(
     raiseAssert "Failed to subscribe to content topic " & contentTopic & ": " & error
   return completionFut
 
-proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bool] =
+proc subscribeCompletionHandler*(node: Kernel, pubsubTopic: string): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
       topic: PubsubTopic, msg: WakuMessage

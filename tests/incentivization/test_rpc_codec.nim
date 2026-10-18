@@ -1,8 +1,12 @@
 import results, testutils/unittests, chronos, libp2p/crypto/crypto, web3
 
-import logos_delivery/waku/incentivization/[rpc, rpc_codec, common]
-import logos_delivery/waku/common/protobuf
-
+import
+  logos_delivery/kernel/[
+    protocols/lightpush/incentivization/rpc,
+    protocols/lightpush/incentivization/rpc_codec,
+    protocols/lightpush/incentivization/common,
+  ]
+import logos_delivery/kernel/[base/protobuf]
 suite "Waku Incentivization Eligibility Codec":
   asyncTest "encode eligibility proof from txid":
     let txHash = TxHash.fromHex(

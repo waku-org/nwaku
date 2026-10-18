@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[tempfiles, osproc],
+  std/[osproc],
   testutils/unittests,
   presto,
   presto/client as presto_client,
@@ -16,20 +16,22 @@ import
   rest/kernel_api/health/handlers as health_rest_interface,
   rest/kernel_api/health/client as health_rest_client
 import
-  logos_delivery/waku/[
-    common/waku_protocol,
-    waku_node,
-    node/waku_node as waku_node2,
-      # TODO: Remove after moving `git_version` to the app code.
-    rln,
-    node/health_monitor,
+  logos_delivery/kernel/[
+    kernel as waku_node2, # TODO: Remove after moving `git_version` to the app code.
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    health_monitor/node_health_monitor,
   ],
-  ../testlib/common,
+  logos_delivery/kernel/api/kernel_lifecycle,
+  logos_delivery/kernel/base/health/protocol_health,
+  logos_delivery/kernel/base/health/protocol_health,
+  logos_delivery/kernel/base/health/health_status,
+  logos_delivery/kernel/base/health/health_report,
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../waku_rln_relay/[rln/waku_rln_relay_utils, utils_onchain]
 
-proc testWakuNode(): WakuNode =
+proc testWakuNode(): Kernel =
   let
     privkey = generateSecp256k1Key()
     bindIp = parseIpAddress("0.0.0.0")
@@ -52,9 +54,10 @@ suite "Waku v2 REST API - health":
 
   asyncTest "Get node health info - GET /health":
     # Given
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     var restPort = Port(0)
@@ -62,19 +65,19 @@ suite "Waku v2 REST API - health":
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    let healthMonitor = NodeHealthMonitor.new(node)
+    let healthMonitor = NodeHealthMonitor.new(kernel)
 
     installHealthApiHandler(restServer.router, healthMonitor)
     restServer.start()
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     # kick in rln (currently the only check for health)
-    discard await node.mountOnchainRln(
+    discard await kernel.mountOnchainRln(
       getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     )
 
-    node.mountLightPushClient()
-    await node.mountFilterClient()
+    kernel.mountLightPushClient()
+    await kernel.mountFilterClient()
 
     # We don't have a Waku, so we need to set the overall health to READY here in its behalf
     healthMonitor.setOverallHealth(HealthStatus.READY)
@@ -116,16 +119,18 @@ suite "Waku v2 REST API - health":
 
     await restServer.stop()
     await restServer.closeWait()
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "RLN member reports READY only once its Merkle proof path is fetched":
-    let node = testWakuNode()
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    let kernel = testWakuNode()
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    let healthMonitor = NodeHealthMonitor.new(node)
-    let rln = await node.mountOnchainRln(
+    let healthMonitor = NodeHealthMonitor.new(kernel)
+    let rln = await kernel.mountOnchainRln(
       getWakuRlnConfig(manager = manager, index = MembershipIndex(1))
     )
 
@@ -147,4 +152,5 @@ suite "Waku v2 REST API - health":
     check (await healthMonitor.getProtocolHealthInfo(RlnRelayProtocol)).health ==
       HealthStatus.READY
 
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error

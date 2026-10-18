@@ -9,11 +9,21 @@ import
   libp2p/peerstore
 
 import
-  logos_delivery/waku/[node/peer_manager, waku_core],
-  logos_delivery/waku/waku_filter_v2/[common, client, subscriptions, protocol],
-  ../testlib/[wakucore, testasync, futures],
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    protocols/filter/common,
+    protocols/filter/client,
+    protocols/filter/subscriptions,
+    protocols/filter/protocol,
+  ],
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/futures,
   ./waku_filter_utils
-
 type AFilterClient = ref object of RootObj
   clientSwitch*: Switch
   wakuFilterClient*: WakuFilterClient

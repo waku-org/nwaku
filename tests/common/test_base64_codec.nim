@@ -1,8 +1,7 @@
 {.used.}
 
 import std/strutils, results, stew/byteutils, testutils/unittests
-import logos_delivery/waku/common/base64
-
+import logos_delivery/kernel/[base/base64]
 suite "Waku Common - stew base64 wrapper":
   const TestData = @[
     # Test vectors from RFC 4648

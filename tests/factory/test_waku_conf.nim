@@ -8,18 +8,24 @@ import
   chronos/timer,
   std/[net, random, sequtils, strutils],
   results,
-  stew/byteutils,
   testutils/unittests
 import
-  logos_delivery/waku/factory/waku_conf,
-  logos_delivery/waku/factory/conf_builder/conf_builder,
-  logos_delivery/waku/factory/networks_config,
-  logos_delivery/waku/waku_mix,
-  logos_delivery/waku/waku_enr/capabilities,
-  logos_delivery/waku/common/rate_limit/setting,
-  logos_delivery/waku/common/utils/parse_size_units,
-  logos_delivery/waku/waku_core/message/default_values
-
+  logos_delivery/kernel/[
+    config/conf,
+    config/conf_builder/conf_builder,
+    config/conf_builder/store_sync_conf_builder,
+    config/conf_builder/store_service_conf_builder,
+    config/conf_builder/discv5_conf_builder,
+    config/conf_builder/rate_limit_conf_builder,
+    config/conf_builder/rln_relay_conf_builder,
+    config/conf_builder/mix_conf_builder,
+    config/networks_config,
+    protocols/mix/protocol,
+    base/enr/capabilities,
+    base/rate_limit/setting,
+    base/parse_size_units,
+    base/message,
+  ]
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":
     var builder = WakuConfBuilder.init()

@@ -2,8 +2,7 @@
 
 import unittest2
 import chronos/timer
-import ../../logos_delivery/waku/common/rate_limit/timed_map
-
+import ../../logos_delivery/kernel/base/rate_limit/timed_map
 suite "TimedMap":
   test "put/get":
     var cache = TimedMap[int, string].init(5.seconds)

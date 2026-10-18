@@ -68,6 +68,7 @@ coverage_html_report/
 
 # Ignore all possible node runner directories
 **/keystore/
+!logos_delivery/kernel/rln/keystore/
 **/rln_tree/
 **/certs/
 

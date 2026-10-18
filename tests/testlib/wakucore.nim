@@ -7,8 +7,10 @@ import
   libp2p/builders,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
-import logos_delivery/waku/waku_core, ./common
-
+import
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/topics/pubsub_topic, base/time, base/message],
+  ./common
 export switch
 
 # Time
@@ -39,7 +41,7 @@ proc newStandardSwitch*(
 ): Switch =
   ## Bare libp2p switch for tests. Replaces nim-libp2p's `newStandardSwitch`,
   ## removed in 2.0.0. Mirrors the *substrate* of the production switch
-  ## (`newWakuSwitch`, waku/node/waku_switch.nim): same transport (TCP only — no
+  ## (`newWakuSwitch`, waku/node/switch.nim): same transport (TCP only — no
   ## QUIC yet, like prod), security (Noise), and muxers (yamux first so it is the
   ## one negotiated, then mplex). Tests therefore run on the same kernel peers
   ## actually use in prod. NB: the removed libp2p `newStandardSwitch` was
@@ -69,7 +71,7 @@ proc newTestSwitch*(
 
 # Waku message
 
-export waku_core.DefaultPubsubTopic, waku_core.DefaultContentTopic
+export DefaultPubsubTopic, DefaultContentTopic
 
 proc fakeWakuMessage*(
     payload: string | seq[byte] = "TEST-PAYLOAD",

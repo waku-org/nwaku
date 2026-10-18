@@ -21,7 +21,7 @@ import std/times
 import chronos, results
 import testutils/unittests
 import brokers/[request_broker, broker_context]
-import logos_delivery/waku/persistency/persistency
+import logos_delivery/kernel/persistency/persistency
 
 var
   ownerCtx: BrokerContext

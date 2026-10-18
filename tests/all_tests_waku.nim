@@ -1,4 +1,4 @@
-## Waku protocol packages: logos_delivery/waku/waku_*
+## Waku protocol packages: logos_delivery/kernel/waku_*
 ##
 ## The core types and codecs, ENR, the wire protocols, the archive behind store,
 ## and the keystore. What the node builds on top of them is in

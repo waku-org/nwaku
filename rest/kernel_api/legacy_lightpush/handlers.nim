@@ -13,16 +13,20 @@ import
   presto/common
 
 import
-  logos_delivery/waku/node/peer_manager,
-  logos_delivery/waku/waku_lightpush_legacy/common,
-  logos_delivery/waku/waku_node,
-  logos_delivery/waku/rln,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/lightpush_legacy/common,
+    kernel,
+    api/lightpush,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+  ],
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   rest/kernel_api/legacy_lightpush/types
-
 export types
 
 logScope:
@@ -36,8 +40,9 @@ const NoPeerNoDiscoError =
 const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
-proc useSelfHostedLightPush(node: WakuNode): bool =
-  return node.wakuLegacyLightPush != nil and node.wakuLegacyLightPushClient == nil
+proc useSelfHostedLightPush(node: Kernel): bool =
+  return
+    node.protocols.legacyLightPush != nil and node.protocols.legacyLightPushClient == nil
 
 #### Request handlers
 
@@ -45,7 +50,7 @@ const ROUTE_LIGHTPUSH = "/lightpush/v1/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
-    node: WakuNode,
+    node: Kernel,
     discHandler: Opt[DiscoveryHandler] = Opt.none(DiscoveryHandler),
 ) =
   router.api(MethodPost, ROUTE_LIGHTPUSH) do(

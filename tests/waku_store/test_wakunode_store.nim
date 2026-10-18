@@ -14,23 +14,27 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  logos_delivery/waku/[
-    common/paging,
-    waku_core,
-    waku_core/message/digest,
-    node/peer_manager,
-    waku_archive,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_store,
-    waku_node,
+  logos_delivery/kernel/[
+    base/paging,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
+    peer_manager/peer_manager,
+    archive/archive,
+    archive/driver,
+    protocols/filter/common,
+    protocols/filter/protocol,
+    protocols/filter/client,
+    protocols/store/common,
+    api/kernel_lifecycle,
   ],
-  ../waku_store/store_utils,
+  ./store_utils,
   ../waku_archive/archive_utils,
   ../testlib/wakucore,
   ../testlib/wakunode
-
-procSuite "WakuNode - Store":
+procSuite "Kernel - Store":
   ## Fixtures
   let timeOrigin = now()
   let msgListA = @[
@@ -247,17 +251,17 @@ procSuite "WakuNode - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.wakuArchive.handleMessage(pubsubTopic, msg)
+      await server.protocols.archive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
-    server.wakuFilterClient.registerPushHandler(filterHandler)
+    server.protocols.filterClient.registerPushHandler(filterHandler)
     let resp = waitFor server.filterSubscribe(
       Opt.some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
     )
 
     waitFor sleepAsync(100.millis)
 
-    waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    waitFor filterSource.protocols.filter.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)

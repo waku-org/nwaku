@@ -4,14 +4,13 @@
 import results, chronos
 import chronicles
 import
+  logos_delivery/kernel/
+    [api/kernel_lifecycle, api/subscriptions, persistency/persistency],
   logos_delivery/messaging/messaging_client,
   logos_delivery/messaging/api/send,
   logos_delivery/api/messaging_client_api,
-  logos_delivery/waku/waku,
-  logos_delivery/waku/api/subscriptions,
-  logos_delivery/waku/persistency/persistency,
-  logos_delivery/messaging/delivery_service/[recv_service, send_service]
-
+  logos_delivery/messaging/delivery_service/recv_service/recv_service,
+  logos_delivery/messaging/delivery_service/send_service/send_service
 # Surfaces the messaging API interface (and its Message* events) to consumers.
 export messaging_client
 
@@ -45,13 +44,13 @@ proc start*(self: MessagingClient): Result[void, string] =
   ?MessagingSubscribe.setProvider(
     self.brokerCtx,
     proc(contentTopic: ContentTopic): Result[void, string] =
-      self.waku.subscribe(contentTopic),
+      self.kernel.subscribe(contentTopic),
   )
 
   ?MessagingUnsubscribe.setProvider(
     self.brokerCtx,
     proc(contentTopic: ContentTopic): Result[void, string] =
-      self.waku.unsubscribe(contentTopic),
+      self.kernel.unsubscribe(contentTopic),
   )
 
   self.started = true

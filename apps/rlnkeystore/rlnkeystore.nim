@@ -2,10 +2,9 @@
 
 import std/[os, sequtils], chronicles, confutils, results, stew/endians2, stint
 import
-  ../../tools/[rln_keystore_generator/rln_keystore_generator, confutils/cli_args],
-  logos_delivery/waku/common/logging,
-  logos_delivery/waku/factory/conf_builder/rln_relay_conf_builder
-
+  logos_delivery/kernel/[base/logging, config/conf_builder/rln_relay_conf_builder],
+  ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/confutils/cli_args
 logScope:
   topics = "rlnkeystore main"
 

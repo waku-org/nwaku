@@ -11,20 +11,29 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/mcache
 import
-  logos_delivery/waku/[waku_core, node/peer_manager, waku_node, waku_relay],
+  logos_delivery/kernel/[
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
+    peer_manager/peer_manager,
+    api/kernel_lifecycle,
+    protocols/relay/protocol,
+  ],
   ../testlib/futures,
   ../testlib/testasync,
   ../testlib/testutils,
   ../testlib/wakucore,
   ../testlib/wakunode
-
 template sourceDir(): string =
   currentSourcePath.parentDir()
 
 const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
-suite "WakuNode - Relay":
+suite "Kernel - Relay":
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = generateSecp256k1Key()
@@ -32,12 +41,13 @@ suite "WakuNode - Relay":
 
     # Relay protocol starts if mounted after node start
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
     check:
-      GossipSub(node1.wakuRelay).heartbeatFut.isNil() == false
+      GossipSub(node1.protocols.relay).heartbeatFut.isNil() == false
 
     # Relay protocol starts if mounted before node start
 
@@ -50,13 +60,14 @@ suite "WakuNode - Relay":
 
     check:
       # Relay has not yet started as node has not yet started
-      GossipSub(node2.wakuRelay).heartbeatFut.isNil()
+      GossipSub(node2.protocols.relay).heartbeatFut.isNil()
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     check:
       # Relay started on node start
-      GossipSub(node2.wakuRelay).heartbeatFut.isNil() == false
+      GossipSub(node2.protocols.relay).heartbeatFut.isNil() == false
 
     await allFutures([node1.stop(), node2.stop()])
 
@@ -73,15 +84,18 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.start()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -158,15 +172,18 @@ suite "WakuNode - Relay":
       message2 = WakuMessage(payload: payload2, contentTopic: contentTopic2)
 
     # start all the nodes
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node3.start()
+    (await node3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -192,7 +209,7 @@ suite "WakuNode - Relay":
       completionFutValidatorAcc.complete(true)
       return ValidationResult.Accept
 
-    node2.wakuRelay.addValidator(validator)
+    node2.protocols.relay.addValidator(validator)
 
     var completionFut = newFuture[bool]()
     proc relayHandler(
@@ -262,15 +279,16 @@ suite "WakuNode - Relay":
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
     for i in 0 .. 4:
-      discard
-        await nodes[0].wakuRelay.publish(DefaultPubsubTopic, urandom(1 * (10 ^ 2)))
+      discard await nodes[0].protocols.relay.publish(
+        DefaultPubsubTopic, urandom(1 * (10 ^ 2))
+      )
 
     # Wait for gossip
     await sleepAsync(500.millis)
 
     # Verify that node 1 has received 5 invalid messages from node 0
     # meaning that message validity is enforced to gossip messages
-    var peerStats = nodes[1].wakuRelay.peerStats
+    var peerStats = nodes[1].protocols.relay.peerStats
     check:
       peerStats[nodes[0].switch.peerInfo.peerId].topicInfos[DefaultPubsubTopic].invalidMessageDeliveries ==
         5.0
@@ -288,11 +306,13 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -326,8 +346,10 @@ suite "WakuNode - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
@@ -340,11 +362,13 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -378,8 +402,10 @@ suite "WakuNode - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
@@ -397,11 +423,13 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -457,11 +485,13 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -517,11 +547,13 @@ suite "WakuNode - Relay":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -555,8 +587,10 @@ suite "WakuNode - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+    (await node1.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "Bad peers with low reputation are disconnected":
     # The bad-peer scoring under test is transport agnostic.
@@ -573,8 +607,8 @@ suite "WakuNode - Relay":
 
     # subscribe all nodes to a topic
     let topic = "topic"
-    for node in nodes:
-      node.wakuRelay.subscribe(topic, simpleHandler)
+    for kernel in nodes:
+      kernel.protocols.relay.subscribe(topic, simpleHandler)
 
     # connect nodes in full mesh
     for i in 0 ..< 5:
@@ -597,18 +631,19 @@ suite "WakuNode - Relay":
 
     # node[0] publishes wrong messages (random bytes not decoding into WakuMessage)
     for j in 0 ..< 50:
-      discard await nodes[0].wakuRelay.publish(topic, urandom(1 * (10 ^ 3)))
+      discard await nodes[0].protocols.relay.publish(topic, urandom(1 * (10 ^ 3)))
 
     # the score is updated on the next scoring heartbeat (every decayInterval)
     let scored = nodes[1 .. 4].mapIt(newAsyncEvent())
     for i, event in scored:
-      nodes[i + 1].wakuRelay.scoringHeartbeatEvents.add(event)
+      nodes[i + 1].protocols.relay.scoringHeartbeatEvents.add(event)
     check await allFutures(scored.mapIt(it.wait())).withTimeout(FUTURE_TIMEOUT_SCORING)
 
     # all nodes lower the score of nodes[0] (will change if gossipsub params or amount of msg changes)
     for i in 1 ..< 5:
       check:
-        nodes[i].wakuRelay.peerStats[nodes[0].switch.peerInfo.peerId].score == -249999.9
+        nodes[i].protocols.relay.peerStats[nodes[0].switch.peerInfo.peerId].score ==
+          -249999.9
 
     proc badPeerIsolated(): bool =
       nodes[0].peerManager.switch.connManager.getConnections().len == 0 and
@@ -638,12 +673,13 @@ suite "WakuNode - Relay":
     ## Setup
     let
       nodeKey = generateSecp256k1Key()
-      node = newTestWakuNode(nodeKey)
+      kernel = newTestWakuNode(nodeKey)
 
-    await node.start()
-    (await node.mountRelay()).isOkOr:
+    (await kernel.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
+    (await kernel.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    require node.mountAutoSharding(1, 1).isOk
+    require kernel.mountAutoSharding(1, 1).isOk
 
     ## Given
     let
@@ -657,44 +693,45 @@ suite "WakuNode - Relay":
         discard pubsubTopic
         discard message
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicA).expect("Valid Topic"),
       "topic must use the same shard"
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicB).expect("Valid Topic"),
       "topic must use the same shard"
     assert shard ==
-      node.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
+      kernel.wakuAutoSharding.get().getShard(contentTopicC).expect("Valid Topic"),
       "topic must use the same shard"
 
     ## When
-    node.subscribe((kind: ContentSub, topic: contentTopicA), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicA), handler).isOkOr:
       assert false, "Failed to subscribe to topic: " & $error
-    node.subscribe((kind: ContentSub, topic: contentTopicB), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicB), handler).isOkOr:
       assert false,
         "The subscription call shouldn't error even though it's already subscribed to that shard"
-    node.subscribe((kind: ContentSub, topic: contentTopicC), handler).isOkOr:
+    kernel.subscribe((kind: ContentSub, topic: contentTopicC), handler).isOkOr:
       assert false,
         "The subscription call shouldn't error even though it's already subscribed to that shard"
 
     ## The node should be subscribed to the shard
-    check node.wakuRelay.isSubscribed(shard)
+    check kernel.protocols.relay.isSubscribed(shard)
 
     ## Then
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
+    kernel.unsubscribe((kind: ContentUnsub, topic: contentTopicB)).isOkOr:
       assert false, "Failed to unsubscribe to topic: " & $error
 
     ## The other content topics keep the node on the shard
-    check node.wakuRelay.isSubscribed(shard)
+    check kernel.protocols.relay.isSubscribed(shard)
 
     for contentTopic in [contentTopicA, contentTopicC]:
-      node.unsubscribe((kind: ContentUnsub, topic: contentTopic)).isOkOr:
+      kernel.unsubscribe((kind: ContentUnsub, topic: contentTopic)).isOkOr:
         assert false, "Failed to unsubscribe to topic: " & $error
 
     ## After the last content topic is gone, the node leaves the shard
-    check not node.wakuRelay.isSubscribed(shard)
+    check not kernel.protocols.relay.isSubscribed(shard)
 
     ## Cleanup
-    await node.stop()
+    (await kernel.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   asyncTest "A peer restarted with the same key stays out of the mesh after the prune backoff until it publishes":
     # TODO: iftech/nim-libp2p#3236
@@ -713,12 +750,14 @@ suite "WakuNode - Relay":
     ): Future[void] {.async, gcsafe.} =
       await sleepAsync(0.milliseconds)
 
-    await node1.start()
+    (await node1.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node1.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
-    node1.wakuRelay.parameters.pruneBackoff = 15.seconds
+    node1.protocols.relay.parameters.pruneBackoff = 15.seconds
 
-    await node2.start()
+    (await node2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await node2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
 
@@ -732,16 +771,18 @@ suite "WakuNode - Relay":
       node1.hasMeshPeer($shard, peerId2)
       node2.hasMeshPeer($shard, peerId1)
 
-    await node2.stop()
+    (await node2.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     checkUntilTimeout:
       not node1.hasGossipsubPeer($shard, peerId2)
 
     # A plain disconnect leaves a prune backoff for the peer.
     check:
-      node1.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     let restartedNode2 = newTestWakuNode(nodeKey2)
-    await restartedNode2.start()
+    (await restartedNode2.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await restartedNode2.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     restartedNode2.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
@@ -750,28 +791,30 @@ suite "WakuNode - Relay":
 
     # The restarted node's GRAFT inside the backoff is answered with a PRUNE and a behaviour penalty.
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      restartedNode2.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId1)
-      node1.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
-    let firstBackoff =
-      restartedNode2.wakuRelay.backingOff.getOrDefault($shard).getOrDefault(peerId1)
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId1)
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
+    let firstBackoff = restartedNode2.protocols.relay.backingOff
+      .getOrDefault($shard)
+      .getOrDefault(peerId1)
 
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      not node1.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      not node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     check:
       node1.hasGossipsubPeer($shard, peerId2)
       not node1.hasMeshPeer($shard, peerId2)
-      node1.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
 
     # The restarted node's next GRAFT is accepted and dropped again at the next heartbeat.
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      restartedNode2.wakuRelay.backingOff.getOrDefault($shard).getOrDefault(peerId1) >
-        firstBackoff
-      node1.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      restartedNode2.protocols.relay.backingOff.getOrDefault($shard).getOrDefault(
+        peerId1
+      ) > firstBackoff
+      node1.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
 
     check:
       not node1.hasMeshPeer($shard, peerId2)
-      node1.wakuRelay.peerStats.getOrDefault(peerId2).score < 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score < 0.0
 
     # A message of its own is a first message delivery that brings its score back above 0.
     check:
@@ -782,7 +825,7 @@ suite "WakuNode - Relay":
         )
       ).isOk()
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
-      node1.wakuRelay.peerStats.getOrDefault(peerId2).score >= 0.0
+      node1.protocols.relay.peerStats.getOrDefault(peerId2).score >= 0.0
     checkUntilTimeoutCustom(20.seconds, 100.milliseconds):
       node1.hasMeshPeer($shard, peerId2)
 
@@ -844,9 +887,10 @@ suite "WakuNode - Relay":
           not restartedNode3ReceivedFromNode4.finished():
         restartedNode3ReceivedFromNode4.complete(true)
 
-    for node in [node1, node2, node3, node4]:
-      await node.start()
-      (await node.mountRelay()).isOkOr:
+    for kernel in [node1, node2, node3, node4]:
+      (await kernel.start()).isOkOr:
+        raiseAssert "failed to start kernel: " & error
+      (await kernel.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
 
     node1.subscribe((kind: PubsubSub, topic: $shard), simpleHandler).isOkOr:
@@ -877,13 +921,15 @@ suite "WakuNode - Relay":
       ).isOk()
       (await node4ReceivedBefore.withTimeout(FUTURE_TIMEOUT_MEDIUM)) == true
 
-    await node3.stop()
+    (await node3.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
     checkUntilTimeout:
       not node2.hasGossipsubPeer($shard, peerId3)
       not node4.hasGossipsubPeer($shard, peerId3)
 
     let restartedNode3 = newTestWakuNode(nodeKey3)
-    await restartedNode3.start()
+    (await restartedNode3.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
     (await restartedNode3.mountRelay()).isOkOr:
       assert false, "Failed to mount relay"
     restartedNode3.subscribe((kind: PubsubSub, topic: $shard), restartedNode3Handler).isOkOr:
@@ -893,8 +939,8 @@ suite "WakuNode - Relay":
 
     # Both neighbours answer the restarted node's GRAFT with a PRUNE.
     checkUntilTimeout:
-      restartedNode3.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId2)
-      restartedNode3.wakuRelay.backingOff.getOrDefault($shard).hasKey(peerId4)
+      restartedNode3.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId2)
+      restartedNode3.protocols.relay.backingOff.getOrDefault($shard).hasKey(peerId4)
     check:
       not restartedNode3.hasMeshPeer($shard, peerId2)
       not restartedNode3.hasMeshPeer($shard, peerId4)
@@ -917,7 +963,7 @@ suite "WakuNode - Relay":
 
     # Both messages leave the restarted node's gossip window without reaching the other side.
     checkUntilTimeout:
-      restartedNode3.wakuRelay.mcache.window($shard).len == 0
+      restartedNode3.protocols.relay.mcache.window($shard).len == 0
     check:
       not node4ReceivedAfter.finished()
       not node2ReceivedFromNode4.finished()

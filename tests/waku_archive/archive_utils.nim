@@ -3,17 +3,19 @@
 import std/sets, results, chronos, metrics, libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_archive,
-    waku_archive/archive_metrics,
-    waku_archive/driver/sqlite_driver,
-    waku_archive/driver/sqlite_driver/migrations,
-    common/databases/db_sqlite,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/topics/pubsub_topic,
+    base/message,
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/archive_metrics,
+    archive/driver/sqlite_driver/sqlite_driver,
+    archive/driver/sqlite_driver/migrations,
+    base/databases/db_sqlite,
   ],
-  ../testlib/[wakucore]
-
+  ../testlib/wakucore
 proc newSqliteDatabase*(path: Opt[string] = Opt.none(string)): SqliteDatabase =
   SqliteDatabase.new(path.get(":memory:")).tryGet()
 

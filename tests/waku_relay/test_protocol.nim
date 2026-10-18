@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[strformat, sets, tables, sequtils],
+  std/[strformat, sequtils],
   testutils/unittests,
   chronos,
   metrics,
@@ -11,17 +11,21 @@ import
   std/json
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_relay/protocol,
-    waku_relay,
-    waku_core,
-    waku_core/message/codec,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/relay/protocol,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
   ],
-  ../testlib/[wakucore, wakunode, testasync, futures, sequtils],
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync,
+  ../testlib/futures,
+  ../testlib/sequtils,
   ./utils,
   ../resources/payloads
-
 proc invalidMessages(stage: string): float64 =
   ## The count of `logos_delivery_relay_invalid_messages` for `stage`, 0 before
   ## its first increment.

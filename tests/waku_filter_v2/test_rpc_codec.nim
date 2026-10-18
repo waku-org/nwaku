@@ -2,9 +2,9 @@
 
 import std/strutils, results, stew/byteutils, testutils/unittests
 import
-  logos_delivery/waku/[common/protobuf, waku_filter_v2/rpc, waku_filter_v2/rpc_codec],
+  logos_delivery/kernel/
+    [base/protobuf, protocols/filter/rpc, protocols/filter/rpc_codec],
   ../testlib/protobuf_errors
-
 suite "Waku Filter - RPC codec":
   test "a message push without a pubsub topic is refused":
     let res = MessagePush.decode(hexToSeqByte("0a070a010112022f74"))

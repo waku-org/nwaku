@@ -1,7 +1,7 @@
 {.used.}
 
 import results, testutils/unittests
-import logos_delivery/waku/persistency/[types, keys, backend_sqlite]
+import logos_delivery/kernel/persistency/[types, keys, backend_sqlite]
 
 template str(b: seq[byte]): string =
   var s = newString(b.len)

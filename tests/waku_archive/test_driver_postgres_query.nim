@@ -7,18 +7,27 @@ import
   chronos,
   chronicles
 import
-  logos_delivery/waku/[
-    waku_archive,
-    waku_archive/driver as driver_module,
-    waku_archive/driver/postgres_driver,
-    waku_core,
-    waku_core/message/digest,
+  logos_delivery/kernel/[
+    archive/common as archive_common,
+    archive/archive,
+    archive/driver,
+    archive/retention_policy,
+    archive/driver as driver_module,
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
   ],
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres
-
 logScope:
   topics = "test archive postgres driver"
 

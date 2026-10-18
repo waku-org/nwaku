@@ -5,11 +5,10 @@ from std/times import epochTime
 import chronos, testutils/unittests, stew/byteutils
 import brokers/broker_context
 
-import ../testlib/[common, wakucore, wakunode, wakunodeconf, testasync]
+import ../testlib/[wakucore, wakunodeconf]
 
 import logos_delivery
-import logos_delivery/waku/[waku_node, waku_core]
-import logos_delivery/waku/factory/waku_conf
+import logos_delivery/kernel/[base/topics/content_topic, base/message]
 import logos_delivery/api/events/messaging_client_events as waku_message_events
 import logos_delivery/api/messaging_client_api
 import tools/confutils/cli_args
@@ -17,8 +16,8 @@ import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/conf/modes
 
 import logos_delivery/channels/reliable_channel_manager
-import logos_delivery/waku/persistency/keys
-import logos_delivery/waku/persistency/sds_persistency
+import logos_delivery/kernel/persistency/keys
+import logos_delivery/kernel/persistency/sds_persistency
 
 ## Full nim-sds API: ingress tests act as the remote peer producing real
 ## SDS envelopes; protocol-semantics tests decode wires and meta snapshots.
@@ -57,13 +56,14 @@ suite "Reliable Channel - ingress":
       contentTopic = ContentTopic("/reliable-channel/test/proto")
     let appPayload = "hello reliable channel".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -111,7 +111,7 @@ suite "Reliable Channel - ingress":
       ## wire sender's id, not the local participant id
       check evt.senderId == SdsParticipantID("remote")
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "manager drops unmarked WakuMessage":
     ## Mirror of the above: same content topic, but `meta` is empty
@@ -121,13 +121,14 @@ suite "Reliable Channel - ingress":
       contentTopic = ContentTopic("/reliable-channel/test/proto")
     let appPayload = "foreign payload".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -160,7 +161,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "closed channel emits no channel event":
     ## Issue #4065: no ChannelMessageReceivedEvent after closeChannel.
@@ -169,13 +170,14 @@ suite "Reliable Channel - ingress":
       contentTopic = ContentTopic("/reliable-channel/test/proto")
     let appPayload = "after close".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -217,7 +219,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "in-flight receive does not emit after close":
     ## A message already inside the ingress pipeline when closeChannel
@@ -227,13 +229,14 @@ suite "Reliable Channel - ingress":
       contentTopic = ContentTopic("/reliable-channel/test/proto")
     let appPayload = "in flight".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     ## Gate decryption so the receive handler parks mid-pipeline.
     let decryptGate = newFuture[void]("decrypt-gate")
@@ -299,7 +302,7 @@ suite "Reliable Channel - ingress":
     await sleepAsync(100.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Reliable Channel - send state machine":
   asyncTest "MessageSentEvent finalises the channelReqId as Sent":
@@ -315,13 +318,14 @@ suite "Reliable Channel - send state machine":
       contentTopic = ContentTopic("/reliable-channel/test/sm-success")
       fakeMsgReqId = RequestId("fake-msg-req-1")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var sendCalls = 0
     MessagingSend.replaceProvider(
@@ -364,7 +368,7 @@ suite "Reliable Channel - send state machine":
     if finalised:
       check sentFut.read() == channelReqId
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "two independent channelReqIds are finalised independently":
     ## Two `send()` calls -> two independent `channelReqId`s, each a
@@ -378,13 +382,14 @@ suite "Reliable Channel - send state machine":
       channelId = ChannelId("sm-multi-channel")
       contentTopic = ContentTopic("/reliable-channel/test/sm-multi")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
     MessagingSend.replaceProvider(
@@ -454,7 +459,7 @@ suite "Reliable Channel - send state machine":
     if erroredArrived:
       check erroredFut.read() == channelReqId2
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "channelReqId not pruned until ALL its segments are final":
     ## Multi-sibling prune rule: one `send()` of a payload spanning four
@@ -465,13 +470,14 @@ suite "Reliable Channel - send state machine":
       channelId = ChannelId("sm-prune-channel")
       contentTopic = ContentTopic("/reliable-channel/test/sm-prune")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
     MessagingSend.replaceProvider(
@@ -540,7 +546,7 @@ suite "Reliable Channel - send state machine":
     await sleepAsync(50.milliseconds)
     check sentCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "a single failed segment fails the whole channelReqId":
     ## Same four-segment send, but the last sibling fails: the parent must
@@ -549,13 +555,14 @@ suite "Reliable Channel - send state machine":
       channelId = ChannelId("sm-prune-fail-channel")
       contentTopic = ContentTopic("/reliable-channel/test/sm-prune-fail")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
     MessagingSend.replaceProvider(
@@ -627,7 +634,7 @@ suite "Reliable Channel - send state machine":
       check erroredFut.read() == channelReqId
     check not sentFired
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "sibling MessageSentEvent during sendHandler await does not corrupt state":
     ## Regression test for the prune-during-await race
@@ -639,13 +646,14 @@ suite "Reliable Channel - send state machine":
       channelId = ChannelId("sm-race-channel")
       contentTopic = ContentTopic("/reliable-channel/test/sm-race")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var msgReqIds: seq[RequestId]
     var sendsReturned = 0
@@ -724,7 +732,7 @@ suite "Reliable Channel - send state machine":
       check channelReqId1 in finalisedReqIds
       check channelReqId2 in finalisedReqIds
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Reliable Channel - SDS persistence":
   asyncTest "send persists SDS channel state through the persistency job":
@@ -741,11 +749,12 @@ suite "Reliable Channel - SDS persistence":
       persistency.close()
       removeDir(root)
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
       ok(persistency)
@@ -789,7 +798,7 @@ suite "Reliable Channel - SDS persistence":
     check await pollMetaExists()
     check await pollLogRow()
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 ## A marked WakuMessage carrying an SDS envelope, as it arrives off the wire.
 proc sdsWakuMessage(contentTopic: ContentTopic, sdsWire: seq[byte]): WakuMessage =
@@ -810,13 +819,14 @@ suite "Reliable Channel - SDS lifecycle":
     let payload1 = "first message".toBytes()
     let payload2 = "second message".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -871,7 +881,7 @@ suite "Reliable Channel - SDS lifecycle":
       check deliveries[0] == payload1
       check deliveries[1] == payload2
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "duplicate SDS envelope is delivered to the app only once":
     const
@@ -879,13 +889,14 @@ suite "Reliable Channel - SDS lifecycle":
       contentTopic = ContentTopic("/reliable-channel/test/dup")
     let appPayload = "deliver once".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -926,7 +937,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(200.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "SDS envelope for a foreign channel is dropped":
     ## Same content topic, different SDS channel id — dropped before unwrap.
@@ -934,13 +945,14 @@ suite "Reliable Channel - SDS lifecycle":
       channelId = ChannelId("sds-foreign-channel")
       contentTopic = ContentTopic("/reliable-channel/test/foreign")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -976,7 +988,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(200.milliseconds)
     check not fired
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "received history survives channel close and re-create":
     ## Receive m1, close, re-create, replay m1: the duplicate is only
@@ -993,13 +1005,14 @@ suite "Reliable Channel - SDS lifecycle":
       persistency.close()
       removeDir(root)
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
       ok(persistency)
@@ -1066,7 +1079,7 @@ suite "Reliable Channel - SDS lifecycle":
     await sleepAsync(300.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Reliable Channel - SDS protocol semantics":
   asyncTest "a reply references the received message and advances the lamport clock":
@@ -1076,13 +1089,14 @@ suite "Reliable Channel - SDS protocol semantics":
       channelId = ChannelId("sds-semantics-channel")
       contentTopic = ContentTopic("/reliable-channel/test/semantics")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var capturedWires: seq[seq[byte]]
     MessagingSend.replaceProvider(
@@ -1125,7 +1139,7 @@ suite "Reliable Channel - SDS protocol semantics":
     check SdsMessageID("semantics-m1") in reply.causalHistory.getMessageIds()
     check reply.lamportTimestamp > m1.lamportTimestamp
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "an unacknowledged send is acked by a later remote message":
     ## Our send sits in the outgoing buffer (visible in the persisted meta)
@@ -1141,13 +1155,14 @@ suite "Reliable Channel - SDS protocol semantics":
       persistency.close()
       removeDir(root)
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard GetPersistency.reprovideIt(manager.brokerCtx):
       ok(persistency)
@@ -1222,7 +1237,7 @@ suite "Reliable Channel - SDS protocol semantics":
         await sleepAsync(5.milliseconds)
     check bufLen == 0
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "three-deep dependency chain is released in causal order":
     ## m1 <- m2 <- m3 arriving as m3, m2, m1: all held until m1 lands,
@@ -1233,13 +1248,14 @@ suite "Reliable Channel - SDS protocol semantics":
     let payloads =
       @["chain first".toBytes(), "chain second".toBytes(), "chain third".toBytes()]
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -1296,7 +1312,7 @@ suite "Reliable Channel - SDS protocol semantics":
       check deliveries[1] == payloads[1]
       check deliveries[2] == payloads[2]
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "sync envelope without app payload is consumed silently":
     ## Sync traffic has no app payload: no event, and normal traffic
@@ -1306,13 +1322,14 @@ suite "Reliable Channel - SDS protocol semantics":
       contentTopic = ContentTopic("/reliable-channel/test/sync")
     let appPayload = "real message".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     discard manager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
@@ -1367,7 +1384,7 @@ suite "Reliable Channel - SDS protocol semantics":
       await sleepAsync(5.milliseconds)
     check deliveryCount == 1
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "identical payloads get distinct message ids and both deliver":
     ## Identical content sent twice must get distinct message ids and
@@ -1377,13 +1394,14 @@ suite "Reliable Channel - SDS protocol semantics":
       contentTopic = ContentTopic("/reliable-channel/test/unique-id")
     let appPayload = "ok".toBytes()
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     var capturedWires: seq[seq[byte]]
     MessagingSend.replaceProvider(
@@ -1441,19 +1459,20 @@ suite "Reliable Channel - SDS protocol semantics":
       await sleepAsync(5.milliseconds)
     check deliveries.len == 2
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
   asyncTest "manager rejects operations on unknown channels":
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
     check (await manager.send(ChannelId("no-such-channel"), "x".toBytes())).isErr()
     check (await manager.closeChannel(ChannelId("no-such-channel"))).isErr()
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Reliable Channel - content topic subscription":
   asyncTest "channels subscribe on create/start and unsubscribe on close":
@@ -1464,11 +1483,12 @@ suite "Reliable Channel - content topic subscription":
       postStartChannelId = ChannelId("sub-post-start-channel")
       postStartTopic = ContentTopic("/reliable-channel/1/sub-post-start/proto")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var manager: ReliableChannelManager
     lockNewGlobalBrokerContext:
-      waku = (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
-      manager = waku.reliableChannelManager
+      kernel =
+        (await LogosDelivery.new(createApiNodeConf())).expect("LogosDelivery.new")
+      manager = kernel.reliableChannelManager
 
       ## Created before start: subscribed by `ReliableChannelManager.start`.
       discard manager
@@ -1476,10 +1496,10 @@ suite "Reliable Channel - content topic subscription":
           preStartChannelId, preStartTopic, SdsParticipantID("local")
         )
         .expect("createReliableChannel pre-start")
-      check not waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
+      check not kernel.kernel.isSubscribed(preStartTopic).expect("isSubscribed")
 
-      (await waku.start()).expect("start")
-      check waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
+      (await kernel.start()).expect("start")
+      check kernel.kernel.isSubscribed(preStartTopic).expect("isSubscribed")
 
       ## Created after start: subscribed immediately.
       discard manager
@@ -1487,15 +1507,15 @@ suite "Reliable Channel - content topic subscription":
           postStartChannelId, postStartTopic, SdsParticipantID("local")
         )
         .expect("createReliableChannel post-start")
-      check waku.waku.isSubscribed(postStartTopic).expect("isSubscribed")
+      check kernel.kernel.isSubscribed(postStartTopic).expect("isSubscribed")
 
       (await manager.closeChannel(postStartChannelId)).expect("closeChannel post-start")
-      check not waku.waku.isSubscribed(postStartTopic).expect("isSubscribed")
+      check not kernel.kernel.isSubscribed(postStartTopic).expect("isSubscribed")
 
       (await manager.closeChannel(preStartChannelId)).expect("closeChannel pre-start")
-      check not waku.waku.isSubscribed(preStartTopic).expect("isSubscribed")
+      check not kernel.kernel.isSubscribed(preStartTopic).expect("isSubscribed")
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")
 
 suite "Reliable Channel - a mix fail-fast reaches the sender":
   asyncTest "a Required send that mix cannot attempt finalises the channel request":
@@ -1506,20 +1526,20 @@ suite "Reliable Channel - a mix fail-fast reaches the sender":
       channelId = ChannelId("mix-failfast-channel")
       contentTopic = ContentTopic("/reliable-channel/1/mix-failfast/proto")
 
-    var waku: LogosDelivery
+    var kernel: LogosDelivery
     var brokerCtx: BrokerContext
     lockNewGlobalBrokerContext:
       brokerCtx = globalBrokerContext()
-      waku = (
+      kernel = (
         await LogosDelivery.new(
           KernelConf(createApiNodeConf().kernel),
           MessagingClientConf(anonymityLevel: Opt.some(AnonymityLevel.Required)),
           ReliableChannelManagerConf(),
         )
       ).expect("LogosDelivery.new")
-      (await waku.start()).expect("start")
+      (await kernel.start()).expect("start")
 
-    discard waku.reliableChannelManager
+    discard kernel.reliableChannelManager
       .createReliableChannel(channelId, contentTopic, SdsParticipantID("local"))
       .expect("createReliableChannel")
 
@@ -1534,11 +1554,12 @@ suite "Reliable Channel - a mix fail-fast reaches the sender":
       )
       .expect("listen ChannelMessageErrorEvent")
 
-    let channelReqId =
-      (await waku.reliableChannelManager.send(channelId, "hi".toBytes())).expect("send")
+    let channelReqId = (
+      await kernel.reliableChannelManager.send(channelId, "hi".toBytes())
+    ).expect("send")
 
     check await errFut.withTimeout(TestTimeout)
     if errFut.finished():
       check errFut.read() == channelReqId
 
-    (await waku.stop()).expect("stop")
+    (await kernel.stop()).expect("stop")

@@ -3,7 +3,7 @@
 import std/[os, times]
 import chronos, results
 import testutils/unittests
-import logos_delivery/waku/persistency/persistency
+import logos_delivery/kernel/persistency/persistency
 
 proc payloadBytes(s: string): seq[byte] =
   result = newSeq[byte](s.len)

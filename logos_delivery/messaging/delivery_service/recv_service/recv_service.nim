@@ -15,17 +15,25 @@ import brokers/broker_context
 import
   ./backfill,
   logos_delivery/api/conf/messaging_conf,
-  logos_delivery/api/events/kernel_events,
+  logos_delivery/kernel/events/kernel_events,
   logos_delivery/api/events/messaging_client_events, # MessageReceivedEvent
   logos_delivery/messaging/messaging_metrics,
-  logos_delivery/waku/persistency/persistency,
-  logos_delivery/waku/[waku_core, waku_core/topics, waku_store/common],
-  logos_delivery/waku/waku,
-  logos_delivery/waku/api/[store, subscriptions, health],
-  logos_delivery/waku/api/events/[health_events, peer_events],
-  logos_delivery/waku/requests/health_requests,
-  logos_delivery/waku/node/health_monitor/health_status
-from logos_delivery/waku/waku_archive/archive import MaxMessageTimestampVariance
+  logos_delivery/kernel/persistency/persistency,
+  logos_delivery/kernel/[protocols/store/common],
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/content_topic,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
+  logos_delivery/kernel/base/peers,
+  logos_delivery/kernel/api/kernel_lifecycle,
+  logos_delivery/kernel/api/store,
+  logos_delivery/kernel/api/subscriptions,
+  logos_delivery/kernel/api/health,
+  logos_delivery/kernel/events/health_events,
+  logos_delivery/kernel/events/peer_events,
+  logos_delivery/kernel/base/health/health_requests,
+  logos_delivery/kernel/base/health/health_status
+from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 const MaxMessageLife = chronos.minutes(7)
   ## The service keeps the hash of each received message this long. After an
@@ -92,7 +100,7 @@ type BackfillState* = object
 
 type RecvService* = ref object of RootObj
   brokerCtx: BrokerContext
-  waku: Waku
+  kernel: Kernel
   seenMsgListener: MessageSeenEventListener
   protocolHealthListener: EventProtocolHealthChangeListener
   shardHealthListener: EventShardTopicHealthChangeListener
@@ -120,7 +128,7 @@ proc processIncomingMessage(
   ## recently-seen, emit a MessageReceivedEvent tagged with `source`, and
   ## return true.
 
-  if not self.waku.isContentSubscribed(pubsubTopic, message.contentTopic):
+  if not self.kernel.isContentSubscribed(pubsubTopic, message.contentTopic):
     trace "skipping message as I am not subscribed",
       shard = pubsubTopic, contentTopic = message.contentTopic
     return false
@@ -148,7 +156,7 @@ proc processIncomingMessage(
 proc hasHealthyFilterSubscription(self: RecvService): bool =
   ## Every subscribed shard has a healthy filter subscription (false with none).
   var shards = 0
-  for (shard, _) in self.waku.subscribedContentTopics():
+  for (shard, _) in self.kernel.subscribedContentTopics():
     inc shards
     let shardHealth = RequestEdgeShardHealth.request(self.brokerCtx, shard).valueOr:
       debug "Failed to read the filter subscription health of a shard",
@@ -162,7 +170,7 @@ proc hasHealthyFilterSubscription(self: RecvService): bool =
 proc hasLiveDelivery(self: RecvService): bool =
   ## Relay READY, or a healthy filter subscription on every subscribed shard.
   return
-    self.waku.reportedProtocolHealth(WakuProtocol.RelayProtocol).health ==
+    self.kernel.reportedProtocolHealth(ProtocolName.RelayProtocol).health ==
     HealthStatus.READY or self.hasHealthyFilterSubscription()
 
 proc backfillWriteRecords(self: RecvService, ops: seq[TxOp]) {.async: (raises: []).} =
@@ -412,11 +420,11 @@ proc backfillWorker(self: RecvService) {.async.} =
   ): Future[Result[StoreQueryResponse, string]] {.async.} =
     if self.stopping:
       return err("receive service is stopping")
-    return await self.waku.storeQueryToAny(request)
+    return await self.kernel.storeQueryToAny(request)
   let deliver: BackfillDeliver = proc(
       pubsubTopic: PubsubTopic, message: WakuMessage
   ): bool {.gcsafe, raises: [].} =
-    if not self.waku.isContentSubscribed(pubsubTopic, message.contentTopic):
+    if not self.kernel.isContentSubscribed(pubsubTopic, message.contentTopic):
       return false
     discard self.processIncomingMessage(pubsubTopic, message, MessageSource.History)
     return true
@@ -429,7 +437,7 @@ proc backfillWorker(self: RecvService) {.async.} =
       self.backfill.wake.clear()
       continue
     self.backfill.caughtUp.clear()
-    if not self.waku.hasStorePeer():
+    if not self.kernel.hasStorePeer():
       discard await self.backfill.wake.wait().withTimeout(BackfillRetryPeriod)
         # nobody to ask yet
       self.backfill.wake.clear()
@@ -518,8 +526,8 @@ proc init*(T: type BackfillState, conf: MessagingClientConf): Result[T, string] 
     )
   )
 
-proc new*(T: typedesc[RecvService], waku: Waku, backfill: BackfillState): T =
-  return RecvService(waku: waku, brokerCtx: waku.brokerCtx, backfill: backfill)
+proc new*(T: typedesc[RecvService], kernel: Kernel, backfill: BackfillState): T =
+  return RecvService(kernel: kernel, brokerCtx: kernel.brokerCtx, backfill: backfill)
 
 proc loopPruneOldMessages(self: RecvService) {.async.} =
   while true:
@@ -563,7 +571,7 @@ proc startRecvService*(self: RecvService, job: persistency.Job) =
     self.backfill.clearJob = job # the worker deletes the state on disk first
 
   # The topics that are subscribed before the service starts.
-  for topic in backfillTopics(self.waku.subscribedContentTopics()):
+  for topic in backfillTopics(self.kernel.subscribedContentTopics()):
     self.backfill.pendingSubscriptionChanges.add(
       BackfillSubscriptionChange(topic: topic, subscribed: true, at: startedAt)
     )

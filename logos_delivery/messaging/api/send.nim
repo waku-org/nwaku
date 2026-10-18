@@ -4,9 +4,11 @@ import results, chronos, chronicles
 import logos_delivery/api/types
 import logos_delivery/api/events/messaging_client_events
 import logos_delivery/messaging/messaging_client
-import logos_delivery/waku/waku
-import logos_delivery/waku/api/subscriptions
-import logos_delivery/messaging/delivery_service/send_service
+import logos_delivery/kernel/[api/kernel_lifecycle]
+import logos_delivery/kernel/[api/subscriptions]
+import
+  logos_delivery/messaging/delivery_service/send_service/send_service,
+  logos_delivery/messaging/delivery_service/send_service/delivery_task
 import logos_delivery/messaging/delivery_service/send_service/delivery_task
 
 proc enqueueSend(
@@ -16,16 +18,16 @@ proc enqueueSend(
   ?self.checkApiAvailability()
   # A full send queue gets no subscribe. `enqueue` refuses the send.
   if not self.sendService.isFull() and self.sendService.subscribesOnSend():
-    let isSubbed = self.waku.isSubscribed(envelope.contentTopic).valueOr(false)
+    let isSubbed = self.kernel.isSubscribed(envelope.contentTopic).valueOr(false)
     if not isSubbed:
       debug "Auto-subscribing to topic on send", contentTopic = envelope.contentTopic
-      self.waku.subscribe(envelope.contentTopic).isOkOr:
+      self.kernel.subscribe(envelope.contentTopic).isOkOr:
         error "Failed to auto-subscribe", error = error
         return err("Failed to auto-subscribe before sending: " & error)
 
-  let requestId = RequestId.new(self.waku.rng)
+  let requestId = RequestId.new(self.kernel.rng)
 
-  let deliveryTask = DeliveryTask.new(requestId, envelope, self.waku.brokerCtx).valueOr:
+  let deliveryTask = DeliveryTask.new(requestId, envelope, self.kernel.brokerCtx).valueOr:
     return err("MessagingClient.send: Failed to create delivery task: " & error)
 
   return self.sendService.enqueue(deliveryTask)

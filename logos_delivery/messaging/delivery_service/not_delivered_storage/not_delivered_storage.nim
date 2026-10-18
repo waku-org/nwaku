@@ -8,11 +8,7 @@
 ##
 
 import results
-import
-  logos_delivery/waku/common/databases/db_sqlite,
-  logos_delivery/waku/waku_core/message/message,
-  ./migrations
-
+import logos_delivery/kernel/[base/databases/db_sqlite, base/message], ./migrations
 const NotDeliveredMessagesDbUrl = "not-delivered-messages.db"
 
 type NotDeliveredStorage* = ref object

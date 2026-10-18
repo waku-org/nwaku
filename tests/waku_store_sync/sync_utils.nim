@@ -1,16 +1,18 @@
-import std/random, chronos, chronicles, metrics
+import std/random, chronos, metrics
 
 import
-  logos_delivery/waku/[
-    node/peer_manager,
-    waku_core,
-    waku_store_sync/common,
-    waku_store_sync/reconciliation,
-    waku_store_sync/transfer,
-    waku_store_sync/protocols_metrics,
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    protocols/store_sync/common,
+    protocols/store_sync/reconciliation,
+    protocols/store_sync/transfer,
+    protocols/store_sync/protocols_metrics,
   ],
   ../testlib/wakucore
-
 randomize()
 
 type TransferDirection* {.pure.} = enum

@@ -25,8 +25,7 @@ import logos_delivery/api/events/messaging_client_events
 import logos_delivery/api/messaging_client_api
 import logos_delivery/api/events/reliable_channel_manager_events
 import logos_delivery/messaging/messaging_client
-import logos_delivery/waku/waku_core/topics
-
+import logos_delivery/kernel/[base/topics/content_topic]
 import ./segmentation/channel_segmentation
 import ./scalable_data_sync/scalable_data_sync
 import ./encryption/channel_encryption

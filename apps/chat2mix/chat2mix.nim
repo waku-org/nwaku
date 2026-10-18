@@ -7,6 +7,7 @@ when not (compileOption("threads")):
 {.push raises: [].}
 
 import std/[strformat, strutils, times, random, sequtils, sets]
+import logos_delivery/kernel/[api/mix]
 import
   confutils,
   chronicles,
@@ -33,29 +34,33 @@ import
   ] # define DNS resolution
 import libp2p_mix/[curve25519, mix_protocol]
 import
-  logos_delivery/waku/[
-    common/protobuf,
-    waku_core,
-    waku_core/peers,
-    waku_lightpush/common,
-    waku_lightpush/rpc,
-    waku_enr,
-    discovery/waku_dnsdisc,
-    discovery/waku_kademlia,
-    waku_node,
-    node/waku_metrics,
-    node/peer_manager,
-    factory/waku_conf,
-    factory/builder,
+  logos_delivery/kernel/[
+    base/protobuf,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/lightpush/common,
+    protocols/lightpush/rpc,
+    base/enr,
+    discovery/dnsdisc,
+    discovery/kademlia,
+    api/kernel_lifecycle,
+    metrics_server,
+    peer_manager/peer_manager,
+    config/conf,
+    api/builder,
     net/nat_config,
-    waku_store/common,
-    waku_filter_v2/client,
-    common/logging,
+    protocols/store/common,
+    protocols/filter/client,
+    base/logging,
   ],
   ./config_chat2mix
-
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
-import ../../logos_delivery/waku/rln
+import logos_delivery/kernel/[rln/rln_evm/group_manager, rln/rln_evm/conversion_utils]
 
 logScope:
   topics = "chat2 mix"
@@ -72,7 +77,7 @@ const Help = """
 # Could poll connection pool or something here, I suppose
 # TODO Ensure connected turns true on incoming connections, or get rid of it
 type Chat = ref object
-  node: WakuNode # waku node for publishing, subscribing, etc
+  node: Kernel # waku node for publishing, subscribing, etc
   transp: StreamTransport # transport streams between read & write file descriptor
   subscribed: bool # indicates if a node is subscribed or not to a topic
   connected: bool # if the node is connected to another peer
@@ -84,7 +89,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_core.PubsubTopic
+  Topic* = PubsubTopic
 
 const MinMixNodePoolSize = 4
 
@@ -100,9 +105,7 @@ type
     nick* {.fieldNumber: 2.}: string
     payload* {.fieldNumber: 3.}: seq[byte]
 
-proc getPubsubTopic*(
-    conf: Chat2Conf, node: WakuNode, contentTopic: string
-): PubsubTopic =
+proc getPubsubTopic*(conf: Chat2Conf, node: Kernel, contentTopic: string): PubsubTopic =
   let shard = node.wakuAutoSharding.get().getShard(contentTopic).valueOr:
       echo "Could not parse content topic: " & error
       return "" #TODO: fix this.
@@ -193,7 +196,7 @@ proc publish(c: Chat, line: string) {.async.} =
   )
 
   try:
-    if not c.node.wakuLightpushClient.isNil():
+    if not c.node.protocols.lightPushClient.isNil():
       # Attempt lightpush with mix
 
       (
@@ -259,7 +262,8 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stop()
+        (await c.node.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
@@ -309,7 +313,7 @@ proc selectRandomServicePeer*(
   return ok(supportivePeers[rndPeerIndex])
 
 proc maintainSubscription(
-    wakuNode: WakuNode,
+    kernel: Kernel,
     filterPubsubTopic: PubsubTopic,
     filterContentTopic: ContentTopic,
     filterPeer: RemotePeerInfo,
@@ -326,7 +330,7 @@ proc maintainSubscription(
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingErr = (await wakuNode.wakuFilterClient.ping(actualFilterPeer)).errorOr:
+    let pingErr = (await kernel.protocols.filterClient.ping(actualFilterPeer)).errorOr:
       await sleepAsync(SubscriptionMaintenance)
       info "subscription is live."
       continue
@@ -336,7 +340,7 @@ proc maintainSubscription(
     trace "no subscription found. Sending subscribe request"
 
     let subscribeErr = (
-      await wakuNode.filterSubscribe(
+      await kernel.filterSubscribe(
         Opt.some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
     ).errorOr:
@@ -351,7 +355,7 @@ proc maintainSubscription(
       error = subscribeErr, peer = actualFilterPeer, failCount = noFailedSubscribes
 
     # TODO: disconnet from failed actualFilterPeer
-    # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+    # asyncSpawn(kernel.peerManager.switch.disconnect(p))
     # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
     if noFailedSubscribes < maxFailedSubscribes:
@@ -359,7 +363,7 @@ proc maintainSubscription(
     elif not preventPeerSwitch:
       # try again with new peer without delay
       let actualFilterPeer = selectRandomServicePeer(
-        wakuNode.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
+        kernel.peerManager, Opt.some(actualFilterPeer), WakuFilterSubscribeCodec
       ).valueOr:
         error "Failed to find new service peer. Exiting."
         noFailedServiceNodeSwitches += 1
@@ -477,7 +481,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
 
   #await node.mountRendezvousClient(conf.clusterId)
 
-  await node.start()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   node.peerManager.start()
 
@@ -600,7 +605,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       trace "Hit filter handler", contentTopic = msg.contentTopic
       chat.printReceivedMessage(msg)
 
-    node.wakuFilterClient.registerPushHandler(filterHandler)
+    node.protocols.filterClient.registerPushHandler(filterHandler)
   var servicePeerInfo: RemotePeerInfo
   if conf.serviceNode != "":
     servicePeerInfo = parsePeerInfo(conf.serviceNode).valueOr:

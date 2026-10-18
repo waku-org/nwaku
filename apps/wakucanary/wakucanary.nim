@@ -1,10 +1,5 @@
 import
-  results,
-  std/[strutils, sequtils, tables, strformat],
-  confutils,
-  chronos,
-  chronicles/topics_registry,
-  os
+  results, std/[strutils, tables], confutils, chronos, chronicles/topics_registry, os
 import
   libp2p/protocols/ping,
   libp2p/protocols/protocol,
@@ -12,13 +7,19 @@ import
   libp2p/nameresolving/dnsresolver,
   libp2p/multicodec
 import
-  ./certsgenerator,
-  logos_delivery/waku/
-    [waku_enr, node/peer_manager, waku_core, waku_node, factory/builder],
-  logos_delivery/waku/net/net_config,
-  logos_delivery/waku/waku_metadata/protocol,
-  logos_delivery/waku/common/callbacks
-
+  logos_delivery/kernel/[
+    base/enr,
+    base/enr/sharding,
+    peer_manager/peer_manager,
+    base/peers,
+    base/codecs,
+    api/kernel_lifecycle,
+    api/builder,
+    net/net_config,
+    protocols/metadata/protocol,
+    base/callbacks,
+  ],
+  ./certsgenerator
 # protocols and their tag
 const ProtocolsTable = {
   "store": "/vac/waku/store-query/3",
@@ -147,12 +148,10 @@ proc areProtocolsSupported(
 
   return false
 
-proc pingNode(
-    node: WakuNode, peerInfo: RemotePeerInfo
-): Future[bool] {.async, gcsafe.} =
+proc pingNode(node: Kernel, peerInfo: RemotePeerInfo): Future[bool] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
-    let pingDelay = await node.libp2pPing.ping(conn)
+    let pingDelay = await node.protocols.libp2pPing.ping(conn)
     info "Peer response time (ms)", peerId = peerInfo.peerId, ping = pingDelay.millis
     return true
   except CatchableError:
@@ -267,15 +266,16 @@ proc main(rng: Rng): Future[int] {.async.} =
     return cliShards
 
   let metadata = WakuMetadata.new(conf.clusterId, shardsGetter)
-  node.wakuMetadata = metadata
-  node.peerManager.wakuMetadata = metadata
+  node.protocols.metadata = metadata
+  node.peerManager.metadata = Opt.some(metadata.asMetadataSource())
   let mountRes = catch:
     node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
   mountRes.isOkOr:
     error "failed to mount metadata protocol", error = error.msg
     quit(QuitFailure)
 
-  await node.start()
+  (await node.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   debug "Connecting to peer", peer = peer, timeout = conf.timeout
 
@@ -293,7 +293,8 @@ proc main(rng: Rng): Future[int] {.async.} =
   defer:
     debug "Cleanly disconnecting from peer", peerId = peer.peerId
     await node.peerManager.disconnectNode(peer.peerId)
-    await node.stop()
+    (await node.stop()).isOkOr:
+      raiseAssert "failed to stop kernel: " & error
 
   debug "Connected, checking connection status", peerId = peer.peerId
 

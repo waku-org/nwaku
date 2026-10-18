@@ -2,8 +2,12 @@
 
 import results, std/tables, testutils/unittests
 
-import logos_delivery/waku/waku_core/topics, ../../testlib/[wakucore, tables, testutils]
-
+import
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/topics/pubsub_topic, base/enr/sharding],
+  ../../testlib/wakucore,
+  ../../testlib/tables,
+  ../../testlib/testutils
 const GenerationZeroShardsCount = 8
 const ClusterId = 1
 

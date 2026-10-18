@@ -30,26 +30,31 @@ import
     nameresolving/dnsresolver,
   ] # define DNS resolution
 import
-  logos_delivery/waku/[
-    common/protobuf,
-    waku_core,
-    waku_lightpush_legacy/common,
-    waku_lightpush_legacy/rpc,
-    waku_enr,
-    discovery/waku_dnsdisc,
-    waku_node,
-    node/waku_metrics,
-    node/peer_manager,
-    factory/builder,
+  logos_delivery/kernel/[
+    base/protobuf,
+    subscription_manager,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    protocols/lightpush_legacy/rpc,
+    base/enr,
+    discovery/dnsdisc,
+    api/kernel_lifecycle,
+    metrics_server,
+    peer_manager/peer_manager,
+    api/builder,
     net/nat_config,
-    waku_relay,
-    waku_store/common,
+    protocols/relay/protocol,
+    protocols/store/common,
   ],
   ./config_chat2
-
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
-import logos_delivery/waku/rln
-import logos_delivery/waku/rln/rln_plugin
+import
+  logos_delivery/kernel/
+    [rln/rln_evm/group_manager, rln/rln_evm/conversion_utils, rln/rln_evm/rln_evm]
+import logos_delivery/kernel/rln/rln_plugin
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
@@ -63,11 +68,11 @@ const Help = """
 # Could poll connection pool or something here, I suppose
 # TODO Ensure connected turns true on incoming connections, or get rid of it
 type Chat = ref object
-  node: WakuNode # waku node for publishing, subscribing, etc
+  node: Kernel # waku kernel for publishing, subscribing, etc
   transp: StreamTransport # transport streams between read & write file descriptor
-  subscribed: bool # indicates if a node is subscribed or not to a topic
-  connected: bool # if the node is connected to another peer
-  started: bool # if the node has started
+  subscribed: bool # indicates if a kernel is subscribed or not to a topic
+  connected: bool # if the kernel is connected to another peer
+  started: bool # if the kernel has started
   nick: string # nickname for this chat session
   prompt: bool # chat prompt is showing
   contentTopic: string # default content topic for chat messages
@@ -75,7 +80,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_core.PubsubTopic
+  Topic* = PubsubTopic
 
 #####################
 ## chat2 protobufs ##
@@ -197,7 +202,7 @@ proc publish(c: Chat, line: string) {.async.} =
       c.rln.lastEpoch = proof.epoch
 
     try:
-      if not c.node.wakuLegacyLightPush.isNil():
+      if not c.node.protocols.legacyLightPush.isNil():
         # Attempt lightpush
         (await c.node.legacyLightpushPublish(Opt.some(DefaultPubsubTopic), message)).isOkOr:
           error "failed to publish lightpush message", error = error
@@ -256,7 +261,8 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "quitting..."
 
       try:
-        await c.node.stop()
+        (await c.node.stop()).isOkOr:
+          raiseAssert "failed to stop kernel: " & error
       except:
         echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
@@ -323,7 +329,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
     error "failed to create enr record", error = error
     quit(QuitFailure)
 
-  let node = block:
+  let kernel = block:
     var builder = WakuNodeBuilder.init()
     builder.withNodeKey(nodeKey)
     builder.withRecord(record)
@@ -343,7 +349,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       .tryGet()
     builder.build().tryGet()
 
-  await node.start()
+  (await kernel.start()).isOkOr:
+    raiseAssert "failed to start kernel: " & error
 
   if conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
@@ -351,17 +358,17 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
   if conf.relay:
     let shards =
       conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
-    (await node.mountRelay()).isOkOr:
+    (await kernel.mountRelay()).isOkOr:
       echo "failed to mount relay: " & error
       return
 
-  await node.mountLibp2pPing()
+  await kernel.mountLibp2pPing()
 
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
   var chat = Chat(
-    node: node,
+    node: kernel,
     transp: transp,
     subscribed: true,
     connected: false,
@@ -422,12 +429,12 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
     else:
       warn "Failed to init Waku DNS discovery", error = wakuDnsDiscovery.error
 
-  let peerInfo = node.switch.peerInfo
+  let peerInfo = kernel.switch.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
   if (conf.storenode != "") or (conf.store == true):
-    await node.mountStore()
+    await kernel.mountStore()
 
     var storenode: Opt[RemotePeerInfo]
 
@@ -445,8 +452,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
 
-      node.mountStoreClient()
-      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
+      kernel.mountStoreClient()
+      kernel.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
       proc storeHandler(response: StoreQueryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -462,7 +469,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
 
       block storeQueryBlock:
         let queryRes = (
-          await node.query(
+          await kernel.query(
             StoreQueryRequest(contentTopics: @[chat.contentTopic]), storenode.get()
           )
         ).valueOr:
@@ -474,11 +481,11 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
   if conf.lightpushnode != "":
     let peerInfo = parsePeerInfo(conf.lightpushnode)
     if peerInfo.isOk():
-      (await node.mountLegacyLightPush()).isOkOr:
+      (await kernel.mountLegacyLightPush()).isOkOr:
         error "failed to mount legacy lightpush", error = error
         quit(QuitFailure)
-      node.mountLegacyLightPushClient()
-      node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
+      kernel.mountLegacyLightPushClient()
+      kernel.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
     else:
       error "LightPush not mounted. Couldn't parse conf.lightpushnode",
         error = peerInfo.error
@@ -487,8 +494,8 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
     if (let peerInfo = parsePeerInfo(conf.filternode); peerInfo.isErr()):
       error "Filter not mounted. Couldn't parse conf.filternode", error = peerInfo.error
     else:
-      await node.mountFilter()
-      await node.mountFilterClient()
+      await kernel.mountFilter()
+      await kernel.mountFilterClient()
 
       proc filterHandler(
           pubsubTopic: PubsubTopic, msg: WakuMessage
@@ -506,7 +513,7 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
       if msg.contentTopic == chat.contentTopic:
         chat.printReceivedMessage(msg)
 
-    node.subscribe(
+    kernel.subscribe(
       (kind: PubsubSub, topic: DefaultPubsubTopic), WakuRelayHandler(handler)
     ).isOkOr:
       error "failed to subscribe to pubsub topic",
@@ -536,10 +543,10 @@ proc processInput(rfd: AsyncFD, rng: crypto.Rng) {.async.} =
         epochSizeSec: conf.rlnEpochSizeSec,
       )
 
-      let onchainRln = (await mountOnchain(rlnConf, Opt.some(node.brokerCtx))).valueOr:
+      let onchainRln = (await mountOnchain(rlnConf, Opt.some(kernel.brokerCtx))).valueOr:
         error "failed to set rln validator", error = error
         quit(QuitFailure)
-      node.mountRln(onchainRln.toRlnPlugin(), RlnCommonConf(), Opt.some(spamHandler))
+      kernel.mountRln(onchainRln.toRlnPlugin(), RlnCommonConf(), Opt.some(spamHandler))
       chat.rln = onchainRln
 
       let membershipIndex = onchainRln.groupManager.membershipIndex.get()

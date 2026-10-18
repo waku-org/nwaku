@@ -7,21 +7,30 @@ import
   chronos,
   db_connector/postgres
 import
-  logos_delivery/waku/[
-    waku_archive,
-    waku_archive/archive_metrics,
-    waku_archive/driver/postgres_driver,
-    waku_core,
-    waku_core/message/digest,
-    common/databases/db_postgres/dbconn,
-    common/databases/db_postgres/dns_resolver,
-    common/databases/db_postgres/pgasyncpool,
+  logos_delivery/kernel/[
+    archive/common,
+    archive/archive,
+    archive/driver,
+    archive/retention_policy,
+    archive/archive_metrics,
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    archive/driver/postgres_driver/dbconn,
+    archive/driver/postgres_driver/dns_resolver,
+    archive/driver/postgres_driver/pgasyncpool,
   ],
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres,
   ./archive_utils
-
 proc noopFatalHandler(errMsg: string) {.gcsafe, raises: [].} =
   ## For the second driver instances the tests start: the factory only calls it
   ## after six failed passes, about an hour, so it is out of reach within a test.

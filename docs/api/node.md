@@ -16,67 +16,67 @@ the consumer wants to make. These methods are:
 8. **Resume** - to retrieve and persist the message history since the node's last online time.
 
 ```Nim
-proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
+proc init*(T: type Kernel, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
 
-proc start*(node: WakuNode) {.async.} =
+proc start*(node: Kernel) {.async.} =
   ## Starts a created Waku Node.
   ##
   ## Status: Implemented.
 
-proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(node: Kernel, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
-proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
+proc subscribe*(node: Kernel, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   ## FilterHandler is a method that takes a MessagePush.
   ##
   ## Status: Implemented.
 
-proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
+proc unsubscribe*(node: Kernel, topic: Topic, handler: TopicHandler) =
   ## Unsubscribes a handler from a PubSub topic.
   ##
   ## Status: Implemented.
 
-proc unsubscribeAll*(node: WakuNode, topic: Topic) =
+proc unsubscribeAll*(node: Kernel, topic: Topic) =
   ## Unsubscribes all handlers registered on a specific PubSub topic.
   ##
   ## Status: Implemented.
 
-proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
+proc unsubscribe*(w: Kernel, contentFilter: ContentFilter) =
   ## Unsubscribe from a content filter.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
+proc publish*(node: Kernel, topic: Topic, message: WakuMessage) =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
   ##
   ## Status: Implemented.
 
-proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+proc query*(w: Kernel, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
 
-proc info*(node: WakuNode): WakuInfo =
+proc info*(node: Kernel): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
   ##
   ## Status: Implemented.
   ##
 
-proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]]) =
+proc resume*(node: Kernel, peerList: Option[seq[PeerInfo]]) =
   ## Retrieves and persists the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online. 
   ## It requires the waku node to have the store protocol mounted in the full mode (i.e., persisting messages).
   ## `peerList` indicates the list of peers to query from.

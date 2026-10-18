@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[net, sysrand, random, strformat, strutils, sequtils],
+  std/[net, sysrand, random, strutils, sequtils],
   chronicles,
   chronos,
   metrics,
@@ -11,24 +11,20 @@ import
   libp2p/wire
 
 import
-  tools/confutils/cli_args,
-  logos_delivery/waku/[
-    common/enr,
-    waku_node,
-    node/peer_manager,
-    waku_lightpush/common,
-    waku_relay,
-    waku_filter_v2,
-    waku_peer_exchange/protocol,
-    waku_core/multiaddrstr,
-    waku_core/topics/pubsub_topic,
-    waku_enr/capabilities,
-    waku_enr/sharding,
+  logos_delivery/kernel/[
+    base/enr,
+    kernel,
+    api/peer_exchange,
+    peer_manager/peer_manager,
+    protocols/peer_exchange/protocol,
+    base/peers,
+    base/topics/pubsub_topic,
+    base/enr/capabilities,
+    base/enr/sharding,
   ],
+  tools/confutils/cli_args,
   ./tester_config,
-  ./diagnose_connections,
   ./lpt_metrics
-
 logScope:
   topics = "service peer mgmt"
 
@@ -156,11 +152,11 @@ proc tryCallAllPxPeers*(
   return Opt.some(okPeers)
 
 proc pxLookupServiceNode*(
-    node: WakuNode, conf: LiteProtocolTesterConf
+    node: Kernel, conf: LiteProtocolTesterConf
 ): Future[Result[bool, void]] {.async.} =
   let codec: string = conf.getCodec()
 
-  if node.wakuPeerExchange.isNil():
+  if node.discovery.peerExchange.isNil():
     let peerExchangeNode = translateToRemotePeerInfo(conf.bootstrapNode).valueOr:
       error "Failed to parse bootstrap node - cannot use PeerExchange.",
         node = conf.bootstrapNode

@@ -1,16 +1,13 @@
 import results, testutils/unittests
 
 import
-  logos_delivery/waku/node/peer_manager/peer_store/migrations,
+  logos_delivery/kernel/peer_manager/peer_store/migrations,
   ../../waku_archive/archive_utils,
   ../../testlib/[simple_mock]
 
 import std/[tables, strutils, os], results, chronicles
 
-import
-  logos_delivery/waku/common/databases/db_sqlite,
-  logos_delivery/waku/common/databases/common
-
+import logos_delivery/kernel/[base/databases/db_sqlite, base/databases/common]
 suite "Migrations":
   test "migrate ok":
     # Given the db_sqlite.migrate function returns ok

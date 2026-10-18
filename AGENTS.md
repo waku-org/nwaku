@@ -61,8 +61,8 @@ waku_<protocol>/
 └── protocol_metrics.nim  # Prometheus metrics
 ```
 
-### WakuNode Architecture
-- WakuNode (`waku/node/waku_node.nim`) is the central orchestrator
+### Kernel Architecture
+- Kernel (`logos_delivery/kernel/kernel.nim`) is the central orchestrator
 - Protocols are "mounted" onto the node's switch (libp2p component)
 - PeerManager handles peer selection and connection management
 - Switch provides libp2p transport, security, and multiplexing
@@ -140,7 +140,7 @@ suite "Waku ENR - Capabilities":
 Mandatory: All code must be formatted with `nph` (installed via `make build-nph`, which fetches a pinned `nph` version with Nimble)
 ```bash
 # Format specific file
-make nph/waku/waku_core.nim
+make nph/logos_delivery/kernel/base/message.nim
 
 # Install git pre-commit hook (auto-formats on commit)
 make install-nph
@@ -404,7 +404,7 @@ Miscellaneous
 ## Common Workflows
 
 ### Adding a New Protocol
-1. Create directory: `waku/waku_myprotocol/`
+1. Create directory: `kernel/waku_myprotocol/`
 2. Define core files:
    - `rpc.nim` - Message types
    - `rpc_codec.nim` - Protobuf encoding
@@ -418,16 +418,16 @@ Miscellaneous
      # ... fields
    ```
 4. Implement request handler
-5. Mount in WakuNode (`waku/node/waku_node.nim`)
+5. Mount in Kernel (`logos_delivery/kernel/kernel.nim`)
 6. Add tests in `tests/waku_myprotocol/`
-7. Export module via `waku/waku_myprotocol.nim`
+7. Export module via `kernel/waku_myprotocol.nim`
 
 ### Adding a REST API Endpoint
 1. Define handler in `rest/kernel_api/myprotocol/`
 2. Implement endpoint following pattern:
    ```nim
    proc installMyProtocolApiHandlers*(
-       router: var RestRouter, node: WakuNode
+       router: var RestRouter, node: Kernel
    ) =
      router.api(MethodGet, "/waku/v2/myprotocol/endpoint") do () -> RestApiResponse:
        # Implementation
@@ -493,13 +493,13 @@ Language: Nim 2.x | License: MIT or Apache 2.0
 - `Makefile` - Primary build interface
 - `logos_delivery.nimble` - Package definition and build tasks (invoked by the Makefile via Nimble)
 - `nimble.lock` - Pinned dependency versions resolved into `nimbledeps/`
-- `logos_delivery/waku/node/waku_node.nim` - Core node implementation
+- `logos_delivery/kernel/kernel.nim` - Core node implementation
 - `apps/logos_delivery_node/logosdeliverynode.nim` - Main CLI application
-- `logos_delivery/waku/factory/waku_conf.nim` - Configuration types
+- `logos_delivery/kernel/config/conf.nim` - Configuration types
 - `library/liblogosdelivery.nim` - C bindings entry point
 
 ### Testing Entry Points
-- `tests/all_tests_waku.nim` - Waku protocol package tests (`logos_delivery/waku/waku_*`)
+- `tests/all_tests_waku.nim` - Waku protocol package tests (`logos_delivery/kernel/waku_*`)
 - `tests/all_tests_waku_ext.nim` - Tests of what is built on the protocols: node, networking, discovery, REST, RLN, config
 - `tests/all_tests_app.nim` - Node application tests
 - `tests/all_tests_common.nim` - Common utilities tests

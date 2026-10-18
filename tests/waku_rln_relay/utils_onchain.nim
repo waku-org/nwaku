@@ -1,10 +1,9 @@
-import libp2p/crypto/rng
 {.used.}
 
 {.push raises: [].}
 
 import
-  std/[net, os, osproc, streams, strutils, strformat],
+  std/[net, os, osproc, strutils, strformat],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -21,19 +20,19 @@ import
   brokers/request_broker
 
 import
-  logos_delivery/waku/[
-    rln,
+  logos_delivery/kernel/[
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_evm/rln_evm,
     rln/rln_plugin,
     rln/rln_evm/protocol_types,
     rln/rln_evm/constants,
-    rln/rln_evm/bindings,
+    rln/rln_evm/wrappers,
     rln/rln_evm/retry_wrapper,
-    node/waku_node,
-    node/waku_node/relay,
+    kernel,
+    api/relay,
     persistency/persistency,
-  ],
-  ../testlib/common
-
+  ]
 const CHAIN_ID* = 1234'u256
 
 # Cached Anvil state with pre-deployed contracts and a pre-funded/approved account.
@@ -824,7 +823,7 @@ proc buildRlnEvm*(
   )
 
 proc mountOnchainRln*(
-    node: WakuNode,
+    node: Kernel,
     conf: WakuRlnConfig,
     spamHandler = Opt.none(SpamHandler),
     registrationHandler = Opt.none(RegistrationHandler),

@@ -1,4 +1,4 @@
-from logos_delivery/waku/node/waku_node/lightpush import MixLightpushSurbs
+from logos_delivery/kernel/api/lightpush import MixLightpushSurbs
 
 import
   std/[tables, times, sequtils, strutils],
@@ -18,20 +18,34 @@ import
   metrics/chronos_httpserver
 
 import
-  logos_delivery/waku/[
-    common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_core/codecs,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/builder,
-    waku_lightpush/client,
+  logos_delivery/kernel/[
+    api/mix,
+    base/logging,
+    peer_manager/peer_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    net/switch,
+    kernel,
+    api/filter,
+    api/lightpush,
+    api/store,
+    api/relay,
+    api/peer_exchange,
+    api/ping,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    discovery/discv5,
+    api/builder,
+    protocols/lightpush/client,
   ],
   ./lightpush_publisher_mix_config,
   ./lightpush_publisher_mix_metrics
-
 const clusterId = 66
 const shardId = @[0'u16]
 
@@ -145,7 +159,7 @@ proc setupAndPublish(rng: crypto.Rng, conf: LightPushMixConf) {.async.} =
         return
       conn = connOpt.get()
     else:
-      conn = node.wakuMix.toConnection(
+      conn = node.protocols.mix.toConnection(
         MixDestination.exitNode(dPeerId), # destination lightpush peer
         WakuLightPushCodec, # protocol codec which will be used over the mix connection
         MixParameters(
@@ -167,14 +181,14 @@ proc setupAndPublish(rng: crypto.Rng, conf: LightPushMixConf) {.async.} =
       timestamp: getNowInNanosecondTime(),
     ) # current timestamp
 
-    let res = await node.wakuLightpushClient.publish(
+    let res = await node.protocols.lightPushClient.publish(
       Opt.some(LightpushPubsubTopic), message, conn
     )
 
     let startTime = getNowInNanosecondTime()
 
     (
-      await node.wakuLightpushClient.publishWithConn(
+      await node.protocols.lightPushClient.publishWithConn(
         LightpushPubsubTopic, message, conn, dPeerId
       )
     ).isOkOr:

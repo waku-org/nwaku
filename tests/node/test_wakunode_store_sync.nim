@@ -8,20 +8,26 @@ import
   libp2p/crypto/crypto
 
 import
-  logos_delivery/waku/[
-    waku_node,
-    node/peer_manager,
-    waku_core,
-    waku_archive,
-    waku_archive/archive_metrics,
-    waku_archive/retention_policy/retention_policy_time,
-    waku_store_sync,
+  logos_delivery/kernel/[
+    api/kernel_lifecycle,
+    peer_manager/peer_manager,
+    subscription_manager,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    archive/driver,
+    archive/retention_policy,
+    archive/archive_metrics,
+    archive/retention_policy/retention_policy_time,
+    protocols/store_sync/reconciliation,
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
   ../waku_store_sync/sync_utils,
-  ../testlib/[wakucore, wakunode, testasync]
-
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../testlib/testasync
 const
   listenIp = parseIpAddress("0.0.0.0")
   listenPort = Port(0)
@@ -32,7 +38,7 @@ proc newStoreSyncNode(
     storeSyncRelayJitter: uint32 = 0,
     maxMessageSize: int = int(DefaultMaxWakuMessageSize),
     quicEnabled = true,
-): Future[WakuNode] {.async.} =
+): Future[Kernel] {.async.} =
   ## A store node whose sync interval is long enough that only the test starts sessions.
   let node = newTestWakuNode(
     generateSecp256k1Key(), listenIp, listenPort, quicEnabled = quicEnabled
@@ -52,13 +58,13 @@ proc newStoreSyncNode(
     raiseAssert error
   return node
 
-proc syncWith(node, peer: WakuNode): Future[Result[void, string]] {.async.} =
-  return await node.wakuStoreReconciliation.storeSynchronization(
+proc syncWith(node, peer: Kernel): Future[Result[void, string]] {.async.} =
+  return await node.protocols.storeReconciliation.storeSynchronization(
     Opt.some(peer.switch.peerInfo.toRemotePeerInfo())
   )
 
 suite "Waku Store Sync - End to End":
-  var nodes {.threadvar.}: seq[WakuNode]
+  var nodes {.threadvar.}: seq[Kernel]
 
   asyncTeardown:
     await allFutures(nodes.mapIt(it.stop()))
@@ -85,7 +91,7 @@ suite "Waku Store Sync - End to End":
     # Then the empty node's archive holds the messages
     check res.isOk()
     checkUntilTimeout:
-      await client.wakuArchive.holdsMessages(hashes)
+      await client.protocols.archive.holdsMessages(hashes)
 
   asyncTest "A message received through store sync is synced to the next peer":
     # Given a message only node A holds
@@ -104,14 +110,14 @@ suite "Waku Store Sync - End to End":
     let resB = await nodeB.syncWith(nodeA)
     check resB.isOk()
     checkUntilTimeout:
-      await nodeB.wakuArchive.holdsMessages(@[hash])
+      await nodeB.protocols.archive.holdsMessages(@[hash])
 
     let resC = await nodeC.syncWith(nodeB)
 
     # Then C's archive holds the message
     check resC.isOk()
     checkUntilTimeout:
-      await nodeC.wakuArchive.holdsMessages(@[hash])
+      await nodeC.protocols.archive.holdsMessages(@[hash])
 
   asyncTest "One session gives two relay nodes each other's messages":
     # Given two relay nodes that each archived their own messages while not connected
@@ -145,8 +151,8 @@ suite "Waku Store Sync - End to End":
     for msg in msgsB:
       discard await nodeB.publish(Opt.some(DefaultPubsubTopic), msg)
     checkUntilTimeout:
-      await nodeA.wakuArchive.holdsMessages(hashesA)
-      await nodeB.wakuArchive.holdsMessages(hashesB)
+      await nodeA.protocols.archive.holdsMessages(hashesA)
+      await nodeB.protocols.archive.holdsMessages(hashesB)
 
     let syncInsertsBefore = insertCount(syncIngress)
 
@@ -157,8 +163,8 @@ suite "Waku Store Sync - End to End":
     # Then both archives hold all six messages, each one a node lacked written by sync
     check res.isOk()
     checkUntilTimeout:
-      await nodeA.wakuArchive.holdsMessages(hashesA & hashesB)
-      await nodeB.wakuArchive.holdsMessages(hashesA & hashesB)
+      await nodeA.protocols.archive.holdsMessages(hashesA & hashesB)
+      await nodeB.protocols.archive.holdsMessages(hashesA & hashesB)
     check insertCount(syncIngress) == syncInsertsBefore + 6
 
   asyncTest "The sync range is clamped to the archive's time retention":
@@ -182,17 +188,19 @@ suite "Waku Store Sync - End to End":
       )
     ).isOkOr:
       raiseAssert error
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
     # Then the effective range is the retention minus the jitter
-    check node.wakuStoreReconciliation.getEffectiveSyncRange() == 1780.seconds
+    check node.protocols.storeReconciliation.getEffectiveSyncRange() == 1780.seconds
 
   asyncTest "The sync range stays as configured without a time retention":
     let node = await newStoreSyncNode(newSqliteArchiveDriver())
     nodes = @[node]
-    await node.start()
+    (await node.start()).isOkOr:
+      raiseAssert "failed to start kernel: " & error
 
-    check node.wakuStoreReconciliation.getEffectiveSyncRange() == 3600.seconds
+    check node.protocols.storeReconciliation.getEffectiveSyncRange() == 3600.seconds
 
   asyncTest "A peer with a longer sync range does not push messages older than the node's window":
     # Given a node whose window is [now - 1800 s, now - 20 s], and a peer with the
@@ -221,9 +229,9 @@ suite "Waku Store Sync - End to End":
     # Then the node's archive gets the recent message only
     check res.isOk()
     checkUntilTimeout:
-      await node.wakuArchive.holdsMessages(@[recentHash])
+      await node.protocols.archive.holdsMessages(@[recentHash])
     check:
-      not await node.wakuArchive.holdsMessages(@[oldHash])
+      not await node.protocols.archive.holdsMessages(@[oldHash])
       insertCount(syncIngress) == syncInsertsBefore + 1
 
   asyncTest "Nodes with a raised max message size sync a message above the default read limit":
@@ -253,7 +261,7 @@ suite "Waku Store Sync - End to End":
     # Then B's archive holds all four messages
     check res.isOk()
     checkUntilTimeout:
-      await nodeB.wakuArchive.holdsMessages(hashes)
+      await nodeB.protocols.archive.holdsMessages(hashes)
 
   asyncTest "Over TCP, a peer with the default limit refuses the large messages and a third peer still gets everything":
     # Given a 200 KiB node holding two messages above the default read limit and a small
@@ -287,10 +295,10 @@ suite "Waku Store Sync - End to End":
       resB.isOk()
       resC.isOk()
     checkUntilTimeout:
-      await nodeB.wakuArchive.holdsMessages(@[smallHash])
-      await nodeC.wakuArchive.holdsMessages(bigHashes & @[smallHash])
+      await nodeB.protocols.archive.holdsMessages(@[smallHash])
+      await nodeC.protocols.archive.holdsMessages(bigHashes & @[smallHash])
     for hash in bigHashes:
-      check not await nodeB.wakuArchive.holdsMessages(@[hash])
+      check not await nodeB.protocols.archive.holdsMessages(@[hash])
 
   asyncTest "A node stopped while its store sync transfer writes to a peer over TCP completes its stop":
     # Given a node that archived three hundred 100 KB messages, and a peer connected to it over TCP

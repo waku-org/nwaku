@@ -2,11 +2,9 @@
 
 import chronos, std/sequtils, results
 import
-  logos_delivery/waku/discovery/waku_discv5,
-  logos_delivery/waku/waku_relay,
-  logos_delivery/waku/waku_core,
+  logos_delivery/kernel/
+    [discovery/discv5, protocols/relay/protocol, base/message, base/peers],
   rest/message_cache
-
 ### Discovery
 
 type DiscoveryHandler* =
