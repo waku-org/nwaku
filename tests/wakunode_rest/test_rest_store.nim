@@ -23,7 +23,7 @@ import
     protocols/message,
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     kernel_lifecycle,
     peer_manager/peer_manager,
     archive/archive,

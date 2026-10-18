@@ -15,8 +15,8 @@ import
 
 import
   logos_delivery/kernel/[protocols/message, peer_manager/peers],
-  logos_delivery/kernel/enr/sharding,
-  logos_delivery/kernel/enr/capabilities,
+  logos_delivery/kernel/common/enr/sharding,
+  logos_delivery/kernel/common/enr/capabilities,
   logos_delivery/kernel/peer_manager/peers
 
 export peerstore, builders

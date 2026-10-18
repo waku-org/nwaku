@@ -21,12 +21,12 @@ import
   logos_delivery/kernel/[
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ],
-  logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
+  logos_delivery/kernel/[common/enr, common/enr/capabilities, common/enr/sharding],
   logos_delivery/kernel/peer_manager/peer_store
 
 logScope:

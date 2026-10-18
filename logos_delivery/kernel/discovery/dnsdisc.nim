@@ -21,7 +21,7 @@ import libp2p/nameresolving/dnsresolver
 import
   logos_delivery/kernel/[
     protocols/topics/content_topic,
-    enr/sharding,
+    common/enr/sharding,
     protocols/topics/content_topic,
     peer_manager/peers,
   ]

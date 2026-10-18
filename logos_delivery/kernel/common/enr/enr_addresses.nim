@@ -12,7 +12,8 @@ import eth/keys, eth/p2p/discoveryv5/enr
 import libp2p/[multiaddress, wire], libp2p/crypto/crypto
 import
   logos_delivery/kernel/net/net_config,
-  logos_delivery/kernel/[common/enr/typed_record, enr/multiaddr, enr/sharding]
+  logos_delivery/kernel/
+    [common/enr/typed_record, common/enr/multiaddr, common/enr/sharding]
 
 logScope:
   topics = "waku enr"

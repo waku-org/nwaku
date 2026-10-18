@@ -20,7 +20,7 @@ import
   logos_delivery/kernel/factory/conf_builder/mix_conf_builder,
   logos_delivery/kernel/factory/networks_config,
   logos_delivery/kernel/protocols/mix/protocol,
-  logos_delivery/kernel/enr/capabilities,
+  logos_delivery/kernel/common/enr/capabilities,
   logos_delivery/kernel/common/rate_limit/setting,
   logos_delivery/kernel/common/parse_size_units,
   logos_delivery/kernel/protocols/message

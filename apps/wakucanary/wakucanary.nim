@@ -10,7 +10,7 @@ import
   ./certsgenerator,
   logos_delivery/kernel/[
     common/enr,
-    enr/sharding,
+    common/enr/sharding,
     peer_manager/peer_manager,
     peer_manager/peers,
     protocols/codecs,

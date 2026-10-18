@@ -25,13 +25,13 @@ import
   logos_delivery/kernel/[
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     protocols/topics/content_topic,
     protocols/message,
     peer_manager/peers,
   ],
   logos_delivery/kernel/protocols/codecs,
-  logos_delivery/kernel/enr/sharding,
+  logos_delivery/kernel/common/enr/sharding,
   logos_delivery/kernel/protocols/lightpush_legacy/client as legacy_lightpush_client,
   logos_delivery/kernel/protocols/lightpush_legacy/callbacks as
     legacy_lightpush_callbacks,

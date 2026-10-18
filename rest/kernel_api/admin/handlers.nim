@@ -24,7 +24,7 @@ import
     protocols/peer_exchange/protocol,
     kernel,
     peer_manager/peer_manager,
-    enr/sharding,
+    common/enr/sharding,
   ],
   rest/responses,
   rest/serdes,

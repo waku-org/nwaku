@@ -22,7 +22,7 @@ import
     peer_manager/peers,
     protocols/codecs,
     common/enr/builder,
-    enr/sharding,
+    common/enr/sharding,
   ],
   ../testlib/[wakucore, wakunode, assertions, testasync],
   ./utils.nim

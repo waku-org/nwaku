@@ -7,7 +7,7 @@ import
   logos_delivery/kernel/discovery/self_advertisement,
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/factory/conf,
-  logos_delivery/kernel/enr/capabilities
+  logos_delivery/kernel/common/enr/capabilities
 import tools/confutils/cli_args
 
 ## A backend that records what it was asked to do, so the fan-out rules can be

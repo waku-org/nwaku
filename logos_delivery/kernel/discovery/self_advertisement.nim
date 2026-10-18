@@ -20,7 +20,7 @@ import libp2p_mix/mix_protocol
 import
   logos_delivery/kernel/discovery/peer_discovery_interface,
   logos_delivery/kernel/factory/conf,
-  logos_delivery/kernel/enr/capabilities
+  logos_delivery/kernel/common/enr/capabilities
 
 logScope:
   topics = "waku discovery advertise"

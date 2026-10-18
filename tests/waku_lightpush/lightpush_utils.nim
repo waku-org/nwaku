@@ -4,8 +4,8 @@ import results, chronos, libp2p/crypto/crypto
 
 import
   logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/[enr/sharding, protocols/message],
-  logos_delivery/kernel/enr/sharding,
+  logos_delivery/kernel/[common/enr/sharding, protocols/message],
+  logos_delivery/kernel/common/enr/sharding,
   logos_delivery/kernel/protocols/lightpush/[protocol, common],
   logos_delivery/kernel/protocols/lightpush/[client, common],
   logos_delivery/kernel/common/rate_limit/setting,

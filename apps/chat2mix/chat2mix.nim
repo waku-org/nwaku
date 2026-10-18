@@ -38,7 +38,7 @@ import
     common/protobuf,
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     common/time,
     protocols/message,
     peer_manager/peers,

@@ -20,7 +20,7 @@ import
     protocols/topics/content_topic,
     peer_manager/peers,
   ],
-  logos_delivery/kernel/[common/enr, enr/capabilities, enr/sharding],
+  logos_delivery/kernel/[common/enr, common/enr/capabilities, common/enr/sharding],
   logos_delivery/kernel/api/events/discovery_events,
   logos_delivery/kernel/discovery/node_state_requests
 

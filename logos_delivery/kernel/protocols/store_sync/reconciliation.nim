@@ -15,7 +15,7 @@ import
   logos_delivery/kernel/common/nimchronos,
   logos_delivery/kernel/common/protobuf,
   logos_delivery/kernel/common/paging,
-  logos_delivery/kernel/[enr/sharding],
+  logos_delivery/kernel/[common/enr/sharding],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/common/time,
   logos_delivery/kernel/protocols/topics/pubsub_topic,

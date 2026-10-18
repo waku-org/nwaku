@@ -4,7 +4,7 @@ import results, std/tables, testutils/unittests
 
 import
   logos_delivery/kernel/
-    [protocols/topics/content_topic, protocols/topics/pubsub_topic, enr/sharding],
+    [protocols/topics/content_topic, protocols/topics/pubsub_topic, common/enr/sharding],
   ../../testlib/[wakucore, tables, testutils]
 
 const GenerationZeroShardsCount = 8

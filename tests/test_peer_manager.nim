@@ -28,7 +28,7 @@ import
     protocols/message,
     peer_manager/peers,
     protocols/codecs,
-    enr/capabilities,
+    common/enr/capabilities,
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/store/common,

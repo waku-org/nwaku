@@ -7,7 +7,7 @@ import
   eth/keys,
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto
-import ../common/enr
+import logos_delivery/kernel/common/enr
 
 const MultiaddrEnrField* = "multiaddrs"
 

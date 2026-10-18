@@ -21,7 +21,7 @@ import
     protocols/filter/common,
     protocols/peer_exchange/protocol,
     peer_manager/peers,
-    enr/capabilities,
+    common/enr/capabilities,
   ]
 logScope:
   topics = "diagnose connections"

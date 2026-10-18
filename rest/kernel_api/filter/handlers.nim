@@ -15,7 +15,7 @@ import
   logos_delivery/kernel/[
     protocols/topics/content_topic,
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     protocols/message,
     peer_manager/peers,
   ],

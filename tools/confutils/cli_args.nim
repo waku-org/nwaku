@@ -48,8 +48,8 @@ import
   logos_delivery/kernel/common/[logging],
   logos_delivery/kernel/[
     common/enr,
-    enr/capabilities,
-    enr/sharding,
+    common/enr/capabilities,
+    common/enr/sharding,
     peer_manager/peer_manager,
     protocols/topics/pubsub_topic,
     protocols/message,

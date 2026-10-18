@@ -21,7 +21,7 @@ import
   logos_delivery/kernel/[health_monitor/node_health_monitor],
   logos_delivery/kernel/discovery/discv5,
   logos_delivery/kernel/
-    [subscription_manager, protocols/topics/pubsub_topic, enr/sharding],
+    [subscription_manager, protocols/topics/pubsub_topic, common/enr/sharding],
   logos_delivery/kernel/protocols/relay/protocol
 import
   rest/message_cache,

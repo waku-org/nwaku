@@ -14,7 +14,7 @@ import
 import
   logos_delivery/kernel/[
     protocols/topics/pubsub_topic,
-    enr/sharding,
+    common/enr/sharding,
     kernel_lifecycle,
     common/paging,
     subscription_manager,

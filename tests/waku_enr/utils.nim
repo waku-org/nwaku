@@ -2,8 +2,12 @@ import
   sequtils, results, chronos, libp2p/crypto/crypto as libp2p_keys, eth/keys as eth_keys
 
 import
-  logos_delivery/kernel/
-    [common/enr as waku_enr, enr/capabilities, enr/sharding, discovery/discv5],
+  logos_delivery/kernel/[
+    common/enr as waku_enr,
+    common/enr/capabilities,
+    common/enr/sharding,
+    discovery/discv5,
+  ],
   ../testlib/wakucore
 
 proc newTestEnrRecord*(

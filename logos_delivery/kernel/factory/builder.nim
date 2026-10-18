@@ -12,7 +12,7 @@ import
   brokers/broker_context
 
 import
-  logos_delivery/kernel/[common/enr, enr/capabilities],
+  logos_delivery/kernel/[common/enr, common/enr/capabilities],
   ../discovery/discv5,
   logos_delivery/kernel/[net/switch, kernel],
   logos_delivery/kernel/net/switch,

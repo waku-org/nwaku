@@ -9,8 +9,13 @@ import
   results
 
 import
-  logos_delivery/kernel/
-    [net/net_config, common/enr, enr/capabilities, enr/multiaddr, enr/sharding],
+  logos_delivery/kernel/[
+    net/net_config,
+    common/enr,
+    common/enr/capabilities,
+    common/enr/multiaddr,
+    common/enr/sharding,
+  ],
   ./conf
 
 proc tryBuildEnrRecord(

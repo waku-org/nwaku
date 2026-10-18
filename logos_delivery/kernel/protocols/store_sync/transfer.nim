@@ -13,7 +13,7 @@ import
 import
   logos_delivery/kernel/common/nimchronos,
   logos_delivery/kernel/common/protobuf,
-  logos_delivery/kernel/[enr/sharding],
+  logos_delivery/kernel/[common/enr/sharding],
   logos_delivery/kernel/protocols/codecs,
   logos_delivery/kernel/protocols/topics/pubsub_topic,
   logos_delivery/kernel/protocols/topics/content_topic,

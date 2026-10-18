@@ -11,7 +11,7 @@ import brokers/broker_context
 import
   logos_delivery/kernel/[
     common/enr,
-    enr/sharding,
+    common/enr/sharding,
     discovery/discv5,
     common/enr,
     net/auto_port,

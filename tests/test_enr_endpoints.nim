@@ -15,15 +15,15 @@ import stew/byteutils
 import
   ../logos_delivery/kernel/discovery/discv5,
   ../logos_delivery/kernel/net/net_config,
-  ../logos_delivery/kernel/enr/enr_addresses,
+  ../logos_delivery/kernel/common/enr/enr_addresses,
   ../logos_delivery/kernel/kernel,
   ../logos_delivery/kernel/kernel_lifecycle,
   logos_delivery/kernel/[
     common/enr/builder,
     common/enr/typed_record,
-    enr/capabilities,
-    enr/multiaddr,
-    enr/sharding,
+    common/enr/capabilities,
+    common/enr/multiaddr,
+    common/enr/sharding,
   ],
   ../logos_delivery/kernel/peer_manager/peers
 import ./testlib/[wakucore, wakunode]

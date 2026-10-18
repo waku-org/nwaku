@@ -21,8 +21,12 @@ import
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/kernel,
   ../logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/
-    [common/enr/builder, common/enr/typed_record, enr/multiaddr, enr/sharding]
+  logos_delivery/kernel/[
+    common/enr/builder,
+    common/enr/typed_record,
+    common/enr/multiaddr,
+    common/enr/sharding,
+  ]
 import ./testlib/[common, wakucore, wakunode]
 
 const LoopbackIp = parseIpAddress("127.0.0.1")

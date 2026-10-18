@@ -24,7 +24,7 @@ import
   logos_delivery/kernel/metrics_server,
   ../common/logging,
   ../common/rate_limit/setting,
-  logos_delivery/kernel/enr/capabilities,
+  logos_delivery/kernel/common/enr/capabilities,
   ./networks_config,
   logos_delivery/kernel/protocols/mix/protocol
 

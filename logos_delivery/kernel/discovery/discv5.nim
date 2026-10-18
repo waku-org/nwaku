@@ -20,9 +20,9 @@ import
     protocols/topics/pubsub_topic,
     peer_manager/peers,
     common/enr,
-    enr/capabilities,
-    enr/multiaddr,
-    enr/sharding,
+    common/enr/capabilities,
+    common/enr/multiaddr,
+    common/enr/sharding,
     api/events/discovery_events,
     api/events/subscription_events,
   ]

@@ -7,7 +7,7 @@ import
     peer_manager/peer_manager,
     peer_manager/peer_store/sqlite_peer_storage,
     common/enr/builder,
-    enr/sharding,
+    common/enr/sharding,
   ],
   ./testlib/wakucore
 

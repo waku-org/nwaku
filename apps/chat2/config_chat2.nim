@@ -13,7 +13,7 @@ import
   regex
 import
   logos_delivery/kernel/
-    [protocols/topics/content_topic, enr/sharding, peer_manager/peers]
+    [protocols/topics/content_topic, common/enr/sharding, peer_manager/peers]
 
 type
   Fleet* = enum

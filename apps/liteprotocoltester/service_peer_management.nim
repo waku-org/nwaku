@@ -20,8 +20,8 @@ import
     protocols/peer_exchange/protocol,
     peer_manager/peers,
     protocols/topics/pubsub_topic,
-    enr/capabilities,
-    enr/sharding,
+    common/enr/capabilities,
+    common/enr/sharding,
   ],
   ./tester_config,
   ./lpt_metrics

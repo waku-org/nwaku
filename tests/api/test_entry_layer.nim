@@ -16,7 +16,7 @@ import
     protocols/message,
     peer_manager/peers,
     protocols/codecs,
-    enr/sharding,
+    common/enr/sharding,
     protocols/metadata/protocol,
     kernel_lifecycle,
     protocols/relay/protocol,

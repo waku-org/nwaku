@@ -19,8 +19,12 @@ import
   libp2p/routing_record,
   json_serialization
 import
-  logos_delivery/kernel/
-    [common/enr/typed_record, enr/capabilities, enr/multiaddr, enr/sharding],
+  logos_delivery/kernel/[
+    common/enr/typed_record,
+    common/enr/capabilities,
+    common/enr/multiaddr,
+    common/enr/sharding,
+  ],
   logos_delivery/kernel/common/protobuf
 
 type
