@@ -152,7 +152,7 @@ To format a single file, run `make nph/<path to the .nim file>`.
 For example:
 
 ```
-make nph/logos_delivery/kernel/common/message.nim
+make nph/logos_delivery/kernel/base/message.nim
 ```
 
 A pre-commit hook is provided to format staged files at commit time.

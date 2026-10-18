@@ -1,8 +1,7 @@
 import std/times, sugar
 
 import libp2p/[protocols/rendezvous, signed_envelope, multicodec, multiaddress, peerid]
-import logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf]
 type WakuPeerRecord* {.proto3.} = object
   # Considering only mix as of now, but we can keep extending this to include all capabilities part of Waku ENR
   peerId* {.fieldNumber: 1, ext.}: PeerId

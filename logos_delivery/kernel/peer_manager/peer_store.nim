@@ -15,7 +15,7 @@ import
 
 import
   logos_delivery/kernel/
-    [common/message, common/peers, common/enr/sharding, common/enr/capabilities]
+    [base/message, base/peers, base/enr/sharding, base/enr/capabilities]
 export peerstore, builders
 
 type

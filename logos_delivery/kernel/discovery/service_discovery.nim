@@ -17,7 +17,7 @@ import
     discovery/kademlia,
     discovery/peer_discovery_conversion,
     discovery/signed_service_record,
-    common/peers,
+    base/peers,
     events/discovery_events,
   ]
 export peer_discovery_interface

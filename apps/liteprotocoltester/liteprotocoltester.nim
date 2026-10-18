@@ -12,13 +12,13 @@ import
 
 import
   logos_delivery/kernel/[
-    common/enr,
-    common/logging,
+    base/enr,
+    base/logging,
     kernel_lifecycle as waku_factory,
     peer_manager/peer_manager,
     protocols/lightpush/common,
     protocols/filter/common,
-    common/peers,
+    base/peers,
   ],
   tools/confutils/cli_args,
   ./tester_config,

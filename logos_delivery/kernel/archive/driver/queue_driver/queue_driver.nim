@@ -3,12 +3,12 @@
 import results, stew/sorted_set, chronicles, chronos
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
     archive/common,
     archive/driver,
     archive/driver/queue_driver/index,

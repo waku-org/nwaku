@@ -14,8 +14,8 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    common/peers,
-    common/codecs,
+    base/peers,
+    base/codecs,
     peer_manager/peer_manager,
     protocols/metadata/protocol,
   ],

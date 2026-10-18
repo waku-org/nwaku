@@ -10,8 +10,7 @@ import
     rln/protocol_metrics,
   ]
 import
-  logos_delivery/kernel/[common/time, rln/keystore/keyfile, rln/keystore/protocol_types]
-
+  logos_delivery/kernel/[base/time, rln/keystore/keyfile, rln/keystore/protocol_types]
 {.push raises: [], gcsafe.}
 
 logScope:

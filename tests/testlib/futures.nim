@@ -1,6 +1,6 @@
 import chronos
 
-import logos_delivery/kernel/[common/message, protocols/store/common]
+import logos_delivery/kernel/[base/message, protocols/store/common]
 const
   FUTURE_TIMEOUT* = 1.seconds
   FUTURE_TIMEOUT_MEDIUM* = 5.seconds

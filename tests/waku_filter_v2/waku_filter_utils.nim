@@ -6,9 +6,9 @@ import
     protocols/filter/protocol,
     protocols/filter/subscriptions,
     protocols/filter/client,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/rate_limit/setting,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/rate_limit/setting,
   ],
   ../testlib/common,
   ../testlib/wakucore

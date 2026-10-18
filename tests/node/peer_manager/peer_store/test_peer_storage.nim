@@ -2,7 +2,7 @@
 
 import results, testutils/unittests
 
-import logos_delivery/kernel/[peer_manager/peer_store/peer_storage, common/peers]
+import logos_delivery/kernel/[peer_manager/peer_store/peer_storage, base/peers]
 suite "PeerStorage":
   var peerStorage {.threadvar.}: PeerStorage
 

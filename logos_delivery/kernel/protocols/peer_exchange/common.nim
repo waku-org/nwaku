@@ -1,5 +1,5 @@
 import results, metrics, chronos
-import logos_delivery/kernel/[common/message], ./rpc
+import logos_delivery/kernel/[base/message], ./rpc
 const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety

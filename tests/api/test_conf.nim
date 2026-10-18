@@ -6,7 +6,7 @@ import logos_delivery
 import logos_delivery/api/conf/logos_delivery_conf_json
 import logos_delivery/kernel/[config/conf, config/networks_config]
 import tools/confutils/cli_args
-import logos_delivery/kernel/common/logging
+import logos_delivery/kernel/[base/logging]
 import ../testlib/wakunodeconf
 
 suite "MessagingClientConf - mode expansion (toWakuNodeConf)":

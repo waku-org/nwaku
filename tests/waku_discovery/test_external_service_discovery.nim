@@ -9,7 +9,7 @@ import
     discovery/external_service_discovery,
     discovery/node_state_requests,
     peer_manager/peer_manager,
-    common/peers,
+    base/peers,
   ],
   ../testlib/wakucore
 ## A fake plugin written the way a real one would be: plain C entry points

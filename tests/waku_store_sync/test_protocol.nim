@@ -15,12 +15,12 @@ from libp2p/muxers/yamux/yamux import YamuxDefaultWindowSize
 import chronos, chronos/asyncsync
 import
   ../../logos_delivery/kernel/peer_manager/peer_manager,
-  ../../logos_delivery/kernel/common/topics/content_topic,
-  ../../logos_delivery/kernel/common/topics/pubsub_topic,
-  ../../logos_delivery/kernel/common/time,
-  ../../logos_delivery/kernel/common/peers,
-  ../../logos_delivery/kernel/common/codecs,
-  ../../logos_delivery/kernel/common/message,
+  ../../logos_delivery/kernel/base/topics/content_topic,
+  ../../logos_delivery/kernel/base/topics/pubsub_topic,
+  ../../logos_delivery/kernel/base/time,
+  ../../logos_delivery/kernel/base/peers,
+  ../../logos_delivery/kernel/base/codecs,
+  ../../logos_delivery/kernel/base/message,
   ../../logos_delivery/kernel/protocols/store_sync/common,
   ../../logos_delivery/kernel/protocols/store_sync/codec,
   ../../logos_delivery/kernel/protocols/store_sync/storage/range_processing,

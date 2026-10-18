@@ -9,7 +9,7 @@ import
   libp2p/protocols/pubsub,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p_mix/pool,
-  logos_delivery/kernel/common/health/connection_status,
+  logos_delivery/kernel/base/health/connection_status,
   logos_delivery/kernel/events/kernel_events,
   # EventConnectionStatusChange
   logos_delivery/kernel/[
@@ -28,11 +28,11 @@ import
     health_monitor/event_loop_monitor,
   ],
   logos_delivery/kernel/peer_manager/online_monitor,
-  logos_delivery/kernel/common/health/health_status,
-  logos_delivery/kernel/common/health/health_report,
-  logos_delivery/kernel/common/health/connection_status,
-  logos_delivery/kernel/common/health/protocol_health,
-  logos_delivery/kernel/common/health/health_requests
+  logos_delivery/kernel/base/health/health_status,
+  logos_delivery/kernel/base/health/health_report,
+  logos_delivery/kernel/base/health/connection_status,
+  logos_delivery/kernel/base/health/protocol_health,
+  logos_delivery/kernel/base/health/health_requests
 
 ## This module is aimed to check the state of the "self" Waku Node
 

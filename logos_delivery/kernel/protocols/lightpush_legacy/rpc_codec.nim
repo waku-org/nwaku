@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import logos_delivery/kernel/[common/protobuf, common/message], results, ./rpc
+import logos_delivery/kernel/[base/protobuf, base/message], results, ./rpc
 const DefaultMaxPushResponseSize* = DefaultSafetyBufferProtocolOverhead
   ## The largest lightpush response that a client reads.
 

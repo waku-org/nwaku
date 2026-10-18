@@ -4,9 +4,9 @@ import results, std/[random, sequtils, packedsets], testutils/unittests, chronos
 
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
     protocols/store_sync/common,
     protocols/store_sync/storage/seq_storage,
   ],

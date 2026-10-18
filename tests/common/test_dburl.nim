@@ -1,8 +1,7 @@
 {.used.}
 
 import results, testutils/unittests
-import logos_delivery/kernel/common/databases/dburl
-
+import logos_delivery/kernel/[base/databases/dburl]
 suite "DbUrl - engine resolution":
   test "sqlite scheme resolves to sqlite":
     check dburl.getDbEngine("sqlite://store.sqlite3").get() == "sqlite"

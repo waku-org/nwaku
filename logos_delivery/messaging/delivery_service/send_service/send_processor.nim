@@ -1,6 +1,6 @@
 import results, chronos
 import brokers/broker_context
-import logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/api/publish
+import logos_delivery/kernel/[kernel_lifecycle, ops/publish]
 import ./delivery_task
 
 {.push raises: [].}

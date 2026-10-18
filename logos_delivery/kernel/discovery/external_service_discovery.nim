@@ -30,10 +30,10 @@ import
     discovery/node_state_requests,
     discovery/plugin/service_discovery_accessor,
     discovery/plugin/service_discovery_worker,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     peer_manager/peer_manager,
   ]
 export peer_discovery_interface, service_discovery_accessor

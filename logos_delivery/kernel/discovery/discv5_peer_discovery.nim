@@ -15,12 +15,12 @@ import
   logos_delivery/kernel/[
     discovery/discv5,
     discovery/peer_discovery_conversion,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/peers,
-    common/enr,
-    common/enr/capabilities,
-    common/enr/sharding,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/sharding,
     events/discovery_events,
     discovery/node_state_requests,
   ]

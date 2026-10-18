@@ -12,9 +12,9 @@ import
 
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/peers,
-    common/codecs,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/codecs,
     protocols/store/common,
     protocols/filter/common,
     protocols/filter/protocol,
@@ -24,7 +24,7 @@ import
     protocols/peer_exchange/protocol,
     kernel,
     peer_manager/peer_manager,
-    common/enr/sharding,
+    base/enr/sharding,
   ],
   rest/responses,
   rest/serdes,

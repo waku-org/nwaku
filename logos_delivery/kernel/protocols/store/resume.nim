@@ -13,12 +13,12 @@ import
 
 import
   logos_delivery/kernel/[
-    common/databases/db_sqlite,
-    common/time,
-    common/peers,
-    common/codecs,
+    base/databases/db_sqlite,
+    base/time,
+    base/peers,
+    base/codecs,
     archive/archive,
-    common/nimchronos,
+    base/nimchronos,
     peer_manager/peer_manager,
   ],
   ./client,

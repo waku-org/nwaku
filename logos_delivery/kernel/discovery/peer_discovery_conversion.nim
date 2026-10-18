@@ -12,7 +12,7 @@ import libp2p/[peerid, multiaddress]
 import libp2p/crypto/crypto
 import libp2p/crypto/curve25519
 import libp2p_mix/mix_protocol
-import logos_delivery/kernel/[common/peers, common/enr]
+import logos_delivery/kernel/[base/peers, base/enr]
 proc toDiscoveredPeer*(rpi: RemotePeerInfo): DiscoveredPeer =
   let enrUri =
     if rpi.enr.isSome():

@@ -8,11 +8,10 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
+  logos_delivery/kernel/[base/logging],
   tools/confutils/cli_args,
   logos_delivery/logos_delivery,
-  logos_delivery/kernel/common/logging,
   rest/rest_service
-
 logScope:
   topics = "logosdeliverynode main"
 

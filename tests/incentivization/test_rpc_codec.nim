@@ -6,8 +6,7 @@ import
     protocols/lightpush/incentivization/rpc_codec,
     protocols/lightpush/incentivization/common,
   ]
-import logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf]
 suite "Waku Incentivization Eligibility Codec":
   asyncTest "encode eligibility proof from txid":
     let txHash = TxHash.fromHex(

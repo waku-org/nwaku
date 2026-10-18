@@ -17,10 +17,10 @@ import
     protocols/peer_exchange/rpc,
     protocols/peer_exchange/common,
     protocols/peer_exchange/client,
-    common/peers,
-    common/codecs,
+    base/peers,
+    base/codecs,
     peer_manager/peer_manager,
-    common/rate_limit/setting,
+    base/rate_limit/setting,
   ]
 declarePublicGauge logos_delivery_px_peers,
   "number of peers (in the node's peerManager) supporting the peer exchange protocol"

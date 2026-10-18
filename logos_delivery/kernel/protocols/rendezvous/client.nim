@@ -12,7 +12,7 @@ import
 import metrics except collect
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager, common/peers, common/codecs],
+  logos_delivery/kernel/[peer_manager/peer_manager, base/peers, base/codecs],
   ./common,
   ./peer_record
 logScope:

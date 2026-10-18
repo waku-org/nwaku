@@ -2,8 +2,7 @@
 
 import testutils/unittests
 import
-  logos_delivery/kernel/[common/message, common/time, common/topics/content_topic],
-  results
+  logos_delivery/kernel/[base/message, base/time, base/topics/content_topic], results
 suite "Waku Payload":
   test "Encode/Decode waku message with timestamp":
     ## Test encoding and decoding of the timestamp field of a WakuMessage

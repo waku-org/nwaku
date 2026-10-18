@@ -7,10 +7,7 @@ import
 
 import std/[tables, strutils, os], results, chronicles
 
-import
-  logos_delivery/kernel/common/databases/db_sqlite,
-  logos_delivery/kernel/common/databases/common
-
+import logos_delivery/kernel/[base/databases/db_sqlite, base/databases/common]
 suite "Migrations":
   test "migrate ok":
     # Given the db_sqlite.migrate function returns ok

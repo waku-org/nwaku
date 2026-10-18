@@ -4,8 +4,7 @@ import std/os, testutils/unittests, results, confutils
 
 import tools/confutils/cli_args
 
-import ../../apps/rlnkeystore/rlnkeystore, ../../logos_delivery/kernel/common/logging
-
+import ../../apps/rlnkeystore/rlnkeystore, ../../logos_delivery/kernel/base/logging
 suite "rlnkeystore config - former generateRlnKeystore options":
   test "accepts the node options the subcommand accepted":
     ## When

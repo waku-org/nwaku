@@ -1,5 +1,4 @@
-import results, logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf], results
 # Implementing the RFC:
 # https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/73
 

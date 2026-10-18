@@ -10,9 +10,9 @@ import
 
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     subscription_manager,
     kernel_lifecycle,
   ],

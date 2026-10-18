@@ -4,15 +4,15 @@ import std/strutils, results, chronicles, chronos
 import
   logos_delivery/kernel/[
     archive/driver,
-    common/message,
+    base/message,
     archive/driver/sqlite_driver/sqlite_driver,
     archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
     archive/driver/queue_driver/queue_driver,
     archive/driver/queue_driver/index,
   ],
-  ../../common/databases/dburl,
-  ../../common/databases/db_sqlite,
-  ../../common/error_handling
+  logos_delivery/kernel/base/databases/dburl,
+  logos_delivery/kernel/base/databases/db_sqlite,
+  logos_delivery/kernel/base/error_handling
 export sqlite_driver, queue_driver, index
 
 when defined(postgres):

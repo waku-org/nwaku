@@ -17,10 +17,10 @@ import metrics except collect
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/callbacks,
-    common/enr/capabilities,
-    common/peers,
-    common/codecs,
+    base/callbacks,
+    base/enr/capabilities,
+    base/peers,
+    base/codecs,
   ],
   ./common,
   ./peer_record

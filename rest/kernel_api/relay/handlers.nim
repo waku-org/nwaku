@@ -10,17 +10,20 @@ import
   json_serialization/pkg/results,
   presto/route,
   presto/common
-import logos_delivery/kernel/[common/topics/content_topic]
-import logos_delivery/kernel/common/enr/sharding
-import logos_delivery/kernel/[common/topics/pubsub_topic]
+import logos_delivery/kernel/[base/topics/content_topic]
+import logos_delivery/kernel/[base/enr/sharding]
+import logos_delivery/kernel/[base/topics/pubsub_topic]
 import
-  logos_delivery/kernel/[kernel, api/relay],
-  logos_delivery/kernel/protocols/relay/protocol,
-  logos_delivery/kernel/subscription_manager,
-  logos_delivery/kernel/
-    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
-  logos_delivery/kernel/rln/rln_plugin,
-  logos_delivery/kernel/kernel,
+  logos_delivery/kernel/[
+    kernel,
+    ops/relay,
+    protocols/relay/protocol,
+    subscription_manager,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+    rln/rln_plugin,
+  ],
   rest/message_cache,
   rest/discovery_handler,
   rest/serdes,

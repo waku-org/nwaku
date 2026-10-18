@@ -13,12 +13,8 @@ import
   confutils/std/net
 
 import
-  logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/enr/sharding,
-    common/peers,
-    protocols/mix/protocol,
-  ]
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/enr/sharding, base/peers, protocols/mix/protocol]
 type
   Fleet* = enum
     none

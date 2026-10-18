@@ -12,12 +12,8 @@ import
   secp256k1
 
 import
-  logos_delivery/kernel/[
-    common/logging,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/codecs,
-  ],
+  logos_delivery/kernel/
+    [base/logging, base/topics/content_topic, base/topics/pubsub_topic, base/codecs],
   ../../tools/confutils/cli_args,
   ../../tools/confutils/envvar as confEnvvarDefs,
   ../../tools/confutils/envvar_net as confEnvvarNet

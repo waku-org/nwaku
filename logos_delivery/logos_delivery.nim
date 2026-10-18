@@ -21,9 +21,18 @@ import results, chronos, chronicles
 import logos_delivery/kernel/kernel_lifecycle
 export kernel_lifecycle
 import
-  logos_delivery/kernel/api/[
-    topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,
-    debug, health, ping,
+  logos_delivery/kernel/[
+    ops/topics,
+    ops/relay,
+    ops/subscriptions,
+    ops/filter,
+    ops/lightpush,
+    ops/store,
+    ops/peer_manager,
+    ops/discovery,
+    ops/debug,
+    ops/health,
+    ops/ping,
   ]
 export
   topics, relay, subscriptions, filter, lightpush, store, peer_manager, discovery,

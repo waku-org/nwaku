@@ -1,5 +1,5 @@
 import
-  logos_delivery/kernel/[common/protobuf, protocols/lightpush/incentivization/rpc],
+  logos_delivery/kernel/[base/protobuf, protocols/lightpush/incentivization/rpc],
   results
 protobufCodec(EligibilityProof)
 proc validateDecoded(status: EligibilityStatus): ProtobufResult[void] =

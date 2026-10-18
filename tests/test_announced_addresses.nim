@@ -18,15 +18,11 @@ import ../logos_delivery/kernel/discovery/discv5
 import eth/keys, eth/p2p/discoveryv5/enr
 import stew/byteutils
 import
+  logos_delivery/kernel/
+    [base/enr/builder, base/enr/typed_record, base/enr/multiaddr, base/enr/sharding],
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/kernel,
-  ../logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/[
-    common/enr/builder,
-    common/enr/typed_record,
-    common/enr/multiaddr,
-    common/enr/sharding,
-  ]
+  ../logos_delivery/kernel/kernel_lifecycle
 import ./testlib/[common, wakucore, wakunode]
 
 const LoopbackIp = parseIpAddress("127.0.0.1")

@@ -1,7 +1,7 @@
 import std/json
 import chronos, results, ffi
 import
-  logos_delivery/kernel/[common/base64, common/topics/content_topic],
+  logos_delivery/kernel/[base/base64, base/topics/content_topic],
   logos_delivery,
   logos_delivery/api/types,
   ../declare_lib,

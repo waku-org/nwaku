@@ -11,10 +11,10 @@ import
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     protocols/filter/common,
     protocols/filter/client,
     protocols/filter/subscriptions,

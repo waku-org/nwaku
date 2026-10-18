@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import logos_delivery/kernel/[common/protobuf, common/message], results, ./rpc
+import logos_delivery/kernel/[base/protobuf, base/message], results, ./rpc
 const
   DefaultMaxSubscribeSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024
     # We add a 64kB safety buffer for protocol overhead

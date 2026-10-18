@@ -2,11 +2,10 @@
 
 import results, chronos, libp2p/peerid
 import
-  logos_delivery/kernel/[
-    common/topics/pubsub_topic, common/message, common/codecs, protocols/relay/protocol
-  ],
+  logos_delivery/kernel/
+    [base/topics/pubsub_topic, base/message, base/codecs, protocols/relay/protocol],
   ./rpc
-from logos_delivery/kernel/common/codecs import WakuLightPushCodec
+from logos_delivery/kernel/base/codecs import WakuLightPushCodec
 export WakuLightPushCodec
 export LightPushStatusCode
 

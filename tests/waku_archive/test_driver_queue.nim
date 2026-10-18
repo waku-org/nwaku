@@ -6,9 +6,9 @@ import
     archive/archive,
     archive/driver/queue_driver/queue_driver {.all.},
     archive/driver/queue_driver/index,
-    common/time,
   ],
-  logos_delivery/kernel/common/message
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/message
 
 # Helper functions
 

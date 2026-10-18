@@ -8,7 +8,7 @@ import
   libp2p/protocols/pubsub
 import
   logos_delivery/kernel/
-    [common/topics/content_topic, common/topics/pubsub_topic, common/message]
+    [base/topics/content_topic, base/topics/pubsub_topic, base/message]
 logScope:
   topics = "waku node message_cache"
 

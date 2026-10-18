@@ -2,7 +2,7 @@ import std/net
 import results, libp2p/crypto/crypto
 
 import logos_delivery/api/conf/kernel_conf
-import logos_delivery/kernel/common/logging
+import logos_delivery/kernel/[base/logging]
 import logos_delivery/kernel/[config/networks_config]
 import logos_delivery/api/conf/rate_limit_config
 export kernel_conf, rate_limit_config

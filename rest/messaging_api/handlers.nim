@@ -9,8 +9,7 @@ import
   json_serialization/std/options
 import presto/[route, common]
 import
-  logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/api/subscriptions,
+  logos_delivery/kernel/[kernel_lifecycle, ops/subscriptions],
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
@@ -22,7 +21,6 @@ import
   logos_delivery/api/events/messaging_client_events,
   rest/messaging_api/types,
   rest/messaging_api/event_cache
-
 export types
 
 logScope:

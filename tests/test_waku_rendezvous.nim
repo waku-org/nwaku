@@ -11,16 +11,16 @@ import
 
 import
   logos_delivery/kernel/[
-    common/peers,
-    common/codecs,
-    common/topics/pubsub_topic,
+    base/peers,
+    base/codecs,
+    base/topics/pubsub_topic,
     kernel_lifecycle,
     peer_manager/peer_manager,
     protocols/rendezvous/protocol,
     protocols/rendezvous/common,
     protocols/rendezvous/peer_record,
     protocols/rendezvous/client,
-    common/protobuf,
+    base/protobuf,
   ],
   ./testlib/protobuf_errors,
   ./testlib/wakucore,

@@ -3,14 +3,14 @@ import confutils, chronicles, chronos, results
 
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
-    common/protobuf,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/protobuf,
   ]
 export times, confutils, chronicles, chronos, results, waku_core, protobuf
 

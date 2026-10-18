@@ -1,28 +1,28 @@
 {.used.}
 
 import std/[sequtils, tables], testutils/unittests, chronos, results, metrics
-import logos_delivery/kernel/api/mix
+import logos_delivery/kernel/[ops/mix]
 import brokers/broker_context
 import libp2p_mix/[curve25519, mix_metrics, pool], libp2p/[peerid, multiaddress]
 
 import
   logos_delivery/kernel/[
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
-    common/codecs,
-    common/health/protocol_health,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/health/protocol_health,
     peer_manager/peer_manager,
-    common/health/health_status,
-    common/health/connection_status,
-    common/health/topic_health,
+    base/health/health_status,
+    base/health/connection_status,
+    base/health/topic_health,
     health_monitor/node_health_monitor,
-    api/relay,
-    api/store,
-    api/lightpush,
-    api/filter,
+    ops/relay,
+    ops/store,
+    ops/lightpush,
+    ops/filter,
     events/health_events,
     events/peer_events,
     protocols/mix/protocol,

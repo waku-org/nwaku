@@ -3,7 +3,7 @@
 import std/[sets, random, sequtils], results, stew/byteutils, testutils/unittests
 import
   logos_delivery/kernel/
-    [common/topics/content_topic, common/topics/pubsub_topic, common/message],
+    [base/topics/content_topic, base/topics/pubsub_topic, base/message],
   rest/message_cache,
   ./testlib/wakucore
 randomize()

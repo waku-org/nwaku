@@ -3,11 +3,11 @@
 import results, json_serialization
 import
   logos_delivery/kernel/[
-    common/protobuf,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/protobuf,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
   ]
 type
   FilterSubscribeType* {.pure.} = enum

@@ -5,9 +5,9 @@ import chronos, testutils/unittests, results, stew/byteutils
 
 import
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/[common/time],
-  logos_delivery/kernel/common/topics/pubsub_topic,
-  logos_delivery/kernel/common/message,
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
   logos_delivery/api/types,
   logos_delivery/api/events/messaging_client_events,
   logos_delivery/kernel/config/conf,

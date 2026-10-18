@@ -2,10 +2,12 @@
 
 import chronicles, chronos, metrics, metrics/chronos_httpserver
 import
-  logos_delivery/kernel/
-    [net/auto_port, rln/protocol_metrics as rln_metrics, common/collector],
-  logos_delivery/kernel/peer_manager/peer_manager
-
+  logos_delivery/kernel/[
+    net/auto_port,
+    rln/protocol_metrics as rln_metrics,
+    base/collector,
+    peer_manager/peer_manager,
+  ]
 declarePublicCounter logos_delivery_node_errors, "number of wakunode errors", ["type"]
 
 const LogInterval = 10.minutes

@@ -2,7 +2,7 @@
 
 import results, chronos, chronicles
 
-import logos_delivery/kernel/[common/message, protocols/relay/protocol], ./common
+import logos_delivery/kernel/[base/message, protocols/relay/protocol], ./common
 import libp2p/peerid
 
 proc getNilPushHandler*(): PushMessageHandler =

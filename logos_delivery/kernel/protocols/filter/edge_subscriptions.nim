@@ -10,13 +10,13 @@ import libp2p/[peerid, peerinfo]
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/peers,
     peer_manager/peer_manager,
-    common/health/topic_health,
-    common/health/health_requests,
-    common/health/connection_status,
+    base/health/topic_health,
+    base/health/health_requests,
+    base/health/connection_status,
     events/health_events,
     events/peer_events,
     protocols/filter/common as filter_common,

@@ -5,15 +5,15 @@ import std/sets, results, chronos, metrics, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/topics/pubsub_topic,
-    common/message,
+    base/topics/pubsub_topic,
+    base/message,
     archive/common,
     archive/archive,
     archive/driver,
     archive/archive_metrics,
     archive/driver/sqlite_driver/sqlite_driver,
     archive/driver/sqlite_driver/migrations,
-    common/databases/db_sqlite,
+    base/databases/db_sqlite,
   ],
   ../testlib/wakucore
 proc newSqliteDatabase*(path: Opt[string] = Opt.none(string)): SqliteDatabase =

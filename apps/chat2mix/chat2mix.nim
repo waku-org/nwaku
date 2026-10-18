@@ -7,7 +7,7 @@ when not (compileOption("threads")):
 {.push raises: [].}
 
 import std/[strformat, strutils, times, random, sequtils, sets]
-import logos_delivery/kernel/api/mix
+import logos_delivery/kernel/[ops/mix]
 import
   confutils,
   chronicles,
@@ -35,28 +35,28 @@ import
 import libp2p_mix/[curve25519, mix_protocol]
 import
   logos_delivery/kernel/[
-    common/protobuf,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/protobuf,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
-    common/enr,
+    base/enr,
     discovery/dnsdisc,
     discovery/kademlia,
     kernel_lifecycle,
     metrics_server,
     peer_manager/peer_manager,
     config/conf,
-    api/builder,
+    ops/builder,
     net/nat_config,
     protocols/store/common,
     protocols/filter/client,
-    common/logging,
+    base/logging,
   ],
   ./config_chat2mix
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub

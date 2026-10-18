@@ -21,10 +21,10 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     kernel_lifecycle,
     peer_manager/peer_manager,
     config/internal_config,

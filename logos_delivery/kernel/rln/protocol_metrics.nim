@@ -1,11 +1,10 @@
 {.push raises: [].}
 
 import
+  logos_delivery/kernel/[base/collector],
   chronicles,
   metrics,
-  metrics/chronos_httpserver,
-  logos_delivery/kernel/common/collector
-
+  metrics/chronos_httpserver
 export metrics
 
 logScope:

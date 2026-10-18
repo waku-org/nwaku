@@ -2,8 +2,7 @@
 
 import results
 
-import logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf]
 type
   WakuMetadataRequest* = object
     clusterId*: Opt[uint32]

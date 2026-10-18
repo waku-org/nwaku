@@ -11,8 +11,7 @@ import
   nimcrypto/utils,
   std/strutils,
   regex
-import
-  logos_delivery/kernel/[common/topics/content_topic, common/enr/sharding, common/peers]
+import logos_delivery/kernel/[base/topics/content_topic, base/enr/sharding, base/peers]
 type
   Fleet* = enum
     none

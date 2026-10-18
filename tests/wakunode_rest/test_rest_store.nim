@@ -19,17 +19,17 @@ import
   rest/kernel_api/store/types
 import
   logos_delivery/kernel/[
-    common/message,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
+    base/message,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
     kernel_lifecycle,
     peer_manager/peer_manager,
     archive/archive,
     archive/driver,
     archive/driver/queue_driver/queue_driver,
     archive/driver/sqlite_driver/sqlite_driver,
-    common/databases/db_sqlite,
+    base/databases/db_sqlite,
     protocols/store/protocol,
   ],
   ../testlib/wakucore,

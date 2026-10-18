@@ -9,9 +9,9 @@ import
   stew/shims/sets
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/tableutils,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/tableutils,
     peer_manager/peer_manager,
   ]
 logScope:

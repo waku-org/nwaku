@@ -3,10 +3,10 @@
 import std/sets, chronicles, results, sqlite3_abi, stew/byteutils
 import
   logos_delivery/kernel/[
-    common/databases/db_sqlite,
-    common/protobuf,
-    common/message,
-    common/peers,
+    base/databases/db_sqlite,
+    base/protobuf,
+    base/message,
+    base/peers,
     peer_manager/peer_store,
   ],
   ./peer_storage

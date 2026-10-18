@@ -6,8 +6,7 @@
 
 import std/[deques, times]
 import results, chronos, chronicles
-import logos_delivery/kernel/common/time
-
+import logos_delivery/kernel/[base/time]
 logScope:
   topics = "waku archive partitions_manager"
 

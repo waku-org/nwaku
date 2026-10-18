@@ -3,10 +3,10 @@ import
 
 import
   logos_delivery/kernel/[
-    common/time,
-    common/message,
-    common/topics/pubsub_topic,
-    common/topics/content_topic,
+    base/time,
+    base/message,
+    base/topics/pubsub_topic,
+    base/topics/content_topic,
     protocols/store_sync/common,
   ],
   ./range_processing,

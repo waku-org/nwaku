@@ -3,10 +3,10 @@
 import results, chronos
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
     archive/common,
   ]
 const DefaultPageSize*: uint = 25

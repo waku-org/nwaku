@@ -2,8 +2,7 @@
 
 import results, stint
 
-import logos_delivery/kernel/common/error_handling
-
+import logos_delivery/kernel/[base/error_handling]
 type RlnCreds* {.requiresInit.} = object
   path*: string
   password*: string

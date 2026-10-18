@@ -12,13 +12,13 @@ import
   eth/p2p/discoveryv5/enr
 import
   logos_delivery/kernel/[
-    common/nimchronos,
-    common/protobuf,
-    common/enr/sharding,
-    common/codecs,
-    common/topics/pubsub_topic,
-    common/topics/content_topic,
-    common/message,
+    base/nimchronos,
+    base/protobuf,
+    base/enr/sharding,
+    base/codecs,
+    base/topics/pubsub_topic,
+    base/topics/content_topic,
+    base/message,
     peer_manager/peer_manager,
     archive/common,
     archive/archive,

@@ -2,11 +2,7 @@
 
 import results, chronos
 
-import
-  logos_delivery/kernel/common/enr,
-  logos_delivery/kernel/common/enr/capabilities,
-  logos_delivery/kernel/common/enr/sharding
-
+import logos_delivery/kernel/[base/enr, base/enr/capabilities, base/enr/sharding]
 const DiscoverLimit* = 1000
 const DefaultRegistrationTTL* = 60.seconds
 const DefaultRegistrationInterval* = 10.seconds

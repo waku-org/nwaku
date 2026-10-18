@@ -15,7 +15,7 @@ import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/conf/logos_delivery_conf_json
 import
   logos_delivery/kernel/
-    [common/topics/pubsub_topic, common/time, common/message, protocols/store/common]
+    [base/topics/pubsub_topic, base/time, base/message, protocols/store/common]
 import logos_delivery/kernel/persistency/persistency
 from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 

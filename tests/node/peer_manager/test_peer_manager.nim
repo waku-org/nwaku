@@ -5,10 +5,10 @@ import results, chronicles, std/tables, chronos, testutils/unittests
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/peers,
     subscription_manager,
     peer_manager/peer_manager,
   ],

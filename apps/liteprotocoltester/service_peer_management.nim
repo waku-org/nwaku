@@ -12,15 +12,15 @@ import
 
 import
   logos_delivery/kernel/[
-    common/enr,
+    base/enr,
     kernel,
-    api/peer_exchange,
+    ops/peer_exchange,
     peer_manager/peer_manager,
     protocols/peer_exchange/protocol,
-    common/peers,
-    common/topics/pubsub_topic,
-    common/enr/capabilities,
-    common/enr/sharding,
+    base/peers,
+    base/topics/pubsub_topic,
+    base/enr/capabilities,
+    base/enr/sharding,
   ],
   tools/confutils/cli_args,
   ./tester_config,

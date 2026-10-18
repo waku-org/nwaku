@@ -5,14 +5,14 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/retention_policy,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
     archive/common,
     archive/archive_metrics,
     archive/retention_policy/retention_policy_time,
   ],
-  ../common/paging
+  logos_delivery/kernel/base/paging
 logScope:
   topics = "waku archive"
 

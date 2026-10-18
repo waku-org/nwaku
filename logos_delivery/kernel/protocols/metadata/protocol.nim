@@ -12,14 +12,10 @@ import
   eth/p2p/discoveryv5/enr
 import
   logos_delivery/kernel/[
-    common/nimchronos,
-    common/peers,
-    common/codecs,
-    common/callbacks,
-    peer_manager/peer_manager,
+    base/nimchronos, base/peers, base/codecs, base/callbacks, peer_manager/peer_manager
   ],
   ./rpc
-from logos_delivery/kernel/common/codecs import WakuMetadataCodec
+from logos_delivery/kernel/base/codecs import WakuMetadataCodec
 export WakuMetadataCodec
 
 logScope:

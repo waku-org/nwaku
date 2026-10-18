@@ -4,7 +4,7 @@ import results, std/tables, testutils/unittests
 
 import
   logos_delivery/kernel/
-    [common/topics/content_topic, common/topics/pubsub_topic, common/enr/sharding],
+    [base/topics/content_topic, base/topics/pubsub_topic, base/enr/sharding],
   ../../testlib/wakucore,
   ../../testlib/tables,
   ../../testlib/testutils

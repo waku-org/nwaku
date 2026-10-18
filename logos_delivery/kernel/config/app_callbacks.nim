@@ -1,9 +1,9 @@
 import
   logos_delivery/kernel/[
     protocols/relay/protocol,
-    common/health/topic_health,
+    base/health/topic_health,
     peer_manager/peer_manager,
-    common/health/connection_status,
+    base/health/connection_status,
   ]
 # Re-export the modules that define the handler types below, so that consumers
 # of `AppCallbacks` (e.g. the FFI library) can construct the handlers.

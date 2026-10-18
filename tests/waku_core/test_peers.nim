@@ -9,8 +9,7 @@ import
   libp2p/errors,
   confutils/toml/std/net
 import
-  logos_delivery/kernel/
-    [common/peers, common/codecs, common/enr, common/enr/capabilities],
+  logos_delivery/kernel/[base/peers, base/codecs, base/enr, base/enr/capabilities],
   ../testlib/wakucore
 procSuite "Waku Core - Peers":
   test "Peer info parses correctly":

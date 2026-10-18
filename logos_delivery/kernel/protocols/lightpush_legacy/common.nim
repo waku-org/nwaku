@@ -1,8 +1,8 @@
 {.push raises: [].}
 
 import results, chronos, libp2p/peerid
-import logos_delivery/kernel/[common/topics/pubsub_topic, common/message, common/codecs]
-from logos_delivery/kernel/common/codecs import WakuLegacyLightPushCodec
+import logos_delivery/kernel/[base/topics/pubsub_topic, base/message, base/codecs]
+from logos_delivery/kernel/base/codecs import WakuLegacyLightPushCodec
 export WakuLegacyLightPushCodec
 
 type WakuLightPushResult*[T] = Result[T, string]

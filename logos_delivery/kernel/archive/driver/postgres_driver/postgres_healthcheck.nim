@@ -1,8 +1,10 @@
 {.push raises: [].}
 
 import chronos, chronicles, results
-import logos_delivery/kernel/[common/databases/common, common/databases/db_postgres/pgasyncpool], ../../../common/error_handling
-
+import
+  logos_delivery/kernel/
+    [base/databases/common, archive/driver/postgres_driver/pgasyncpool],
+  logos_delivery/kernel/base/error_handling
 ## Simple query to validate that the postgres is working and attending requests
 const HealthCheckQuery = "SELECT version();"
 const CheckConnectivityInterval = 60.seconds

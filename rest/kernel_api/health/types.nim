@@ -5,10 +5,10 @@ import rest/serdes
 import logos_delivery/api/types
 import
   logos_delivery/kernel/[
-    common/health/protocol_health,
-    common/health/health_status,
-    common/health/connection_status,
-    common/health/health_report,
+    base/health/protocol_health,
+    base/health/health_status,
+    base/health/connection_status,
+    base/health/health_report,
   ]
 #### Serialization and deserialization
 

@@ -4,14 +4,14 @@ import std/sequtils, stew/byteutils, sqlite3_abi, results
 import chronicles
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
   ],
-  ../../../common/databases/db_sqlite,
-  ../../../common/databases/common
+  logos_delivery/kernel/base/databases/db_sqlite,
+  logos_delivery/kernel/base/databases/common
 const DbTable = "Message"
 
 type SqlQueryStr = string

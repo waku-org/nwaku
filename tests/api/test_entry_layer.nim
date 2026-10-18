@@ -6,14 +6,14 @@ import brokers/broker_context
 import logos_delivery
 import
   logos_delivery/kernel/[
-    common/base64,
+    base/base64,
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
-    common/codecs,
-    common/enr/sharding,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/enr/sharding,
     protocols/metadata/protocol,
     kernel_lifecycle,
     protocols/relay/protocol,

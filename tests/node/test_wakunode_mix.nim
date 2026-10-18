@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[sequtils, strutils]
-import logos_delivery/kernel/api/mix
+import logos_delivery/kernel/[ops/mix]
 import testutils/unittests, chronos, results, metrics
 import libp2p/[crypto/crypto, peerid, multiaddress]
 import libp2p/nameresolving/nameresolver
@@ -9,14 +9,14 @@ import libp2p_mix, libp2p_mix/[curve25519, mix_metrics]
 
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/peers,
-    common/health/protocol_health,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/health/protocol_health,
     net/net_config,
     net/enr_addresses,
     peer_manager/peer_manager,
     kernel_lifecycle,
-    common/health/health_status,
+    base/health/health_status,
     health_monitor/node_health_monitor,
     protocols/mix/protocol,
     protocols/mix/protocol_metrics,

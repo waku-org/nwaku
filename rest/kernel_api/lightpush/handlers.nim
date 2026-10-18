@@ -13,17 +13,20 @@ import
   presto/common
 
 import
-  logos_delivery/kernel/[peer_manager/peer_manager],
-  logos_delivery/kernel/protocols/lightpush/common,
-  logos_delivery/kernel/[kernel, api/lightpush],
-  logos_delivery/kernel/
-    [rln/markers, rln/rln_evm/group_manager, rln/rln_evm/conversion_utils],
+  logos_delivery/kernel/[
+    peer_manager/peer_manager,
+    protocols/lightpush/common,
+    kernel,
+    ops/lightpush,
+    rln/markers,
+    rln/rln_evm/group_manager,
+    rln/rln_evm/conversion_utils,
+  ],
   rest/discovery_handler,
   rest/serdes,
   rest/responses,
   rest/rest_serdes,
   rest/kernel_api/lightpush/types
-
 export types
 
 logScope:

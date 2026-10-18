@@ -1,7 +1,6 @@
 import chronicles, chronos, results, brokers/broker_context
-import logos_delivery/kernel/[common/message, kernel_lifecycle]
-import logos_delivery/kernel/api/publish
-
+import logos_delivery/kernel/[base/message, kernel_lifecycle]
+import logos_delivery/kernel/[ops/publish]
 import ./[delivery_task, send_processor]
 
 logScope:

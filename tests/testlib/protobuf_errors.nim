@@ -1,8 +1,7 @@
 ## Equality of `ProtobufError` values, so that a test compares the whole
 ## error. Nim makes no `==` for an object with a `case` part.
 
-import logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf]
 proc `==`*(a, b: ProtobufError): bool =
   if a.kind != b.kind:
     return false

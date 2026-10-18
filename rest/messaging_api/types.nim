@@ -8,11 +8,10 @@ import
   json_serialization/pkg/results,
   presto/[route, client, common]
 import
-  logos_delivery/kernel/common/base64,
+  logos_delivery/kernel/[base/base64],
   rest/serdes,
   rest/kernel_api/relay/types as relay_types,
   logos_delivery/api/types
-
 export types, relay_types
 
 #### Types

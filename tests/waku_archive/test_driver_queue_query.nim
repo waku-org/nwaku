@@ -6,10 +6,10 @@ import
   logos_delivery/kernel/[
     archive/driver,
     archive/driver/queue_driver/queue_driver,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
   ],
   ../testlib/common,
   ../testlib/wakucore

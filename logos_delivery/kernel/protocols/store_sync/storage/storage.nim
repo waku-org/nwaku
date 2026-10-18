@@ -2,9 +2,9 @@ import results
 
 import
   logos_delivery/kernel/[
-    common/time,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
+    base/time,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
     protocols/store_sync/common,
   ]
 type SyncStorage* = ref object of RootObj

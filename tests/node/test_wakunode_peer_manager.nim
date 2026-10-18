@@ -14,11 +14,11 @@ from times import getTime, toUnix
 
 import
   logos_delivery/kernel/[
-    common/enr as waku_enr,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/peers,
-    common/codecs,
+    base/enr as waku_enr,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/codecs,
     peer_manager/peer_manager,
     kernel_lifecycle,
     discovery/discv5,

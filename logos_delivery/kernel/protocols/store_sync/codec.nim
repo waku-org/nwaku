@@ -2,7 +2,7 @@
 
 import std/sequtils, stew/[leb128, byteutils]
 
-import logos_delivery/kernel/[common/protobuf, common/message, common/time], ./common
+import logos_delivery/kernel/[base/protobuf, base/message, base/time], ./common
 const
   HashLen = 32
   VarIntLen = 9

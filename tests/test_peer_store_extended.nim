@@ -12,7 +12,7 @@ import
   testutils/unittests
 import
   logos_delivery/kernel/
-    [peer_manager/peer_manager, peer_manager/peer_store as peer_store_mod, common/peers],
+    [peer_manager/peer_manager, peer_manager/peer_store as peer_store_mod, base/peers],
   ./testlib/wakucore
 suite "Extended nim-libp2p Peer Store":
   # Valid peerId missing the last digit. Useful for creating new peerIds

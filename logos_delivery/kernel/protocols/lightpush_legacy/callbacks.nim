@@ -2,7 +2,7 @@
 
 import results, chronos, chronicles
 import
-  logos_delivery/kernel/[common/message, protocols/relay/protocol],
+  logos_delivery/kernel/[base/message, protocols/relay/protocol],
   ./common,
   ./protocol_metrics
 import libp2p/peerid

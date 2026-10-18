@@ -5,17 +5,17 @@
 import stew/byteutils, chronicles, chronos, results
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
     archive/common,
     archive/driver,
     archive/driver/sqlite_driver/queries,
   ],
-  ../../../common/databases/db_sqlite
+  logos_delivery/kernel/base/databases/db_sqlite
 logScope:
   topics = "waku archive sqlite"
 

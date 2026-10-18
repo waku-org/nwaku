@@ -1,8 +1,7 @@
 {.used.}
 
 import std/strutils, testutils/unittests, results
-import logos_delivery/kernel/common/parse_size_units
-
+import logos_delivery/kernel/[base/parse_size_units]
 suite "Size serialization test":
   test "parse normal sizes":
     var sizeInBytesRes = parseMsgSize("15 KiB")

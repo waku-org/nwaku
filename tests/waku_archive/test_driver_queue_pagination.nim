@@ -6,11 +6,11 @@ import
     archive/archive,
     archive/driver/queue_driver/queue_driver {.all.},
     archive/driver/queue_driver/index,
-    common/time,
   ],
-  logos_delivery/kernel/common/topics/content_topic,
-  logos_delivery/kernel/common/topics/pubsub_topic,
-  logos_delivery/kernel/common/message,
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/content_topic,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
   ../testlib/wakucore
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

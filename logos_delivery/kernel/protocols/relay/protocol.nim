@@ -23,20 +23,20 @@ import
 
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
-    common/health/topic_health,
-    common/health/health_requests,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/health/topic_health,
+    base/health/health_requests,
     events/health_events,
     events/peer_events,
   ],
   ./message_id
-from logos_delivery/kernel/common/codecs import WakuRelayCodec
+from logos_delivery/kernel/base/codecs import WakuRelayCodec
 export WakuRelayCodec
 
 type ShardMetrics = object

@@ -4,12 +4,12 @@ import results, std/sequtils, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   logos_delivery/kernel/[
-    common/databases/db_postgres/dbconn,
-    common/paging,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
+    archive/driver/postgres_driver/dbconn,
+    base/paging,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
     archive/common,
     archive/archive,
     archive/driver,

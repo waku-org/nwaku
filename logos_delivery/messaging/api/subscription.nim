@@ -4,8 +4,7 @@ import results, chronos
 import logos_delivery/api/types
 import logos_delivery/messaging/messaging_client
 import logos_delivery/kernel/kernel_lifecycle
-import logos_delivery/kernel/api/subscriptions
-
+import logos_delivery/kernel/[ops/subscriptions]
 proc subscribe*(
     self: MessagingClient, contentTopic: ContentTopic
 ): Future[Result[void, string]] {.async.} =

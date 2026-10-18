@@ -2,7 +2,9 @@
 
 import
   std/[tables, strutils, os], results, chronicles, sqlite3_abi # sqlite3_column_int64
-import ../../../common/databases/db_sqlite, ../../../common/databases/common
+import
+  logos_delivery/kernel/base/databases/db_sqlite,
+  logos_delivery/kernel/base/databases/common
 
 logScope:
   topics = "waku archive migration"

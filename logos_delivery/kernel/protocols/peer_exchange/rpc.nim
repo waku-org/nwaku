@@ -1,5 +1,4 @@
-import results, logos_delivery/kernel/common/protobuf
-
+import logos_delivery/kernel/[base/protobuf], results
 type
   PeerExchangeResponseStatusCode* {.pure.} = enum
     UNKNOWN = uint32(000)

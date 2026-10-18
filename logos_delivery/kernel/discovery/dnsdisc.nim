@@ -18,8 +18,7 @@ import
   libp2p/peerid,
   dnsdisc/client
 import libp2p/nameresolving/dnsresolver
-import
-  logos_delivery/kernel/[common/topics/content_topic, common/enr/sharding, common/peers]
+import logos_delivery/kernel/[base/topics/content_topic, base/enr/sharding, base/peers]
 export client
 
 declarePublicGauge logos_delivery_dnsdisc_discovered, "number of nodes discovered"

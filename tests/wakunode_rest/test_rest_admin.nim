@@ -19,11 +19,11 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
     kernel_lifecycle,
     protocols/filter/client,
     peer_manager/peer_manager,

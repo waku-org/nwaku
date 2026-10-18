@@ -14,18 +14,18 @@ import eth/p2p/discoveryv5/protocol as discv5_protocol
 import stew/byteutils
 import
   logos_delivery/kernel/[
-    common/enr/builder,
-    common/enr/typed_record,
-    common/enr/capabilities,
-    common/enr/multiaddr,
-    common/enr/sharding,
+    base/enr/builder,
+    base/enr/typed_record,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
   ],
   ../logos_delivery/kernel/discovery/discv5,
   ../logos_delivery/kernel/net/net_config,
   ../logos_delivery/kernel/net/enr_addresses,
   ../logos_delivery/kernel/kernel,
   ../logos_delivery/kernel/kernel_lifecycle,
-  ../logos_delivery/kernel/common/peers
+  ../logos_delivery/kernel/base/peers
 import ./testlib/[wakucore, wakunode]
 
 proc tcpOf(record: enr.Record): Opt[uint16] =

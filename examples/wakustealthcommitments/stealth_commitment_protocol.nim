@@ -1,23 +1,22 @@
 {.push raises: [].}
 
 import
-  results,
   logos_delivery/kernel/[
-    common/logging,
+    base/logging,
     net/switch,
     kernel,
-    api/filter,
-    api/lightpush,
-    api/store,
-    api/relay,
-    api/peer_exchange,
-    api/ping,
+    ops/filter,
+    ops/lightpush,
+    ops/store,
+    ops/relay,
+    ops/peer_exchange,
+    ops/ping,
     rln/rln_plugin,
   ],
+  results,
   ./erc_5564_interface as StealthCommitmentFFI,
   ./node_spec,
   ./wire_spec
-
 export wire_spec, logging
 
 type StealthCommitmentProtocol* = object

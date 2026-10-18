@@ -19,16 +19,16 @@ import
 from metrics import value, valueByName
 import
   logos_delivery/kernel/[
-    common/databases/db_sqlite,
+    base/databases/db_sqlite,
     net/delivery_dialer,
     peer_manager/peer_manager,
     peer_manager/peer_store/sqlite_peer_storage,
     kernel_lifecycle,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
-    common/codecs,
-    common/enr/capabilities,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
+    base/enr/capabilities,
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/store/common,

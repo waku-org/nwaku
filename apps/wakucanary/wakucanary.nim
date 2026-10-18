@@ -8,16 +8,16 @@ import
   libp2p/multicodec
 import
   logos_delivery/kernel/[
-    common/enr,
-    common/enr/sharding,
+    base/enr,
+    base/enr/sharding,
     peer_manager/peer_manager,
-    common/peers,
-    common/codecs,
+    base/peers,
+    base/codecs,
     kernel_lifecycle,
-    api/builder,
+    ops/builder,
     net/net_config,
     protocols/metadata/protocol,
-    common/callbacks,
+    base/callbacks,
   ],
   ./certsgenerator
 # protocols and their tag

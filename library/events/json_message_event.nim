@@ -1,8 +1,8 @@
 import system, results, std/json
 import stew/byteutils
 import
-  ../../logos_delivery/kernel/common/base64,
-  ../../logos_delivery/kernel/common/message,
+  ../../logos_delivery/kernel/base/base64,
+  ../../logos_delivery/kernel/base/message,
   ../utils,
   ./json_base_event
 type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type

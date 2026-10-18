@@ -14,10 +14,10 @@ import
   metrics
 import
   logos_delivery/kernel/[
-    common/message,
-    common/codecs,
+    base/message,
+    base/codecs,
     peer_manager/peer_manager,
-    common/rate_limit/request_limiter,
+    base/rate_limit/request_limiter,
   ],
   ./common,
   ./rpc_codec,

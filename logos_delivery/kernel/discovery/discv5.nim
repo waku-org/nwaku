@@ -17,12 +17,12 @@ import
   logos_delivery/kernel/[
     net/auto_port,
     peer_manager/peer_manager,
-    common/topics/pubsub_topic,
-    common/peers,
-    common/enr,
-    common/enr/capabilities,
-    common/enr/multiaddr,
-    common/enr/sharding,
+    base/topics/pubsub_topic,
+    base/peers,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
     events/discovery_events,
     events/subscription_events,
   ]

@@ -11,10 +11,10 @@ import
 import
   logos_delivery/kernel/[
     net/net_config,
-    common/enr,
-    common/enr/capabilities,
-    common/enr/multiaddr,
-    common/enr/sharding,
+    base/enr,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
     config/conf,
   ]
 proc tryBuildEnrRecord(

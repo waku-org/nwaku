@@ -4,14 +4,14 @@ import results, std/[sequtils, sets], testutils/unittests, chronos, libp2p/crypt
 
 import
   logos_delivery/kernel/[
-    common/paging,
+    base/paging,
     kernel_lifecycle,
     peer_manager/peer_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
     protocols/store/common,
     archive/archive,
     archive/driver,

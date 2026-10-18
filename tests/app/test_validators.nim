@@ -15,10 +15,10 @@ import
 import
   logos_delivery/kernel/[
     subscription_manager,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
     peer_manager/peer_manager,
     kernel_lifecycle,
     config/validator_signed,

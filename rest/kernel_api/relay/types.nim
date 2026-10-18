@@ -9,7 +9,7 @@ import
   presto/[route, client, common]
 import
   logos_delivery/kernel/
-    [common/base64, common/topics/content_topic, common/time, common/message],
+    [base/base64, base/topics/content_topic, base/time, base/message],
   rest/serdes
 #### Types
 

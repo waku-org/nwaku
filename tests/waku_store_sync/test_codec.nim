@@ -5,15 +5,15 @@ import std/[random, strutils], testutils/unittests, chronos
 
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
     protocols/store_sync/common,
     protocols/store_sync/codec,
   ],
-  ../../logos_delivery/kernel/common/protobuf,
-  ../../logos_delivery/kernel/common/message,
-  ../../logos_delivery/kernel/common/time,
+  ../../logos_delivery/kernel/base/protobuf,
+  ../../logos_delivery/kernel/base/message,
+  ../../logos_delivery/kernel/base/time,
   ../testlib/protobuf_errors,
   ./sync_utils
 proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =

@@ -1,7 +1,7 @@
 import std/[json, strformat]
 import chronicles, chronos, results, ffi
 import
-  logos_delivery/kernel/[common/message, common/topics/pubsub_topic],
+  logos_delivery/kernel/[base/message, base/topics/pubsub_topic],
   logos_delivery,
   library/events/json_message_event,
   library/declare_lib

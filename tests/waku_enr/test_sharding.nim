@@ -10,8 +10,8 @@ import
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    common/enr,
-    common/enr/sharding,
+    base/enr,
+    base/enr/sharding,
     discovery/discv5,
     net/auto_port,
     events/subscription_events,

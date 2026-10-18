@@ -2,7 +2,7 @@
 
 import stew/byteutils, chronicles, json_serialization, presto/[route, client, common]
 import
-  logos_delivery/kernel/[common/topics/content_topic, common/topics/pubsub_topic],
+  logos_delivery/kernel/[base/topics/content_topic, base/topics/pubsub_topic],
   rest/serdes,
   rest/rest_serdes,
   rest/kernel_api/relay/types

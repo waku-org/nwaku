@@ -4,8 +4,7 @@ import results
 import std/strutils
 import chronos, confutils/toml/std/net, libp2p/multiaddress, testutils/unittests
 
-import ./testlib/wakunode, logos_delivery/kernel/common/enr/capabilities
-
+import logos_delivery/kernel/[base/enr/capabilities], ./testlib/wakunode
 include
   logos_delivery/kernel/[net/net_config, config/conf_builder/web_socket_conf_builder]
 import

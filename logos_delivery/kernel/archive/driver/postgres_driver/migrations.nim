@@ -2,9 +2,13 @@
 
 import std/strutils, results, chronicles, chronos
 import
-  ../../../common/databases/common,
+  logos_delivery/kernel/base/databases/common,
   ../../../../../migrations/message_store_postgres/pg_migration_manager,
-  logos_delivery/kernel/[archive/driver/postgres_driver/postgres_driver, archive/driver/postgres_driver/partitions_manager, archive/driver/postgres_driver/postgres_healthcheck]
+  logos_delivery/kernel/[
+    archive/driver/postgres_driver/postgres_driver,
+    archive/driver/postgres_driver/partitions_manager,
+    archive/driver/postgres_driver/postgres_healthcheck,
+  ]
 
 logScope:
   topics = "waku archive migration"

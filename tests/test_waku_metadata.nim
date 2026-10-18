@@ -13,10 +13,10 @@ import
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
+    base/codecs,
     peer_manager/peer_manager,
     discovery/discv5,
     protocols/metadata/protocol,

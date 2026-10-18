@@ -2,9 +2,7 @@
 
 import testutils/unittests, chronos, results
 import
-  logos_delivery/kernel/archive/driver/postgres_driver/partitions_manager,
-  logos_delivery/kernel/common/time
-
+  logos_delivery/kernel/[archive/driver/postgres_driver/partitions_manager, base/time]
 suite "Partition Manager":
   test "Calculate end partition time":
     # 1717372850 == Mon Jun 03 2024 00:00:50 GMT+0000

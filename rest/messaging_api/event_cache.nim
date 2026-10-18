@@ -14,7 +14,7 @@
 
 import std/[tables, deques]
 import results, metrics
-import logos_delivery/kernel/common/time
+import logos_delivery/kernel/[base/time]
 import rest/messaging_api/types
 
 declarePublicCounter logos_delivery_rest_received_dropped,

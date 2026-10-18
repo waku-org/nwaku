@@ -2,9 +2,8 @@
 
 import std/[sequtils, net], results, stew/endians2
 import libp2p/[multiaddress, multicodec, wire]
-import logos_delivery/kernel/[common/peers]
-import logos_delivery/kernel/[common/enr, common/enr/capabilities, common/enr/sharding]
-
+import logos_delivery/kernel/[base/peers]
+import logos_delivery/kernel/[base/enr, base/enr/capabilities, base/enr/sharding]
 type NetConfig* = object
   hostAddress*: MultiAddress
   clusterId*: uint16

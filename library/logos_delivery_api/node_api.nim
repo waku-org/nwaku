@@ -3,7 +3,7 @@ import chronos, chronicles, results, ffi
 import brokers/broker_context
 import libp2p/peerid # pull PeerId pretty string formatting
 import stew/byteutils
-import logos_delivery/kernel/common/base64
+import logos_delivery/kernel/[base/base64]
 from ../events/json_message_event import `%` # base64 rendering for WakuMessage
 import
   logos_delivery/kernel/

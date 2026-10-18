@@ -5,12 +5,12 @@ import results, chronos, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/enr/sharding,
-    common/message,
+    base/enr/sharding,
+    base/message,
     protocols/lightpush/protocol,
     protocols/lightpush/common,
     protocols/lightpush/client,
-    common/rate_limit/setting,
+    base/rate_limit/setting,
   ],
   ../testlib/wakucore
 proc newTestWakuLightpushNode*(

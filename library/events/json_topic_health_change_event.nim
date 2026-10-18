@@ -1,7 +1,7 @@
 import system, results, std/json
 import stew/byteutils
-import ../../logos_delivery/kernel/common/base64, ./json_base_event
-import logos_delivery/kernel/[protocols/relay/protocol, common/health/topic_health]
+import ../../logos_delivery/kernel/base/base64, ./json_base_event
+import logos_delivery/kernel/[protocols/relay/protocol, base/health/topic_health]
 type JsonTopicHealthChangeEvent* = ref object of JsonEvent
   pubsubTopic*: string
   topicHealth*: TopicHealth

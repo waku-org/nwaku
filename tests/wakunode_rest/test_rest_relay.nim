@@ -20,13 +20,13 @@ import
   rest/kernel_api/relay/client as relay_rest_client
 import
   logos_delivery/kernel/[
-    common/base64,
+    base/base64,
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
     kernel_lifecycle,
     protocols/relay/protocol,
     rln/markers,

@@ -1,8 +1,6 @@
 import chronos, results
 
-import
-  logos_delivery/kernel/common/time, logos_delivery/kernel/protocols/store_sync/common
-
+import logos_delivery/kernel/[base/time, protocols/store_sync/common]
 func calculateTimeRange*(
     now: Timestamp, jitter: Duration, syncRange: Duration
 ): Slice[Timestamp] =

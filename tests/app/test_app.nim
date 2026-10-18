@@ -7,7 +7,7 @@ import
     config/conf_builder/web_socket_conf_builder,
     config/conf_builder/quic_conf_builder,
     config/conf_builder/metrics_server_conf_builder,
-    api/state_info,
+    ops/state_info,
   ],
   std/json,
   std/net,
@@ -24,9 +24,7 @@ import
   libp2p/services/natservice,
   tests/testlib/wakucore,
   tests/testlib/wakunode
-include
-  logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/common/enr/typed_record
-
+include logos_delivery/kernel/[kernel_lifecycle, base/enr/typed_record]
 suite "Node app - Waku":
   test "compilation version should be reported":
     ## Given

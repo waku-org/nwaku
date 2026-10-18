@@ -4,14 +4,14 @@ import results, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
   logos_delivery/kernel/[
-    common/paging,
+    base/paging,
     peer_manager/peer_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
     protocols/store/common,
     protocols/store/client,
   ],

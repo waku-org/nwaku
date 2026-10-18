@@ -19,13 +19,13 @@ import
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/message,
-    common/peers,
-    common/enr,
-    common/enr/capabilities,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
+    base/enr,
+    base/enr/capabilities,
     peer_manager/peer_store,
   ]
 logScope:

@@ -10,11 +10,11 @@ import
   libp2p/peerid
 import
   logos_delivery/kernel/[
-    common/base64,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/base64,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
   ],
   rest/serdes
 #### Types

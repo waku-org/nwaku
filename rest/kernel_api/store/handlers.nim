@@ -5,17 +5,17 @@ import std/options, std/[strformat, strutils], results
 import chronicles, uri, json_serialization, presto/route
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/content_topic,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
     protocols/store/common,
     protocols/store/self_req_handler,
     kernel,
-    api/store,
+    ops/store,
     peer_manager/peer_manager,
-    common/paging,
+    base/paging,
   ]
 import rest/discovery_handler, rest/responses, rest/serdes, rest/kernel_api/store/types
 

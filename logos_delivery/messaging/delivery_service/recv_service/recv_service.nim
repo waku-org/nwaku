@@ -19,16 +19,19 @@ import
   logos_delivery/api/events/messaging_client_events, # MessageReceivedEvent
   logos_delivery/messaging/messaging_metrics,
   logos_delivery/kernel/persistency/persistency,
-  logos_delivery/kernel/[common/time, protocols/store/common],
-  logos_delivery/kernel/common/topics/content_topic,
-  logos_delivery/kernel/common/topics/pubsub_topic,
-  logos_delivery/kernel/common/message,
-  logos_delivery/kernel/common/peers,
+  logos_delivery/kernel/[protocols/store/common],
+  logos_delivery/kernel/base/time,
+  logos_delivery/kernel/base/topics/content_topic,
+  logos_delivery/kernel/base/topics/pubsub_topic,
+  logos_delivery/kernel/base/message,
+  logos_delivery/kernel/base/peers,
   logos_delivery/kernel/kernel_lifecycle,
-  logos_delivery/kernel/api/[store, subscriptions, health],
+  logos_delivery/kernel/ops/store,
+  logos_delivery/kernel/ops/subscriptions,
+  logos_delivery/kernel/ops/health,
   logos_delivery/kernel/events/[health_events, peer_events],
-  logos_delivery/kernel/common/health/health_requests,
-  logos_delivery/kernel/common/health/health_status
+  logos_delivery/kernel/base/health/health_requests,
+  logos_delivery/kernel/base/health/health_status
 from logos_delivery/kernel/archive/archive import MaxMessageTimestampVariance
 
 const MaxMessageLife = chronos.minutes(7)

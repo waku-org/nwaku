@@ -19,8 +19,8 @@ import
     protocols/relay/protocol,
     protocols/filter/common,
     protocols/peer_exchange/protocol,
-    common/peers,
-    common/enr/capabilities,
+    base/peers,
+    base/enr/capabilities,
   ],
   tools/confutils/cli_args
 logScope:

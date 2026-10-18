@@ -11,7 +11,7 @@
 {.push raises: [].}
 
 import results
-import ../common/databases/[common, db_sqlite]
+import logos_delivery/kernel/base/databases/[common, db_sqlite]
 
 const
   PersistencyUserVersion* = 1'i64

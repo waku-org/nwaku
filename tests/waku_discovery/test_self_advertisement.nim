@@ -5,10 +5,10 @@ import chronos, results, testutils/unittests
 import brokers/broker_implement
 import
   logos_delivery/kernel/[
-    api/self_advertisement,
+    ops/self_advertisement,
     discovery/peer_discovery_interface,
     config/conf,
-    common/enr/capabilities,
+    base/enr/capabilities,
   ]
 import tools/confutils/cli_args
 

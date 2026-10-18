@@ -5,13 +5,13 @@ import std/[sequtils, times], results, chronos, chronicles
 import
   logos_delivery/kernel/[
     kernel_lifecycle,
-    api/publish,
-    api/health,
+    ops/publish,
+    ops/health,
     health_monitor/node_health_monitor,
-    common/health/protocol_health,
+    base/health/protocol_health,
     peer_manager/online_monitor,
-    common/health/health_status,
-    common/health/connection_status,
+    base/health/health_status,
+    base/health/connection_status,
     config/conf_builder/conf_builder,
     persistency/persistency,
   ],

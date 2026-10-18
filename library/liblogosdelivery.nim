@@ -2,10 +2,10 @@ import std/atomics
 import chronicles, chronos, chronos/threadsync, ffi
 import
   logos_delivery/kernel/[
-    common/message,
-    common/topics/pubsub_topic,
+    base/message,
+    base/topics/pubsub_topic,
     protocols/relay/protocol,
-    common/health/topic_health,
+    base/health/topic_health,
     kernel_lifecycle,
     kernel,
   ],

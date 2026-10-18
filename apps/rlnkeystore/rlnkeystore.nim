@@ -2,7 +2,7 @@
 
 import std/[os, sequtils], chronicles, confutils, results, stew/endians2, stint
 import
-  logos_delivery/kernel/[common/logging, config/conf_builder/rln_relay_conf_builder],
+  logos_delivery/kernel/[base/logging, config/conf_builder/rln_relay_conf_builder],
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../tools/confutils/cli_args
 logScope:

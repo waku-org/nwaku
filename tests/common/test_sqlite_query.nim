@@ -1,8 +1,7 @@
 {.used.}
 
 import std/os, results, sqlite3_abi, testutils/unittests
-import logos_delivery/kernel/common/databases/[db_sqlite]
-
+import logos_delivery/kernel/[base/databases/db_sqlite]
 proc openStatements(db: SqliteDatabase): int =
   var s = sqlite3_next_stmt(db.env, nil)
   while not s.isNil():

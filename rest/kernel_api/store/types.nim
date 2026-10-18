@@ -11,12 +11,12 @@ import
 import
   logos_delivery/kernel/[
     protocols/store/common,
-    common/base64,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/time,
-    common/message,
-    common/peers,
+    base/base64,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/time,
+    base/message,
+    base/peers,
   ],
   rest/serdes
 #### Types

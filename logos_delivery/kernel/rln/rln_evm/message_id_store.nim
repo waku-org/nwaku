@@ -12,7 +12,7 @@
 ## membership without the secret.
 
 import chronos, results, nimcrypto
-import ../../common/protobuf
+import logos_delivery/kernel/base/protobuf
 import brokers/broker_context
 import logos_delivery/kernel/persistency/persistency
 import ./nonce_manager, ./protocol_types

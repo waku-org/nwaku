@@ -15,12 +15,12 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   logos_delivery/kernel/[
-    common/paging,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/message,
-    common/peers,
+    base/paging,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
     peer_manager/peer_manager,
     archive/archive,
     archive/driver,

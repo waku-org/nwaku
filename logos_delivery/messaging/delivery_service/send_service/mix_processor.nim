@@ -1,7 +1,6 @@
 import chronicles, chronos, results, brokers/broker_context
-import
-  logos_delivery/kernel/[common/topics/pubsub_topic, common/message, kernel_lifecycle]
-import logos_delivery/kernel/api/publish
+import logos_delivery/kernel/[base/topics/pubsub_topic, base/message, kernel_lifecycle]
+import logos_delivery/kernel/[ops/publish]
 import logos_delivery/kernel/protocols/mix/protocol
 import logos_delivery/api/conf/modes
 

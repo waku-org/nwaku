@@ -3,7 +3,7 @@ import libp2p/crypto/crypto
 
 import std/[tables, sequtils, random], results, chronicles, chronos, metrics
 import
-  logos_delivery/kernel/[peer_manager/peer_manager, common/request_id],
+  logos_delivery/kernel/[peer_manager/peer_manager, base/request_id],
   ./protocol_metrics,
   ./common,
   ./rpc_codec

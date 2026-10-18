@@ -1,7 +1,7 @@
 import std/[json, sugar]
 import chronos, chronicles, results, ffi
 import
-  logos_delivery/kernel/[common/message, protocols/store/common, common/paging],
+  logos_delivery/kernel/[base/message, protocols/store/common, base/paging],
   logos_delivery,
   library/utils,
   rest/serdes,

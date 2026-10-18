@@ -3,17 +3,17 @@
 import stint, chronos, web3, eth/keys
 import
   logos_delivery/kernel/[
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
     rln/keystore/keyfile,
     rln/keystore/keystore,
     rln/keystore/conversion_utils,
     rln/keystore/utils,
     rln/keystore/protocol_types as keystore_protocol_types,
   ],
-  ../../common/protobuf
+  logos_delivery/kernel/base/protobuf
 export
   keyfile, keystore, conversion_utils, keystore_protocol_types, utils, time, message,
   peers, codecs

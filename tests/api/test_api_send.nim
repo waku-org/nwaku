@@ -13,23 +13,23 @@ import
   logos_delivery/kernel/[
     kernel_lifecycle,
     subscription_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     protocols/lightpush/protocol_metrics,
     archive/common,
     archive/archive,
     archive/archive_metrics,
-    common/base64,
+    base/base64,
   ],
   logos_delivery,
   rest/server,
   rest/client,
   rest/kernel_api/relay/client as relay_rest_client
-import logos_delivery/kernel/api/subscriptions
+import logos_delivery/kernel/[ops/subscriptions]
 import tools/confutils/cli_args
 import logos_delivery/api/conf/messaging_conf
 import logos_delivery/api/events/messaging_client_events

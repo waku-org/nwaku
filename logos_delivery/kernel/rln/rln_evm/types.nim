@@ -4,10 +4,7 @@ import std/tables, chronos, results, brokers/broker_context
 
 import ./group_manager_base, ./nonce_manager, ./protocol_types
 
-import
-  logos_delivery/kernel/common/error_handling,
-  logos_delivery/kernel/persistency/persistency
-
+import logos_delivery/kernel/[base/error_handling, persistency/persistency]
 type RlnEvm* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
   nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]

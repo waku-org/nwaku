@@ -13,14 +13,14 @@ import
   presto/common
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/message,
+    base/peers,
+    base/codecs,
     kernel,
-    api/filter,
+    ops/filter,
     peer_manager/peer_manager,
     protocols/filter/common,
     protocols/filter/client as filter_protocol_client,

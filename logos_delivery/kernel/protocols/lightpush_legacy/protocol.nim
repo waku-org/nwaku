@@ -5,10 +5,10 @@ import results, chronicles, chronos, metrics
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/time,
-    common/message,
-    common/codecs,
-    common/rate_limit/request_limiter,
+    base/time,
+    base/message,
+    base/codecs,
+    base/rate_limit/request_limiter,
   ],
   ./common,
   ./rpc,

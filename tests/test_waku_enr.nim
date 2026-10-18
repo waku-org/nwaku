@@ -3,12 +3,12 @@
 import std/[sequtils, strutils], results, testutils/unittests
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/codecs,
-    common/enr as waku_enr,
-    common/enr/capabilities,
-    common/enr/multiaddr,
-    common/enr/sharding,
+    base/topics/pubsub_topic,
+    base/codecs,
+    base/enr as waku_enr,
+    base/enr/capabilities,
+    base/enr/multiaddr,
+    base/enr/sharding,
   ],
   ./testlib/wakucore
 suite "Waku ENR -  Capabilities bitfield":

@@ -2,7 +2,7 @@ import std/[strutils, json]
 import chronicles, chronos, results, ffi
 import
   logos_delivery/kernel/
-    [common/topics/pubsub_topic, common/message, protocols/relay/protocol],
+    [base/topics/pubsub_topic, base/message, protocols/relay/protocol],
   logos_delivery,
   library/events/json_message_event,
   library/declare_lib

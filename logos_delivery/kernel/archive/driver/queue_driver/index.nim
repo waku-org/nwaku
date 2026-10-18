@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import logos_delivery/kernel/[common/topics/pubsub_topic, common/time, common/message]
+import logos_delivery/kernel/[base/topics/pubsub_topic, base/time, base/message]
 type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   time*: Timestamp # the time at which the message is generated

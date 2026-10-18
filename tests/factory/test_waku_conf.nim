@@ -21,10 +21,10 @@ import
     config/conf_builder/mix_conf_builder,
     config/networks_config,
     protocols/mix/protocol,
-    common/enr/capabilities,
-    common/rate_limit/setting,
-    common/parse_size_units,
-    common/message,
+    base/enr/capabilities,
+    base/rate_limit/setting,
+    base/parse_size_units,
+    base/message,
   ]
 suite "Waku Conf - build with cluster conf":
   test "ext-multiaddr-only fails conf build without ext-multiaddrs":

@@ -7,7 +7,7 @@ import
   json_serialization/lexer,
   results,
   libp2p/protocols/pubsub/pubsubpeer
-import logos_delivery/kernel/[common/peers, peer_manager/peer_manager], rest/serdes
+import logos_delivery/kernel/[base/peers, peer_manager/peer_manager], rest/serdes
 #### Types
 type WakuPeer* = object
   multiaddr*: string

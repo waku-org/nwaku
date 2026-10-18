@@ -5,10 +5,10 @@ import results, testutils/unittests, chronos, libp2p/crypto/crypto
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
     protocols/lightpush/client,

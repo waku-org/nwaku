@@ -3,9 +3,8 @@
 import results, stew/byteutils, testutils/unittests
 import
   logos_delivery/kernel/
-    [common/protobuf, protocols/lightpush/rpc, protocols/lightpush/rpc_codec],
+    [base/protobuf, protocols/lightpush/rpc, protocols/lightpush/rpc_codec],
   ../testlib/protobuf_errors
-
 suite "Waku Lightpush - RPC codec":
   test "a request with a nested message without a content topic is refused":
     # Request id "r", and field 21 holds a message with a payload only.

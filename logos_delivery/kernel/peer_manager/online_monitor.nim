@@ -1,7 +1,7 @@
 import std/sequtils
 import chronos, chronicles, libp2p/nameresolving/dnsresolver, libp2p/peerstore
 
-import logos_delivery/kernel/[peer_manager/peer_store, common/peers]
+import logos_delivery/kernel/[peer_manager/peer_store, base/peers]
 logScope:
   topics = "waku online monitor"
 

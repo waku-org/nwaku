@@ -1,4 +1,8 @@
-import ../../common/error_handling, ./protocol_types, ../protocol_metrics, ./constants
+import
+  logos_delivery/kernel/base/error_handling,
+  ./protocol_types,
+  ../protocol_metrics,
+  ./constants
 
 import chronos, results, std/[deques]
 

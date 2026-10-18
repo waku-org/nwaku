@@ -3,8 +3,7 @@
 import std/[os, strutils], results, testutils/unittests, chronos, chronicles
 import
   logos_delivery/kernel/
-    [archive/driver, archive/driver/builder, common/databases/db_postgres/pgasyncpool]
-
+    [archive/driver, archive/driver/builder, archive/driver/postgres_driver/pgasyncpool]
 proc newDriver(url: string): Result[ArchiveDriver, string] =
   proc onFatal(errMsg: string) {.gcsafe, closure.} =
     discard

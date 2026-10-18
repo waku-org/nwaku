@@ -10,20 +10,21 @@ import
   chronicles
 import
   logos_delivery/kernel/[
-    common/topics/content_topic,
-    common/topics/pubsub_topic,
-    common/enr/sharding,
-    common/time,
-    common/message,
-    common/peers,
-    common/codecs,
+    base/topics/content_topic,
+    base/topics/pubsub_topic,
+    base/enr/sharding,
+    base/time,
+    base/message,
+    base/peers,
+    base/codecs,
     archive/common,
     archive/driver,
-    common/databases/db_postgres as waku_postgres,
+    base/databases/common,
+    archive/driver/postgres_driver/pgasyncpool,
     archive/driver/postgres_driver/postgres_healthcheck,
     archive/driver/postgres_driver/partitions_manager,
   ],
-  ../../../common/error_handling
+  logos_delivery/kernel/base/error_handling
 logScope:
   topics = "postgres driver"
 

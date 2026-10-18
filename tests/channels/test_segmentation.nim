@@ -11,7 +11,7 @@ import logos_delivery/api/channel_types
 import logos_delivery/channels/segmentation/channel_segmentation
 import logos_delivery/channels/reliable_channel_manager
 import logos_delivery/channels/api/channel_lifecycle
-import logos_delivery/kernel/[common/topics/content_topic, common/message]
+import logos_delivery/kernel/[base/topics/content_topic, base/message]
 ## Stand-in remote peer producing real SDS envelopes.
 import sds
 

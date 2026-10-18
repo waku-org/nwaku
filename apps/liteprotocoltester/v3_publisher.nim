@@ -2,10 +2,10 @@ import results, chronos
 import
   logos_delivery/kernel/[
     kernel,
-    api/lightpush,
-    common/topics/pubsub_topic,
-    common/message,
-    common/peers,
+    ops/lightpush,
+    base/topics/pubsub_topic,
+    base/message,
+    base/peers,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
   ]

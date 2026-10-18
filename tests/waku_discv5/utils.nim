@@ -2,9 +2,9 @@ import results, chronos, libp2p/crypto/crypto as libp2p_keys, eth/keys as eth_ke
 
 import
   logos_delivery/kernel/
-    [common/enr as waku_enr, discovery/discv5, peer_manager/peer_manager],
-  ../testlib/[common, wakucore]
-
+    [base/enr as waku_enr, discovery/discv5, peer_manager/peer_manager],
+  ../testlib/common,
+  ../testlib/wakucore
 proc newTestDiscv5*(
     privKey: libp2p_keys.PrivateKey,
     bindIp: string,

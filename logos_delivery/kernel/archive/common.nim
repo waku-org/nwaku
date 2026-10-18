@@ -1,11 +1,10 @@
 {.push raises: [].}
 
 import
-  logos_delivery/kernel/[
-    common/topics/content_topic, common/topics/pubsub_topic, common/time, common/message
-  ],
+  logos_delivery/kernel/
+    [base/topics/content_topic, base/topics/pubsub_topic, base/time, base/message],
   results,
-  ../common/paging
+  logos_delivery/kernel/base/paging
 ## Public API types
 
 type

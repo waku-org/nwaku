@@ -30,10 +30,9 @@ import
     rln/rln_evm/wrappers,
     rln/rln_evm/retry_wrapper,
     kernel,
-    api/relay,
+    ops/relay,
     persistency/persistency,
   ]
-
 const CHAIN_ID* = 1234'u256
 
 # Cached Anvil state with pre-deployed contracts and a pre-funded/approved account.

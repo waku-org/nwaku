@@ -140,7 +140,7 @@ suite "Waku ENR - Capabilities":
 Mandatory: All code must be formatted with `nph` (installed via `make build-nph`, which fetches a pinned `nph` version with Nimble)
 ```bash
 # Format specific file
-make nph/logos_delivery/kernel/common/message.nim
+make nph/logos_delivery/kernel/base/message.nim
 
 # Install git pre-commit hook (auto-formats on commit)
 make install-nph

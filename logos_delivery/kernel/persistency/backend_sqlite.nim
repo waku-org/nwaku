@@ -5,7 +5,7 @@
 ## itself against an in-memory database.
 
 import results, sqlite3_abi
-import ../common/databases/[common, db_sqlite]
+import logos_delivery/kernel/base/databases/[common, db_sqlite]
 import ./[types, keys, schema]
 
 type

@@ -14,7 +14,7 @@ import
   logos_delivery/kernel/[
     discovery/kademlia,
     discovery/signed_service_record,
-    common/peers,
+    base/peers,
     peer_manager/peer_store,
   ]
 import ../testlib/[wakucore, futures]

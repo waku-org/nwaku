@@ -3,7 +3,7 @@ import logos_delivery/kernel/protocols/filter/common
 import chronicles, chronos, results, ffi
 import
   logos_delivery/kernel/
-    [common/message, common/topics/pubsub_topic, common/topics/content_topic],
+    [base/message, base/topics/pubsub_topic, base/topics/content_topic],
   logos_delivery,
   library/events/json_message_event,
   library/declare_lib

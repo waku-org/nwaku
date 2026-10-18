@@ -11,7 +11,7 @@ import
   libp2p/crypto/crypto
 import
   logos_delivery/kernel/
-    [common/peers, kernel_lifecycle, health_monitor/node_health_monitor],
+    [base/peers, kernel_lifecycle, health_monitor/node_health_monitor],
   ./testlib/wakucore,
   ./testlib/wakunode
 suite "Waku Keepalive":

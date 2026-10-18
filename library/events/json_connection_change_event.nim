@@ -1,7 +1,6 @@
 import system, std/json, libp2p/[connmanager, peerid]
 
-import ../../logos_delivery/kernel/common/base64, ./json_base_event
-
+import ../../logos_delivery/kernel/base/base64, ./json_base_event
 type JsonConnectionChangeEvent* = ref object of JsonEvent
   peerId*: string
   peerEvent*: PeerEventKind

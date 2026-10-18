@@ -11,11 +11,11 @@ import
 import brokers/broker_context
 import logos_delivery
 import
+  logos_delivery/kernel/[base/base64],
   logos_delivery/api/conf/logos_delivery_conf,
   rest/messaging_api/client as messaging_rest_client,
   rest/messaging_api/event_cache,
-  rest/client,
-  logos_delivery/kernel/common/base64
+  rest/client
 import tools/confutils/cli_args
 import tests/testlib/[wakucore, wakunodeconf, rest_requests, rest_service]
 

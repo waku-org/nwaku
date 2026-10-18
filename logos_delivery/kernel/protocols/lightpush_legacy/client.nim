@@ -5,12 +5,12 @@ import results, chronicles, chronos, metrics, stew/byteutils
 import libp2p/peerid
 import
   logos_delivery/kernel/[
-    common/peers,
+    base/peers,
     peer_manager/peer_manager,
-    common/request_id,
-    common/topics/pubsub_topic,
-    common/message,
-    common/codecs,
+    base/request_id,
+    base/topics/pubsub_topic,
+    base/message,
+    base/codecs,
   ],
   ./common,
   ./protocol_metrics,

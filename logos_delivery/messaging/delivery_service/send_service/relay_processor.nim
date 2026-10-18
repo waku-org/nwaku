@@ -2,13 +2,13 @@ import results, chronos, chronicles
 import brokers/broker_context
 import
   logos_delivery/kernel/[
-    common/topics/pubsub_topic,
-    common/message,
+    base/topics/pubsub_topic,
+    base/message,
     protocols/lightpush/common,
     protocols/lightpush/rpc,
   ]
-import logos_delivery/kernel/kernel_lifecycle, logos_delivery/kernel/api/publish
-import logos_delivery/kernel/[common/health/health_requests]
+import logos_delivery/kernel/[kernel_lifecycle, ops/publish]
+import logos_delivery/kernel/[base/health/health_requests]
 import logos_delivery/api/types
 import ./[delivery_task, send_processor]
 

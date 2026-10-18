@@ -8,11 +8,11 @@ logScope:
 import
   logos_delivery/kernel/[
     peer_manager/peer_manager,
-    common/message,
+    base/message,
     protocols/lightpush_legacy/protocol,
     protocols/lightpush_legacy/common,
     protocols/lightpush_legacy/client,
-    common/rate_limit/setting,
+    base/rate_limit/setting,
   ],
   ../testlib/wakucore
 proc newTestWakuLegacyLightpushNode*(
