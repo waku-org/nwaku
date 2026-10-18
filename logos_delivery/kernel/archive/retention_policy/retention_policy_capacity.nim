@@ -1,7 +1,8 @@
 {.push raises: [].}
 
 import results, chronicles, chronos
-import logos_delivery/kernel/archive/driver, logos_delivery/kernel/archive/retention_policy
+import
+  logos_delivery/kernel/archive/driver, logos_delivery/kernel/archive/retention_policy
 
 logScope:
   topics = "waku archive retention_policy"
