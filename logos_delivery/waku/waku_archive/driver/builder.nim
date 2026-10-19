@@ -13,6 +13,7 @@ import
 export sqlite_driver, queue_driver
 
 when defined(postgres):
+  import std/times
   import ## These imports add dependency with an external libpq library
     ./postgres_driver/migrations as archive_postgres_driver_migrations,
     ./postgres_driver
@@ -95,10 +96,21 @@ proc new*(
       ## Waiting for the whole pass, not just its first partition, so that the
       ## messages stamped past the next o'clock have a partition too.
       debug "Waiting for the partitions to be created"
-      for i in 0 ..< 100:
-        if driver.arePartitionsProvisioned():
-          break
+      let deadline = Moment.now() + chronos.seconds(10)
+      while not driver.arePartitionsProvisioned() and Moment.now() < deadline:
         await sleepAsync(chronos.milliseconds(100))
+
+      ## A creation deferred to another instance sharing the database tracks
+      ## nothing, and that instance may commit only after this node's pass.
+      var refreshFailureLogged = false
+      while not driver.containsAnyPartition() and Moment.now() < deadline:
+        (await driver.refreshWhenNowUntracked(times.getTime().toUnix())).isOkOr:
+          ## Once: retried every 100 ms, a persistent error would fill the log.
+          if not refreshFailureLogged:
+            error "could not refresh the partitions at startup", error = $error
+            refreshFailureLogged = true
+        if not driver.containsAnyPartition():
+          await sleepAsync(chronos.milliseconds(100))
 
       if not driver.containsAnyPartition():
         onFatalErrorAction("a partition could not be created")

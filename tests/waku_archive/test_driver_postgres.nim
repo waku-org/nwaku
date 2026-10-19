@@ -10,6 +10,7 @@ import
   logos_delivery/waku/[
     waku_archive,
     waku_archive/archive_metrics,
+    waku_archive/driver/builder,
     waku_archive/driver/postgres_driver,
     waku_core,
     waku_core/message/digest,
@@ -380,6 +381,21 @@ suite "Postgres driver":
       (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
     check not (await driver.existsTable(detachedStray)).expect("existsTable")
 
+  asyncTest "dropStrayLookupPartitions keeps the sibling of an attached partition":
+    ## Besides the one added here, the setup's partitions around now: every
+    ## attached messages partition must keep its lookup sibling.
+    const siblingStart = Timestamp(1_719_997_200) ## 2024-07-03 09:00:00 UTC
+    (await driver.addPartition(siblingStart)).expect("addPartition")
+
+    (await driver.dropStrayLookupPartitions()).expect("dropStrayLookupPartitions")
+
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let lookups =
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    check "messages_1719997200_1720000800" in partitions
+    for partition in partitions:
+      check ("lookup_" & partition.replace("messages_", "")) in lookups
+
   ## The partition maintenance runs on every instance sharing the database, so
   ## these check that a sequence meeting another one in flight ends well. The
   ## window is well in the past, so that it never collides with the partition
@@ -468,6 +484,122 @@ suite "Postgres driver":
     check ourInstance.containsAnyPartition()
 
     (await ourInstance.close()).expect("close the second driver")
+
+  ## Its own hour: the test above leaves its partition in the database, where
+  ## the next setup's driver tracks it until that test's teardown.
+  const buildStart = Timestamp(1_710_000_000) ## 2024-03-09 16:00:00 UTC
+  const buildName = "messages_1710000000_1710003600"
+  const buildLookupName = "lookup_1710000000_1710003600"
+
+  asyncTest "A partition under construction survives another instance's cleanup":
+    ## The blocker takes the lock an ANALYZE of messages takes, which holds up
+    ## the ATTACH of the partition being built. A second instance runs its
+    ## maintenance pass, cleanups included, during that wait.
+    let blocker = PgAsyncPool.new(storeMessageDbUrl, 1).expect("blocker pool")
+    let observer = PgAsyncPool.new(storeMessageDbUrl, 1).expect("observer pool")
+    let other =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+
+    var waitingAttaches = 0
+    proc onCount(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        try:
+          waitingAttaches = parseInt($pqgetvalue(res, 0, 0))
+        except ValueError:
+          discard
+
+    (await blocker.pgQuery("BEGIN")).expect("begin")
+    (await blocker.pgQuery("LOCK TABLE messages IN SHARE UPDATE EXCLUSIVE MODE")).expect(
+      "lock messages"
+    )
+
+    let building = driver.addPartition(buildStart)
+    try:
+      ## By the partition's name, near the start of the statement: pg_stat_activity
+      ## keeps only its first track_activity_query_size bytes (1024 by default),
+      ## and the ATTACH comes late in it. The only lock wait is that ATTACH.
+      for _ in 0 ..< 100:
+        (
+          await observer.pgQuery(
+            "SELECT count(*) FROM pg_stat_activity WHERE pid <> pg_backend_pid()" &
+              " AND wait_event_type = 'Lock' AND query LIKE '%" & buildName & "%'",
+            @[],
+            onCount,
+          )
+        ).expect("count the waiting attaches")
+        if waitingAttaches > 0:
+          break
+        await sleepAsync(chronos.milliseconds(100))
+      require waitingAttaches > 0
+
+      await other.startPartitionFactory(noopFatalHandler)
+      checkUntilTimeout:
+        other.arePartitionsProvisioned()
+    finally:
+      (await blocker.pgQuery("COMMIT")).expect("commit")
+      (await blocker.close()).expect("close the blocker")
+      (await observer.close()).expect("close the observer")
+      (await other.close()).expect("close the second driver")
+
+    (await building).expect("addPartition")
+
+    let partitions = (await driver.getPartitionsList()).expect("partitions list")
+    let lookups =
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    check:
+      buildName in partitions
+      buildLookupName in lookups
+
+  asyncTest "Adding a partition that already exists does not wait for its readers":
+    ## What a second instance does when it gets the lock right after the first
+    ## one committed the partition. The reader plays long reads of the
+    ## partition and of the lookup table.
+    (await driver.addPartition(buildStart)).expect("addPartition")
+
+    let reader = PgAsyncPool.new(storeMessageDbUrl, 1).expect("reader pool")
+    (await reader.pgQuery("BEGIN")).expect("begin")
+    (await reader.pgQuery("LOCK TABLE " & buildName & " IN ACCESS SHARE MODE")).expect(
+      "read the partition"
+    )
+    (await reader.pgQuery("LOCK TABLE messages_lookup IN ACCESS SHARE MODE")).expect(
+      "read the lookup table"
+    )
+
+    ## A second instance, as the suite's driver already tracks the partition.
+    let other =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    let adding = other.addPartition(buildStart)
+    try:
+      require (await adding.withTimeout(chronos.seconds(5)))
+      check (await adding).isOk()
+    finally:
+      (await reader.pgQuery("COMMIT")).expect("commit")
+      (await reader.close()).expect("close the reader")
+      discard await adding.withTimeout(chronos.seconds(5))
+      (await other.close()).expect("close the second driver")
+
+  asyncTest "A partition rolled back by a concurrent-looking error is reported as a failure":
+    ## Every statement of the sequence already tolerates what another instance
+    ## may have done, so an error that only reads like it ("already exists") is
+    ## a genuine failure. A type holding the name of the partition's row type
+    ## raises one.
+    let rawPool = PgAsyncPool.new(storeMessageDbUrl, 1).expect("raw pool")
+    try:
+      (await rawPool.pgQuery("CREATE TYPE " & buildName & " AS ENUM ('taken')")).expect(
+        "create the type"
+      )
+
+      check (await driver.addPartition(buildStart)).isErr()
+      check not (await driver.existsTable(buildName)).expect("existsTable")
+    finally:
+      (await rawPool.pgQuery("DROP TYPE IF EXISTS " & buildName)).expect(
+        "drop the type"
+      )
+      ## in case the sequence did not roll back as a whole
+      (await rawPool.pgQuery("DROP TABLE IF EXISTS " & buildLookupName)).expect(
+        "drop the lookup partition"
+      )
+      (await rawPool.close()).expect("close the raw pool")
 
   ## The startup pass creates the partitions for the current hour and the two
   ## before it, so that the messages store sync pushes back after a downtime, or
@@ -628,6 +760,64 @@ suite "Postgres driver":
     finally:
       (await restarted.reset()).expect("reset the second driver")
       (await restarted.close()).expect("close the second driver")
+
+  asyncTest "A node whose partition creation is deferred at startup starts with what the other instance built":
+    ## The holder plays the other instance midway through its build: it holds
+    ## the partition lock while the node starts, so that every creation of the
+    ## node's first pass is deferred, then commits the partition for now and
+    ## lets go.
+    (await driver.reset()).expect("reset")
+    let leftovers =
+      (await driver.getPartitionsList()).expect("partitions list") &
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    for table in leftovers:
+      (await driver.performWriteQuery("DROP TABLE " & table)).expect("drop " & table)
+
+    let holder = PgAsyncPool.new(storeMessageDbUrl, 1).expect("holder pool")
+    (await holder.pgQuery("SELECT pg_advisory_lock(" & $PartitionAdvisoryLockId & ");")).expect(
+      "take the advisory lock"
+    )
+
+    var fatalErrors = newSeq[string](0)
+    proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
+      fatalErrors.add(errMsg)
+
+    let building = ArchiveDriver.new(
+      storeMessageDbUrl, vacuum = false, migrate = true, maxNumConn = 4, onFatal
+    )
+    await sleepAsync(chronos.seconds(1))
+
+    let slotStart = floorToHour(now() div 1_000_000_000)
+    let slotEnd = slotStart + 3600
+    let suffix = $slotStart & "_" & $slotEnd
+    let bounds =
+      " FOR VALUES FROM (" & $slotStart & "000000000) TO (" & $slotEnd & "000000000)"
+    (
+      await holder.pgQuery(
+        "CREATE TABLE messages_" & suffix & " PARTITION OF messages" & bounds
+      )
+    ).expect("create the partition for now")
+    (
+      await holder.pgQuery(
+        "CREATE TABLE lookup_" & suffix & " PARTITION OF messages_lookup" & bounds
+      )
+    ).expect("create its lookup partition")
+    (
+      await holder.pgQuery(
+        "SELECT pg_advisory_unlock(" & $PartitionAdvisoryLockId & ");"
+      )
+    ).expect("release the advisory lock")
+    (await holder.close()).expect("close the holder")
+
+    let builtRes = await building
+    let started = PostgresDriver(builtRes.expect("ArchiveDriver.new"))
+    try:
+      check:
+        fatalErrors.len == 0
+        started.containsAnyPartition()
+    finally:
+      (await started.reset()).expect("reset the started driver")
+      (await started.close()).expect("close the started driver")
 
 suite "Postgres driver - concurrent DDL outcomes":
   ## The messages below are the ones the fleets produced while two instances
