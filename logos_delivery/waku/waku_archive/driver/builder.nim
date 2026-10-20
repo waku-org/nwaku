@@ -13,7 +13,6 @@ import
 export sqlite_driver, queue_driver
 
 when defined(postgres):
-  import std/times
   import ## These imports add dependency with an external libpq library
     ./postgres_driver/migrations as archive_postgres_driver_migrations,
     ./postgres_driver
@@ -104,7 +103,7 @@ proc new*(
       ## nothing, and that instance may commit only after this node's pass.
       var refreshFailureLogged = false
       while not driver.containsAnyPartition() and Moment.now() < deadline:
-        (await driver.refreshWhenNowUntracked(times.getTime().toUnix())).isOkOr:
+        (await driver.refreshPartitionsInfo()).isOkOr:
           ## Once: retried every 100 ms, a persistent error would fill the log.
           if not refreshFailureLogged:
             error "could not refresh the partitions at startup", error = $error

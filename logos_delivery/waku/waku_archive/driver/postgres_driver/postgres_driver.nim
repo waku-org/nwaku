@@ -1397,7 +1397,7 @@ proc addPartition*(
   ## o'clock.
   return await self.addPartition(startTime, calcEndPartitionTime(startTime))
 
-proc refreshPartitionsInfo(
+proc refreshPartitionsInfo*(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
   debug "refreshPartitionsInfo"
@@ -1427,17 +1427,6 @@ proc refreshPartitionsInfo(
     self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
 
   return ok()
-
-proc refreshWhenNowUntracked*(
-    self: PostgresDriver, nowSec: int64
-): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Reads the partitions again when none tracked contains `nowSec`, e.g. after
-  ## every creation of the first pass was deferred to another instance (see
-  ## builder.nim). Nothing is read when `nowSec` is tracked.
-  if self.partitionMngr.getPartitionFromDateTime(nowSec).isOk():
-    return ok()
-
-  return await self.refreshPartitionsInfo()
 
 proc getStrayLookupTableNames(
     s: PostgresDriver
