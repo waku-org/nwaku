@@ -100,7 +100,13 @@ ifeq ($(detected_OS),Windows)
   # mingw64/bin before usr/bin, as in the MSYS2 MINGW64 shell: nim-leopard needs
   # the mingw64 cmake for its "MSYS Makefiles" generator, which the msys cmake
   # in usr/bin lacks.
-  export PATH := /c/msys64/mingw64/bin:/c/msys64/usr/bin:/c/msys64/mingw64/lib:/c/msys64/usr/lib:$(PATH)
+  # Inside MSYS2, use the running install: CI's MSYS2 is not at C:\msys64, and
+  # mixing two installs fails with exit 127. Git Bash has none, so use C:\msys64.
+  ifneq (,$(wildcard /usr/bin/pacman))
+    export PATH := /mingw64/bin:/usr/bin:/mingw64/lib:/usr/lib:$(PATH)
+  else
+    export PATH := /c/msys64/mingw64/bin:/c/msys64/usr/bin:/c/msys64/mingw64/lib:/c/msys64/usr/lib:$(PATH)
+  endif
 endif
 
 ##########
