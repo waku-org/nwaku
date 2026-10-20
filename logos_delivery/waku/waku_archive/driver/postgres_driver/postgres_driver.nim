@@ -1397,7 +1397,7 @@ proc addPartition*(
   ## o'clock.
   return await self.addPartition(startTime, calcEndPartitionTime(startTime))
 
-proc refreshPartitionsInfo*(
+proc refreshPartitionsInfo(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
   debug "refreshPartitionsInfo"
@@ -1599,6 +1599,26 @@ proc addLookbackPartitions(
 
   return ok()
 
+const DeferredStartupWait = timer.seconds(5)
+  ## How long a starting pass waits for another instance to commit the partition
+  ## of now that this pass deferred to it. Within builder.nim's 10 s wait for the
+  ## whole pass, which still has the next hour and the lookback to do after it.
+
+const DeferredStartupPollInterval = timer.milliseconds(100)
+
+proc waitForPartitionOf(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Reads the partitions again until one tracked contains `nowSec`, for at most
+  ## `DeferredStartupWait`; returns without it when that time is up.
+  let deadline = Moment.now() + DeferredStartupWait
+  while self.partitionMngr.getPartitionFromDateTime(nowSec).isErr() and
+      Moment.now() < deadline:
+    await sleepAsync(DeferredStartupPollInterval)
+    ?await self.refreshPartitionsInfo()
+
+  return ok()
+
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1642,6 +1662,12 @@ proc runPartitionMaintenance(
       (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
         return err("could not add the next partition: " & $error)
       startingUp = true
+
+  ## A creation deferred to another instance tracks nothing; at startup, waiting
+  ## for its commit lets the rest of the pass, and builder.nim's check, see it.
+  if startingUp and self.partitionMngr.getPartitionFromDateTime(now).isErr():
+    (await self.waitForPartitionOf(now)).isOkOr:
+      return err("could not refresh the partitions while waiting for now: " & $error)
 
   ## Also right after creating the partition for 'now' above: it ends at the next
   ## o'clock, possibly within seconds, while the next pass is ten minutes away.

@@ -761,6 +761,58 @@ suite "Postgres driver":
       (await restarted.reset()).expect("reset the second driver")
       (await restarted.close()).expect("close the second driver")
 
+  asyncTest "A startup pass whose creations are deferred ends with the partition the other instance built":
+    ## As the next test, without the builder: the factory's first pass alone has
+    ## to end with the partition the holder commits while that pass runs.
+    (await driver.reset()).expect("reset")
+    let leftovers =
+      (await driver.getPartitionsList()).expect("partitions list") &
+      (await driver.getPartitionsList("messages_lookup")).expect("lookup list")
+    for table in leftovers:
+      (await driver.performWriteQuery("DROP TABLE " & table)).expect("drop " & table)
+
+    let holder = PgAsyncPool.new(storeMessageDbUrl, 1).expect("holder pool")
+    (await holder.pgQuery("SELECT pg_advisory_lock(" & $PartitionAdvisoryLockId & ");")).expect(
+      "take the advisory lock"
+    )
+
+    ## The hour the pass starts in, whatever the clock says after the sleep.
+    let slotStart = floorToHour(now() div 1_000_000_000)
+    let slotEnd = slotStart + 3600
+    let suffix = $slotStart & "_" & $slotEnd
+    let bounds =
+      " FOR VALUES FROM (" & $slotStart & "000000000) TO (" & $slotEnd & "000000000)"
+
+    let starting =
+      PostgresDriver.new(storeMessageDbUrl, maxConnections = 4).expect("second driver")
+    try:
+      await starting.startPartitionFactory(noopFatalHandler)
+      await sleepAsync(chronos.seconds(1))
+
+      (
+        await holder.pgQuery(
+          "CREATE TABLE messages_" & suffix & " PARTITION OF messages" & bounds
+        )
+      ).expect("create the partition for now")
+      (
+        await holder.pgQuery(
+          "CREATE TABLE lookup_" & suffix & " PARTITION OF messages_lookup" & bounds
+        )
+      ).expect("create its lookup partition")
+      (
+        await holder.pgQuery(
+          "SELECT pg_advisory_unlock(" & $PartitionAdvisoryLockId & ");"
+        )
+      ).expect("release the advisory lock")
+      (await holder.close()).expect("close the holder")
+
+      checkUntilTimeout:
+        starting.arePartitionsProvisioned()
+      check starting.containsAnyPartition()
+    finally:
+      (await starting.reset()).expect("reset the second driver")
+      (await starting.close()).expect("close the second driver")
+
   asyncTest "A node whose partition creation is deferred at startup starts with what the other instance built":
     ## The holder plays the other instance midway through its build: it holds
     ## the partition lock while the node starts, so that every creation of the
