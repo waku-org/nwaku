@@ -782,16 +782,18 @@ suite "Postgres driver":
     proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
       fatalErrors.add(errMsg)
 
-    let building = ArchiveDriver.new(
-      storeMessageDbUrl, vacuum = false, migrate = true, maxNumConn = 4, onFatal
-    )
-    await sleepAsync(chronos.seconds(1))
-
+    ## The hour the node starts in, whatever the clock says after the sleep.
     let slotStart = floorToHour(now() div 1_000_000_000)
     let slotEnd = slotStart + 3600
     let suffix = $slotStart & "_" & $slotEnd
     let bounds =
       " FOR VALUES FROM (" & $slotStart & "000000000) TO (" & $slotEnd & "000000000)"
+
+    let building = ArchiveDriver.new(
+      storeMessageDbUrl, vacuum = false, migrate = true, maxNumConn = 4, onFatal
+    )
+    await sleepAsync(chronos.seconds(1))
+
     (
       await holder.pgQuery(
         "CREATE TABLE messages_" & suffix & " PARTITION OF messages" & bounds
