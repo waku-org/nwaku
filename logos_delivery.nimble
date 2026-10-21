@@ -144,8 +144,10 @@ const cBindingsDir = "library/generated"
 
 ## `-d:ffiSrcPath` is required: without it nim-ffi derives the path with
 ## `relativePath`, which needs `getcwd` at compile time and fails to build.
+## Both bindings: C for the C surface (and the hand-written headers over it),
+## C++ (`logosdelivery.hpp`, a `LogosDeliveryCtx` class) for C++ hosts.
 const cBindingsFlags =
-  " -d:ffiGenBindings -d:targetLang=c -d:ffiOutputDir=generated" &
+  " -d:ffiGenBindings -d:targetLang=c,cpp -d:ffiOutputDir=generated" &
   " -d:ffiSrcPath=../liblogosdelivery.nim "
 
 ## The Makefile does not export NIM_PARAMS, so its defines never reach here.
