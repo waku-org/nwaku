@@ -19,6 +19,8 @@ type DeliveryTask* = ref object
   requestId*: RequestId
   pubsubTopic*: PubsubTopic
   msg*: WakuMessage
+  priority*: MessagePriority
+    ## Accepted from the envelope and kept; not yet used for scheduling.
   msgHash*: WakuMessageHash
   tryCount*: int
   state*: DeliveryState
@@ -73,8 +75,15 @@ proc new*(
   let pubsubTopic = relayShardRes.relayShard.toPubsubTopic()
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
-  return
-    ok(T(requestId: requestId, pubsubTopic: pubsubTopic, msg: msg, msgHash: msgHash))
+  return ok(
+    T(
+      requestId: requestId,
+      pubsubTopic: pubsubTopic,
+      msg: msg,
+      msgHash: msgHash,
+      priority: envelop.priority,
+    )
+  )
 
 proc messageAge*(self: DeliveryTask): timer.Duration =
   let actual = getNanosecondTime(getTime().toUnixFloat())
