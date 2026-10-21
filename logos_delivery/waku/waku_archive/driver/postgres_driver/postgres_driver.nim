@@ -1369,7 +1369,7 @@ proc addPartition*(
     attachPartitionQuery & " END IF; " & dropConstraint & " " & createLookupQuery
 
   var outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
-    return err("error adding partition " & partitionName & ": " & $error)
+    return err("error adding partition: " & partitionName & ": " & $error)
 
   if outcome == AlreadyDone:
     ## An instance of an older version releases its lock just before its commit;
@@ -1378,7 +1378,7 @@ proc addPartition*(
     debug "partition build rolled back by a concurrent-looking error, running it again",
       partitionName
     outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
-      return err("error adding partition " & partitionName & ": " & $error)
+      return err("error adding partition: " & partitionName & ": " & $error)
 
   case outcome
   of Deferred:
