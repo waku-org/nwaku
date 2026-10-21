@@ -207,6 +207,14 @@ proc nodeMessagesCount*(labelValues: openArray[string]): float64 =
   except KeyError:
     return 0.0
 
+proc nodeErrorCount*(errorType: string): float64 =
+  try:
+    return logos_delivery_node_errors.valueByName(
+      "logos_delivery_node_errors_total", [errorType]
+    )
+  except ValueError:
+    return 0.0
+
 proc relayNetworkBytes*(labelValues: openArray[string]): float64 =
   ## The relay does not export this counter, so it is found in the registry by name.
   {.gcsafe.}:

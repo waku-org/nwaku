@@ -250,14 +250,6 @@ proc multiaddrOf(node: WakuNode): string =
   let info = node.peerInfo.toRemotePeerInfo()
   return $info.addrs[0] & "/p2p/" & $info.peerId
 
-proc staticFilterPeerFailureCount(label = "static_filter_peer_failure"): float64 =
-  try:
-    return logos_delivery_node_errors.valueByName(
-      "logos_delivery_node_errors_total", [label]
-    )
-  except ValueError:
-    return 0.0
-
 proc checkEdgeSubscribesThroughFilternode(protocolsKnown: bool) {.async.} =
   ## An edge configured with only a filternode subscribes through it. With
   ## `protocolsKnown`, the peer store has the protocols of the filter node and
@@ -1030,19 +1022,19 @@ suite "Messaging API, SubscriptionManager":
 
     let peerStore = subscriber.waku.node.peerManager.switch.peerStore
     peerStore[ProtoBook][staticPeerId] = @[WakuLightPushCodec]
-    let failuresBefore = staticFilterPeerFailureCount("static_filter_peer_no_filter")
+    let failuresBefore = nodeErrorCount("static_filter_peer_no_filter")
 
     let manager = subscriber.waku.node.subscriptionManager
     var state = EdgeFilterSubState()
     check:
       manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
       state.staticFilterPeerTries == MaxStaticFilterPeerTries
-      staticFilterPeerFailureCount("static_filter_peer_no_filter") == failuresBefore + 1
+      nodeErrorCount("static_filter_peer_no_filter") == failuresBefore + 1
 
     # With its tries done, the edge skips it with no new failure.
     check:
       manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
-      staticFilterPeerFailureCount("static_filter_peer_no_filter") == failuresBefore + 1
+      nodeErrorCount("static_filter_peer_no_filter") == failuresBefore + 1
 
   asyncTest "Subscription API, edge node skips a filternode whose known shards miss the shard":
     let shard = PubsubTopic("/waku/2/rs/3/0")
@@ -1056,16 +1048,16 @@ suite "Messaging API, SubscriptionManager":
     let peerStore = subscriber.waku.node.peerManager.switch.peerStore
     peerStore[ProtoBook][staticPeerId] = @[WakuFilterSubscribeCodec]
     peerStore.setShardInfo(staticPeerId, @[1'u16])
-    let noShardBefore = staticFilterPeerFailureCount("static_filter_peer_no_shard")
-    let noFilterBefore = staticFilterPeerFailureCount("static_filter_peer_no_filter")
+    let noShardBefore = nodeErrorCount("static_filter_peer_no_shard")
+    let noFilterBefore = nodeErrorCount("static_filter_peer_no_filter")
 
     let manager = subscriber.waku.node.subscriptionManager
     var state = EdgeFilterSubState()
     check:
       manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
       state.staticFilterPeerTries == MaxStaticFilterPeerTries
-      staticFilterPeerFailureCount("static_filter_peer_no_shard") == noShardBefore + 1
-      staticFilterPeerFailureCount("static_filter_peer_no_filter") == noFilterBefore
+      nodeErrorCount("static_filter_peer_no_shard") == noShardBefore + 1
+      nodeErrorCount("static_filter_peer_no_filter") == noFilterBefore
 
   asyncTest "Subscription API, edge node fills the shard with other filter peers after the tries of a down filternode":
     let shard = PubsubTopic("/waku/2/rs/3/0")
@@ -1093,7 +1085,7 @@ suite "Messaging API, SubscriptionManager":
         )
       )
       peerStore.setShardInfo(info.peerId, @[0'u16])
-    let failuresBefore = staticFilterPeerFailureCount()
+    let failuresBefore = nodeErrorCount("static_filter_peer_failure")
 
     let testTopic = ContentTopic("/waku/2/filternode/proto")
     (await subscriber.messagingClient.subscribe(testTopic)).expect(
@@ -1109,7 +1101,8 @@ suite "Messaging API, SubscriptionManager":
         edgePeerId in it.wakuFilter.subscriptions.findSubscribedPeers(shard, testTopic)
       )
     check:
-      staticFilterPeerFailureCount() >= failuresBefore + MaxStaticFilterPeerTries
+      nodeErrorCount("static_filter_peer_failure") >=
+        failuresBefore + MaxStaticFilterPeerTries
 
   asyncTest "Subscription API, edge node drops a filternode whose metadata misses the shard":
     let shard = PubsubTopic("/waku/2/rs/3/0")
