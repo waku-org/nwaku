@@ -1368,8 +1368,17 @@ proc addPartition*(
     partitionName & "'::regclass) THEN " & addTimeConstraintQuery & " " &
     attachPartitionQuery & " END IF; " & dropConstraint & " " & createLookupQuery
 
-  let outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
+  var outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
     return err("error adding partition " & partitionName & ": " & $error)
+
+  if outcome == AlreadyDone:
+    ## An instance of an older version releases its lock just before its commit;
+    ## a block started in that gap fails on the catalogue row it then meets. Run
+    ## again, the block finds the committed partition and completes it.
+    debug "partition build rolled back by a concurrent-looking error, running it again",
+      partitionName
+    outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
+      return err("error adding partition " & partitionName & ": " & $error)
 
   case outcome
   of Deferred:
@@ -1377,10 +1386,11 @@ proc addPartition*(
     ## Nothing to track yet; the tracked partitions are read again from the database.
     return ok()
   of AlreadyDone:
-    ## Every statement tolerates what another instance may have done, so this error
-    ## only reads like a concurrent outcome, and the whole block was rolled back.
+    ## Every statement tolerates what another instance may have done, so an error
+    ## that reads like a concurrent outcome twice in a row is a genuine one.
     return err(
-      "addPartition rolled back by an outcome classified as concurrent: " & partitionName
+      "addPartition rolled back twice by an outcome classified as concurrent: " &
+        partitionName
     )
   of Executed:
     discard
