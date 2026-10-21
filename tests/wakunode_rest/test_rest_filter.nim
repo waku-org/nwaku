@@ -130,14 +130,6 @@ proc waitForFilterMessages(
     await sleepAsync(50.milliseconds)
   return messages
 
-proc nodeErrorCount(errorType: string): float64 =
-  try:
-    return logos_delivery_node_errors.valueByName(
-      "logos_delivery_node_errors_total", [errorType]
-    )
-  except ValueError:
-    return 0.0
-
 suite "Waku v2 Rest API - Filter V2":
   asyncTest "Subscribe a node to an array of topics - POST /filter/v2/subscriptions":
     # Given
