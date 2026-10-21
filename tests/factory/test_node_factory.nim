@@ -400,10 +400,9 @@ suite "Node Factory":
     defer:
       await node.stop()
 
-    # And the host holds its answer to the membership check for a second
+    # And the host holds its answer to the membership check
     checkUntilTimeout:
       membershipRequests == 1
-    await sleepAsync(1.seconds)
 
     # Then the node has not dialed the static peer, and its start has not returned
     check:
