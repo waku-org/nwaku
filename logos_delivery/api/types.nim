@@ -10,7 +10,8 @@ export content_topic, message
 
 type
   MessagePriority* {.pure.} = enum
-    ## Application-level send priority. Accepted and carried, not yet acted on.
+    ## Application-level send priority. Accepted and carried, but currently ignored:
+    ## it does not affect ordering or delivery.
     Low
     Medium
     High
@@ -19,7 +20,7 @@ type
     contentTopic*: ContentTopic
     payload*: seq[byte]
     ephemeral*: bool
-    priority*: MessagePriority
+    priority*: MessagePriority ## Currently ignored; see `MessagePriority`.
     meta*: seq[byte]
       ## Opaque wire-format marker carried on the underlying WakuMessage.
       ## Higher layers (e.g. Reliable Channel) stamp this so peers can route

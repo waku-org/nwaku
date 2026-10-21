@@ -13,6 +13,7 @@ proc send*(
     ephemeral: bool = false,
     priority: MessagePriority = MessagePriority.Medium,
 ): Future[Result[RequestId, string]] {.async: (raises: []).} =
+  ## `priority` is currently ignored.
   ## Spec-level entry point. Looks the channel up by id and delegates
   ## to `ReliableChannel.send`, which exposes the visible pipeline
   ## segmentation -> sds -> encryption -> dispatch.

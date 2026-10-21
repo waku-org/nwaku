@@ -68,6 +68,7 @@ proc logosdelivery_send(
   # Extract ephemeral flag
   let ephemeral = jsonNode.getOrDefault("ephemeral").getBool(false)
 
+  # priority is currently ignored by the send path
   let priority =
     if jsonNode.hasKey("priority"):
       parseMessagePriority(jsonNode["priority"].getStr()).valueOr:

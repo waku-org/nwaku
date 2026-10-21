@@ -201,6 +201,8 @@ proc send*(
     ephemeral: bool = false,
     priority: MessagePriority = MessagePriority.Medium,
 ): Future[Result[RequestId, string]] {.async: (raises: []).} =
+  ## `priority` is currently ignored.
+  ##
   ## Single application-level send:
   ##
   ##   segmentation -> sds -> encryption -> dispatch

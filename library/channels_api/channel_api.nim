@@ -55,6 +55,7 @@ proc logosdelivery_channel_send(
     self: LogosDelivery, channelIdStr: string, messageJson: string
 ): Future[Result[string, string]] {.ffi.} =
   ## `messageJson` carries `{ "payload": <base64>, "ephemeral": <bool>, "priority": "low"|"medium"|"high" }`.
+  ## `priority` is currently ignored.
   requireChannels(self, "ChannelSend"):
     return err(errMsg)
 

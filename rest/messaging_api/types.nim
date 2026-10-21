@@ -23,7 +23,9 @@ type MessagingJsonEnvelope* = object
   payload*: Base64String
   contentTopic*: ContentTopic
   ephemeral*: Opt[bool]
-  priority*: Opt[string] ## "low" | "medium" | "high"; "medium" when omitted.
+  priority*: Opt[string]
+    ## "low" | "medium" | "high"; "medium" when omitted.
+    ## Currently ignored.
   meta*: Opt[Base64String]
 
 type MessagingPostMessageRequest* = MessagingJsonEnvelope
