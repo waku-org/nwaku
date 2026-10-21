@@ -54,7 +54,8 @@ proc logosdelivery_channel_exists(
 proc logosdelivery_channel_send(
     self: LogosDelivery, channelIdStr: string, messageJson: string
 ): Future[Result[string, string]] {.ffi.} =
-  ## `messageJson` carries `{ "payload": <base64>, "ephemeral": <bool> }`.
+  ## `messageJson` carries `{ "payload": <base64>, "ephemeral": <bool>, "priority": "low"|"medium"|"high" }`.
+  ## `priority` is currently ignored.
   requireChannels(self, "ChannelSend"):
     return err(errMsg)
 
@@ -71,9 +72,17 @@ proc logosdelivery_channel_send(
     return err("invalid payload format: " & error)
 
   let ephemeral = jsonNode.getOrDefault("ephemeral").getBool(false)
+  let priority =
+    if jsonNode.hasKey("priority"):
+      parseMessagePriority(jsonNode["priority"].getStr()).valueOr:
+        return err("invalid priority: " & error)
+    else:
+      MessagePriority.Medium
 
   let requestId = (
-    await self.reliableChannelManager.send(ChannelId(channelIdStr), payload, ephemeral)
+    await self.reliableChannelManager.send(
+      ChannelId(channelIdStr), payload, ephemeral, priority
+    )
   ).valueOr:
     return err("ChannelSend failed: " & $error)
 
