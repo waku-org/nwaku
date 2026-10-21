@@ -224,7 +224,7 @@ endif
 
 # Debug/Release mode
 ifeq ($(DEBUG), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:release -d:lto_incremental -d:strip
+NIM_PARAMS := $(NIM_PARAMS) -d:release -d:strip
 else
 NIM_PARAMS := $(NIM_PARAMS) -d:debug
 endif
