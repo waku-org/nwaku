@@ -782,17 +782,51 @@ suite "Postgres driver":
     proc onFatal(errMsg: string) {.gcsafe, closure, raises: [].} =
       fatalErrors.add(errMsg)
 
-    ## The hour the node starts in, whatever the clock says after the sleep.
+    ## The hour the node starts in.
     let slotStart = floorToHour(now() div 1_000_000_000)
     let slotEnd = slotStart + 3600
     let suffix = $slotStart & "_" & $slotEnd
     let bounds =
       " FOR VALUES FROM (" & $slotStart & "000000000) TO (" & $slotEnd & "000000000)"
 
+    var nodeStart: string
+    proc onServerTime(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        nodeStart = $pqgetvalue(res, 0, 0)
+
+    (await holder.pgQuery("SELECT clock_timestamp()", @[], onServerTime)).expect(
+      "server time"
+    )
+
     let building = ArchiveDriver.new(
       storeMessageDbUrl, vacuum = false, migrate = true, maxNumConn = 4, onFatal
     )
-    await sleepAsync(chronos.seconds(1))
+
+    ## Until the node has run a partition block and been turned away: with the
+    ## lock held, that block can only have been deferred. pg_stat_activity keeps
+    ## a backend's last statement, failed or not; the node's backends are those
+    ## started after it, the suite's own driver ran such blocks earlier.
+    var deferredBlocks = 0
+    proc onCount(res: ptr PGresult) {.closure, gcsafe, raises: [].} =
+      if pqntuples(res) > 0:
+        try:
+          deferredBlocks = parseInt($pqgetvalue(res, 0, 0))
+        except ValueError:
+          discard
+
+    for _ in 0 ..< 100:
+      (
+        await holder.pgQuery(
+          "SELECT count(*) FROM pg_stat_activity WHERE backend_start > ?::timestamptz" &
+            " AND query LIKE '%pg_try_advisory_xact_lock%'",
+          @[nodeStart],
+          onCount,
+        )
+      ).expect("count the deferred blocks")
+      if deferredBlocks > 0:
+        break
+      await sleepAsync(chronos.milliseconds(100))
+    require deferredBlocks > 0
 
     (
       await holder.pgQuery(
