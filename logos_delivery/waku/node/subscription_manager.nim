@@ -455,7 +455,7 @@ proc countStaticFilterPeerFailure(
     if slot[].peerId != remotePeerId:
       return
     self.edgeFilterSubStates.withValue(shard, state):
-      state.staticFilterPeerTries += 1
+      state.staticFilterPeerTries.inc()
       logos_delivery_node_errors.inc(labelValues = ["static_filter_peer_failure"])
       error "Failed to filter-subscribe through the configured filter peer",
         shard = shard,
@@ -601,10 +601,16 @@ proc staticFilterPeer(
     let peer = slot[]
     if peer.peerId in exclude or state.staticFilterPeerTries >= MaxStaticFilterPeerTries:
       return Opt.none(RemotePeerInfo)
-    if self.missesFilterProtocol(peer.peerId) or self.missesShard(peer.peerId, shard):
-      error "Configured filter peer does not serve filter on the shard, skipping it",
+    if self.missesFilterProtocol(peer.peerId):
+      error "Configured filter peer does not serve the filter protocol, skipping it",
         shard = shard, peer = peer.peerId
-      logos_delivery_node_errors.inc(labelValues = ["static_filter_peer_failure"])
+      logos_delivery_node_errors.inc(labelValues = ["static_filter_peer_no_filter"])
+      state.staticFilterPeerTries = MaxStaticFilterPeerTries
+      return Opt.none(RemotePeerInfo)
+    if self.missesShard(peer.peerId, shard):
+      error "Configured filter peer does not serve the shard, skipping it",
+        shard = shard, peer = peer.peerId
+      logos_delivery_node_errors.inc(labelValues = ["static_filter_peer_no_shard"])
       state.staticFilterPeerTries = MaxStaticFilterPeerTries
       return Opt.none(RemotePeerInfo)
     return Opt.some(peer)

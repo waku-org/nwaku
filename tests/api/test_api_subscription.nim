@@ -250,10 +250,10 @@ proc multiaddrOf(node: WakuNode): string =
   let info = node.peerInfo.toRemotePeerInfo()
   return $info.addrs[0] & "/p2p/" & $info.peerId
 
-proc staticFilterPeerFailureCount(): float64 =
+proc staticFilterPeerFailureCount(label = "static_filter_peer_failure"): float64 =
   try:
     return logos_delivery_node_errors.valueByName(
-      "logos_delivery_node_errors_total", ["static_filter_peer_failure"]
+      "logos_delivery_node_errors_total", [label]
     )
   except ValueError:
     return 0.0
@@ -1030,19 +1030,42 @@ suite "Messaging API, SubscriptionManager":
 
     let peerStore = subscriber.waku.node.peerManager.switch.peerStore
     peerStore[ProtoBook][staticPeerId] = @[WakuLightPushCodec]
-    let failuresBefore = staticFilterPeerFailureCount()
+    let failuresBefore = staticFilterPeerFailureCount("static_filter_peer_no_filter")
 
     let manager = subscriber.waku.node.subscriptionManager
     var state = EdgeFilterSubState()
     check:
       manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
       state.staticFilterPeerTries == MaxStaticFilterPeerTries
-      staticFilterPeerFailureCount() == failuresBefore + 1
+      staticFilterPeerFailureCount("static_filter_peer_no_filter") == failuresBefore + 1
 
     # With its tries done, the edge skips it with no new failure.
     check:
       manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
-      staticFilterPeerFailureCount() == failuresBefore + 1
+      staticFilterPeerFailureCount("static_filter_peer_no_filter") == failuresBefore + 1
+
+  asyncTest "Subscription API, edge node skips a filternode whose known shards miss the shard":
+    let shard = PubsubTopic("/waku/2/rs/3/0")
+    let staticPeerId = PeerId.random(crypto.newRng()).get()
+    var conf = defaultTestNodeConf(messaging_conf.LogosDeliveryMode.Edge)
+    conf.kernel.filternode = "/ip4/127.0.0.1/tcp/1/p2p/" & $staticPeerId
+    let subscriber = await setupSubscriberNode(conf)
+    defer:
+      (await subscriber.stop()).expect("Failed to stop subscriber")
+
+    let peerStore = subscriber.waku.node.peerManager.switch.peerStore
+    peerStore[ProtoBook][staticPeerId] = @[WakuFilterSubscribeCodec]
+    peerStore.setShardInfo(staticPeerId, @[1'u16])
+    let noShardBefore = staticFilterPeerFailureCount("static_filter_peer_no_shard")
+    let noFilterBefore = staticFilterPeerFailureCount("static_filter_peer_no_filter")
+
+    let manager = subscriber.waku.node.subscriptionManager
+    var state = EdgeFilterSubState()
+    check:
+      manager.staticFilterPeer(shard, state, initHashSet[PeerId]()).isNone()
+      state.staticFilterPeerTries == MaxStaticFilterPeerTries
+      staticFilterPeerFailureCount("static_filter_peer_no_shard") == noShardBefore + 1
+      staticFilterPeerFailureCount("static_filter_peer_no_filter") == noFilterBefore
 
   asyncTest "Subscription API, edge node fills the shard with other filter peers after the tries of a down filternode":
     let shard = PubsubTopic("/waku/2/rs/3/0")
