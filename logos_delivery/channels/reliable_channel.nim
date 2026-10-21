@@ -196,7 +196,10 @@ proc markSegmentInflight(
       channelReqId = $channelReqId, error = e.msg
 
 proc send*(
-    self: ReliableChannel, payload: seq[byte], ephemeral: bool = false
+    self: ReliableChannel,
+    payload: seq[byte],
+    ephemeral: bool = false,
+    priority: MessagePriority = MessagePriority.Medium,
 ): Future[Result[RequestId, string]] {.async: (raises: []).} =
   ## Single application-level send:
   ##
@@ -256,6 +259,7 @@ proc send*(
       contentTopic: self.contentTopic,
       payload: wireBytes,
       ephemeral: ephemeral,
+      priority: priority,
       meta: LipWireReliableChannelVersion.toBytes(),
     )
 

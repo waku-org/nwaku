@@ -68,9 +68,19 @@ proc logosdelivery_send(
   # Extract ephemeral flag
   let ephemeral = jsonNode.getOrDefault("ephemeral").getBool(false)
 
+  let priority =
+    if jsonNode.hasKey("priority"):
+      parseMessagePriority(jsonNode["priority"].getStr()).valueOr:
+        return err("invalid priority: " & error)
+    else:
+      MessagePriority.Medium
+
   # Create message envelope
   let envelope = MessageEnvelope.init(
-    contentTopic = contentTopic, payload = payload, ephemeral = ephemeral
+    contentTopic = contentTopic,
+    payload = payload,
+    ephemeral = ephemeral,
+    priority = priority,
   )
 
   # Send the message via the messaging layer's own API.

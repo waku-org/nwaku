@@ -1,17 +1,25 @@
 {.push raises: [].}
 
 import libp2p/crypto/crypto, bearssl/rand, std/times, chronos
-import stew/byteutils
+import std/strutils
+import results, stew/byteutils
 import logos_delivery/waku/utils/requests as request_utils
 import logos_delivery/waku/waku_core/[topics/content_topic, message/message, time]
 
 export content_topic, message
 
 type
+  MessagePriority* {.pure.} = enum
+    ## Application-level send priority. Accepted and carried, not yet acted on.
+    Low
+    Medium
+    High
+
   MessageEnvelope* = object
     contentTopic*: ContentTopic
     payload*: seq[byte]
     ephemeral*: bool
+    priority*: MessagePriority
     meta*: seq[byte]
       ## Opaque wire-format marker carried on the underlying WakuMessage.
       ## Higher layers (e.g. Reliable Channel) stamp this so peers can route
@@ -33,6 +41,17 @@ type
     protocols*: seq[string]
     addresses*: seq[string]
 
+proc parseMessagePriority*(s: string): Result[MessagePriority, string] =
+  case s.toLowerAscii()
+  of "low":
+    return ok(MessagePriority.Low)
+  of "medium":
+    return ok(MessagePriority.Medium)
+  of "high":
+    return ok(MessagePriority.High)
+  else:
+    return err("invalid message priority, expected low|medium|high: " & s)
+
 proc new*(T: typedesc[RequestId], rng: crypto.Rng): T =
   ## Generate a new RequestId using the provided RNG.
   RequestId(request_utils.generateRequestId(rng))
@@ -49,16 +68,22 @@ proc init*(
     payload: seq[byte] | string,
     ephemeral: bool = false,
     meta: seq[byte] = @[],
+    priority: MessagePriority = MessagePriority.Medium,
 ): MessageEnvelope =
   when payload is seq[byte]:
     MessageEnvelope(
-      contentTopic: contentTopic, payload: payload, ephemeral: ephemeral, meta: meta
+      contentTopic: contentTopic,
+      payload: payload,
+      ephemeral: ephemeral,
+      priority: priority,
+      meta: meta,
     )
   else:
     MessageEnvelope(
       contentTopic: contentTopic,
       payload: payload.toBytes(),
       ephemeral: ephemeral,
+      priority: priority,
       meta: meta,
     )
 
