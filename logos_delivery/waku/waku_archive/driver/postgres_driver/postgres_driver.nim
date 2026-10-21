@@ -1243,37 +1243,30 @@ func isConcurrentDdlOutcome*(error: string): bool =
 
 type ProtectedQueryOutcome = enum
   Executed ## this instance ran the statement
-  AlreadyDone ## another instance had already applied it
+  AlreadyDone
+    ## failed with an error isConcurrentDdlOutcome reads as another instance's work;
+    ## the caller decides whether that can be true for its statement
   Deferred ## another instance holds the lock, so nothing was done
 
 proc performWriteQueryWithLock(
     self: PostgresDriver, queryToProtect: string
 ): Future[ArchiveDriverResult[ProtectedQueryOutcome]] {.async.} =
-  ## This wraps the original query in a script so that we make sure a pg_advisory lock protects it
+  ## This wraps the original query in a script so that we make sure a pg_advisory lock protects it.
+  ## Transaction-level, so that it is released by the commit, or the rollback on error: a session
+  ## lock released inside the block would let another instance in before the DDL is visible to it.
   let query =
     fmt"""
           DO $$
           DECLARE
               lock_acquired boolean;
           BEGIN
-              -- Try to acquire the advisory lock
-              lock_acquired := pg_try_advisory_lock({PartitionAdvisoryLockId});
+              lock_acquired := pg_try_advisory_xact_lock({PartitionAdvisoryLockId});
 
               IF NOT lock_acquired THEN
                   RAISE EXCEPTION '{COULD_NOT_ACQUIRE_ADVISORY_LOCK}';
               END IF;
 
-              -- Perform the query
-              BEGIN
-                  {queryToProtect}
-              EXCEPTION WHEN OTHERS THEN
-                  -- Ensure the lock is released if an error occurs
-                  PERFORM pg_advisory_unlock({PartitionAdvisoryLockId});
-                  RAISE;
-              END;
-
-              -- Release the advisory lock after the query completes successfully
-              PERFORM pg_advisory_unlock({PartitionAdvisoryLockId});
+              {queryToProtect}
           END $$;
 """
   (await self.performWriteQuery(query)).isOkOr:
@@ -1326,14 +1319,15 @@ proc addPartition*(
   let untilInNanoSec: string = untilInSec & "000000000"
 
   let partitionName = "messages_" & fromInSec & "_" & untilInSec
-
-  ## Sibling first: a crash here leaves a stray that dropStrayLookupPartitions
-  ## removes; the brief ACCESS EXCLUSIVE on the small parent is acceptable.
   let lookupPartitionName = "lookup_" & fromInSec & "_" & untilInSec
-  let createLookupQuery =
-    "CREATE TABLE IF NOT EXISTS " & lookupPartitionName &
-    " PARTITION OF messages_lookup FOR VALUES FROM (" & fromInNanoSec & ") TO (" &
-    untilInNanoSec & ");"
+  let constraintName = partitionName & "_by_range_check"
+
+  ## The statements below run as one DO block, so in one transaction: the other
+  ## instances sharing the database only see the partition once it is attached
+  ## and has its lookup sibling, never half built. Each statement leaves alone,
+  ## without locking it, what is already in place, so that a partition left half
+  ## built by an older version is completed and an existing one is not locked
+  ## behind its readers.
 
   ## Create the partition table but not attach it yet to the main table
   let createPartitionQuery =
@@ -1342,11 +1336,10 @@ proc addPartition*(
 
   ## Add constraint to the partition table so that EXCLUSIVE ACCESS is not performed when
   ## the partition is attached to the main table.
-  let constraintName = partitionName & "_by_range_check"
   let addTimeConstraintQuery =
-    "ALTER TABLE " & partitionName & " ADD CONSTRAINT " & constraintName &
+    "BEGIN ALTER TABLE " & partitionName & " ADD CONSTRAINT " & constraintName &
     " CHECK ( timestamp >= " & fromInNanoSec & " AND timestamp < " & untilInNanoSec &
-    " );"
+    " ); EXCEPTION WHEN duplicate_object THEN NULL; END;"
 
   ## Attaching the new created table as a new partition. That does not require EXCLUSIVE ACCESS.
   let attachPartitionQuery =
@@ -1355,28 +1348,54 @@ proc addPartition*(
 
   ## Dropping the check constraint as it was only necessary to prevent full scan,
   ## and EXCLUSIVE ACCESS, to the whole messages table, when the new partition was attached.
+  ## Guarded rather than IF EXISTS: ALTER TABLE takes ACCESS EXCLUSIVE on the table even
+  ## when there is nothing to drop.
   let dropConstraint =
-    "ALTER TABLE " & partitionName & " DROP CONSTRAINT " & constraintName & ";"
+    "IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = '" & partitionName &
+    "'::regclass AND conname = '" & constraintName & "') THEN ALTER TABLE " &
+    partitionName & " DROP CONSTRAINT " & constraintName & "; END IF;"
 
-  let completed = (
-    await self.performPartitionDdlSteps(
-      @[
-        (createLookupQuery, "error adding lookup partition: " & lookupPartitionName),
-        (createPartitionQuery, "error adding partition: " & partitionName),
-        (addTimeConstraintQuery, "error creating constraint: " & partitionName),
-        (attachPartitionQuery, "error attaching partition: " & partitionName),
-        (dropConstraint, "error dropping constraint: " & partitionName),
-      ]
-    )
-  ).valueOr:
-    return err("failed addPartition calling performPartitionDdlSteps: " & $error)
+  ## Last, because creating a partition of messages_lookup takes ACCESS EXCLUSIVE on it,
+  ## which blocks the lookup inserts until the commit; earlier, it would be held while
+  ## the ATTACH waits, e.g. behind an ANALYZE of messages.
+  let createLookupQuery =
+    "CREATE TABLE IF NOT EXISTS " & lookupPartitionName &
+    " PARTITION OF messages_lookup FOR VALUES FROM (" & fromInNanoSec & ") TO (" &
+    untilInNanoSec & ");"
 
-  if not completed:
-    ## Another instance is midway through this very sequence. Nothing to track
-    ## yet, the next factory iteration will see the partition it created.
+  let buildQuery =
+    createPartitionQuery & " IF NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = '" &
+    partitionName & "'::regclass) THEN " & addTimeConstraintQuery & " " &
+    attachPartitionQuery & " END IF; " & dropConstraint & " " & createLookupQuery
+
+  var outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
+    return err("error adding partition: " & partitionName & ": " & $error)
+
+  if outcome == AlreadyDone:
+    ## An instance of an older version releases its lock just before its commit;
+    ## a block started in that gap fails on the catalogue row it then meets. Run
+    ## again, the block finds the committed partition and completes it.
+    debug "partition build rolled back by a concurrent-looking error, running it again",
+      partitionName
+    outcome = (await self.performWriteQueryWithLock(buildQuery)).valueOr:
+      return err("error adding partition: " & partitionName & ": " & $error)
+
+  case outcome
+  of Deferred:
+    ## Another instance holds the lock, most likely building this very partition.
+    ## Nothing to track yet; the tracked partitions are read again from the database.
     return ok()
+  of AlreadyDone:
+    ## Every statement tolerates what another instance may have done, so an error
+    ## that reads like a concurrent outcome twice in a row is a genuine one.
+    return err(
+      "addPartition rolled back twice by an outcome classified as concurrent: " &
+        partitionName
+    )
+  of Executed:
+    discard
 
-  debug "New partition added", query = createPartitionQuery
+  debug "New partition added", partitionName
 
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
@@ -1419,10 +1438,13 @@ proc refreshPartitionsInfo(
 
   return ok()
 
-proc getAllLookupTableNames(
+proc getStrayLookupTableNames(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[seq[string]]] {.async.} =
-  ## Lookup-named tables, attached or left detached by an interrupted reconcile.
+  ## Lookup-named tables, attached or left detached by an interrupted reconcile,
+  ## whose messages sibling is not attached. One query, so one snapshot: with a
+  ## separate list of the messages partitions, a partition committed between the
+  ## two reads would have its brand new sibling taken for a stray.
   var names: seq[string]
   proc rowCallback(pqResult: ptr PGresult) =
     for iRow in 0 ..< pqResult.pqNtuples():
@@ -1433,12 +1455,18 @@ proc getAllLookupTableNames(
       """SELECT c.relname FROM pg_class c
            JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE c.relname LIKE 'lookup\_%' AND c.relkind = 'r' AND n.nspname = 'public'
+             AND NOT EXISTS (
+               SELECT 1 FROM pg_inherits i
+                 JOIN pg_class child ON child.oid = i.inhrelid
+                 JOIN pg_class parent ON parent.oid = i.inhparent
+                 WHERE parent.relname = 'messages'
+                   AND child.relname = 'messages_' || substr(c.relname, length('lookup_') + 1))
            ORDER BY c.relname ASC""",
       newSeq[string](0),
       rowCallback,
     )
   ).isOkOr:
-    return err("getAllLookupTableNames failed in query: " & $error)
+    return err("getStrayLookupTableNames failed in query: " & $error)
 
   return ok(names)
 
@@ -1448,17 +1476,11 @@ proc dropStrayLookupPartitions*(
   ## Drops lookup tables with no messages sibling (crash leftovers). Must run
   ## before the factory's partition checks: a stray can overlap the next
   ## sibling's range and make addPartition fail.
-  let messagesPartitions = (await self.getPartitionsList()).valueOr:
+  let strayTables = (await self.getStrayLookupTableNames()).valueOr:
     return
-      err("dropStrayLookupPartitions could not list messages partitions: " & $error)
-  let lookupTables = (await self.getAllLookupTableNames()).valueOr:
-    return err("dropStrayLookupPartitions could not list lookup tables: " & $error)
+      err("dropStrayLookupPartitions could not list stray lookup tables: " & $error)
 
-  let messagesSuffixes = messagesPartitions.mapIt(it.replace("messages_", ""))
-
-  for lookupTableName in lookupTables:
-    if lookupTableName.replace("lookup_", "") in messagesSuffixes:
-      continue
+  for lookupTableName in strayTables:
     info "dropping stray lookup partition", lookupTableName
     (await self.performWriteQuery("DROP TABLE IF EXISTS " & lookupTableName)).isOkOr:
       return err(fmt"error dropping stray [{lookupTableName}]: " & $error)
@@ -1587,6 +1609,26 @@ proc addLookbackPartitions(
 
   return ok()
 
+const DeferredStartupWait = timer.seconds(5)
+  ## How long a starting pass waits for another instance to commit the partition
+  ## of now that this pass deferred to it. Within builder.nim's 10 s wait for the
+  ## whole pass, which still has the next hour and the lookback to do after it.
+
+const DeferredStartupPollInterval = timer.milliseconds(100)
+
+proc waitForPartitionOf(
+    self: PostgresDriver, nowSec: int64
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Reads the partitions again until one tracked contains `nowSec`, for at most
+  ## `DeferredStartupWait`; returns without it when that time is up.
+  let deadline = Moment.now() + DeferredStartupWait
+  while self.partitionMngr.getPartitionFromDateTime(nowSec).isErr() and
+      Moment.now() < deadline:
+    await sleepAsync(DeferredStartupPollInterval)
+    ?await self.refreshPartitionsInfo()
+
+  return ok()
+
 proc runPartitionMaintenance(
     self: PostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -1630,6 +1672,12 @@ proc runPartitionMaintenance(
       (await self.addPartition(Timestamp(floorToHour(now)))).isOkOr:
         return err("could not add the next partition: " & $error)
       startingUp = true
+
+  ## A creation deferred to another instance tracks nothing; at startup, waiting
+  ## for its commit lets the rest of the pass, and builder.nim's check, see it.
+  if startingUp and self.partitionMngr.getPartitionFromDateTime(now).isErr():
+    (await self.waitForPartitionOf(now)).isOkOr:
+      return err("could not refresh the partitions while waiting for now: " & $error)
 
   ## Also right after creating the partition for 'now' above: it ends at the next
   ## o'clock, possibly within seconds, while the next pass is ten minutes away.
