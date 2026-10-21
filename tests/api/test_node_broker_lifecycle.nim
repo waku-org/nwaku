@@ -2,9 +2,8 @@
 
 ## A stopped node keeps nothing registered on its BrokerContext: every
 ## RequestBroker provider and EventBroker listener installed by the node is
-## removed by stop() and installed again by start(). Two exceptions are
-## config-level and outlive stop/start by design: GetDiscoveryRequirements and
-## the service-discovery plugin install verbs.
+## removed by stop() and installed again by start(). One exception is
+## config-level and outlives stop/start by design: GetDiscoveryRequirements.
 
 import std/[net, options]
 import chronos, testutils/unittests
@@ -160,16 +159,14 @@ suite "LogosDelivery - broker lifecycle":
         (await node.stop()).isOkOr:
           raiseAssert error
 
-  asyncTest "plugin install verbs stay registered while stopped":
+  asyncTest "a node configured for hosted discovery does not start without a host":
+    ## The core never installs an IServiceDiscoveryHost: the library does, at
+    ## create. Configured external discovery with no host is a node without
+    ## discovery, so start fails instead of coming up quietly.
     lockNewGlobalBrokerContext:
       let ctx = globalBrokerContext()
       let node = (await LogosDelivery.new(lifecycleConf(plugin = true))).valueOr:
         raiseAssert error
-      check:
-        SetServiceDiscoveryPlugin.getCurrentProvider(ctx).present
-        ClearServiceDiscoveryPlugin.getCurrentProviderNoArgs(ctx).present
-      (await node.stop()).isOkOr:
-        raiseAssert error
-      check:
-        SetServiceDiscoveryPlugin.getCurrentProvider(ctx).present
-        ClearServiceDiscoveryPlugin.getCurrentProviderNoArgs(ctx).present
+      check HostCheck.getCurrentProviderNoArgs(ctx).isNone()
+      check (await node.start()).isErr()
+      discard await node.stop()
