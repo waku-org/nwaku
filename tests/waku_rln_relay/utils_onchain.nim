@@ -4,7 +4,7 @@ import libp2p/crypto/rng
 {.push raises: [].}
 
 import
-  std/[net, os, osproc, streams, strutils, strformat],
+  std/[exitprocs, net, os, osproc, streams, strutils, strformat],
   results,
   stew/byteutils,
   testutils/unittests,
@@ -514,6 +514,13 @@ proc compressGzipFile*(sourcePath: string, targetPath: string): Result[void, str
 
   ok()
 
+proc freePort*(): int {.raises: [OSError, ValueError].} =
+  let sock = newSocket()
+  defer:
+    sock.close()
+  sock.bindAddr(Port(0), "127.0.0.1")
+  return int(sock.getLocalAddr()[1])
+
 proc runAnvil*(
     port: int = 8540,
     chainId: string = "1234",
@@ -626,7 +633,16 @@ proc runAnvil*(
   except: # TODO: Fix "BareExcept" warning
     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
-proc takeEvmSnapshot*(ethClientUrl: string = EthClient): Future[string] {.async.} =
+var sharedAnvil {.threadvar.}: Process
+var sharedAnvilPort {.threadvar.}: int
+var sharedAnvilBaseline {.threadvar.}: string
+
+proc sharedAnvilUrl*(): string =
+  "http://127.0.0.1:" & $sharedAnvilPort
+
+proc takeEvmSnapshot*(
+    ethClientUrl: string = sharedAnvilUrl()
+): Future[string] {.async.} =
   ## Captures Anvil chain state and returns the snapshot ID as a JSON-encoded
   ## hex string (e.g. "\"0x1\""). The ID is consumed by revertEvmSnapshot, so
   ## re-snapshot after revert if you need to roll back to the same baseline again.
@@ -641,7 +657,7 @@ proc takeEvmSnapshot*(ethClientUrl: string = EthClient): Future[string] {.async.
       discard
 
 proc revertEvmSnapshot*(
-    snapshotId: string, ethClientUrl: string = EthClient
+    snapshotId: string, ethClientUrl: string = sharedAnvilUrl()
 ): Future[bool] {.async.} =
   ## Rolls the chain back to the given snapshot. The snapshot ID is consumed by
   ## this call; take a new snapshot if you intend to revert to this state again.
@@ -685,8 +701,26 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
   except Exception as e:
     error "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
 
+proc runSharedAnvil*() {.async.} =
+  ## Gives the caller the chain loaded from DEFAULT_ANVIL_STATE_PATH, on one
+  ## Anvil per binary that every call after the first rolls back.
+  if sharedAnvil.isNil:
+    sharedAnvilPort = freePort()
+    sharedAnvil =
+      runAnvil(port = sharedAnvilPort, stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
+    doAssert not sharedAnvil.isNil, "Anvil did not start"
+    {.cast(gcsafe).}:
+      addExitProc(
+        proc() =
+          stopAnvil(sharedAnvil)
+      )
+  else:
+    let reverted = await revertEvmSnapshot(sharedAnvilBaseline)
+    doAssert reverted, "Anvil did not roll back to the loaded state"
+  sharedAnvilBaseline = await takeEvmSnapshot()
+
 proc setupRlnEvm*(
-    ethClientUrl: string = EthClient,
+    ethClientUrl: string = sharedAnvilUrl(),
     amountEth: UInt256 = 10.u256,
     deployContracts: bool = true,
 ): Future[RlnEvmGroupManager] {.async.} =
@@ -801,7 +835,7 @@ proc setupRlnEvm*(
   return manager
 
 proc buildRlnEvm*(
-    privateKey: string, ethClientUrl: string = EthClient
+    privateKey: string, ethClientUrl: string = sharedAnvilUrl()
 ): RlnEvmGroupManager =
   ## Constructs an RlnEvmGroupManager pointing at the cached RLN proxy contract
   ## using the supplied private key. No on-chain work happens here — the caller

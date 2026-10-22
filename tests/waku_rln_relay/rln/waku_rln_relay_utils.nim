@@ -7,7 +7,6 @@ import
     rln_evm/group_manager,
     rln_evm/bindings,
     rln_evm/conversion_utils,
-    rln_evm/constants,
     rln_evm/protocol_types,
     protocol_metrics,
     rln_evm/nonce_manager,
@@ -50,7 +49,7 @@ proc getWakuRlnConfig*(
 ): WakuRlnConfig =
   let wakuRlnConfig = WakuRlnConfig(
     dynamic: true,
-    ethClientUrls: @[EthClient],
+    ethClientUrls: manager.ethClientUrls,
     ethContractAddress: manager.ethContractAddress,
     chainId: manager.chainId,
     credIndex: Opt.some(index),

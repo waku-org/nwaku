@@ -14,7 +14,7 @@ suite "Token and RLN Contract Deployment":
     let testStateFile =
       Opt.some("tests/waku_rln_relay/anvil_state/anvil_state.ignore.json")
     let anvilProc = runAnvil(stateFile = testStateFile, dumpStateOnExit = true)
-    let manager = waitFor setupRlnEvm(deployContracts = true)
+    let manager = waitFor setupRlnEvm(EthClient, deployContracts = true)
 
     stopAnvil(anvilProc)
 

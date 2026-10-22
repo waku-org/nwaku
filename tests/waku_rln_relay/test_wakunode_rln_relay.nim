@@ -37,15 +37,11 @@ proc waitForNullifierLog(rln: RlnEvm, expectedLen: int): Future[bool] {.async.} 
 
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
-  var anvilProc {.threadVar.}: Process
   var manager {.threadVar.}: RlnEvmGroupManager
 
   setup:
-    anvilProc = runAnvil(stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
+    waitFor runSharedAnvil()
     manager = waitFor setupRlnEvm(deployContracts = false)
-
-  teardown:
-    stopAnvil(anvilProc)
 
   asyncTest "testing rln-relay with valid proof":
     var node1, node2, node3: WakuNode # publisher node
@@ -877,20 +873,12 @@ proc messageOnNewRoot(
 
 suite "WakuNode - RLN relay unknown root":
   ## A valid proof on a root the receiver cannot see yet must be ignored, not
-  ## rejected: the forwarding peer did nothing wrong. Uses its own ports so it
-  ## does not clash with other anvil instances on the default one.
-  const MainEthClient = "http://127.0.0.1:8561"
-  const LaggingEthClient = "http://127.0.0.1:8562"
-
-  var anvilProc {.threadVar.}: Process
+  ## rejected: the forwarding peer did nothing wrong.
   var manager {.threadVar.}: RlnEvmGroupManager
 
   setup:
-    anvilProc = runAnvil(port = 8561, stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
-    manager = waitFor setupRlnEvm(ethClientUrl = MainEthClient, deployContracts = false)
-
-  teardown:
-    stopAnvil(anvilProc)
+    waitFor runSharedAnvil()
+    manager = waitFor setupRlnEvm(deployContracts = false)
 
   asyncTest "root newer than the last refresh is ignored within the throttle window":
     var receiver: WakuNode
@@ -900,14 +888,14 @@ suite "WakuNode - RLN relay unknown root":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       receiverRln = await receiver.mountOnchainRln(
-        rlnConfigAt(manager, MembershipIndex(1), MainEthClient)
+        rlnConfigAt(manager, MembershipIndex(1), sharedAnvilUrl())
       )
     let receiverManager = cast[RlnEvmGroupManager](receiverRln.groupManager)
 
     # An unknown root triggers a refresh, which opens the throttle window.
     check not (await receiverManager.validateRoot(default(MerkleNode)))
 
-    let (sender, msg) = await messageOnNewRoot(manager, MainEthClient)
+    let (sender, msg) = await messageOnNewRoot(manager, sharedAnvilUrl())
 
     # Registration and proof generation take a while; keep the window open.
     receiverManager.lastRootsRefreshMoment = Moment.now()
@@ -921,7 +909,9 @@ suite "WakuNode - RLN relay unknown root":
 
   asyncTest "root unknown to a lagging eth RPC is ignored":
     # The fork never sees blocks mined on the main chain after it started.
-    let laggingAnvilProc = runAnvil(port = 8562, forkUrl = Opt.some(MainEthClient))
+    let laggingPort = freePort()
+    let laggingAnvilProc =
+      runAnvil(port = laggingPort, forkUrl = Opt.some(sharedAnvilUrl()))
 
     var receiver: WakuNode
     var receiverRln: RlnEvm
@@ -930,11 +920,11 @@ suite "WakuNode - RLN relay unknown root":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       receiverRln = await receiver.mountOnchainRln(
-        rlnConfigAt(manager, MembershipIndex(1), LaggingEthClient)
+        rlnConfigAt(manager, MembershipIndex(1), "http://127.0.0.1:" & $laggingPort)
       )
     let receiverManager = cast[RlnEvmGroupManager](receiverRln.groupManager)
 
-    let (sender, msg) = await messageOnNewRoot(manager, MainEthClient)
+    let (sender, msg) = await messageOnNewRoot(manager, sharedAnvilUrl())
 
     # Let validation refresh the roots, so only the lagging RPC hides the root.
     receiverManager.lastRootsRefreshMoment = default(Moment)
