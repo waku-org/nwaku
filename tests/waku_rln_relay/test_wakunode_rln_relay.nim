@@ -2,7 +2,7 @@
 
 import
   results,
-  std/[os, sequtils, tempfiles, strutils, osproc, importutils],
+  std/[os, sequtils, tempfiles, strutils, strformat, osproc, importutils],
   stew/byteutils,
   testutils/unittests,
   chronicles,
@@ -888,14 +888,14 @@ suite "WakuNode - RLN relay unknown root":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       receiverRln = await receiver.mountOnchainRln(
-        rlnConfigAt(manager, MembershipIndex(1), sharedAnvilUrl())
+        rlnConfigAt(manager, MembershipIndex(1), EthClient)
       )
     let receiverManager = cast[RlnEvmGroupManager](receiverRln.groupManager)
 
     # An unknown root triggers a refresh, which opens the throttle window.
     check not (await receiverManager.validateRoot(default(MerkleNode)))
 
-    let (sender, msg) = await messageOnNewRoot(manager, sharedAnvilUrl())
+    let (sender, msg) = await messageOnNewRoot(manager, EthClient)
 
     # Registration and proof generation take a while; keep the window open.
     receiverManager.lastRootsRefreshMoment = Moment.now()
@@ -908,10 +908,10 @@ suite "WakuNode - RLN relay unknown root":
     await receiverRln.stop()
 
   asyncTest "root unknown to a lagging eth RPC is ignored":
+    const LaggingPort = 8541
+    const LaggingEthClient = fmt"http://127.0.0.1:{LaggingPort}"
     # The fork never sees blocks mined on the main chain after it started.
-    let laggingPort = freePort()
-    let laggingAnvilProc =
-      runAnvil(port = laggingPort, forkUrl = Opt.some(sharedAnvilUrl()))
+    let laggingAnvilProc = runAnvil(port = LaggingPort, forkUrl = Opt.some(EthClient))
 
     var receiver: WakuNode
     var receiverRln: RlnEvm
@@ -920,11 +920,11 @@ suite "WakuNode - RLN relay unknown root":
       (await receiver.mountRelay()).isOkOr:
         assert false, "Failed to mount relay"
       receiverRln = await receiver.mountOnchainRln(
-        rlnConfigAt(manager, MembershipIndex(1), "http://127.0.0.1:" & $laggingPort)
+        rlnConfigAt(manager, MembershipIndex(1), LaggingEthClient)
       )
     let receiverManager = cast[RlnEvmGroupManager](receiverRln.groupManager)
 
-    let (sender, msg) = await messageOnNewRoot(manager, sharedAnvilUrl())
+    let (sender, msg) = await messageOnNewRoot(manager, EthClient)
 
     # Let validation refresh the roots, so only the lagging RPC hides the root.
     receiverManager.lastRootsRefreshMoment = default(Moment)

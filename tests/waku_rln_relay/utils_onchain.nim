@@ -514,12 +514,16 @@ proc compressGzipFile*(sourcePath: string, targetPath: string): Result[void, str
 
   ok()
 
-proc freePort*(): int {.raises: [OSError, ValueError].} =
-  let sock = newSocket()
-  defer:
-    sock.close()
-  sock.bindAddr(Port(0), "127.0.0.1")
-  return int(sock.getLocalAddr()[1])
+proc isPortInUse(port: int): bool =
+  try:
+    let sock = newSocket()
+    try:
+      sock.connect("127.0.0.1", Port(port), timeout = 500)
+      return true
+    finally:
+      close(sock)
+  except CatchableError:
+    return false
 
 proc runAnvil*(
     port: int = 8540,
@@ -530,6 +534,9 @@ proc runAnvil*(
 ): Process =
   # Gas/fee values mirror Linea Sepolia testnet.
   # See https://book.getfoundry.sh/reference/anvil/ for option details.
+
+  # Make sure the port is free.
+  doAssert not isPortInUse(port), "port " & $port & " is already in use"
   try:
     let anvilPath = getAnvilPath()
     debug "Anvil path", anvilPath
@@ -609,17 +616,9 @@ proc runAnvil*(
       if not runAnvil.running:
         error "Anvil daemon exited before becoming ready", pid = anvilPID
         return
-      try:
-        let sock = newSocket()
-        try:
-          sock.connect("127.0.0.1", Port(port), timeout = 500)
-          ready = true
-        finally:
-          close(sock)
-        if ready:
-          break
-      except CatchableError:
-        discard
+      if isPortInUse(port):
+        ready = true
+        break
       sleep(pollIntervalMs)
       elapsed += pollIntervalMs
 
@@ -633,16 +632,7 @@ proc runAnvil*(
   except: # TODO: Fix "BareExcept" warning
     error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
-var sharedAnvil {.threadvar.}: Process
-var sharedAnvilPort {.threadvar.}: int
-var sharedAnvilBaseline {.threadvar.}: string
-
-proc sharedAnvilUrl*(): string =
-  "http://127.0.0.1:" & $sharedAnvilPort
-
-proc takeEvmSnapshot*(
-    ethClientUrl: string = sharedAnvilUrl()
-): Future[string] {.async.} =
+proc takeEvmSnapshot*(ethClientUrl: string = EthClient): Future[string] {.async.} =
   ## Captures Anvil chain state and returns the snapshot ID as a JSON-encoded
   ## hex string (e.g. "\"0x1\""). The ID is consumed by revertEvmSnapshot, so
   ## re-snapshot after revert if you need to roll back to the same baseline again.
@@ -657,7 +647,7 @@ proc takeEvmSnapshot*(
       discard
 
 proc revertEvmSnapshot*(
-    snapshotId: string, ethClientUrl: string = sharedAnvilUrl()
+    snapshotId: string, ethClientUrl: string = EthClient
 ): Future[bool] {.async.} =
   ## Rolls the chain back to the given snapshot. The snapshot ID is consumed by
   ## this call; take a new snapshot if you intend to revert to this state again.
@@ -701,26 +691,28 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
   except Exception as e:
     error "Error stopping Anvil daemon", anvilPID = anvilPID, error = e.msg
 
+var sharedAnvil {.threadvar.}: Process
+var sharedAnvilBaseline {.threadvar.}: string
+
+addExitProc(
+  proc() =
+    if not sharedAnvil.isNil:
+      stopAnvil(sharedAnvil)
+)
+
 proc runSharedAnvil*() {.async.} =
   ## Gives the caller the chain loaded from DEFAULT_ANVIL_STATE_PATH, on one
   ## Anvil per binary that every call after the first rolls back.
   if sharedAnvil.isNil:
-    sharedAnvilPort = freePort()
-    sharedAnvil =
-      runAnvil(port = sharedAnvilPort, stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
+    sharedAnvil = runAnvil(stateFile = Opt.some(DEFAULT_ANVIL_STATE_PATH))
     doAssert not sharedAnvil.isNil, "Anvil did not start"
-    {.cast(gcsafe).}:
-      addExitProc(
-        proc() =
-          stopAnvil(sharedAnvil)
-      )
   else:
     let reverted = await revertEvmSnapshot(sharedAnvilBaseline)
     doAssert reverted, "Anvil did not roll back to the loaded state"
   sharedAnvilBaseline = await takeEvmSnapshot()
 
 proc setupRlnEvm*(
-    ethClientUrl: string = sharedAnvilUrl(),
+    ethClientUrl: string = EthClient,
     amountEth: UInt256 = 10.u256,
     deployContracts: bool = true,
 ): Future[RlnEvmGroupManager] {.async.} =
@@ -835,7 +827,7 @@ proc setupRlnEvm*(
   return manager
 
 proc buildRlnEvm*(
-    privateKey: string, ethClientUrl: string = sharedAnvilUrl()
+    privateKey: string, ethClientUrl: string = EthClient
 ): RlnEvmGroupManager =
   ## Constructs an RlnEvmGroupManager pointing at the cached RLN proxy contract
   ## using the supplied private key. No on-chain work happens here — the caller

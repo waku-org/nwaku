@@ -67,7 +67,7 @@ proc main() =
     stopAnvil(anvilProc)
 
   # Set up an On-chain group manager (includes contract deployment)
-  let manager = waitFor setupRlnEvm(EthClient)
+  let manager = waitFor setupRlnEvm()
   (waitFor manager.init()).isOkOr:
     raiseAssert $error
 
